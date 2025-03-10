@@ -17,6 +17,11 @@
 
 package datastructures
 
+import com.certora.collect.TreapMap
+import com.certora.collect.TreapSet
+import com.certora.collect.Treapable
+import com.certora.collect.treapSetOf
+import com.certora.collect.union
 import datastructures.stdcollections.*
 import utils.flatMapToSet
 import utils.mapToSet
@@ -157,4 +162,13 @@ class EdgeLabeledGraph<V, L> {
     val keys get() = backing.keys
 }
 
+typealias TreapMultiMap<K, V> = TreapMap<K, TreapSet<V>>
+
+fun <@Treapable K, @Treapable V> TreapMultiMap<K, V>.add(k : K, v : V) =
+    put(k, get(k)?.add(v) ?: treapSetOf(v))
+
+infix fun <K, V> TreapMultiMap<K, V>.treapMultiMapUnion(map2 : TreapMultiMap<K, V>) =
+    this.union(map2) { _, set1, set2 ->
+        set1.union(set2)
+    }
 

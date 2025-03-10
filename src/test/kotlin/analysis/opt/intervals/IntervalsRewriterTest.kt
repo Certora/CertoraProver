@@ -268,8 +268,8 @@ class IntervalsRewriterTest : TACBuilderAuxiliaries() {
             assert(False)
         }
         prog.checkStats(
-            "unwrap_twos_complement" to 2,
-            "wrap_twos_complement" to 2,
+            "unwrap_twos_complement_256" to 2,
+            "wrap_twos_complement_256" to 2,
             "Mul->SignedIntMul" to 1
         )
     }

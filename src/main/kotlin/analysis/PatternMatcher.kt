@@ -160,6 +160,11 @@ private val logger = Logger(LoggerTypes.PATTERN)
           */
          operator fun <U> div(p: Buildable<U>): Coalesce2<R, U> = this.toBuilder() / p.toBuilder()
 
+         /*
+         * As in [div], but matches `x % y`
+         */
+         infix fun <U> mod(p: Buildable<U>): Coalesce2<R, U> = this.toBuilder() mod p.toBuilder()
+
          /**
           * As in [plus] but matches x & y NB: bitwise
           */
@@ -169,6 +174,8 @@ private val logger = Logger(LoggerTypes.PATTERN)
           * As in [plus], but matches x | y, NB: bitwise
           */
          infix fun <U> or(p: Buildable<U>): CommutativeCoalesce2<R, U> = this.toBuilder() or p.toBuilder()
+
+         infix fun <U> xor(p: Buildable<U>): CommutativeCoalesce2<R, U> = this.toBuilder() xor p.toBuilder()
 
 
          /**
@@ -438,6 +445,8 @@ private val logger = Logger(LoggerTypes.PATTERN)
 
         operator fun <U> div(p: PatternBuilder<U>): Coalesce2<R, U> = binOpSemantics(TACExpr.BinOp.Div::class.java, p)
 
+        infix fun <U> mod(p: PatternBuilder<U>): Coalesce2<R, U> = binOpSemantics(TACExpr.BinOp.Mod::class.java, p)
+
         infix fun <U> sdiv(p: PatternBuilder<U>): Coalesce2<R, U> = binOpSemantics(TACExpr.BinOp.SDiv::class.java, p)
 
         infix fun <U> lt(p: PatternBuilder<U>): Coalesce2<R, U> = binOpSemantics(TACExpr.BinRel.Lt::class.java, p)
@@ -468,6 +477,9 @@ private val logger = Logger(LoggerTypes.PATTERN)
 
         infix fun <U> or(p: PatternBuilder<U>): CommutativeCoalesce2<R, U> =
             commuteBinOpSemantics(TACExpr.BinOp.BWOr::class.java, p)
+
+        infix fun <U> xor(p: PatternBuilder<U>): CommutativeCoalesce2<R, U> =
+            commuteBinOpSemantics(TACExpr.BinOp.BWXOr::class.java, p)
 
         /**
          * Given a non-commutative expression whose tac expression representation is `g`, produce a [Coalesce2] builder

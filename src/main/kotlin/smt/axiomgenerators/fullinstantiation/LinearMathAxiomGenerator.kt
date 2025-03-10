@@ -22,8 +22,6 @@ import config.Config.Smt.noLIAAxioms
 import datastructures.add
 import datastructures.mutableMultiMapOf
 import datastructures.stdcollections.*
-import evm.EVM_BITWIDTH256
-import evm.EVM_MOD_GROUP256
 import log.*
 import smt.FreeIdentifierCollector
 import smt.GenerateEnv
@@ -59,6 +57,8 @@ class LinearMathAxiomGenerator(
         tacProgram = lExpVc.tacProgram
         super.visitVCMetaData(lExpVc)
     }
+
+    private val seenTags = mutableSetOf<Tag>()
 
     /**
      * Note that axioms are generated and registered at first usage, so we are careful not to refer to any
@@ -110,6 +110,8 @@ class LinearMathAxiomGenerator(
         if (e !is LExpression.ApplyExpr) {
             return
         }
+        seenTags += e.tag
+
         when (e.f) {
             is NonSMTInterpretedFunctionSymbol.Vec.Mul, is TheoryFunctionSymbol.Vec.IntMul -> {
                 if (META_CMD_PTR !in e.meta) {
@@ -121,11 +123,11 @@ class LinearMathAxiomGenerator(
                     // a multiplication by a constant, eventually making us ignore the result (rightfully so).
                     when {
                         e.lhs.isConst ->
-                            add(defs.combinedBinaryMulWithConst, e, env, defs.combinedUnaryMul)
+                            add(defs.combinedBinaryMulWithConst(e.tag), e, env, defs.combinedUnaryMul)
 
                         e.rhs.isConst ->
                             add(
-                                defs.combinedBinaryMulWithConst,
+                                defs.combinedBinaryMulWithConst(e.tag),
                                 lxf.applyExp(e.f, e.rhs, e.lhs),
                                 env,
                                 defs.combinedUnaryMul
@@ -133,7 +135,7 @@ class LinearMathAxiomGenerator(
 
                         else -> {
                             mulIsUsed = true
-                            addCommutative(defs.combinedBinaryMul, e, env, defs.combinedUnaryMul)
+                            addCommutative(defs.combinedBinaryMul(e.tag), e, env, defs.combinedUnaryMul)
                         }
                     }
                 } else {
@@ -188,48 +190,49 @@ class LinearMathAxiomGenerator(
             f(first, second)
             f(second, first)
         }
+        for (tag in seenTags) {
+            // Create a copy so we don't mutate while traversing
+            val instances = binaryApps[defs.combinedBinaryMul(tag)]?.toList() ?: emptyList()
 
-        // Create a copy so we don't mutate while traversing
-        val instances = binaryApps[defs.combinedBinaryMul]?.toList() ?: emptyList()
-
-        instances.forEach { (e1, env1) ->
-            instances.forEach inner@ { (e2, env2) ->
-                // Our axioms are uninformative when the pairs are the same.
-                if (e1 != e2 || env1 != env2) {
-                    if (!linearizationSelector(e1) && !linearizationSelector(e2)) {
-                        return@inner
-                    }
-                    if (mayCoexist(e1 as LExpression.ApplyExpr, e2 as LExpression.ApplyExpr)) {
-                        connected++
-                        val a = LExpressionWithEnvironment(e1.lhs, env1)
-                        val b = LExpressionWithEnvironment(e1.rhs, env1)
-                        val c = LExpressionWithEnvironment(e2.lhs, env2)
-                        val d = LExpressionWithEnvironment(e2.rhs, env2)
-                        // For the monotonicity axiom, we don't need to generate all permutations.
-                        defs.twoMulsMonotone.addToContainer(axiomContainer, a, b, c, d)
-                        if (a != b && c != d) { // no need for the reversal in this case
-                            defs.twoMulsMonotone.addToContainer(axiomContainer, b, a, c, d)
+            instances.forEach { (e1, env1) ->
+                instances.forEach inner@{ (e2, env2) ->
+                    // Our axioms are uninformative when the pairs are the same.
+                    if (e1 != e2 || env1 != env2) {
+                        if (!linearizationSelector(e1) && !linearizationSelector(e2)) {
+                            return@inner
                         }
+                        if (mayCoexist(e1 as LExpression.ApplyExpr, e2 as LExpression.ApplyExpr)) {
+                            connected++
+                            val a = LExpressionWithEnvironment(e1.lhs, env1)
+                            val b = LExpressionWithEnvironment(e1.rhs, env1)
+                            val c = LExpressionWithEnvironment(e2.lhs, env2)
+                            val d = LExpressionWithEnvironment(e2.rhs, env2)
+                            // For the monotonicity axiom, we don't need to generate all permutations.
+                            defs.twoMulsMonotone.addToContainer(axiomContainer, a, b, c, d)
+                            if (a != b && c != d) { // no need for the reversal in this case
+                                defs.twoMulsMonotone.addToContainer(axiomContainer, b, a, c, d)
+                            }
 
-                        (a to b).forThisAndReversed { x, y ->
-                            (c to d).forThisAndReversed { t, z ->
-                                if (y.exp != z.exp) {
-                                    defs.twoMulsDistributivity.addToContainer(axiomContainer, x, y, t, z)
-                                    // Accounts for the multiplication of x * (y - z)
-                                    val second =
-                                        LExpressionWithEnvironment(lxf { y.exp - z.exp }, (y.env).merge(z.env))
-                                    binaryApps.add(
-                                        defs.combinedBinaryMul,
-                                        LExpressionWithEnvironment(
-                                            lxf { x.exp * second.exp },
-                                            second.env.merge(x.env)
+                            (a to b).forThisAndReversed { x, y ->
+                                (c to d).forThisAndReversed { t, z ->
+                                    if (y.exp != z.exp) {
+                                        defs.twoMulsDistributivity.addToContainer(axiomContainer, x, y, t, z)
+                                        // Accounts for the multiplication of x * (y - z)
+                                        val second =
+                                            LExpressionWithEnvironment(lxf { y.exp - z.exp }, (y.env).merge(z.env))
+                                        binaryApps.add(
+                                            defs.combinedBinaryMul(tag),
+                                            LExpressionWithEnvironment(
+                                                lxf { x.exp * second.exp },
+                                                second.env.merge(x.env)
+                                            )
                                         )
-                                    )
+                                    }
                                 }
                             }
+                        } else {
+                            notConnected++
                         }
-                    } else {
-                        notConnected++
                     }
                 }
             }
@@ -266,29 +269,24 @@ class LinearMathAxiomGenerator(
     }
 
 
-    override fun yieldDefineFuns(): List<DefType> {
-        val uninterpDefs: MutableList<DefType> = mutableListOf()
-
-        uninterpDefs.add(
+    override fun yieldDefineFuns(): List<DefType> =
+        seenTags.filterIsInstance<Tag.Bits>().map { tag ->
             lxf.buildConstantNewUFLIAwud("t!0", Tag.Int).let { t0 ->
-                // UNINTERP_MOD_256
+                val modulus = lxf.litInt(tag.modulus)
                 DefType(
-                    AxiomatizedFunctionSymbol.UninterpMod256,
+                    AxiomatizedFunctionSymbol.UninterpTagMod(tag),
                     listOf(t0),
                     Tag.Int, lxf {
                         switch(
-                            t0.within(ZERO, TwoTo256) to t0,
-                            t0.within(TwoTo256, twoTo(EVM_BITWIDTH256 + 1)) to t0 - TwoTo256,
-                            t0.within(litInt(-EVM_MOD_GROUP256), ZERO) to t0 + TwoTo256,
-                            elseExpr = t0 uninterpMod TwoTo256
+                            t0.within(ZERO, modulus) to t0,
+                            t0.within(modulus, litInt(tag.modulus * 2)) to t0 - modulus,
+                            t0.within(litInt(-tag.modulus), ZERO) to t0 + modulus,
+                            elseExpr = t0 uninterpMod modulus
                         )
                     }
                 )
             }
-        )
-
-        return uninterpDefs
-    }
+        }
 
     override fun beforeScriptFreeze() {
         // TODO: Actually these don't necessarily need to be registered.
@@ -296,7 +294,6 @@ class LinearMathAxiomGenerator(
         lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.UninterpMul)
         lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.UninterpMod)
         lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.UninterpSMod)
-        lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.UninterpMod256)
 
         // These axioms will not be registered automatically, so we do it here.
         if (mulIsUsed) {

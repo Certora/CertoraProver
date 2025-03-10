@@ -188,6 +188,7 @@ class SingleVariableDefinitionChecker {
         override fun importedMethod(importedMethod: ConcreteMethodBlockAnnotation): CollectingResult<ConcreteMethodBlockAnnotation, CVLError> = collectingErrors {
             variables.push()
             variables.registerKeyword(CVLKeywords.calledContract.keyword)
+            variables.registerKeyword(CVLKeywords.executingContract.keyword)
 
             val result = defineAndCheckVM(
                 params    = importedMethod.methodParameterSignature.params.filterIsInstance<VMParam.Named>(),

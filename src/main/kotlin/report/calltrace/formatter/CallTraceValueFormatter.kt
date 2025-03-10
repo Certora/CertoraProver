@@ -17,7 +17,6 @@
 
 package report.calltrace.formatter
 
-import datastructures.nonEmptyListOf
 import log.*
 import report.BigIntPretty
 import report.calltrace.CallTrace
@@ -30,10 +29,15 @@ import vc.data.TACMeta
 import vc.data.TACSymbol
 import vc.data.state.TACValue
 import datastructures.stdcollections.*
+import report.calltrace.formatter.AlternativeRepresentations.Representations
+import report.calltrace.formatter.AlternativeRepresentations.RepresentationsMap
 import report.calltrace.formatter.CallTraceValueFormatter.Companion.unknown
 import report.calltrace.sarif.Sarif
 import report.calltrace.sarif.SarifBuilder.Companion.joinToSarif
 import report.calltrace.sarif.SarifBuilder.Companion.mkSarif
+import rules.ContractInfo
+import scene.ISceneIdentifiers
+import solver.CounterexampleModel
 import utils.*
 
 internal val logger = Logger(LoggerTypes.CALLTRACE)
@@ -44,32 +48,44 @@ internal val logger = Logger(LoggerTypes.CALLTRACE)
  * from [CallTraceValue.toSarif] methods; then everything goes through [CallTraceValue] (and perhaps we can streamline
  * that class hierarchy some way down the line).
  */
-class CallTraceValueFormatter(private val steps: List<FormatterStep>) {
+class CallTraceValueFormatter(
+        private val addrToContract: Map<TACValue.PrimitiveValue.Integer, ContractInfo>,
+        private val scene: ISceneIdentifiers,
+        private val model: CounterexampleModel
+    ) {
+
     companion object {
-        val UNKNOWN_VALUE: String // make a sarif?
+
+        val UNKNOWN_VALUE_STR: String
             get() {
                 TestLoggers.CallTrace.noXs?.foundX = true
-                return "<?>"
+                return "..."
             }
-        const val HAVOC_VALUE = "*"
+        const val UNKNOWN_VALUE_TOOLTIP = "cannot display this value"
         const val SUMMED_INDEX_VALUE = "*"
 
-        fun havocced(type: FormatterType<*>) = Sarif.Arg(
-            values = nonEmptyListOf(HAVOC_VALUE),
-            tooltip = "nondeterministically chosen (havocced) value",
+        const val DONT_CARE_VALUE_STR = "*"
+        const val DONT_CARE_VALUE_TOOLTIP = "unused value"
+
+        fun unusedValue(type: FormatterType<*>) = Sarif.Arg(
+            values = RepresentationsMap(Representations.Pretty to DONT_CARE_VALUE_STR),
+            tooltip = DONT_CARE_VALUE_TOOLTIP,
             type = type.toTypeString(),
+            truncatable = false,
         ).asSarif
 
         fun summed(type: FormatterType<*>) = Sarif.Arg(
-            values = nonEmptyListOf(SUMMED_INDEX_VALUE),
+            values = RepresentationsMap(Representations.Pretty to SUMMED_INDEX_VALUE),
             tooltip = "summed over this index",
             type = type.toTypeString(),
+            truncatable = false,
         ).asSarif
 
         fun unknownArg() = Sarif.Arg(
-            values = nonEmptyListOf(UNKNOWN_VALUE),
-            tooltip = "cannot display this value",
+            values = RepresentationsMap(Representations.Pretty to UNKNOWN_VALUE_STR),
+            tooltip = UNKNOWN_VALUE_TOOLTIP,
             type = FormatterType.Value.Unknown("type of unknown value").toTypeString(),
+            truncatable = false,
         )
 
         fun unknown() = unknownArg().asSarif
@@ -77,12 +93,8 @@ class CallTraceValueFormatter(private val steps: List<FormatterStep>) {
 
 
     fun valueToSarif(tv: TACValue, type: FormatterType.Value<*>, tooltip: String): Sarif {
-        val job = ValueFormattingJob(tv, type)
-        for (step in steps) {
-                step.execute(job)
-            }
-        val values = job.finish()
-        return Sarif.Arg(values, tooltip, type.toTypeString()).asSarif
+        val (values, truncatable) = ValueFormattingJob(tv, type, addrToContract, scene, model).run()
+        return Sarif.Arg(values, tooltip, type.toTypeString(), truncatable).asSarif
     }
 
     fun functionToSarif(tv: TACValue, type: FormatterType.Function<*>, tooltip: String): Sarif {
@@ -101,13 +113,13 @@ class CallTraceValueFormatter(private val steps: List<FormatterStep>) {
      * running a series of [FormatterStep], optionally by also utilizing the [TACValue] corresponding to that type.
      * [FormatterType.Compound] types (such as structs) are simply pretty-printed, which is the best we can do here.
      * A [default] string can also be supplied, to be used in case no useful value can be extracted from the [TACValue].
-     * If the value is havoced, [HAVOC_VALUE] is returned.
-     * On failure, if [default] was supplied it is returned, otherwise [UNKNOWN_VALUE] is returned.
+     * If the value is havoced, [DONT_CARE_VALUE_STR] is returned.
+     * On failure, if [default] was supplied it is returned, otherwise [UNKNOWN_VALUE_STR] is returned.
      */
     fun toSarif(tv: TACValue, type: FormatterType<*>, tooltip: String): Sarif {
 
         if (tv == TACValue.Uninitialized) {
-            return havocced(type)
+            return unusedValue(type)
         }
 
         if (tv == TACValue.SumIndex) {

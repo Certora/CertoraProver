@@ -194,7 +194,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                    "value": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe35"
                 },
                 {
                     "namePrefix": "R2",
@@ -354,7 +354,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000"
+                    "value": "2710"
                 },
                 {
                     "namePrefix": "R6",
@@ -376,7 +376,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                    "value": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe35"
                 },
                 {
                     "namePrefix": "R7",
@@ -398,7 +398,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                    "value": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe35"
                 },
                 {
                     "namePrefix": "B11",
@@ -419,7 +419,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "dfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                    "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 },
                 {
                     "namePrefix": "CANON4",
@@ -481,7 +481,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "dfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                    "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 },
                 {
                     "namePrefix": "OK_0_0_0_0_0_0",

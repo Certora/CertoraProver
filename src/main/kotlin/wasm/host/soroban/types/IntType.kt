@@ -87,10 +87,21 @@ sealed class IntType : ObjectType() {
         Construct an object from 64-bit pieces, in big-endian order
      */
     fun fromPieces(dest: TACSymbol.Var, vararg pieces: TACSymbol) =
-        new(dest) {
-            check(pieces.size == numPieces) { "Expected $numPieces pieces, got ${pieces.size}" }
+        new(dest) { tacbv256FromPieces(pieces.toList()) }
+
+    fun tacbv256FromPieces(pieces: List<TACSymbol>): TACExpr {
+        check(pieces.size == numPieces) { "Expected $numPieces pieces, got ${pieces.size}" }
+        return TACExprFactUntyped {
             (0..<numPieces).fold(0.asTACExpr as TACExpr) { acc, i ->
                 acc add (pieces[i].asSym() mul pieceMul(i))
+            }
+        }
+    }
+
+    fun objPiece(obj: TACExpr, i: Int): TACExpr = TACExprFactUntyped {
+            when (i) {
+                0 -> obj div pieceMul(i)
+                else -> (obj div pieceMul(i)) mod pieceMod
             }
         }
 

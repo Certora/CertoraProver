@@ -19,7 +19,6 @@ package vc.data
 
 import allocator.Allocator
 import analysis.TACExprWithRequiredCmdsAndDecls
-import analysis.split.Ternary.Companion.highOnes
 import analysis.storage.StorageAnalysisResult
 import analysis.storage.indices
 import analysis.storage.toNonIndexed
@@ -27,18 +26,30 @@ import com.certora.collect.*
 import datastructures.add
 import datastructures.buildMultiMap
 import datastructures.stdcollections.*
-import evm.*
 import log.*
 import report.BigIntPretty.bigIntPretty
 import smt.QuantifierRewriter.Companion.LEXPRESSION_STORAGE_ACCESSES
 import smt.QuantifierRewriter.Companion.LExpressionStorageAccesses
 import smt.axiomgenerators.TypeBoundsGenerator.Companion.lExpressionBoundsOf
-import smt.solverscript.functionsymbols.*
+import smt.solverscript.functionsymbols.AxiomatizedFunctionSymbol
+import smt.solverscript.functionsymbols.FunctionSymbol
+import smt.solverscript.functionsymbols.NonSMTInterpretedFunctionSymbol
+import smt.solverscript.functionsymbols.TheoryFunctionSymbol
 import spec.QUANTIFIED_VAR_TYPE
 import spec.cvlast.CVLStructPathNode
 import spec.cvlast.CVLType
-import tac.*
+import tac.MetaKey
+import tac.MetaMap
+import tac.Tag
+import tac.commonSuperTag
 import utils.*
+import utils.ModZm.Companion.addMod
+import utils.ModZm.Companion.asBigInteger
+import utils.ModZm.Companion.evmSignExtend
+import utils.ModZm.Companion.highOnes
+import utils.ModZm.Companion.isZero
+import utils.ModZm.Companion.mulMod
+import utils.ModZm.Companion.shr
 import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.TACCmd.Simple.AnnotationCmd.Annotation
 import vc.data.TACMeta.ACCESS_PATHS
@@ -58,7 +69,6 @@ import verifier.SKOLEM_VAR_NAME
 import java.io.Serializable
 import java.math.BigInteger
 
-private val logger = Logger(LoggerTypes.TACEXPR)
 private val tacToLExprLogger = Logger(LoggerTypes.TAC_TO_LEXPR_CONVERTER)
 
 @KSerializable
@@ -335,8 +345,8 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
         @KSerializable
         data class Const(override val s: TACSymbol.Const, override val tag: Tag? = null) : Sym() {
             init {
-                if (tag != null && tag != s.tag) {
-                    logger.error { "Inconsistent tags for constant: expr has $tag but underlying symbol has ${s.tag}." }
+                check(tag == null || tag == s.tag) {
+                    "Inconsistent tags for constant: expr has $tag but underlying symbol has ${s.tag}."
                 }
             }
             constructor(s: TACSymbol.Const) : this(s, s.tag)
@@ -349,7 +359,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
 
             override fun toLExpression(conv: ToLExpression.Conv, meta: MetaMap?): LExpression =
                 when (this.tag) {
-                    is Tag.Bits -> conv.lxf.litBv(s.value, tag)
+                    is Tag.Bits -> conv.lxf.lit(s.value, tag)
                     Tag.Bool -> conv.lxf.litBool(when (s.value) {
                         BigInteger.ZERO -> false
                         BigInteger.ONE -> true
@@ -486,7 +496,6 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
         override fun operandsAreSyms(): Boolean = this.ls.size == 2 && super.operandsAreSyms()
 
         abstract val ls: List<TACExpr>
-        open val computable: Boolean get() = true
         abstract val initValue: BigInteger
         override fun eval(cs: List<BigInteger>) = cs.fold(initValue) { a, b -> eval(a, b) }
 
@@ -540,12 +549,12 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override val smtName: FunctionSymbol
-                get() = NonSMTInterpretedFunctionSymbol.Vec.Mul(tagAssumeChecked)
+                get() = NonSMTInterpretedFunctionSymbol.Vec.Mul(tag!!)
 
             override val initValue: BigInteger get() = BigInteger.ONE
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.mul(o1, o2)
+                (tag ?: Tag.Bit256).mul(o1, o2)
         }
 
         @KSerializable
@@ -587,7 +596,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             override val initValue: BigInteger get() = BigInteger.ONE
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                o1.multiply(o2)
+                o1 * o2
 
             @KSerializable
             private class Nary(
@@ -646,7 +655,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             override val initValue: BigInteger get() = BigInteger.ZERO
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                o1.plus(o2)
+                o1 + o2
 
             @KSerializable
             private class Nary(
@@ -698,12 +707,12 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override val smtName: FunctionSymbol
-                get() = NonSMTInterpretedFunctionSymbol.Vec.Add(tagAssumeChecked)
+                get() = NonSMTInterpretedFunctionSymbol.Vec.Add(tag!!)
 
             override val initValue: BigInteger get() = BigInteger.ZERO
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.add(o1, o2)
+                (tag ?: Tag.Bit256).add(o1, o2)
 
             @KSerializable
             private class Nary(
@@ -769,7 +778,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger, o3: BigInteger) =
-                if (o1.compareTo(BigInteger.ZERO) > 0) o2 else o3
+                if (o1 > BigInteger.ZERO) { o2 } else { o3 }
         }
 
         @KSerializable
@@ -798,7 +807,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger, o3: BigInteger): BigInteger =
-                EVMOps.mulMod(o1, o2, o3)
+                mulMod(o1, o2, o3)
         }
 
         @KSerializable
@@ -826,7 +835,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger, o3: BigInteger): BigInteger =
-                    EVMOps.addMod(o1, o2, o3)
+                addMod(o1, o2, o3)
         }
     }
 
@@ -853,8 +862,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             override val smtName: FunctionSymbol
                 get() = NonSMTInterpretedFunctionSymbol.Unary.BitwiseNot(tagAssumeChecked as Tag.Bits)
 
-            override fun eval(o: BigInteger) = EVMOps.not(o)
-
+            override fun eval(o: BigInteger) = (tag as Tag.Bits).bwNot(o)
         }
 
         @KSerializable
@@ -872,7 +880,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o: BigInteger): BigInteger =
-                EVMOps.isZero(o)
+                isZero(o)
         }
     }
 
@@ -911,7 +919,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             is BWOr -> BWOr(o1, o2, tag)
             is BWXOr -> BWXOr(o1, o2, tag)
             is Div -> Div(o1, o2, tag as Tag.Bits?)
-            is Exponent -> Exponent(o1, o2, tag)
+            is Exponent -> Exponent(o1, o2, tag as Tag.Bits?)
             is IntDiv -> IntDiv(o1, o2, tag as Tag.Int?)
             is IntSub -> IntSub(o1, o2, tag as Tag.Int?)
             is IntExponent -> IntExponent(o1, o2, tag as Tag.Int?)
@@ -948,21 +956,8 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                     (conv(o2, meta) signExt conv(o1, meta))
                 }
 
-            /**
-             * Sign extends [o2] from ([o1] + 1) * 8 bits to 256 bits.
-             * The implementation operates on the low-level, bit representation of [o2] and treats [o2] as if
-             * it is an intK (in particular, it does not rely on its encoding as a [BigInteger] and
-             * ignores the actual [BigInteger] sign bit of [o2]).
-             *
-             * @param[o1] The index of the most significant byte of [o2]. At least 0 and at most 31.
-             *
-             * @param[o2] Signed (two's complement) integer where (([o1] + 1) * 8)-1 is assumed to be
-             * the index of its sign bit. That is, the type of [o2] is seen as Solidity's intK where K is given by [o1].
-             *
-             * @return [o2] encoded as if its type is Solidity's int256.
-             */
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.signExtend(o1, o2)
+                evmSignExtend(o1, o2)
 
             override fun toPrintRep(cb: (TACSymbol.Var) -> String): String = this.toString()
         }
@@ -1000,7 +995,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.Sub(tagAssumeChecked as Tag.Bits)
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.sub(o1, o2)
+                (tag ?: Tag.Bit256).sub(o1, o2)
         }
 
         /** Division of two [Tag.Bits] operands, assuming both are positive. */
@@ -1019,13 +1014,13 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 val tag = tagAssumeChecked as Tag.Bits
                 ite(
                     eq(conv(o2), ZERO),
-                    litBv(0, tag),
+                    lit(0, tag),
                     LExpression.ApplyExpr(NonSMTInterpretedFunctionSymbol.Binary.Div(tag), conv(o1), conv(o2))
                 )
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.div(o1, o2)
+                (tag ?: Tag.Bit256).div(o1, o2)
         }
 
         /** Division of two [Tag.Bits] operands, assuming both are in 2s-complement. */
@@ -1040,9 +1035,8 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 return "${o1.toPrintRepWithParentheses(cb)} /s ${o2.toPrintRepWithParentheses(cb)}"
             }
 
-            // https://github.com/ethereum/go-ethereum/blob/da29332c5f4c368ff03ec4e7132eefac48fed1ae/core/vm/instructions.go#L76
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.sdiv(o1, o2)
+                (tag ?: Tag.Bit256).sdiv(o1, o2)
 
             override fun toLExpression(
                 conv: ToLExpression.Conv,
@@ -1130,7 +1124,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.mod(o1, o2)
+                (tag ?: Tag.Bit256).mod(o1, o2)
 
             override fun toLExpression(conv: ToLExpression.Conv, meta: MetaMap?): LExpression {
                 val conv2 = conv(o2)
@@ -1138,7 +1132,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 return conv.lxf {
                     ite(
                         eq(conv2, ZERO),
-                        litBv(0, tag),
+                        lit(0, tag),
                         LExpression.ApplyExpr(NonSMTInterpretedFunctionSymbol.Binary.Mod(tag), conv(o1), conv(o2))
                     )
                 }
@@ -1158,24 +1152,18 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.smod(o1, o2)
+                (tag ?: Tag.Bit256).smod(o1, o2)
 
             override fun toLExpression(
                 conv: ToLExpression.Conv,
                 meta: MetaMap?,
             ): LExpression = conv.lxf {
-                o1.getAsConst()?.let { k ->
-                    o2.getAsConst()?.let { n ->
-                        return@lxf litInt(eval(k, n))
-                    }
-                }
-
                 tag as Tag.Bits
 
                 // absolute value of denom
                 val n = conv(o2, meta).let {
                     ite(
-                        it le litBv(tag.maxSigned, tag),
+                        it le lit(tag.maxSigned, tag),
                         it,
                         TwoTo256Tagged(tag) - it
                     )
@@ -1186,7 +1174,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 switch(
                     n eq ZERO to ZERO,
                     // positive case
-                    k intLe litBv(tag.maxSigned, tag) to k % n,
+                    k intLe lit(tag.maxSigned, tag) to k % n,
                     // negative case: negate k, take mod, and negate again.
                     elseExpr = TwoTo256Tagged(k.tag) - ((TwoTo256Tagged(k.tag) - k) % n)
                 )
@@ -1205,7 +1193,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 return "${o1.toPrintRepWithParentheses(cb)}%${o2.toPrintRepWithParentheses(cb)}"
             }
 
-            /** Following [EVMOps.mod], always returns a non-negative number from zero to `abs(o2)`. */
+            /** Following evm's smod, always returns a non-negative number from zero to `abs(o2)`. */
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
                 o1.mod(o2.abs())
 
@@ -1224,7 +1212,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
         }
 
         @KSerializable
-        data class Exponent(override val o1: TACExpr, override val o2: TACExpr, override val tag: Tag? = null) :
+        data class Exponent(override val o1: TACExpr, override val o2: TACExpr, override val tag: Tag.Bits? = null) :
             BinOp() {
             override fun toString(): String {
                 return "Exponent($o1 $o2)"
@@ -1255,12 +1243,15 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                         (lit(1, o1.tagAssumeChecked) shl (litInt(pow) intMul conv(o2, meta)).addMeta(meta)).addMeta(meta)
                     }
                 } else {
-                    conv.lxf { (conv(o1, meta) exp conv(o2, meta)).addMeta(meta) }
+                    conv.lxf {
+                        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Exp(tag!!), conv(o1, meta), conv(o2, meta))
+                            .addMeta(meta)
+                    }
                 }
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.exp(o1, o2)
+                (tag as Tag.Bits).exp(o1, o2)
         }
 
         @KSerializable
@@ -1307,7 +1298,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.BitwiseAnd(tagAssumeChecked)
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.and(o1, o2)
+                o1 and o2
         }
 
         @KSerializable
@@ -1325,7 +1316,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.BitwiseOr(tagAssumeChecked)
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.or(o1, o2)
+                o1 or o2
         }
 
         @KSerializable
@@ -1343,7 +1334,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.BitwiseXor(tagAssumeChecked)
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.xor(o1, o2)
+                o1 xor o2
         }
 
         /**
@@ -1361,10 +1352,10 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override val smtName: FunctionSymbol
-                get() = NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft(o2.tagAssumeChecked)
+                get() = NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft(o1.tag as Tag.Bits)
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.shl(o1, o2)
+                (tag as Tag.Bits).shl(o1, o2)
         }
 
         /**
@@ -1390,7 +1381,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.ShiftRightLogical(o2.tagAssumeChecked)
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.shr(o1, o2)
+                shr(o1, o2)
         }
 
         /**
@@ -1415,7 +1406,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 val tag = tagAssumeChecked as Tag.Bits
                 o1.getAsConst()?.let { x ->
                     o2.getAsConst()?.let { k ->
-                        return@lxf litBv(eval(x, k), tag)
+                        return@lxf lit(eval(x, k), tag)
                     }
                 }
                 val x = conv(o1, meta)
@@ -1427,10 +1418,10 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 val h = o2.getAsConst()
                     ?.toIntOrNull()
                     ?.takeIf { it in 0 until tag.bitwidth }
-                    ?.let { litBv(highOnes(it), tag) }
-                    ?: (litBv(tag.modulus, tag) sub (litBv(2, tag) uninterpExp (litBv(tag.bitwidth, tag) sub k)))
+                    ?.let { lit(highOnes(it, tag), tag) }
+                    ?: (lit(tag.modulus, tag) sub (lit(2, tag) uninterpExp (lit(tag.bitwidth, tag) sub k)))
                 ite(
-                    x gt litBv(tag.maxSigned, tag),
+                    x gt lit(tag.maxSigned, tag),
                     (x shr k) add h,
                     x shr k
                 ).addMeta(meta)
@@ -1441,7 +1432,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.sar(o1, o2)
+                (tag as Tag.Bits).sar(o1, o2)
         }
     }
 
@@ -1500,7 +1491,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.Gt
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.gt(o1, o2)
+                (o1 > o2).asBigInteger
         }
 
         @KSerializable
@@ -1522,8 +1513,10 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.Lt
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.lt(o1, o2)
+                (o1 < o2).asBigInteger
         }
+
+        internal val argBitsTag get() = commonSuperTag(o1.tagAssumeChecked, o2.tagAssumeChecked) as Tag.Bits
 
         @KSerializable
         data class Slt(
@@ -1541,12 +1534,10 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override val smtName: FunctionSymbol
-                get() = NonSMTInterpretedFunctionSymbol.Binary.Slt
+                get() = NonSMTInterpretedFunctionSymbol.Binary.Slt(argBitsTag)
 
-            // this evaluation works because TAC typechecker makes sure that both
-            // operands are bitvectors, i.e. we are not comparing a bv and a math int.
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.slt(o1, o2)
+                argBitsTag.slt(o1, o2)
         }
 
         @KSerializable
@@ -1565,12 +1556,10 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override val smtName: FunctionSymbol
-                get() = NonSMTInterpretedFunctionSymbol.Binary.Sle
+                get() = NonSMTInterpretedFunctionSymbol.Binary.Sle(argBitsTag)
 
-            // this evaluation works because TAC typechecker makes sure that both
-            // operands are bitvectors, i.e. we are not comparing a bv and a math int.
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.sle(o1, o2)
+                argBitsTag.sle(o1, o2)
         }
 
         @KSerializable
@@ -1589,12 +1578,10 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override val smtName: FunctionSymbol
-                get() = NonSMTInterpretedFunctionSymbol.Binary.Sgt
+                get() = NonSMTInterpretedFunctionSymbol.Binary.Sgt(argBitsTag)
 
-            // this evaluation works because TAC typechecker makes sure that both
-            // operands are bitvectors, i.e. we are not comparing a bv and a math int.
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.sgt(o1, o2)
+                argBitsTag.sgt(o1, o2)
         }
 
         @KSerializable
@@ -1613,12 +1600,10 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override val smtName: FunctionSymbol
-                get() = NonSMTInterpretedFunctionSymbol.Binary.Sge
+                get() = NonSMTInterpretedFunctionSymbol.Binary.Sge(argBitsTag)
 
-            // this evaluation works because TAC typechecker makes sure that both
-            // operands are bitvectors, i.e. we are not comparing a bv and a math int.
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.sge(o1, o2)
+                argBitsTag.sge(o1, o2)
         }
 
         @KSerializable
@@ -1640,7 +1625,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.Ge
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.ge(o1, o2)
+                (o1 >= o2).asBigInteger
         }
 
         @KSerializable
@@ -1662,7 +1647,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = NonSMTInterpretedFunctionSymbol.Binary.Le
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.le(o1, o2)
+                (o1 <= o2).asBigInteger
         }
 
         @KSerializable
@@ -1684,7 +1669,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
                 get() = TheoryFunctionSymbol.Binary.Eq(commonSuperTag(o1.tagAssumeChecked, o2.tagAssumeChecked))
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                EVMOps.eq(o1, o2)
+                (o1 == o2).asBigInteger
         }
 
     }
@@ -2123,7 +2108,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                if (o1.asBool() && o2.asBool()) BigInteger.ONE else BigInteger.ZERO
+                (o1.asBool() && o2.asBool()).asBigInteger
 
             override val initValue: Boolean
                 get() = true
@@ -2161,7 +2146,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             }
 
             override fun eval(o1: BigInteger, o2: BigInteger): BigInteger =
-                if (o1.asBool() || o2.asBool()) BigInteger.ONE else BigInteger.ZERO
+                (o1.asBool() || o2.asBool()).asBigInteger
 
             override val initValue: Boolean
                 get() = false

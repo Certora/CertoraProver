@@ -23,8 +23,7 @@ import smtlibutils.data.*
 import smtlibutils.data.FactorySmtScript.bvadd256
 import smtlibutils.data.FactorySmtScript.bvult256
 import smtlibutils.data.FactorySmtScript.lt
-import utils.getCurrentTime
-import utils.mapToSet
+import utils.*
 import java.math.BigInteger
 import kotlin.time.Duration
 
@@ -39,15 +38,16 @@ object PostProcessModel {
         java.io.Serializable
 
     /**
-     * The barriers we try to get the model values under as good as we can -- given as powers of 16 (base16).
+     * The barriers we try to get the model values under as good as we can -- given as powers of 16 or 2.
      * Must be in ascending order
      */
-    private val barrierConstants = BigInteger("10", 16).let { sixteen ->
-        listOf(
-            1, 2, 4, 6, 16, 32
-        ).map { digits ->
-            sixteen.pow(digits)
-        }
+    private val largeBarrierConstants = listOf(1, 2, 4, 6, 16, 32).map { 16.toBigInteger().pow(it) }
+    private val smallBarrierConstants = listOf(8, 9, 10, 12, 14, 16, 20).map { 2.toBigInteger().pow(it) }
+
+    fun barrierConstants(useSmallBarriers: Boolean) = if (useSmallBarriers) {
+        smallBarrierConstants
+    } else {
+        largeBarrierConstants
     }
 
     val lowerBoundForAddresses = BigInteger("400", 16)
@@ -84,6 +84,7 @@ object PostProcessModel {
         allTerms: List<SmtExp>,
         termsToPrettify: List<SmtExp>,
         timeout: Duration,
+        useSmallBarriers: Boolean
     ): ModelWithPartition {
         val startTime = getCurrentTime()
 
@@ -144,7 +145,7 @@ object PostProcessModel {
             return null
         }
 
-        val barriers = barrierConstants.map { bc ->
+        val barriers = barrierConstants(useSmallBarriers).map { bc ->
             if (bvMode) script.bitvector(bc, 256) else script.number(bc)
         }
 
@@ -164,7 +165,8 @@ object PostProcessModel {
                         //we try to at least satisfy the barrier while allowing one outlier
                         //the corersponding encoding is quadratic w.r.t. [termsToPrettify.size] and hence we apply it
                         //only if there are up to 15 terms to prettify
-                        if(termsToPrettify.size <= 15) {
+                        //only if small barriers are not requested
+                        if(termsToPrettify.size <= 15 && !useSmallBarriers) {
                             val barrierAssertWithOutlier = script.assertCmd(getJointBarrierConstraintWithOutlier(
                                 barrier, termsToPrettify))
                             if (checkAssert(barrierAssertWithOutlier) is SatResult.SAT) {
@@ -208,6 +210,7 @@ object PostProcessModel {
         symbolTable: SmtSymbolTable,
         timeout: Duration,
         jointPrettification: Boolean,
+        useSmallBarriers: Boolean = false
     ): PostProcessModelResult {
         logger.info { "starting to prettify model" }
 
@@ -234,7 +237,8 @@ object PostProcessModel {
                         it is SmtExp.QualIdentifier &&
                             (it.sort?.isBitVecSort() ?: false) || (it.sort?.isIntSort() ?: false) //just Int/BV vars
                     },
-                    timeout
+                    timeout,
+                    useSmallBarriers
                 )
             } catch (e: Exception) {
                 when (e) {
@@ -267,8 +271,9 @@ object PostProcessModel {
                 SmtIntpFunctionSymbol.IRA.Lt()
 
 
-        val barriers = barrierConstants.map { bvOrIntLit(it) }
-        val barrierAboveLowerBound = barrierConstants.filter { it > lowerBoundForAddresses }.map { bvOrIntLit(it) }
+        val barriers = barrierConstants(useSmallBarriers).map { bvOrIntLit(it) }
+        val barrierAboveLowerBound = barrierConstants(useSmallBarriers)
+            .filter { it > lowerBoundForAddresses }.map { bvOrIntLit(it) }
 
 
         var statsNumberOfChangedValues = 0

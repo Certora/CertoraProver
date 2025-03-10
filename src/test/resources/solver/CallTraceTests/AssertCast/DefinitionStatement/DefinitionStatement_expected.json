@@ -279,13 +279,14 @@
                                 "text": "x + y ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x10000000000000000000000000000000000000000000000000000000000000000 (2^256)",
+                                        "value": "2^256 + 4",
                                         "values": [
-                                            "0x10000000000000000000000000000000000000000000000000000000000000000 (2^256)",
-                                            "115792089237316195423570985008687907853269984665640564039457584007913129639936",
-                                            "0x10000000000000000000000000000000000000000000000000000000000000000"
+                                            "2^256 + 4",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129639940",
+                                            "0x10000000000000000000000000000000000000000000000000000000000000004"
                                         ],
-                                        "tooltip": "value of expression"
+                                        "tooltip": "value of expression",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -296,13 +297,14 @@
                                         "text": "x ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff (MAX_UINT256)",
+                                                "value": "2^256 - 6",
                                                 "values": [
-                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff (MAX_UINT256)",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                    "2^256 - 6",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639930",
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa"
                                                 ],
-                                                "tooltip": "value of expression"
+                                                "tooltip": "value of expression",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -326,13 +328,14 @@
                                         "text": "y ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "1",
+                                                "value": "0xa",
                                                 "values": [
-                                                    "1",
-                                                    "1",
-                                                    "0x1"
+                                                    "0xa",
+                                                    "10",
+                                                    "0xa"
                                                 ],
-                                                "tooltip": "value of expression"
+                                                "tooltip": "value of expression",
+                                                "truncatable": true
                                             }
                                         ]
                                     },

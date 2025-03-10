@@ -1,3 +1,5 @@
+package tac;
+
 /*
  *     The Certora Prover
  *     Copyright (C) 2025  Certora Ltd.
@@ -14,8 +16,6 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-package tac;
 
 import java_cup.runtime.ComplexSymbolFactory;
 import java_cup.runtime.ComplexSymbolFactory.Location;
@@ -176,6 +176,3 @@ import java.io.IOException;
 [^]                              { throw new IOException("Illegal character <"+
                                                         yytext()+"> in line: " + (yyline+1) + ", col: " + (yycolumn+1)
                                                         + "in file:" + theFilename); }
-
-
-

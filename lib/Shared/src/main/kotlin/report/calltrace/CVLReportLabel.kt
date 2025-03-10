@@ -18,9 +18,7 @@
 package report.calltrace
 
 import com.certora.collect.*
-import config.Config
 import datastructures.stdcollections.*
-import evm.MASK_SIZE
 import spec.cvlast.*
 import spec.cvlast.CVLType.PureCVLType.VMInternal
 import utils.*
@@ -172,7 +170,13 @@ private fun CVLExp.p(
         is CVLExp.CondExp -> "${c.p(precedence)} ? ${e1.p(precedence)} : ${e2.p(precedence)}"
         is CVLExp.Constant.BoolLit -> if (b == BigInteger.ONE) { "true" } else { "false" }
         is CVLExp.Constant.EnumConstant -> "$enumName.$memberName"
-        is CVLExp.Constant.NumberLit -> BuiltinConstantTranslator[n] ?: formatNumberLit(n, HexOrDec.HEX_IF_ABOVE_DEC_LIMIT)
+
+        // NumberLit has this smart "printHint" thing that we're using here
+        // -- generally, all of this should ideally look as it did in the CVL source code, so we do want to take what
+        // we can get from CVL Land here (ideal, from this perspective, would be if printhint would contain just the
+        // unprocessed source code token)
+        is CVLExp.Constant.NumberLit -> this.toString()
+
         is CVLExp.Constant.SignatureLiteralExp -> "sig:$function"
         is CVLExp.Constant.StringLit -> "\"$s\""
         is CVLExp.Constant.StructLit -> fieldNameToEntry.mapValues{ (_, v) -> v.p(precedence) }.toString()
@@ -361,44 +365,3 @@ private fun List<CVLLhs>.singleOrJoin(): String =
         1 -> single().p()
         else -> joinToString(separator = ", ", prefix = "(", postfix = ")", transform = CVLLhs::p)
     }
-
-private val decimalLimit = Config.CallTraceDecimalLimit.get()
-
-/**
- * used to detect builtin constants like "max_address" or "max_uint256" and translate them back to their string alias.
- * XXX: this is yet another implementation of this sort of logic. we should unify them.
- */
-object BuiltinConstantTranslator {
-    private val nameOf: Map<BigInteger, String>
-
-    init {
-        nameOf = mutableMapOf()
-        val vmConfig = Config.VMConfig
-
-        val bitSizes = IntProgression.fromClosedRange(rangeStart = 8, rangeEnd = 256, step = 8)
-        for (k in bitSizes) {
-            nameOf[MASK_SIZE(k)] = "max_uint$k"
-        }
-
-        /** intentionally overwrites the previous value with a more useful name */
-        nameOf[vmConfig.maxAddress] = "max_address"
-    }
-
-    operator fun get(num: BigInteger): String? = nameOf[num]
-}
-
-fun formatNumberLit(n: BigInteger, style: HexOrDec): String {
-    val sign = if (n < BigInteger.ZERO) { "-" } else { "" }
-
-    val absVal = n.abs()
-
-    val numString = when {
-        style == HexOrDec.ALWAYS_HEX -> "0x" + absVal.toString(16)
-        style == HexOrDec.HEX_IF_ABOVE_DEC_LIMIT && absVal > decimalLimit -> "0x" + absVal.toString(16)
-        else -> absVal.toString(10)
-    }
-
-    return sign + numString
-}
-
-enum class HexOrDec { ALWAYS_HEX, HEX_IF_ABOVE_DEC_LIMIT }

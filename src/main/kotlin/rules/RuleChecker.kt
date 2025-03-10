@@ -17,7 +17,6 @@
 
 package rules
 
-
 import analysis.CmdPointer
 import analysis.EnvFreeMethodAnalysis
 import analysis.EnvfreeInfo
@@ -25,19 +24,23 @@ import analysis.icfg.*
 import bridge.NamedContractIdentifier
 import cli.SanityValues
 import com.certora.collect.*
-import config.*
+import config.Config
 import config.Config.MultiAssertCheck
+import config.DestructiveOptimizationsModeEnum
+import config.OUTPUT_NAME_DELIMITER
+import config.ReportTypes
 import datastructures.stdcollections.*
 import datastructures.toNonEmptyList
-import diagnostics.*
+import diagnostics.inCodeAsync
 import evm.SighashInt
 import instrumentation.transformers.*
-import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.*
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import log.*
 import normalizer.AnnotationRemover
 import optimizer.Pruner
-import parallel.coroutines.*
+import parallel.coroutines.parallelMapOrdered
 import report.*
 import report.callresolution.CallResolutionTableBase
 import rules.RuleSplitter.getTopoSortedAssertsWithMeta
@@ -45,7 +48,7 @@ import rules.dpgraph.DPResult
 import rules.dpgraph.SanityRulesDependencies
 import rules.genericrulecheckers.BuiltInRuleCustomChecker
 import rules.sanity.*
-import scene.*
+import scene.IScene
 import solver.SolverResult
 import spec.CVL
 import spec.CVLCompiler
@@ -55,6 +58,7 @@ import statistics.SDCollectorFactory
 import statistics.recordAny
 import tac.DumpTime
 import tac.TACBasicMeta
+import tac.Tag
 import testing.TacPipelineDebuggers.oneStateInvariant
 import utils.*
 import vc.data.*
@@ -147,6 +151,10 @@ class RuleChecker(
             return@coroutineScope ruleCheckResult
         }
 
+        if (Config.HashingBoundDetectionMode.get()) {
+            reportMinimalHashingBound(ruleCheckResults, originalRule.ruleIdentifier.displayName)
+        }
+
         // MultiAssert case. This can be either from multiassert mode or from the presence of satisfies.
         check(
             ((ruleCheckResults.count { it.rule.ruleType is SpecType.Single.FromUser } == 1
@@ -169,6 +177,38 @@ class RuleChecker(
             StatusReporter.addResults(it)
             ConsoleReporter.addResults(it)
         }
+    }
+
+    private fun reportMinimalHashingBound(ruleCheckResults: List<RuleCheckResult.Leaf>, ruleName: String) {
+        val lengths = ruleCheckResults.filter { it.rule.ruleType is SpecType.Single.MultiAssertSubRule.HashingBoundCheck }.mapNotNull { res ->
+            res.getAllFlattened().map { it.checkResult }.filterIsInstance<RuleCheckResult.Single.WithCounterExamples>().mapNotNull{
+                it.ruleCheckInfo.examples.first().minHashingBoundNeeded
+            }.maxOrNull()
+        }
+
+        Logger.always("bounds found for $ruleName: $lengths", respectQuiet = true)
+
+        val message = if (lengths.isEmpty()) {
+            "Failed to compute minimal hashing bound for $ruleName"
+        } else {
+            val maxReasonableBound = 100000.toBigInteger()
+            val suggestedBound = lengths.partition { it <= maxReasonableBound }.let { (lower, higher) ->
+                if (lower.isEmpty()) {
+                    higher.min()
+                } else {
+                    lower.max()
+                }
+            }
+            val warning = if (suggestedBound < lengths.max()) {
+                " Warning: some parts of the control-flow requires a higher bound of ${lengths.max()} - use this bound " +
+                    "to get a better coverage, however, note that it might slow down the prover. "
+            } else {
+                ""
+            }
+            "The suggested minimal hashing bound for $ruleName is $suggestedBound.$warning"
+        }
+        Logger.always(message, respectQuiet = true)
+        CVTAlertReporter.reportAlert(CVTAlertType.GENERAL, CVTAlertSeverity.INFO, jumpToDefinition = null, message = message, hint = null)
     }
 
     suspend fun singleRuleCheck(rule: CVLSingleRule): RuleCheckResult {
@@ -223,6 +263,32 @@ class RuleChecker(
                 cleanTopoSortedAsserts.filterIsInstance<RuleSplitter.AssertCmdWithMeta.UserDefined>()
             }
 
+            val allHashingBoundAsserts: Set<RuleSplitter.AssertCmdWithMeta> by lazy {
+                cleanTopoSortedAsserts.filterToSet { it.cmd.meta.containsKey(TACMeta.HASHING_BOUND_ASSERT) }
+            }
+            val hashingBoundPtrs: Map<CmdPointer, RuleSplitter.AssertCmdWithMeta> by lazy {
+                allHashingBoundAsserts.associateBy { it.ptr }
+            }
+            // the asserts that are not dominated by (a set of) other hashing bound asserts.
+            // it is sufficient to process these, since by processing these, we handle also those that precede them
+            val lastHashingBoundAsserts: Set<RuleSplitter.AssertCmdWithMeta> by lazy {
+                buildSet {
+                    val visited = topoSortedAssertsWithMeta.map { it.ptr }.toMutableSet()
+                    val queue = arrayDequeOf(visited)
+                    queue.consume { ptr ->
+                        if (ptr in hashingBoundPtrs) {
+                            add(hashingBoundPtrs[ptr]!!)
+                        } else {
+                            tacProg.analysisCache.graph.pred(ptr).forEach {
+                                if (visited.add(it)) {
+                                    queue += it
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             val compiledPerAssertSubRules = mutableListOf<CompiledRule>()
 
             // Creating all satisfy rules
@@ -275,6 +341,25 @@ class RuleChecker(
                         )
                     }
 
+                // Generate subrules for individual last hashing bound asserts in the program.
+                // See [generateSubRuleForHashingBoundAssert] for details on how this works
+                if (Config.HashingBoundDetectionMode.get()) {
+                    val nonHashingBoundAsserts = cleanTopoSortedAsserts.filter { it !in allHashingBoundAsserts}
+                    lastHashingBoundAsserts.forEach { lastHashingBoundAssert ->
+                        compiledPerAssertSubRules.add(
+                            RuleSplitter.generateSubRuleForHashingBoundAssert(
+                                compiledSubRule,
+                                tacProg,
+                                initPatchingProgram(),
+                                lastHashingBoundAssert,
+                                nonHashingBoundAsserts,
+                                allHashingBoundAsserts.filter { it != lastHashingBoundAssert },
+                                treeViewReporter,
+                            )
+                        )
+                    }
+                }
+
                 // Generate a compiled-rule that includes all the auto-generated asserts
                 // Transform all user-specified assert statements that precede the last auto-generated assert, into assumes
                 // Keep all auto-generated asserts in place
@@ -292,7 +377,9 @@ class RuleChecker(
                 }
             }
 
-            if (MultiAssertCheck.get() && cleanTopoSortedAsserts.size > 1 && userDefinedAssertsWithMeta.isNotEmpty()) {
+            if (Config.HashingBoundDetectionMode.get()
+                || (MultiAssertCheck.get() && cleanTopoSortedAsserts.isNotEmpty() && userDefinedAssertsWithMeta.isNotEmpty())
+            ) {
                 generateSubRules()
             } else if (compiledPerAssertSubRules.isNotEmpty() && userDefinedAssertsWithMeta.isNotEmpty()) {
                 // We are not in multiassert, but have satisfy rules
@@ -412,7 +499,7 @@ class RuleChecker(
                                                 o1, ptr, o2c, stopAt
                                             )
                                         } else {
-                                            TACExpr.BinRel.Eq(o1, o2)
+                                            TACExpr.BinRel.Eq(o1, o2, Tag.Bool)
                                         }
                                     }
                                 }

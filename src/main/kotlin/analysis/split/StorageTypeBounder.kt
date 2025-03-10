@@ -25,7 +25,6 @@ import analysis.storage.StoreInfo
 import analysis.storage.StoreInfo.Companion.storeInfoOrNull
 import analysis.storage.WidthConstraints
 import datastructures.stdcollections.*
-import evm.EVMOps
 import evm.EVM_BITWIDTH256
 import log.*
 import scene.IContractClass
@@ -33,10 +32,7 @@ import scene.IMutableStorageInfo
 import scene.ITACMethod
 import spec.cvlast.typedescriptors.VMSignedNumericValueTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
-import utils.SignUtilities
-import utils.`impossible!`
-import utils.mapNotNull
-import utils.parallelStream
+import utils.*
 import vc.data.*
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.TACMeta.SIGN_EXTENDED_STORE
@@ -229,7 +225,7 @@ class StorageTypeBounder(private val contract: IContractClass) {
             val (ptr, cmd) = info.lcmd
 
             fun TACSymbol.Const.signExtended() =
-                EVMOps.signExtend((info.width / 8 - 1).toBigInteger(), this.value).asTACExpr
+                EVMOps.signExtendFromBit(this.value, info.width).asTACExpr
 
             when (val value = info.value) {
                 is TACSymbol.Const -> {

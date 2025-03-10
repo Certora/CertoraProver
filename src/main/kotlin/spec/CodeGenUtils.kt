@@ -69,7 +69,7 @@ object CodeGenUtils {
                 TACCmd.Simple.AssigningCmd.AssignExpCmd(
                     lhs = promote,
                     rhs = TACExpr.Apply(
-                        TACBuiltInFunction.SafeMathPromotion(s.tag),
+                        TACBuiltInFunction.SafeMathPromotion(s.tag as Tag.Bits),
                         listOf(s.asSym()),
                         Tag.Int
                     )

@@ -35,20 +35,22 @@
                                         "text": "m['{0}'].b1: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
                                                 "value": "false",
                                                 "values": [
                                                     "false"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -334,70 +336,80 @@
                         "text": "workOnSCVL(x='{0}', s={x='{1}', y='{2}', z1='{3}', z2='{4}', b1='{5}', x2='{6}', b2='{7}'})",
                         "arguments": [
                             {
-                                "value": "1",
+                                "value": "0x0",
                                 "values": [
-                                    "1",
-                                    "1",
-                                    "0x1"
+                                    "0x0",
+                                    "0",
+                                    "0x0"
                                 ],
-                                "tooltip": "1st parameter"
+                                "tooltip": "1st parameter",
+                                "truncatable": true
                             },
                             {
-                                "value": "5",
+                                "value": "0x0",
                                 "values": [
-                                    "5",
-                                    "5",
-                                    "0x5"
+                                    "0x0",
+                                    "0",
+                                    "0x0"
                                 ],
-                                "tooltip": "value at x"
+                                "tooltip": "value at x",
+                                "truncatable": true
                             },
                             {
-                                "value": "0x8200",
+                                "value": "0x0",
                                 "values": [
-                                    "0x8200"
+                                    "0x0",
+                                    "0x0",
+                                    "0x0"
                                 ],
-                                "tooltip": "value at y"
+                                "tooltip": "value at y",
+                                "truncatable": true
                             },
                             {
-                                "value": "13",
+                                "value": "0x0",
                                 "values": [
-                                    "13",
-                                    "13",
-                                    "0xd"
+                                    "0x0",
+                                    "0",
+                                    "0x0"
                                 ],
-                                "tooltip": "value at z1"
+                                "tooltip": "value at z1",
+                                "truncatable": true
                             },
                             {
-                                "value": "7",
+                                "value": "0x0",
                                 "values": [
-                                    "7",
-                                    "7",
-                                    "0x7"
+                                    "0x0",
+                                    "0",
+                                    "0x0"
                                 ],
-                                "tooltip": "value at z2"
-                            },
-                            {
-                                "value": "false",
-                                "values": [
-                                    "false"
-                                ],
-                                "tooltip": "value at b1"
-                            },
-                            {
-                                "value": "10",
-                                "values": [
-                                    "10",
-                                    "10",
-                                    "0xa"
-                                ],
-                                "tooltip": "value at x2"
+                                "tooltip": "value at z2",
+                                "truncatable": true
                             },
                             {
                                 "value": "false",
                                 "values": [
                                     "false"
                                 ],
-                                "tooltip": "value at b2"
+                                "tooltip": "value at b1",
+                                "truncatable": false
+                            },
+                            {
+                                "value": "0x0",
+                                "values": [
+                                    "0x0",
+                                    "0",
+                                    "0x0"
+                                ],
+                                "tooltip": "value at x2",
+                                "truncatable": true
+                            },
+                            {
+                                "value": "false",
+                                "values": [
+                                    "false"
+                                ],
+                                "tooltip": "value at b2",
+                                "truncatable": false
                             }
                         ]
                     },
@@ -416,20 +428,22 @@
                                         "text": "Havoc of TestContract.m['{0}'].b1 ↪ '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
                                                 "value": "false",
                                                 "values": [
                                                     "false"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -474,20 +488,22 @@
                                         "text": "Load from TestContract.m['{0}'].b1 ↪ '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
                                                 "value": "false",
                                                 "values": [
                                                     "false"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -562,7 +578,8 @@
                                 "values": [
                                     "false"
                                 ],
-                                "tooltip": "value of expression"
+                                "tooltip": "value of expression",
+                                "truncatable": false
                             }
                         ]
                     },
@@ -610,20 +627,22 @@
                                                 "text": "m['{0}'].b1: '{1}' (changed)",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
                                                         "value": "false",
                                                         "values": [
                                                             "false"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },

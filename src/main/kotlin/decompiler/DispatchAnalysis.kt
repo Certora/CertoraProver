@@ -258,7 +258,7 @@ class DispatchAnalysis(val bytecode: DisassembledEVMBytecode, methods: Iterable<
         }
 
         fun not(): Value = when {
-            this.exactValue != null -> EVMOps.not(this.exactValue!!).toValue(this.fromSighash)
+            this.exactValue != null -> EVMOps.bwNot(this.exactValue!!).toValue(this.fromSighash)
             this.isDefinitelyNotZero -> `0`.toValue(this.fromSighash)
             else -> Unknown
         }

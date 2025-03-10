@@ -551,7 +551,7 @@ else ""
                 "<span id=\"mag_${callId}\" style=\"visibility:${if (callId==0) {"visible"} else {"hidden"}};\">&nbsp;\uD83D\uDD0D</span>" +
             "</a>"
 
-        val topoOrderGraph = topologicalOrderOrNull(codeMap.fullOriginal.blockgraph)?.reversed() // reversing as sinks are first
+        val topoOrderGraph = topologicalOrderOrNull(codeMap.withInternalFunctions.blockgraph)?.reversed() // reversing as sinks are first
             ?: // not expected, but this code shouldn't fail!
             return  callIdNames.keys.sorted().joinToString("<br/>\n") { methodIndexEntry(it, 0) }
 

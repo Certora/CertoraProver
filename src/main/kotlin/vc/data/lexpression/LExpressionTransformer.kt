@@ -18,65 +18,15 @@
 package vc.data.lexpression
 
 import log.*
-import smt.solverscript.LExpressionFactory
-import smt.solverscript.functionsymbols.*
+import smt.solverscript.functionsymbols.FunctionSymbol
+import smt.solverscript.functionsymbols.NonSMTInterpretedFunctionSymbol
+import smt.solverscript.functionsymbols.TheoryFunctionSymbol
 import tac.MetaMap
 import vc.data.LExpression
 import vc.data.Quantifier
 
-
-interface LExpressionTransformer<ACC, RES> {
-
-    fun buildApply(f: FunctionSymbol, args: List<RES>): RES
-
-    fun buildQuantified(q: Quantifier, qVars: List<LExpression.Identifier>, body: RES): RES
-
-    fun expr(acc: ACC, exp: LExpression): RES = when (exp) {
-        is LExpression.Identifier -> identifier(acc, exp)
-        is LExpression.Literal -> literal(acc, exp)
-        is LExpression.ApplyExpr -> applyExpr(acc, exp)
-        is LExpression.QuantifiedExpr -> quantifiedExpr(acc, exp)
-    }
-
-    fun applyExpr(acc: ACC, exp: LExpression.ApplyExpr): RES =
-        applyExpr(acc, exp.f, exp.args)
-
-    fun applyExpr(acc: ACC, f: FunctionSymbol, args: List<LExpression>): RES =
-        buildApply(f, args.map { expr(acc, it) })
-
-    fun quantifiedExpr(acc: ACC, exp: LExpression.QuantifiedExpr): RES =
-        quantifiedExpr(acc, exp.quantifier, exp.quantifiedVar, exp.body)
-
-    fun quantifiedExpr(
-        acc: ACC,
-        quantifier: Quantifier,
-        quantifiedVar: List<LExpression.Identifier>,
-        body: LExpression
-    ): RES = buildQuantified(quantifier, quantifiedVar, expr(acc, body))
-
-    fun identifier(acc: ACC, id: LExpression.Identifier): RES
-
-    fun literal(acc: ACC, lit: LExpression.Literal): RES
-}
-
-abstract class DefaultLExpressionTransformer<ACC>(val lxf: LExpressionFactory) :
-    LExpressionTransformer<ACC, LExpression> {
-
-    fun buildApply(f: FunctionSymbol, vararg args: LExpression): LExpression = buildApply(f, args.toList())
-
-    override fun buildApply(f: FunctionSymbol, args: List<LExpression>): LExpression =
-        lxf.applyExp(f, args)
-
-    override fun buildQuantified(q: Quantifier, qVars: List<LExpression.Identifier>, body: LExpression): LExpression =
-        lxf.buildQuantifiedExpr(q, qVars, body)
-
-
-    override fun identifier(acc: ACC, id: LExpression.Identifier): LExpression = id
-
-    override fun literal(acc: ACC, lit: LExpression.Literal): LExpression = lit
-}
-
 val logger = Logger(LoggerTypes.LEXPRESSION)
+
 /**
  * Base class for a simple [LExpression] transformer. It provides pre- and post-hook functions for each type of
  * [LExpression] that can be overridden by any concrete transformer. Each hook can return a new [LExpression] or null
@@ -148,6 +98,7 @@ abstract class PlainLExpressionTransformer(private val name: String? = null) {
         /** Getter for map of a select or store expression */
         val map: LExpression
             get() = args.also { check(isSelect || isStore) { "Can only use map on select or store expressions" } }[0]
+
         /** Getter for location of a single-dimensional select or store expression */
         val loc: LExpression
             get() = when (f) {
@@ -155,6 +106,7 @@ abstract class PlainLExpressionTransformer(private val name: String? = null) {
                 is TheoryFunctionSymbol.Array.Store -> args[1]
                 else -> error { "Can only use loc on select or store expressions" }
             }
+
         /** Getter for locations of a (possibly multidimensional) select or store expression */
         val locs: List<LExpression>
             get() = when {
@@ -162,6 +114,7 @@ abstract class PlainLExpressionTransformer(private val name: String? = null) {
                 isStore -> args.drop(1).dropLast(1)
                 else -> error { "Can only use locs on select or store expressions" }
             }
+
         /** Getter for value of a store expression */
         val value: LExpression
             get() = args.also { check(isStore) { "Can only use value on store expressions" } }.last()

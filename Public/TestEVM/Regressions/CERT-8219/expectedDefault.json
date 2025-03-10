@@ -1,0 +1,14 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"trivial": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"usePackedStorage()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

@@ -106,6 +106,24 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
             )
         }
 
+        fun unfoldAll(
+            code: CoreTACProgram,
+            toUnfold: (TACCmd.Simple.AssigningCmd.AssignExpCmd) -> Boolean
+        ): CoreTACProgram {
+            val patcher = ConcurrentPatchingProgram(code)
+            code.parallelLtacStream().forEach { (ptr, cmd) ->
+                if (cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd && toUnfold(cmd)) {
+                    patcher.replace(
+                        ptr,
+                        unfoldToExprPlusOneCmd("unfold", cmd.rhs) {
+                            cmd.copy(rhs = it)
+                        }
+                    )
+                }
+            }
+            return patcher.toCode()
+        }
+
     }
 
     private val list = mutableListOf<TACCmd.Simple.AssigningCmd>()

@@ -316,8 +316,7 @@ class TACVerifier private constructor(
             IntervalsRewriter.rewrite(
                 it,
                 repeat = Config.LastIntervalsRewriter.get(),
-                handleLeinoVars = true,
-                preserve = { false }
+                handleLeinoVars = true
             )
         }
 
@@ -383,9 +382,11 @@ class TACVerifier private constructor(
             this
         }
 
-    private suspend fun leinoVCWithSplitting(tacProgram: CoreTACProgram, localSettings: LocalSettings = LocalSettings()):
-        VerifierResult {
-        reportRuleDifficultyStats(tacProgram)
+    private suspend fun leinoVCWithSplitting(
+        tacProgram: CoreTACProgram,
+        localSettings: LocalSettings = LocalSettings()
+    ): VerifierResult {
+        reportRuleDifficultyStats()
 
         if (localSettings.parallelSplitting) {
             if (!warningForParallelAndCoverageEmitted.getAndSet(true) && Config.CoverageInfoMode.get() != CoverageInfoEnum.NONE) {
@@ -756,8 +757,16 @@ class TACVerifier private constructor(
         )
     }
 
-    private fun reportRuleDifficultyStats(tacProgram: CoreTACProgram) {
-        reportSplitDifficultyStats(SplitAddress.Root, tacProgram)
+    private fun reportRuleDifficultyStats() {
+        // it's important to pick the tac program that's annotated with internal functions here, since this affects all
+        // the default-visible live difficulty stats; the per-split stats with depth > 0 don't get the internal-function
+        // treatment right now
+        val withInternalFunctions =
+            difficultyStatsCollector!!.codeMap.withInternalFunctions as? CoreTACProgram ?: run {
+                logger.warn { "failed to return per-rule difficulty stats, due to cast to CoreTACProgram failing (very suprising)" }
+                return
+            }
+        reportSplitDifficultyStats(SplitAddress.Root, withInternalFunctions)
     }
 
     private fun reportSplitDifficultyStats(subProblemSplitAddress: SplitAddress, subProblemTAC: CoreTACProgram) {

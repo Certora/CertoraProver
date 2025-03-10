@@ -34,6 +34,7 @@ import report.calltrace.CallInstance
 import spec.cvlast.*
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
+import tac.CallId
 import tac.MetaKey
 import tac.Tag
 import utils.*
@@ -909,7 +910,7 @@ sealed class SnippetCmd: AmbiSerializable {
         @KSerializable
         @GenerateRemapper
         data class CVLFunctionStart(
-            @GeneratedBy(Allocator.Id.CALL_ID) val callIndex: Int,
+            @GeneratedBy(Allocator.Id.CALL_ID) val callIndex: CallId,
             val name: String,
             val range: CVLRange,
             val isNoRevert: Boolean
@@ -917,7 +918,7 @@ sealed class SnippetCmd: AmbiSerializable {
 
         @KSerializable
         @GenerateRemapper
-        data class CVLFunctionEnd(@GeneratedBy(Allocator.Id.CALL_ID) val callIndex: Int, val name: String): CVLSnippetCmd(), RemapperEntity<CVLFunctionEnd>
+        data class CVLFunctionEnd(@GeneratedBy(Allocator.Id.CALL_ID) val callIndex: CallId, val name: String): CVLSnippetCmd(), RemapperEntity<CVLFunctionEnd>
 
         /**
          * Snippet for internal assert command we add to the TAC program for a given
@@ -1041,18 +1042,11 @@ sealed class SnippetCmd: AmbiSerializable {
 
         sealed interface GhostAccess {
             val indices: List<TACSymbol.Var?>
+            val accessed: TACSymbol.Var
             val name: String
             val sort: GhostSort
             val persistent: Boolean
             val range: CVLRange
-
-            val accessed get() =
-                when (this) {
-                    is GhostAssignment -> lhs
-                    is GhostRead -> readValue
-                    is SumGhostRead -> lhs
-                    is SumGhostUpdate -> lhs
-                }
         }
 
         /**
@@ -1071,6 +1065,8 @@ sealed class SnippetCmd: AmbiSerializable {
             override val range: CVLRange,
             val readExpr: String,
         ) : CVLSnippetCmd(), TransformableVarEntityWithSupport<GhostRead>, GhostAccess {
+            override val accessed: TACSymbol.Var get() = readValue
+
             companion object {
                 operator fun invoke(
                     returnValueSym: TACSymbol.Var,
@@ -1114,6 +1110,8 @@ sealed class SnippetCmd: AmbiSerializable {
             override val range: CVLRange,
             val assignmentExpr: String,
         ): CVLSnippetCmd(), TransformableVarEntityWithSupport<GhostAssignment>, GhostAccess {
+            override val accessed: TACSymbol.Var get() = lhs
+
             companion object {
                 operator fun invoke(
                     lhs: TACSymbol.Var,
@@ -1172,6 +1170,8 @@ sealed class SnippetCmd: AmbiSerializable {
             override val indices: List<TACSymbol.Var?>,
             override val persistent: Boolean
         ) : CVLSnippetCmd(), TransformableVarEntityWithSupport<SumGhostRead>, GhostAccess {
+            override val accessed: TACSymbol.Var get() = lhs
+
             override val name: String get() ="Sum of $baseGhostName"
 
             // We actually care about the sort of the summed ghost (since that's who we'll be printing to the calltrace)
@@ -1195,6 +1195,8 @@ sealed class SnippetCmd: AmbiSerializable {
             override val indices: List<TACSymbol.Var?>,
             override val persistent: Boolean
         ) : CVLSnippetCmd(), TransformableVarEntityWithSupport<SumGhostUpdate>, GhostAccess {
+            override val accessed: TACSymbol.Var get() = lhs
+
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): SumGhostUpdate =
                 copy(lhs = f(lhs), indices = indices.map { it?.let(f) })
 
@@ -1466,6 +1468,13 @@ sealed class SnippetCmd: AmbiSerializable {
         }
 
         @KSerializable
+        data class CexPrintU64AsFixed(val displayMessage: String, val unscaledVal: TACSymbol.Var, val scale: TACSymbol.Var): SolanaSnippetCmd(), TransformableVarEntityWithSupport<CexPrintU64AsFixed> {
+            override val support: Set<TACSymbol.Var> get() = setOf(unscaledVal, scale)
+            override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
+                CexPrintU64AsFixed(displayMessage = displayMessage, unscaledVal = f(unscaledVal), scale = f(scale))
+        }
+
+        @KSerializable
         data class CexPrintLocation(val filepath: String, val lineNumber: UInt): SolanaSnippetCmd()
 
         @KSerializable
@@ -1486,10 +1495,10 @@ sealed class SnippetCmd: AmbiSerializable {
          * [symbol] is the boolean operand of the assertion.
          * By asking the SMT model we can tell whether this assertion was proven or not.
          **/
-        data class Assert(val displayMessage: String, val symbol: TACSymbol.Var): SolanaSnippetCmd() , TransformableVarEntityWithSupport<Assert> {
+        data class Assert(val displayMessage: String,  val symbol: TACSymbol.Var, val fromSatisfy: Boolean = false): SolanaSnippetCmd() , TransformableVarEntityWithSupport<Assert> {
             override val support: Set<TACSymbol.Var> get() = setOf(symbol)
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
-                Assert(displayMessage = displayMessage, symbol = f(symbol))
+                Assert(displayMessage = displayMessage, symbol = f(symbol), fromSatisfy = fromSatisfy)
         }
     }
 }

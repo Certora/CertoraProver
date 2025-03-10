@@ -232,7 +232,7 @@ data class PathCountStats(
                 procIdToDifficultyScore =
                 if (computePathCountHotspots && computeProcedureHotspots) {
                     callIdToPathCountData[ROOT_CALL_ID].second.inlinedPathCount?.let { totalPathCount ->
-                        (codeMap.fullOriginal as? CoreTACProgram)?.let { prog ->
+                        (codeMap.withInternalFunctions as? CoreTACProgram)?.let { prog ->
                             computeProcIdToDifficultyScore(prog, totalPathCount)
                         }
                     }.orEmpty().mapKeys { (k, _) -> k.toString() }
@@ -311,7 +311,7 @@ data class PathCountStats(
                             val toJump =
                                 codeMap.callIdNames.keys - getReachable(callId.callId, callGraph)
                             // count in the overall (everything inlined) CFG from exits to entry of the current sub-cfg
-                            codeMap.fullOriginal.analysisCache?.graph?.let { graph ->
+                            codeMap.withInternalFunctions.analysisCache?.graph?.let { graph ->
                                 PathCounter(graph, subTacProg.getStartingBlock(), toJump).singlePathCount
                             }
                         }

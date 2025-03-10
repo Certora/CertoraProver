@@ -1692,8 +1692,8 @@ object Summarizer {
         val convertIns = decodeSummaryArguments(summary, summarizedCall, compiledSummary.callId)
         val callId = where.block.getCallId()
         val setup = CommandWithRequiredDecls.mergeMany(
-            // calledContract
-            setupCalledContractForExpSumm(summarizedCall, callId),
+            // calledContract and executingContract
+            setupSpecialVarsForExpSumm(summarizedCall, callId),
 
             // scene contracts
             cvlCompiler.declareContractsAddressVars(),
@@ -1729,19 +1729,21 @@ object Summarizer {
 
     /**
      * @return a command to set `calledContract` to the correct value: caller's address for library calls, and [call]'s
-     * receiver otherwise
+     * receiver otherwise, plus one to set `executingContract` to the caller
      *
      * @param block the CallID where the summary will be inlined
      */
-    private fun setupCalledContractForExpSumm(call : CallSummary, block : CallId) : CommandWithRequiredDecls<TACCmd.Simple> {
+    private fun setupSpecialVarsForExpSumm(call : CallSummary, block : CallId) : CommandWithRequiredDecls<TACCmd.Simple> {
         val receiver = if (call.callType == TACCallType.DELEGATE) {
             TACKeyword.ADDRESS.toVar(block)
         } else {
             call.origCallcore.to
         }
+        val caller = TACKeyword.ADDRESS.toVar(block)
         return CommandWithRequiredDecls(
-            listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(CVLKeywords.calledContract.toVar(), receiver)),
-            listOfNotNull(CVLKeywords.calledContract.toVar(), receiver as? TACSymbol.Var)
+            listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(CVLKeywords.calledContract.toVar(), receiver),
+                TACCmd.Simple.AssigningCmd.AssignExpCmd(CVLKeywords.executingContract.toVar(), caller)),
+            listOfNotNull(CVLKeywords.calledContract.toVar(), receiver as? TACSymbol.Var, CVLKeywords.executingContract.toVar(), caller as? TACSymbol.Var)
         )
     }
 

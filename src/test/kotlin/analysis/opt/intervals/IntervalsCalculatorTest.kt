@@ -31,9 +31,7 @@ import analysis.opt.intervals.Intervals.Companion.STrue
 import analysis.opt.intervals.IntervalsCalculator.Companion.printIntervals
 import analysis.opt.intervals.IntervalsCalculator.Spot
 import analysis.split.Ternary.Companion.bwNot
-import analysis.split.Ternary.Companion.lowOnes
 import evm.MAX_EVM_UINT256
-import evm.to2s
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import utils.Color.Companion.blue
@@ -41,6 +39,8 @@ import utils.Color.Companion.green
 import utils.Color.Companion.redBg
 import utils.Color.Companion.white
 import utils.Color.Companion.yellow
+import utils.ModZm.Companion.lowOnes
+import utils.ModZm.Companion.to2s
 import vc.data.TACBuilderAuxiliaries
 import vc.data.TACProgramBuilder
 import vc.data.TACSymbol

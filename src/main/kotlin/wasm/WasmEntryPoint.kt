@@ -63,6 +63,7 @@ import wasm.tacutils.*
 import wasm.traps.ConditionalTrapRevert
 import java.io.File
 import java.util.stream.Collectors
+import wasm.transform.BitopsRewriter
 
 
 class InvalidRules(msg: String) : Exception(msg)
@@ -247,7 +248,8 @@ object WasmEntryPoint {
             val preprocessed = CoreTACProgram.Linear(coreTac)
                 .let { env.applyPreUnrollTransforms(it, wasmAST) }
                 .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE, IntervalBasedExprSimplifier::analyze))
+                .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW, BitopsRewriter::rewriteSignedOverflowCheck))
+                .map(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE, IntervalBasedExprSimplifier::analyze))
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.WASM_INIT_LOOP_SUMMARIZATION, ConstantArrayInitializationSummarizer::annotateLoops))
                 .map(CoreToCoreTransformer(ReportTypes.WASM_INIT_LOOP_REWRITE, ConstantArrayInitializationRewriter::unrollStaticLoops))
@@ -299,7 +301,7 @@ object WasmEntryPoint {
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
                 .mapIfAllowed(
                     CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
-                        IntervalsRewriter.rewrite(it, handleLeinoVars = false, preserve = { false })
+                        IntervalsRewriter.rewrite(it, handleLeinoVars = false)
                     }
                 )
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { simplifyDiamonds(it, iterative = true) })
@@ -328,7 +330,9 @@ object WasmEntryPoint {
             cmd.tryAs<StraightLine.Call>()?.let{ call ->
                 WasmBuiltinCallSummarizer.asBuiltin(typingContext, call.id)?.takeIf { builtin ->
                     builtin == WasmBuiltinCallSummarizer.CVTBuiltin.SATISFY ||
-                        builtin == WasmBuiltinCallSummarizer.CVTBuiltin.ASSERT
+                        builtin == WasmBuiltinCallSummarizer.CVTBuiltin.CVT_SATISFY ||
+                        builtin == WasmBuiltinCallSummarizer.CVTBuiltin.ASSERT ||
+                        builtin == WasmBuiltinCallSummarizer.CVTBuiltin.CVT_ASSERT
                 }
             }
         }.collect(Collectors.toSet())
@@ -343,7 +347,8 @@ object WasmEntryPoint {
 
         val singleAssertType = assumeAndAsserts.singleOrNull() ?: throw MixedAssertAndSatisfy("Cannot mix assert and satisfy commands")
 
-        return singleAssertType == WasmBuiltinCallSummarizer.CVTBuiltin.SATISFY
+        return singleAssertType == WasmBuiltinCallSummarizer.CVTBuiltin.SATISFY ||
+               singleAssertType == WasmBuiltinCallSummarizer.CVTBuiltin.CVT_SATISFY
     }
 
     /** Assuming [code] is a satisfy rule, rewrite all generated "asserts" into "assumes" */

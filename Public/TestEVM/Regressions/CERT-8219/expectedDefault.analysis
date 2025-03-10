@@ -1,0 +1,17 @@
+{
+		"CALLGRAPH": {
+			"constructor()": false,
+			"usePackedStorage()": true
+		},
+		"INIT": {
+			"Test-usePackedStorage()": true
+		},
+		"POINTSTO": {
+			"Test-usePackedStorage()": true,
+			"constructor()": false,
+			"usePackedStorage()": true
+		},
+		"STORAGE": {
+			"Test-usePackedStorage()": false
+		}
+}

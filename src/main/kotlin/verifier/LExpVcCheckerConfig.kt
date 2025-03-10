@@ -41,6 +41,7 @@ private val logger = Logger(LoggerTypes.SOLVERS)
  */
 data class LExpVcPostprocessingConfig(
     val postProcessCEXTimeout: Duration,
+    val postProcessCEXSingleCheckTimeout: Duration,
     val prettifyCEX: PrettifyCEXEnum,
     val prettifyCEXVariables: List<String>,
     val multipleCEX: MultipleCEXStrategyEnum,
@@ -58,7 +59,7 @@ data class LExpVcPostprocessingConfig(
  * The main benefit of this is to introduce a decoupling layer between the options in [Config] and [LExpVcChecker].
  * This allows us to e.g. process the options and/or create our own configurations.
  */
-data class LExpVcCheckerConfig (
+data class LExpVcCheckerConfig(
     val vcName: String,
     val backendStrategy: BackendStrategyEnum,
     val useBV: Boolean,
@@ -80,6 +81,7 @@ data class LExpVcCheckerConfig (
     val dumpSmtFiles: Boolean,
     val postprocessingConfig: LExpVcPostprocessingConfig,
     val skipCallsToSolver: Boolean,
+    val simulateTimeout: Boolean,
     val verifyWith: List<ConstraintChooser>,
     val useZ3WithPreprocessor: Boolean,
     val z3PreprocessorTimeout: Duration,
@@ -298,6 +300,8 @@ data class LExpVcCheckerConfig (
 
             val postProcessCEXTimeout = Config.PostProcessCEXTimeoutSeconds.get().seconds
 
+            val postProcessCEXSingleCheckTimeout = Config.PostProcessCEXSingleCheckTimeout.get().seconds
+
             val prettifyCEXVariables = Config.PrettifyCEXVariables.get()
 
             val prettifyCEX = Config.prettifyCEX.get()
@@ -305,6 +309,8 @@ data class LExpVcCheckerConfig (
             val multipleCEX = Config.MultipleCEXStrategy.get()
 
             val skipCallsToSolver = Config.SkipCallsToSolver.get()
+
+            val simulateTimeout = Config.SimulateTimeout.get()
 
             val verifyWith = listOf(
                 ConstraintChooser.TakeAll,
@@ -401,10 +407,12 @@ data class LExpVcCheckerConfig (
                 postprocessingConfig = LExpVcPostprocessingConfig(
                     prettifyCEX = prettifyCEX,
                     postProcessCEXTimeout = postProcessCEXTimeout,
+                    postProcessCEXSingleCheckTimeout = postProcessCEXSingleCheckTimeout,
                     prettifyCEXVariables = prettifyCEXVariables.toList(),
                     multipleCEX = multipleCEX,
                 ),
                 skipCallsToSolver = skipCallsToSolver,
+                simulateTimeout = simulateTimeout,
                 verifyWith = verifyWith,
                 useZ3WithPreprocessor = useZ3WithPreprocessor,
                 z3PreprocessorTimeout = z3PreprocessorTimeout,

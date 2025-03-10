@@ -17,13 +17,8 @@
 
 package smt.axiomgenerators
 
-import analysis.split.Ternary.Companion.bwNot
-import analysis.split.Ternary.Companion.lowOnes
 import datastructures.stdcollections.*
-import evm.EVMOps
-import evm.EVM_BITWIDTH256
 import evm.EVM_MOD_GROUP256
-import evm.MAX_EVM_UINT256
 import smt.HashingScheme
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
@@ -31,7 +26,11 @@ import smt.solverscript.functionsymbols.*
 import smt.solverscript.functionsymbols.TheoryFunctionSymbol.Binary.IntSub
 import smt.solverscript.functionsymbols.TheoryFunctionSymbol.Vec.IntAdd
 import tac.Tag
-import utils.*
+import utils.ModZm
+import utils.ModZm.Companion.bwNot
+import utils.ModZm.Companion.evmSignExtend
+import utils.ModZm.Companion.lowOnes
+import utils.lazy
 import vc.data.LExpression
 import java.lang.Integer.min
 import java.math.BigInteger
@@ -97,7 +96,7 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
         val arg = e.arg
         when (val f = e.f) {
             is NonSMTInterpretedFunctionSymbol.Unary.BitwiseNot -> when {
-                arg.isConst -> litInt(bwNot(arg.asConst))
+                arg.isConst -> lit(bwNot(arg.asConst, e.tag as ModZm), e.tag)
                 arg.isApplyOf<NonSMTInterpretedFunctionSymbol.Unary.BitwiseNot>() -> arg.arg
                 else -> e
             }
@@ -114,18 +113,18 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
                 val bits = (i + 1) * 8
                 when {
                     arg.isConst ->
-                        litInt(EVMOps.signExtend(i.toBigInteger(), arg.asConst))
+                        lit(evmSignExtend(i.toBigInteger(), arg.asConst), e.tag)
 
                     arg.isApplyOf<AxiomatizedFunctionSymbol.Bitwise.SignExtend>() ->
                         arg.arg signExt (min(i, (arg.f as AxiomatizedFunctionSymbol.Bitwise.SignExtend).i))
 
                     arg.isApplyOf<NonSMTInterpretedFunctionSymbol.Binary.BitwiseAnd>() &&
                         arg.lhs isEqTo lowOnes(bits) ->
-                        arg.rhs signExt i
+                            arg.rhs signExt i
 
                     arg.isApplyOf<NonSMTInterpretedFunctionSymbol.Binary.BitwiseAnd>() &&
                         arg.rhs isEqTo lowOnes(bits) ->
-                        arg.lhs signExt i
+                            arg.lhs signExt i
 
                     else -> e
                 }
@@ -134,8 +133,8 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
             // TODO: Regarding uninterpreted functions, we want to be careful as to not erase axioms we create, So we
             //  normally don't treat them here.
 
-            AxiomatizedFunctionSymbol.UninterpMod256 -> when {
-                arg.isConst -> litInt(arg.asConst.mod(EVM_MOD_GROUP256))
+            is AxiomatizedFunctionSymbol.UninterpTagMod -> when {
+                arg.isConst -> lit(arg.asConst.mod(f.tag.modulus), e.tag)
                 else -> e
             }
 
@@ -148,22 +147,27 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
         val lhs = e.lhs
         val rhs = e.rhs
         val allConstants = e.args.all { it.isConst }
+        val modZm by lazy { e.tag as ModZm }
+        val maxUnsigned by lazy { modZm.maxUnsigned }
+        fun lit(i : BigInteger) = lit(i, e.tag)
+        fun lit(i : Int) = lit(i, e.tag)
+
 
         fun twoConstsBool(f: (BigInteger, BigInteger) -> Boolean): LExpression =
             if (!allConstants) e else litBool(f(lhs.asConst, rhs.asConst))
 
         fun twoConstsNum(f: (BigInteger, BigInteger) -> BigInteger): LExpression =
-            if (!allConstants) e else litInt(f(lhs.asConst, rhs.asConst))
+            if (!allConstants) e else lit(f(lhs.asConst, rhs.asConst))
 
         when (e.f) {
 
             is IntSub -> plusMinusNormalForm(e)
 
             is NonSMTInterpretedFunctionSymbol.Binary.Sub -> when {
-                lhs == rhs -> ZERO
+                lhs == rhs -> lit(0)
                 rhs isEqTo 0 -> lhs
-                targetTheory?.isBv == true && rhs isEqTo EVM_MOD_GROUP256 -> lhs
-                else -> twoConstsNum { l, r -> (l - r).mod(EVM_MOD_GROUP256) }
+                rhs isEqTo modZm.modulus -> lhs
+                else -> twoConstsNum { l, r -> (l - r).mod(modZm.modulus) }
             }
 
 
@@ -238,10 +242,10 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
             }
 
             is NonSMTInterpretedFunctionSymbol.Binary.BitwiseAnd -> when {
-                lhs isEqTo 0 -> ZERO
-                rhs isEqTo 0 -> ZERO
-                lhs isEqTo MAX_EVM_UINT256 -> rhs
-                rhs isEqTo MAX_EVM_UINT256 -> lhs
+                lhs isEqTo 0 -> lit(0)
+                rhs isEqTo 0 -> lit(0)
+                lhs isEqTo maxUnsigned -> rhs
+                rhs isEqTo maxUnsigned -> lhs
                 lhs == rhs -> lhs.withMetaOf(rhs)
                 else -> twoConstsNum(BigInteger::and)
             }
@@ -249,8 +253,8 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
             is NonSMTInterpretedFunctionSymbol.Binary.BitwiseOr -> when {
                 lhs isEqTo 0 -> rhs
                 rhs isEqTo 0 -> lhs
-                lhs isEqTo MAX_EVM_UINT256 -> litInt(MAX_EVM_UINT256)
-                rhs isEqTo MAX_EVM_UINT256 -> litInt(MAX_EVM_UINT256)
+                lhs isEqTo maxUnsigned -> lit(maxUnsigned)
+                rhs isEqTo maxUnsigned -> lit(maxUnsigned)
                 lhs == rhs -> lhs.withMetaOf(rhs)
                 else -> twoConstsNum(BigInteger::or)
             }
@@ -258,40 +262,41 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
             is NonSMTInterpretedFunctionSymbol.Binary.BitwiseXor -> when {
                 lhs isEqTo 0 -> rhs
                 rhs isEqTo 0 -> lhs
-                lhs isEqTo MAX_EVM_UINT256 -> evalFlat(bitwiseNot(rhs))
-                rhs isEqTo MAX_EVM_UINT256 -> evalFlat(bitwiseNot(lhs))
-                lhs == rhs -> ZERO
+                lhs isEqTo maxUnsigned -> evalFlat(bitwiseNot(rhs))
+                rhs isEqTo maxUnsigned -> evalFlat(bitwiseNot(lhs))
+                lhs == rhs -> lit(0)
                 else -> twoConstsNum(BigInteger::xor)
             }
 
             is NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft -> when {
-                lhs isEqTo 0 -> ZERO
+                lhs isEqTo 0 -> lit(0)
                 rhs isEqTo 0 -> lhs
                 else -> twoConstsNum { x, s ->
-                    if (s >= EVM_BITWIDTH256.toBigInteger()) {
+                    if (s >= modZm.bitwidth.toBigInteger()){
                         BigInteger.ZERO
                     } else {
-                        BigInteger.TWO.pow(s.toInt()) * x % EVM_MOD_GROUP256
+                        (x shl s.toInt()) % modZm.modulus
                     }
                 }
             }
 
             is NonSMTInterpretedFunctionSymbol.Binary.ShiftRightLogical -> when {
-                lhs isEqTo 0 -> ZERO
+                lhs isEqTo 0 -> lit(0)
                 rhs isEqTo 0 -> lhs
                 else -> twoConstsNum { x, s ->
-                    if (s >= EVM_BITWIDTH256.toBigInteger()) {
+                    if (s >= modZm.bitwidth.toBigInteger()) {
                         BigInteger.ZERO
                     } else {
-                        x / BigInteger.TWO.pow(s.toInt()) % EVM_MOD_GROUP256
+                        (x shr s.toInt()) % (e.tag as ModZm).modulus
                     }
                 }
             }
 
             is AxiomatizedFunctionSymbol.UninterpMod,
             is TheoryFunctionSymbol.Binary.IntMod -> when {
-                lhs == rhs -> ZERO
-                targetTheory?.isBv == true && rhs isEqTo EVM_MOD_GROUP256 ->
+                lhs == rhs -> lit(0, e.tag)
+                e.tag is Tag.Bits && rhs isEqTo modZm.modulus ||
+                    targetTheory?.isBv == true && rhs isEqTo EVM_MOD_GROUP256 ->
                     /*
                      * mod 2^256 is neutral on the 256-bit bit vectors
                      * (some uneasiness remains, would it be safer to disallow large literals at
@@ -305,27 +310,13 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
                 else -> twoConstsNum(BigInteger::mod)
             }
 
-            is AxiomatizedFunctionSymbol.UninterpSMod -> when {
-                lhs == rhs -> ZERO
-                // See SMod.eval in TACExpr
-                else -> twoConstsNum { l, r ->
-                    l.mod(r).let { res ->
-                        if (res > r) {
-                            res - r
-                        } else {
-                            res
-                        }
-                    }
-                }
-
-            }
-
             else -> e
         }
     }
 
 
     private fun flatEvalOther(e: LExpression.ApplyExpr): LExpression = lxf {
+        val modZm by lazy { e.tag as Tag.Bits }
 
         fun simplifyBoolVec(neutral: Boolean, zero: Boolean?, reduce: (Boolean, Boolean) -> Boolean) =
             simplifyVec(e, neutral, zero, reduce, { it.asBoolConst }, { litBool(it) })
@@ -370,7 +361,7 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
             is NonSMTInterpretedFunctionSymbol.Vec.Add -> simplifyNumVec(
                 neutral = BigInteger.ZERO,
                 zero = null,
-                reduce = { a, b -> (a + b) % EVM_MOD_GROUP256 }
+                reduce = { a, b -> (a + b) % modZm.modulus }
             )
 
             is TheoryFunctionSymbol.Vec.IntMul -> simplifyNumVec(
@@ -382,9 +373,8 @@ open class BasicConstantComputer(val lxf: LExpressionFactory, val targetTheory: 
             is NonSMTInterpretedFunctionSymbol.Vec.Mul -> simplifyNumVec(
                 neutral = BigInteger.ONE,
                 zero = BigInteger.ZERO,
-                reduce = { a, b -> (a * b) % EVM_MOD_GROUP256 }
+                reduce = { a, b -> (a * b) % modZm.modulus }
             )
-
 
             else -> e
         }

@@ -23,7 +23,6 @@ import analysis.storage.StorageAnalysis
 import analysis.storage.StorageAnalysisResult
 import com.certora.collect.*
 import datastructures.stdcollections.*
-import evm.twoToThe
 import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
@@ -32,12 +31,13 @@ import log.*
 import tac.*
 import tac.TACBasicMeta.STACK_HEIGHT
 import utils.*
+import utils.ModZm.Companion.inBounds
 import vc.data.TACMeta.CONTRACT_ADDR_KEY
 import vc.data.TACMeta.CONTRACT_ADDR_KEY_NAME
+import vc.data.TACSymbol.Var.Companion.invoke
 import java.io.Serializable
 import java.math.BigInteger
 
-private val logger = Logger(LoggerTypes.TACEXPR)
 @KSerializable
 @Treapable
 sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 */ PrefersHashTreap, TransformableSymEntity<TACSymbol>, HasKSerializable {
@@ -59,8 +59,8 @@ sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 
     @KSerializable
     data class Const(val value: BigInteger, override val tag: Tag = Tag.Bit256) : TACSymbol() {
         init {
-            if (tag is Tag.Bits && (value < BigInteger.ZERO || value >= twoToThe(tag.bitwidth))) {
-                logger.error { "Invalid value for $tag TAC constant: $value" }
+            checkNot(tag is Tag.Bits && !value.inBounds(tag)) {
+                "Invalid value for $tag TAC constant: $value"
             }
         }
         /**

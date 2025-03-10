@@ -17,6 +17,7 @@
 
 package verifier
 
+import config.Config
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.*
@@ -88,8 +89,11 @@ suspend fun postprocessResult(vc: LExpVC, result: SmtFormulaCheckerResultWithChe
                 /** Hold a context for the query processor, just in case we want to reuse it after postprocessing */
                 val prettify: ResultPostprocessor =
                     if (config.prettifyCEX != PrettifyCEXEnum.NONE && !vc.tacProgramMetadata.isSanityRule) {
-                        val termsToPrettify = prettifier.getTermsToPrettify()
-                        val prioritisedTermsToPrettify = prettifier.getPrioritisedTerms(termsToPrettify)
+                        val (termsToPrettify, prioritisedTermsToPrettify) = if (Config.HashingBoundDetectionMode.get()) {
+                            prettifier.getHashingBoundConstraintsToPrettify().let { it to it }
+                        } else {
+                            prettifier.getTermsToPrettify().let { it to prettifier.getPrioritisedTerms(it) }
+                        }
                         logger.debug {
                             "prettifyCEX: picked ${termsToPrettify.size} out of " +
                                 "${checkResult.getValuesResult?.size} values as candidates for adjustment, " +

@@ -306,14 +306,14 @@ sealed class CounterexampleModel: AmbiSerializable {
             return when (e) {
                 is TACExpr.Apply ->
                     when ((e.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif) {
-                        NoSMulOverAndUnderflowCheck,
-                        NoSAddOverAndUnderflowCheck,
-                        NoSSubOverAndUnderflowCheck,
+                        is NoSMulOverAndUnderflowCheck,
+                        is NoSAddOverAndUnderflowCheck,
+                        is NoSSubOverAndUnderflowCheck,
                         is SafeMathNarrow,
-                        TwosComplement.Unwrap,
-                        TwosComplement.Wrap,
-                        NoAddOverflowCheck,
-                        NoMulOverflowCheck ->
+                        is TwosComplement.Unwrap,
+                        is TwosComplement.Wrap,
+                        is NoAddOverflowCheck,
+                        is NoMulOverflowCheck ->
                             e.eval(args)
                                 ?.let { success to it }
                                 ?: (false to null)

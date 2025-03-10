@@ -17,7 +17,6 @@
 
 package smt.axiomgenerators
 
-import analysis.split.Ternary
 import datastructures.stdcollections.*
 import evm.EVM_BITWIDTH256
 import smt.GenerateEnv
@@ -31,12 +30,14 @@ import spec.cvlast.CVLType
 import tac.Tag
 import tac.isMapType
 import utils.*
+import utils.ModZm.Companion.lowOnes
 import utils.SignUtilities.maxSignedValueOfBitwidth
 import utils.SignUtilities.minSignedValueOfBitwidth
 import utils.SignUtilities.to2sComplement
 import vc.data.LExpression
 import vc.data.TACBuiltInFunction
-import vc.data.TACKeyword.*
+import vc.data.TACKeyword.BALANCE
+import vc.data.TACKeyword.EXTCODESIZE
 import vc.data.TACMeta.DIRECT_STORAGE_ACCESS_TYPE
 import vc.data.TACSymbol.Var.Companion.hasKeyword
 import vc.gen.LExpVCMetaData
@@ -76,11 +77,11 @@ class TypeBoundsGenerator(val lxf: LExpressionFactory, val targetTheory: SmtTheo
                 cvlType?.let { type ->
                     when (type) {
                         is CVLType.PureCVLType.Primitive.UIntK -> ret {
-                            and(it ge ZERO, it le litInt(Ternary.lowOnes(type.bitWidth)))
+                            and(it ge ZERO, it le litInt(lowOnes(type.bitWidth)))
                         }
 
                         is CVLType.PureCVLType.Primitive.AccountIdentifier -> ret {
-                            and(it ge ZERO, it le litInt(Ternary.lowOnes(type.bitWidth)))
+                            and(it ge ZERO, it le litInt(lowOnes(type.bitWidth)))
                         }
 
                         is CVLType.PureCVLType.Primitive.BytesK ->

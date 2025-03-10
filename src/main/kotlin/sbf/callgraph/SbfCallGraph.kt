@@ -54,9 +54,9 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
                            private val globalsMap: GlobalVariableMap,
                            checkCFGHasExactlyOneExit: Boolean = true): SbfCallGraph {
     // Roots of the call graph
-    private val roots: List<MutableSbfCFG> = cfgs.filter { rootNames.contains(it.getName()) }
+    private val roots: List<MutableSbfCFG>
     private val cfgMap: MutableMap<String, MutableSbfCFG> = mutableMapOf()
-    // Call graph of the program
+    // Call graph of the program: map from function names to its callees (also as function names)
     private val callGraph: MutableMap<String, MutableSet<String>> = mutableMapOf()
     // Recursive functions in the program
     private val recursiveSet: MutableSet<String> = mutableSetOf()
@@ -66,6 +66,9 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
     private val sccMap: MutableMap<String, Int> = mutableMapOf()
 
     init {
+        // Not bother to keep cfgs from functions considered as external by the prover (e.g., compiler-rt functions).
+        cfgs.removeIf { SbfInstruction.Call(it.getName()).isExternalFn() }
+        roots = cfgs.filter { rootNames.contains(it.getName()) }
         verify(checkCFGHasExactlyOneExit, "call graph constructor", false)
         buildDataStructures()
         simplify()
@@ -80,30 +83,30 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
     ): this(cfgs.map { it.clone(it.getName()) }.toMutableList(), rootNames, globals, check)
 
     private fun buildCallGraph() {
-        for (cfg in cfgs) {
+        // Initially, we map each function name to an empty set of callees.
+        cfgs.forEach { cfg ->
             cfgMap[cfg.getName()] = cfg
+            callGraph[cfg.getName()] = mutableSetOf()
         }
 
         for (cfg in cfgs) {
+            val callerName = cfg.getName()
             for (block in cfg.getBlocks().values) {
                 for (inst in block.getInstructions()) {
-                    if (inst is SbfInstruction.Call) {
-                        if (!inst.isExternalFn()) {
-                            var callees = callGraph[cfg.getName()]
-                            if (callees == null) {
-                                callees = mutableSetOf()
-                            }
-                            val calleeCFG = cfgMap[inst.name]
-                            if (calleeCFG == null) {
-                                continue
-                            } else {
-                                callees.add(calleeCFG.getName())
-                                callGraph[cfg.getName()] = callees
-                            }
-                        }
+                    // Add inst.name to the list of callees of current cfg, unless the function is external
+                    if (inst is SbfInstruction.Call && !inst.isExternalFn()) {
+                        val calleeName = inst.name
+                        // skip if callee does not have a CFG (it should)
+                        cfgMap[calleeName] ?: continue
+
+                        val callees = callGraph[callerName]
+                        check(callees != null) {"$callerName not found by buildCallGraph"}
+                        callees.add(calleeName)
+                        callGraph[cfg.getName()] = callees
                     }
                 }
             }
+
         }
     }
 
@@ -217,6 +220,8 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
     override fun getGlobals() = globalsMap
 
     override fun getCFGs(): List<SbfCFG>  = cfgs
+
+    fun getMutableCFGs(): List<MutableSbfCFG> = cfgs
 
     override fun getCallGraphRoots(): List<SbfCFG> {
        return getMutableCallGraphRoots()

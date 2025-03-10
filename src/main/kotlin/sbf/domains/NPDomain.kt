@@ -379,6 +379,56 @@ data class NPDomain(private val csts: SetDomain<SbfLinearConstraint>) {
         }
     }
 
+    private fun analyzeSaveScratchRegisters(curVal: NPDomain, inst: SbfInstruction.Call, vFac: VariableFactory): NPDomain {
+        val r6 = Value.Reg(SbfRegister.R6)
+        val r7 = Value.Reg(SbfRegister.R7)
+        val r8 = Value.Reg(SbfRegister.R8)
+        val r9 = Value.Reg(SbfRegister.R9)
+        val id = inst.metaData.getVal(SbfMeta.CALL_ID)
+        return if (id != null) {
+            val lhs6 = ScratchRegisterVariable(id, r6, vFac)
+            val rhs6 = RegisterVariable(r6, vFac)
+            val lhs7 = ScratchRegisterVariable(id, r7, vFac)
+            val rhs7 = RegisterVariable(r7, vFac)
+            val lhs8 = ScratchRegisterVariable(id, r8, vFac)
+            val rhs8 = RegisterVariable(r8, vFac)
+            val lhs9 = ScratchRegisterVariable(id, r9, vFac)
+            val rhs9 = RegisterVariable(r9, vFac)
+            curVal.substitute(lhs6, rhs6).substitute(lhs7, rhs7).substitute(lhs8, rhs8)
+                .substitute(lhs9, rhs9)
+        } else {
+            curVal.havoc(RegisterVariable(r6, vFac))
+                .havoc(RegisterVariable(r7, vFac))
+                .havoc(RegisterVariable(r8, vFac))
+                .havoc(RegisterVariable(r9, vFac))
+        }
+    }
+
+    private fun analyzeRestoreScratchRegisters(curVal: NPDomain, inst: SbfInstruction.Call, vFac: VariableFactory): NPDomain {
+        val r6 = Value.Reg(SbfRegister.R6)
+        val r7 = Value.Reg(SbfRegister.R7)
+        val r8 = Value.Reg(SbfRegister.R8)
+        val r9 = Value.Reg(SbfRegister.R9)
+        val id = inst.metaData.getVal(SbfMeta.CALL_ID)
+        return if (id != null) {
+            val lhs6 = RegisterVariable(r6, vFac)
+            val rhs6 = ScratchRegisterVariable(id, r6, vFac)
+            val lhs7 = RegisterVariable(r7, vFac)
+            val rhs7 = ScratchRegisterVariable(id, r7, vFac)
+            val lhs8 = RegisterVariable(r8, vFac)
+            val rhs8 = ScratchRegisterVariable(id, r8, vFac)
+            val lhs9 = RegisterVariable(r9, vFac)
+            val rhs9 = ScratchRegisterVariable(id, r9, vFac)
+            curVal.substitute(lhs6, rhs6).substitute(lhs7, rhs7).substitute(lhs8, rhs8)
+                .substitute(lhs9, rhs9)
+        } else {
+            curVal.havoc(RegisterVariable(r6, vFac))
+                .havoc(RegisterVariable(r7, vFac))
+                .havoc(RegisterVariable(r8, vFac))
+                .havoc(RegisterVariable(r9, vFac))
+        }
+    }
+
     private fun analyze(locatedInst: LocatedSbfInstruction, vFac: VariableFactory,
                         registerTypes: ScalarAnalysisRegisterTypes): NPDomain {
         val curVal = this
@@ -468,76 +518,35 @@ data class NPDomain(private val csts: SetDomain<SbfLinearConstraint>) {
                 val cvtFunction = CVTFunction.from(inst.name)
                 if (cvtFunction != null) {
                     return when (cvtFunction) {
-                        CVTFunction.SAVE_SCRATCH_REGISTERS -> {
-                            val r6 = Value.Reg(SbfRegister.R6)
-                            val r7 = Value.Reg(SbfRegister.R7)
-                            val r8 = Value.Reg(SbfRegister.R8)
-                            val r9 = Value.Reg(SbfRegister.R9)
-                            val id = inst.metaData.getVal(SbfMeta.CALL_ID)
-                            if (id != null) {
-                                val lhs6 = ScratchRegisterVariable(id, r6, vFac)
-                                val rhs6 = RegisterVariable(r6, vFac)
-                                val lhs7 = ScratchRegisterVariable(id, r7, vFac)
-                                val rhs7 = RegisterVariable(r7, vFac)
-                                val lhs8 = ScratchRegisterVariable(id, r8, vFac)
-                                val rhs8 = RegisterVariable(r8, vFac)
-                                val lhs9 = ScratchRegisterVariable(id, r9, vFac)
-                                val rhs9 = RegisterVariable(r9, vFac)
-                                curVal.substitute(lhs6, rhs6).substitute(lhs7, rhs7).substitute(lhs8, rhs8)
-                                    .substitute(lhs9, rhs9)
-                            } else {
-                                curVal.havoc(RegisterVariable(r6, vFac))
-                                    .havoc(RegisterVariable(r7, vFac))
-                                    .havoc(RegisterVariable(r8, vFac))
-                                    .havoc(RegisterVariable(r9, vFac))
+                        is CVTFunction.Core -> {
+                            when (cvtFunction.value) {
+                                CVTCore.ASSUME, CVTCore.ASSERT -> {
+                                    throw NPDomainError(
+                                        "unsupported call to ${inst.name}. " +
+                                            "SimplifyBuiltinCalls::renameCVTCall was probably not called."
+                                    )
+                                }
+                                CVTCore.SAVE_SCRATCH_REGISTERS -> {
+                                    analyzeSaveScratchRegisters(curVal, inst, vFac)
+                                }
+                                CVTCore.RESTORE_SCRATCH_REGISTERS -> {
+                                    analyzeRestoreScratchRegisters(curVal, inst, vFac)
+                                }
+                                CVTCore.SATISFY, CVTCore.SANITY -> {
+                                    curVal
+                                }
+                                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE, CVTCore.ALLOC_SLICE, CVTCore.NONDET_ACCOUNT_INFO -> {
+                                    curVal.summarizeCall(
+                                        locatedInst,
+                                        vFac,
+                                        registerTypes.analysis.getMemorySummaries(),
+                                        registerTypes
+                                    )
+                                }
                             }
                         }
-                        CVTFunction.RESTORE_SCRATCH_REGISTERS -> {
-                            val r6 = Value.Reg(SbfRegister.R6)
-                            val r7 = Value.Reg(SbfRegister.R7)
-                            val r8 = Value.Reg(SbfRegister.R8)
-                            val r9 = Value.Reg(SbfRegister.R9)
-                            val id = inst.metaData.getVal(SbfMeta.CALL_ID)
-                            if (id != null) {
-                                val lhs6 = RegisterVariable(r6, vFac)
-                                val rhs6 = ScratchRegisterVariable(id, r6, vFac)
-                                val lhs7 = RegisterVariable(r7, vFac)
-                                val rhs7 = ScratchRegisterVariable(id, r7, vFac)
-                                val lhs8 = RegisterVariable(r8, vFac)
-                                val rhs8 = ScratchRegisterVariable(id, r8, vFac)
-                                val lhs9 = RegisterVariable(r9, vFac)
-                                val rhs9 = ScratchRegisterVariable(id, r9, vFac)
-                                curVal.substitute(lhs6, rhs6).substitute(lhs7, rhs7).substitute(lhs8, rhs8)
-                                    .substitute(lhs9, rhs9)
-                            } else {
-                                curVal.havoc(RegisterVariable(r6, vFac))
-                                    .havoc(RegisterVariable(r7, vFac))
-                                    .havoc(RegisterVariable(r8, vFac))
-                                    .havoc(RegisterVariable(r9, vFac))
-                            }
-                        }
-                        CVTFunction.ASSUME, CVTFunction.ASSERT -> {
-                            throw NPDomainError("unsupported call to ${inst.name}. " +
-                                "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
-                        }
-                        CVTFunction.SATISFY, CVTFunction.SANITY,
-                        CVTFunction.CEX_PRINT_u64_1, CVTFunction.CEX_PRINT_u64_2, CVTFunction.CEX_PRINT_u64_3,
-                        CVTFunction.CEX_PRINT_TAG, CVTFunction.CEX_PRINT_LOCATION, CVTFunction.CEX_ATTACH_LOCATION,
-                        CVTFunction.CEX_PRINT_i64_1, CVTFunction.CEX_PRINT_i64_2, CVTFunction.CEX_PRINT_i64_3,
-                        CVTFunction.CEX_PRINT_STRING -> {
-                            curVal
-                        }
-                        CVTFunction.NONDET_i8, CVTFunction.NONDET_i16, CVTFunction.NONDET_i32, CVTFunction.NONDET_i64,
-                        CVTFunction.NONDET_u8, CVTFunction.NONDET_u16, CVTFunction.NONDET_u32, CVTFunction.NONDET_u64, CVTFunction.NONDET_usize,
-                        CVTFunction.NONDET_ACCOUNT_INFO,CVTFunction.NONDET_u128,
-                        CVTFunction.U128_LEQ, CVTFunction.U128_GT0, CVTFunction.U128_CEIL_DIV,
-                        CVTFunction.NATIVEINT_EQ, CVTFunction.NATIVEINT_LT, CVTFunction.NATIVEINT_LE,
-                        CVTFunction.NATIVEINT_ADD, CVTFunction.NATIVEINT_SUB, CVTFunction.NATIVEINT_MUL,
-                        CVTFunction.NATIVEINT_DIV, CVTFunction.NATIVEINT_CEIL_DIV, CVTFunction.NATIVEINT_MULDIV, CVTFunction.NATIVEINT_MULDIV_CEIL,
-                        CVTFunction.NATIVEINT_NONDET,
-                        CVTFunction.NATIVEINT_FROM_u128, CVTFunction.NATIVEINT_FROM_u256,
-                        CVTFunction.NATIVEINT_u64_MAX, CVTFunction.NATIVEINT_u128_MAX, CVTFunction.NATIVEINT_u256_MAX,
-                        CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE, CVTFunction.ALLOC_SLICE -> {
+                        is CVTFunction.Calltrace -> curVal
+                        is CVTFunction.Nondet , is CVTFunction.U128Intrinsics, is CVTFunction.NativeInt -> {
                             curVal.summarizeCall(
                                 locatedInst,
                                 vFac,
@@ -547,6 +556,7 @@ data class NPDomain(private val csts: SetDomain<SbfLinearConstraint>) {
                         }
                     }
                 }
+
                 return curVal.summarizeCall(
                     locatedInst,
                     vFac,

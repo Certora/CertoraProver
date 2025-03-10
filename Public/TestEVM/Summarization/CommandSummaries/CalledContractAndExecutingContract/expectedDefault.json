@@ -1,0 +1,22 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"libraryExternalFromPrimary": "SUCCESS",
+		"libraryExternalFromSecondary": "SUCCESS",
+		"libraryInternalFromPrimary": "SUCCESS",
+		"libraryInternalFromSecondary": "SUCCESS",
+		"primaryExternal": "SUCCESS",
+		"primaryExternalFromSecondary": "SUCCESS",
+		"primaryInternal": "SUCCESS",
+		"secondaryExternal": "SUCCESS",
+		"secondaryInternal": "SUCCESS",
+		"secondaryToLibraryExternalFromSpec": "SUCCESS",
+		"secondaryToLibraryInternalFromSpec": "SUCCESS",
+		"secondaryToPrimaryFromSpec": "SUCCESS",
+		"secondaryToSecondaryFromSpec": "SUCCESS",
+		"tertiaryThroughSecondary": "SUCCESS",
+		"secondaryExternalViaDelegateFromPrimary": "SUCCESS"
+	}
+}

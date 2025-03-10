@@ -20,12 +20,15 @@ package report.globalstate
 import analysis.CmdPointer
 import analysis.storage.InstantiatedDisplayPath
 import datastructures.stdcollections.*
+import log.*
 import report.calltrace.CallInstance
 import report.calltrace.CallTrace
 import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.formatter.CallTraceValue
 import solver.CounterexampleModel
+import solver.CounterexampleModel.ResolvingFailure
 import spec.CVLKeywords
+import spec.QUANTIFIED_VAR_TYPE
 import spec.cvlast.CVLRange
 import spec.cvlast.CVLType
 import spec.cvlast.GhostSort
@@ -36,6 +39,7 @@ import vc.data.TACBuiltInFunction
 import vc.data.TACSymbol
 import vc.data.state.ConcreteTacValue
 import vc.data.state.TACValue
+import verifier.SKOLEM_VAR_NAME
 
 internal data class GhostId(val name: String, val sort: GhostSort)
 private typealias KnownValuesAtPath = MutableMap<InstantiatedDisplayPath, State>
@@ -114,24 +118,26 @@ internal class GhostsState(
             .mapNotNull { it as? GhostAccess }
             .filter { it.toGhostId() == ghostId }
 
-        /** we can assume this read is now havoc, and may later become havoc dependant */
+        /**
+         * update the data for each [InstantiatedDisplayPath] if it was not seen yet.
+         */
         for (access in accessesUntilHavoc) {
-            val idp = ghostAccessData.instantiatedDisplayPaths[access] ?: continue
-
-            if (idp in newValues) { continue }
+            val idp = ghostAccessData
+                .instantiatedDisplayPaths[access]
+                ?.takeUnless { idp -> idp in newValues }
+                ?: continue
 
             newValues[idp] = when (access) {
-                is GhostAssignment -> State.DontCare()
-                is GhostRead -> {
-                    val (tv, cvlType) = valueAndPureCVLType(access.readValue) ?: return
-                    State.WithValue(ComputationalTypes.HAVOC, tv, cvlType)
-                }
-
-                is SumGhostRead -> {
-                    val (tv, cvlType) = valueAndPureCVLType(access.lhs) ?: return
-                    State.WithValue(ComputationalTypes.HAVOC, tv, cvlType)
-                }
+                is GhostAssignment,
                 is SumGhostUpdate -> State.DontCare()
+
+                is GhostRead,
+                is SumGhostRead -> {
+                    // failure here is unexpected, but let's try again with the next access.
+                    val (tv, cvlType) = valueAndPureCVLType(access.accessed) ?: continue
+
+                    State.WithValue(ComputationalTypes.HAVOC, tv, cvlType)
+                }
             }
         }
 
@@ -284,6 +290,7 @@ internal class GhostsState(
             val range = ghostAccessData.idpToRange[idp] as? CVLRange.Range
             val child = CallInstance.GhostValueInstance(state.compType.callEndStatus, range, value, changed, formatter)
             parent.addChild(child)
+            Logger.regression { "CallTrace: Ghosts State added access path for ${(idp as InstantiatedDisplayPath.Root).name} (at ${range})." }
         }
 
         if (parent.children.isNotEmpty()) {
@@ -387,7 +394,14 @@ class GhostAccessData internal constructor(seqGen: SequenceGenerator, model: Cou
 fun GhostAccess.toInstantiatedDisplayPath(model: CounterexampleModel): Either<InstantiatedDisplayPath.Root, CounterexampleModel.ResolvingFailure> {
     fun instantiateIndex(idx: TACSymbol.Var?): Either<Pair<TACValue, CVLType.PureCVLType>, CounterexampleModel.ResolvingFailure> =
         if (idx != null) {
-            model.valueAndPureCVLType(idx).bindLeft { (tv, cvlType) ->
+            model.valueAndPureCVLType(idx).bindRight { _ ->
+                val value = idx.meta[SKOLEM_VAR_NAME]?.let { vn ->
+                    idx.copy(namePrefix = vn)
+                }?.let { model.valueAsTACValue(it) } ?: return@bindRight ResolvingFailure.NotFound(idx).toRight()
+                val cvlType = idx.meta[QUANTIFIED_VAR_TYPE]
+                    ?: return@bindRight ResolvingFailure.MissingMetaKey(QUANTIFIED_VAR_TYPE).toRight()
+                Pair(value, cvlType).toLeft()
+            }.bindLeft { (tv, cvlType) ->
                 if (tv is ConcreteTacValue && idx.tag == TACBuiltInFunction.Hash.skeySort) {
                     model.storageKeyToInteger(tv).mapLeft { it to cvlType }
                 } else {

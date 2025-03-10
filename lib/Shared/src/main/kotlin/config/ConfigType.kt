@@ -82,6 +82,16 @@ sealed class ConfigType<T : Serializable>(
     }
 
     /**
+     * @param newValue
+     * sets a new value (via [set]) if the config was not set yet (checked via [isDefault])
+     */
+    fun setIfUnset(newValue: T) {
+        if (isDefault()) {
+            set(newValue)
+        }
+    }
+
+    /**
      * Resets the value back to null so that [isDefault] and [get] return true
      * and [default], respectively. Mostly useful to undo changes for testing.
      */
@@ -367,6 +377,16 @@ sealed class ConfigType<T : Serializable>(
     ) : CmdLine<SanityValues>(
         default,
         SanityModeConverter, option, aliases, pythonName
+    )
+
+    open class ActiveEcosystem(
+        default: Ecosystem,
+        option: Option,
+        aliases: List<Option> = listOf(),
+        pythonName: String? = null
+    ) : CmdLine<Ecosystem>(
+        default,
+        EcosystemConverter, option, aliases, pythonName
     )
 
     open class SummaryResolutionMode(

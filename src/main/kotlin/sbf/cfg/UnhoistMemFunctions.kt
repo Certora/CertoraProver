@@ -21,6 +21,7 @@ import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
 import sbf.callgraph.CVTFunction
 import datastructures.stdcollections.*
+import sbf.callgraph.CVTCore
 
 /**
  *  Unhoist memcpy and memcmp instructions so that the pointer analysis does not lose too much precision
@@ -82,8 +83,8 @@ fun unhoistMemFunctions(cfg: MutableSbfCFG) {
                     break
                 }
                 if (inst is SbfInstruction.Call &&
-                    (CVTFunction.from(inst.name) == CVTFunction.SAVE_SCRATCH_REGISTERS  ||
-                        CVTFunction.from(inst.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS)) {
+                    (CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)  ||
+                        CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS))) {
                     // We don't want to unhoist these instructions, we bail out here.
                     break
                 }
@@ -110,13 +111,13 @@ fun unhoistMemFunctions(cfg: MutableSbfCFG) {
 fun unhoistPromotedMemcpy(cfg: MutableSbfCFG) {
     fun isStartPromotedMemcpy(inst: SbfInstruction): Boolean {
         return inst is SbfInstruction.Call &&
-            CVTFunction.from(inst.name) == CVTFunction.SAVE_SCRATCH_REGISTERS &&
+            CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS) &&
             inst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
     }
 
     fun isEndPromotedMemcpy(inst: SbfInstruction): Boolean {
         return inst is SbfInstruction.Call &&
-            CVTFunction.from(inst.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS &&
+            CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS) &&
             inst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
     }
 

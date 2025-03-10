@@ -225,7 +225,7 @@ class CVLExpToTACExpr(private val cvlCompiler: CVLCompiler) {
      * Applies the [TACBuiltInFunction.TwosComplement.Wrap] on the TAC expression in [compiled].
      */
     private fun wrapExpr(compiled: InternalResult): InternalResult {
-        val wrapped = cvlCompiler.exprFact.Apply(TACBuiltInFunction.TwosComplement.Wrap.toTACFunctionSym(),  listOf(compiled.exp))
+        val wrapped = cvlCompiler.exprFact.Apply(TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256).toTACFunctionSym(),  listOf(compiled.exp))
         return when (compiled) {
             is Standard -> Standard(wrapped)
             is WithSummary -> WithSummary(

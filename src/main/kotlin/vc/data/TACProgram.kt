@@ -1019,6 +1019,7 @@ class CoreTACProgram private constructor(
                     ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2,
                     ReportTypes.OPTIMIZE_INFEASIBLE_PATHS,
                     ReportTypes.INTERVALS_OPTIMIZE,
+                    ReportTypes.GLOBAL_INLINER,
                     ReportTypes.OPTIMIZE_OVERFLOW
                 ))
             }

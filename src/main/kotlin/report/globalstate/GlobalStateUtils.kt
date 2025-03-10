@@ -18,6 +18,7 @@
 package report.globalstate
 
 import analysis.*
+import datastructures.stdcollections.listOf
 import report.calltrace.CallEndStatus
 import report.calltrace.formatter.FormatterType
 import report.calltrace.sarif.Sarif
@@ -29,6 +30,7 @@ import tac.StartBlock
 import vc.data.SnippetCmd
 import vc.data.SnippetCmd.CVLSnippetCmd.*
 import vc.data.TACCmd
+import vc.data.TACExpr
 import vc.data.state.TACValue
 
 enum class ComputationalTypes(val callEndStatus: CallEndStatus) {
@@ -62,7 +64,9 @@ internal class SequenceGenerator(
         graph
             .iterateFrom(startPtr, blocks)
             .takeWhile { !isFailedAssert(it) }
-            .mapNotNull { it.asSnippetCmd() }
+            .flatMap {
+                it.asSnippetCmd()?.let { listOf(it) } ?: it.cmd.subExprs().mapNotNull { (it as? TACExpr.AnnotationExp<*>)?.annot?.v as? SnippetCmd }
+            }
 
     private fun isFailedAssert(ltac: LTACCmd): Boolean {
         val (ptr, cmd) = ltac

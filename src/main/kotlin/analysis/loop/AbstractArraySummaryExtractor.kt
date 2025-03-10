@@ -310,6 +310,14 @@ open class AbstractArraySummaryExtractor {
                             continue@outer
                         }
                     }
+                    is TACExpr.Vec.Mul -> {
+                        if(LoopSummarization.isMonotoneTransformerFor(v) { it == k }) {
+                            interp[k] = Interpolation.MonotoneTransformation
+                            continue@outer
+                        } else {
+                            return null
+                        }
+                    }
                     else ->
                         return null
                 }

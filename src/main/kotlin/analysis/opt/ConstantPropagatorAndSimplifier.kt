@@ -23,7 +23,7 @@ import datastructures.stdcollections.*
 import log.*
 import tac.NBId
 import tac.Tag
-import tac.Tag.Bits
+import tac.commonSuperTag
 import utils.*
 import vc.data.*
 import vc.data.tacexprutil.ExprUnfolder.Companion.unfoldToExprPlusOneCmd
@@ -49,7 +49,7 @@ private val logger = Logger(LoggerTypes.PROPAGATOR_SIMPLIFIER)
  * [handleLeinoVars] should be true when this is called late in the pipeline, as these necessitate special treatment
  * if this optimization erases blocks.
  */
-class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val handleLeinoVars : Boolean = false) {
+class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val handleLeinoVars: Boolean = false) {
 
     private val g = code.analysisCache.graph
     private val dom = code.analysisCache.domination
@@ -146,7 +146,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
                     is TACCmd.Simple.JumpiCmd -> {
                         val newCond = simplify(cmd.cond.asSym())
-                        when(newCond.getAsConst()) {
+                        when (newCond.getAsConst()) {
                             BigInteger.ONE -> patcher.jumpiTojump(ptr.block, cmd.dst)
                             BigInteger.ZERO -> patcher.jumpiTojump(ptr.block, cmd.elseDst)
                         }
@@ -171,6 +171,48 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
     companion object {
 
+        val TACExpr.defaultTag : Tag
+            get() = when (this) {
+                is TACExpr.QuantifiedFormula,
+                is TACExpr.BinRel,
+                is TACExpr.BinBoolOp,
+                is TACExpr.UnaryExp.LNot ->
+                    Tag.Bool
+
+                is TACExpr.BinOp.BWAnd,
+                is TACExpr.BinOp.BWOr,
+                is TACExpr.BinOp.BWXOr,
+                is TACExpr.UnaryExp.BWNot,
+                is TACExpr.BinOp.Div,
+                is TACExpr.BinOp.Exponent,
+                is TACExpr.BinOp.Mod,
+                is TACExpr.BinOp.SDiv,
+                is TACExpr.BinOp.SMod,
+                is TACExpr.BinOp.ShiftLeft,
+                is TACExpr.BinOp.ShiftRightArithmetical,
+                is TACExpr.BinOp.ShiftRightLogical,
+                is TACExpr.BinOp.SignExtend,
+                is TACExpr.BinOp.Sub,
+                is TACExpr.TernaryExp.AddMod,
+                is TACExpr.TernaryExp.MulMod,
+                is TACExpr.Vec.Add,
+                is TACExpr.Vec.Mul ->
+                    Tag.Bit256
+
+                is TACExpr.BinOp.IntDiv,
+                is TACExpr.BinOp.IntExponent,
+                is TACExpr.BinOp.IntMod,
+                is TACExpr.BinOp.IntSub,
+                is TACExpr.Vec.IntAdd,
+                is TACExpr.Vec.IntMul ->
+                    Tag.Int
+
+                is TACExpr.AnnotationExp<*> -> o.tag ?: o.defaultTag
+                is TACExpr.TernaryExp.Ite -> commonSuperTag(e.tag ?: e.defaultTag, t.tag ?: t.defaultTag)
+
+                else -> error("No default tag for $this")
+            }
+
         private val txf = TACExprFactTypeCheckedOnlyPrimitives
 
         /**
@@ -191,7 +233,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                 return null
             }
 
-            val tag = exp.tagAssumeChecked
+            val tag = exp.tag ?: exp.defaultTag
             fun BigInteger.asExpr() = asTACExpr(tag)
             fun Int.asExpr() = toBigInteger().asExpr()
 
@@ -259,7 +301,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                     is TACExpr.TernaryExp.MulMod -> {
                         val (a, b, m) = ops
                         when {
-                            a eqTo 0 || b eqTo 0 -> Zero
+                            a eqTo 0 || b eqTo 0 -> 0.asExpr()
                             a eqTo 1 -> simplifyTop(Mod(b, m))
                             b eqTo 1 -> simplifyTop(Mod(a, m))
                             a is TACExpr.Sym.Const && m is TACExpr.Sym.Const ->
@@ -393,8 +435,8 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
                     is TACExpr.BinOp -> {
                         val (o1, o2) = ops
-                        fun max1() = (o1.tagAssumeChecked as? Bits)?.maxUnsigned!!
-                        fun max2() = (o2.tagAssumeChecked as? Bits)?.maxUnsigned!!
+                        fun max1() = (o1.tagAssumeChecked as? Tag.Bits)?.maxUnsigned!!
+                        fun max2() = (o2.tagAssumeChecked as? Tag.Bits)?.maxUnsigned!!
 
                         when (exp) {
                             is TACExpr.BinOp.BWAnd -> when {
@@ -455,7 +497,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                                 o1 eqTo 0 -> 0.asExpr()
                                 o2 eqTo 0 -> o1
                                 o2.getAsConst()?.toIntOrNull()
-                                    ?.let { it >= (o1.tagAssumeChecked as? Bits)?.bitwidth!! } == true -> Zero
+                                    ?.let { it >= (o1.tag as? Tag.Bits)?.bitwidth!! } == true -> 0.asExpr()
 
                                 else -> null
                             }
@@ -464,7 +506,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                                 o1 eqTo 0 -> 0.asExpr()
                                 o2 eqTo 0 -> o1
                                 o2.getAsConst()?.toIntOrNull()
-                                    ?.let { it >= (o1.tagAssumeChecked as? Bits)?.bitwidth!! } == true -> Zero
+                                    ?.let { it >= (o1.tag as? Tag.Bits)?.bitwidth!! } == true -> 0.asExpr()
 
                                 else -> null
                             }
@@ -476,7 +518,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                             }
 
                             is TACExpr.BinOp.SignExtend -> when {
-                                o1 eqTo ((o2.tagAssumeChecked as Bits).bitwidth / 8 - 1) -> o2
+                                o1 eqTo ((o2.tag as Tag.Bits).bitwidth / 8 - 1) -> o2
                                 o2 eqTo max2() || o2 eqTo 0 -> o2
                                 else -> null
                             }
@@ -540,6 +582,21 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                             else -> exp.copy(quantifiedVars = quantifiedVars)
                         }
                     }
+
+                    is TACExpr.StructAccess -> with(exp) {
+                        if (struct is TACExpr.StructConstant) {
+                            struct.fieldNameToValue[fieldName]
+                                ?.let { rhs ->
+                                    val expectedTag =
+                                        (struct.tag as Tag.UserDefined.Struct).getField(exp.fieldName)!!.type
+                                    check(rhs.tag == expectedTag)
+                                    rhs
+                                }
+                        } else {
+                            null
+                        }
+                    }
+
 
                     else -> null
                 }

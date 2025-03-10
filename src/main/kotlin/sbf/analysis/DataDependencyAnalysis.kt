@@ -369,6 +369,48 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         return vis.state
     }
 
+    private fun analyzeSaveScratchRegisters(inState: DataDepsState, inst: SbfInstruction.Call): DataDepsState {
+        val r6 = Value.Reg(SbfRegister.R6)
+        val r7 = Value.Reg(SbfRegister.R7)
+        val r8 = Value.Reg(SbfRegister.R8)
+        val r9 = Value.Reg(SbfRegister.R9)
+        val rhs6 = RegisterVariable(r6, vFac)
+        val rhs7 = RegisterVariable(r7, vFac)
+        val rhs8 = RegisterVariable(r8, vFac)
+        val rhs9 = RegisterVariable(r9, vFac)
+        val id = inst.metaData.getVal(SbfMeta.CALL_ID)
+        return if (id != null) {
+            val lhs6 = ScratchRegisterVariable(id, r6, vFac)
+            val lhs7 = ScratchRegisterVariable(id, r7, vFac)
+            val lhs8 = ScratchRegisterVariable(id, r8, vFac)
+            val lhs9 = ScratchRegisterVariable(id, r9, vFac)
+            inState.flows(lhs6, rhs6).flows(lhs7, rhs7).flows(lhs8, rhs8).flows(lhs9, rhs9)
+        } else {
+            inState.kill(rhs6).kill(rhs7).kill(rhs8).kill(rhs9)
+        }
+    }
+
+    private fun analyzeRestoreScratchRegisters(inState: DataDepsState, inst: SbfInstruction.Call): DataDepsState {
+        val r6 = Value.Reg(SbfRegister.R6)
+        val r7 = Value.Reg(SbfRegister.R7)
+        val r8 = Value.Reg(SbfRegister.R8)
+        val r9 = Value.Reg(SbfRegister.R9)
+        val lhs6 = RegisterVariable(r6, vFac)
+        val lhs7 = RegisterVariable(r7, vFac)
+        val lhs8 = RegisterVariable(r8, vFac)
+        val lhs9 = RegisterVariable(r9, vFac)
+        val id = inst.metaData.getVal(SbfMeta.CALL_ID)
+        return if (id != null) {
+            val rhs6 = ScratchRegisterVariable(id, r6, vFac)
+            val rhs7 = ScratchRegisterVariable(id, r7, vFac)
+            val rhs8 = ScratchRegisterVariable(id, r8, vFac)
+            val rhs9 = ScratchRegisterVariable(id, r9, vFac)
+            inState.flows(lhs6, rhs6).flows(lhs7, rhs7).flows(lhs8, rhs8).flows(lhs9, rhs9)
+        } else {
+            inState.kill(lhs6).kill(lhs7).kill(lhs8).kill(lhs9)
+        }
+    }
+
     private fun analyzeCall(inState: DataDepsState, cmd: LocatedSbfInstruction): DataDepsState {
         val inst = cmd.inst
         check(inst is SbfInstruction.Call)
@@ -384,79 +426,29 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             val cvtFunction = CVTFunction.from(inst.name)
             if (cvtFunction != null) {
                 when (cvtFunction) {
-                    CVTFunction.ASSUME,
-                    CVTFunction.ASSERT,
-                    CVTFunction.SATISFY,
-                    CVTFunction.SANITY,
-                    CVTFunction.CEX_PRINT_u64_1, CVTFunction.CEX_PRINT_u64_2, CVTFunction.CEX_PRINT_u64_3,
-                    CVTFunction.CEX_PRINT_i64_1, CVTFunction.CEX_PRINT_i64_2, CVTFunction.CEX_PRINT_i64_3,
-                    CVTFunction.CEX_PRINT_TAG, CVTFunction.CEX_PRINT_LOCATION, CVTFunction.CEX_ATTACH_LOCATION,
-                    CVTFunction.CEX_PRINT_STRING -> {
-                        inState
+                    is CVTFunction.Core -> {
+                        when(cvtFunction.value) {
+                            CVTCore.ASSUME,
+                            CVTCore.ASSERT,
+                            CVTCore.SATISFY,
+                            CVTCore.SANITY ->
+                                inState
+                            CVTCore.NONDET_ACCOUNT_INFO ->
+                                applyDDASummaries(inState, cmd)
+                            CVTCore.NONDET_SOLANA_ACCOUNT_SPACE, CVTCore.ALLOC_SLICE ->
+                                applyDDASummaries(inState, cmd)
+                            CVTCore.SAVE_SCRATCH_REGISTERS ->
+                               analyzeSaveScratchRegisters(inState, inst)
+                            CVTCore.RESTORE_SCRATCH_REGISTERS ->
+                               analyzeRestoreScratchRegisters(inState, inst)
+                        }
                     }
-                    CVTFunction.NONDET_u8, CVTFunction.NONDET_u16, CVTFunction.NONDET_u32, CVTFunction.NONDET_u64,
-                    CVTFunction.NONDET_u128, CVTFunction.NONDET_usize,
-                    CVTFunction.NONDET_i8, CVTFunction.NONDET_i16, CVTFunction.NONDET_i32, CVTFunction.NONDET_i64 -> {
+                    is CVTFunction.Nondet ->
                         inState.kill(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
-                    }
-                    CVTFunction.NONDET_ACCOUNT_INFO -> {
-                        applyDDASummaries(inState, cmd)
-                    }
-                    CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE, CVTFunction.ALLOC_SLICE -> {
-                        applyDDASummaries(inState, cmd)
-                    }
-                    CVTFunction.SAVE_SCRATCH_REGISTERS -> {
-                        val r6 = Value.Reg(SbfRegister.R6)
-                        val r7 = Value.Reg(SbfRegister.R7)
-                        val r8 = Value.Reg(SbfRegister.R8)
-                        val r9 = Value.Reg(SbfRegister.R9)
-                        val rhs6 = RegisterVariable(r6, vFac)
-                        val rhs7 = RegisterVariable(r7, vFac)
-                        val rhs8 = RegisterVariable(r8, vFac)
-                        val rhs9 = RegisterVariable(r9, vFac)
-                        val id = inst.metaData.getVal(SbfMeta.CALL_ID)
-                        if (id != null) {
-                            val lhs6 = ScratchRegisterVariable(id, r6, vFac)
-                            val lhs7 = ScratchRegisterVariable(id, r7, vFac)
-                            val lhs8 = ScratchRegisterVariable(id, r8, vFac)
-                            val lhs9 = ScratchRegisterVariable(id, r9, vFac)
-                            inState.flows(lhs6, rhs6).flows(lhs7, rhs7).flows(lhs8, rhs8).flows(lhs9, rhs9)
-                        } else {
-                            inState.kill(rhs6).kill(rhs7).kill(rhs8).kill(rhs9)
-                        }
-                    }
-                    CVTFunction.RESTORE_SCRATCH_REGISTERS -> {
-                        val r6 = Value.Reg(SbfRegister.R6)
-                        val r7 = Value.Reg(SbfRegister.R7)
-                        val r8 = Value.Reg(SbfRegister.R8)
-                        val r9 = Value.Reg(SbfRegister.R9)
-                        val lhs6 = RegisterVariable(r6, vFac)
-                        val lhs7 = RegisterVariable(r7, vFac)
-                        val lhs8 = RegisterVariable(r8, vFac)
-                        val lhs9 = RegisterVariable(r9, vFac)
-                        val id = inst.metaData.getVal(SbfMeta.CALL_ID)
-                        if (id != null) {
-                            val rhs6 = ScratchRegisterVariable(id, r6, vFac)
-                            val rhs7 = ScratchRegisterVariable(id, r7, vFac)
-                            val rhs8 = ScratchRegisterVariable(id, r8, vFac)
-                            val rhs9 = ScratchRegisterVariable(id, r9, vFac)
-                            inState.flows(lhs6, rhs6).flows(lhs7, rhs7).flows(lhs8, rhs8).flows(lhs9, rhs9)
-                        } else {
-                            inState.kill(lhs6).kill(lhs7).kill(lhs8).kill(lhs9)
-                        }
-                    }
-                    // We ignore these functions for now.
-                    CVTFunction.U128_LEQ,
-                    CVTFunction.U128_GT0,
-                    CVTFunction.U128_CEIL_DIV,
-                    CVTFunction.NATIVEINT_EQ, CVTFunction.NATIVEINT_LT, CVTFunction.NATIVEINT_LE,
-                    CVTFunction.NATIVEINT_ADD, CVTFunction.NATIVEINT_SUB, CVTFunction.NATIVEINT_MUL,  CVTFunction.NATIVEINT_DIV,
-                    CVTFunction.NATIVEINT_CEIL_DIV, CVTFunction.NATIVEINT_MULDIV, CVTFunction.NATIVEINT_MULDIV_CEIL,
-                    CVTFunction.NATIVEINT_NONDET,
-                    CVTFunction.NATIVEINT_FROM_u128, CVTFunction.NATIVEINT_FROM_u256,
-                    CVTFunction.NATIVEINT_u64_MAX, CVTFunction.NATIVEINT_u128_MAX, CVTFunction.NATIVEINT_u256_MAX -> {
-                        inState
-                    }
+                    // We ignore these for now
+                    is CVTFunction.NativeInt,
+                    is CVTFunction.U128Intrinsics,
+                    is CVTFunction.Calltrace -> inState
                 }
             } else {
                 applyDDASummaries(inState, cmd)
@@ -647,18 +639,12 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                 else -> { /* processed below */}
             }
         }
-        val cvtFunction = CVTFunction.from(inst.name)
-        if (cvtFunction != null) {
-            when (cvtFunction) {
-                CVTFunction.NONDET_u8, CVTFunction.NONDET_u16, CVTFunction.NONDET_u32, CVTFunction.NONDET_u64,
-                CVTFunction.NONDET_u128, CVTFunction.NONDET_usize,
-                CVTFunction.NONDET_i8, CVTFunction.NONDET_i16, CVTFunction.NONDET_i32, CVTFunction.NONDET_i64 -> {
-                    addSource(Value.Reg(SbfRegister.R0_RETURN_VALUE), cmd, inState)
-                    return
-                }
-                else -> { /* processed below */ }
-            }
+
+        if (CVTNondet.from(inst.name) != null) {
+            addSource(Value.Reg(SbfRegister.R0_RETURN_VALUE), cmd, inState)
+            return
         }
+
         processDDASummaries(inState, cmd)
     }
 

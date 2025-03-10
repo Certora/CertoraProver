@@ -62,6 +62,8 @@ typealias WasmToTacInfo = CommandWithRequiredDecls<TACCmd.Simple>
 
 val WASM_INLINED_FUNC_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.inline.start")
 val WASM_INLINED_FUNC_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.inline.end")
+val WASM_SDK_FUNC_SUMMARY_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.sdk.func.start")
+val WASM_SDK_FUNC_SUMMARY_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.sdk.func.end")
 val WASM_HOST_FUNC_SUMMARY_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.host.func.start")
 val WASM_HOST_FUNC_SUMMARY_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.host.func.end")
 val WASM_USER_ASSUME = MetaKey<String>("wasm.user.assume")
@@ -553,24 +555,22 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         context(WasmImpCfgContext)
         override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
             // If we have a summary, apply it
-            if (summarizer.canSummarize(id)) {
-                return summarizer.summarizeCall(this)
-            }
-
-            if (maybeRet == null) {
-                throw UnsupportedOperationException(
-                    "$id represents an unresolved function that does not return anything." +
-                        "Currently converting this to TAC is not supported. TODO."
+            return if (summarizer.canSummarize(id)) {
+                summarizer.summarizeCall(this)
+            } else {
+                // Otherwise, leave an annotation in the TAC, and havoc the return value
+                mergeMany(
+                    listOfNotNull(
+                        TACCmd.Simple.AnnotationCmd(TACCmd.Simple.AnnotationCmd.Annotation(WASM_UNRESOLVED_CALL, id)).withDecls(),
+                        maybeRet?.let {
+                            assignHavocPrimitive(
+                                TACSymbol.Var(maybeRet.toString(), Tag.Bit256),
+                                maybeRet.type
+                            )
+                        }
+                    )
                 )
             }
-
-            return mergeMany(
-                TACCmd.Simple.AnnotationCmd(TACCmd.Simple.AnnotationCmd.Annotation(WASM_UNRESOLVED_CALL, id)).withDecls(),
-                assignHavocPrimitive(
-                    TACSymbol.Var(maybeRet.toString(), Tag.Bit256),
-                    maybeRet.type
-                )
-            )
         }
 
         override fun hasHavoc(): Boolean {

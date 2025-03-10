@@ -40,6 +40,7 @@ import utils.letIf
 import vc.data.*
 import vc.data.TACMeta.CVL_EXP
 import vc.data.tacexprutil.TACExprUtils.contains
+import wasm.impCfg.WASM_BYTECODE_ADDRESS
 
 private typealias CmdFilter = (LTACCmd) -> Boolean
 
@@ -113,6 +114,7 @@ class TACProgramPrinter {
                 (it.cmd.getFreeVarsOfRhs().isEmpty() || it.cmd.annot.v is AssertSnippet<*>)
             }
             .dontShowMeta(CVL_EXP)
+            .dontShowMeta(WASM_BYTECODE_ADDRESS)
             .dontShowMeta(META_INFO_KEY)
             .dontShowMeta(TACMeta.CVL_RANGE)
             .dontShowMeta(MetaKey<Int>("non-canonical-meta"))
@@ -206,7 +208,7 @@ class TACProgramPrinter {
             }
 
         fun ln(l: Any) {
-            line("${ptr.pos}: " + l)
+            line("${ptr.pos}: $l".letIf(shouldHighlight(lcmd)) { it.redBg.bBlack })
             if (shouldShowMetaFor(lcmd)) {
                 cmd.meta.map.entries
                     .filter { (k, _) -> shouldShowMeta(k) }
@@ -251,12 +253,8 @@ class TACProgramPrinter {
                 ln("${"$dstBase[$dstOffset..]".cyan} := $srcBase[$srcOffset, length=$length]")
             }
 
-            is TACCmd.Simple.AssigningCmd.AssignExpCmd -> {
-                ln(
-                    "${cmd.lhs} $lhsInfo:= ${cmd.rhs}"
-                        .letIf(shouldHighlight(lcmd)) { it.redBg.bBlack }
-                )
-            }
+            is TACCmd.Simple.AssigningCmd.AssignExpCmd ->
+                ln("${cmd.lhs} $lhsInfo:= ${cmd.rhs}")
 
             is TACCmd.Simple.Assume ->
                 ln("ASSUME ${cmd.condExpr}".bMagenta)

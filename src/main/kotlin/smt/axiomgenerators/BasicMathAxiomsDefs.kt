@@ -18,12 +18,13 @@
 package smt.axiomgenerators
 
 import config.Config
-import config.Config.Smt
+import datastructures.Memoized
 import datastructures.stdcollections.*
 import evm.EVM_MOD_GROUP256
 import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizer
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.functionsymbols.TheoryFunctionSymbol.Vec.IntMul.IntMulDontNormalize
+import tac.Tag
 import utils.*
 import vc.data.LExpression
 import vc.data.LExpressionWithComment
@@ -89,89 +90,55 @@ class BasicMathAxiomsDefs(val lxf: LExpressionFactory) {
         )
     }
 
-    private val mulBinaryAxioms by lazy {
-        // plan is to make this by default false
-        runIf(Smt.AddSafeMathAxioms.get()) {
-            listOfNotNull(
-                bAx("mul_safe", "(a>0 && b>0) => ((a*b % 2^256)/a == b <=> a*b < 2^256)") { a, b ->
-                    ((a gt ZERO) and (b gt ZERO)) implies eq(
-                        (uninterpMod256(a * b) / a) eq b,
-                        (a * b) lt TwoTo256
-                    )
-                },
-                bAx("mul_safeMath", "(b != 0 && a != 0) => a*b/a == b && a*b/b == a") { a, b ->
-                    and(a neq ZERO, b neq ZERO) implies and(a * b / a eq b, a * b / b eq a)
-                },
-                bAx("solc8_safeMath", "maxuint/a < b <=> a*b > maxuint") { a, b ->
-                    ((a gt ZERO) and (b gt ZERO)) implies
-                        ((MAX_UINT / a lt b) eq (a * b gt MAX_UINT))
-                },
-                runIf(Config.SignedMulAxioms.get()) {
-                    // there is a subtlety happening here for multiplication with constants:  the axiom is instantiated
-                    // with a and b swapped when the left side of the multiplication was not the constant value, but the
-                    // solidity overflow check is not symmetric.  However, these axioms are still enough:
-                    // in that cases where solidity divides by a instead of b because of swapping the arguments,
-                    // a is constant and can the solver can reason without the axioms.
-                    bAx("solc8_signedSafeMath", "|a| <= |max/minint| / |b| <=> (minint <= a*b <= maxint)") { a, b ->
-                        val absA = (TwoTo256 - a) // abs for negative values in 2s complement
-                        val absB = (TwoTo256 - b)
-                        val mathA = (a - TwoTo256) // convert value from 2s complement to negative math integer.
-                        val mathB = (b - TwoTo256)
-                        and(
-                            (a.isSignedPos and b.isSignedPos) implies
-                                // product doesn't overflow iff |a| <= MAX_INT/|b| (solidity check)
-                                ((a * b le MAX_INT) eq (a le (MAX_INT / b))),
-                            (a.isSignedNeg and b.isSignedNeg) implies
-                                // product doesn't overflow iff |a| <= MAX_INT/|b| (solidity check)
-                                ((mathA * mathB le MAX_INT) eq (absA le (MAX_INT / absB))),
-                            (a.isSignedNeg and b.isSignedPos) implies
-                                // product doesn't underflow iff |a| <= |MIN_INT|/|b| (solidity check)
-                                ((mathA * b ge MIN_INT) eq (absA le (MIN_INT_ABS / b))),
-                            (a.isSignedPos and b.isSignedNeg) implies
-                                // product doesn't underflow iff |b| <= |MIN_INT|/|a| (solidity check)
-                                // note that solidity divides by |a| here to avoid overflow of the signed division.
-                                ((a * mathB ge MIN_INT) eq (absB le (MIN_INT_ABS / a)))
-                        )
-                    }
-                }
-            )
-        }.orEmpty() + listOfNotNull(
-            runIf(Config.SignedMulAxioms.get()) {
+    private val mulBinaryTagAxioms = Memoized { tag: Tag ->
+        if (Config.SignedMulAxioms.get() && tag is Tag.Bits) {
+            val modulus = lxf.litInt(tag.modulus)
+            val w = tag.bitwidth
+            listOf(
                 bAx(
-                    "mul_signed",
-                    "a * b == (a - TwoTo256) * b = ... = (a - TwoTo256) * (b - TwoTo256) mod 2^256"
+                    "mul_signed_$w",
+                    "a * b == (a - 2^$w) * b = ... = (a - 2^$w) * (b - 2^$w) mod 2^$w"
                 ) { a, b ->
                     and(
-                        uninterpMod256(a * b) eq uninterpMod256((a - TwoTo256) * b),
-                        uninterpMod256(a * b) eq uninterpMod256(a * (b - TwoTo256)),
-                        uninterpMod256(a * b) eq uninterpMod256((a - TwoTo256) * (b - TwoTo256))
+                        uninterpTagMod(a * b, tag) eq uninterpTagMod((a - modulus) * b, tag),
+                        uninterpTagMod(a * b, tag) eq uninterpTagMod(a * (b - modulus), tag),
+                        uninterpTagMod(a * b, tag) eq uninterpTagMod((a - modulus) * (b - modulus), tag)
                     )
                 }
-            }
-        )
+            )
+        } else {
+            emptyList()
+        }
     }
 
 
     private val mulBinaryWithConstAxioms by lazy {
-        listOfNotNull(
-            bAx("mul_by_const", "uninterp_mul(a,b) = a*b when a or b are const") { a, b ->
-                (a uninterpMul b) eq (a intMulDontNorm b)
-            },
-            runIf(Config.SignedMulAxioms.get()) {
-                // these axioms are needed to prove facts about signed multiplication when the constant is the two's
-                // complement representation of a negative number.
-                // with these we can show "mathint(a) uninterp_mul mathint(b) == mathint(a) * mathint(b)"
-                bAx("mul_signed_const", "mul_by_const axiom for a-TwoTo256 and b-TwoTo256") { a, b ->
-                    val mathB = b - TwoTo256
+        bAx("mul_by_const", "uninterp_mul(a,b) = a*b when a or b are const") { a, b ->
+            (a uninterpMul b) eq (a intMulDontNorm b)
+        }
+    }
+
+    private val mulBinaryWithConstTagAxioms = Memoized { tag: Tag ->
+        if (Config.SignedMulAxioms.get() && tag is Tag.Bits) {
+            val modulus = lxf.litInt(tag.modulus)
+            val w = tag.bitwidth
+            // these axioms are needed to prove facts about signed multiplication when the constant is the two's
+            // complement representation of a negative number.
+            // with these we can show "mathint(a) uninterp_mul mathint(b) == mathint(a) * mathint(b)"
+            listOf(
+                bAx("mul_signed_const_$w", "mul_by_const axiom for a-2^$w and b-2^$w") { a, b ->
+                    val mathB = b - modulus
                     // we apply distributivity in two axioms to make sure the argument to multiplication is a constant.
                     and(
-                        ((a - TwoTo256) * b) eq ((a intMulDontNorm b) - (TwoTo256 intMulDontNorm b)),
+                        ((a - modulus) * b) eq ((a intMulDontNorm b) - (modulus intMulDontNorm b)),
                         (a * mathB) eq (a intMulDontNorm mathB),
-                        ((a - TwoTo256) * mathB) eq ((a intMulDontNorm mathB) - (TwoTo256 intMulDontNorm mathB))
+                        ((a - modulus) * mathB) eq ((a intMulDontNorm mathB) - (modulus intMulDontNorm mathB))
                     )
                 }
-            }
-        )
+            )
+        } else {
+            emptyList()
+        }
     }
 
 
@@ -343,11 +310,23 @@ class BasicMathAxiomsDefs(val lxf: LExpressionFactory) {
     val combinedUnaryMul by lazy {
         UnaryIntAxiomDef(lxf, "combinedMulArg", "axioms for mul arguments", mulUnaryAxioms)
     }
-    val combinedBinaryMul by lazy {
-        BinaryIntAxiomDef(lxf, "combinedMul", "mul axioms", mulBinaryNonConstAxioms + mulBinaryAxioms)
+
+    val combinedBinaryMul = Memoized { tag: Tag ->
+        BinaryIntAxiomDef(
+            lxf,
+            "combinedMul_$tag",
+            "mul axioms",
+            mulBinaryTagAxioms(tag) + mulBinaryNonConstAxioms
+        )
     }
-    val combinedBinaryMulWithConst by lazy {
-        BinaryIntAxiomDef(lxf, "combinedMulConst", "mul by const axioms", mulBinaryWithConstAxioms + mulBinaryAxioms)
+
+    val combinedBinaryMulWithConst = Memoized { tag: Tag ->
+        BinaryIntAxiomDef(
+            lxf,
+            "combinedMulConst_$tag ",
+            "mul by const axioms",
+            mulBinaryWithConstTagAxioms(tag) + mulBinaryWithConstAxioms
+        )
     }
 
     val combinedUnaryDiv by lazy {

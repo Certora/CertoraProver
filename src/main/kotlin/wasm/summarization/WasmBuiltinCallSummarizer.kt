@@ -93,6 +93,38 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
      * @param ret the expected return type
      */
     enum class CVTBuiltin(val what: String, val from: String, val params: List<WasmPrimitiveType>, val ret: WasmPrimitiveType?): Builtin {
+        CVT_ASSERT("CVT_assert", "env", listOf(I32), null),
+        CVT_ASSUME("CVT_assume", "env", listOf(I32), null),
+        CVT_SATISFY("CVT_satisfy", "env", listOf(I32), null),
+
+        CVT_NONDET_U8("CVT_nondet_u8", "env", listOf(), I32),
+        CVT_NONDET_U32("CVT_nondet_u32", "env", listOf(), I32),
+        CVT_NONDET_U64("CVT_nondet_u64", "env", listOf(), I64),
+
+        CVT_NONDET_I8("CVT_nondet_i8", "env", listOf(), I32),
+        CVT_NONDET_I32("CVT_nondet_i32", "env", listOf(), I32),
+        CVT_NONDET_I64("CVT_nondet_i64", "env", listOf(), I64),
+
+        CVT_NONDET_I128("CVT_nondet_i128", "env", listOf(I32), null),
+
+        CVT_NONDET_MAP("CVT_nondet_map", "env", listOf(), I64),
+
+        /*
+         These functions in rust take a &str and a u32/i32/u64/i64. In wasm the
+            first argument is the starting value of the stack pointer which indicates
+            the index in the data segment from which the string is read. The second argument indicates
+            the length of the string and the third argument is the actual value of the variable.
+            User writes this in rust: `cvlr::clog!(&"value of balance is ", balance);`
+        */
+        CVT_CALLTRACE_U32("CVT_calltrace_print_u32_1", "env", listOf(I32, I32, I32), null),
+        CVT_CALLTRACE_U64("CVT_calltrace_print_u64_1", "env", listOf(I32, I32, I64), null),
+        CVT_CALLTRACE_I32("CVT_calltrace_print_i32_1", "env", listOf(I32, I32, I32), null),
+        CVT_CALLTRACE_I64("CVT_calltrace_print_i64_1", "env", listOf(I32, I32, I64), null),
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // for backwards compatibility with https://github.com/Certora/solana-cvt/tree/dev-soroban
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         ASSERT("CERTORA_assert_c", "env", listOf(I32), null),
         ASSUME("CERTORA_assume_c", "env", listOf(I32), null),
         SATISFY("CERTORA_satisfy_c", "env", listOf(I32), null),
@@ -109,7 +141,7 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
 
         /*
           These functions in rust take a &str and a u32/i32/u64/i64. In wasm the
-          first two arguments are the starting value of the stack pointer which indicates
+          first argument is the starting value of the stack pointer which indicates
           the index in the data segment from which the string is read. The second argument indicates
           the length of the string and the third argument is the actual value of the variable.
           User writes this in rust: `cvt_cex_print_i64!(&"value of balance is ", balance);`
@@ -121,10 +153,12 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         ;
     }
 
-    enum class AssumeAssertType {
+    enum class AssumeAssertType { CVT_ASSUME,
+        CVT_ASSERT,
+        CVT_SATISFY,
         ASSUME,
         ASSERT,
-        SATISFY
+        SATISFY,
     }
 
     companion object {
@@ -176,34 +210,60 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
             CompilerBuiltin.DIVTI3 -> summarizeDivti3(call.args[0], call.args[1], call.args[2], call.args[3], call.args[4])
             CompilerBuiltin.MODTI3 -> summarizeModti3(call.args[0], call.args[1], call.args[2], call.args[3], call.args[4])
 
-            CVTBuiltin.ASSUME ->
+            CVTBuiltin.ASSUME, CVTBuiltin.CVT_ASSUME ->
                 summarizeAssumeAssert(pred = call.args[0], type = AssumeAssertType.ASSUME)
 
-            CVTBuiltin.ASSERT ->
+            CVTBuiltin.ASSERT, CVTBuiltin.CVT_ASSERT ->
                 summarizeAssumeAssert(pred = call.args[0], type = AssumeAssertType.ASSERT)
 
-            CVTBuiltin.SATISFY ->
+            CVTBuiltin.SATISFY, CVTBuiltin.CVT_SATISFY ->
                 summarizeAssumeAssert(pred = call.args[0], type = AssumeAssertType.SATISFY)
 
-            CVTBuiltin.NONDET_U8, CVTBuiltin.NONDET_I8 -> {
+            CVTBuiltin.NONDET_U8, CVTBuiltin.CVT_NONDET_U8 -> {
                 check(call.maybeRet != null) { "expected nondet_u8 to have a lhs " }
                 summarizeNondet(call.maybeRet, 8)
             }
-            CVTBuiltin.NONDET_U32, CVTBuiltin.NONDET_I32 -> {
+            CVTBuiltin.NONDET_I8, CVTBuiltin.CVT_NONDET_I8 -> {
+                check(call.maybeRet != null) { "expected nondet_i8 to have a lhs " }
+                summarizeNondet(call.maybeRet, 8)
+            }
+            CVTBuiltin.NONDET_U32, CVTBuiltin.CVT_NONDET_U32 -> {
                 check(call.maybeRet != null) { "expected nondet_u32 to have a lhs " }
                 summarizeNondet(call.maybeRet, 32)
             }
-            CVTBuiltin.NONDET_U64, CVTBuiltin.NONDET_I64 -> {
+
+            CVTBuiltin.NONDET_I32, CVTBuiltin.CVT_NONDET_I32 -> {
+                check(call.maybeRet != null) { "expected nondet_i32 to have a lhs " }
+                summarizeNondet(call.maybeRet, 32)
+            }
+
+            CVTBuiltin.NONDET_U64, CVTBuiltin.CVT_NONDET_U64 -> {
                 check(call.maybeRet != null) { "expected nondet_u64 to have a lhs " }
                 summarizeNondet(call.maybeRet, 64)
             }
-            CVTBuiltin.NONDET_MAP -> {
+
+            CVTBuiltin.NONDET_I64, CVTBuiltin.CVT_NONDET_I64 -> {
+                check(call.maybeRet != null) { "expected nondet_i64 to have a lhs " }
+                summarizeNondet(call.maybeRet, 64)
+            }
+
+            CVTBuiltin.CVT_NONDET_I128 -> {
+                check(call.args.size == 1) { "expected a location in memory where the value will be written" }
+                summarizeI128Nondet(call.args[0])
+            }
+            CVTBuiltin.NONDET_MAP, CVTBuiltin.CVT_NONDET_MAP -> {
                 check(call.maybeRet != null) { "expected nondet_map to have a lhs " }
                 summarizeNondetMap(call.maybeRet)
             }
 
-            CVTBuiltin.CALLTRACE_I32, CVTBuiltin.CALLTRACE_I64, CVTBuiltin.CALLTRACE_U32, CVTBuiltin.CALLTRACE_U64 ->
-                summarizeCalltrace(call.args[0], call.args[1], call.args[2], dataSegments)
+            CVTBuiltin.CALLTRACE_I32,
+            CVTBuiltin.CALLTRACE_I64,
+            CVTBuiltin.CALLTRACE_U32,
+            CVTBuiltin.CALLTRACE_U64,
+            CVTBuiltin.CVT_CALLTRACE_I32,
+            CVTBuiltin.CVT_CALLTRACE_I64,
+            CVTBuiltin.CVT_CALLTRACE_U32,
+            CVTBuiltin.CVT_CALLTRACE_U64 -> summarizeCalltrace(call.args[0], call.args[1], call.args[2], dataSegments)
 
             null ->
                 throw UnknownWasmBuiltin(call.id, tyDesc)
@@ -475,11 +535,12 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
     // from the Solana code (can ideally reuse this)
     private fun inRange(v: TACSymbol.Var, lb: TACSymbol.Const, ub: TACSymbol.Const):
         CommandWithRequiredDecls<TACCmd.Simple> {
-        val lbBool = TACSymbol.Var(v.namePrefix + WasmTokens.LOWER, Tag.Bool)
-        val ubBool = TACSymbol.Var(v.namePrefix + WasmTokens.UPPER, Tag.Bool)
+        val lbBool = TACSymbol.Var(v.namePrefix + WasmTokens.UNDERSCORE + WasmTokens.LOWER, Tag.Bool)
+        val ubBool = TACSymbol.Var(v.namePrefix + WasmTokens.UNDERSCORE + WasmTokens.UPPER, Tag.Bool)
+
         return CommandWithRequiredDecls(
             listOf(
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(lbBool, TACExpr.BinRel.Ge(v.asSym(), lb.asSym())),
+                TACCmd.Simple.AssigningCmd.AssignExpCmd(lbBool, TACExpr.BinRel.Le(lb.asSym(), v.asSym())),
                 TACCmd.Simple.AssumeCmd(lbBool),
                 TACCmd.Simple.AssigningCmd.AssignExpCmd(ubBool, TACExpr.BinRel.Lt(v.asSym(), ub.asSym())),
                 TACCmd.Simple.AssumeCmd(ubBool)
@@ -496,6 +557,36 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
             TACSymbol.Const(BigInteger.TWO.pow(exp), Tag.Bit256)
         )
         return mergeMany(assignHavoc(argSymTac), rangeCheckTac)
+    }
+
+    /**
+     * Make two i64s and write them to memory location [loc] and [loc] + 64
+     * */
+    context (WasmImpCfgContext)
+    private fun summarizeI128Nondet(loc: Arg): CommandWithRequiredDecls<TACCmd.Simple> {
+        val locPlus8Bytes = txf { ((loc.toTacSymbol().asSym()) add 8.asTACExpr)}
+        val nondetI64A = TACSymbol.Var(loc.toString() + WasmTokens.UNDERSCORE + allocFresh(), Tag.Bit256)
+        val nondetI64B = TACSymbol.Var(loc.toString() + WasmTokens.UNDERSCORE + allocFresh(), Tag.Bit256)
+        val varForLocPlus8 = TACSymbol.Var(loc.toString() + WasmTokens.UNDERSCORE + allocFresh(), Tag.Bit256)
+        val rangeCheckTacA = inRange(
+            nondetI64A,
+            TACSymbol.Const(BigInteger.ZERO, Tag.Bit256),
+            TACSymbol.Const(BigInteger.TWO.pow(64), Tag.Bit256),
+        )
+        val rangeCheckTacB = inRange(
+            nondetI64B,
+            TACSymbol.Const(BigInteger.ZERO, Tag.Bit256),
+            TACSymbol.Const(BigInteger.TWO.pow(64), Tag.Bit256),
+        )
+        return mergeMany(
+            assignHavoc(nondetI64A),
+            rangeCheckTacA,
+            assignHavoc(nondetI64B),
+            rangeCheckTacB,
+            TACCmd.Simple.AssigningCmd.AssignExpCmd(varForLocPlus8, locPlus8Bytes).withDecls(varForLocPlus8),
+            memStore(loc.toTacSymbol().asSym(), nondetI64A.asSym()),
+            memStore(varForLocPlus8.asSym(), nondetI64B.asSym())
+        )
     }
 
     // Currently not really needed/used.
@@ -521,11 +612,16 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         }
         for (data in dataSegments) {
             if (stringStartPointer is ArgConst32 && numBytes is ArgConst32 && data.offsetConstVal != null) {
+                if (stringStartPointer.value.v < data.offsetConstVal) {
+                    continue
+                }
                 val start = stringStartPointer.value.v - data.offsetConstVal!!
                 val end = start + numBytes.value.v - BigInteger.ONE
+
                 val byteArray = data.content.slice(start.toInt()..end.toInt()).map { it.toByte() }.toByteArray()
                 if (byteArray.isNotEmpty()) {
                     tag = byteArray.toString(Charsets.UTF_8)
+                    break
                 } else {
                     reportConstantStringError()
                 }
@@ -550,8 +646,8 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
     ): CommandWithRequiredDecls<TACCmd.Simple> {
         val name = listOf(
             when (type) {
-                AssumeAssertType.ASSUME -> WasmTokens.WASMASSUME
-                AssumeAssertType.ASSERT, AssumeAssertType.SATISFY -> WasmTokens.WASMASSERT
+                AssumeAssertType.ASSUME, AssumeAssertType.CVT_ASSUME -> WasmTokens.WASMASSUME
+                AssumeAssertType.ASSERT, AssumeAssertType.SATISFY, AssumeAssertType.CVT_ASSERT, AssumeAssertType.CVT_SATISFY -> WasmTokens.WASMASSERT
             },
             pred.toString(),
             WasmTokens.TAC, allocFresh()
@@ -565,27 +661,30 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
                 TACCmd.Simple.AnnotationCmd(
                     TACCmd.Simple.AnnotationCmd.Annotation(
                         when (type) {
-                            AssumeAssertType.ASSUME -> WASM_USER_ASSUME
-                            AssumeAssertType.ASSERT, AssumeAssertType.SATISFY -> WASM_USER_ASSERT
+                            AssumeAssertType.ASSUME, AssumeAssertType.CVT_ASSUME -> WASM_USER_ASSUME
+                            AssumeAssertType.ASSERT, AssumeAssertType.SATISFY, AssumeAssertType.CVT_ASSERT, AssumeAssertType.CVT_SATISFY -> WASM_USER_ASSERT
                         },
                         when (type) {
                             AssumeAssertType.ASSUME -> "${CVTBuiltin.ASSUME.what}: requiring read value to be 1"
                             AssumeAssertType.ASSERT -> "${CVTBuiltin.ASSERT.what}: expecting read value to be 1, got 0"
                             AssumeAssertType.SATISFY -> "${CVTBuiltin.SATISFY.what}: satisfied read value is 1"
+                            AssumeAssertType.CVT_ASSUME -> "${CVTBuiltin.ASSUME.what}: requiring read value to be 1"
+                            AssumeAssertType.CVT_ASSERT -> "${CVTBuiltin.ASSERT.what}: expecting read value to be 1, got 0"
+                            AssumeAssertType.CVT_SATISFY -> "${CVTBuiltin.SATISFY.what}: satisfied read value is 1"
                         },
                     )
                 ),
                 newAssignment,
                 when (type) {
-                    AssumeAssertType.ASSUME ->
+                    AssumeAssertType.ASSUME, AssumeAssertType.CVT_ASSUME ->
                         TACCmd.Simple.AssumeCmd(argSymTac)
-                    AssumeAssertType.ASSERT ->
+                    AssumeAssertType.ASSERT, AssumeAssertType.CVT_ASSERT ->
                         TACCmd.Simple.AssertCmd(
                             argSymTac,
                             "Failed property in cvt::assert",
                             MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
                         )
-                    AssumeAssertType.SATISFY ->
+                    AssumeAssertType.SATISFY, AssumeAssertType.CVT_SATISFY ->
                         TACCmd.Simple.AssertCmd(
                             argSymTac,
                             "Property satisfied",
@@ -599,12 +698,12 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
 
     private fun argToCond(a: Arg, type: AssumeAssertType): TACExpr {
         val success = when (type) {
-            AssumeAssertType.ASSERT, AssumeAssertType.ASSUME -> TACSymbol.True.asSym()
-            AssumeAssertType.SATISFY -> TACSymbol.False.asSym()
+            AssumeAssertType.ASSERT, AssumeAssertType.CVT_ASSERT, AssumeAssertType.ASSUME, AssumeAssertType.CVT_ASSUME -> TACSymbol.True.asSym()
+            AssumeAssertType.SATISFY, AssumeAssertType.CVT_SATISFY -> TACSymbol.False.asSym()
         }
         val failure = when (type) {
-            AssumeAssertType.ASSERT, AssumeAssertType.ASSUME -> TACSymbol.False.asSym()
-            AssumeAssertType.SATISFY -> TACSymbol.True.asSym()
+            AssumeAssertType.ASSERT, AssumeAssertType.CVT_ASSERT, AssumeAssertType.ASSUME, AssumeAssertType.CVT_ASSUME -> TACSymbol.False.asSym()
+            AssumeAssertType.SATISFY, AssumeAssertType.CVT_SATISFY -> TACSymbol.True.asSym()
         }
         return when (a) {
             is ArgRegister -> {

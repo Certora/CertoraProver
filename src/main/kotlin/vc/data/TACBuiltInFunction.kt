@@ -20,22 +20,20 @@ package vc.data
 
 import analysis.pta.abi.TransientCallId
 import com.certora.collect.*
-import config.Config
 import datastructures.stdcollections.*
-import evm.*
 import smt.solverscript.LExpressionFactory
-import smt.solverscript.functionsymbols.*
+import smt.solverscript.functionsymbols.FunctionSymbol
+import smt.solverscript.functionsymbols.NonSMTInterpretedFunctionSymbol
 import tac.MetaMap
 import tac.Tag
 import utils.*
-import utils.SignUtilities.isInUnsignedBounds
-import utils.SignUtilities.isInSignedBounds
-import utils.SignUtilities.maxSignedValueOfBitwidth
-import utils.SignUtilities.to2sComplement
-import utils.SignUtilities.from2sComplement
-import utils.SignUtilities.signExtend
-import vc.data.TACBuiltInFunction.TwosComplement.Unwrap.bitWidth
-import vc.data.TACBuiltInFunction.TwosComplement.Wrap.bitWidth
+import utils.ModZm.Companion.asBigInteger
+import utils.ModZm.Companion.from2s
+import utils.ModZm.Companion.inBounds
+import utils.ModZm.Companion.inBoundsCheck
+import utils.ModZm.Companion.inSignedBounds
+import utils.ModZm.Companion.signExtend
+import utils.ModZm.Companion.to2s
 import java.io.Serializable
 import java.math.BigInteger
 
@@ -88,12 +86,22 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         is OpaqueIdentity -> "_$tag"
         is PartitionInitialize -> "${this.transientId.transientId}_${this.partitionId}"
         is ReadTransientPartition -> "${this.transientId.transientId}_${this.partitionId}"
-        is SignedPromotion -> "_${returnSort.bitwidth}"
-        is UnsignedPromotion -> "_${returnSort.bitwidth}"
-        is SafeSignedNarrow -> "_${returnSort.bitwidth}"
-        is SafeUnsignedNarrow -> "_${returnSort.bitwidth}"
+
+        is SignedPromotion -> "_${paramSort.bitwidth}_${returnSort.bitwidth}"
+        is UnsignedPromotion -> "_${paramSort.bitwidth}_${returnSort.bitwidth}"
+        is SafeSignedNarrow -> "_${paramSort.bitwidth}_${returnSort.bitwidth}"
+        is SafeUnsignedNarrow -> "_${paramSort.bitwidth}_${returnSort.bitwidth}"
         is SafeMathNarrow -> "_${returnSort}"
-        is SafeMathPromotion -> ""
+        is SafeMathPromotion -> "_${paramSort}"
+
+        is NoSMulOverAndUnderflowCheck -> "_${tag.bitwidth}"
+        is NoSAddOverAndUnderflowCheck -> "_${tag.bitwidth}"
+        is NoSSubOverAndUnderflowCheck -> "_${tag.bitwidth}"
+        is NoAddOverflowCheck -> "_${tag.bitwidth}"
+        is NoMulOverflowCheck -> "_${tag.bitwidth}"
+        is TwosComplement.Unwrap -> "_${tag.bitwidth}"
+        is TwosComplement.Wrap -> "_${tag.bitwidth}"
+
         //the rest are objects and don't have params:
         DisjointSighashes,
         Hash.Addition,
@@ -101,14 +109,7 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         Hash.FromSkey,
         Hash.ToSkey,
         LinkContractAddress,
-        NoSMulOverAndUnderflowCheck,
-        NoSAddOverAndUnderflowCheck,
-        NoSSubOverAndUnderflowCheck,
         PrecompiledECRecover,
-        TwosComplement.Unwrap,
-        TwosComplement.Wrap,
-        NoAddOverflowCheck,
-        NoMulOverflowCheck,
         ToStorageKey -> ""
     }
 
@@ -229,99 +230,84 @@ sealed class TACBuiltInFunction : AmbiSerializable {
     }
 
     @KSerializable
-    object NoSMulOverAndUnderflowCheck : WithSMTFunctionSymbol(
+    data class NoSMulOverAndUnderflowCheck(val tag: Tag.Bits) : WithSMTFunctionSymbol(
         BuiltInFuncName.smul_no_ofl_udfl,
-        listOf(Tag.Bit256, Tag.Bit256),
+        listOf(tag, tag),
         Tag.Bool
     ) {
         override val smtFuncSym: FunctionSymbol
-            get() = NonSMTInterpretedFunctionSymbol.Binary.NoSMulOverUnderflow
-        override fun hashCode() = hashObject(this)
-        fun readResolve(): Any = NoSMulOverAndUnderflowCheck
+            get() = NonSMTInterpretedFunctionSymbol.Binary.NoSMulOverUnderflow(tag)
 
         override fun eval(params: List<BigInteger>): BigInteger =
             super.eval(params).let {
-                (params[0].from2sComplement() * params[1].from2sComplement()).let(::isInSignedBounds)
-            }.toBigInteger()
+                (params[0].from2s(tag) * params[1].from2s(tag)).inSignedBounds()
+            }.asBigInteger
     }
 
-    // Add
     @KSerializable
-    object NoAddOverflowCheck : WithSMTFunctionSymbol(
-        BuiltInFuncName.add_noofl,
-        listOf(Tag.Bit256, Tag.Bit256),
-        Tag.Bool
-    ) {
-
-        override val smtFuncSym: FunctionSymbol
-            get() = NonSMTInterpretedFunctionSymbol.Binary.NoAddOverflow
-
-        override fun hashCode() = hashObject(this)
-        fun readResolve(): Any = NoAddOverflowCheck
-
-        override fun eval(params: List<BigInteger>): BigInteger =
-            super.eval(params).let {
-                (params.sumOf { it } < EVM_MOD_GROUP256).toBigInteger()
-            }
-    }
-
-    // Add
-    @KSerializable
-    object NoSAddOverAndUnderflowCheck : WithSMTFunctionSymbol(
+    data class NoSAddOverAndUnderflowCheck(val tag: Tag.Bits) : WithSMTFunctionSymbol(
         BuiltInFuncName.sadd_no_ofl_udfl,
-        listOf(Tag.Bit256, Tag.Bit256),
+        listOf(tag, tag),
         Tag.Bool
     ) {
         override val smtFuncSym: FunctionSymbol
-            get() = NonSMTInterpretedFunctionSymbol.Binary.NoSAddOverUnderflow
-
-        override fun hashCode() = hashObject(this)
-        fun readResolve(): Any = NoSAddOverAndUnderflowCheck
+            get() = NonSMTInterpretedFunctionSymbol.Binary.NoSAddOverUnderflow(tag)
 
         override fun eval(params: List<BigInteger>): BigInteger =
             super.eval(params).let {
-                (params.sumOf { it.from2s() } in MIN_EVM_INT256_AS_MATH_INT..MAX_EVM_INT256).toBigInteger()
-            }
+                (params[0].from2s(tag) + params[1].from2s(tag)).inSignedBounds()
+            }.asBigInteger
     }
+
+
+    @KSerializable
+    data class NoSSubOverAndUnderflowCheck(val tag: Tag.Bits) : WithSMTFunctionSymbol(
+        BuiltInFuncName.ssub_no_ofl_udfl,
+        listOf(tag, tag),
+        Tag.Bool
+    ) {
+        override val smtFuncSym: FunctionSymbol
+            get() = NonSMTInterpretedFunctionSymbol.Binary.NoSSubOverUnderflow(tag)
+
+        override fun eval(params: List<BigInteger>): BigInteger =
+            super.eval(params).let {
+                (params[0].from2s(tag) - params[1].from2s(tag)).inSignedBounds()
+            }.asBigInteger
+    }
+
+
+
 
     // Add
     @KSerializable
-    object NoSSubOverAndUnderflowCheck : WithSMTFunctionSymbol(
-        BuiltInFuncName.ssub_no_ofl_udfl,
-        listOf(Tag.Bit256, Tag.Bit256),
+    data class NoAddOverflowCheck(val tag: Tag.Bits) : WithSMTFunctionSymbol(
+        BuiltInFuncName.add_noofl,
+        listOf(tag, tag),
         Tag.Bool
     ) {
         override val smtFuncSym: FunctionSymbol
-            get() = NonSMTInterpretedFunctionSymbol.Binary.NoSSubOverUnderflow
-
-        override fun hashCode() = hashObject(this)
-        fun readResolve(): Any = NoSSubOverAndUnderflowCheck
+            get() = NonSMTInterpretedFunctionSymbol.Binary.NoAddOverflow(tag)
 
         override fun eval(params: List<BigInteger>): BigInteger =
             super.eval(params).let {
-                ((params[0].from2s() - params[1].from2s())
-                    in MIN_EVM_INT256_AS_MATH_INT..MAX_EVM_INT256).toBigInteger()
-            }
+                (params[0] + params[1]).inBounds(tag)
+            }.asBigInteger
     }
 
     // Mul
     @KSerializable
-    object NoMulOverflowCheck : WithSMTFunctionSymbol(
+    data class NoMulOverflowCheck(val tag : Tag.Bits) : WithSMTFunctionSymbol(
         BuiltInFuncName.mul_noofl,
-        listOf(Tag.Bit256, Tag.Bit256),
+        listOf(tag, tag),
         Tag.Bool
     ) {
-
         override val smtFuncSym: FunctionSymbol
-            get() = NonSMTInterpretedFunctionSymbol.Binary.NoMulOverflow
-
-        override fun hashCode() = hashObject(this)
-        fun readResolve(): Any = NoMulOverflowCheck
+            get() = NonSMTInterpretedFunctionSymbol.Binary.NoMulOverflow(tag)
 
         override fun eval(params: List<BigInteger>): BigInteger =
             super.eval(params).let {
-                ((params[0] * params[1]) < EVM_MOD_GROUP256).toBigInteger()
-            }
+                (params[0] * params[1]).inBounds(tag)
+            }.asBigInteger
     }
 
     @KSerializable
@@ -374,20 +360,19 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         abstract val paramSort: Tag
         override val paramSorts: List<Tag>
             get() = listOf(paramSort)
-        protected val bitWidth = Config.VMConfig.registerBitwidth
 
         /**
          * Takes a parameter encoded as an arbitrary precision integer and converts it to a two's complement value
-         * of bitwidth [bitWidth]
+         * in the bitwidth of [tag].
          *
-         * Assumes input value will fit into a two's complement bitvector of size [bitwidth] (this is verified inside
+         * Assumes input value will fit into a two's complement bitvector of [tag] (this is verified inside
          * the converter logic)
          */
         @KSerializable
-        object Wrap : TwosComplement() {
+        data class Wrap(val tag : Tag.Bits) : TwosComplement() {
             override val eName: BuiltInFuncName = BuiltInFuncName.wrap_twos_complement
             override val paramSort: Tag = Tag.Int
-            override val returnSort: Tag.Bits = Tag.Bit256
+            override val returnSort: Tag.Bits = tag
 
             override fun getLExpressionBuilder(
                 conv: ToLExpression.Conv,
@@ -395,32 +380,27 @@ sealed class TACBuiltInFunction : AmbiSerializable {
             ): (List<TACExpr>) -> LExpression {
                 return { e ->
                     conv.lxf {
-                        conv(e.single(),meta).let { lExp ->
-                            ite(lExp ge ZERO, lExp, lExp + twoTo(bitWidth)) safeMathNarrow returnSort
+                        conv(e.single(), meta).let { lExp ->
+                            ite(lExp ge ZERO, lExp, lExp + litInt(tag.modulus)) safeMathNarrow returnSort
                         }
                     }
                 }
             }
 
-            override fun hashCode() = hashObject(this)
-            fun readResolve(): Any = Wrap
-
             override fun eval(params: List<BigInteger>): BigInteger? =
                 super.eval(params).let {
-                    runIf(isInSignedBounds(params[0])) {
-                        params[0].to2sComplement()
-                    }
+                    params[0].to2s(tag)
                 }
         }
 
         /**
-         * Takes a parameter encoded as a two's complement value of bitwidth [bitWidth] and converts it to an arbitrary
-         * precision signed integer
+         * Takes a parameter encoded as a two's complement value of the bitwidth of [tag] and converts it to an arbitrary
+         * precision signed integer.
          */
         @KSerializable
-        object Unwrap : TwosComplement() {
+        data class Unwrap(val tag : Tag.Bits) : TwosComplement() {
             override val eName: BuiltInFuncName = BuiltInFuncName.unwrap_twos_complement
-            override val paramSort: Tag = Tag.Bit256
+            override val paramSort: Tag = tag
             override val returnSort: Tag = Tag.Int
 
             override fun getLExpressionBuilder(
@@ -430,26 +410,19 @@ sealed class TACBuiltInFunction : AmbiSerializable {
                 return { e ->
                     conv.lxf {
                         conv(e.single(), meta).let { lExp ->
-                            // TODO: smt test
                             ite(
-                                lExp intLe litInt(maxSignedValueOfBitwidth(bitWidth)),
+                                lExp intLe litInt(tag.maxSigned),
                                 lExp,
-                                lExp - twoTo(bitWidth)
+                                lExp - litInt(tag.modulus)
                             )
                         }
                     }
                 }
             }
 
-            override fun hashCode() = hashObject(this)
-            fun readResolve(): Any = Unwrap
-
             override fun eval(params: List<BigInteger>): BigInteger =
                 super.eval(params).let {
-                    require(isInUnsignedBounds(params[0])) {
-                        "${params[0]} is a parameter of ${eName}, breaking the 2s-complement unwrapping invariant"
-                    }
-                    params[0].from2sComplement()
+                    params[0].from2s(tag)
                 }
         }
 
@@ -627,11 +600,11 @@ sealed class TACBuiltInFunction : AmbiSerializable {
      * Compiled out when going to LExpressions
      */
     @KSerializable
-    data class SafeMathPromotion(val param: Tag) : TACBuiltInFunction() {
+    data class SafeMathPromotion(val paramSort: Tag.Bits) : TACBuiltInFunction() {
         override val eName: BuiltInFuncName
             get() = BuiltInFuncName.safe_math_promotion
-        override val paramSorts: List<Tag>
-            get() = listOf(param)
+        override val paramSorts: List<Tag.Bits>
+            get() = listOf(paramSort)
         override val returnSort: Tag
             get() = Tag.Int
 
@@ -663,17 +636,13 @@ sealed class TACBuiltInFunction : AmbiSerializable {
                         Tag.Int -> applyExp(NonSMTInterpretedFunctionSymbol.Unary.SafeMathNarrow(returnSort), arg)
                         is Tag.Bits -> when {
                             tag.bitwidth > returnSort.bitwidth -> applyExp(
-                                NonSMTInterpretedFunctionSymbol.Unary.SafeUnsignedNarrow(
-                                    tag,
-                                    returnSort
-                                ), arg
+                                NonSMTInterpretedFunctionSymbol.Unary.SafeUnsignedNarrow(tag, returnSort),
+                                arg
                             )
 
                             tag.bitwidth < returnSort.bitwidth -> applyExp(
-                                NonSMTInterpretedFunctionSymbol.Unary.UnsignedPromote(
-                                    tag,
-                                    returnSort
-                                ), arg
+                                NonSMTInterpretedFunctionSymbol.Unary.UnsignedPromote(tag, returnSort),
+                                arg
                             )
 
                             else -> arg
@@ -684,7 +653,13 @@ sealed class TACBuiltInFunction : AmbiSerializable {
             }
 
         override fun eval(params: List<BigInteger>): BigInteger? =
-            super.eval(params).let { params.single().takeIf(::isInUnsignedBounds) }
+            super.eval(params).let {
+                params.single().also {
+                    check(it.inBounds(returnSort)) {
+                        "SafeMathNarrow of $it is out of bounds of $returnSort"
+                    }
+                }
+            }
 
     }
 
@@ -692,24 +667,26 @@ sealed class TACBuiltInFunction : AmbiSerializable {
      * Extends an operand of [Tag.Bits] to [returnSort]. Retains the sign of the value (in 2s complement).
      */
     @KSerializable
-    data class SignedPromotion(val param: Tag.Bits, override val returnSort: Tag.Bits): TACBuiltInFunction() {
+    data class SignedPromotion(val paramSort: Tag.Bits, override val returnSort: Tag.Bits): TACBuiltInFunction() {
         init {
-            check(returnSort.bitwidth > param.bitwidth) { "Resulting bitwidth needs to be larger than the arguments bitwidth, can not promote from $param to $returnSort" }
+            check(returnSort.bitwidth > paramSort.bitwidth) {
+                "Resulting bitwidth needs to be larger than the arguments bitwidth, can not promote from $paramSort to $returnSort"
+            }
         }
         override val eName: BuiltInFuncName
             get() = BuiltInFuncName.signed_promotion
         override val paramSorts: List<Tag>
-            get() = listOf(param)
+            get() = listOf(paramSort)
 
         override fun getLExpressionBuilder(conv: ToLExpression.Conv, meta: MetaMap?): (List<TACExpr>) -> LExpression = { args ->
             conv.lxf.applyExp(
-                NonSMTInterpretedFunctionSymbol.Unary.SignedPromote(param, returnSort),
+                NonSMTInterpretedFunctionSymbol.Unary.SignedPromote(paramSort, returnSort),
                 conv(args.single(), meta)
             )
         }
 
         override fun eval(params: List<BigInteger>): BigInteger =
-            params.single().signExtend(param.bitwidth, returnSort.bitwidth)
+            params.single().signExtend(paramSort.bitwidth, returnSort.bitwidth)
     }
 
     /**
@@ -717,18 +694,20 @@ sealed class TACBuiltInFunction : AmbiSerializable {
      * arguments sign (in 2s complement)
      */
     @KSerializable
-    data class UnsignedPromotion(val param: Tag.Bits, override val returnSort: Tag.Bits): TACBuiltInFunction() {
+    data class UnsignedPromotion(val paramSort: Tag.Bits, override val returnSort: Tag.Bits): TACBuiltInFunction() {
         init {
-            check(returnSort.bitwidth > param.bitwidth) { "Resulting bitwidth needs to be larger than the arguments bitwidth, can not promote from $param to $returnSort" }
+            check(returnSort.bitwidth > paramSort.bitwidth) {
+                "Resulting bitwidth needs to be larger than the arguments bitwidth, can not promote from $paramSort to $returnSort"
+            }
         }
         override val eName: BuiltInFuncName
             get() = BuiltInFuncName.unsigned_promotion
         override val paramSorts: List<Tag>
-            get() = listOf(param)
+            get() = listOf(paramSort)
 
         override fun getLExpressionBuilder(conv: ToLExpression.Conv, meta: MetaMap?): (List<TACExpr>) -> LExpression = { args ->
             conv.lxf.applyExp(
-                NonSMTInterpretedFunctionSymbol.Unary.UnsignedPromote(param, returnSort),
+                NonSMTInterpretedFunctionSymbol.Unary.UnsignedPromote(paramSort, returnSort),
                 conv(args.single(), meta)
             )
         }
@@ -742,27 +721,26 @@ sealed class TACBuiltInFunction : AmbiSerializable {
      * operand.
      */
     @KSerializable
-    data class SafeSignedNarrow(val param: Tag.Bits, override val returnSort: Tag.Bits): TACBuiltInFunction() {
+    data class SafeSignedNarrow(val paramSort: Tag.Bits, override val returnSort: Tag.Bits): TACBuiltInFunction() {
         init {
-            check(returnSort.bitwidth < param.bitwidth) { "Resulting bitwidth needs to be smaller than the arguments bitwidth, can not narrow from $param to $returnSort" }
+            check(returnSort.bitwidth < paramSort.bitwidth) {
+                "Resulting bitwidth needs to be smaller than the arguments bitwidth, can not narrow from $paramSort to $returnSort"
+            }
         }
         override val eName: BuiltInFuncName
             get() = BuiltInFuncName.signed_narrow
         override val paramSorts: List<Tag>
-            get() = listOf(param)
+            get() = listOf(paramSort)
 
         override fun getLExpressionBuilder(conv: ToLExpression.Conv, meta: MetaMap?): (List<TACExpr>) -> LExpression = { args ->
             conv.lxf.applyExp(
-                NonSMTInterpretedFunctionSymbol.Unary.SafeSignedNarrow(param, returnSort),
+                NonSMTInterpretedFunctionSymbol.Unary.SafeSignedNarrow(paramSort, returnSort),
                 conv(args.single(), meta)
             )
         }
 
         override fun eval(params: List<BigInteger>): BigInteger =
-            params.single()
-                .from2sComplement(param.bitwidth)
-                .also { check(isInSignedBounds(it, returnSort.bitwidth)) { "signed value is out of range: $it in $returnSort" } }
-                .to2sComplement(returnSort.bitwidth)
+            params.single().from2s(paramSort).to2s(returnSort)
     }
 
     /**
@@ -770,25 +748,25 @@ sealed class TACBuiltInFunction : AmbiSerializable {
      * range of the resulting tag. The result of this operation are always the lower bits of the operand.
      */
     @KSerializable
-    data class SafeUnsignedNarrow(val param: Tag.Bits, override val returnSort: Tag.Bits): TACBuiltInFunction() {
+    data class SafeUnsignedNarrow(val paramSort: Tag.Bits, override val returnSort: Tag.Bits): TACBuiltInFunction() {
         init {
-            check(returnSort.bitwidth < param.bitwidth) { "Resulting bitwidth needs to be smaller than the arguments bitwidth, can not narrow from $param to $returnSort" }
+            check(returnSort.bitwidth < paramSort.bitwidth) { "Resulting bitwidth needs to be smaller than the arguments bitwidth, can not narrow from $paramSort to $returnSort" }
         }
         override val eName: BuiltInFuncName
             get() = BuiltInFuncName.unsigned_narrow
         override val paramSorts: List<Tag>
-            get() = listOf(param)
+            get() = listOf(paramSort)
 
         override fun getLExpressionBuilder(conv: ToLExpression.Conv, meta: MetaMap?): (List<TACExpr>) -> LExpression = { args ->
             conv.lxf.applyExp(
-                NonSMTInterpretedFunctionSymbol.Unary.SafeUnsignedNarrow(param, returnSort),
+                NonSMTInterpretedFunctionSymbol.Unary.SafeUnsignedNarrow(paramSort, returnSort),
                 conv(args.single(), meta)
             )
         }
 
         override fun eval(params: List<BigInteger>): BigInteger =
-            params.single()
-                .also { check(isInUnsignedBounds(it, returnSort.bitwidth)) { "unsigned value is out of range: $it in $returnSort" } }
+            params.single().inBoundsCheck(returnSort)
+
     }
 
     sealed interface TransientMemoryBif {

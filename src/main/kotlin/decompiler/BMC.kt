@@ -19,6 +19,8 @@ package decompiler
 import allocator.Allocator
 import analysis.*
 import analysis.icfg.CallGraphBuilder
+import analysis.icfg.InlinedMethodCallStack
+import analysis.icfg.Inliner
 import analysis.pta.ABICodeFinder
 import analysis.pta.LoopCopyAnalysis
 import analysis.pta.abi.ABIAnnotator
@@ -254,7 +256,18 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
         val patching = appendJumpsToLoopBlocks(loop, patchingIn)
 
         var unrollCount = calculateUnrollConst(loop)
-        val unrollCmds = createUnrollCmds(patching, loop) ?: unwindCondCheck(sym = TACSymbol.False, tagLoopTerminus = loopId).also {
+        val unrollCmds = createUnrollCmds(patching, loop) ?: unwindCondCheck(sym = TACSymbol.False, tagLoopTerminus = loopId).let { sinkCommands ->
+            val pops = InlinedMethodCallStack(code.analysisCache.graph).iterateUpStackPushRecords(CmdPointer(loop.head, 0)).map { push ->
+                TACCmd.Simple.AnnotationCmd(
+                    Inliner.CallStack.STACK_POP,
+                    Inliner.CallStack.PopRecord(
+                        calleeId = push.callId,
+                        callee = push.ref as MethodRef
+                    )
+                )
+            }
+            sinkCommands + pops
+        }.also {
             // The unroll condition is a 'false', because we couldn't find the loop's exit-condition. In this case
             // we will unroll an extra iteration before asserting/assuming in order to make sure the loop's exit
             // condition is evaluated after the [unrollCount] copies of the loop.

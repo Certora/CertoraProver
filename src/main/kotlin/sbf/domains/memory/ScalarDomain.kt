@@ -698,58 +698,55 @@ class ScalarDomain(// Model stack's contents
                 val cvtFunction = CVTFunction.from(stmt.name)
                 if (cvtFunction != null) {
                     when (cvtFunction) {
-                        CVTFunction.ASSUME -> {
-                            analyzeAssume(Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Imm(0UL)))
+                        is CVTFunction.Core -> {
+                            when (cvtFunction.value) {
+                                CVTCore.ASSUME -> {
+                                    analyzeAssume(Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Imm(0UL)))
+                                }
+                                CVTCore.ASSERT -> {
+                                    // At this point, we don't check.
+                                    // So if assert doesn't fail than we can assume that r1 !=0
+                                    analyzeAssume(Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Imm(0UL)))
+                                }
+                                CVTCore.SATISFY, CVTCore.SANITY -> {}
+                                CVTCore.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
+                                CVTCore.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
+                                CVTCore.NONDET_ACCOUNT_INFO -> {
+                                    summarizeCall(locInst, memSummaries)
+                                }
+                                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
+                                    /// This is only used for pretty-printing
+                                    setRegister(
+                                        Value.Reg(SbfRegister.R0_RETURN_VALUE),
+                                        ScalarValue(SbfType.PointerType.Input(Constant.makeTop()))
+                                    )
+                                }
+                                CVTCore.ALLOC_SLICE -> {
+                                    /// This is only used for pretty-printing
+                                    /// That's why we return top in some cases rather than reporting an error
+                                    val returnedVal = when (getRegister(Value.Reg(SbfRegister.R1_ARG)).get()) {
+                                        is SbfType.PointerType.Heap -> ScalarValue(SbfType.PointerType.Heap(Constant.makeTop()))
+                                        is SbfType.PointerType.Input -> ScalarValue(SbfType.PointerType.Input(Constant.makeTop()))
+                                        is SbfType.PointerType.Global -> ScalarValue(
+                                            SbfType.PointerType.Global(
+                                                Constant.makeTop(),
+                                                global = null
+                                            )
+                                        )
+                                        is SbfType.PointerType.Stack -> ScalarValue(SbfType.PointerType.Stack(Constant.makeTop()))
+                                        else -> ScalarValue.mkTop()
+                                    }
+                                    setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), returnedVal)
+                                }
+                            }
                         }
-                        CVTFunction.ASSERT -> {
-                            // At this point, we don't check.
-                            // So if assert doesn't fail than we can assume that r1 !=0
-                            analyzeAssume(Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Imm(0UL)))
-                        }
-                        CVTFunction.SATISFY, CVTFunction.SANITY -> {}
-                        CVTFunction.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
-                        CVTFunction.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
-                        CVTFunction.CEX_PRINT_TAG,
-                        CVTFunction.CEX_PRINT_LOCATION,
-                        CVTFunction.CEX_ATTACH_LOCATION,
-                        CVTFunction.CEX_PRINT_i64_1, CVTFunction.CEX_PRINT_i64_2, CVTFunction.CEX_PRINT_i64_3,
-                        CVTFunction.CEX_PRINT_u64_1, CVTFunction.CEX_PRINT_u64_2, CVTFunction.CEX_PRINT_u64_3 -> {
-                            castNumToString(Value.Reg(SbfRegister.R1_ARG), globals)
-                        }
-                        CVTFunction.CEX_PRINT_STRING -> {
-                            castNumToString(Value.Reg(SbfRegister.R1_ARG), globals)
-                            castNumToString(Value.Reg(SbfRegister.R3_ARG), globals)
-                        }
-                        CVTFunction.NONDET_i8, CVTFunction.NONDET_i16, CVTFunction.NONDET_i32, CVTFunction.NONDET_i64,
-                        CVTFunction.NONDET_u8, CVTFunction.NONDET_u16, CVTFunction.NONDET_u32, CVTFunction.NONDET_u64,
-                        CVTFunction.NONDET_usize, CVTFunction.NONDET_u128,
-                        CVTFunction.U128_LEQ, CVTFunction.U128_GT0, CVTFunction.U128_CEIL_DIV,
-                        CVTFunction.NATIVEINT_EQ, CVTFunction.NATIVEINT_LT, CVTFunction.NATIVEINT_LE,
-                        CVTFunction.NATIVEINT_ADD, CVTFunction.NATIVEINT_SUB, CVTFunction.NATIVEINT_MUL,
-                        CVTFunction.NATIVEINT_DIV, CVTFunction.NATIVEINT_CEIL_DIV,
-                        CVTFunction.NATIVEINT_MULDIV, CVTFunction.NATIVEINT_MULDIV_CEIL,
-                        CVTFunction.NATIVEINT_NONDET,
-                        CVTFunction.NATIVEINT_FROM_u128, CVTFunction.NATIVEINT_FROM_u256,
-                        CVTFunction.NATIVEINT_u64_MAX, CVTFunction.NATIVEINT_u128_MAX, CVTFunction.NATIVEINT_u256_MAX,
-                        CVTFunction.NONDET_ACCOUNT_INFO -> {
+                        is CVTFunction.Nondet, is CVTFunction.U128Intrinsics, is CVTFunction.NativeInt  ->  {
                             summarizeCall(locInst, memSummaries)
                         }
-                        CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE -> {
-                            /// This is only used for pretty-printing
-                            setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE),
-                                ScalarValue(SbfType.PointerType.Input(Constant.makeTop())))
-                        }
-                        CVTFunction.ALLOC_SLICE -> {
-                            /// This is only used for pretty-printing
-                            /// That's why we return top in some cases rather than reporting an error
-                            val returnedVal = when (getRegister(Value.Reg(SbfRegister.R1_ARG)).get()) {
-                                is SbfType.PointerType.Heap ->  ScalarValue(SbfType.PointerType.Heap(Constant.makeTop()))
-                                is SbfType.PointerType.Input -> ScalarValue(SbfType.PointerType.Input(Constant.makeTop()))
-                                is SbfType.PointerType.Global -> ScalarValue(SbfType.PointerType.Global(Constant.makeTop(), global = null))
-                                is SbfType.PointerType.Stack -> ScalarValue(SbfType.PointerType.Stack(Constant.makeTop()))
-                                else -> ScalarValue.mkTop()
+                        is CVTFunction.Calltrace -> {
+                            cvtFunction.value.strings.forEach {
+                                castNumToString(it.string, globals)
                             }
-                            setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), returnedVal)
                         }
                     }
                 } else {

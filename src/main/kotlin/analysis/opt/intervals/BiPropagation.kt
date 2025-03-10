@@ -17,16 +17,13 @@
 
 package analysis.opt.intervals
 
-import analysis.numeric.MAX_UINT
 import analysis.opt.intervals.BiPropagation.ifNonEmpty
-import analysis.opt.intervals.ExtBig.Companion.Int256min2s
 import analysis.opt.intervals.ExtBig.Companion.One
 import analysis.opt.intervals.ExtBig.Companion.Zero
 import analysis.opt.intervals.ExtBig.Companion.asExtBig
 import analysis.opt.intervals.ExtBig.Inf
 import analysis.opt.intervals.ExtBig.MInf
 import analysis.opt.intervals.Interval.CutAtPoint
-import analysis.opt.intervals.Intervals.Companion.S2To256
 import analysis.opt.intervals.Intervals.Companion.SEmpty
 import analysis.opt.intervals.Intervals.Companion.SFalse
 import analysis.opt.intervals.Intervals.Companion.SFull
@@ -38,7 +35,6 @@ import analysis.opt.intervals.Intervals.Companion.timesAll
 import analysis.opt.intervals.Intervals.Companion.unionOf
 import analysis.split.Ternary.Companion.isPowOf2Minus1
 import datastructures.stdcollections.*
-import evm.EVM_MOD_GROUP256
 import utils.*
 import java.math.BigInteger
 import analysis.opt.intervals.Intervals as S
@@ -201,40 +197,40 @@ object BiPropagation {
 
 
     /**
-     * transforms [x] and [y] (and if [convertFirst] then also [lhs]) to mathint form, i.e., from 2s complement to
+     * transforms [x] and [y] (and if [convertLhs] then also [lhs]) to mathint form, i.e., from 2s complement to
      * possibly negative numbers. Then applies [f], and then transforms the results back 2s complement.
      */
-    private inline fun inMathInt(lhs: S, x: S, y: S, convertFirst: Boolean, f: (List<S>) -> List<S>): List<S> =
+    private inline fun inMathInt(lhs: S, x: S, y: S, convertLhs: Boolean, modZm: ModZm, f: (List<S>) -> List<S>): List<S> =
         ifNonEmpty(lhs, x, y) {
-            val lhs1 = lhs.letIf(convertFirst) { it.toMathInt() }
-            val x1 = x.toMathInt()
-            val y1 = y.toMathInt()
+            val lhs1 = lhs.letIf(convertLhs) { it.toMathInt(modZm) }
+            val x1 = x.toMathInt(modZm)
+            val y1 = y.toMathInt(modZm)
             val (newLhs, newX, newY) = f(listOf(lhs1, x1, y1))
             return listOf(
-                newLhs.letIf(convertFirst) { it.fromMathInt() },
-                newX.fromMathInt(),
-                newY.fromMathInt()
+                newLhs.letIf(convertLhs) { it.fromMathInt(modZm) },
+                newX.fromMathInt(modZm),
+                newY.fromMathInt(modZm)
             )
         }
 
 
     /** [lhs] := [x] s<= [y]  ---  s<= denoting a signed less than or equals operation */
-    fun sLe(lhs: S, x: S, y: S) =
-        inMathInt(lhs, x, y, convertFirst = false) { (lhs1, x1, y1) ->
+    fun sLe(lhs: S, x: S, y: S, modZm: ModZm) =
+        inMathInt(lhs, x, y, convertLhs = false, modZm) { (lhs1, x1, y1) ->
             le(lhs1, x1, y1)
         }
 
 
     /** [lhs] := [x] s< [y]  ---  s< denoting a signed less than operation */
-    fun sLt(lhs: S, x: S, y: S) =
-        inMathInt(lhs, x, y, convertFirst = false) { (lhs1, x1, y1) ->
+    fun sLt(lhs: S, x: S, y: S, modZm: ModZm) =
+        inMathInt(lhs, x, y, convertLhs = false, modZm) { (lhs1, x1, y1) ->
             lt(lhs1, x1, y1)
         }
 
 
-    fun sGe(lhs: S, x: S, y: S) = sLe(lhs, y, x).reverseXandY()
+    fun sGe(lhs: S, x: S, y: S, modZm: ModZm) = sLe(lhs, y, x, modZm).reverseXandY()
 
-    fun sGt(lhs: S, x: S, y: S) = sLt(lhs, y, x).reverseXandY()
+    fun sGt(lhs: S, x: S, y: S, modZm: ModZm) = sLt(lhs, y, x, modZm).reverseXandY()
 
 
     /** [lhs] := ![rhs] */
@@ -252,10 +248,10 @@ object BiPropagation {
 
 
     /** [lhs] := bitwiseNot([rhs]) */
-    fun bwNot(lhs: S, rhs: S) =
+    fun bwNot(lhs: S, rhs: S, modZm: ModZm) =
         ifNonEmpty(lhs, rhs) {
-            val newLhs = lhs intersect rhs.bwNot()
-            val newRhs = rhs intersect newLhs.bwNot()
+            val newLhs = lhs intersect rhs.bwNot(modZm)
+            val newRhs = rhs intersect newLhs.bwNot(modZm)
             listOf(newLhs, newRhs)
         }
 
@@ -493,11 +489,11 @@ object BiPropagation {
      * This delegates to normal division on the mathint version, but also accounts for EVM overflow behavior:
      *      `minInt256 / -1 = minInt256`
      */
-    fun sDiv(lhs: S, x: S, y: S) =
-        inMathInt(lhs, x, y, true) { (lhs1, x1, y1) ->
+    fun sDiv(lhs: S, x: S, y: S, modZm: ModZm) =
+        inMathInt(lhs, x, y, convertLhs = true, modZm) { (lhs1, x1, y1) ->
             div(lhs1, x1, y1)
-        }.letIf(Int256min2s in lhs && Int256min2s in x && MAX_UINT in y) { (lhs2, x2, y2) ->
-            listOf(lhs2 union S(Int256min2s) , x2 union S(Int256min2s), y2 union S(MAX_UINT))
+        }.letIf(modZm.minSigned2s in lhs && modZm.minSigned2s in x && modZm.maxUnsigned in y) { (lhs2, x2, y2) ->
+            listOf(lhs2 union S(modZm.minSigned2s) , x2 union S(modZm.minSigned2s), y2 union S(modZm.maxUnsigned))
         }
 
 
@@ -535,18 +531,17 @@ object BiPropagation {
     fun unsignedMod(lhs: S, x: S, y: S) =
         mod(lhs, x, y, x unsignedMod y)
 
-    fun sMod(lhs: S, x: S, y: S) =
-        inMathInt(lhs, x, y, true) { (lhs1, x1, y1) ->
+    fun sMod(lhs: S, x: S, y: S, modZm: ModZm) =
+        inMathInt(lhs, x, y, true, modZm) { (lhs1, x1, y1) ->
             mod(lhs1, x1, y1, x1 evmSignedMod y1)
         }
 
     fun cvlMod(lhs: S, x: S, y: S) =
         mod(lhs, x, y, x cvlMod y)
 
-    /** [lhs] := [x] mod 2^256 */
-    fun mod2To256(lhs: S, x: S) =
-        unsignedMod(lhs, x, S2To256).subList(0, 2)
-
+    /** [lhs] := [x] mod [modZm].modulus */
+    fun mod(lhs: S, x: S, modZm: ModZm) =
+        unsignedMod(lhs, x, S(modZm.modulus)).subList(0, 2)
 
     fun mulMod(lhs: S, x: S, y: S, m: S) =
         ifNonEmpty(lhs, x, y, m) {
@@ -562,16 +557,16 @@ object BiPropagation {
 
     /**
      * [lhs] = 2^[x],
-     * but an [x] larger than 256 behaves like 256.
+     * but an [x] larger than `[modZm].bitwidth` behaves like `[modZm].bitwidth`.
      * So more like:
-     * [lhs] = x < 256 ? 2^[x] : 2^256
+     * [lhs] = [x] < width ? 2^[x] : 2^width
      */
-    fun powOf2Limited(lhs: S, x: S) =
+    fun powOf2Limited(lhs: S, x: S, modZm: ModZm) =
         ifNonEmpty(lhs, x) {
-            val newLhs = x.pow2Limited() intersect lhs
+            val newLhs = x.pow2Limited(modZm) intersect lhs
             val lhsLog2 = newLhs.log2()
-                .letIf(EVM_MOD_GROUP256 in newLhs) {
-                    it union S(256.asExtBig, Inf)
+                .letIf(modZm.modulus in newLhs) {
+                    it union S(modZm.bitwidth.asExtBig, Inf)
                 }
             val newX = x intersect lhsLog2
             listOf(newLhs, newX)
@@ -583,10 +578,10 @@ object BiPropagation {
         justForward(lhs, x, y, S::pow)
 
 
-    /** [lhs] := [x] signextended from [fromBit] */
-    fun signExtend(lhs: S, x: S, fromBit: Int) =
+    /** [lhs] := [x] signextended from [fromBit] to [toBit] */
+    fun signExtend(lhs: S, x: S, fromBit: Int, toBit: Int) =
         ifNonEmpty(lhs, x) {
-            val signExtended = x signExtend fromBit
+            val signExtended = x.signExtend(fromBit, toBit)
             if (x == signExtended) {
                 // If the signExtend is actually a no-op.
                 // This can only happen if all elements of `x` are already sign-extended. That means that anything known
@@ -649,15 +644,15 @@ object BiPropagation {
 
 
     /** [x] is in math-int and [lhs] the equivalent in 2s complement */
-    fun mathintTo2s(lhs : S, x : S) =
+    fun mathintTo2s(lhs : S, x : S, modZm: ModZm) =
         ifNonEmpty(lhs, x) {
-            val newLhs = lhs intersect x.fromMathInt()
-            val newX = x intersect newLhs.toMathInt()
+            val newLhs = lhs intersect x.fromMathInt(modZm)
+            val newX = x intersect newLhs.toMathInt(modZm)
             listOf(newLhs, newX)
         }
 
     /** [x] is in twos-complement and [lhs] the equivalent in math-int */
-    fun twosToMathint(lhs : S, x : S) =
-        mathintTo2s(x, lhs).reversed()
+    fun twosToMathint(lhs : S, x : S, modZm: ModZm) =
+        mathintTo2s(x, lhs, modZm).reversed()
 
 }

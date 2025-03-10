@@ -57,10 +57,10 @@ enum class CompilerRtFunction(val function: ExternalFunction) {
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
             SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet()));
 
-    companion object: ExternalLibrary  {
+    companion object: ExternalLibrary<CompilerRtFunction>  {
         private val nameMap = values().associateBy { it.function.name }
 
-        fun from(name: String) = nameMap[name]
+        override fun from(name: String) = nameMap[name]
 
         override fun addSummaries(memSummaries: MemorySummaries) {
             for (f in nameMap.values) {

@@ -23,12 +23,12 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import utils.ModZm.Companion.signExtend
+import utils.SignUtilities.from2sComplement
 import utils.SignUtilities.maxSignedValueOfBitwidth
 import utils.SignUtilities.maxUnsignedValueOfBitwidth
 import utils.SignUtilities.minSignedValueOfBitwidth
 import utils.SignUtilities.to2sComplement
-import utils.SignUtilities.from2sComplement
-import utils.SignUtilities.signExtend
 import java.math.BigInteger
 import java.util.*
 

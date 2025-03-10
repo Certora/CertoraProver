@@ -4137,35 +4137,26 @@ class PTAGraph(/** Global node allocator **/
             if (cvtFunction != null) {
                 /** CVT call */
                 when (cvtFunction) {
-                    CVTFunction.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
-                    CVTFunction.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
-                    CVTFunction.ASSERT, CVTFunction.ASSUME -> {
-                        throw PointerDomainError("unsupported call to $name. " +
-                            "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
+                    is CVTFunction.Core -> {
+                        when (cvtFunction.value) {
+                            CVTCore.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
+                            CVTCore.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
+                            CVTCore.ASSERT, CVTCore.ASSUME -> {
+                                throw PointerDomainError("unsupported call to $name. " +
+                                    "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
+                            }
+                            CVTCore.SATISFY, CVTCore.SANITY -> {}
+                            CVTCore.NONDET_ACCOUNT_INFO,  CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
+                                summarizeCall(calleeLocInst, globals, scalars, memSummaries)
+                            }
+                            CVTCore.ALLOC_SLICE -> {
+                                summarizeAllocSlice(calleeLocInst, globals, scalars)
+                            }
+                        }
                     }
-                    CVTFunction.SATISFY, CVTFunction.SANITY,
-                    CVTFunction.CEX_PRINT_i64_1, CVTFunction.CEX_PRINT_i64_2, CVTFunction.CEX_PRINT_i64_3,
-                    CVTFunction.CEX_PRINT_TAG, CVTFunction.CEX_PRINT_LOCATION, CVTFunction.CEX_ATTACH_LOCATION,
-                    CVTFunction.CEX_PRINT_STRING,
-                    CVTFunction.CEX_PRINT_u64_1, CVTFunction.CEX_PRINT_u64_2, CVTFunction.CEX_PRINT_u64_3-> {}
-
-                    CVTFunction.NONDET_i8, CVTFunction.NONDET_i16, CVTFunction.NONDET_i32, CVTFunction.NONDET_i64,
-                    CVTFunction.NONDET_u8, CVTFunction.NONDET_u16, CVTFunction.NONDET_u32, CVTFunction.NONDET_u64,
-                    CVTFunction.NONDET_usize, CVTFunction.NONDET_u128,
-                    CVTFunction.NONDET_ACCOUNT_INFO,
-                    CVTFunction.U128_LEQ, CVTFunction.U128_GT0, CVTFunction.U128_CEIL_DIV,
-                    CVTFunction.NATIVEINT_EQ, CVTFunction.NATIVEINT_LT, CVTFunction.NATIVEINT_LE,
-                    CVTFunction.NATIVEINT_ADD, CVTFunction.NATIVEINT_SUB,
-                    CVTFunction.NATIVEINT_MUL, CVTFunction.NATIVEINT_DIV, CVTFunction.NATIVEINT_CEIL_DIV,
-                    CVTFunction.NATIVEINT_MULDIV, CVTFunction.NATIVEINT_MULDIV_CEIL,
-                    CVTFunction.NATIVEINT_NONDET,
-                    CVTFunction.NATIVEINT_FROM_u128, CVTFunction.NATIVEINT_FROM_u256,
-                    CVTFunction.NATIVEINT_u64_MAX, CVTFunction.NATIVEINT_u128_MAX, CVTFunction.NATIVEINT_u256_MAX,
-                    CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE -> {
+                    is CVTFunction.Calltrace -> {}
+                    is CVTFunction.Nondet, is CVTFunction.U128Intrinsics, is CVTFunction.NativeInt  ->  {
                         summarizeCall(calleeLocInst, globals, scalars, memSummaries)
-                    }
-                    CVTFunction.ALLOC_SLICE -> {
-                        summarizeAllocSlice(calleeLocInst, globals, scalars)
                     }
                 }
             } else {

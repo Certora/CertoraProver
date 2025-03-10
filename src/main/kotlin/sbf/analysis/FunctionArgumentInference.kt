@@ -81,7 +81,7 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
 
         return if (inlinedFunction == null || callId == null) {
             inState
-        } else if (CVTFunction.from(call.name) == CVTFunction.SAVE_SCRATCH_REGISTERS) {
+        } else if (CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
             visitedInlinedFunctions.updateInPlace(inlinedFunction, setOf()) {
                 it + cmd
             }
@@ -96,8 +96,8 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
         val cvtCall = CVTFunction.from(call.name)?.function
         val rtCall = CompilerRtFunction.from(call.name)?.function
 
-        return if (CVTFunction.from(call.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS  ||
-                   CVTFunction.from(call.name) == CVTFunction.SAVE_SCRATCH_REGISTERS) {
+        return if (CVTFunction.from(call.name)  == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)  ||
+                   CVTFunction.from(call.name)  == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
             transformScratchRegisterOp(inState, call, cmd)
         } else if (solanaCall != null) {
             transformExternalCall(inState, solanaCall, cmd)

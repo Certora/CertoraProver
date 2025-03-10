@@ -35,8 +35,7 @@ import solver.toTacAssignment
 import tac.MetaMap
 import tac.NBId
 import tac.Tag
-import utils.`to?`
-import utils.uniqueOrNull
+import utils.*
 import vc.data.*
 import vc.data.tacexprutil.*
 import java.math.BigInteger
@@ -47,8 +46,8 @@ object StorageLoopSummarizer {
     }
 
     private data class CandidateLoopInfo(
-            val storageCmd: List<CmdPointer>,
-            val succ: NBId,
+        val storageCmd: List<CmdPointer>,
+        val succ: NBId,
     )
 
     private class Worker(val graph: TACCommandGraph) {
@@ -98,7 +97,8 @@ object StorageLoopSummarizer {
             }?.takeIf { defSite ->
                 graph.cache.domination.dominates(defSite.block, loopSummary.loop.head)
             }?.let { defSite ->
-                defSite `to?` (graph.elab(defSite).maybeNarrow<TACCmd.Simple.AssigningCmd.AssignExpCmd>()?.cmd?.rhs as? TACExpr.Sym)?.s
+                defSite `to?` (graph.elab(defSite)
+                    .maybeNarrow<TACCmd.Simple.AssigningCmd.AssignExpCmd>()?.cmd?.rhs as? TACExpr.Sym)?.s
             } ?: return null
 
             return (x0 as? TACSymbol.Var)?.let { x0v ->
@@ -107,39 +107,6 @@ object StorageLoopSummarizer {
                 )?.asTACSymbol()
             } ?: (x0DefSite to x0)
         }
-
-        /* Given an expression e @ [where], substitute any vars \in fv(e) when
-           they are unique @ [where]. Do this recursively.
-         */
-        inner class BackSub(val where: CmdPointer): DefaultTACExprTransformer() {
-            override fun transformVar(exp: TACExpr.Sym.Var): TACExpr {
-                return nontriv.getDefAsExpr<TACExpr>(exp.s, where)?.let {
-                    BackSub(it.ptr).transform(it.exp)
-                } ?: super.transformVar(exp)
-            }
-        }
-
-        /**
-          Substitute variables that appear in [e] with their definition when that definition is
-          unique at [where]. This is performed recursively:
-
-          a = a1 + a0
-          if (*) {
-            b = ...
-          } else {
-            b = ...
-          }
-          c = c1 & c2
-          d = a + b
-          L:
-          e = c | d
-
-          then gatherExprs(L, e) will give us:
-
-          (c1 & c2) | ((a1 + a0) + b)
-         */
-        fun gatherExprs(where: CmdPointer, e: TACExpr): TACExpr =
-            BackSub(where).transform(e)
 
         /**
          * Returns the unique value of [s] for all models satisfying [constraint] (if it exists).
@@ -150,7 +117,7 @@ object StorageLoopSummarizer {
             constraint: TACExpr,
             blaster: SmtExpIntBlaster,
         ): BigInteger? {
-            check (constraint is TACExpr.BoolExp)
+            check(constraint is TACExpr.BoolExp)
 
             val fvs = TACExprFreeVarsCollector.getFreeVars(constraint)
             val smtCommands = SmtExpScriptBuilder(SmtExpIntTermBuilder)
@@ -189,37 +156,65 @@ object StorageLoopSummarizer {
                     ?.takeIf {
                         BigInteger.ZERO <= it
                             && run {
-                                // We got the model `N = it`. We only return this if it's the
-                                // ONLY solution. So we add `N != it` to our constraints
-                                // If `blastSmt` returns `true` then the constraints are UNSAT,
-                                // i.e. `it` is the only solution
-                                smtCommands.assert { lnot(eq(numIterationsExp, const(it))) }
-                                smtCommands.checkSat()
-                                Z3Blaster.blastSmt(smtCommands.cmdList)
-                            }
+                            // We got the model `N = it`. We only return this if it's the
+                            // ONLY solution. So we add `N != it` to our constraints
+                            // If `blastSmt` returns `true` then the constraints are UNSAT,
+                            // i.e. `it` is the only solution
+                            smtCommands.assert { lnot(eq(numIterationsExp, const(it))) }
+                            smtCommands.checkSat()
+                            Z3Blaster.blastSmt(smtCommands.cmdList)
+                        }
                     }
             } else {
                 null
             }
         }
 
+
+        /* Inline definitions in cond by backwards reasoning */
+        private fun liftExpr(target: NBId, expr: TACExpr): TACExpr {
+            val originalFreeVariables = expr.getFreeVars()
+            var liftedExpr = expr
+            var nextTarget: NBId = target
+            while (liftedExpr.getFreeVars().containsAny(originalFreeVariables)) {
+                // Get the defEq of the condition (assumed to hold at the last command of [target])
+                // in terms of the vocabulary at the first command of [target],
+                // otherwise bail
+                val sub = liftedExpr.getFreeVars().monadicMap {
+                    it.asSym() `to?` DefiningEquationAnalysis.getDefiningEquation(
+                        graph, it, graph.elab(nextTarget).commands.last().ptr, CmdPointer(nextTarget, 0)
+                    )
+                }?.toMap() ?: break
+
+                liftedExpr = TACExprUtils.SubstitutorVar(sub).transformOuter(liftedExpr)
+                nextTarget = graph.pred(nextTarget).singleOrNull() ?: break
+            }
+            return liftedExpr
+        }
+
         /**
          * Try and calculate the number of iterations executed by the summarized loop.
          */
         private fun numberOfIterations(
-                jump: LTACCmd,
-                summary: LoopIterationSummary,
-                blaster: SmtExpIntBlaster,
+            jump: LTACCmd,
+            summary: LoopIterationSummary,
+            blaster: SmtExpIntBlaster,
         ): BigInteger? {
             val condVar = jump.maybeNarrow<TACCmd.Simple.JumpiCmd>()?.cmd?.cond as? TACSymbol.Var ?: return null
 
-            val loopCondition = gatherExprs(jump.ptr, condVar.asSym()).let {
+            val loopHead = CmdPointer(summary.loop.head, 0)
+            val loopCondition = DefiningEquationAnalysis.getDefiningEquation(
+                graph,
+                condVar,
+                jump.ptr,
+                loopHead,
+            )?.let {
                 if (jump.narrow<TACCmd.Simple.JumpiCmd>().cmd.dst in summary.loop.body) {
                     it
                 } else {
                     TACExpr.UnaryExp.LNot(it)
                 }
-            }
+            } ?: return null
 
             /* Assuming we have something like
                ...
@@ -235,14 +230,11 @@ object StorageLoopSummarizer {
                [guessedInductionVar] is i
                [initLoc] is L
                [inductionInit] is i0
-               [inductionInitDef] is [inductionInit] but with its free variables replaced by their unique definitions
-                                  (if possible -- see docs for [gatherExprs]
              */
-            val guessedInductionVar = TACExprFreeVarsCollector.getFreeVars(loopCondition).singleOrNull() {
-                it in summary.iterationEffect
+            val nonIdentity = summary.nonIdentityIterationEffects()
+            val guessedInductionVar = TACExprFreeVarsCollector.getFreeVars(loopCondition).singleOrNull {
+                it in nonIdentity
             } ?: return null
-            val (initLoc, inductionInit) = initialValue(guessedInductionVar, summary) ?: return null
-            val inductionInitDef = gatherExprs(initLoc, inductionInit.asSym())
 
             // Finally we need to get the effect of guessedInductionVar for each iteration.
             val increment = AbstractArraySummaryExtractor
@@ -256,18 +248,18 @@ object StorageLoopSummarizer {
             // be our number of iterations
             val numIterations = TACSymbol.Var("N", Tag.Bit256)
 
-            // X is our guessedInductionVariable
-
-            // X_final = X_0 + (N - 1)*increment
-            // unless it's a do-loop
-            val numIterationsInFinalIteration = if (summary.isDoLoop) {
-                numIterations.asSym()
-            } else {
+            // If N is the number of iterations, then the loop condition succeeds for the last
+            // time on N-1
+            //
+            // This is true for do-loops as well as "normal" loops, because we're effectively
+            // counting the number of times we enter the loop header block such that the backedge
+            // conditional jump will succeed.
+            val nInFinalExecution =
                 TACExpr.BinOp.Sub(numIterations.asSym(), BigInteger.ONE.asTACExpr, Tag.Bit256)
-            }
+
             val finalValue = TACExpr.Vec.Add(
-                inductionInitDef,
-                TACExpr.Vec.Mul(numIterationsInFinalIteration, increment.asTACExpr, Tag.Bit256),
+                guessedInductionVar.asSym(),
+                TACExpr.Vec.Mul(nInFinalExecution, increment.asTACExpr, Tag.Bit256),
                 Tag.Bit256
             )
 
@@ -278,26 +270,41 @@ object StorageLoopSummarizer {
                linear effect
              */
             val exitValue = TACExpr.Vec.Add(finalValue, increment.asTACExpr, Tag.Bit256)
+            // express any other free variables in terms of vars defined at the beginning of the
+            // loop block
             val preExitCondition = loopCondition.substVar(guessedInductionVar, finalValue)
             val postExitCondition = loopCondition.substVar(guessedInductionVar, exitValue)
-            val constraint = TACExpr.BinBoolOp.LAnd(
+
+            // Propagate this backward to inline as many definitions as possible
+            val constraintAtLoopHeader = TACExpr.BinBoolOp.LAnd(
                 preExitCondition,
                 TACExpr.UnaryExp.LNot(postExitCondition, Tag.Bool), Tag.Bool
             )
-            val fvsGtZero = TACExprFreeVarsCollector
-                .getFreeVars(constraint)
-                .filter { it != numIterations }
+            val constraint = graph.pred(summary.loop.head)
+                .singleOrNull() { it !in summary.loop.body }
+                ?.let { pred ->
+                    liftExpr(pred, constraintAtLoopHeader)
+                } ?: constraintAtLoopHeader
+
+            val constraintFvs = TACExprFreeVarsCollector.getFreeVars(constraint)
+            if (constraintFvs.any { it != guessedInductionVar && it in nonIdentity }) {
+                return null
+            }
+
+            val fvsGtZero = constraintFvs.filter { it != numIterations }
                 .fold(TACSymbol.True.asSym()) { e: TACExpr, v ->
                     TACExpr.BinBoolOp.LAnd(
                         e, TACExpr.BinRel.Le(TACExpr.zeroExpr, v.asSym())
                     )
                 }
 
-           return getUniqueSolution(
-               numIterations,
-               TACExpr.BinBoolOp.LAnd(constraint, fvsGtZero),
-               blaster
-           )
+            return getUniqueSolution(
+                numIterations,
+                TACExpr.BinBoolOp.LAnd(constraint, fvsGtZero),
+                blaster
+            )?.letIf(summary.isDoLoop) {
+                it + BigInteger.ONE
+            }
         }
 
         /**
@@ -348,10 +355,10 @@ object StorageLoopSummarizer {
          *         each x in identities is a variables whose value is unmodified
          */
         private fun iterationEffects(
-                numIterations: BigInteger?,
-                fixupExitVar: TACSymbol.Var?,
-                summary: LoopIterationSummary,
-                blaster: IBlaster,
+            numIterations: BigInteger?,
+            fixupExitVar: TACSymbol.Var?,
+            summary: LoopIterationSummary,
+            blaster: IBlaster,
         ): Triple<Map<TACSymbol.Var, LoopEffect>, Set<Pair<TACSymbol.Var, BigInteger>>, Set<TACSymbol.Var>> {
 
             val effects = mutableMapOf<TACSymbol.Var, LoopEffect>()
@@ -363,13 +370,13 @@ object StorageLoopSummarizer {
             }
 
             fun match(e1: TACExpr, e2: TACExpr) =
-                    LogicalEquivalence.equiv(listOf(), e1, e2, blaster)
+                LogicalEquivalence.equiv(listOf(), e1, e2, blaster)
 
             for ((x, eff) in summary.iterationEffect) {
                 val init = initialValue(x, summary)?.second
                 val consts = eff.subs.toConstSet()
                 val y = TACExprFreeVarsCollector.getFreeVars(eff).singleOrNull { it != x }
-                val yInit = y?.let{ initialValue(it, summary) }
+                val yInit = y?.let { initialValue(it, summary) }
 
                 if (eff is TACExpr.Sym && eff.s == x) {
                     identity += x
@@ -389,15 +396,16 @@ object StorageLoopSummarizer {
                     if (init != null && numIterations != null && match(eff, TACExpr.Vec.Add(x.asSym(), k.asSym()))) {
                         // Constant effect: x += k
                         effects[x] = ConstantEffect(
-                                init,
-                                k.value
+                            init,
+                            k.value
                         )
                         break
                     } else if (k.value <= 32.toBigInteger() &&
-                               y != null &&
-                               y in summary.iterationEffect &&
-                               match(eff, packedSlotUpdate(x, y, k)) &&
-                               match(summary.iterationEffect[y]!!, byteOffsetUpdate(y, k))) {
+                        y != null &&
+                        y in summary.iterationEffect &&
+                        match(eff, packedSlotUpdate(x, y, k)) &&
+                        match(summary.iterationEffect[y]!!, byteOffsetUpdate(y, k))
+                    ) {
                         // x is a storage pointer to packed values (storageptr below)
                         // y is the byte offset within the slot x points to (byteOffset below):
 
@@ -425,9 +433,9 @@ object StorageLoopSummarizer {
                             // See smt "proof" at bottom of this file [PROOF]
                             val numPacked = 32.toBigInteger() / k.value
                             effects[x] = SummarizedEffect(
-                                    init,
-                                    IntValue(BigInteger.ZERO, (numIterations - BigInteger.ONE) / numPacked),
-                                    IntValue.Constant(numIterations / numPacked),
+                                init,
+                                IntValue(BigInteger.ZERO, (numIterations - BigInteger.ONE) / numPacked),
+                                IntValue.Constant(numIterations / numPacked),
                             )
                             // We reset the byte pointer every numPacked iterations:
                             effects[y] = BytePtrUpdate(startByte.asTACSymbol(), k.value)
@@ -449,7 +457,11 @@ object StorageLoopSummarizer {
         /**
          * Try to summarize [l]
          */
-        fun loopAnnotation(l: Loop, loopSummary: LoopSummarization, blaster: IBlaster): Parallel<StorageCopyLoopSummary?> = Scheduler.compute {
+        fun loopAnnotation(
+            l: Loop,
+            loopSummary: LoopSummarization,
+            blaster: IBlaster
+        ): Parallel<StorageCopyLoopSummary?> = Scheduler.compute {
             val candidate = storageToMemoryLoopCandidate(graph, l) ?: return@compute null
             val summary = loopSummary.summarizeLoop(l) ?: return@compute null
             val cond = graph.elab(l.head).commands.last().maybeNarrow<TACCmd.Simple.JumpiCmd>() ?: return@compute null
@@ -471,7 +483,8 @@ object StorageLoopSummarizer {
             } else if (!summary.isDoLoop) {
                 // This could be a packed fixup loop, whose bounds aren't apparent.
                 val condVar = cond.cmd.cond as? TACSymbol.Var ?: return@compute null
-                val byteOffsetVar = fixupLoopPattern.query(condVar, cond.wrapped).toNullableResult() ?: return@compute null
+                val byteOffsetVar =
+                    fixupLoopPattern.query(condVar, cond.wrapped).toNullableResult() ?: return@compute null
                 if (cond.cmd.dst != candidate.succ) {
                     return@compute null
                 }
@@ -500,9 +513,9 @@ object StorageLoopSummarizer {
         return ParallelPool.allocInScope(2000, { timeout -> Z3BlasterPool(z3TimeoutMs = timeout) }) { blaster ->
             val worker = Worker(graph)
             val loopSummary = LoopSummarization(
-                    blaster = blaster,
-                    g = graph,
-                    loops = loops
+                blaster = blaster,
+                g = graph,
+                loops = loops
             )
 
             val annotatedLoops = ParallelPool.runInherit(
@@ -514,9 +527,11 @@ object StorageLoopSummarizer {
             val processed = mutableSetOf<Loop>()
             for ((l, summary) in annotatedLoops) {
                 processed.add(l)
-                val summaryBlock = patching.addBlock(l.head, listOf(
+                val summaryBlock = patching.addBlock(
+                    l.head, listOf(
                         TACCmd.Simple.SummaryCmd(summary, MetaMap())
-                ))
+                    )
+                )
                 for (pred in graph.pred(l.head)) {
                     if (pred in l.body) {
                         continue
@@ -524,9 +539,11 @@ object StorageLoopSummarizer {
 
                     val lastCmd = graph.elab(pred).commands.last()
                     if (lastCmd.cmd is TACCmd.Simple.JumpCmd) {
-                        patching.replaceCommand(lastCmd.ptr, listOf(
+                        patching.replaceCommand(
+                            lastCmd.ptr, listOf(
                                 lastCmd.cmd.withDst(summaryBlock)
-                        ))
+                            )
+                        )
                     } else {
                         patching.replaceCommand(lastCmd.ptr, listOf(lastCmd.cmd), treapSetOf(summaryBlock))
                     }

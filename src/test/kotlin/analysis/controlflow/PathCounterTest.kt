@@ -228,15 +228,15 @@ internal class PathCounterTest : TACBuilderAuxiliaries() {
             val prog = prog("pathCountTestProg").analysisCache.graph
 
             assertEquals(8.toBigInteger(), PathCounter(prog, n0_1).singlePathCount)
-            assertEquals(4.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(1)).singlePathCount)
-            assertEquals(4.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(2)).singlePathCount)
-            assertEquals(4.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(3)).singlePathCount)
-            assertEquals(2.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(1, 2)).singlePathCount)
-            assertEquals(2.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(1, 3)).singlePathCount)
-            assertEquals(2.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(2, 3)).singlePathCount)
-            assertEquals(1.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(1, 2, 3)).singlePathCount)
-            assertEquals(8.toBigInteger(), PathCounter(prog, n1_n, callIdsToJump = setOf(0)).singlePathCount) // can't query at n0_1 since that's jumped
-            assertEquals(4.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(2)).singlePathCount)
+            assertEquals(4.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(p1.callId)).singlePathCount)
+            assertEquals(4.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(p2.callId)).singlePathCount)
+            assertEquals(4.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(p3.callId)).singlePathCount)
+            assertEquals(2.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(p1.callId, p2.callId)).singlePathCount)
+            assertEquals(2.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(p1.callId, p3.callId)).singlePathCount)
+            assertEquals(2.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(p2.callId, p3.callId)).singlePathCount)
+            assertEquals(1.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(p1.callId, p2.callId, p3.callId)).singlePathCount)
+            assertEquals(8.toBigInteger(), PathCounter(prog, n1_n, callIdsToJump = setOf(p0.callId)).singlePathCount) // can't query at n0_1 since that's jumped
+            assertEquals(4.toBigInteger(), PathCounter(prog, n0_1, callIdsToJump = setOf(p2.callId)).singlePathCount)
         }
     }
 

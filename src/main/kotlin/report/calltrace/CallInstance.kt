@@ -642,7 +642,7 @@ sealed class CallInstance : TreeViewReportable {
     }
 
     // solana
-    class SolanaExternalCall(override val sarif: Sarif) : CallInstance()
+    class SolanaExternalCall(override val sarif: Sarif, override val range: CVLRange.Range?) : CallInstance()
     class SolanaUserAssert(override val name: String, override val range: CVLRange.Range?) : CallInstance()
     class SolanaCexPrintTag(override val name: String, override val range: CVLRange.Range?): CallInstance()
     class SolanaCexPrintValues(override val sarif: Sarif, override  val range: CVLRange.Range?): CallInstance()

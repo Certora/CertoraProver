@@ -17,17 +17,16 @@
 
 package analysis.opt.intervals
 
-import analysis.opt.intervals.ExtBig.Companion.Int256max
-import analysis.opt.intervals.ExtBig.Companion.Int256minMath
-import analysis.opt.intervals.Intervals.Companion.S2To256
 import analysis.opt.intervals.Intervals.Companion.SEmpty
 import analysis.opt.intervals.Intervals.Companion.SFalse
-import analysis.opt.intervals.Intervals.Companion.SFull256
 import analysis.opt.intervals.Intervals.Companion.SFullBool
 import analysis.opt.intervals.Intervals.Companion.STrue
 import analysis.opt.intervals.Intervals.Companion.mulMod
+import analysis.opt.intervals.Intervals.Companion.sFull
 import analysis.opt.intervals.IntervalsCalculator.Companion.calcOneVarExpression
 import analysis.opt.intervals.IntervalsCalculator.Companion.intervalOfTag
+import evm.twoToThe
+import tac.Tag
 import utils.*
 import vc.data.TACBuiltInFunction
 import vc.data.TACExpr
@@ -48,6 +47,9 @@ object ForwardCalculator {
      */
     fun flatEval(e: TACExpr, values: List<S>): S {
 
+        val outModZm by lazy { e.tag as Tag.Bits }
+        val argModZm by lazy { e.getOperands().first().tag as Tag.Bits }
+
         e.eval(values, S::asConstOrNull)?.let {
             return S(it)
         }
@@ -59,7 +61,7 @@ object ForwardCalculator {
                 check(values.size == 1)
                 val i = values[0]
                 when (e) {
-                    is TACExpr.UnaryExp.BWNot -> i.bwNot()
+                    is TACExpr.UnaryExp.BWNot -> i.bwNot(outModZm)
                     is TACExpr.UnaryExp.LNot -> !i
                 }
             }
@@ -67,10 +69,10 @@ object ForwardCalculator {
             is TACExpr.Vec -> {
                 when (e) {
                     is TACExpr.Vec.IntAdd -> values.reduce(S::plus)
-                    is TACExpr.Vec.Add -> values.reduce(S::plus).mod256()
+                    is TACExpr.Vec.Add -> values.reduce(S::plus).mod(outModZm)
 
                     is TACExpr.Vec.IntMul -> values.reduce(S::times)
-                    is TACExpr.Vec.Mul -> values.reduce { a, b -> mulMod(a, b, S2To256) }
+                    is TACExpr.Vec.Mul -> values.reduce { a, b -> mulMod(a, b, S(outModZm.modulus)) }
                 }
             }
 
@@ -83,29 +85,32 @@ object ForwardCalculator {
                     is TACExpr.BinOp.BWXOr -> i1 bwXor i2
 
                     is TACExpr.BinOp.Div, is TACExpr.BinOp.IntDiv -> i1 / i2
-                    is TACExpr.BinOp.SDiv -> i1 sDiv i2
+                    is TACExpr.BinOp.SDiv -> i1.sDiv(i2, outModZm)
 
-                    is TACExpr.BinOp.Exponent -> (i1 pow i2).mod256()
+                    is TACExpr.BinOp.Exponent -> (i1 pow i2).mod(outModZm)
                     is TACExpr.BinOp.IntExponent -> i1 pow i2
 
                     is TACExpr.BinOp.Mod -> i1 unsignedMod i2
                     is TACExpr.BinOp.IntMod -> i1 cvlMod i2
-                    is TACExpr.BinOp.SMod -> i1 sMod i2
+                    is TACExpr.BinOp.SMod -> i1.sMod(i2, outModZm)
 
-                    is TACExpr.BinOp.ShiftLeft -> (i1 * i2.pow2Limited()).mod256()
-                    is TACExpr.BinOp.ShiftRightLogical -> i1 / i2.pow2Limited()
-                    is TACExpr.BinOp.ShiftRightArithmetical -> // can definitely be improved.
+                    is TACExpr.BinOp.ShiftLeft -> (i1 * i2.pow2Limited(outModZm)).mod(outModZm)
+                    is TACExpr.BinOp.ShiftRightLogical -> i1 / i2.pow2Limited(outModZm)
+                    is TACExpr.BinOp.ShiftRightArithmetical ->
                         i2.asConstOrNull?.toIntOrNull()
-                            ?.let { SFull256 signExtend ((it + 1) * 8) }
-                            ?: SFull256
+                            ?.let {
+                                val shiftBy = minOf(it, outModZm.bitwidth)
+                                (i1 / S(twoToThe(shiftBy))).signExtend(outModZm.bitwidth - it, outModZm.bitwidth)
+                            }
+                            ?: sFull(outModZm)
 
                     is TACExpr.BinOp.SignExtend ->
                         i1.asConstOrNull?.toIntOrNull()
-                            ?.let { i2 signExtend ((it + 1) * 8) }
-                            ?: SFull256
+                            ?.let { i2.signExtend((it + 1) * 8, outModZm.bitwidth) }
+                            ?: sFull(outModZm)
 
                     is TACExpr.BinOp.IntSub -> i1 - i2
-                    is TACExpr.BinOp.Sub -> (i1 - i2).mod256()
+                    is TACExpr.BinOp.Sub -> (i1 - i2).mod(outModZm)
                 }
             }
 
@@ -135,10 +140,10 @@ object ForwardCalculator {
                     is TACExpr.BinRel.Gt -> i1 gt i2
                     is TACExpr.BinRel.Le -> i1 le i2
                     is TACExpr.BinRel.Lt -> i1 lt i2
-                    is TACExpr.BinRel.Sge -> i1 sGe i2
-                    is TACExpr.BinRel.Sgt -> i1 sGt i2
-                    is TACExpr.BinRel.Sle -> i1 sLe i2
-                    is TACExpr.BinRel.Slt -> i1 sLt i2
+                    is TACExpr.BinRel.Sge -> i1.sGe(i2, argModZm)
+                    is TACExpr.BinRel.Sgt -> i1.sGt(i2, argModZm)
+                    is TACExpr.BinRel.Sle -> i1.sLe(i2, argModZm)
+                    is TACExpr.BinRel.Slt -> i1.sLt(i2, argModZm)
                 }
             }
 
@@ -153,34 +158,40 @@ object ForwardCalculator {
                         values[0]
 
                     is TACBuiltInFunction.SafeMathNarrow ->
-                        values[0] intersect SFull256
+                        values[0] intersect sFull(bif.returnSort)
+
+                    is TACBuiltInFunction.UnsignedPromotion ->
+                        values[0]
+
+                    is TACBuiltInFunction.SafeUnsignedNarrow ->
+                        values[0] intersect sFull(bif.returnSort)
+
+                    is TACBuiltInFunction.SafeSignedNarrow ->
+                        values[0] bwAnd S(bif.returnSort.maxUnsigned)
+
+                    is TACBuiltInFunction.SignedPromotion ->
+                        values[0].signExtend(bif.paramSort.bitwidth, bif.returnSort.bitwidth)
 
                     is TACBuiltInFunction.NoAddOverflowCheck ->
-                        (values[0] + values[1]) lt S2To256
+                        (values[0] + values[1]).inUnsignedBounds(bif.tag)
 
                     is TACBuiltInFunction.TwosComplement.Wrap ->
-                        values[0].fromMathInt()
+                        values[0].fromMathInt(bif.tag)
 
                     is TACBuiltInFunction.TwosComplement.Unwrap ->
-                        values[0].toMathInt()
+                        values[0].toMathInt(bif.tag)
 
-                    TACBuiltInFunction.NoMulOverflowCheck ->
-                        (values[0] * values[1]) lt S2To256
+                    is TACBuiltInFunction.NoMulOverflowCheck ->
+                        (values[0] * values[1]).inUnsignedBounds(bif.tag)
 
-                    TACBuiltInFunction.NoSMulOverAndUnderflowCheck ->
-                        (values[0].toMathInt() * values[1].toMathInt()).let {
-                            (it le S(Int256max)) and (it ge S(Int256minMath))
-                        }
+                    is TACBuiltInFunction.NoSMulOverAndUnderflowCheck ->
+                        (values[0].toMathInt(bif.tag) * values[1].toMathInt(bif.tag)).inSignedBounds(bif.tag)
 
-                    TACBuiltInFunction.NoSAddOverAndUnderflowCheck ->
-                        (values[0].toMathInt() + values[1].toMathInt()).let {
-                            (it le S(Int256max)) and (it ge S(Int256minMath))
-                        }
+                    is TACBuiltInFunction.NoSAddOverAndUnderflowCheck ->
+                        (values[0].toMathInt(bif.tag) + values[1].toMathInt(bif.tag)).inSignedBounds(bif.tag)
 
-                    TACBuiltInFunction.NoSSubOverAndUnderflowCheck ->
-                        (values[0].toMathInt() - values[1].toMathInt()).let {
-                            (it le S(Int256max)) and (it ge S(Int256minMath))
-                        }
+                    is TACBuiltInFunction.NoSSubOverAndUnderflowCheck ->
+                        (values[0].toMathInt(bif.tag) - values[1].toMathInt(bif.tag)).inSignedBounds(bif.tag)
 
                     else -> intervalOfTag(e.tagAssumeChecked)
                 }

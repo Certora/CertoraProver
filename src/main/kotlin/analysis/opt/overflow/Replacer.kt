@@ -25,13 +25,13 @@ import analysis.opt.overflow.OverflowPatternRewriter.Companion.overflowMeta
 import analysis.patterns.get
 import datastructures.stdcollections.*
 import evm.EVM_BITWIDTH256
-import evm.from2s
-import evm.lowOnes
-import evm.to2s
 import log.*
 import tac.NBId
 import tac.Tag
 import utils.*
+import utils.ModZm.Companion.from2s
+import utils.ModZm.Companion.lowOnes
+import utils.ModZm.Companion.to2s
 import utils.SignUtilities.maxSignedValueOfBitwidth
 import utils.SignUtilities.maxUnsignedValueOfBitwidth
 import utils.SignUtilities.minSignedValueOfBitwidth
@@ -104,7 +104,7 @@ class Replacer<T : OverflowContext>(
             "Currently only overflow recipes for multiplications by constants are supported, and not ${recipe.type}"
         }
         if (recipe.signed) {
-            val c = const.from2s()
+            val c = const.from2s(modZ256)
             check(c != BigInteger.ZERO) {
                 "Multiplication by 0 should have been simplified away, and never go through overflow pattern matching"
             }
@@ -124,7 +124,7 @@ class Replacer<T : OverflowContext>(
             } else {
                 LOr(
                     Le(o1.asSym(), maxPos.asTACExpr),
-                    Ge(o1.asSym(), minNeg.to2s().asTACExpr)
+                    Ge(o1.asSym(), minNeg.to2s(modZ256).asTACExpr)
                 )
             }
         } else {

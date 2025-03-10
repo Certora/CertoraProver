@@ -53,38 +53,18 @@ interface TACExprFact {
     fun Mul(vararg ls: TACExpr): TACExpr = Mul(ls.toList())
     fun Mul(op1: TACExpr, op2: TACExpr): TACExpr = Mul(listOf(op1, op2))
     fun Mul(ls: List<TACExpr>): TACExpr
-    fun MulIfNeeded(ls: List<TACExpr>) = when (ls.size) {
-        0 -> 1.asTACExpr
-        1 -> ls.first()
-        else -> Mul(ls)
-    }
 
     fun IntMul(ls: List<TACExpr>): TACExpr
     fun IntMul(vararg ls: TACExpr): TACExpr = IntMul(ls.toList())
     fun IntMul(op1: TACExpr, op2: TACExpr): TACExpr = IntMul(listOf(op1, op2))
-    fun IntMulIfNeeded(ls: List<TACExpr>) = when (ls.size) {
-        0 -> 1.asTACExpr
-        1 -> ls.first()
-        else -> IntMul(ls)
-    }
 
     fun IntAdd(ls: List<TACExpr>): TACExpr
     fun IntAdd(vararg ls: TACExpr): TACExpr = IntAdd(ls.toList())
     fun IntAdd(op1: TACExpr, op2: TACExpr): TACExpr = IntAdd(listOf(op1, op2))
-    fun IntAddIfNeeded(ls: List<TACExpr>) = when (ls.size) {
-        0 -> 0.asTACExpr
-        1 -> ls.first()
-        else -> IntAdd(ls)
-    }
 
     fun Add(ls: List<TACExpr>): TACExpr
     fun Add(vararg ls: TACExpr): TACExpr = Add(ls.toList())
     fun Add(op1: TACExpr, op2: TACExpr): TACExpr = Add((listOf(op1, op2)))
-    fun AddIfNeeded(ls: List<TACExpr>) = when (ls.size) {
-        0 -> 0.asTACExpr
-        1 -> ls.first()
-        else -> Add(ls)
-    }
 
     fun IntSub(o1: TACExpr, o2: TACExpr): TACExpr
 
@@ -313,7 +293,7 @@ interface TACExprFact {
         applyBIF(TACBuiltInFunction.SafeMathNarrow(to), op)
 
     fun safeMathPromotion(op: TACExpr) =
-        applyBIF(TACBuiltInFunction.SafeMathPromotion(op.tagAssumeChecked), op)
+        applyBIF(TACBuiltInFunction.SafeMathPromotion(op.tag as Tag.Bits), op)
 
     fun signedPromoteTo(i: Int, op: TACExpr) = signedPromoteTo(Tag.Bits(i), op)
     fun signedPromoteTo(target: Tag.Bits, op: TACExpr) =
@@ -331,26 +311,26 @@ interface TACExprFact {
     fun safeUnsignedNarrowTo(target: Tag.Bits, op: TACExpr) =
         applyBIF(TACBuiltInFunction.SafeUnsignedNarrow(op.tag as Tag.Bits, target), op)
 
-    fun twosWrap(op : TACExpr) =
-        applyBIF(TACBuiltInFunction.TwosComplement.Wrap, op)
+    fun twosWrap(op : TACExpr, tag: Tag.Bits = Tag.Bit256) =
+        applyBIF(TACBuiltInFunction.TwosComplement.Wrap(tag), op)
 
-    fun twosUnwrap(op : TACExpr) =
-        applyBIF(TACBuiltInFunction.TwosComplement.Unwrap, op)
+    fun twosUnwrap(op : TACExpr, tag: Tag.Bits = Tag.Bit256) =
+        applyBIF(TACBuiltInFunction.TwosComplement.Unwrap(tag), op)
 
-    fun noAddOverflow(op1: TACExpr, op2: TACExpr) =
-        applyBIF(TACBuiltInFunction.NoAddOverflowCheck, op1, op2)
+    fun noAddOverflow(op1: TACExpr, op2: TACExpr, tag: Tag.Bits = Tag.Bit256) =
+        applyBIF(TACBuiltInFunction.NoAddOverflowCheck(tag), op1, op2)
 
-    fun noMulOverflow(op1: TACExpr, op2: TACExpr) =
-        applyBIF(TACBuiltInFunction.NoMulOverflowCheck, op1, op2)
+    fun noMulOverflow(op1: TACExpr, op2: TACExpr, tag: Tag.Bits = Tag.Bit256) =
+        applyBIF(TACBuiltInFunction.NoMulOverflowCheck(tag), op1, op2)
 
-    fun noSMulOverAndUnderflow(op1: TACExpr, op2: TACExpr) =
-        applyBIF(TACBuiltInFunction.NoSMulOverAndUnderflowCheck, op1, op2)
+    fun noSMulOverAndUnderflow(op1: TACExpr, op2: TACExpr, tag: Tag.Bits = Tag.Bit256) =
+        applyBIF(TACBuiltInFunction.NoSMulOverAndUnderflowCheck(tag), op1, op2)
 
-    fun noSAddOverAndUnderflow(op1: TACExpr, op2: TACExpr) =
-        applyBIF(TACBuiltInFunction.NoSAddOverAndUnderflowCheck, op1, op2)
+    fun noSAddOverAndUnderflow(op1: TACExpr, op2: TACExpr, tag: Tag.Bits = Tag.Bit256) =
+        applyBIF(TACBuiltInFunction.NoSAddOverAndUnderflowCheck(tag), op1, op2)
 
-    fun noSSubOverAndUnderflow(op1: TACExpr, op2: TACExpr) =
-        applyBIF(TACBuiltInFunction.NoSSubOverAndUnderflowCheck, op1, op2)
+    fun noSSubOverAndUnderflow(op1: TACExpr, op2: TACExpr, tag: Tag.Bits = Tag.Bit256) =
+        applyBIF(TACBuiltInFunction.NoSSubOverAndUnderflowCheck(tag), op1, op2)
 
     fun fromSkey(op: TACExpr) =
         applyBIF(TACBuiltInFunction.Hash.FromSkey, op)

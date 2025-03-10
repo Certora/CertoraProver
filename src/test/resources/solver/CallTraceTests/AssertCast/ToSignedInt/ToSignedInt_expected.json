@@ -258,13 +258,14 @@
                                 "text": "toCast ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0xdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                                        "value": "MAX_UINT256",
                                         "values": [
-                                            "0xdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                                            "101318078082651670995624611882601919371611236582435493534525386006923988434943",
-                                            "0xdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                            "MAX_UINT256",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                                         ],
-                                        "tooltip": "value of expression"
+                                        "tooltip": "value of expression",
+                                        "truncatable": false
                                     }
                                 ]
                             },

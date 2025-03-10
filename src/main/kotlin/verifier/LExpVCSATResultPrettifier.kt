@@ -18,6 +18,7 @@
 package verifier
 
 import analysis.ip.*
+import config.Config
 import datastructures.stdcollections.*
 import log.*
 import report.calltrace.CallTrace
@@ -27,8 +28,10 @@ import smtlibutils.cmdprocessor.*
 import smtlibutils.data.*
 import spec.CVLTestGenerator
 import spec.cvlast.CVLType
+import utils.*
 import vc.data.*
 import vc.gen.LExpVC
+import kotlin.streams.toList
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTimedValue
@@ -43,6 +46,11 @@ class LExpVCSATResultPrettifier(
         var numOfPrettifications: Int = 0
         var totalTime: Duration = Duration.ZERO
     }
+
+    fun getHashingBoundConstraintsToPrettify() =
+        vc.tacProgram.ltacStream().mapNotNull {
+            it.cmd.meta[TACMeta.HASHING_BOUND_ASSUME] ?: it.cmd.meta[TACMeta.HASHING_BOUND_ASSERT]
+        }.toList()
 
     /**
      * Identifies the terms that should be prettified. We try
@@ -143,10 +151,10 @@ class LExpVCSATResultPrettifier(
      */
     fun getPrioritisedTerms(termsToPrettify: Collection<TACSymbol.Var>): List<TACSymbol.Var> {
         return config.prettifyCEXVariables.ifEmpty {
-            vc.tacProgramMetadata.cvlVarsInAsserts
-        }.mapNotNull { name ->
-            termsToPrettify.find { term -> term.meta[TACMeta.CVL_DISPLAY_NAME] == name }
-        }
+                vc.tacProgramMetadata.cvlVarsInAsserts
+            }.mapNotNull { name ->
+                termsToPrettify.find { term -> term.meta[TACMeta.CVL_DISPLAY_NAME] == name }
+            }
     }
 
     /**
@@ -180,7 +188,7 @@ class LExpVCSATResultPrettifier(
         }
 
         return maxOf(config.postProcessCEXTimeout, diversifyTimeout + prettifyTimeout) to
-            maxOf(initialCheckTime + 3.seconds, initialCheckTime.times(5).div(4))
+            maxOf(config.postProcessCEXSingleCheckTimeout, initialCheckTime + 3.seconds, initialCheckTime.times(5).div(4))
     }
 
     suspend fun getResultToPrettify(
@@ -265,6 +273,7 @@ class LExpVCSATResultPrettifier(
                             query.symbolTable,
                             postProcessTimeout,
                             jointPrettification,
+                            Config.PrettifyCEXSmallBarriers.get()
                         )
                     }
                 }

@@ -284,24 +284,10 @@ private class GlobalInferenceAnalysis(private val cfg: MutableSbfCFG,
                         inferGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG))
                         inferGlobalVariable(locInst, Value.Reg(SbfRegister.R2_ARG))
                     } else {
-                        val cvtFunction = CVTFunction.from(inst.name)
-                        if (cvtFunction != null) {
-                            when (cvtFunction) {
-                                CVTFunction.CEX_PRINT_i64_1, CVTFunction.CEX_PRINT_i64_2, CVTFunction.CEX_PRINT_i64_3,
-                                CVTFunction.CEX_PRINT_TAG,
-                                CVTFunction.CEX_PRINT_LOCATION,
-                                CVTFunction.CEX_ATTACH_LOCATION,
-                                CVTFunction.CEX_PRINT_u64_1, CVTFunction.CEX_PRINT_u64_2, CVTFunction.CEX_PRINT_u64_3 -> {
-                                    // Even if AggressiveGlobalDetection is disabled we do identify strings used for calltrace.
-                                    // r1 contains the address of the constant string and r2 is the size
-                                    inferStringGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG))
-                                }
-                                CVTFunction.CEX_PRINT_STRING -> {
-                                    inferStringGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG))
-                                    inferStringGlobalVariable(locInst, Value.Reg(SbfRegister.R3_ARG), Value.Reg(SbfRegister.R4_ARG))
-                                }
-                                else -> {}
-                            }
+                        val calltraceFunction = CVTCalltrace.from(inst.name)
+                        calltraceFunction?.strings?.forEach {
+                            // Even if AggressiveGlobalDetection is disabled we do identify strings used for calltrace.
+                            inferStringGlobalVariable(locInst, it.string, it.len)
                         }
                     }
                 }

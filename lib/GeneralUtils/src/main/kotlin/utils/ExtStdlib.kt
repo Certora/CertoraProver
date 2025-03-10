@@ -284,6 +284,16 @@ fun <S, T: S> Sequence<T>.reduceEmpty(operation: (S, T) -> S): S? {
     }
 }
 
+
+/** Converts a Biginteger to a hexadecimal string representation.
+ * Prepends `0x`. If there is a `-` sign, it's prepended before the `0x`. */
+fun BigInteger.toHexString() =
+    if (this.signum() >= 0) {
+        "0x" + this.toString(16)
+    } else {
+        "-0x" + this.negate().toString(16)
+    }
+
 /**
  * Converts a (signed) Byte [this] to a hex string of 2 chars, e.g. 15 becomes "0f", 16 becomes "10"
  */
@@ -488,9 +498,6 @@ fun BigInteger.safeAsInt() = if (!isInt()) {
 }
 
 fun BigInteger.isInt() = this.toInt().toBigInteger() == this
-
-fun Boolean.toBigInteger(): BigInteger =
-    ite(this, BigInteger.ONE, BigInteger.ZERO)
 
 fun Int.toOrdinalString(): String {
     return when {
@@ -1020,8 +1027,6 @@ inline fun <T> Iterable<T>.maxsWith(comparator: (T, T) -> Int): List<T> {
     return result
 }
 
-
-fun Boolean?.orFalse() = this == true
 
 inline fun <T> Iterable<T>.filterToSet(predicate: (T) -> Boolean): Set<T> {
     return filterTo(mutableSetOf(), predicate)

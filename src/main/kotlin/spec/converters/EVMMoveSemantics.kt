@@ -66,7 +66,7 @@ object EVMMoveSemantics : EVMTypeDescriptor.ConverstionSemantics, SafeMathCodeGe
                     check(destType is CVLType.PureCVLType.Primitive.IntK || destType is CVLType.PureCVLType.Primitive.Mathint) {
                         "destType is actually $destType"
                     }
-                    val f = TACBuiltInFunction.TwosComplement.Unwrap
+                    val f = TACBuiltInFunction.TwosComplement.Unwrap(Tag.Bit256)
                     CommandWithRequiredDecls(
                         listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                 dest, f.toTACFunctionSym(), listOf(src.asSym())
@@ -144,7 +144,7 @@ object EVMMoveSemantics : EVMTypeDescriptor.ConverstionSemantics, SafeMathCodeGe
             when(destEncoding) {
                 Tag.CVLArray.UserArray.ElementEncoding.Signed -> {
                     return numericCases(src = src, dest = dest, sameTag = ::identityTransfer, intToBit = {
-                        val f = TACBuiltInFunction.TwosComplement.Wrap
+                        val f = TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256)
                         val sanityVar = TACSymbol.Var("boundsCheck", Tag.Bool).toUnique(".")
                         CommandWithRequiredDecls(
                             listOf(
@@ -159,7 +159,7 @@ object EVMMoveSemantics : EVMTypeDescriptor.ConverstionSemantics, SafeMathCodeGe
                                 )
                             ), setOf(src, dest, sanityVar))
                     }, bitToInt = {
-                        val f = TACBuiltInFunction.TwosComplement.Unwrap
+                        val f = TACBuiltInFunction.TwosComplement.Unwrap(Tag.Bit256)
                         CommandWithRequiredDecls(
                             listOf(
                                 TACCmd.Simple.AssigningCmd.AssignExpCmd(
@@ -232,7 +232,7 @@ object EVMMoveSemantics : EVMTypeDescriptor.ConverstionSemantics, SafeMathCodeGe
         fun convertValueTypeToEVM(dest: TACSymbol.Var, destType: VMValueTypeDescriptor, src: TACSymbol.Var, srcType: CVLType.PureCVLType): CommandWithRequiredDecls<TACCmd.Simple> =
             when (destType) {
                 is VMSignedNumericValueTypeDescriptor -> {
-                    val f = TACBuiltInFunction.TwosComplement.Wrap
+                    val f = TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256)
                     val sanityVar = TACSymbol.Var("boundsCheck", Tag.Bool).toUnique(".")
                     CommandWithRequiredDecls(
                         listOf(

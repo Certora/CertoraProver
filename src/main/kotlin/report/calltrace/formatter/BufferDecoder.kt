@@ -196,7 +196,7 @@ sealed class TypeDecode {
 
     /** [TACValue] was havoced and can be any value. */
     data object HavocValue : TypeDecode() {
-        override fun format(formatter: CallTraceValueFormatter) = CallTraceValueFormatter.havocced(formatterType)
+        override fun format(formatter: CallTraceValueFormatter) = CallTraceValueFormatter.unusedValue(formatterType)
         override val formatterType: FormatterType<*>
             get() = FormatterType.Value.Unknown("TypeDecode HavocValue")
     }

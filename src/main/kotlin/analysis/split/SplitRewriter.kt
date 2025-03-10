@@ -29,7 +29,6 @@ import analysis.patterns.lhs
 import analysis.split.SplitContext.Companion.isSimpleVar
 import analysis.split.SplitContext.Companion.storageLoc
 import analysis.split.Ternary.Companion.containedIn
-import analysis.split.Ternary.Companion.lowOnes
 import analysis.split.annotation.StorageSnippetInserter.Companion.applyAndAnnotEvmStorageSnippet
 import analysis.split.arrays.PackedArrayRewriter
 import analysis.split.arrays.PackedArrayRewriter.Companion.indexOfArrayAccess
@@ -45,9 +44,11 @@ import scene.ITACMethod
 import tac.MetaMap
 import tac.NBId
 import tac.Tag
+import utils.ModZm.Companion.lowOnes
 import utils.containsAny
 import utils.`impossible!`
 import utils.parallelStream
+import utils.*
 import vc.data.*
 import vc.data.tacexprutil.ExprUnfolder.Companion.UnfolderResult
 import vc.data.tacexprutil.ExprUnfolder.Companion.unfoldToSingleVar
@@ -742,6 +743,31 @@ class SplitRewriter(
                                     checkNoSplit()
                                 }
                             }
+
+                            // this can be thought of as a shift right followed by a sign-extend.
+                            is TACExpr.BinOp.ShiftRightArithmetical ->
+                                ternaries.getRhs(ptr, rhs.o2).asIntOrNull()?.let { by ->
+                                    shiftExprOf(-by, rhs.o1) {
+                                        // if we're here then it's not a clean sra, i.e., the shift cuts off bits of
+                                        // the corresponding range of bits.
+                                        rhs.copy(o1 = it, o2 = by.asTACSymbol().asSym())
+                                    }?.let {
+                                        when (it) {
+                                            is TACExpr.BinOp.ShiftRightArithmetical -> it
+                                            is TACExpr.Sym -> {
+                                                // The sar perfectly isolated a piece of the rhs variable and returned
+                                                // it. We then need to sign-extend it, that is the difference between
+                                                // a shift-right and an arithmetical one.
+                                                TACExpr.BinOp.SignExtend(
+                                                    ((EVM_BITWIDTH256 - by) / 8 - 1).asTACExpr,
+                                                    it,
+                                                    Tag.Bit256
+                                                )
+                                            }
+                                            else -> `impossible!`
+                                        }
+                                    }
+                                }
 
                             else ->
                                 null

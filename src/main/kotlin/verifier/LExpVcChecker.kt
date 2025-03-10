@@ -206,6 +206,20 @@ class LExpVcChecker(
             registerNewRace(result, raceDescription, 0.milliseconds, 0.milliseconds, TimeSinceStart())
             return result.withNullChecker()
         }
+        if (config.simulateTimeout) {
+            val result =
+                SmtFormulaCheckerResult.Interrupted(
+                    e = null,
+                    checkerInstance = null,
+                    query = executables.first().query,
+                    reason = InterruptReason.TIMEOUT,
+                    preExecutionStatistics = PreExecutionStatistics(ConfigStatistics("SimulateTimeout"), listOf()),
+                    stats = null,
+                )
+            registerNewRace(result, raceDescription, 0.milliseconds, 0.milliseconds, TimeSinceStart())
+            return result.withNullChecker()
+        }
+
 
 
         solverStopWatch?.start()
@@ -640,6 +654,12 @@ class LExpVcChecker(
         val executables = listOfNotNull(
             runIf(config.useLIA == UseLIAEnum.WITHOUT_VERIFIER) {
                 LIAExecutableGenerator(this, raceDescription, isPrecise = true).generateExecutables(
+                    presentTheories,
+                    config.liaSolvers.configure()
+                )
+            },
+            runIf(config.useLIA == UseLIAEnum.UNSAT_ONLY) {
+                LIAExecutableGenerator(this, raceDescription, isPrecise = false).generateExecutables(
                     presentTheories,
                     config.liaSolvers.configure()
                 )

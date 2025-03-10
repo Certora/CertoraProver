@@ -17,6 +17,7 @@
 
 package sbf.cfg
 
+import sbf.callgraph.CVTCore
 import sbf.callgraph.CVTFunction
 import sbf.disassembler.SbfRegister
 
@@ -38,11 +39,11 @@ fun unhoistStackPop(cfg: MutableSbfCFG, numInstsBeforePop: Int = 5) {
                 val i = locInst.pos
                 val inst = locInst.inst
                 if (i < numInstsBeforePop) {
-                    if (inst is SbfInstruction.Call && CVTFunction.from(inst.name) == CVTFunction.SAVE_SCRATCH_REGISTERS) {
+                    if (inst is SbfInstruction.Call && CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
                         // we don't want to unhoist this instruction, so we bail out
                         break
                     }
-                    if (inst is SbfInstruction.Call && CVTFunction.from(inst.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS) {
+                    if (inst is SbfInstruction.Call && CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
                         if (inst.metaData.getVal(SbfMeta.UNHOISTED_STACK_POP) != null) {
                             // If unhoisting already took place we bail out.
                             break

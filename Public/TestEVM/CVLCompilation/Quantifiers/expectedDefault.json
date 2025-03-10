@@ -1,0 +1,7 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"Inv": "FAIL",
+    "Inv2": "FAIL"
+	}
+}

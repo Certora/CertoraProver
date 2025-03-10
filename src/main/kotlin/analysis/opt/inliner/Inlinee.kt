@@ -18,7 +18,6 @@
 package analysis.opt.inliner
 
 import analysis.numeric.linear.ReducedLinearTerm
-import analysis.opt.inliner.Inlinee.Term
 import analysis.opt.intervals.ExtBig.Companion.asExtBig
 import analysis.opt.intervals.Intervals
 import com.certora.collect.*
@@ -26,6 +25,7 @@ import config.Config.exactByteMaps
 import datastructures.stdcollections.*
 import evm.EVM_MOD_GROUP256
 import evm.MAX_EVM_INT256
+import tac.Tag
 import utils.*
 import vc.data.TACExpr
 import vc.data.TACExprFactUntyped
@@ -119,7 +119,7 @@ sealed interface Inlinee {
 
         fun evaluate(eval: (TACSymbol.Var) -> Intervals) =
             term.literals.entries.fold(Intervals(term.c)) { acc, t ->
-                (eval(t.key) * Intervals(t.value) + acc).mod256()
+                (eval(t.key) * Intervals(t.value) + acc).mod(Tag.Bit256)
             }
 
         override fun toString() = term.toString()

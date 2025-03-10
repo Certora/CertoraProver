@@ -97,7 +97,7 @@ class PolarityCalculator(val prog: CoreTACProgram) {
                     is TACExpr.UnaryExp.LNot -> e.copy(o = rec(e.o, polarity.neg))
                     is TACExpr.TernaryExp.Ite ->
                         e.copy(i = rec(e.i, Polarity.BOTH), t = rec(e.t, polarity), e = rec(e.e, polarity))
-
+                    is TACExpr.AnnotationExp<*> -> e.copy(o = rec(e.o, polarity))
                     else -> e
                 }.let { newE ->
                     transformation(newE, polarity)

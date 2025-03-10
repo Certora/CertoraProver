@@ -271,13 +271,14 @@
                         "text": "fu(toCast='{0}')",
                         "arguments": [
                             {
-                                "value": "0x7fff (MAX_INT16)",
+                                "value": "MAX_INT16",
                                 "values": [
-                                    "0x7fff (MAX_INT16)",
+                                    "MAX_INT16",
                                     "32767",
                                     "0x7fff"
                                 ],
-                                "tooltip": "parameter"
+                                "tooltip": "parameter",
+                                "truncatable": false
                             }
                         ]
                     },
@@ -296,13 +297,14 @@
                                         "text": "toCast * 1 ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x7fff (2^15 - 1)",
+                                                "value": "2^15 - 1",
                                                 "values": [
-                                                    "0x7fff (2^15 - 1)",
+                                                    "2^15 - 1",
                                                     "32767",
                                                     "0x7fff"
                                                 ],
-                                                "tooltip": "value of expression"
+                                                "tooltip": "value of expression",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -313,13 +315,14 @@
                                                 "text": "toCast ↪ '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0x7fff (MAX_INT16)",
+                                                        "value": "MAX_INT16",
                                                         "values": [
-                                                            "0x7fff (MAX_INT16)",
+                                                            "MAX_INT16",
                                                             "32767",
                                                             "0x7fff"
                                                         ],
-                                                        "tooltip": "value of expression"
+                                                        "tooltip": "value of expression",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },

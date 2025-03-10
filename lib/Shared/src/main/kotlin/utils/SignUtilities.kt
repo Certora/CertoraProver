@@ -18,7 +18,6 @@
 package utils
 
 import config.Config
-import evm.twoToThe
 import java.math.BigInteger
 
 /**
@@ -78,17 +77,5 @@ object SignUtilities {
         }
     }
 
-    /**
-     * Performs a sign-extension from [sourceWidth] to [targetWidth] bits. This essentially fills the new bits (from
-     * [sourceWidth] to [targetWidth]-1) with the sign bit (at [sourceWidth]-1).
-     * This is different from the EVM-style sign-extension that works on whole bytes and always extends to 256 bits.
-     */
-    fun BigInteger.signExtend(sourceWidth: Int, targetWidth: Int): BigInteger {
-        check(sourceWidth < targetWidth) { "signExtend should extend to more bits" }
-        return if (this.testBit(sourceWidth - 1)) {
-            twoToThe(targetWidth) - twoToThe(sourceWidth) + this
-        } else {
-            this
-        }
-    }
+
 }

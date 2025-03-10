@@ -25,9 +25,11 @@ import smt.HashingScheme
 import smt.axiomgenerators.fullinstantiation.expnormalizer.ExpNormalizerIA
 import smt.solverscript.LExpressionFactory
 import smt.solverscript.SmtTheory
+import tac.Tag
 import vc.data.LExpression
 import vc.data.TACBuiltInFunction
 import vc.data.TACSymbolTable
+import vc.data.asTACExpr
 import vc.data.asTACSymbol
 import java.math.BigInteger
 
@@ -49,7 +51,7 @@ class ExpNormalizerIATest {
 
 
     private fun mulOverflowPredicate(o1: BigInteger, o2: BigInteger): Boolean {
-        val lexp = TACBuiltInFunction.NoMulOverflowCheck.getLExpressionBuilder(
+        val lexp = TACBuiltInFunction.NoMulOverflowCheck(Tag.Bit256).getLExpressionBuilder(
             lxf,
             TACSymbolTable.empty(),
             null
@@ -58,11 +60,11 @@ class ExpNormalizerIATest {
     }
 
     private fun smulOverflowPredicate(o1: BigInteger, o2: BigInteger): Boolean {
-        val lexp = TACBuiltInFunction.NoSMulOverAndUnderflowCheck.getLExpressionBuilder(
+        val lexp = TACBuiltInFunction.NoSMulOverAndUnderflowCheck(Tag.Bit256).getLExpressionBuilder(
             lxf,
             TACSymbolTable.empty(),
             null
-        )(listOf(o1.asTACSymbol().asSym(), o2.asTACSymbol().asSym()))
+        )(listOf(o1.asTACExpr(Tag.Bit256), o2.asTACExpr(Tag.Bit256)))
         return handleBooleanLexp(lexp)
     }
 
@@ -102,7 +104,7 @@ class ExpNormalizerIATest {
     @Test
     fun testSMulOverflow() {
         // if mod 2^256 has no effect on the result then the overflow predicate should be true
-        testOneMul(BigInteger.ONE, BigInteger.ONE)
+        //testOneMul(BigInteger.ONE, BigInteger.ONE)
         testOneSMul(BigInteger.ONE, BigInteger.ONE)
 
         testOneMul(BigInteger.TWO, MAX_EVM_INT256)

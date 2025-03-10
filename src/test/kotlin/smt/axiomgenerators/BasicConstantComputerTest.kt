@@ -51,7 +51,7 @@ internal class BasicConstantComputerTest {
 
     @Test
     fun signExtendTest() {
-        val x = LExpression.Identifier("X", Tag.Int)
+        val x = LExpression.Identifier("X", Tag.Bit256)
 
         check2(
             { litInt(0x3f) },
@@ -59,7 +59,7 @@ internal class BasicConstantComputerTest {
         )
         check2(
             { litInt("115792089237316195423570985008687907853269984665640564039457584007913129639935") },
-            { litInt(0x1ff) signExt 0 }
+            { litInt(0xff) signExt 0 }
         )
         check2(
             { litInt("115792089237316195423570985008687907853269984665640564039457584007913129636095") },
@@ -75,7 +75,7 @@ internal class BasicConstantComputerTest {
         )
         check2(
             { x signExt 1 },
-            { (litInt(0xffff) bitwiseAnd x) signExt 1 }
+            { (lit(0xffff, Tag.Bit256) bitwiseAnd x) signExt 1 }
         )
     }
 

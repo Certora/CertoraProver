@@ -20,8 +20,6 @@ package smt.solverscript.functionsymbols
 import datastructures.stdcollections.*
 import smt.axiomgenerators.fullinstantiation.StorageHashAxiomGeneratorLegacy
 import smt.solverscript.LExpressionFactory
-import smt.solverscript.functionsymbols.ArraySelectFunctionSymbol.MultiDim
-import smt.solverscript.functionsymbols.ArraySelectFunctionSymbol.OneDim
 import smt.solverscript.functionsymbols.IFixedFunctionSignatures.Companion.IntNToInt
 import smt.solverscript.functionsymbols.IFixedFunctionSignatures.FixedFunctionSignatures
 import smtlibutils.data.ISmtScript
@@ -296,17 +294,10 @@ sealed class AxiomatizedFunctionSymbol : UninterpretedFunctionSymbol() {
 
         // only static objects from here on
         @KSerializable
-        object BinarySignExtend : Bitwise() {
+        data class BinarySignExtend(val tag: Tag) : Bitwise() {
             override val name: String = "uninterp_signextend"
-            override val signature: FunctionSignature = IFixedFunctionSignatures.IntIntToInt
-            private fun readResolve(): Any = BinarySignExtend
-        }
-
-        @KSerializable
-        object UninterpBwNot : Bitwise() {
-            override val name: String = "uninterp_bwnot"
-            override val signature: FunctionSignature = IFixedFunctionSignatures.IntToInt
-            private fun readResolve(): Any = UninterpBwNot
+            override val signature: FunctionSignature = FixedFunctionSignatures(listOf(tag, tag), tag)
+            override fun toString(): String = super.toString()
         }
 
         @KSerializable
@@ -410,10 +401,9 @@ sealed class AxiomatizedFunctionSymbol : UninterpretedFunctionSymbol() {
     }
 
     @KSerializable
-    object UninterpMod256 : AxiomatizedFunctionSymbol() {
-        override val name: String = "uninterp_mod_256"
+    data class UninterpTagMod(val tag : Tag.Bits) : AxiomatizedFunctionSymbol() {
+        override val name: String = "uninterp_mod_${tag.bitwidth}"
         override val signature: FunctionSignature = IFixedFunctionSignatures.IntToInt
-        private fun readResolve(): Any = UninterpMod256
     }
 
     @KSerializable
@@ -438,17 +428,15 @@ sealed class AxiomatizedFunctionSymbol : UninterpretedFunctionSymbol() {
     }
 
     @KSerializable
-    object SimpleAddModulo : AxiomatizedFunctionSymbol() {
+    data class SimpleAddModulo(val tag : Tag.Bits) : AxiomatizedFunctionSymbol() {
         override val name: String = "simple_add_modulo"
-        override val signature: FunctionSignature = FixedFunctionSignatures(listOf(Tag.Int), Tag.Bit256)
-        private fun readResolve(): Any = SimpleAddModulo
+        override val signature: FunctionSignature = FixedFunctionSignatures(listOf(Tag.Int), tag)
     }
 
     @KSerializable
-    object SimpleSubModulo : AxiomatizedFunctionSymbol() {
+    data class SimpleSubModulo(val tag: Tag.Bits) : AxiomatizedFunctionSymbol() {
         override val name: String = "simple_sub_modulo"
-        override val signature: FunctionSignature = FixedFunctionSignatures(listOf(Tag.Int), Tag.Bit256)
-        private fun readResolve(): Any = SimpleSubModulo
+        override val signature: FunctionSignature = FixedFunctionSignatures(listOf(Tag.Int), tag)
     }
 
     @KSerializable

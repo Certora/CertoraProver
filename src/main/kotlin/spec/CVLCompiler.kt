@@ -2892,15 +2892,12 @@ class CVLCompiler(
         return CommandWithRequiredDecls<TACCmd.Spec>(cmds, decls)
     }
 
-    private fun fetchGhostDeclaration(id: String, scope: CVLScope): CVLGhostDeclaration? {
+    internal fun fetchGhostDeclaration(id: String): CVLGhostDeclaration? {
+        val scope = CVLScope.AstScope // ghosts are always top-level declarations
         val symbol = symbolTable.lookUpNonFunctionLikeSymbol(id, scope)
             ?: symbolTable.lookUpFunctionLikeSymbol(id, scope)
         return symbol?.symbolValue as? CVLGhostDeclaration
     }
-
-    fun isGhostVariable(id: String, scope: CVLScope) = fetchGhostDeclaration(id, scope) is CVLGhostDeclaration.Variable
-    fun isGhostSum(id: String, scope: CVLScope) = fetchGhostDeclaration(id, scope) is CVLGhostDeclaration.Sum
-    fun isPersistentGhost(id: String, scope: CVLScope) = fetchGhostDeclaration(id, scope)?.persistent.orFalse()
 
     companion object {
         @Suppress("FunctionName")

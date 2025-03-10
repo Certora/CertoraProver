@@ -38,9 +38,6 @@ import datastructures.stdcollections.*
 import diagnostics.GraphProfiler
 import disassembler.*
 import disassembler.EVMInstruction.*
-import evm.EVMOps
-import kotlin.io.*
-import kotlin.io.path.*
 import log.ArtifactManagerFactory
 import log.*
 import scene.source.Sighash
@@ -49,6 +46,7 @@ import statistics.toTimeTag
 import tac.*
 import tac.TACBasicMeta.IS_IMMUTABLE
 import utils.*
+import utils.ModZm.Companion.asBigInteger
 import vc.data.*
 import verifier.ContractUtils.recordSingleTransformationStats
 import java.math.BigInteger
@@ -672,12 +670,12 @@ class Decompiler private constructor(
                             push(
                                 when {
                                     v == null -> unknown()
-                                    else -> constant(EVMOps.not(v))
+                                    else -> constant(EVMOps.bwNot(v))
                                 }
                             )
                         }
                         AND -> binOp {
-                            val result = EVMOps.and(a, b)
+                            val result = a and b
                             // Solidity generates code that masks off its jump destinations.  We need to preserve the
                             // source in those cases.  But if the operands are the same, let's not favor one over the
                             // other.
@@ -689,7 +687,7 @@ class Decompiler private constructor(
                             }
                         }
                         OR -> binOp {
-                            val result = EVMOps.or(a, b)
+                            val result = a or b
                             // see AND
                             when {
                                 a == b -> constant(result)
@@ -698,7 +696,7 @@ class Decompiler private constructor(
                                 else -> constant(result)
                             }
                         }
-                        EQ -> binOp { constant(EVMOps.eq(a, b)) }
+                        EQ -> binOp { constant((a == b).asBigInteger) }
                         ISZERO -> push(IsZeroResult(pop(), pushPoint))
                         JUMPI -> return success(jumpTarget = pop(), jumpCondition = pop(), fallthrough = true)
                         JUMP -> return success(jumpTarget = pop())

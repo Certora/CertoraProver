@@ -179,7 +179,8 @@ class SymbolTableFiller(
                     )
                 } ?: ok
                 val calledContract = symbolTable.registerCVLKeyword(CVLKeywords.calledContract, exp.scope)
-                listOf(params, withArgs, calledContract).flattenToVoid()
+                val executingContract = symbolTable.registerCVLKeyword(CVLKeywords.executingContract, exp.scope)
+                listOf(params, withArgs, calledContract, executingContract).flattenToVoid()
             } ?: ok
         }
         return registrationResults.flattenToVoid()

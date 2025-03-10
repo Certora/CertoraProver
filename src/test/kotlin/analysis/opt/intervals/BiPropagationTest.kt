@@ -34,8 +34,10 @@ import analysis.opt.intervals.Intervals.Companion.STrue
 import evm.EVM_MOD_GROUP256
 import evm.MAX_EVM_UINT256
 import evm.MIN_EVM_INT256_2S_COMPLEMENT
+import evm.twoToThe
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import tac.Tag
 import utils.*
 import analysis.opt.intervals.Intervals.Companion as S
 
@@ -196,7 +198,8 @@ class BiPropagationTest {
         val result = BiPropagation.sLe(
             lhs = STrue,
             x = S(Zero, 100.asExtBig, MaxUInt, MaxUInt), // -1 -> 100
-            y = S(25, 50)
+            y = S(25, 50),
+            Tag.Bit256
         )
         assertEquals(
             listOf(
@@ -231,7 +234,8 @@ class BiPropagationTest {
     fun pow2() {
         val result = BiPropagation.powOf2Limited(
             lhs = S(1, 100),
-            x = SFull256
+            x = SFull256,
+            Tag.Bit256
         )
         assertEquals(
             listOf(
@@ -246,7 +250,8 @@ class BiPropagationTest {
     fun pow2_2() {
         val result = BiPropagation.powOf2Limited(
             lhs = S(Zero, TwoTo256),
-            x = SFull256
+            x = SFull256,
+            Tag.Bit256
         )
         assertEquals(
             listOf(
@@ -275,7 +280,8 @@ class BiPropagationTest {
     fun pow2LimitedTest() {
         val result = BiPropagation.powOf2Limited(
             lhs = SFull,
-            x = S(4)
+            x = S(4),
+            Tag.Bit256
         )
         assertEquals(
             listOf(S(16), S(4)),
@@ -347,10 +353,21 @@ class BiPropagationTest {
     @Test
     fun signExtend() {
         val result = BiPropagation.signExtend(
-            S(0, 10), S(0, 127), fromBit = 8
+            S(0, 10), S(0, 127), fromBit = 8, toBit = 256
         )
         assertEquals(
             listOf(S(0, 10), S(0, 10)),
+            result
+        )
+    }
+
+    @Test
+    fun signExtend2() {
+        val result = BiPropagation.signExtend(
+            SFull256, S(0, 2), fromBit = 2, toBit = 256
+        )
+        assertEquals(
+            listOf(S(0, 1) union S(MAX_UINT - 1), S(0, 2)),
             result
         )
     }
@@ -369,7 +386,7 @@ class BiPropagationTest {
     @Test
     fun sdivOverflow() {
         val result = BiPropagation.sDiv(
-            SFull, S(MIN_EVM_INT256_2S_COMPLEMENT), S(MAX_UINT)
+            SFull, S(MIN_EVM_INT256_2S_COMPLEMENT), S(MAX_UINT), Tag.Bit256
         )
         assertEquals(
             listOf(S(MIN_EVM_INT256_2S_COMPLEMENT), S(MIN_EVM_INT256_2S_COMPLEMENT), S(MAX_UINT)),
@@ -380,7 +397,7 @@ class BiPropagationTest {
     @Test
     fun pow2Limited() {
         val result = BiPropagation.powOf2Limited(
-            S(Zero, TwoTo256), S(256)
+            S(Zero, TwoTo256), S(256), Tag.Bit256
         )
         assertEquals(
             listOf(S(TwoTo256), S(256)),
@@ -391,7 +408,7 @@ class BiPropagationTest {
     @Test
     fun pow2Limited2() {
         val result = BiPropagation.powOf2Limited(
-            S(Zero, TwoTo256), S(300)
+            S(Zero, TwoTo256), S(300), Tag.Bit256
         )
         assertEquals(
             listOf(S(TwoTo256), S(300)),

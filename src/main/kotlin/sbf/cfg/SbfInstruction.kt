@@ -22,6 +22,7 @@ import sbf.callgraph.CompilerRtFunction
 import sbf.callgraph.SolanaFunction
 import sbf.disassembler.*
 import datastructures.stdcollections.*
+import sbf.callgraph.CVTCore
 import utils.mapToSet
 
 /**
@@ -480,9 +481,9 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         override fun isAbort() = SolanaFunction.from(name) == SolanaFunction.ABORT
         override fun isTerminator() = isAbort()
         override fun isAssertOrSatisfy() =
-                CVTFunction.from(name) == CVTFunction.ASSERT ||
-                CVTFunction.from(name) == CVTFunction.SATISFY ||
-                CVTFunction.from(name) == CVTFunction.SANITY
+                CVTFunction.from(name) == CVTFunction.Core(CVTCore.ASSERT) ||
+                CVTFunction.from(name) == CVTFunction.Core(CVTCore.SATISFY) ||
+                CVTFunction.from(name) == CVTFunction.Core(CVTCore.SANITY)
 
         override fun isAllocFn(): Boolean {
                 return ((name == "__rust_alloc" || name == "__rust_alloc_zeroed") || /* Rust alloc*/
@@ -499,9 +500,9 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         }
 
         override val writeRegister: Set<Value.Reg>
-           get() = if (CVTFunction.from(name) == CVTFunction.SAVE_SCRATCH_REGISTERS) {
+           get() = if (CVTFunction.from(name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
                         setOf()
-                    } else if (CVTFunction.from(name) == CVTFunction.RESTORE_SCRATCH_REGISTERS) {
+                    } else if (CVTFunction.from(name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
                         SbfRegister.scratchRegisters.mapToSet { Value.Reg(it) }
                     } else {
                         setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE))
@@ -512,9 +513,9 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
                 setOf()
             } else if (isAssertOrSatisfy()) {
                 setOf(Value.Reg(SbfRegister.R1_ARG))
-            } else if (CVTFunction.from(name) == CVTFunction.SAVE_SCRATCH_REGISTERS) {
+            } else if (CVTFunction.from(name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
                 SbfRegister.scratchRegisters.mapToSet { Value.Reg(it) }
-            } else if (CVTFunction.from(name) == CVTFunction.RESTORE_SCRATCH_REGISTERS) {
+            } else if (CVTFunction.from(name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
                 setOf()
             }
             else {

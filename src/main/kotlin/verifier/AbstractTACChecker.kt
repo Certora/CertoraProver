@@ -17,6 +17,7 @@
 
 package verifier
 
+import analysis.opt.scalarizer.ByteMapScalarizer
 import analysis.skeyannotation.AnnotateSkeyBifs
 import config.Config
 import config.ConfigType
@@ -200,7 +201,9 @@ abstract class AbstractTACChecker {
                             }?.plus("!!") ?: TACDSA.TACDSARenaming.default.variablePrefix(v)
                         },
                     )
-                }).ref
+                })
+                .map(CoreToCoreTransformer(ReportTypes.UNIQUEIFY_BOUND_VARIABLES) { UniqueifyBoundVars().transform(it) })
+                .ref
         }
 
         /**
@@ -223,6 +226,16 @@ abstract class AbstractTACChecker {
         private fun lastOptimizations(ssaTAC: CoreTACProgram, enableHeuristicalFolding: Boolean): CoreTACProgram {
             val linear = CoreTACProgram.Linear(ssaTAC)
                 .map(CoreToCoreTransformer(ReportTypes.INSERT_MAP_DEFINITION, InsertMapDefinitions::transform))
+                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_SCALARIZER) { code ->
+                    if (code.destructiveOptimizations) {
+                        ByteMapScalarizer.go(code)
+                    } else {
+                        code
+                    }
+                })
+                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
+                    optimizeAssignments(it, default(it)).let(BlockMerger::mergeBlocks)
+                })
                 .map(CoreToCoreTransformer(ReportTypes.INSERT_SCALAR_DEFINITION, InsertScalarDefinitions::transform))
             if (enableHeuristicalFolding) {
                 // get rid of annotation commands, those generate false uses
@@ -312,5 +325,3 @@ abstract class AbstractTACChecker {
         }
     }
 }
-
-

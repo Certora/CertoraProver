@@ -24,6 +24,7 @@ open class ExternalFunction(open val name: String,
                             open val writeRegisters: Set<Value.Reg> = datastructures.stdcollections.setOf(),
                             open val readRegisters: Set<Value.Reg> = datastructures.stdcollections.setOf())
 
-interface ExternalLibrary {
+interface ExternalLibrary<T> {
+    fun from(name: String): T?
     fun addSummaries(memSummaries: MemorySummaries)
 }

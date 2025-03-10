@@ -94,15 +94,15 @@ sealed class OverflowContext(
 
     /** Signed version */
     val surelyNo256SignedMulOverflow by lazy {
-        (intervals1.toMathInt() * intervals2.toMathInt()) containedIn SFullInt256math
+        (intervals1.toMathInt(modZ256) * intervals2.toMathInt(modZ256)) containedIn SFullInt256math
     }
 
     val surelyNo256SignedAddOverflow by lazy {
-        (intervals1.toMathInt() + intervals2.toMathInt()) containedIn SFullInt256math
+        (intervals1.toMathInt(modZ256) + intervals2.toMathInt(modZ256)) containedIn SFullInt256math
     }
 
     val surelyNo256SignedSubOverflow by lazy {
-        (intervals1.toMathInt() - intervals2.toMathInt()) containedIn SFullInt256math
+        (intervals1.toMathInt(modZ256) - intervals2.toMathInt(modZ256)) containedIn SFullInt256math
     }
 
 

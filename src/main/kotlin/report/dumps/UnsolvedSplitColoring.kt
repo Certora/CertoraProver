@@ -21,8 +21,10 @@ import config.Config
 import config.LocalSettings
 import datastructures.stdcollections.*
 import tac.NBId
+import utils.*
 import vc.data.*
 import verifier.TimeoutCoreAnalysis
+import java.lang.UnsupportedOperationException
 
 
 /** Contains all the information about unsolved splits that might be needed to generate a graphical dump for
@@ -48,13 +50,25 @@ data class UnsolvedSplitInfo(
  */
 fun generateUnsolvedSplitCodeMap(unsolvedSplitInfo: UnsolvedSplitInfo,
                                  localSettings: LocalSettings = LocalSettings()): CodeMap {
-    val (fullTimeoutBlocks, notYetProcessedSplitBlocks, tacProgram, timeoutCoreInfo) = unsolvedSplitInfo
+    val (fullTimeoutBlocks1, notYetProcessedSplitBlocks1, tacProgram, timeoutCoreInfo) = unsolvedSplitInfo
 
     val name = tacProgram.name
 
-
     // this _should_ not be too expensive, but we could measure it in time
     val codeMap = generateCodeMap(tacProgram, name)
+
+    // unsolvedSplitInfo is based on the program without the extra decomposition for internal functions
+    //  we need to apply the block mapping accordingly
+    val fullTimeoutBlocks =
+        fullTimeoutBlocks1.flatMap { codeMap.intFuncsCmdPtrMapping[it] }
+
+    val notYetProcessedSplitBlocks =
+        notYetProcessedSplitBlocks1.flatMap { codeMap.intFuncsCmdPtrMapping[it] }
+
+    if (timeoutCoreInfo != null && codeMap.withInternalFunctions != tacProgram) {
+        throw UnsupportedOperationException("timeout core in conjunction with having internal functions in the " +
+            "codemap is not working, yet, need to implement a more detailed `internalFunctionsBlockMapping` for that.")
+    }
 
     /** depends on the naming scheme [callNodeLabel] used within [decomposeCodeToCalls]
      * (copied from CodeMap.addUnsatCoreData()) **/
@@ -67,7 +81,9 @@ fun generateUnsolvedSplitCodeMap(unsolvedSplitInfo: UnsolvedSplitInfo,
     val notYetProcessed = { n: DotNode -> n.id.originalNodeId in notYetProcessedSplitBlocks }
     val inTimeoutCore = { n: DotNode -> timeoutCoreInfo?.timeoutCoreBlocks?.contains(n.originalNodeId) == true }
 
-    val countDifficultOps = CountDifficultOps(tacProgram)
+    val countDifficultOps = (codeMap.withInternalFunctions as? CoreTACProgram)
+        ?.let { wif -> CountDifficultOps(wif) }
+        ?: error("expected a CoreTACProgram, got ${codeMap.withInternalFunctions} (aborting difficulty computation)")
     val heuristicallyDifficult = { n: DotNode -> countDifficultOps[n.id.originalNodeId]?.isDifficult() == true }
 
     // note: we'd love to add tooltips here, for a "hover to see the stats" feature, but when using them together with

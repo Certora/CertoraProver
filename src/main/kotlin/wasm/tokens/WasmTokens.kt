@@ -51,7 +51,7 @@ object WasmTokens {
     const val WASMASSUME = "assume"
     const val WASMASSERT = "assert"
     const val LABEL = "label"
-    const val LOWER = "lw"
+    const val LOWER = "lo"
     const val UPPER = "up"
 
 

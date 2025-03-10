@@ -64,7 +64,7 @@ class InlinedMethodCallOrder(graph: TACCommandGraph) {
                     when(cmd.cmd.annot.k) {
                         Inliner.CallStack.STACK_PUSH -> {
                             val annot = cmd.cmd.annot.v as Inliner.CallStack.PushRecord
-                            nextCalls = listOf(StackPushRecord(annot.callee, cmd.ptr, null, annot.isNoRevert))
+                            nextCalls = listOf(StackPushRecord(annot.callee, cmd.ptr, null, annot.isNoRevert, callId = annot.calleeId))
                         }
                         Inliner.CallStack.STACK_POP -> Unit //nextCalls = listOf()
                     }

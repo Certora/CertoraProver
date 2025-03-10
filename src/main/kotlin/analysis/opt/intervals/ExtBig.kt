@@ -22,6 +22,7 @@ import analysis.split.Ternary.Companion.isPowOf2
 import analysis.split.Ternary.Companion.isPowOf2Minus1
 import com.certora.collect.*
 import evm.*
+import utils.ModZm
 import utils.isInt
 import java.math.BigInteger
 
@@ -132,9 +133,13 @@ sealed interface ExtBig : Comparable<ExtBig> {
     operator fun plus(other: Number): ExtBig =
         (this + (other as ExtBig))!!
 
+    operator fun plus(other: BigInteger) = this + other.asExtBig
+
     operator fun minus(other: ExtBig) = this + (-other)
 
     operator fun minus(other: Number) = (this + (-other))!!
+
+    operator fun minus(other: BigInteger) = this + (-other)
 
     operator fun plus(other: Int) = this + ExtBig(other)
 
@@ -232,15 +237,15 @@ sealed interface ExtBig : Comparable<ExtBig> {
             else -> n.bitLength().asExtBig - 1
         }
 
-    // if power is larger than 256, we consider it as 256.
-    fun pow2limited(): ExtBig? =
+    // if power is larger than [modZm]'s bitwidth, we consider it as that.
+    fun pow2limited(modZm: ModZm): ExtBig? =
         when {
             this < Zero -> null
-            this > 256.asExtBig -> EVM_MOD_GROUP256.asExtBig
-            else -> BigInteger.TWO.pow(n.toInt()).asExtBig
+            this > modZm.bitwidth.asExtBig -> modZm.modulus.asExtBig
+            else -> twoToThe(n.toInt()).asExtBig
         }
 
-    val is2sNeg get() = this >= Int256min2s
+    fun is2sNeg(modZm: ModZm) = this >= modZm.minSigned2s.asExtBig
 
-    val is2sNonNeg get() = this <= Int256max
+    fun is2sNonNeg(modZm : ModZm) = this <= modZm.maxSigned.asExtBig
 }

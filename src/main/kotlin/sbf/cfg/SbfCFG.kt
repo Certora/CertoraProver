@@ -271,7 +271,7 @@ interface SbfCFG {
 }
 
 
-class MutableSbfCFG(private var name: String): SbfCFG {
+class MutableSbfCFG(private val name: String): SbfCFG {
     /**
      *  @params entry and @params exit are initially null, but they must be set to non-null values
      *  before the CFG is considered well-formed.
@@ -292,10 +292,6 @@ class MutableSbfCFG(private var name: String): SbfCFG {
     }
 
     override fun getName() = name
-
-    fun setName(newName: String) {
-        name = newName
-    }
 
     override fun hasEntry() = entry != null
 

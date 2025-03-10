@@ -18,7 +18,10 @@
 package smt.solverscript
 
 import config.Config
-import datastructures.*
+import datastructures.EnumSet
+import datastructures.Memoized
+import datastructures.Memoized2
+import datastructures.enumSetOf
 import datastructures.stdcollections.*
 import evm.*
 import log.*
@@ -29,6 +32,8 @@ import smt.solverscript.functionsymbols.*
 import smtlibutils.data.*
 import tac.*
 import utils.*
+import utils.ModZm.Companion.asBigInteger
+import utils.ModZm.Companion.from2s
 import vc.data.FunctionInScope
 import vc.data.LExpression
 import vc.data.Quantifier
@@ -230,8 +235,8 @@ class LExpressionFactory private constructor(
         if (
             when (fs) {
                 is TheoryFunctionSymbol.Vec.IntMul,
-                NonSMTInterpretedFunctionSymbol.Binary.NoMulOverflow,
-                NonSMTInterpretedFunctionSymbol.Binary.NoSMulOverUnderflow,
+                is NonSMTInterpretedFunctionSymbol.Binary.NoMulOverflow,
+                is NonSMTInterpretedFunctionSymbol.Binary.NoSMulOverUnderflow,
                 is NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft,
                 is NonSMTInterpretedFunctionSymbol.Binary.ShiftRightLogical,
                 -> !atMostOneNonConstant(arguments.toList())
@@ -240,10 +245,10 @@ class LExpressionFactory private constructor(
                 is TheoryFunctionSymbol.Binary.IntMod,
                 -> !arguments[1].isConst //  7/x is already non-linear.
 
-                NonSMTInterpretedFunctionSymbol.Ternary.AddMod,
+                is NonSMTInterpretedFunctionSymbol.Ternary.AddMod,
                 -> !arguments[2].isConst
 
-                NonSMTInterpretedFunctionSymbol.Ternary.MulMod,
+                is NonSMTInterpretedFunctionSymbol.Ternary.MulMod,
                 -> !arguments[2].isConst || !atMostOneNonConstant(listOf(arguments[0], arguments[1]))
 
                 is NonSMTInterpretedFunctionSymbol.Vec.Mul,
@@ -257,8 +262,8 @@ class LExpressionFactory private constructor(
             usedFeatures += VcFeature.NonLinearArithmetic
         }
 
-        if (fs == NonSMTInterpretedFunctionSymbol.Binary.NoMulOverflow ||
-            fs == NonSMTInterpretedFunctionSymbol.Binary.NoSMulOverUnderflow
+        if (fs is NonSMTInterpretedFunctionSymbol.Binary.NoMulOverflow ||
+            fs is NonSMTInterpretedFunctionSymbol.Binary.NoSMulOverUnderflow
         ) {
             usedFeatures += VcFeature.MulOverflowChecks
         }
@@ -400,8 +405,8 @@ class LExpressionFactory private constructor(
     }
 
     /** convenience function for modulo addition - folds away mod on inside expressions; deals with 0 and 1 summand cases */
-    fun add(tag: Tag, vararg summands: LExpression, meta: MetaMap? = null): LExpression = add(tag, summands.toList(), meta)
-    fun add(tag: Tag, summands: List<LExpression>, meta: MetaMap? = null): LExpression = when (summands.size) {
+    fun add(tag: Tag.Bits, vararg summands: LExpression, meta: MetaMap? = null): LExpression = add(tag, summands.toList(), meta)
+    fun add(tag: Tag.Bits, summands: List<LExpression>, meta: MetaMap? = null): LExpression = when (summands.size) {
         0 -> lit(0, tag)
         1 -> summands[0]
         else -> {
@@ -865,9 +870,6 @@ class LExpressionFactory private constructor(
     infix fun LExpression.uninterpExp(other: LExpression) =
         applyExp(AxiomatizedFunctionSymbol.UninterpExp(commonBitsOrInt(this, other)), this, other)
 
-    infix fun LExpression.exp(other: LExpression) =
-        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Exp, this, other)
-
     infix fun LExpression.mul(other: LExpression) =
         applyExp(NonSMTInterpretedFunctionSymbol.Vec.Mul(commonBitsTag(this, other)), this, other)
 
@@ -923,21 +925,17 @@ class LExpressionFactory private constructor(
     infix fun LExpression.intGt(other: LExpression) =
         applyExp(TheoryFunctionSymbol.Binary.IntGt, this, other)
 
-    infix fun LExpression.uninterpBwAnd(other: LExpression) =
-        applyExp(AxiomatizedFunctionSymbol.Bitwise.UninterpBwAnd, this, other)
-
-
     infix fun LExpression.slt(other: LExpression) =
-        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Slt, this, other)
+        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Slt(commonBitsTag(this, other)), this, other)
 
     infix fun LExpression.sle(other: LExpression) =
-        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Sle, this, other)
+        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Sle(commonBitsTag(this, other)), this, other)
 
     infix fun LExpression.sgt(other: LExpression) =
-        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Sgt, this, other)
+        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Sgt(commonBitsTag(this, other)), this, other)
 
     infix fun LExpression.sge(other: LExpression) =
-        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Sge, this, other)
+        applyExp(NonSMTInterpretedFunctionSymbol.Binary.Sge(commonBitsTag(this, other)), this, other)
 
     infix fun LExpression.lt(other: LExpression) =
         applyExp(NonSMTInterpretedFunctionSymbol.Binary.Lt, this, other)
@@ -951,18 +949,29 @@ class LExpressionFactory private constructor(
     infix fun LExpression.ge(other: LExpression) =
         applyExp(NonSMTInterpretedFunctionSymbol.Binary.Ge, this, other)
 
-    /** SMT expression that checks if a value is positive (interpreted as signed int256).
-     */
-    val LExpression.isSignedPos get() =
-        ((this gt ZERO) and (this le MAX_INT))
+    /** Returns the LExpression for checking if [this] is a non-negative signed int w.r.t. [tag] */
+    fun LExpression.is2sNonNeg(tag: Tag.Bits) =
+        this intLe litInt(tag.maxSigned)
 
-    /** SMT expression that checks if a value is negative (interpreted as signed int256).
-     */
-    val LExpression.isSignedNeg get() =
-        ((this gt MAX_INT) and (this le MAX_UINT))
+    fun LExpression.is2sPos(tag: Tag.Bits) =
+        is2sNonNeg(tag) and not(this eq ZERO)
 
-    fun uninterpMod256(other: LExpression) =
-        applyExp(AxiomatizedFunctionSymbol.UninterpMod256, other)
+    /** Returns the LExpression for checking if [this] is a signed int w.r.t. [tag] */
+    fun LExpression.is2sNeg(tag: Tag.Bits) =
+        this intGe litInt(tag.minSigned2s)
+
+    fun areOfSameSign(e1: LExpression, e2: LExpression, tag: Tag.Bits) =
+        e1.is2sNonNeg(tag) eq e2.is2sNonNeg(tag)
+
+    fun LExpression.from2s(tag: Tag.Bits) =
+        if (isConst) {
+            litInt(asConst.from2s(tag))
+        } else {
+            ite(is2sNonNeg(tag), this, this - litInt(tag.modulus))
+        }
+
+    fun uninterpTagMod(other: LExpression, tag : Tag.Bits) =
+        applyExp(AxiomatizedFunctionSymbol.UninterpTagMod(tag), other)
 
     // bitvectors
 
@@ -977,7 +986,7 @@ class LExpressionFactory private constructor(
         applyExp(TheoryFunctionSymbol.BV.BvAnd(commonBitsTag(this, other)), this, other)
 
     infix fun LExpression.bvConcat(other: LExpression) =
-            applyExp(TheoryFunctionSymbol.BV.BvConcatTwo256s, this, other)
+        applyExp(TheoryFunctionSymbol.BV.BvConcatTwo256s, this, other)
 
     infix fun LExpression.bvOr(other: LExpression) =
         applyExp(TheoryFunctionSymbol.BV.BvOr(commonBitsTag(this, other)), this, other)
@@ -1049,10 +1058,10 @@ class LExpressionFactory private constructor(
     infix fun LExpression.signExt(other: LExpression) =
         other.asConstOrNull?.toIntOrNull()
             ?.let { this signExt it }
-            ?: applyExp(AxiomatizedFunctionSymbol.Bitwise.BinarySignExtend, this, other)
+            ?: applyExp(AxiomatizedFunctionSymbol.Bitwise.BinarySignExtend(tag), this, other)
 
     infix fun LExpression.shl(other: LExpression) =
-        applyExp(NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft(tag), this, other)
+        applyExp(NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft(tag as Tag.Bits), this, other)
 
     /** Use this to give the shift amount in number of bytes rather than bits. */
     infix fun LExpression.shlBytes(other: LExpression) = shl(8 * other)
@@ -1103,50 +1112,30 @@ class LExpressionFactory private constructor(
 
     // constants
 
-    /**
-     *  A super simple cache just for constants - we normally use a lot of the same constants.
-     *  This is nice until maybe some day we create an LExpression cache.
-     */
-    private val numberExpressions: MutableMap<BigInteger, LExpression.Literal> = mutableMapOf()
-    private val bitvectorExpressions: MutableNestedMap<Int, BigInteger, LExpression.Literal> = mutableMapOf()
+    /** Create a literal with the given value and tag (cached). */
+    val litCache = Memoized2(concurrent = false) { value: BigInteger, tag: Tag ->
+        LExpression.Literal(value, tag)
+    }
 
-    /** Create a bit-vector literal with the given [tag]. */
-    fun litBv(value: BigInteger, tag: Tag.Bits): LExpression.Literal =
-        bitvectorExpressions.getOrPut(tag.bitwidth, value) {
-            LExpression.Literal(value, tag)
-        }
-    fun litBv(value: Int, tag: Tag.Bits) = litBv(BigInteger.valueOf(value.toLong()), tag)
-    fun litBv(value: Long, tag: Tag.Bits) = litBv(BigInteger.valueOf(value), tag)
+    fun lit(value : BigInteger, tag: Tag) = litCache(value, tag)
+    fun lit(value: Long, tag: Tag) = litCache(value.toBigInteger(), tag)
+    fun lit(value: Int, tag: Tag) = litCache(value.toBigInteger(), tag)
 
-    /** Create a bit-vector literal with 256 bits */
-    fun lit256(value: Int) = litBv(value, Tag.Bit256)
-    fun lit256(value: Long) = litBv(value, Tag.Bit256)
-    fun lit256(value: BigInteger) = litBv(value, Tag.Bit256)
+    fun litInt(value : BigInteger) = lit(value, Tag.Int)
+    fun litInt(value : String) = lit(value.toBigInteger(), Tag.Int)
+    fun litInt(value : Long) = lit(value, Tag.Int)
+    fun litInt(value : Int) = lit(value, Tag.Int)
+
+    fun lit256(value: BigInteger) = lit(value, Tag.Bit256)
+    fun lit256(value: Long) = lit(value, Tag.Bit256)
+    fun lit256(value: Int) = lit(value, Tag.Bit256)
 
     /** Create a boolean literal */
-    fun litBool(value: BigInteger) = LExpression.Literal(value, Tag.Bool)
-    fun litBool(value: Boolean) = LExpression.Literal(value)
-
-    /** Create an integer literal */
-    fun litInt(value: BigInteger): LExpression.Literal =
-        numberExpressions.getOrPut(value) { LExpression.Literal(value, Tag.Int) }
-    fun litInt(i: Int) = litInt(BigInteger.valueOf(i.toLong()))
-    fun litInt(i: Long) = litInt(BigInteger.valueOf(i))
-    fun litInt(i: String) = litInt(BigInteger(i))
-
-    /** Create a literal with the given [tag] */
-    fun lit(value: BigInteger, tag: Tag) = when (tag) {
-        is Tag.Bits -> litBv(value, tag)
-        is Tag.Bool -> litBool(value)
-        is Tag.Int -> litInt(value)
-        else -> error("Expect number $value to have a numeric tag, not $tag")
-    }
-    fun lit(value: Int, tag: Tag) = lit(BigInteger.valueOf(value.toLong()), tag)
+    fun litBool(value: BigInteger) = litCache(value, Tag.Bool)
+    fun litBool(value: Boolean) = litBool(value.asBigInteger)
 
     val ZERO = litInt(0)
-
     val ONE = litInt(1)
-
     val TWO = litInt(2)
 
     val TwoTo256Tagged = Memoized { tag: Tag -> lit(EVM_MOD_GROUP256, tag) }

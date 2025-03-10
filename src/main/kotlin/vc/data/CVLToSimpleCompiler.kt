@@ -156,7 +156,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
             return when(enc) {
                 Tag.CVLArray.UserArray.ElementEncoding.Signed -> {
                         TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                            lhs, TACBuiltInFunction.TwosComplement.Unwrap.toTACFunctionSym(), listOf(bufferValue.asSym())
+                            lhs, TACBuiltInFunction.TwosComplement.Unwrap(Tag.Bit256).toTACFunctionSym(), listOf(bufferValue.asSym())
                         )
                 }
 
@@ -827,7 +827,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
                             when (c.useEncoding) {
                                 Tag.CVLArray.UserArray.ElementEncoding.Signed -> {
                                     toReturn.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                                        c.lhs, TACBuiltInFunction.TwosComplement.Unwrap.toTACFunctionSym(), listOf(tmp.asSym())
+                                        c.lhs, TACBuiltInFunction.TwosComplement.Unwrap(Tag.Bit256).toTACFunctionSym(), listOf(tmp.asSym())
                                     ))
                                 }
                                 Tag.CVLArray.UserArray.ElementEncoding.Unsigned -> toReturn.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
@@ -904,7 +904,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
                             when (c.useEncoding) {
                                 Tag.CVLArray.UserArray.ElementEncoding.Signed -> {
                                     toReturn.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                                        tmp, TACBuiltInFunction.TwosComplement.Wrap.toTACFunctionSym(), listOf(c.value.asSym())
+                                        tmp, TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256).toTACFunctionSym(), listOf(c.value.asSym())
                                     ))
                                 }
                                 Tag.CVLArray.UserArray.ElementEncoding.Unsigned -> {

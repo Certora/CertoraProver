@@ -55,6 +55,39 @@
                     }
                 },
                 {
+                    "namePrefix": "tacM0x40!!0",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacM0x40",
+                                "maybeTACKeywordOrdinal": 39
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.is.reserved.memory.slot.var",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": "40"
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "40"
+                },
+                {
                     "namePrefix": "to_skey",
                     "tag": {
                         "type": "tac.Tag.GhostMap",
@@ -202,687 +235,6 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
                 },
                 {
-                    "namePrefix": "tacCalldatabuf!!18",
-                    "tag": {
-                        "type": "tac.Tag.ByteMap"
-                    },
-                    "callIndex": 1,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.immutable.array",
-                                "type": "vc.data.ImmutableBound",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "sym": {
-                                    "type": "vc.data.TACSymbol.Var.Full",
-                                    "namePrefix": "tacCalldatasize!!17",
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    },
-                                    "callIndex": 0,
-                                    "meta": [
-                                        {
-                                            "key": {
-                                                "name": "Tac.symbol.keyword",
-                                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                                "erasureStrategy": "Canonical"
-                                            },
-                                            "value": {
-                                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                                "name": "tacCalldatasize",
-                                                "maybeTACKeywordOrdinal": 12
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacCalldatabuf",
-                                "maybeTACKeywordOrdinal": 15
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.is.calldata",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.MappingValue.MapDefinition",
-                    "exp": {
-                        "defParams": [
-                            {
-                                "s": {
-                                    "namePrefix": "arg0",
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    },
-                                    "callIndex": 0
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            }
-                        ],
-                        "definition": {
-                            "type": "vc.data.TACExpr.TernaryExp.Ite",
-                            "i": {
-                                "type": "vc.data.TACExpr.BinRel.Le",
-                                "o1": {
-                                    "type": "vc.data.TACExpr.Sym.Const",
-                                    "s": {
-                                        "value": "64"
-                                    },
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    }
-                                },
-                                "o2": {
-                                    "type": "vc.data.TACExpr.Sym.Var",
-                                    "s": {
-                                        "namePrefix": "arg0",
-                                        "tag": {
-                                            "type": "tac.Tag.Bit256"
-                                        },
-                                        "callIndex": 0
-                                    },
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    }
-                                }
-                            },
-                            "t": {
-                                "type": "vc.data.TACExpr.Sym.Const",
-                                "s": {
-                                    "value": "0"
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            },
-                            "e": {
-                                "type": "vc.data.TACExpr.Sym.Const",
-                                "s": {
-                                    "value": "5b31ae8e00000000000000000000000000000000000000000000000000000000"
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            }
-                        },
-                        "tag": {
-                            "type": "tac.Tag.ByteMap"
-                        }
-                    }
-                },
-                {
-                    "namePrefix": "tacCalldatabuf!!21",
-                    "tag": {
-                        "type": "tac.Tag.ByteMap"
-                    },
-                    "callIndex": 1,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.immutable.array",
-                                "type": "vc.data.ImmutableBound",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "sym": {
-                                    "type": "vc.data.TACSymbol.Var.Full",
-                                    "namePrefix": "tacCalldatasize!!17",
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    },
-                                    "callIndex": 0,
-                                    "meta": [
-                                        {
-                                            "key": {
-                                                "name": "Tac.symbol.keyword",
-                                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                                "erasureStrategy": "Canonical"
-                                            },
-                                            "value": {
-                                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                                "name": "tacCalldatasize",
-                                                "maybeTACKeywordOrdinal": 12
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacCalldatabuf",
-                                "maybeTACKeywordOrdinal": 15
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.is.calldata",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.MappingValue.MapDefinition",
-                    "exp": {
-                        "defParams": [
-                            {
-                                "s": {
-                                    "namePrefix": "arg0",
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    },
-                                    "callIndex": 0
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            }
-                        ],
-                        "definition": {
-                            "type": "vc.data.TACExpr.TernaryExp.Ite",
-                            "i": {
-                                "type": "vc.data.TACExpr.BinBoolOp.LOr",
-                                "ls": [
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Eq",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "4"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Le",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "64"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    }
-                                ]
-                            },
-                            "t": {
-                                "type": "vc.data.TACExpr.Sym.Const",
-                                "s": {
-                                    "value": "0"
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            },
-                            "e": {
-                                "type": "vc.data.TACExpr.Sym.Const",
-                                "s": {
-                                    "value": "5b31ae8e00000000000000000000000000000000000000000000000000000000"
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            }
-                        },
-                        "tag": {
-                            "type": "tac.Tag.ByteMap"
-                        }
-                    }
-                },
-                {
-                    "namePrefix": "tacCalldatabuf!!23",
-                    "tag": {
-                        "type": "tac.Tag.ByteMap"
-                    },
-                    "callIndex": 1,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.immutable.array",
-                                "type": "vc.data.ImmutableBound",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "sym": {
-                                    "type": "vc.data.TACSymbol.Var.Full",
-                                    "namePrefix": "tacCalldatasize!!17",
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    },
-                                    "callIndex": 0,
-                                    "meta": [
-                                        {
-                                            "key": {
-                                                "name": "Tac.symbol.keyword",
-                                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                                "erasureStrategy": "Canonical"
-                                            },
-                                            "value": {
-                                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                                "name": "tacCalldatasize",
-                                                "maybeTACKeywordOrdinal": 12
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacCalldatabuf",
-                                "maybeTACKeywordOrdinal": 15
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.is.calldata",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.MappingValue.MapDefinition",
-                    "exp": {
-                        "defParams": [
-                            {
-                                "s": {
-                                    "namePrefix": "arg0",
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    },
-                                    "callIndex": 0
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            }
-                        ],
-                        "definition": {
-                            "type": "vc.data.TACExpr.TernaryExp.Ite",
-                            "i": {
-                                "type": "vc.data.TACExpr.BinBoolOp.LOr",
-                                "ls": [
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Eq",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "4"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Eq",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "24"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Le",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "64"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    }
-                                ]
-                            },
-                            "t": {
-                                "type": "vc.data.TACExpr.Sym.Const",
-                                "s": {
-                                    "value": "0"
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            },
-                            "e": {
-                                "type": "vc.data.TACExpr.Sym.Const",
-                                "s": {
-                                    "value": "5b31ae8e00000000000000000000000000000000000000000000000000000000"
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            }
-                        },
-                        "tag": {
-                            "type": "tac.Tag.ByteMap"
-                        }
-                    }
-                },
-                {
-                    "namePrefix": "tacCalldatabuf!!25",
-                    "tag": {
-                        "type": "tac.Tag.ByteMap"
-                    },
-                    "callIndex": 1,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.immutable.array",
-                                "type": "vc.data.ImmutableBound",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "sym": {
-                                    "type": "vc.data.TACSymbol.Var.Full",
-                                    "namePrefix": "tacCalldatasize!!17",
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    },
-                                    "callIndex": 0,
-                                    "meta": [
-                                        {
-                                            "key": {
-                                                "name": "Tac.symbol.keyword",
-                                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                                "erasureStrategy": "Canonical"
-                                            },
-                                            "value": {
-                                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                                "name": "tacCalldatasize",
-                                                "maybeTACKeywordOrdinal": 12
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacCalldatabuf",
-                                "maybeTACKeywordOrdinal": 15
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.is.calldata",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.MappingValue.MapDefinition",
-                    "exp": {
-                        "defParams": [
-                            {
-                                "s": {
-                                    "namePrefix": "arg0",
-                                    "tag": {
-                                        "type": "tac.Tag.Bit256"
-                                    },
-                                    "callIndex": 0
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            }
-                        ],
-                        "definition": {
-                            "type": "vc.data.TACExpr.TernaryExp.Ite",
-                            "i": {
-                                "type": "vc.data.TACExpr.BinBoolOp.LOr",
-                                "ls": [
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Eq",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "4"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Eq",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "24"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Eq",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "44"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "type": "vc.data.TACExpr.BinRel.Le",
-                                        "o1": {
-                                            "type": "vc.data.TACExpr.Sym.Const",
-                                            "s": {
-                                                "value": "64"
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        },
-                                        "o2": {
-                                            "type": "vc.data.TACExpr.Sym.Var",
-                                            "s": {
-                                                "namePrefix": "arg0",
-                                                "tag": {
-                                                    "type": "tac.Tag.Bit256"
-                                                },
-                                                "callIndex": 0
-                                            },
-                                            "tag": {
-                                                "type": "tac.Tag.Bit256"
-                                            }
-                                        }
-                                    }
-                                ]
-                            },
-                            "t": {
-                                "type": "vc.data.TACExpr.Sym.Const",
-                                "s": {
-                                    "value": "0"
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            },
-                            "e": {
-                                "type": "vc.data.TACExpr.Sym.Const",
-                                "s": {
-                                    "value": "5b31ae8e00000000000000000000000000000000000000000000000000000000"
-                                },
-                                "tag": {
-                                    "type": "tac.Tag.Bit256"
-                                }
-                            }
-                        },
-                        "tag": {
-                            "type": "tac.Tag.ByteMap"
-                        }
-                    }
-                },
-                {
                     "namePrefix": "ReachabilityCertora1_0_0_1_0_0",
                     "tag": {
                         "type": "tac.Tag.Bool"
@@ -939,7 +291,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
                 },
                 {
-                    "namePrefix": "tacSighash!!8",
+                    "namePrefix": "tacSighash!!9",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -964,7 +316,7 @@
                     "value": "5b31ae8e"
                 },
                 {
-                    "namePrefix": "tacCalldatasize!!17",
+                    "namePrefix": "tacCalldatasize!!18",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -989,7 +341,7 @@
                     "value": "64"
                 },
                 {
-                    "namePrefix": "R0",
+                    "namePrefix": "R1",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1028,10 +380,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "1"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R4",
+                    "namePrefix": "R5",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1071,7 +423,7 @@
                     "value": "1"
                 },
                 {
-                    "namePrefix": "R5",
+                    "namePrefix": "R6",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1111,7 +463,7 @@
                     "value": "2"
                 },
                 {
-                    "namePrefix": "R6",
+                    "namePrefix": "R7",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1151,7 +503,7 @@
                     "value": "4"
                 },
                 {
-                    "namePrefix": "R7",
+                    "namePrefix": "R8",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1197,32 +549,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "401"
+                    "value": "8000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R9",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.is-temp-var",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "1"
-                },
-                {
-                    "namePrefix": "B12",
+                    "namePrefix": "B13",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1243,7 +573,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
                 },
                 {
-                    "namePrefix": "B50",
+                    "namePrefix": "B43",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1264,7 +594,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "B55",
+                    "namePrefix": "B48",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1285,7 +615,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
                 },
                 {
-                    "namePrefix": "B67",
+                    "namePrefix": "B60",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1295,51 +625,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "I40",
-                    "tag": {
-                        "type": "tac.Tag.Int"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.is-temp-var",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
-                },
-                {
-                    "namePrefix": "I45",
-                    "tag": {
-                        "type": "tac.Tag.Int"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.is-temp-var",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
-                },
-                {
-                    "namePrefix": "I53",
+                    "namePrefix": "I46",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -1347,32 +633,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "3"
                 },
                 {
-                    "namePrefix": "I58",
-                    "tag": {
-                        "type": "tac.Tag.Int"
-                    },
-                    "callIndex": 0
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
-                },
-                {
-                    "namePrefix": "I59",
-                    "tag": {
-                        "type": "tac.Tag.Int"
-                    },
-                    "callIndex": 0
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
-                },
-                {
-                    "namePrefix": "I61",
+                    "namePrefix": "I51",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -1383,7 +647,7 @@
                     "value": "2"
                 },
                 {
-                    "namePrefix": "I64",
+                    "namePrefix": "I52",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -1391,10 +655,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "5"
                 },
                 {
-                    "namePrefix": "I65",
+                    "namePrefix": "I54",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -1402,10 +666,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "2"
                 },
                 {
-                    "namePrefix": "I66",
+                    "namePrefix": "I57",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -1413,7 +677,29 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "5"
+                },
+                {
+                    "namePrefix": "I58",
+                    "tag": {
+                        "type": "tac.Tag.Int"
+                    },
+                    "callIndex": 0
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "a"
+                },
+                {
+                    "namePrefix": "I59",
+                    "tag": {
+                        "type": "tac.Tag.Int"
+                    },
+                    "callIndex": 0
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "a"
                 },
                 {
                     "namePrefix": "R10",
@@ -1435,10 +721,32 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "1"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R14",
+                    "namePrefix": "R11",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "tac.is-temp-var",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                },
+                {
+                    "namePrefix": "R15",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1462,28 +770,6 @@
                     "value": "3"
                 },
                 {
-                    "namePrefix": "R19",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.is-temp-var",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "5b31ae8e00000000000000000000000000000000000000000000000000000000"
-                },
-                {
                     "namePrefix": "R20",
                     "tag": {
                         "type": "tac.Tag.Bit256"
@@ -1503,10 +789,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "5b31ae8e7fffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 },
                 {
-                    "namePrefix": "R22",
+                    "namePrefix": "R21",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1525,10 +811,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "3"
                 },
                 {
-                    "namePrefix": "R24",
+                    "namePrefix": "R23",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1547,10 +833,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "2"
                 },
                 {
-                    "namePrefix": "R28",
+                    "namePrefix": "R25",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1569,10 +855,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "401"
+                    "value": "5"
                 },
                 {
-                    "namePrefix": "R30",
+                    "namePrefix": "R29",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1591,10 +877,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "8200"
                 },
                 {
-                    "namePrefix": "R33",
+                    "namePrefix": "R31",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1613,10 +899,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R35",
+                    "namePrefix": "R34",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1635,7 +921,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
                     "namePrefix": "R36",
@@ -1657,10 +943,32 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "1"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R41",
+                    "namePrefix": "R37",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "tac.is-temp-var",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                },
+                {
+                    "namePrefix": "R38",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1690,10 +998,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "5"
                 },
                 {
-                    "namePrefix": "R46",
+                    "namePrefix": "R39",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1723,10 +1031,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "a"
                 },
                 {
-                    "namePrefix": "R51",
+                    "namePrefix": "R44",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1737,7 +1045,7 @@
                     "value": "0"
                 },
                 {
-                    "namePrefix": "R52",
+                    "namePrefix": "R45",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1756,10 +1064,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "3"
                 },
                 {
-                    "namePrefix": "R56",
+                    "namePrefix": "R49",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1770,7 +1078,7 @@
                     "value": "1"
                 },
                 {
-                    "namePrefix": "R57",
+                    "namePrefix": "R50",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1789,10 +1097,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "2"
                 },
                 {
-                    "namePrefix": "R62",
+                    "namePrefix": "R55",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1803,7 +1111,7 @@
                     "value": "2"
                 },
                 {
-                    "namePrefix": "R63",
+                    "namePrefix": "R56",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1822,7 +1130,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "5"
                 },
                 {
                     "namePrefix": "CANON10",
@@ -2058,7 +1366,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "a"
+                    "value": "b"
                 },
                 {
                     "namePrefix": "CANON11",
@@ -2292,7 +1600,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "403"
+                    "value": "c100"
                 },
                 {
                     "namePrefix": "CANON12",
@@ -3000,7 +2308,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "7"
+                    "value": "6"
                 },
                 {
                     "namePrefix": "CANON15",
@@ -3236,21 +2544,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "6"
+                    "value": "d"
                 },
                 {
-                    "namePrefix": "CANON20",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
-                },
-                {
-                    "namePrefix": "CANON59",
+                    "namePrefix": "CANON51",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -3308,10 +2605,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "a"
                 },
                 {
-                    "namePrefix": "CANON62",
+                    "namePrefix": "CANON54",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -3331,7 +2628,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
                 },
                 {
-                    "namePrefix": "CANON19!!48",
+                    "namePrefix": "CANON19!!41",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -3389,7 +2686,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "0"
+                    "value": "a"
                 },
                 {
                     "namePrefix": "CANON4",
@@ -3658,7 +2955,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "401"
+                    "value": "8200"
                 },
                 {
                     "namePrefix": "CANON7",
@@ -4051,7 +3348,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "402"
+                    "value": "4300"
                 },
                 {
                     "namePrefix": "CANON9",
@@ -4287,7 +3584,18 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "5"
+                    "value": "7"
+                },
+                {
+                    "namePrefix": "CANON20.459",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
                     "namePrefix": "OK_0_0_0_0_0_0",
@@ -4318,7 +3626,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "lastHasThrown!!26",
+                    "namePrefix": "lastHasThrown!!27",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -4386,7 +3694,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "lastHasThrown!!47",
+                    "namePrefix": "lastHasThrown!!40",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -4541,46 +3849,7 @@
             ],
             "havocedVariables": [
                 {
-                    "namePrefix": "tacExtcodesize!!1",
-                    "tag": {
-                        "type": "tac.Tag.WordMap"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacExtcodesize",
-                                "maybeTACKeywordOrdinal": 25
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.no.callindex",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.is.extcodesize",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "R0",
+                    "namePrefix": "R1",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -4614,6 +3883,63 @@
                             },
                             "value": {
                             }
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON19!!17",
+                    "tag": {
+                        "type": "tac.Tag.Int"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "spec.cvlast.CVLRange.Range",
+                                    "specFile": "TestArray.spec",
+                                    "start": {
+                                        "line": 14,
+                                        "charByteOffset": 4
+                                    },
+                                    "end": {
+                                        "line": 14,
+                                        "charByteOffset": 18
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Mathint"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "extSum"
                         }
                     ]
                 },
@@ -4811,63 +4137,6 @@
                                 "erasureStrategy": "CallTrace"
                             },
                             "value": "e.msg.value"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "CANON19!!16",
-                    "tag": {
-                        "type": "tac.Tag.Int"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "spec.cvlast.CVLRange.Range",
-                                    "specFile": "TestArray.spec",
-                                    "start": {
-                                        "line": 14,
-                                        "charByteOffset": 4
-                                    },
-                                    "end": {
-                                        "line": 14,
-                                        "charByteOffset": 18
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Mathint"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "extSum"
                         }
                     ]
                 },
@@ -6259,7 +5528,7 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON21!3",
+                    "namePrefix": "CANON21!4",
                     "tag": {
                         "type": "tac.Tag.GhostMap",
                         "paramSorts": [
@@ -6291,9 +5560,9 @@
                     ]
                 },
                 {
-                    "namePrefix": "tacCalldatasize!!17",
+                    "namePrefix": "tacExtcodesize!!2",
                     "tag": {
-                        "type": "tac.Tag.Bit256"
+                        "type": "tac.Tag.WordMap"
                     },
                     "callIndex": 0,
                     "meta": [
@@ -6305,14 +5574,32 @@
                             },
                             "value": {
                                 "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacCalldatasize",
-                                "maybeTACKeywordOrdinal": 12
+                                "name": "tacExtcodesize",
+                                "maybeTACKeywordOrdinal": 25
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.no.callindex",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.is.extcodesize",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
                             }
                         }
                     ]
                 },
                 {
-                    "namePrefix": "tacSighash!!8",
+                    "namePrefix": "tacSighash!!9",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -6328,6 +5615,27 @@
                                 "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
                                 "name": "tacSighash",
                                 "maybeTACKeywordOrdinal": 6
+                            }
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "tacCalldatasize!!18",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacCalldatasize",
+                                "maybeTACKeywordOrdinal": 12
                             }
                         }
                     ]
@@ -6797,7 +6105,7 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON5havocme468",
+                    "namePrefix": "CANON5havocme457",
                     "tag": {
                         "type": "tac.Tag.ByteMap"
                     },
@@ -7108,9 +6416,9 @@
                     ]
                 },
                 {
-                    "namePrefix": "tacBalance!!2",
+                    "namePrefix": "R7",
                     "tag": {
-                        "type": "tac.Tag.WordMap"
+                        "type": "tac.Tag.Bit256"
                     },
                     "callIndex": 0,
                     "meta": [
@@ -7121,24 +6429,30 @@
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacBalance",
-                                "maybeTACKeywordOrdinal": 23
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+                                "name": "tacContractAt"
                             }
                         },
                         {
                             "key": {
-                                "name": "tac.no.callindex",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
+                                "name": "tac.contract.sym.addr.name",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "Erased"
                             },
-                            "value": {
-                            }
+                            "value": "identity"
+                        },
+                        {
+                            "key": {
+                                "name": "tac.contract.sym.addr",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Erased"
+                            },
+                            "value": "4"
                         }
                     ]
                 },
                 {
-                    "namePrefix": "R7",
+                    "namePrefix": "R8",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -7197,7 +6511,7 @@
                                 "type": "java.lang.String",
                                 "erasureStrategy": "Erased"
                             },
-                            "value": "sha256"
+                            "value": "ecrecover"
                         },
                         {
                             "key": {
@@ -7205,7 +6519,66 @@
                                 "type": "java.math.BigInteger",
                                 "erasureStrategy": "Erased"
                             },
-                            "value": "2"
+                            "value": "1"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "tacM0x40!!0",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacM0x40",
+                                "maybeTACKeywordOrdinal": 39
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.is.reserved.memory.slot.var",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": "40"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "tacBalance!!3",
+                    "tag": {
+                        "type": "tac.Tag.WordMap"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacBalance",
+                                "maybeTACKeywordOrdinal": 23
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.no.callindex",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
                         }
                     ]
                 },
@@ -7233,7 +6606,7 @@
                                 "type": "java.lang.String",
                                 "erasureStrategy": "Erased"
                             },
-                            "value": "identity"
+                            "value": "sha256"
                         },
                         {
                             "key": {
@@ -7241,43 +6614,7 @@
                                 "type": "java.math.BigInteger",
                                 "erasureStrategy": "Erased"
                             },
-                            "value": "4"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "R4",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
-                                "name": "tacContractAt"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr.name",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "ecrecover"
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr",
-                                "type": "java.math.BigInteger",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "1"
+                            "value": "2"
                         }
                     ]
                 }

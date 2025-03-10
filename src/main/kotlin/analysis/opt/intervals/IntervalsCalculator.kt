@@ -31,7 +31,7 @@ import analysis.opt.intervals.Intervals.Companion.SFalse
 import analysis.opt.intervals.Intervals.Companion.SFull
 import analysis.opt.intervals.Intervals.Companion.SFullBool
 import analysis.opt.intervals.Intervals.Companion.STrue
-import analysis.opt.intervals.Intervals.Companion.getSFull
+import analysis.opt.intervals.Intervals.Companion.sFull
 import analysis.opt.intervals.Intervals.Companion.unionOf
 import com.certora.collect.*
 import com.certora.collect.TreapMap.MergeMode
@@ -71,7 +71,7 @@ class IntervalsCalculator(
 
         fun intervalOfTag(tag: Tag) =
             when (tag) {
-                is Tag.Bits -> getSFull(tag.bitwidth)
+                is Tag.Bits -> sFull(tag)
                 Tag.Bool -> SFullBool
                 else -> SFull
             }
@@ -86,8 +86,6 @@ class IntervalsCalculator(
         fun goodTag(e: TACExpr) = goodTag(e.tagAssumeChecked)
 
         fun goodTag(s: TACSymbol) = goodTag(s.tag)
-
-        val tacM40Prefix = TACKeyword.MEM64.getName()
 
 
         /**

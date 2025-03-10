@@ -275,7 +275,8 @@
                                 "values": [
                                     "false"
                                 ],
-                                "tooltip": "value of expression"
+                                "tooltip": "value of expression",
+                                "truncatable": false
                             }
                         ]
                     },
@@ -286,13 +287,14 @@
                                 "text": "arr.length * 2 ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "6",
+                                        "value": "0x6",
                                         "values": [
-                                            "6",
+                                            "0x6",
                                             "6",
                                             "0x6"
                                         ],
-                                        "tooltip": "value of expression"
+                                        "tooltip": "value of expression",
+                                        "truncatable": true
                                     }
                                 ]
                             },

@@ -20,10 +20,13 @@ package report
 import analysis.CmdPointer
 import analysis.maybeNarrow
 import datastructures.stdcollections.*
+import evm.EVM_ADDRESS_SIZE
 import log.*
 import report.LocalAssignmentState.*
 import report.LocalAssignmentState.CVLString.Companion.maxDisplayedLength
 import report.calltrace.CallTrace
+import report.calltrace.formatter.AlternativeRepresentations.Representations
+import report.calltrace.formatter.AlternativeRepresentations.RepresentationsMap
 import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.formatter.CallTraceValue
 import report.calltrace.formatter.FormatterType
@@ -72,25 +75,8 @@ data class LocalAssignment(
     val formatter: CallTraceValueFormatter,
     val range: CVLRange?
 ) {
-    val formattedValue: String get() {
-        return toSarif().flatten()
-    }
+    val formattedValue: String get() = state.toSarif(formatter).flatten()
 
-    val formatterType: FormatterType<*> get() = state.formatterType
-
-    val scalarValue: TACValue?
-        get() = when (state) {
-            ByteMap -> null
-            is CVLString -> state.contents
-            is Contract -> state.value
-            is Initialized -> state.value
-            InitializedButMissing -> null
-            Uninitialized -> null
-        }
-
-    fun toSarif() =
-        ((state as? CallTraceFormattable)?.toSarif(formatter))
-                ?: Sarif.fromPlainStringUnchecked(state.toString())
 }
 
 /**
@@ -103,33 +89,37 @@ data class LocalAssignment(
  * (the interface is just for grouping)
  *
  * Everything under this interface may be displayed in the Variables Tab of the report.
- * Everything that may also show up in the call trace, also implements [CallTraceFormattable].
  */
 sealed interface LocalAssignmentState {
-
     val formatterType: FormatterType<*>
 
-    /** Everything that may show up in the call trace has to implement this interface. */
-    sealed interface CallTraceFormattable {
-        fun toSarif(formatter: CallTraceValueFormatter): Sarif
-    }
+    fun toSarif(formatter: CallTraceValueFormatter): Sarif
 
     object Uninitialized: LocalAssignmentState {
         override fun toString() = "uninitialized"
         override val formatterType: FormatterType<*>
             get() = FormatterType.Value.Unknown("unknown type (of uninitialized value)") // does this end up being shown??
+
+        override fun toSarif(formatter: CallTraceValueFormatter) =
+            CallTraceValueFormatter.unusedValue(formatterType)
     }
 
     object InitializedButMissing: LocalAssignmentState {
         override fun toString() = "initialized to unknown"
         override val formatterType: FormatterType<*>
             get() = FormatterType.Value.Unknown("unknown type (of initialized-but-missing value)") // does this end up being shown??
+
+        override fun toSarif(formatter: CallTraceValueFormatter) =
+            CallTraceValueFormatter.unknown()
     }
 
     object ByteMap: LocalAssignmentState {
         override fun toString() = "bytemap initialized but unknown"
         override val formatterType: FormatterType<*>
             get() = FormatterType.Compound.CVL(CVLType.PureCVLType.DynamicArray.PackedBytes)
+
+        override fun toSarif(formatter: CallTraceValueFormatter) =
+            CallTraceValueFormatter.unknown()
     }
 
     /**
@@ -192,6 +182,18 @@ sealed interface LocalAssignmentState {
             }
         }
 
+        override fun toSarif(formatter: CallTraceValueFormatter) =
+            (
+                stringRep?.let { strRep ->
+                    Sarif.Arg(
+                        RepresentationsMap(Representations.Pretty to strRep),
+                        "CVL string",
+                        type = formatterType.toTypeString(),
+                        truncatable = false,
+                    )
+                } ?: CallTraceValueFormatter.unknownArg()
+            ).asSarif
+
         override fun toString(): String = stringRep ?: errorMsg
 
         companion object {
@@ -200,7 +202,7 @@ sealed interface LocalAssignmentState {
         }
     }
 
-    data class Initialized(val value: TACValue, val type: CVLType.PureCVLType?): LocalAssignmentState, CallTraceFormattable {
+    data class Initialized(val value: TACValue, val type: CVLType.PureCVLType?): LocalAssignmentState {
         override fun toString() = "initialized"
         override fun toSarif(formatter: CallTraceValueFormatter) =
             CallTraceValue.cvlCtfValueOrUnknown(value, type).toSarif(formatter, "initial value")
@@ -209,11 +211,27 @@ sealed interface LocalAssignmentState {
             get() = type?.toFormatterType() ?: FormatterType.Value.Unknown("unknown type (initialized value)") // xxx
     }
 
-    data class Contract(val value: TACValue.PrimitiveValue.Integer, val info: ContractInfo) : LocalAssignmentState,
-        CallTraceFormattable {
+    data class Contract(val value: TACValue.PrimitiveValue.Integer, val info: ContractInfo) : LocalAssignmentState {
         override fun toString() = "contract ${info.name} with instance ${info.instanceId}"
         override fun toSarif(formatter: CallTraceValueFormatter): Sarif =
-            formatter.valueToSarif(value, EVMTypeDescriptor.address.toValueFormatterType(), "contract address")
+            formatter.valueToSarif(
+                value,
+                // not declaring this as address here, since this is the one case where we want the value to be
+                // formatted as a number
+                EVMTypeDescriptor.UIntK(EVM_ADDRESS_SIZE).toValueFormatterType(),
+                "contract address"
+            ).let { sarif ->
+                /** "special solution" to do what we'd normally do for addresses in the call trace value formatting:
+                 *    addresses don't switch to decimal representation, but show hex in DEC mode
+                 *  not the prettiest solution, but rather local, and should do for the time being */
+                sarif.asArg()?.let { arg ->
+                    val new = arg.values.toMutableMap()
+                    runIf (new.size == Representations.values().size) {
+                        new[Representations.Decimal] = new[Representations.Hex]!!
+                        arg.copy(values = RepresentationsMap(new)).asSarif
+                    }
+                } ?: sarif
+            }
 
         override val formatterType: FormatterType<*>
             get() = EVMTypeDescriptor.address.toValueFormatterType()

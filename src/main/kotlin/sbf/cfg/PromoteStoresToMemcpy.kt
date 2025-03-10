@@ -29,6 +29,7 @@ import sbf.domains.SetOfFiniteIntervals
 import sbf.sbfLogger
 import datastructures.stdcollections.*
 import org.jetbrains.annotations.TestOnly
+import sbf.callgraph.CVTCore
 import kotlin.math.absoluteValue
 
 /**
@@ -67,7 +68,7 @@ private fun getMaxCallId(cfg: SbfCFG): ULong {
     for (bb in cfg.getBlocks().values) {
         for (inst in bb.getInstructions()) {
             if (inst is SbfInstruction.Call ) {
-                if (CVTFunction.from(inst.name) == CVTFunction.SAVE_SCRATCH_REGISTERS) {
+                if (CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
                     val id = inst.metaData.getVal(SbfMeta.CALL_ID)
                     check(id != null ) {"promoteStoresToMemcpy expects that CVT_save_scratch_registers to have an ID"}
                     nextId = kotlin.math.max(nextId, id)
@@ -755,7 +756,7 @@ private data class MemcpyRanges(private val loads: ArrayList<MemAccess>, private
         val oldMetaData = memcpyInfo.metadata
         val metaData = oldMetaData.plus(Pair(SbfMeta.CALL_ID, callId)).plus(Pair(SbfMeta.MEMCPY_PROMOTION, ""))
 
-        emittedInsts.add(SbfInstruction.Call(name = CVTFunction.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData))
+        emittedInsts.add(SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData))
 
         emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, temp1, r1, true))
         emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, temp2, r2, true))
@@ -784,7 +785,7 @@ private data class MemcpyRanges(private val loads: ArrayList<MemAccess>, private
         emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r1, temp1, true))
         emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r2, temp2, true))
         emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r3, temp3, true))
-        emittedInsts.add(SbfInstruction.Call(name = CVTFunction.RESTORE_SCRATCH_REGISTERS.function.name, metaData = metaData))
+        emittedInsts.add(SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name, metaData = metaData))
     }
 
     fun getStores(): List<LocatedSbfInstruction> = storeLocInsts

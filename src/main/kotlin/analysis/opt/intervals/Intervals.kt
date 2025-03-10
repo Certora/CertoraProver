@@ -18,7 +18,6 @@
 package analysis.opt.intervals
 
 import analysis.opt.intervals.ExtBig.Companion.Int256max
-import analysis.opt.intervals.ExtBig.Companion.Int256min2s
 import analysis.opt.intervals.ExtBig.Companion.Int256minMath
 import analysis.opt.intervals.ExtBig.Companion.MaxUInt
 import analysis.opt.intervals.ExtBig.Companion.TwoTo256
@@ -29,10 +28,8 @@ import analysis.opt.intervals.ExtBig.MInf
 import analysis.opt.intervals.Interval.Companion.IFalse
 import analysis.opt.intervals.Interval.Companion.IFull
 import analysis.opt.intervals.Interval.Companion.IFull256
-import analysis.opt.intervals.Interval.Companion.IFull512
 import analysis.opt.intervals.Interval.Companion.IFullBool
 import analysis.opt.intervals.Interval.Companion.ITrue
-import analysis.opt.intervals.Interval.Companion.getIFull
 import analysis.opt.intervals.Interval.CutAtPoint
 import datastructures.stdcollections.*
 import utils.*
@@ -161,15 +158,15 @@ value class Intervals private constructor(
         val SEmpty = S(emptyList())
         val SFull = S(IFull)
         val SFull256 = S(IFull256)
-        val SFull512 = S(IFull512)
         val SFullBool = S(IFullBool)
-        fun getSFull(bitwidth: Int) = S(getIFull(bitwidth))
         val SFullInt256math = S(Int256minMath, Int256max)
 
         val S2To256 = S(TwoTo256)
         val SmaxUint = S(MaxUInt)
         val STrue = S(ITrue)
         val SFalse = S(IFalse)
+
+        fun sFull(modZm: ModZm) = S(BigInteger.ZERO, modZm.maxUnsigned)
 
         fun boolIntervals(surelyTrue: Boolean, surelyFalse: Boolean) =
             S(I.boolInterval(surelyTrue, surelyFalse))
@@ -317,8 +314,8 @@ value class Intervals private constructor(
     operator fun unaryMinus() =
         S(intervals.reversed().map(I::unaryMinus))
 
-    fun mod256() =
-        unsignedMod(S2To256)
+    fun mod(modZm: ModZm) =
+        unsignedMod(S(modZm.modulus))
 
     infix fun pow(other: S) =
         lift(other, I::pow)
@@ -326,8 +323,8 @@ value class Intervals private constructor(
     fun log2() =
         lift1(I::log2)
 
-    fun pow2Limited() =
-        lift1(I::pow2Limited)
+    fun pow2Limited(modZm: ModZm) =
+        lift1 { i -> i.pow2Limited(modZm) }
 
     infix fun bwAnd(other: S) =
         lift(other, I::bwAnd)
@@ -338,11 +335,11 @@ value class Intervals private constructor(
     infix fun bwXor(other: S) =
         lift(other, I::bwXor)
 
-    fun bwNot() =
-        lift1(I::bwNot)
+    fun bwNot(modZm: ModZm) =
+        lift1 { it.bwNot(modZm) }
 
-    infix fun signExtend(fromBit: Int) =
-        lift { it signExtend fromBit }
+    fun signExtend(fromBit: Int, toBit: Int) =
+        lift { it.signExtend(fromBit, toBit) }
 
     infix fun and(other: S): S {
         check(this.isBool && other.isBool)
@@ -403,33 +400,33 @@ value class Intervals private constructor(
     fun delete(n: Int) =
         delete(n.toBigInteger())
 
-    fun toMathInt() =
-        unionOf(map { it.toMathInt() })
+    fun toMathInt(modZm: ModZm) =
+        unionOf(map { it.toMathInt(modZm) })
 
-    fun fromMathInt() =
-        unionOf(map { it.fromMathInt() })
+    fun fromMathInt(modZm: ModZm) =
+        unionOf(map { it.fromMathInt(modZm) })
 
-    infix fun sLt(other: S) =
-        this.toMathInt() lt other.toMathInt()
+    fun sLt(other: S, modZm: ModZm) =
+        this.toMathInt(modZm) lt other.toMathInt(modZm)
 
-    infix fun sLe(other: S) =
-        this.toMathInt() le other.toMathInt()
+    fun sLe(other: S, modZm: ModZm) =
+        this.toMathInt(modZm) le other.toMathInt(modZm)
 
-    infix fun sGe(other: S) =
-        this.toMathInt() ge other.toMathInt()
+    fun sGe(other: S, modZm: ModZm) =
+        this.toMathInt(modZm) ge other.toMathInt(modZm)
 
-    infix fun sGt(other: S) =
-        this.toMathInt() gt other.toMathInt()
+    fun sGt(other: S, modZm: ModZm) =
+        this.toMathInt(modZm) gt other.toMathInt(modZm)
 
-    infix fun sDiv(other: S) =
-        (this.toMathInt() / other.toMathInt()).fromMathInt()
-            .letIf(Int256min2s in this && MaxUInt in other) {
+    fun sDiv(other: S, modZm: ModZm) =
+        (this.toMathInt(modZm) / other.toMathInt(modZm)).fromMathInt(modZm)
+            .letIf(modZm.minSigned2s in this && modZm.maxUnsigned in other) {
                 // this is EVM overflow behavior: `minInt256/-1 = minInt256`
-                it union S(Int256min2s)
+                it union S(modZm.minSigned2s)
             }
 
-    infix fun sMod(other: S) =
-        (this.toMathInt() evmSignedMod other.toMathInt()).fromMathInt()
+    fun sMod(other: S, modZm: ModZm) =
+        (this.toMathInt(modZm) evmSignedMod other.toMathInt(modZm)).fromMathInt(modZm)
 
 
     /**
@@ -441,12 +438,8 @@ value class Intervals private constructor(
         return S(smaller) to S(larger.reversed())
     }
 
-    val isSurely2sNeg get() = isNotEmpty() && min.is2sNeg
-
-    val isSurely2sNonNeg get() = isNotEmpty() && max.is2sNonNeg
-
-    val isSurely2sNonPos get() = isNotEmpty() && all { it == I.IZero || it.isSurely2sNeg }
-
+    fun isSurely2sNeg(modZm: ModZm) = isNotEmpty() && min.is2sNeg(modZm)
+    fun isSurely2sNonNeg(modZm: ModZm) = isNotEmpty() && max.is2sNonNeg(modZm)
 
     /**
      * If the number of [I]'s is larger than [maxNumIntervals] then an overapproximation of `this` is returned that
@@ -475,10 +468,19 @@ value class Intervals private constructor(
     infix fun isGt(other : BigInteger) = isGt(other.asExtBig)
     infix fun isGe(other : BigInteger) = isLe(other.asExtBig)
 
-    infix fun isSLt(other: S) = this.toMathInt() isLt other.toMathInt()
-    infix fun isSLe(other: S) = this.toMathInt() isLe other.toMathInt()
-    infix fun isSGe(other: S) = this.toMathInt() isGe other.toMathInt()
-    infix fun isSGt(other: S) = this.toMathInt() isGt other.toMathInt()
+    fun isSLt(other: S, modZm: ModZm) = this.toMathInt(modZm) isLt other.toMathInt(modZm)
+    fun isSLe(other: S, modZm: ModZm) = this.toMathInt(modZm) isLe other.toMathInt(modZm)
+    fun isSGe(other: S, modZm: ModZm) = this.toMathInt(modZm) isGe other.toMathInt(modZm)
+    fun isSGt(other: S, modZm: ModZm) = this.toMathInt(modZm) isGt other.toMathInt(modZm)
 
     fun abs() = union(intervals.map { it.abs() })
+
+    fun inUnsignedBounds(modZm: ModZm) : S =
+        (this ge S(Zero)) and (this le S(modZm.maxUnsigned))
+
+    fun inSignedBounds(modZm: ModZm) : S =
+        (this ge S(modZm.minSignedMath)) and (this le S(modZm.maxSigned))
+
+
+
 }

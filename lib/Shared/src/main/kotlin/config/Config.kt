@@ -679,6 +679,17 @@ object Config {
     val IsGenerateGraphs = object :
         ConfigType.BooleanCmdLine(true, Option("generateGraphs", true, "Whether to generate graphs or not")) {}
 
+    val InternalFunctionsInTACReports = object :
+        ConfigType.BooleanCmdLine(
+            true,
+            Option(
+                "internalFunctionsInTACReports",
+                true,
+                "If this is set to `true`, the live statistics and TAC reports will differentiate " +
+                    "internal calls, in addition to the external ones. [default: true]"
+            )
+        ) {}
+
     // Rule related
 
     // This is a [StringCmdLine] and not [StringSetCmdLine] because we split such sets on commas which wouldn't work for
@@ -765,6 +776,20 @@ object Config {
             "Gives alerts when rules have sanity check failures"
         ),
         pythonName = "--rule_sanity"
+    ) {}
+
+    /**
+     * The ecosystem that is used for the current verification task. This is useful for parts of the code in which it is
+     * important to differentiate the different ecosystems, for instance in the call trace generation.
+     * Currently, it can be either [Ecosystem.EVM], [Ecosystem.SOLANA], or [Ecosystem.SOROBAN].
+     */
+    val ActiveEcosystem = object : ConfigType.ActiveEcosystem(
+        Ecosystem.EVM,
+        Option(
+            "ecosystem",
+            true,
+            "The ecosystem that is used for the current verification task"
+        ),
     ) {}
 
     val FindReachabilityFailurePoint = object : ConfigType.BooleanCmdLine(
@@ -1789,6 +1814,17 @@ object Config {
         )
     ) {}
 
+    val HashingBoundDetectionMode: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "hashingBoundDetection",
+            true,
+            "Generates subrules for detecting suitable bounds for optimistic hashing mode." +
+                "The bounds are listed in the Global Notifications tab." +
+                "This flag also i] enables the optimistic unbounded hashing with the bound set to 0, " +
+                "and ii] sets several solving/encoding flags that are required for this mode to work."
+        )
+    ) {}
 
     val VerifyTACDumps = object : ConfigType.BooleanCmdLine(
         default = false,
@@ -1993,6 +2029,15 @@ object Config {
         false,
         Option("skipFormulaChecking", false, "Do not check formulas (skip calling to solver)")
     ) {}
+    val SimulateTimeout = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "simulateTimeout",
+            true,
+            "Do not check formulas (skip calling solvers), pretend it was a TIMEOUT (thus triggering " +
+                "the timeout reporting). [default: false]"
+        )
+    ) {}
     val ShouldDeleteSMTFiles: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         true,
         Option(
@@ -2019,6 +2064,17 @@ object Config {
                 "in seconds [default: 10]"
         )
     ) {}
+
+    val PostProcessCEXSingleCheckTimeout = object : ConfigType.IntCmdLine(
+        10,
+        Option(
+            "postProcessCEXSingleCheckTimeout",
+            true,
+            "minimum timeout for a single check during counterexample postprocessing " +
+                "(prettification and diversification), in seconds [default: 10]"
+        )
+    ) {}
+
     val MultipleCEXStrategy = object : ConfigType.MultipleCEXStrategyCmdLine(
         MultipleCEXStrategyEnum.NONE,
         Option(
@@ -2047,6 +2103,14 @@ object Config {
         Option(
             "prettifyCEXVariables", true, "Variables to prioritise" +
                 " during model post-processing."
+        )
+    ) {}
+    val PrettifyCEXSmallBarriers = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "postProcessCEXSmallBarriers",
+            true,
+            "Use small barrier constants during CEX prettification [default: false]"
         )
     ) {}
     val EnableStatistics = object : ConfigType.BooleanCmdLine(
@@ -2087,16 +2151,6 @@ object Config {
             "enableConditionalSnippets", true,
             "Enabled entries in the calltrace informing about branching in the code. " +
                 "Can be disabled if too noisy. [default: true]"
-        )
-    ) {}
-
-    val CallTraceDecimalLimit = object : ConfigType.BigIntCmdLine(
-        1_000.toBigInteger(),
-        Option(
-            "callTraceDecimalLimit",
-            true,
-            "For the Call Trace, controls the maximum value that will be displayed in decimal. " +
-                "Values whose absolute value is larger than this will display in hexadecimal."
         )
     ) {}
 
@@ -2210,7 +2264,7 @@ object Config {
     @OptIn(PollutesGlobalState::class)
     fun getTimeoutCracker() = TimeoutCracker.get()
 
-    val NumOfUnsatCores = Smt.NumOfUnsatCores
+    val NumOfUnsatCores get() = Smt.NumOfUnsatCores
     val UnsatCoresRequireUnion = Smt.UnsatCoresRequireUnion
     val UnsatCoresEnumerationTimeout get() = Smt.UnsatCoresEnumerationTimeout.get().seconds
     val TotalUnsatCoresEnumerationTimeout get() = Smt.TotalUnsatCoresEnumerationTimeout.get().seconds

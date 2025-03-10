@@ -895,11 +895,18 @@ class MutateApp:
         assert result_link, "submit_soroban: Null result_link"
 
         mutation_logger.info("Generating mutants and submitting...")
-        generated_mutants: List[Mutant] = self.get_universal_mutator_mutants()
+        generated_mutants: List[Mutant] = []
+        if self.universal_mutator:
+            generated_mutants = self.get_universal_mutator_mutants()
 
+        if self.manual_mutants:
+            self.manual_mutants_list = self.get_manual_mutations_mutants()
+            mutation_logger.debug(f"successfully parsed manual mutants from {self.conf}")
+
+        all_mutants = generated_mutants + self.manual_mutants_list
         web_utils = WebUtils(SimpleNamespace(**vars(self)))
         # get the mutation test id
-        self.numb_of_jobs = len(generated_mutants)
+        self.numb_of_jobs = len(all_mutants)
         self.mutation_test_id, collect_presigned_url = self.get_mutation_test_id_request(web_utils,
                                                                                          self.numb_of_jobs + 1)
         mutation_logger.debug(f"Mutation test id: {self.mutation_test_id}")
@@ -922,7 +929,7 @@ class MutateApp:
         mutant_runs = []
         try:
             self.backup_paths = []
-            for mutant in generated_mutants:
+            for mutant in all_mutants:
                 # call certoraRun for each mutant we found
                 mutant_runs.append(self.run_mutant_soroban(mutant))
         finally:
@@ -1142,7 +1149,8 @@ class MutateApp:
 
         try:
             certora_run_result = self.run_certora_prover(self.conf, self.mutation_test_id, msg=f"mutant ID: {mutant.id}")
-        except Util.CertoraUserInputError:
+        except Util.CertoraUserInputError as e:
+            Console().print(f"\n\nrun_mutant_soroban: prover failed\n{e}\n")
             return MutantJob(
                 gambit_mutant=mutant,
                 success=False,
@@ -1413,7 +1421,8 @@ class MutateApp:
             assert e.results, "expect e.results not to be None"
             certora_run_result = e.results
         except Exception as e:
-            raise Util.CertoraUserInputError(f"certoraRun failed with the parameters:\n {' '.join(certora_args)}", e)
+            raise Util.CertoraUserInputError(f"certoraRun failed with the parameters:\n {' '.join(certora_args)}"
+                                             f"\n\n{e}", e)
 
         return certora_run_result
 

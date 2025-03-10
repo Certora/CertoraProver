@@ -72,7 +72,7 @@ interface SafeMathCodeGen {
         op1: TACSymbol,
         op2: TACSymbol
     ) {
-        safeMathOp(output, vars, lhs, op1, op2, TACBuiltInFunction.NoAddOverflowCheck, TACExpr.Vec.Add.Companion::invoke)
+        safeMathOp(output, vars, lhs, op1, op2, TACBuiltInFunction.NoAddOverflowCheck(Tag.Bit256), TACExpr.Vec.Add.Companion::invoke)
     }
 
     /**
@@ -99,7 +99,7 @@ interface SafeMathCodeGen {
         op1: TACSymbol,
         op2: TACSymbol
     ) {
-        safeMathOp(output, vars, lhs, op1, op2, TACBuiltInFunction.NoMulOverflowCheck, TACExpr.Vec::Mul)
+        safeMathOp(output, vars, lhs, op1, op2, TACBuiltInFunction.NoMulOverflowCheck(Tag.Bit256), TACExpr.Vec::Mul)
     }
 
     /**

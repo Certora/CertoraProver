@@ -19,19 +19,21 @@ package evm
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import utils.modZ256
+import utils.ModZm.Companion.to2s
 import java.math.BigInteger
 
-class EVMOpsTest {
+class ModZmTest {
 
     @Test
     fun sdivTest() {
         assertEquals(
             MIN_EVM_INT256_2S_COMPLEMENT,
-            EVMOps.sdiv(MIN_EVM_INT256_2S_COMPLEMENT, (-BigInteger.ONE).to2s())
+            modZ256.sdiv(MIN_EVM_INT256_2S_COMPLEMENT, (-BigInteger.ONE).to2s())
         )
         assertEquals(
             BigInteger.ZERO,
-            EVMOps.sdiv(1000.toBigInteger(), BigInteger.ZERO)
+            modZ256.sdiv(1000.toBigInteger(), BigInteger.ZERO)
         )
     }
 }

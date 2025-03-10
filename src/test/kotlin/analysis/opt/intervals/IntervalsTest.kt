@@ -17,6 +17,7 @@
 
 package analysis.opt.intervals
 
+import analysis.numeric.MAX_UINT
 import analysis.opt.intervals.ExtBig.Companion.MaxUInt
 import analysis.opt.intervals.ExtBig.Companion.One
 import analysis.opt.intervals.ExtBig.Companion.TwoTo256
@@ -31,6 +32,8 @@ import analysis.opt.intervals.Intervals.Companion.mulMod
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
+import tac.Tag
+import utils.minus
 import analysis.opt.intervals.Interval.Companion as I
 import analysis.opt.intervals.Intervals.Companion as S
 
@@ -67,7 +70,7 @@ class IntervalsTest {
 
     @Test
     fun testPow2() {
-        assertEquals(16.asExtBig, 4.asExtBig.pow2limited())
+        assertEquals(16.asExtBig, 4.asExtBig.pow2limited(Tag.Bit256))
     }
 
 
@@ -135,6 +138,15 @@ class IntervalsTest {
     @Test
     fun testBWAnd() {
         assertEquals(I(1, 255), I(1, 255) bwAnd I(255))
+    }
+
+    @Test
+    fun testSignExtend() {
+        assertEquals(S(MAX_UINT), I(MAX_UINT).signExtend(100, 256))
+        assertEquals(S(1), I(1).signExtend(100, 256))
+        assertEquals(S(MAX_UINT), I(3).signExtend(2, 256))
+        assertEquals(S(MAX_UINT), I(3).signExtend(2, 256))
+        assertEquals(S(0, 1) union S(MAX_UINT - 1), I(0, 2).signExtend(2, 256))
     }
 
 }

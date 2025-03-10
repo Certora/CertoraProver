@@ -138,7 +138,7 @@ sealed interface LiveStatsProgressInfo : LiveStats {
             )
 
         override val splitProgressPercentage: Int
-            get() = 0 // as per our slack discussions we're showing 0 when the rule is "RUNNING" yet splitting hasn't started
+            get() = 0 // we're showing 0 when the rule is "RUNNING" yet splitting hasn't started
     }
 
     fun splitProgressString( numProblemsAttempted: Int, totalWeight: Double) =

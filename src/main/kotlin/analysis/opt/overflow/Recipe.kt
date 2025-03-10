@@ -46,6 +46,8 @@ import config.Config
 import datastructures.stdcollections.*
 import evm.*
 import utils.*
+import utils.ModZm.Companion.from2s
+import utils.ModZm.Companion.lowOnes
 import utils.SignUtilities.minSignedValueOfBitwidth
 import vc.data.TACCmd
 import vc.data.TACExpr
@@ -106,8 +108,8 @@ sealed class OverflowKey<K> : InfoKey<K>() {
         val OverflowContext.Binary.fittingMaxSIntK
             get() = PatternHelpers {
                 maxSIntK.onlyIf {
-                    intervals1.signExtend(get(SIGNED_WIDTH)!!) == intervals1 &&
-                        intervals2.signExtend(get(SIGNED_WIDTH)!!) == intervals2
+                    intervals1.signExtend(get(SIGNED_WIDTH)!!, modZ256.bitwidth) == intervals1 &&
+                        intervals2.signExtend(get(SIGNED_WIDTH)!!, modZ256.bitwidth) == intervals2
                 }
             }
 
@@ -903,7 +905,7 @@ data class Recipe<T : OverflowContext>(
                     },
                     neg {
                         op eq c(MIN_EVM_INT256_2S_COMPLEMENT)
-                    }).activation { const.from2s() < BigInteger.ZERO },
+                    }).activation { const.from2s(modZ256) < BigInteger.ZERO },
                 scMul(
                     "post_full_simple",
                     pos {

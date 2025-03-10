@@ -19,7 +19,6 @@ package vc.data
 
 import config.Config
 import config.ConfigScope
-import evm.EVMOps
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking

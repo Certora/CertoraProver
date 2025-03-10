@@ -361,16 +361,15 @@ class CalculateMethodParamFilters(
     }
 
     companion object {
-        @Suppress("ForbiddenMethodCall")
-        fun String.splitToContractAndMethod(defaultContract: String) =
-            if ("." in this) {
-                this.split(".").let {
-                    check(it.size == 2) { "Expected `contract.method(...)`, got $this"}
-                    it[0] to it[1]
-                }
-            } else {
-                defaultContract to this
-            }
+        fun String.splitToContractAndMethod(defaultContract: String): Pair<String, String> {
+            val (contract, method) = this.splitOnce(".")
+                ?: return defaultContract to this
+
+            @Suppress("ForbiddenMethodCall")
+            check(!method.contains(".")) { "Expected `contract.method(...)`, got $this" }
+
+            return contract to method
+        }
 
         /**
          * [this] is assumed to be a set of method signatures, with or without an explicit hostname (or `_` to represent
@@ -395,3 +394,10 @@ class CalculateMethodParamFilters(
         }
     }
 }
+
+@Suppress("ForbiddenMethodCall")
+private fun String.splitOnce(delimiter: String): Pair<String, String>? =
+    this
+        .split(delimiter, limit = 2)
+        .takeIf { it.size > 1 }
+        ?.let { it[0] to it[1] }

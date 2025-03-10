@@ -59,7 +59,12 @@ val BigInteger.asTACValue get() = TACValue.valueOf(this)
 val Boolean.asTACValue get() = TACValue.valueOf(this)
 
 /**
- * TACExpr value
+ * Represents the value of a [TACExpr].
+ * Used, for instance, to represent SMT models when they have been translated back to speak about TAC. These then take
+ * the shape of a Map<[TACSymbol.Var], [TACValue]>.
+ * This also means that every TAC type ([Tag]) should have some fitting correspondence here, more or less.
+ * Also, I suggest to not use this for other things than this part of TAC semantics (like aspects of displaying things
+ * or so).
  */
 
 @Serializable
@@ -848,6 +853,8 @@ sealed class TACValue : SerializableWithAdapter {
         }
     }
 
+
+    // (alex n): I'm sceptical this belongs here
     @Serializable
     object SumIndex : TACValue() { // For uninitialized array/map entries.
         override fun hashCode() = hashObject(this)

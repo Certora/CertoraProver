@@ -36,17 +36,25 @@ fun Iterable<Tag>.commonTag() = sameValueOrNull()
     ?: error("expected identical tags, but got $this")
 
 /**
- * Check that [lhs] and [rhs] have a direct common super tag and return that one.
+ * Check that [tags] have a direct common super tag and return that one.
  * Note that this function has some restriction due to the ad-hoc'ish nature of [isSubtypeOf] and the very restricted
- * ways we make use of it: we only find a common super tag is [lhs] and [rhs] are the same or if one is the direct sub
+ * ways we make use of it: we only find a common super tag if [tags ]are the same or if one is the direct sub
  * tag of the other. As of now, this is sufficient, though.
  */
-fun commonSuperTag(lhs: Tag, rhs: Tag) = when {
-    lhs == rhs -> lhs
-    lhs.isSubtypeOf(rhs) -> rhs
-    rhs.isSubtypeOf(lhs) -> lhs
-    else -> error("can not compute common super tag of $lhs and $rhs")
-}
+fun commonSuperTag(tags : Iterable<Tag>) =
+    tags.reduce { lhs, rhs ->
+        when {
+            lhs == rhs -> lhs
+            lhs.isSubtypeOf(rhs) -> rhs
+            rhs.isSubtypeOf(lhs) -> lhs
+            else -> error("can not compute common super tag of $lhs and $rhs")
+        }
+    }
+
+fun commonSuperTag(vararg tags : Tag) = commonSuperTag(tags.toList())
+
+
+
 
 /**
  * Check that all tags are [Tag.Int] or a single [Tag.Bits] and return the largest of

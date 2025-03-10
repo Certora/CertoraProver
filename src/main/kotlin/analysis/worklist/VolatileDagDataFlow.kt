@@ -34,7 +34,8 @@ fun <@Treapable V, D> volatileDagDataFlow(g: MultiMap<V, V>, calc: (V, List<D>) 
 /**
  * Iterates backwards over the DAG given by [g] and performs calculation [calc].
  * (For more details, see also doc for [volatileDagDataFlow] (right above).)
- * [nodes] must be a superset of the sources of graph [g] (like for the [topologicalOrder] function that is used here).
+ * [nodes] are the starting points of the iteration; they must be a superset of the sources of graph [g] (like for the
+ * [topologicalOrder] function that is used here).
  */
 fun <@Treapable V, D> volatileDagDataFlow(nodes: Set<V>, g: (V) -> Set<V>?, calc: (V, List<D>) -> D) {
     val order = topologicalOrder(nodes, g) // sinks first

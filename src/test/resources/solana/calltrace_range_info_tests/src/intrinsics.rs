@@ -13,6 +13,7 @@ pub mod rt_decls {
         pub fn CVT_calltrace_print_u64_1(tag: &str, x: u64);
         pub fn CVT_calltrace_print_u64_2(tag: &str, x: u64, y: u64);
         pub fn CVT_calltrace_print_u64_3(tag: &str, x: u64, y: u64, z: u64);
+        pub fn CVT_calltrace_print_u64_as_fixed(tag: &str, num: u64, bits: u64);
         pub fn CVT_calltrace_print_i64_1(tag: &str, x: i64);
         pub fn CVT_calltrace_print_i64_2(tag: &str, x: i64, y: i64);
         pub fn CVT_calltrace_print_i64_3(tag: &str, x: i64, y: i64, z: i64);
@@ -79,3 +80,40 @@ macro_rules! cvt_print_value_with_location {
     };
 }
 pub use cvt_print_value_with_location;
+
+#[macro_export]
+macro_rules! cvt_nondet_u64 {
+    () => {
+        unsafe {
+            $crate::intrinsics::CVT_calltrace_attach_location(std::file!(), std::line!());
+            $crate::intrinsics::CVT_nondet_u64()
+        }
+    };
+}
+pub use cvt_nondet_u64;
+
+#[macro_export]
+macro_rules! cvt_satisfy_with_location {
+    ($cond:expr) => {
+        unsafe {
+            let _x = $cond;
+            $crate::intrinsics::CVT_calltrace_attach_location(std::file!(), std::line!());
+            $crate::intrinsics::CVT_satisfy(_x);
+        }
+    };
+}
+pub use cvt_satisfy_with_location;
+
+#[macro_export]
+macro_rules! cvt_print_u64_as_fixed {
+    ($tag:expr, $num:expr, $bits:expr) => {
+        unsafe {
+            let _tag = $tag;
+            let _num = $num;
+            let _bits = $bits;
+            $crate::intrinsics::CVT_calltrace_attach_location(std::file!(), std::line!());
+            $crate::intrinsics::CVT_calltrace_print_u64_as_fixed(_tag, _num, _bits);
+        }
+    };
+}
+pub use cvt_print_u64_as_fixed;

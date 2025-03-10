@@ -18,6 +18,7 @@
 package rules
 
 import allocator.Allocator
+import config.Config
 import config.OUTPUT_NAME_DELIMITER
 import config.ReportTypes
 import datastructures.NonEmptyList
@@ -29,6 +30,7 @@ import report.RuleAlertReport.Companion.join
 import report.callresolution.*
 import report.calltrace.*
 import report.calltrace.formatter.*
+import report.calltrace.generator.generateCallTrace
 import report.calltrace.sarif.Sarif.Arg
 import report.dumps.UnsolvedSplitInfo
 import report.dumps.generateUnsolvedSplitCodeMap
@@ -44,6 +46,8 @@ import utils.*
 import vc.data.*
 import vc.data.TACMeta.CONTRACT_ADDR_KEY
 import vc.data.TACMeta.CONTRACT_ADDR_KEY_NAME
+import vc.data.TACMeta.HASHING_BOUND_ASSERT
+import vc.data.TACMeta.HASHING_BOUND_ASSUME
 import vc.data.state.TACValue
 import verifier.splits.SplitAddress
 import verifier.Verifier
@@ -53,6 +57,10 @@ import verifier.mus.UnsatCoresStats
 import java.math.BigInteger
 
 private val logger = Logger(LoggerTypes.COMMON)
+
+/** avoid flooding the log with warnings -- warn only once */
+private var warnedAlreadyOnUnexpectedValue = false
+
 
 sealed class RuleCheckResult(open val rule: IRule) {
 
@@ -300,6 +308,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
             }
         }
 
+
         /**
          * A result with a basic data and at least one example attached.
          * Each example has its own basic data.
@@ -312,6 +321,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
             override val ruleAlerts: RuleAlertReport<RuleAlertReport.Single<*>>? = null,
             override val callResolutionTable: CallResolutionTableWithExampleMeta = CallResolutionTableWithExampleMeta.Empty
         ) : Single(rule) {
+
 
             override val firstData: RuleCheckInfo.BasicDataContainer
                 get() = ruleCheckInfo.examples.head
@@ -337,25 +347,46 @@ sealed class RuleCheckResult(open val rule: IRule) {
                         /** variables */
                         put(OutputReportViewAttribute.VARIABLES(), buildJsonArray {
                             for ((name, local) in counterExample.localAssignments) {
+
+                                /** compute the tooltip for variables tab variables
+                                 * would be nicer to not look at the string, but should do for now, since the current
+                                 * rule for getting the tooltip is rather simple */
+                                fun tooltip(valueStr: String) = when (valueStr) {
+                                    CallTraceValueFormatter.DONT_CARE_VALUE_STR -> CallTraceValueFormatter.DONT_CARE_VALUE_TOOLTIP
+                                    CallTraceValueFormatter.UNKNOWN_VALUE_STR -> CallTraceValueFormatter.UNKNOWN_VALUE_TOOLTIP
+                                    else -> "copy value"
+                                }
+
                                 addJsonObject {
                                     put("variableName", name)
 
-                                    val sarif = local.toSarif()
+                                    val sarif = local.state.toSarif(local.formatter)
                                     val value: Arg? = sarif.asArg()
                                     if (value != null) {
-                                        put(CallTraceAttribute.VALUE(), value.values.first())
+                                        put(CallTraceAttribute.VALUE(), value.values.pretty)
                                         if (altReprsInTreeView) {
                                             put(
                                                 CallTraceAttribute.VALUES(),
-                                                buildJsonArray { value.values.forEach { add(it) } }
+                                                buildJsonArray { value.values.asRepList().forEach { add(it) } }
                                             )
                                         }
+                                        put(CallTraceAttribute.TOOLTIP(), tooltip(value.values.pretty))
+                                        put(CallTraceAttribute.TRUNCATABLE(), value.truncatable)
                                     } else {
                                         val valueStr = sarif.flatten()
+                                        if (!warnedAlreadyOnUnexpectedValue) {
+                                            logger.warn { // not really expecting this to happen -- let's monitor ..
+                                                "unexpected display value in variables tab (variable: $name, " +
+                                                    "displayValue: $valueStr)"
+                                            }
+                                            warnedAlreadyOnUnexpectedValue = true
+                                        }
                                         put(CallTraceAttribute.VALUE(), valueStr)
                                         if (altReprsInTreeView) {
                                             put(CallTraceAttribute.VALUES(), buildJsonArray { add(valueStr) })
                                         }
+                                        put(CallTraceAttribute.TOOLTIP(), tooltip(valueStr))
+                                        put(CallTraceAttribute.TRUNCATABLE(), false)
                                     }
 
                                     put(OutputReportViewAttribute.JUMP_TO_DEFINITION(), local.range as? CVLRange.Range)
@@ -611,6 +642,8 @@ sealed class RuleCheckResult(open val rule: IRule) {
                  * [localAssignments] are the assignments to the local CVL variables in the rule,
                  * derived from the counter-example model [model], chosen by the SMT.
                  * [assertSlice] is used to track the reason for the violation of the rule.
+                 * [minHashingBoundNeeded] is the maximum lengtht of an array along the trace;
+                 * only when using [Config.HashingBoundDetectionMode].
                  */
                 data class CounterExample(
                     override val details: Result<String> = Result.success(""),
@@ -623,7 +656,8 @@ sealed class RuleCheckResult(open val rule: IRule) {
                     val callTrace: CallTrace? = null,
                     val localAssignments: Map<String, LocalAssignment> = emptyMap(),
                     val model: CounterexampleModel = CounterexampleModel.Empty,
-                    val assertSlice: Result<DynamicSlicerResults?> = Result.success(null)
+                    val assertSlice: Result<DynamicSlicerResults?> = Result.success(null),
+                    val minHashingBoundNeeded: BigInteger? = null,
                 ) : BasicDataContainer {
                     val exampleId: Int = Allocator.getFreshId(Allocator.Id.COUNTEREXAMPLE)
 
@@ -660,7 +694,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
 
                 companion object {
 
-                    private fun allSymbolsInProgram(program: CoreTACProgram): Iterable<TACSymbol.Var> = program.symbolTable.tags.keys
+                    private fun allSymbolsInProgram(program: CoreTACProgram) = program.symbolTable.tags.keys
 
                     /**
                      * finds all contracts in [programVars], then returns a map where the keys are the addresses
@@ -711,17 +745,10 @@ sealed class RuleCheckResult(open val rule: IRule) {
                         val examples = res.examplesInfo.mapIndexed { exampleIndex, exampleInfo ->
                             val model = CounterexampleModel.fromSMTResult(exampleInfo, res.simpleSimpleSSATAC)
 
-                            val programVars = allSymbolsInProgram(origProgWithAssertIdMeta)
+                            val addrToContract =
+                                modelAddressToContractInfo(model, allSymbolsInProgram(origProgWithAssertIdMeta))
 
-                            val addrToContract = modelAddressToContractInfo(model, programVars)
-
-                            val steps = listOf(
-                                ContractNames(addrToContract, scene),
-                                UndoBoolReplacement(programVars, model),
-                                PrettyPrintTACValue(model),
-                                AlternativeRepresentations,
-                            )
-                            val formatter = CallTraceValueFormatter(steps)
+                            val formatter = CallTraceValueFormatter(addrToContract, scene, model)
 
                             val localAssignments = localAssignments(model, origProgWithAssertIdMeta, addrToContract, formatter, scene)
                             logLocalAssignments(localAssignments)
@@ -729,7 +756,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
                             val assertionMessages: List<RuleFailureMeta.ViolatedAssert> =
                                 listOfNotNull(model.findMetaOfFirstViolatedAssert(origProgWithAssertIdMeta, rule))
 
-                            val callTrace = CallTrace(
+                            val callTrace = generateCallTrace(
                                 rule,
                                 model,
                                 origProgWithAssertIdMeta,
@@ -775,6 +802,25 @@ sealed class RuleCheckResult(open val rule: IRule) {
                                 else -> "N/A"
                             }
 
+
+                            /*
+                                Collect the maximum used array length along the trace;
+                                We use this later to deduce suitable hashing bounds for the
+                                optimistic hashing mode.
+                             */
+                            val minHashingBoundNeeded = if(Config.HashingBoundDetectionMode.get()){
+                                model.reachableNBIds.flatMap {
+                                    res.simpleSimpleSSATAC.code[it]!!.mapNotNull { cmd ->
+                                        cmd.meta[HASHING_BOUND_ASSERT] ?: cmd.meta[HASHING_BOUND_ASSUME]
+                                    }
+                                }.mapNotNull { lengthExpr ->
+                                    (model.tacAssignments[lengthExpr] as? TACValue.PrimitiveValue.Integer)?.value
+                                }.maxOrNull()
+                            } else {
+                                null
+                            }
+
+
                             val counterExample = CounterExample(
                                 details = Result.success(description),
                                 failureResultMeta = assertionMessages,
@@ -785,6 +831,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
                                 localAssignments,
                                 model,
                                 assertSlice,
+                                minHashingBoundNeeded
                             )
                             counterExample
                         }

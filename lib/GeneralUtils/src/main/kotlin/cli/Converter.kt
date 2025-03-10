@@ -22,6 +22,7 @@ import config.HardFailMode
 import smt.*
 import smt.HashingScheme
 import solver.*
+import java.io.Serializable
 import java.math.BigInteger
 import java.util.*
 
@@ -148,6 +149,15 @@ val SanityModeConverter = Converter {
     }
 }
 
+val EcosystemConverter = Converter {
+    when (it.lowercase()) {
+        "evm" -> Ecosystem.EVM
+        "solana" -> Ecosystem.SOLANA
+        "soroban" -> Ecosystem.SOROBAN
+        else -> throw ConversionException(it, Ecosystem::class.java)
+    }
+}
+
 enum class SplitOrderEnum {
     DFS, BFS
 }
@@ -231,6 +241,13 @@ enum class SanityValues {
     BASIC,
     ADVANCED
     ;
+}
+
+/** Ecosystem used for a verification task. */
+enum class Ecosystem : Serializable {
+    EVM,
+    SOROBAN,
+    SOLANA
 }
 
 /**

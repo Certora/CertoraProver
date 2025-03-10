@@ -38,16 +38,18 @@ private val logger = Logger(LoggerTypes.SPEC)
 
 @Suppress("ForbiddenMethodCall")
 fun validateMethodChoices(knownFunctions: List<ContractFunction>, mainContract: String): VoidResult<CVLError> {
-    if (Config.MethodChoices == null) {
-        return ok
-    }
+    val choices = Config.MethodChoices ?: return ok
 
     val relevantFunctions = knownFunctions
         .filter { it.methodSignature.functionName !in listOf(CONSTRUCTOR, CVLReservedVariables.certorafallback_0.name) }
-        .filter { it.isPublicMethod() }
-        .mapToSet { it.getMethodInfo().toExternalABINameWithContract() }
+        .mapNotNull {
+            // not having method info here means this function isn't public
+            it.evmExternalMethodInfo
+        }
+        .filter { !it.isLibrary }
+        .mapToSet { it.toExternalABINameWithContract() }
 
-    return Config.MethodChoices!!.map { methodChoice ->
+    return choices.map { methodChoice ->
         val (contract, method) = methodChoice.splitToContractAndMethod(mainContract)
         val found = relevantFunctions.containsMethod(method, contract, mainContract)
 

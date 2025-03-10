@@ -22,21 +22,21 @@ import analysis.CmdPointer
 import analysis.icfg.Inliner
 import analysis.icfg.SummaryStack
 import analysis.icfg.SummaryStack.END_EXTERNAL_SUMMARY
-import analysis.ip.InternalFuncExitAnnotation
-import analysis.ip.InternalFuncStartAnnotation
-import analysis.ip.InternalFunctionFinderReport
+import analysis.ip.*
 import com.certora.collect.*
 import compiler.SourceIdentifier
 import compiler.SourceSegment
+import config.Config
 import config.Config.IsGenerateGraphs
 import config.ReportTypes
-import datastructures.MultiMap
+import datastructures.*
 import datastructures.stdcollections.*
 import decompiler.BLOCK_SOURCE_INFO
 import evm.EVM_MOD_GROUP256
 import log.*
 import report.BigIntPretty.bigIntPretty
 import report.TreeViewLocation
+import report.dumps.AddInternalFunctions.addInternalFunctionIdxsDontThrow
 import scene.NamedCode
 import smtlibutils.data.ProcessDifficultiesResult
 import solver.CounterexampleModel
@@ -47,7 +47,6 @@ import statistics.data.CallIdWithName
 import tac.*
 import utils.*
 import vc.data.*
-import vc.data.TACBuiltInFunction.*
 import vc.data.TACMeta.CVL_LABEL_END
 import vc.data.TACMeta.CVL_LABEL_START
 import vc.data.TACMeta.CVL_LABEL_START_ID
@@ -77,6 +76,11 @@ val larrow = "<span style=\"color:${colorToRGBString(Color.RED)};\"><b>←</b></
  * @param colorExplanation explanations for the colors we're using (currently only for the timeout case, could
  *      extend, e.g., for unsat case); will be displayed in the top-right box (currently assuming this is only non-null
  *      if we're in a Timeout/Unknown or Unsat case)
+ * @param fullOriginal the tac program underlying this [CodeMap]
+ * @param withInternalFunctions version of [fullOriginal] with internal functions, if the functionality is switched on,
+ *      otherwise identical to [fullOriginal]
+ * @param intFuncsCmdPtrMapping maps oldBlock to newBlocks (this is a multi map, since we split some old blocks
+ *    in two)
  */
 data class CodeMap(
     val name: String,
@@ -86,6 +90,8 @@ data class CodeMap(
     val edges: Map<Edge, List<TACExpr>>,
     val cexModel: CounterexampleModel? = null,
     val fullOriginal: TACProgram<*>,
+    val withInternalFunctions: TACProgram<*>,
+    val intFuncsCmdPtrMapping: CmdPtrMapping,
     val dotMain: DotDigraph,
     val subDots: Map<CallId, DotDigraph>,
     val unsatCore: List<TACCmd> = listOf(),
@@ -93,7 +99,7 @@ data class CodeMap(
     val countDifficultOps: CountDifficultOps? = null,
     val timeoutCoreInfo: TimeoutCoreAnalysis.TimeoutCoreInfo? = null,
     val colorExplanation: Map<DotColorList, String>? = null,
-): NamedCode<ReportTypes> by fullOriginal {
+): NamedCode<ReportTypes> by withInternalFunctions {
 
     val timeoutCore = timeoutCoreInfo?.coreAsCmdPtrs.orEmpty()
     val timeoutCoreBlocks = timeoutCoreInfo?.timeoutCoreBlocks.orEmpty()
@@ -1500,6 +1506,8 @@ fun getCallIdToCaller(g: BlockGraph): Map<CallId,CallId> {
 data class DecomposedCode(
     val subPrograms: Map<CallId, CoreTACProgram>,
     val callGraphInfo: CallGraphInfo,
+    val wholeProgWithInternalFunctions: CoreTACProgram, // with int functions if [AddInternalFunctions] is in use, otherwise the original program
+    val internalFunctionsBlockMapping: CmdPtrMapping,
 )
 
 data class CallGraphInfo(
@@ -1525,7 +1533,12 @@ data class CallGraphInfo(
  * can't handle identifiers with spaces _and_ gradients at the same time ..) */
 fun callNodeLabel(callId: CallId, baseLabel: String) = "$callId: $baseLabel"
 
-fun decomposeCodeToCalls(code: CoreTACProgram): DecomposedCode {
+
+fun decomposeCodeToCalls(code1: CoreTACProgram): DecomposedCode {
+    val (code, internalFunctionsBlockMapping) =
+        runIf(Config.InternalFunctionsInTACReports.get()) { addInternalFunctionIdxsDontThrow(code1) }
+            ?: AddInternalFunctions.TACProgWithIntFuncs.unchanged(code1)
+
     val callIdsToBlocks = code.code.keys.groupBy { it.calleeIdx }
 
     val callIdNames = mutableMapOf(Pair(MAIN_GRAPH_ID, "main"))
@@ -1633,13 +1646,15 @@ fun decomposeCodeToCalls(code: CoreTACProgram): DecomposedCode {
         }
     }
     return DecomposedCode(
-        allCodesDecomposed,
-        CallGraphInfo(
+        subPrograms = allCodesDecomposed,
+        callGraphInfo = CallGraphInfo(
             callIdToCallerId,
             callIdNames,
-            procedureToSourceLocation,
+            procedureToSourceLocation, // my guess (alex n): this should be updated to make JTS better
             callIdToProcedureId.mapValuesNotNull { (_, v) -> procedureToSourceLocation[v] },
-        )
+        ),
+        wholeProgWithInternalFunctions = code,
+        internalFunctionsBlockMapping = internalFunctionsBlockMapping,
     )
 }
 
@@ -1723,7 +1738,7 @@ const val MAIN_GRAPH_ID = NBId.ROOT_CALL_ID
  * @param edges allows to give additional edges that are not in the program ([ast])
  */
 fun generateCodeMap(ast: CoreTACProgram, name: String, edges: Map<Edge, List<TACExpr>> = mapOf()): CodeMap {
-    val (sub, callGraphInfo) = decomposeCodeToCalls(ast)
+    val (sub, callGraphInfo, withInternalFunctions, internalFunctionsBlockMapping) = decomposeCodeToCalls(ast) // xxx name of "full original" maybe move the internal functions transformation or so
     val (callIdNames, _) = callGraphInfo
 
     if (MAIN_GRAPH_ID !in sub) {
@@ -1751,13 +1766,15 @@ fun generateCodeMap(ast: CoreTACProgram, name: String, edges: Map<Edge, List<TAC
 
 
     return CodeMap(
-        name,
-        main,
-        sub,
-        callGraphInfo,
-        edges.plus(additionalEdges.map { it to listOf() }),
+        name = name,
+        ast = main,
+        subAsts = sub,
+        callGraphInfo = callGraphInfo,
+        edges = edges.plus(additionalEdges.map { it to listOf() }),
         cexModel = null,
         fullOriginal = ast,
+        withInternalFunctions = withInternalFunctions,
+        intFuncsCmdPtrMapping = internalFunctionsBlockMapping,
         dotMain = dotGraph,
         subDots = subDots
     )
@@ -1775,6 +1792,8 @@ private fun degenerateCodeMap(
     callGraphInfo = CallGraphInfo.Empty,
     edges = edges,
     fullOriginal = code,
+    withInternalFunctions = code,
+    intFuncsCmdPtrMapping = CmdPtrMapping(code.code),
     dotMain = generateDot(code, name),
     subDots = mapOf()
 )
@@ -1850,7 +1869,7 @@ fun extendModel(
         val assignKnown = symbolAssigner.transformOuter(e)
         return when (assignKnown) {
             is TACExpr.Vec -> {
-                if (assignKnown.computable && assignKnown.ls.all { it is TACExpr.Sym.Const }) {
+                if (assignKnown.ls.all { it is TACExpr.Sym.Const }) {
                     val value = assignKnown.eval(assignKnown.ls.map { it.getAsConst()!! })
                     evalConst(value, assignKnown.tagAssumeChecked)
                 } else {
@@ -2022,7 +2041,7 @@ fun addUnsatCoreData(unsatCore: List<TACCmd>, unsatCoreDomain: List<TACCmd>, cod
 
     val callIdToCallerId = getCallIdToCaller(codeMap.ast.blockgraph)
     fun callTargetsOf(callId: CallId) = mutableSetOf<NBId>().let{ s ->
-        codeMap.fullOriginal.blockgraph.filter { it.key.calleeIdx == callId }.flatMapTo(s) { node ->
+        codeMap.withInternalFunctions.blockgraph.filter { it.key.calleeIdx == callId }.flatMapTo(s) { node ->
             node.value.filter { callTrgCandidate -> callIdToCallerId[callTrgCandidate.calleeIdx] == callId }
         }
     }
@@ -2080,7 +2099,7 @@ fun addUnsatCoreData(unsatCore: List<TACCmd>, unsatCoreDomain: List<TACCmd>, cod
 
 fun addCounterexampleData(cexModel: SMTCounterexampleModel, codeMap: CodeMap): CodeMap {
     // first extend. Take the original graph without decomposition
-    val extendedCexModel = extendModel(cexModel, codeMap.fullOriginal, emptySet())
+    val extendedCexModel = extendModel(cexModel, codeMap.withInternalFunctions, emptySet())
 
     val reachableBlocks = extendedCexModel.reachableNBIds
     val badBlocks = extendedCexModel.badNBIds

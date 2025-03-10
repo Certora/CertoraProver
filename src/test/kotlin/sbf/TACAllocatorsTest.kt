@@ -20,7 +20,6 @@ package sbf
 import com.certora.collect.*
 import config.ConfigScope
 import datastructures.stdcollections.*
-import sbf.callgraph.CVTFunction
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
@@ -28,6 +27,7 @@ import sbf.tac.TACTranslationError
 import sbf.testing.SbfTestDSL
 import log.*
 import org.junit.jupiter.api.*
+import sbf.callgraph.CVTCore
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 
@@ -147,12 +147,12 @@ class TACAllocatorsTest {
         val cfg = SbfTestDSL.makeCFG("test4") {
             bb(0) {
                 r1 = 1024 * 1024
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
                 r2 = r0
                 assert(CondOp.EQ(r2, SBF_INPUT_START + (5 * SOLANA_ACCOUNT_SIZE)))
                 exit()
@@ -171,7 +171,7 @@ class TACAllocatorsTest {
         val cfg = SbfTestDSL.makeCFG("test5") {
             bb(0) {
                 r1 = 100 * 1024 * 1024  // too large allocation (max 10 * 1024 * 1024)
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
                 r2 = r0
                 exit()
             }
@@ -198,7 +198,7 @@ class TACAllocatorsTest {
         cfg.setExit(b0)
         b0.add(SbfInstruction.Bin(BinOp.MOV, r1, Value.Imm(1024UL * 1024UL), true))
         repeat (MAX_SOLANA_ACCOUNTS + 1) {
-            b0.add(SbfInstruction.Call(name = CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name))
+            b0.add(SbfInstruction.Call(name = CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name))
         }
         b0.add(SbfInstruction.Exit())
         sbfLogger.warn{"$cfg"}
@@ -217,13 +217,13 @@ class TACAllocatorsTest {
         val cfg = SbfTestDSL.makeCFG("test7") {
             bb(0) {
                 r1 = 5 * 1024 * 1024
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
                 r2 = r0
                 r1 = r2
                 r2 = 48
                 r3 = 32
-                CVTFunction.ALLOC_SLICE.function.name()
+                CVTCore.ALLOC_SLICE.function.name()
                 assert(CondOp.EQ(r0, SBF_INPUT_START + SOLANA_ACCOUNT_SIZE + 48))
                 exit()
             }
@@ -241,13 +241,13 @@ class TACAllocatorsTest {
         val cfg = SbfTestDSL.makeCFG("test8") {
             bb(0) {
                 r1 = 5 * 1024 * 1024
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
                 r2 = r0
                 r1 = r2
                 r2 = -8
                 r3 = 32
-                CVTFunction.ALLOC_SLICE.function.name()
+                CVTCore.ALLOC_SLICE.function.name()
                 assert(CondOp.EQ(r0, SBF_INPUT_START + SOLANA_ACCOUNT_SIZE + 48))
                 exit()
             }
@@ -270,13 +270,13 @@ class TACAllocatorsTest {
         val cfg = SbfTestDSL.makeCFG("test9") {
             bb(0) {
                 r1 = 5 * 1024 * 1024
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
-                CVTFunction.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
+                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE.function.name()
                 r2 = r0
                 r1 = r2
                 r2 = 48
                 r3 = 32
-                CVTFunction.ALLOC_SLICE.function.name()
+                CVTCore.ALLOC_SLICE.function.name()
                 assert(CondOp.EQ(r0, SBF_INPUT_START + SOLANA_ACCOUNT_SIZE + 48))
                 exit()
             }

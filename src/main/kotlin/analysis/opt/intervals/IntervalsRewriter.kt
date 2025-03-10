@@ -65,7 +65,7 @@ class IntervalsRewriter(
             code: CoreTACProgram,
             repeat : Int = Config.intervalsRewriter.get(),
             handleLeinoVars: Boolean,
-            preserve : (TACSymbol.Var) -> Boolean = { it.namePrefix == IntervalsCalculator.tacM40Prefix }
+            preserve : (TACSymbol.Var) -> Boolean = { false }//  = { it.namePrefix == IntervalsCalculator.tacM40Prefix }
         ) =
             code.letIf(repeat > 0) {
                 var result = ConstantPropagatorAndSimplifier(it, handleLeinoVars).rewrite()

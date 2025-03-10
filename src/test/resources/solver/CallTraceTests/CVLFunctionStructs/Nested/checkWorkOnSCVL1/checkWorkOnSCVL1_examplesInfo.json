@@ -250,7 +250,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "1"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
                     "namePrefix": "R2",
@@ -410,7 +410,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "2711"
+                    "value": "8000000000000000000000000000000000000000"
                 },
                 {
                     "namePrefix": "R6",
@@ -432,7 +432,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "1"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
                     "namePrefix": "R7",
@@ -454,7 +454,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "1"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
                     "namePrefix": "B12",
@@ -805,7 +805,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "7"
+                    "value": "d"
                 },
                 {
                     "namePrefix": "CANON11",
@@ -1061,7 +1061,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "6"
+                    "value": "7"
                 },
                 {
                     "namePrefix": "CANON12",
@@ -1317,7 +1317,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "5"
+                    "value": "a"
                 },
                 {
                     "namePrefix": "CANON13",
@@ -1573,7 +1573,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "c"
+                    "value": "b"
                 },
                 {
                     "namePrefix": "CANON14",
@@ -1827,7 +1827,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "402"
+                    "value": "4300"
                 },
                 {
                     "namePrefix": "CANON15",
@@ -2083,7 +2083,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "b"
+                    "value": "9"
                 },
                 {
                     "namePrefix": "CANON16",
@@ -2339,7 +2339,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "a"
+                    "value": "8"
                 },
                 {
                     "namePrefix": "CANON17",
@@ -2595,7 +2595,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "9"
+                    "value": "6"
                 },
                 {
                     "namePrefix": "CANON18",
@@ -3294,7 +3294,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8"
+                    "value": "5"
                 },
                 {
                     "namePrefix": "CANON32",
@@ -3423,7 +3423,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "401"
+                    "value": "8200"
                 },
                 {
                     "namePrefix": "CANON33",
@@ -3554,7 +3554,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "7"
+                    "value": "d"
                 },
                 {
                     "namePrefix": "CANON34",
@@ -3685,7 +3685,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "6"
+                    "value": "7"
                 },
                 {
                     "namePrefix": "CANON35",
@@ -3944,7 +3944,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "5"
+                    "value": "a"
                 },
                 {
                     "namePrefix": "CANON37",
@@ -4348,7 +4348,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8"
+                    "value": "5"
                 },
                 {
                     "namePrefix": "CANON9",
@@ -4602,7 +4602,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "401"
+                    "value": "8200"
                 },
                 {
                     "namePrefix": "OK_0_0_0_0_0_0",

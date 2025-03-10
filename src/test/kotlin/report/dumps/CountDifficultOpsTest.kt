@@ -37,7 +37,7 @@ class CountDifficultOpsTest : TACBuilderAuxiliaries() {
             i assign (bS mul bS)  // nonlinearity
             i assign (jS intMul  kS) // nonlinearity
             i assign (jS intPow  kS) // variable exponentiation -- not difficulty, just very imprecise
-            i assign (jS pow  kS) // variable exponentiation -- not difficulty, just very imprecise
+            i assign (jS intPow  kS) // variable exponentiation -- not difficulty, just very imprecise
             i assign Ite(xS, jS, kS) // case split
             x assign Sge(aS, bS) // case split
         }.code

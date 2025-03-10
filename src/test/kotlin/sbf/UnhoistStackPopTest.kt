@@ -23,6 +23,7 @@ import sbf.disassembler.*
 import sbf.domains.*
 import log.*
 import org.junit.jupiter.api.*
+import sbf.callgraph.CVTCore
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 
@@ -70,7 +71,7 @@ class UnhoistStackPopTest {
         var counter = 0U
         for (b in cfg.getBlocks().values) {
             for (inst in b.getInstructions()) {
-                if (inst is SbfInstruction.Call && CVTFunction.from(inst.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS) {
+                if (inst is SbfInstruction.Call && CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
                     continue
                 }
                 val metadata = inst.metaData
@@ -83,7 +84,7 @@ class UnhoistStackPopTest {
     }
 
     private fun buildStackPush(bb: MutableSbfBasicBlock) {
-        bb.add(SbfInstruction.Call(name = CVTFunction.SAVE_SCRATCH_REGISTERS.function.name))
+        bb.add(SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name))
         bb.add(SbfInstruction.Bin(BinOp.ADD, Value.Reg(SbfRegister.R10_STACK_POINTER),
             Value.Imm(SBF_STACK_FRAME_SIZE.toULong()), true))
     }
@@ -91,7 +92,7 @@ class UnhoistStackPopTest {
     private fun buildStackPop(bb: MutableSbfBasicBlock) {
         bb.add(SbfInstruction.Bin(BinOp.SUB, Value.Reg(SbfRegister.R10_STACK_POINTER),
             Value.Imm(SBF_STACK_FRAME_SIZE.toULong()), true))
-        bb.add(SbfInstruction.Call(name = CVTFunction.RESTORE_SCRATCH_REGISTERS.function.name))
+        bb.add(SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name))
     }
 
     @Test

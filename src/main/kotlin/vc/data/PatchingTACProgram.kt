@@ -23,13 +23,11 @@ import analysis.CmdPointer
 import analysis.CommandWithRequiredDecls
 import analysis.TACExprWithRequiredCmdsAndDecls
 import com.certora.collect.*
-import datastructures.ArrayHashMap
-import datastructures.ArrayHashSet
-import datastructures.LinkedArrayHashMap
-import datastructures.MutableReversibleDigraph
+import datastructures.*
 import datastructures.stdcollections.*
 import log.Logger
 import log.LoggerTypes
+import report.dumps.CmdPtrMapping
 import scene.PatchableProgram
 import tac.*
 import utils.*
@@ -272,7 +270,9 @@ open class PatchingTACProgram<T : TACCmd> protected constructor(
         val newId = deriveNewBlock(currBlock)
 
         setBlockContents(currBlock, rem)
-        assert(newId !in blocks)
+        require(newId !in blocks) {
+            "our newly created block clashes with an existing one ($newId) -- this might mean that the existing one " +
+                "was created by using `freshCopy` without using the correct `Allocator.Id.BLOCK_FRESH_COPY`." }
         setBlockContents(newId, newBlock)
 
         blockgraph[newId] = blockgraph[currBlock]!!
@@ -997,6 +997,143 @@ open class PatchingTACProgram<T : TACCmd> protected constructor(
             throw IllegalArgumentException("Cannot add after jump command $cmd at position $pos")
         }
         this.replaceCommand(pos, listOf(cmd) + after)
+    }
+
+    /**
+     * @param start start removing from here, inclusive
+     * @param end end removing here, inclusive
+     */
+    fun removeCommandSequence(block: NBId, start: Int, end: Int) {
+        require(start < end) { "start of sequence must be lower index than end of it" }
+        for (pos in (start ..  end).reversed()) {
+            replaceCommand(CmdPointer(block, pos), emptyList())
+        }
+    }
+
+
+    /**
+     * Replace the specified command with a new sub-CFG.
+     *
+     * @param firstCommandToReplace first command that should be removed, inserting a jump to the subgraph entry
+     *   (i.e. [newGraphEntry])
+     * @param lastCommandToReplace last command that should be removed, this methods inserts a jump from the sub graph
+     *   exit (i.e. [newGraphExit]) to the command right after this one
+     * @param newBlockGraph block graph edges to be added -- the [NBId]s used here must all be fresh
+     * @param newCodeBlocks code for the fresh blocks
+     * @param blocksToRemove if [firstCommandToReplace] and [lastCommandToReplace] are not in the same block, there
+     *   must be a subgraph that connects the two ([firstCommandToReplace] must dominate [lastCommandToReplace]); this
+     *   field connects the nodes that this method must remove in order to remove that subgraph
+     * @param newGraphEntry the entry node of the new subgraph (must occur in [newBlockGraph])
+     * @param newGraphExit the exit node of the new subgraph (must occur in [newBlockGraph])
+     * @param subGraphMapping mapping from [CmdPointer]s in the old program to [CmdPointer]s in the [newCodeBlocks],
+     *   used  to update [mapping]
+     * @param mapping continuously updated mapping from locations in the original to locations in the transformed one;
+     *   this mapping is applied to [firstCommandToReplace] and to [lastCommandToReplace] in order for repeated
+     *   applications of [replaceSubgraph] on the same program to "connect"; it is also updated here for later
+     *   [replaceSubgraph] actions, as well, once the whole transformation is done to provide a "translation" between
+     *   the two programs if needed.
+     */
+    fun replaceSubgraph(
+        firstCommandToReplace: CmdPointer,
+        lastCommandToReplace: CmdPointer,
+        newBlockGraph: LinkedArrayHashMapReader<NBId, TreapSet<NBId>>,
+        newCodeBlocks: Map<NBId, List<T>>,
+        blocksToRemove: Set<NBId>,
+        newGraphEntry: NBId,
+        newGraphExit: NBId,
+        subGraphMapping: CmdPtrMapping,
+        mapping: CmdPtrMapping, // this is updated (and read)
+    ) {
+        fun requireChecks() {
+            require(firstCommandToReplace.block in originalCode.keys &&
+                lastCommandToReplace.block in originalCode.keys) {
+                "block must occur in the original program"
+            }
+            val newNodesInGraph = newBlockGraph.keys + newBlockGraph.values.flatten()
+            require(!newNodesInGraph.containsAny(this.blockgraph.keys)) {
+                "the block ids for the new subgraph must not intersect with the existing block ids"
+            }
+            require(newCodeBlocks.keys.containsAll(newNodesInGraph)) { "graph must not mention edges we have no code for" }
+            require(newGraphEntry in newCodeBlocks.keys) { "entry must be in the new graph" }
+            require(newGraphExit in newCodeBlocks.keys) { "exit must be in the new graph" }
+        }
+        requireChecks()
+
+        val startPoint = mapping[firstCommandToReplace]
+        var endPoint = mapping[lastCommandToReplace]
+
+        // step 1: remove commands that exist in new graph already, split block if needed
+        if (startPoint.block == endPoint.block) {
+            /*
+             * if start and end block are the same, split the block in two
+             * - make a new block
+             * - fill it with the commands after `end`
+             * - delete the redundant commands from the new block (since we cut at the start position)
+             */
+
+            if (startPoint.pos == 0) {
+                throw UnsupportedOperationException("internal function call at the very beginning of a block; need " +
+                    "to implement (in AddInternalfunctions)")
+            }
+
+            // remove the commands from the new block that we've already mirrored in the new CFG
+            removeCommandSequence(startPoint.block, startPoint.pos, endPoint.pos)
+
+            // split up the block in two
+            val newBlock = splitBlockAfter(startPoint - 1)
+
+            // update the mapping according to the command-removing and the block-splitting
+            mapping.splitBlock(
+                firstPosInNewBlockOrig = firstCommandToReplace,
+                origBlockLen = this.originalCode[startPoint.block]!!.size,
+                firstPosInNewBlock = startPoint,
+                newBlock = newBlock,
+                nrCmdsRemoved = endPoint.pos - startPoint.pos + 1,
+            )
+
+            endPoint = CmdPointer(newBlock, 0)
+        } else {
+            /*
+             * start and end block are not the same, so already have nodes in the new subgraph for the other part and
+             * don't need to split any more; we just remove the commands that appear in the new subgraph
+             */
+            removeCommandSequence(startPoint.block, startPoint.pos, originalCode[startPoint.block]!!.size - 1)
+            removeCommandSequence(endPoint.block, 0, endPoint.pos)
+
+            // update [mapping]
+            // - shift the commands in the block that we're exiting into by the number of removed commands
+            // (- remove the commands that will come from the inserted subgraph's mapping, just to tidy up, otherwise
+            //  they'd be overwritten when merging that mapping; the shift will automatically do that since it drops
+            //  entries that would get a negative [CmdPointer.pos]. )
+            val nrOfRemovedCommands = endPoint.pos + 1
+            mapping.shiftCommands(endPoint.block, -nrOfRemovedCommands)
+        }
+
+        // delete the edges going out from startPoint and entering entry point
+        blockgraph[startPoint.block] = treapSetOf()
+        blockgraph.asReversed()[endPoint.block]?.toSet()?.forEach { endPointPred ->
+            blockgraph[endPointPred]?.let {
+                blockgraph[endPointPred] = it.remove(endPoint.block)
+            }
+        }
+
+        // remove the redundant blocks (for which we have new copies, this set was created with intelligence by the caller, so we can use it as is..)
+        removeBlocks(blocksToRemove)
+
+        // step 2: add the subgraph's contents (edges and commands) to this program
+        newBlockGraph.forEachEntry { (node, succs) ->
+            blockgraph[node] = succs
+        }
+        newCodeBlocks.forEachEntry { (block, code) ->
+            addCodeToGraph(block, code)
+        }
+
+        // step 3: connect [block] to the subgraph's entry and  the subgraph's exit to `newBlock`
+        blockgraph[startPoint.block] = treapSetOf(newGraphEntry)
+        blockgraph[newGraphExit] = treapSetOf(endPoint.block)
+
+        // last step: add the mapping for the new blocks to the overall mapping
+        mapping.merge(subGraphMapping)
     }
 
     override fun toCode(base: ICoreTACProgram): ICoreTACProgram {

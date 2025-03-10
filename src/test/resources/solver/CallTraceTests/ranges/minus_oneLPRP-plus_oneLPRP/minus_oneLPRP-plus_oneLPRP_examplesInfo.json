@@ -4,7 +4,7 @@
             "type": "solver.SMTCounterexampleModel",
             "tacAssignments": [
                 {
-                    "namePrefix": "CANON30!!17",
+                    "namePrefix": "CANON30!!19",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -124,10 +124,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "f"
+                    "value": "8"
                 },
                 {
-                    "namePrefix": "CANON30!!62",
+                    "namePrefix": "CANON30!!64",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -236,10 +236,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "e"
+                    "value": "7"
                 },
                 {
-                    "namePrefix": "CANON30!!87",
+                    "namePrefix": "CANON30!!88",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -328,7 +328,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "f"
+                    "value": "8"
                 },
                 {
                     "namePrefix": "tacCalldatabufCANON0",
@@ -428,7 +428,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "9"
+                    "value": "c"
                 },
                 {
                     "namePrefix": "tacCalldatabufCANON0",
@@ -528,7 +528,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "9"
+                    "value": "c"
                 },
                 {
                     "namePrefix": "from_skey",
@@ -582,6 +582,72 @@
                     }
                 },
                 {
+                    "namePrefix": "tacM0x40!!0",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacM0x40",
+                                "maybeTACKeywordOrdinal": 39
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.is.reserved.memory.slot.var",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": "40"
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "40"
+                },
+                {
+                    "namePrefix": "tacM0x40!!1",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacM0x40",
+                                "maybeTACKeywordOrdinal": 39
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.is.reserved.memory.slot.var",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": "40"
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "40"
+                },
+                {
                     "namePrefix": "to_skey",
                     "tag": {
                         "type": "tac.Tag.GhostMap",
@@ -633,7 +699,7 @@
                     }
                 },
                 {
-                    "namePrefix": "CANON12!!3",
+                    "namePrefix": "CANON12!!5",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -759,10 +825,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "4b"
+                    "value": "70"
                 },
                 {
-                    "namePrefix": "CANON13!!4",
+                    "namePrefix": "CANON13!!6",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -888,10 +954,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "87"
+                    "value": "a0"
                 },
                 {
-                    "namePrefix": "CANON14!!5",
+                    "namePrefix": "CANON14!!7",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -1074,7 +1140,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
                 },
                 {
-                    "namePrefix": "CANON91!!97",
+                    "namePrefix": "CANON91!!98",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1178,7 +1244,29 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
                 },
                 {
-                    "namePrefix": "R0",
+                    "namePrefix": "CANON38.1336",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "tac.is-temp-var",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                },
+                {
+                    "namePrefix": "R2",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1220,7 +1308,7 @@
                     "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "B27",
+                    "namePrefix": "B29",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1241,7 +1329,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
                 },
                 {
-                    "namePrefix": "B78",
+                    "namePrefix": "B80",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1273,7 +1361,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "B80",
+                    "namePrefix": "B81",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1298,38 +1386,6 @@
                                 "erasureStrategy": "Canonical"
                             },
                             "value": 1014
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
-                },
-                {
-                    "namePrefix": "B83",
-                    "tag": {
-                        "type": "tac.Tag.Bool"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "L",
-                                "maybeTACKeywordOrdinal": 45
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.stack.height",
-                                "type": "java.lang.Integer",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": 1015
                         }
                     ]
                 },
@@ -1361,6 +1417,38 @@
                                 "type": "java.lang.Integer",
                                 "erasureStrategy": "Canonical"
                             },
+                            "value": 1015
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
+                },
+                {
+                    "namePrefix": "B85",
+                    "tag": {
+                        "type": "tac.Tag.Bool"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "L",
+                                "maybeTACKeywordOrdinal": 45
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.stack.height",
+                                "type": "java.lang.Integer",
+                                "erasureStrategy": "Canonical"
+                            },
                             "value": 1014
                         }
                     ]
@@ -1369,7 +1457,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "B98",
+                    "namePrefix": "B99",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -1377,17 +1465,6 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
-                },
-                {
-                    "namePrefix": "I95",
-                    "tag": {
-                        "type": "tac.Tag.Int"
-                    },
-                    "callIndex": 0
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "f"
                 },
                 {
                     "namePrefix": "I96",
@@ -1398,10 +1475,21 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "f"
+                    "value": "8"
                 },
                 {
-                    "namePrefix": "R18",
+                    "namePrefix": "I97",
+                    "tag": {
+                        "type": "tac.Tag.Int"
+                    },
+                    "callIndex": 0
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "8"
+                },
+                {
+                    "namePrefix": "R20",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1441,7 +1529,7 @@
                     "value": "1"
                 },
                 {
-                    "namePrefix": "R19",
+                    "namePrefix": "R21",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1481,7 +1569,7 @@
                     "value": "2"
                 },
                 {
-                    "namePrefix": "R20",
+                    "namePrefix": "R22",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1521,7 +1609,7 @@
                     "value": "4"
                 },
                 {
-                    "namePrefix": "R21",
+                    "namePrefix": "R23",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1570,7 +1658,7 @@
                     "value": "4300"
                 },
                 {
-                    "namePrefix": "R24",
+                    "namePrefix": "R26",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1592,7 +1680,7 @@
                     "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R25",
+                    "namePrefix": "R27",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1614,7 +1702,7 @@
                     "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R47",
+                    "namePrefix": "R49",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1633,29 +1721,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "9"
-                },
-                {
-                    "namePrefix": "R50",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.is-temp-var",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8200"
+                    "value": "c"
                 },
                 {
                     "namePrefix": "R52",
@@ -1677,10 +1743,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                    "value": "8200"
                 },
                 {
-                    "namePrefix": "R55",
+                    "namePrefix": "R54",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1754,6 +1820,28 @@
                     "meta": [
                         {
                             "key": {
+                                "name": "tac.is-temp-var",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                },
+                {
+                    "namePrefix": "R63",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
                                 "name": "Tac.symbol.keyword",
                                 "type": "vc.data.TACSymbol$Var$KeywordEntry",
                                 "erasureStrategy": "Canonical"
@@ -1776,29 +1864,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "e"
-                },
-                {
-                    "namePrefix": "R67",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.is-temp-var",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8200"
+                    "value": "7"
                 },
                 {
                     "namePrefix": "R69",
@@ -1820,10 +1886,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                    "value": "8200"
                 },
                 {
-                    "namePrefix": "R72",
+                    "namePrefix": "R71",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1867,7 +1933,7 @@
                     "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R75",
+                    "namePrefix": "R76",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1897,32 +1963,21 @@
                     "meta": [
                         {
                             "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "name": "tac.is-temp-var",
+                                "type": "tac.MetaMap$Companion$NothingValue",
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "L",
-                                "maybeTACKeywordOrdinal": 45
                             }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.stack.height",
-                                "type": "java.lang.Integer",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": 1015
                         }
                     ]
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff1"
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 },
                 {
-                    "namePrefix": "R82",
+                    "namePrefix": "R79",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1952,10 +2007,43 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff2"
+                    "value": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8"
                 },
                 {
-                    "namePrefix": "R94",
+                    "namePrefix": "R83",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "L",
+                                "maybeTACKeywordOrdinal": 45
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.stack.height",
+                                "type": "java.lang.Integer",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": 1015
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff9"
+                },
+                {
+                    "namePrefix": "R95",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1974,10 +2062,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "9"
+                    "value": "c"
                 },
                 {
-                    "namePrefix": "CANON12!!28",
+                    "namePrefix": "CANON12!!30",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -2106,7 +2194,7 @@
                     "value": "eb1d668d"
                 },
                 {
-                    "namePrefix": "CANON13!!32",
+                    "namePrefix": "CANON13!!34",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -2235,7 +2323,7 @@
                     "value": "0"
                 },
                 {
-                    "namePrefix": "CANON14!!34",
+                    "namePrefix": "CANON14!!36",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -2362,7 +2450,7 @@
                     "value": "4300"
                 },
                 {
-                    "namePrefix": "CANON15!!29",
+                    "namePrefix": "CANON15!!31",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -2488,7 +2576,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "CANON16!!30",
+                    "namePrefix": "CANON16!!32",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -2614,7 +2702,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "CANON17!!31",
+                    "namePrefix": "CANON17!!33",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -2807,7 +2895,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "6"
+                    "value": "a"
                 },
                 {
                     "namePrefix": "CANON32",
@@ -2869,7 +2957,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "f"
+                    "value": "8"
                 },
                 {
                     "namePrefix": "CANON33",
@@ -2931,51 +3019,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "f"
-                },
-                {
-                    "namePrefix": "CANON38",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.is-temp-var",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
-                },
-                {
-                    "namePrefix": "CANON65",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "tac.is-temp-var",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                    "value": "8"
                 },
                 {
                     "namePrefix": "CANON87",
@@ -3037,7 +3081,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "f"
+                    "value": "8"
                 },
                 {
                     "namePrefix": "CANON88",
@@ -3099,10 +3143,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "f"
+                    "value": "8"
                 },
                 {
-                    "namePrefix": "CANON18!!33",
+                    "namePrefix": "CANON18!!35",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -3228,7 +3272,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "CANON19!!10",
+                    "namePrefix": "CANON19!!12",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -3354,10 +3398,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "d"
+                    "value": "f"
                 },
                 {
-                    "namePrefix": "CANON19!!35",
+                    "namePrefix": "CANON19!!37",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -3486,7 +3530,7 @@
                     "value": "ad9ea578"
                 },
                 {
-                    "namePrefix": "lastReverted!!64",
+                    "namePrefix": "lastReverted!!66",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -3554,7 +3598,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "lastReverted!!89",
+                    "namePrefix": "lastReverted!!90",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -4248,7 +4292,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "a"
+                    "value": "b"
                 },
                 {
                     "namePrefix": "CANON4",
@@ -4484,7 +4528,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8"
+                    "value": "9"
                 },
                 {
                     "namePrefix": "CANON5",
@@ -4954,7 +4998,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "7"
+                    "value": "6"
                 },
                 {
                     "namePrefix": "CANON7",
@@ -5662,10 +5706,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "b"
+                    "value": "e"
                 },
                 {
-                    "namePrefix": "CANON20!!11",
+                    "namePrefix": "CANON20!!13",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -5791,10 +5835,10 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "c"
+                    "value": "d"
                 },
                 {
-                    "namePrefix": "CANON20!!39",
+                    "namePrefix": "CANON20!!41",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -5923,7 +5967,7 @@
                     "value": "0"
                 },
                 {
-                    "namePrefix": "CANON21!!12",
+                    "namePrefix": "CANON21!!14",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -6050,7 +6094,7 @@
                     "value": "6280"
                 },
                 {
-                    "namePrefix": "CANON21!!41",
+                    "namePrefix": "CANON21!!43",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -6177,7 +6221,7 @@
                     "value": "4300"
                 },
                 {
-                    "namePrefix": "CANON22!!36",
+                    "namePrefix": "CANON22!!38",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -6303,7 +6347,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "CANON23!!37",
+                    "namePrefix": "CANON23!!39",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -6429,7 +6473,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "CANON24!!38",
+                    "namePrefix": "CANON24!!40",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -6555,7 +6599,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "CANON25!!40",
+                    "namePrefix": "CANON25!!42",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -6737,75 +6781,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "lastHasThrown!!48",
-                    "tag": {
-                        "type": "tac.Tag.Bool"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "spec.CVLDefinitionSite.Rule"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
-                                "name": "lastHasThrown"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.last.has.thrown",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "lastHasThrown"
-                        }
-                    ]
-                },
-                {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
-                },
-                {
-                    "namePrefix": "lastHasThrown!!63",
+                    "namePrefix": "lastHasThrown!!50",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -6941,7 +6917,75 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "lastHasThrown!!88",
+                    "namePrefix": "lastHasThrown!!67",
+                    "tag": {
+                        "type": "tac.Tag.Bool"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+                                "name": "lastHasThrown"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.last.has.thrown",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "lastHasThrown"
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
+                },
+                {
+                    "namePrefix": "lastHasThrown!!89",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -7093,7 +7137,7 @@
                     "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
-                    "namePrefix": "tacSighash!!22",
+                    "namePrefix": "tacSighash!!24",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -7118,7 +7162,7 @@
                     "value": "eb1d668d"
                 },
                 {
-                    "namePrefix": "tacSighash!!23",
+                    "namePrefix": "tacSighash!!25",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -7340,6 +7384,28 @@
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
                     "value": "8200"
+                },
+                {
+                    "namePrefix": "CANON65.1337",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "tac.is-temp-var",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
+                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
                 }
             ],
             "reachableBadNBIds": [
@@ -7390,42 +7456,6 @@
                 }
             ],
             "havocedVariables": [
-                {
-                    "namePrefix": "R18",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
-                                "name": "tacContractAt"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr.name",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "ecrecover"
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr",
-                                "type": "java.math.BigInteger",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "1"
-                        }
-                    ]
-                },
                 {
                     "namePrefix": "CANON2",
                     "tag": {
@@ -7615,130 +7645,7 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON18!!9",
-                    "tag": {
-                        "type": "tac.Tag.Bool"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "cvl.struct.path",
-                                "type": "spec.cvlast.CVLStructPathNode",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "rootStructType": {
-                                    "name": "method",
-                                    "fields": [
-                                        {
-                                            "fieldName": "selector",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 32
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPure",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isView",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPayable",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "numberOfArguments",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 256
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isFallback",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "contract",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                                            }
-                                        }
-                                    ]
-                                },
-                                "fields": [
-                                    {
-                                        "fieldName": "isFallback",
-                                        "cvlType": {
-                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "spec.cvlast.CVLRange.Range",
-                                    "specFile": "Parametric.spec",
-                                    "start": {
-                                        "line": 8,
-                                        "charByteOffset": 45
-                                    },
-                                    "end": {
-                                        "line": 8,
-                                        "charByteOffset": 53
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "f.isFallback"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "CANON23!!14",
+                    "namePrefix": "CANON23!!16",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -8325,125 +8232,38 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON15!!6",
+                    "namePrefix": "R22",
                     "tag": {
-                        "type": "tac.Tag.Bool"
+                        "type": "tac.Tag.Bit256"
                     },
                     "callIndex": 0,
                     "meta": [
                         {
                             "key": {
-                                "name": "cvl.struct.path",
-                                "type": "spec.cvlast.CVLStructPathNode",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "rootStructType": {
-                                    "name": "method",
-                                    "fields": [
-                                        {
-                                            "fieldName": "selector",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 32
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPure",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isView",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPayable",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "numberOfArguments",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 256
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isFallback",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "contract",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                                            }
-                                        }
-                                    ]
-                                },
-                                "fields": [
-                                    {
-                                        "fieldName": "isPure",
-                                        "cvlType": {
-                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "spec.cvlast.CVLRange.Range",
-                                    "specFile": "Parametric.spec",
-                                    "start": {
-                                        "line": 8,
-                                        "charByteOffset": 45
-                                    },
-                                    "end": {
-                                        "line": 8,
-                                        "charByteOffset": 53
-                                    }
-                                }
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+                                "name": "tacContractAt"
                             }
                         },
                         {
                             "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
+                                "name": "tac.contract.sym.addr.name",
                                 "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
+                                "erasureStrategy": "Erased"
                             },
-                            "value": "f.isPure"
+                            "value": "identity"
+                        },
+                        {
+                            "key": {
+                                "name": "tac.contract.sym.addr",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Erased"
+                            },
+                            "value": "4"
                         }
                     ]
                 },
@@ -8753,7 +8573,151 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON21!!12",
+                    "namePrefix": "tacSighash!!25",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacSighash",
+                                "maybeTACKeywordOrdinal": 6
+                            }
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON15!!8",
+                    "tag": {
+                        "type": "tac.Tag.Bool"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.struct.path",
+                                "type": "spec.cvlast.CVLStructPathNode",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "rootStructType": {
+                                    "name": "method",
+                                    "fields": [
+                                        {
+                                            "fieldName": "selector",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 32
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPure",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isView",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPayable",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "numberOfArguments",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 256
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isFallback",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "contract",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "fields": [
+                                    {
+                                        "fieldName": "isPure",
+                                        "cvlType": {
+                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "spec.cvlast.CVLRange.Range",
+                                    "specFile": "Parametric.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 45
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 53
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "f.isPure"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON21!!14",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -8876,64 +8840,7 @@
                     ]
                 },
                 {
-                    "namePrefix": "tacSighash!!23",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacSighash",
-                                "maybeTACKeywordOrdinal": 6
-                            }
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "R20",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
-                                "name": "tacContractAt"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr.name",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "identity"
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr",
-                                "type": "java.math.BigInteger",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "4"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "CANON12!!3",
+                    "namePrefix": "CANON12!!5",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -9058,9 +8965,9 @@
                     ]
                 },
                 {
-                    "namePrefix": "tacBalance!!2",
+                    "namePrefix": "R20",
                     "tag": {
-                        "type": "tac.Tag.WordMap"
+                        "type": "tac.Tag.Bit256"
                     },
                     "callIndex": 0,
                     "meta": [
@@ -9071,24 +8978,153 @@
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacBalance",
-                                "maybeTACKeywordOrdinal": 23
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+                                "name": "tacContractAt"
                             }
                         },
                         {
                             "key": {
-                                "name": "tac.no.callindex",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
+                                "name": "tac.contract.sym.addr.name",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "Erased"
                             },
-                            "value": {
-                            }
+                            "value": "ecrecover"
+                        },
+                        {
+                            "key": {
+                                "name": "tac.contract.sym.addr",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Erased"
+                            },
+                            "value": "1"
                         }
                     ]
                 },
                 {
-                    "namePrefix": "CANON22!!13",
+                    "namePrefix": "CANON16!!9",
+                    "tag": {
+                        "type": "tac.Tag.Bool"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.struct.path",
+                                "type": "spec.cvlast.CVLStructPathNode",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "rootStructType": {
+                                    "name": "method",
+                                    "fields": [
+                                        {
+                                            "fieldName": "selector",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 32
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPure",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isView",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPayable",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "numberOfArguments",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 256
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isFallback",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "contract",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "fields": [
+                                    {
+                                        "fieldName": "isView",
+                                        "cvlType": {
+                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "spec.cvlast.CVLRange.Range",
+                                    "specFile": "Parametric.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 45
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 53
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "f.isView"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON22!!15",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -9207,6 +9243,36 @@
                                 "erasureStrategy": "CallTrace"
                             },
                             "value": "g.isPure"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "tacBalance!!4",
+                    "tag": {
+                        "type": "tac.Tag.WordMap"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacBalance",
+                                "maybeTACKeywordOrdinal": 23
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.no.callindex",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
                         }
                     ]
                 },
@@ -9406,130 +9472,36 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON16!!7",
+                    "namePrefix": "tacM0x40!!0",
                     "tag": {
-                        "type": "tac.Tag.Bool"
+                        "type": "tac.Tag.Bit256"
                     },
                     "callIndex": 0,
                     "meta": [
                         {
                             "key": {
-                                "name": "cvl.struct.path",
-                                "type": "spec.cvlast.CVLStructPathNode",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "rootStructType": {
-                                    "name": "method",
-                                    "fields": [
-                                        {
-                                            "fieldName": "selector",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 32
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPure",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isView",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPayable",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "numberOfArguments",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 256
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isFallback",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "contract",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                                            }
-                                        }
-                                    ]
-                                },
-                                "fields": [
-                                    {
-                                        "fieldName": "isView",
-                                        "cvlType": {
-                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "spec.cvlast.CVLRange.Range",
-                                    "specFile": "Parametric.spec",
-                                    "start": {
-                                        "line": 8,
-                                        "charByteOffset": 45
-                                    },
-                                    "end": {
-                                        "line": 8,
-                                        "charByteOffset": 53
-                                    }
-                                }
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacM0x40",
+                                "maybeTACKeywordOrdinal": 39
                             }
                         },
                         {
                             "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
+                                "name": "tac.is.reserved.memory.slot.var",
+                                "type": "java.math.BigInteger",
                                 "erasureStrategy": "Canonical"
                             },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "f.isView"
+                            "value": "40"
                         }
                     ]
                 },
                 {
-                    "namePrefix": "CANON30!!17",
+                    "namePrefix": "CANON30!!19",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -9624,42 +9596,6 @@
                                 "erasureStrategy": "Canonical"
                             },
                             "value": "ce4604a0000000000000000000000001"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "R19",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
-                                "name": "tacContractAt"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr.name",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "sha256"
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr",
-                                "type": "java.math.BigInteger",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "2"
                         }
                     ]
                 },
@@ -9896,9 +9832,9 @@
                     ]
                 },
                 {
-                    "namePrefix": "tacExtcodesize!!1",
+                    "namePrefix": "R2",
                     "tag": {
-                        "type": "tac.Tag.WordMap"
+                        "type": "tac.Tag.Bit256"
                     },
                     "callIndex": 0,
                     "meta": [
@@ -9910,9 +9846,17 @@
                             },
                             "value": {
                                 "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacExtcodesize",
-                                "maybeTACKeywordOrdinal": 25
+                                "name": "tacCodesize",
+                                "maybeTACKeywordOrdinal": 7
                             }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.codesize",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": "ce4604a0000000000000000000000001"
                         },
                         {
                             "key": {
@@ -9922,15 +9866,129 @@
                             },
                             "value": {
                             }
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON18!!11",
+                    "tag": {
+                        "type": "tac.Tag.Bool"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.struct.path",
+                                "type": "spec.cvlast.CVLStructPathNode",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "rootStructType": {
+                                    "name": "method",
+                                    "fields": [
+                                        {
+                                            "fieldName": "selector",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 32
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPure",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isView",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPayable",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "numberOfArguments",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 256
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isFallback",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "contract",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "fields": [
+                                    {
+                                        "fieldName": "isFallback",
+                                        "cvlType": {
+                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                        }
+                                    }
+                                ]
+                            }
                         },
                         {
                             "key": {
-                                "name": "tac.is.extcodesize",
-                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "spec.cvlast.CVLRange.Range",
+                                    "specFile": "Parametric.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 45
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 53
+                                    }
+                                }
                             }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "f.isFallback"
                         }
                     ]
                 },
@@ -10132,40 +10190,127 @@
                     ]
                 },
                 {
-                    "namePrefix": "R0",
+                    "namePrefix": "CANON13!!6",
                     "tag": {
-                        "type": "tac.Tag.Bit256"
+                        "type": "tac.Tag.Int"
                     },
                     "callIndex": 0,
                     "meta": [
                         {
                             "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
+                                "name": "cvl.struct.path",
+                                "type": "spec.cvlast.CVLStructPathNode",
+                                "erasureStrategy": "CallTrace"
                             },
                             "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacCodesize",
-                                "maybeTACKeywordOrdinal": 7
+                                "rootStructType": {
+                                    "name": "method",
+                                    "fields": [
+                                        {
+                                            "fieldName": "selector",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 32
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPure",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isView",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPayable",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "numberOfArguments",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 256
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isFallback",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "contract",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "fields": [
+                                    {
+                                        "fieldName": "numberOfArguments",
+                                        "cvlType": {
+                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                            "k": 256
+                                        }
+                                    }
+                                ]
                             }
                         },
                         {
                             "key": {
-                                "name": "tac.codesize",
-                                "type": "java.math.BigInteger",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": "ce4604a0000000000000000000000001"
-                        },
-                        {
-                            "key": {
-                                "name": "tac.no.callindex",
-                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "spec.cvlast.CVLRange.Range",
+                                    "specFile": "Parametric.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 45
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 53
+                                    }
+                                }
                             }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                "k": 256
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "f.numberOfArguments"
                         }
                     ]
                 },
@@ -10402,131 +10547,6 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON13!!4",
-                    "tag": {
-                        "type": "tac.Tag.Int"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "cvl.struct.path",
-                                "type": "spec.cvlast.CVLStructPathNode",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "rootStructType": {
-                                    "name": "method",
-                                    "fields": [
-                                        {
-                                            "fieldName": "selector",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 32
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPure",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isView",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPayable",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "numberOfArguments",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 256
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isFallback",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "contract",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                                            }
-                                        }
-                                    ]
-                                },
-                                "fields": [
-                                    {
-                                        "fieldName": "numberOfArguments",
-                                        "cvlType": {
-                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                            "k": 256
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "spec.cvlast.CVLRange.Range",
-                                    "specFile": "Parametric.spec",
-                                    "start": {
-                                        "line": 8,
-                                        "charByteOffset": 45
-                                    },
-                                    "end": {
-                                        "line": 8,
-                                        "charByteOffset": 53
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                "k": 256
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "f.numberOfArguments"
-                        }
-                    ]
-                },
-                {
                     "namePrefix": "CANON5",
                     "tag": {
                         "type": "tac.Tag.Int"
@@ -10757,109 +10777,7 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON10",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "spec.cvlast.CVLRange.Range",
-                                    "specFile": "Parametric.spec",
-                                    "start": {
-                                        "line": 8,
-                                        "charByteOffset": 28
-                                    },
-                                    "end": {
-                                        "line": 8,
-                                        "charByteOffset": 43
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.lengthof",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": "arg"
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                "k": 256
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "arg.length"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "R21",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
-                                "name": "tacContractAt"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr.name",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "MultipleCandidates"
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr",
-                                "type": "java.math.BigInteger",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "ce4604a0000000000000000000000001"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "CANON19!!10",
+                    "namePrefix": "CANON19!!12",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -10980,6 +10898,108 @@
                                 "erasureStrategy": "CallTrace"
                             },
                             "value": "g.selector"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON10",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "spec.cvlast.CVLRange.Range",
+                                    "specFile": "Parametric.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 28
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 43
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.lengthof",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": "arg"
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                "k": 256
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "arg.length"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "R21",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+                                "name": "tacContractAt"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.contract.sym.addr.name",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "Erased"
+                            },
+                            "value": "sha256"
+                        },
+                        {
+                            "key": {
+                                "name": "tac.contract.sym.addr",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Erased"
+                            },
+                            "value": "2"
                         }
                     ]
                 },
@@ -11216,7 +11236,103 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON17!!8",
+                    "namePrefix": "R23",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+                                "name": "tacContractAt"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.contract.sym.addr.name",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "Erased"
+                            },
+                            "value": "MultipleCandidates"
+                        },
+                        {
+                            "key": {
+                                "name": "tac.contract.sym.addr",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Erased"
+                            },
+                            "value": "ce4604a0000000000000000000000001"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "tacSighash!!24",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacSighash",
+                                "maybeTACKeywordOrdinal": 6
+                            }
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "tacExtcodesize!!3",
+                    "tag": {
+                        "type": "tac.Tag.WordMap"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacExtcodesize",
+                                "maybeTACKeywordOrdinal": 25
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.no.callindex",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tac.is.extcodesize",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON25!!18",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -11280,7 +11396,7 @@
                                 },
                                 "fields": [
                                     {
-                                        "fieldName": "isPayable",
+                                        "fieldName": "isFallback",
                                         "cvlType": {
                                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
                                         }
@@ -11301,11 +11417,11 @@
                                     "specFile": "Parametric.spec",
                                     "start": {
                                         "line": 8,
-                                        "charByteOffset": 45
+                                        "charByteOffset": 55
                                     },
                                     "end": {
                                         "line": 8,
-                                        "charByteOffset": 53
+                                        "charByteOffset": 63
                                     }
                                 }
                             }
@@ -11334,107 +11450,12 @@
                                 "type": "java.lang.String",
                                 "erasureStrategy": "CallTrace"
                             },
-                            "value": "f.isPayable"
+                            "value": "g.isFallback"
                         }
                     ]
                 },
                 {
-                    "namePrefix": "CANON11havocme1080",
-                    "tag": {
-                        "type": "tac.Tag.ByteMap"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "spec.cvlast.CVLRange.Range",
-                                    "specFile": "Parametric.spec",
-                                    "start": {
-                                        "line": 8,
-                                        "charByteOffset": 28
-                                    },
-                                    "end": {
-                                        "line": 8,
-                                        "charByteOffset": 43
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tacsimplesimple.havocme",
-                                "type": "tac.MetaMap$Companion$NothingValue",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.data.is-reference",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": false
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.VMInternal.RawArgs"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "arg"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "tacSighash!!22",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-                                "name": "tacSighash",
-                                "maybeTACKeywordOrdinal": 6
-                            }
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "CANON24!!15",
+                    "namePrefix": "CANON24!!17",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -11557,7 +11578,130 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON20!!11",
+                    "namePrefix": "CANON17!!10",
+                    "tag": {
+                        "type": "tac.Tag.Bool"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.struct.path",
+                                "type": "spec.cvlast.CVLStructPathNode",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "rootStructType": {
+                                    "name": "method",
+                                    "fields": [
+                                        {
+                                            "fieldName": "selector",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 32
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPure",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isView",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isPayable",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "numberOfArguments",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                                "k": 256
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "isFallback",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                            }
+                                        },
+                                        {
+                                            "fieldName": "contract",
+                                            "cvlType": {
+                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "fields": [
+                                    {
+                                        "fieldName": "isPayable",
+                                        "cvlType": {
+                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "spec.cvlast.CVLRange.Range",
+                                    "specFile": "Parametric.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 45
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 53
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "f.isPayable"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON20!!13",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -11682,130 +11826,36 @@
                     ]
                 },
                 {
-                    "namePrefix": "CANON25!!16",
+                    "namePrefix": "tacM0x40!!1",
                     "tag": {
-                        "type": "tac.Tag.Bool"
+                        "type": "tac.Tag.Bit256"
                     },
                     "callIndex": 0,
                     "meta": [
                         {
                             "key": {
-                                "name": "cvl.struct.path",
-                                "type": "spec.cvlast.CVLStructPathNode",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "rootStructType": {
-                                    "name": "method",
-                                    "fields": [
-                                        {
-                                            "fieldName": "selector",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 32
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPure",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isView",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isPayable",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "numberOfArguments",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                                "k": 256
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "isFallback",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                            }
-                                        },
-                                        {
-                                            "fieldName": "contract",
-                                            "cvlType": {
-                                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                                            }
-                                        }
-                                    ]
-                                },
-                                "fields": [
-                                    {
-                                        "fieldName": "isFallback",
-                                        "cvlType": {
-                                            "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "spec.cvlast.CVLRange.Range",
-                                    "specFile": "Parametric.spec",
-                                    "start": {
-                                        "line": 8,
-                                        "charByteOffset": 55
-                                    },
-                                    "end": {
-                                        "line": 8,
-                                        "charByteOffset": 63
-                                    }
-                                }
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+                                "name": "tacM0x40",
+                                "maybeTACKeywordOrdinal": 39
                             }
                         },
                         {
                             "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
+                                "name": "tac.is.reserved.memory.slot.var",
+                                "type": "java.math.BigInteger",
                                 "erasureStrategy": "Canonical"
                             },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "g.isFallback"
+                            "value": "40"
                         }
                     ]
                 },
                 {
-                    "namePrefix": "CANON14!!5",
+                    "namePrefix": "CANON14!!7",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -11924,6 +11974,80 @@
                                 "erasureStrategy": "CallTrace"
                             },
                             "value": "f.contract"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "CANON11havocme1306",
+                    "tag": {
+                        "type": "tac.Tag.ByteMap"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "spec.cvlast.CVLRange.Range",
+                                    "specFile": "Parametric.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 28
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 43
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tacsimplesimple.havocme",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.data.is-reference",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": false
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.VMInternal.RawArgs"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "arg"
                         }
                     ]
                 }

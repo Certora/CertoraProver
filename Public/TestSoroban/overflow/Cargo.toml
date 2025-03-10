@@ -1,0 +1,25 @@
+[package]
+name = "i128-overflow-tests"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[profile.release]
+opt-level = 2
+overflow-checks = true
+debug = 0
+strip = "none"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+[features]
+certora = []
+
+[dependencies.cvlr]
+git = "https://github.com/1arie1/cvlr.git"
+default-features = false

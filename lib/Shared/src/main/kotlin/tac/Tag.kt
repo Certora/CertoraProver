@@ -22,13 +22,14 @@ import com.certora.collect.*
 import datastructures.Memoized
 import datastructures.stdcollections.*
 import evm.twoToThe
-import kotlinx.serialization.*
-import kotlinx.serialization.descriptors.*
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.UseSerializers
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.descriptors.element
 import kotlinx.serialization.encoding.*
 import utils.*
 import java.io.Serializable
 import java.math.BigInteger
-import kotlin.collections.distinctBy
 
 /**
  * Tags are TAC types. They are associated with `TACSymbol`s.
@@ -62,19 +63,15 @@ sealed class Tag : AmbiSerializable {
         get() = sequenceOf(this)
 
     @KSerializable(with = Bits.Serializer::class)
-    sealed class Bits(val bitwidth: kotlin.Int): Tag() {
+    sealed class Bits(override val bitwidth: kotlin.Int) : Tag(), ModZm {
         // only required to make serialization happy. Don't call it.
         private constructor(): this(0)
-        val modulus: BigInteger = twoToThe(bitwidth)
 
-        /** Maximum value of unsigned with [bitwidth] bits */
-        val maxUnsigned: BigInteger = modulus - 1
-        /** Maximum value of signed with [bitwidth] bits */
-        val maxSigned: BigInteger = twoToThe(bitwidth - 1) - 1
-        /** Minimum value of signed with [bitwidth] bits */
-        val minSignedMath: BigInteger = -twoToThe(bitwidth - 1)
-        /** Minimum value of signed with [bitwidth] bits in 2s-complement encoding */
-        val minSigned2s: BigInteger = twoToThe(bitwidth - 1)
+        override val modulus = twoToThe(bitwidth)
+        override val maxUnsigned: BigInteger = modulus - 1
+        override val maxSigned: BigInteger = twoToThe(bitwidth - 1) - 1
+        override val minSignedMath: BigInteger = -twoToThe(bitwidth - 1)
+        override val minSigned2s: BigInteger = maxSigned + 1
 
         @Suppress("SERIALIZER_TYPE_INCOMPATIBLE") // Bits.Serializer will produce a BitN, if a BitN was serialized
         @KSerializable(with = Bits.Serializer::class)
@@ -86,7 +83,7 @@ sealed class Tag : AmbiSerializable {
 
         internal object Serializer : KSerializer<Bits> {
             override val descriptor = buildClassSerialDescriptor("tac.Tag.Bits") {
-                element<Int>("bits")
+                element<kotlin.Int>("bits")
             }
             override fun serialize(encoder: Encoder, value: Bits) = encoder.encodeStructure(descriptor) {
                 encodeIntElement(descriptor, 0, value.bitwidth)

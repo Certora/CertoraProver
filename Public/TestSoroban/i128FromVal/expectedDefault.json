@@ -1,0 +1,28 @@
+{
+	"assertMessages": {
+		"reach_val_negative": "Property satisfied",
+		"reach_val_positive": "Property satisfied",
+		"reach_val_small_negative": "Property satisfied",
+		"reach_val_small_positive": "Property satisfied",
+		"reach_val_zero": "Property satisfied",
+		"reach_vals_equal": "Property satisfied",
+		"reach_vals_not_equal": "Property satisfied",
+		"test_to_from_i128_reach_error": "Property satisfied",
+		"test_to_from_i128_reach_small": "Property satisfied"
+	},
+	"rules": {
+		"reach_val_negative": "SUCCESS",
+		"reach_val_positive": "SUCCESS",
+		"reach_val_small_negative": "SUCCESS",
+		"reach_val_small_positive": "SUCCESS",
+		"reach_val_zero": "SUCCESS",
+		"reach_vals_equal": "SUCCESS",
+		"reach_vals_not_equal": "SUCCESS",
+		"test_i128_to_val_roundtrip": "SUCCESS",
+		"test_i128_to_val_tags": "SUCCESS",
+		"test_to_from_i128_conditions": "SUCCESS",
+		"test_to_from_i128_reach_error": "SUCCESS",
+		"test_to_from_i128_reach_small": "SUCCESS",
+		"test_to_from_i128_small_range": "SUCCESS"
+	}
+}

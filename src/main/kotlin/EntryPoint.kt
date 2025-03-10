@@ -22,6 +22,7 @@ import awshelpers.sqs.sqsSendErrorTracker
 import bridge.CertoraConf
 import bridge.NamedContractIdentifier
 import certora.CVTVersion
+import cli.Ecosystem
 import cli.SanityValues
 import config.*
 import config.Config.BytecodeFiles
@@ -50,6 +51,10 @@ import rules.VerifyTime
 import rules.sanity.TACSanityChecks
 import scene.*
 import scene.source.*
+import smt.BackendStrategyEnum
+import smt.CoverageInfoEnum
+import smt.PrettifyCEXEnum
+import smt.UseLIAEnum
 import spec.converters.EVMMoveSemantics
 import spec.cvlast.CVLSingleRule
 import spec.cvlast.IRule.Companion.createDummyRule
@@ -718,8 +723,43 @@ private fun autoconfCiMode() {
  */
 @PollutesGlobalState
 private fun autoConfig() {
+    setActiveFlow()
     if (Config.IsCIMode.get()) {
         autoconfCiMode()
+    }
+
+    if (Config.HashingBoundDetectionMode.get()) {
+        Config.CoverageInfoMode.set(CoverageInfoEnum.ADVANCED) //this is used to disable optimisations
+        Config.Smt.NumOfUnsatCores.set(0) //this effectively disables the unsat core enumeration itself
+        Config.PreciseHashingLengthBound.set(0)
+        Config.OptimisticUnboundedHashing.set(false)
+        Config.prettifyCEX.set(PrettifyCEXEnum.JOINT) //used to minimise values of the hashing bounds
+        Config.EnableSplitting.setIfUnset(false) //disable splitting so that we consider all paths while looking for suitable hashing bounds
+        Config.Smt.BackendStrategy.set(BackendStrategyEnum.SINGLE_RACE)
+        Config.Smt.UseLIA.set(UseLIAEnum.UNSAT_ONLY) //We don't want to use Constraint Choosers during the CEX prettification
+        Config.PrettifyCEXSmallBarriers.set(true) //We expect the hashing bound to be relatively small and hence use small barriers
+        Config.PostProcessCEXSingleCheckTimeout.setIfUnset(100)
+        Config.PostProcessCEXTimeoutSeconds.setIfUnset(600)
+    }
+}
+
+/** Set the verification flow that is being used for the current verification task. */
+@PollutesGlobalState
+private fun setActiveFlow() {
+    ConfigType.MainFileName.getOrNull().let { fileName ->
+        if (fileName != null) {
+            when {
+                ArtifactFileUtils.isTAC(fileName) && Config.ActiveEcosystem.getOrNull() == null ->
+                    // We set it only if this is not set, otherwise we use what was provided with the command line option.
+                    Config.ActiveEcosystem.set(Ecosystem.EVM)
+                ArtifactFileUtils.isSolana(fileName) -> Config.ActiveEcosystem.set(Ecosystem.SOLANA)
+                ArtifactFileUtils.isWasm(fileName) -> Config.ActiveEcosystem.set(Ecosystem.SOROBAN)
+                SpecFile.getOrNull() != null -> Config.ActiveEcosystem.set(Ecosystem.EVM)
+                else -> Config.ActiveEcosystem.set(Ecosystem.EVM)
+            }
+        } else {
+            Config.ActiveEcosystem.set(Ecosystem.EVM)
+        }
     }
 }
 
@@ -736,7 +776,7 @@ private fun Config.warnIfSetupPhaseFlagsEnabled() {
         VerifyTACDumps,
         TestMode,
         CheckRuleDigest,
-    ).filter { boolFlag -> boolFlag.getOrNull().orFalse() }
+    ).filter { boolFlag -> boolFlag.getOrNull() == true }
 
     if (enabledSetupFlags.isNotEmpty()) {
         val names = enabledSetupFlags.joinToString(separator = ", ") { flag -> flag.option.realOpt() }

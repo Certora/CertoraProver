@@ -35,20 +35,22 @@
                                         "text": "m['{0}'].b3: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -74,20 +76,22 @@
                                         "text": "m['{0}'].s1.b1: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -113,20 +117,22 @@
                                         "text": "m['{0}'].s1.b2: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -152,22 +158,24 @@
                                         "text": "m['{0}'].s1.x: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "12",
+                                                "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f",
                                                 "values": [
-                                                    "12",
-                                                    "12",
-                                                    "0xc"
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129637903",
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -193,22 +201,24 @@
                                         "text": "m['{0}'].s1.x2: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "8",
+                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01",
                                                 "values": [
-                                                    "8",
-                                                    "8",
-                                                    "0x8"
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635329",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -234,20 +244,24 @@
                                         "text": "m['{0}'].s1.y: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "0x4300",
+                                                "value": "0xfffffffffffffffffffffffffffffffffffff254",
                                                 "values": [
-                                                    "0x4300"
+                                                    "0xfffffffffffffffffffffffffffffffffffff254",
+                                                    "0xfffffffffffffffffffffffffffffffffffff254",
+                                                    "0xfffffffffffffffffffffffffffffffffffff254"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -273,22 +287,24 @@
                                         "text": "m['{0}'].s1.z1: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "11",
+                                                "value": "0x29",
                                                 "values": [
-                                                    "11",
-                                                    "11",
-                                                    "0xb"
+                                                    "0x29",
+                                                    "41",
+                                                    "0x29"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -314,22 +330,24 @@
                                         "text": "m['{0}'].s1.z2: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "9",
+                                                "value": "0xaa",
                                                 "values": [
-                                                    "9",
-                                                    "9",
-                                                    "0x9"
+                                                    "0xaa",
+                                                    "170",
+                                                    "0xaa"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -355,20 +373,22 @@
                                         "text": "m['{0}'].s2.b1: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -394,20 +414,22 @@
                                         "text": "m['{0}'].s2.b2: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -433,22 +455,24 @@
                                         "text": "m['{0}'].s2.x: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "6",
+                                                "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c",
                                                 "values": [
-                                                    "6",
-                                                    "6",
-                                                    "0x6"
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129636924",
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -474,22 +498,24 @@
                                         "text": "m['{0}'].s2.x2: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "10",
+                                                "value": "2^256 - 4104",
                                                 "values": [
-                                                    "10",
-                                                    "10",
-                                                    "0xa"
+                                                    "2^256 - 4104",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635832",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeff8"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -515,20 +541,24 @@
                                         "text": "m['{0}'].s2.y: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "0x8200",
+                                                "value": "0xfffffffffffffffffffffffffffffffffffffd61",
                                                 "values": [
-                                                    "0x8200"
+                                                    "0xfffffffffffffffffffffffffffffffffffffd61",
+                                                    "0xfffffffffffffffffffffffffffffffffffffd61",
+                                                    "0xfffffffffffffffffffffffffffffffffffffd61"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -554,22 +584,24 @@
                                         "text": "m['{0}'].s2.z1: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "13",
+                                                "value": "0xa9",
                                                 "values": [
-                                                    "13",
-                                                    "13",
-                                                    "0xd"
+                                                    "0xa9",
+                                                    "169",
+                                                    "0xa9"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -595,22 +627,24 @@
                                         "text": "m['{0}'].s2.z2: '{1}'",
                                         "arguments": [
                                             {
-                                                "value": "0",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "0",
+                                                    "0x0",
                                                     "0",
                                                     "0x0"
                                                 ],
-                                                "tooltip": "key"
+                                                "tooltip": "key",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "7",
+                                                "value": "MAX_UINT8",
                                                 "values": [
-                                                    "7",
-                                                    "7",
-                                                    "0x7"
+                                                    "MAX_UINT8",
+                                                    "255",
+                                                    "0xff"
                                                 ],
-                                                "tooltip": "storage value"
+                                                "tooltip": "storage value",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -649,16 +683,17 @@
                     "childrenList": [
                         {
                             "message": {
-                                "text": "0x2380.balance: '{0}'",
+                                "text": "0x2546.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                        "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
                                         "values": [
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129635721",
+                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89"
                                         ],
-                                        "tooltip": "balance"
+                                        "tooltip": "balance",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -669,16 +704,17 @@
                         },
                         {
                             "message": {
-                                "text": "TestContract (0xc100).balance: '{0}'",
+                                "text": "TestContract.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                        "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88",
                                         "values": [
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129635720",
+                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88"
                                         ],
-                                        "tooltip": "balance"
+                                        "tooltip": "balance",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -948,13 +984,14 @@
                         "text": "TestContract.workOnS1Ext(x='{0}')",
                         "arguments": [
                             {
-                                "value": "1",
+                                "value": "0x2",
                                 "values": [
-                                    "1",
-                                    "1",
-                                    "0x1"
+                                    "0x2",
+                                    "2",
+                                    "0x2"
                                 ],
-                                "tooltip": "value"
+                                "tooltip": "value",
+                                "truncatable": true
                             }
                         ]
                     },
@@ -965,27 +1002,34 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0x2380",
+                                        "value": "0x2546",
                                         "values": [
-                                            "0x2380"
+                                            "0x2546",
+                                            "0x2546",
+                                            "0x2546"
                                         ],
-                                        "tooltip": "address of sender"
+                                        "tooltip": "address of sender",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "TestContract (0xc100)",
+                                        "value": "TestContract",
                                         "values": [
-                                            "TestContract (0xc100)"
+                                            "TestContract",
+                                            "TestContract",
+                                            "0x2710"
                                         ],
-                                        "tooltip": "address of receiver"
+                                        "tooltip": "address of receiver",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "transferred amount"
+                                        "tooltip": "transferred amount",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -996,13 +1040,14 @@
                                         "text": "Load from: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
                                                 "values": [
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635721",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89"
                                                 ],
-                                                "tooltip": "balance"
+                                                "tooltip": "balance",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -1016,13 +1061,14 @@
                                         "text": "Store at: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
                                                 "values": [
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635721",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89"
                                                 ],
-                                                "tooltip": "balance"
+                                                "tooltip": "balance",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -1036,13 +1082,14 @@
                                         "text": "Load from: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88",
                                                 "values": [
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635720",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88"
                                                 ],
-                                                "tooltip": "balance"
+                                                "tooltip": "balance",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -1056,13 +1103,14 @@
                                         "text": "Store at: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88",
                                                 "values": [
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635720",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88"
                                                 ],
-                                                "tooltip": "balance"
+                                                "tooltip": "balance",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -1079,20 +1127,24 @@
                                 "text": "Load from TestContract.[raw storage address] '{0}' ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "TestContract (0xc100)",
+                                        "value": "TestContract",
                                         "values": [
-                                            "TestContract (0xc100)"
+                                            "TestContract",
+                                            "TestContract",
+                                            "0x2710"
                                         ],
-                                        "tooltip": "address"
+                                        "tooltip": "address",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c",
                                         "values": [
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129635964",
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1148,22 +1200,24 @@
                                 "text": "Load from TestContract.m['{0}'].s1.x ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "12",
+                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f",
                                         "values": [
-                                            "12",
-                                            "12",
-                                            "0xc"
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129637903",
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1187,20 +1241,24 @@
                                 "text": "Load from TestContract.m['{0}'].s1.y ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "0x4300",
+                                        "value": "0xfffffffffffffffffffffffffffffffffffff254",
                                         "values": [
-                                            "0x4300"
+                                            "0xfffffffffffffffffffffffffffffffffffff254",
+                                            "0xfffffffffffffffffffffffffffffffffffff254",
+                                            "0xfffffffffffffffffffffffffffffffffffff254"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1224,22 +1282,24 @@
                                 "text": "Load from TestContract.m['{0}'].s1.z1 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "11",
+                                        "value": "0x29",
                                         "values": [
-                                            "11",
-                                            "11",
-                                            "0xb"
+                                            "0x29",
+                                            "41",
+                                            "0x29"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1263,22 +1323,24 @@
                                 "text": "Load from TestContract.m['{0}'].s1.z2 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "9",
+                                        "value": "0xaa",
                                         "values": [
-                                            "9",
-                                            "9",
-                                            "0x9"
+                                            "0xaa",
+                                            "170",
+                                            "0xaa"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1302,20 +1364,22 @@
                                 "text": "Load from TestContract.m['{0}'].s1.b1 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "true",
+                                        "value": "false",
                                         "values": [
-                                            "true"
+                                            "false"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -1339,22 +1403,24 @@
                                 "text": "Load from TestContract.m['{0}'].s1.x2 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "8",
+                                        "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01",
                                         "values": [
-                                            "8",
-                                            "8",
-                                            "0x8"
+                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129635329",
+                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1378,20 +1444,22 @@
                                 "text": "Load from TestContract.m['{0}'].s1.b2 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "true",
+                                        "value": "false",
                                         "values": [
-                                            "true"
+                                            "false"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -1415,22 +1483,24 @@
                                 "text": "Load from TestContract.m['{0}'].s2.x ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "6",
+                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c",
                                         "values": [
-                                            "6",
-                                            "6",
-                                            "0x6"
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129636924",
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1454,20 +1524,24 @@
                                 "text": "Load from TestContract.m['{0}'].s2.y ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "0x8200",
+                                        "value": "0xfffffffffffffffffffffffffffffffffffffd61",
                                         "values": [
-                                            "0x8200"
+                                            "0xfffffffffffffffffffffffffffffffffffffd61",
+                                            "0xfffffffffffffffffffffffffffffffffffffd61",
+                                            "0xfffffffffffffffffffffffffffffffffffffd61"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1491,22 +1565,24 @@
                                 "text": "Load from TestContract.m['{0}'].s2.z1 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "13",
+                                        "value": "0xa9",
                                         "values": [
-                                            "13",
-                                            "13",
-                                            "0xd"
+                                            "0xa9",
+                                            "169",
+                                            "0xa9"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1530,22 +1606,24 @@
                                 "text": "Load from TestContract.m['{0}'].s2.z2 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "7",
+                                        "value": "MAX_UINT8",
                                         "values": [
-                                            "7",
-                                            "7",
-                                            "0x7"
+                                            "MAX_UINT8",
+                                            "255",
+                                            "0xff"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -1569,20 +1647,22 @@
                                 "text": "Load from TestContract.m['{0}'].s2.b1 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "true",
+                                        "value": "false",
                                         "values": [
-                                            "true"
+                                            "false"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -1606,22 +1686,24 @@
                                 "text": "Load from TestContract.m['{0}'].s2.x2 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "10",
+                                        "value": "2^256 - 4104",
                                         "values": [
-                                            "10",
-                                            "10",
-                                            "0xa"
+                                            "2^256 - 4104",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129635832",
+                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeff8"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -1645,20 +1727,22 @@
                                 "text": "Load from TestContract.m['{0}'].s2.b2 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "true",
+                                        "value": "false",
                                         "values": [
-                                            "true"
+                                            "false"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -1682,20 +1766,22 @@
                                 "text": "Load from TestContract.m['{0}'].b3 ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0",
+                                        "value": "0x0",
                                         "values": [
-                                            "0",
+                                            "0x0",
                                             "0",
                                             "0x0"
                                         ],
-                                        "tooltip": "key"
+                                        "tooltip": "key",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "true",
+                                        "value": "false",
                                         "values": [
-                                            "true"
+                                            "false"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -1719,20 +1805,24 @@
                                 "text": "Load from TestContract.[raw storage address] '{0}' ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "TestContract (0xc100)",
+                                        "value": "TestContract",
                                         "values": [
-                                            "TestContract (0xc100)"
+                                            "TestContract",
+                                            "TestContract",
+                                            "0x2710"
                                         ],
-                                        "tooltip": "address"
+                                        "tooltip": "address",
+                                        "truncatable": true
                                     },
                                     {
-                                        "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c",
                                         "values": [
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129635964",
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c"
                                         ],
-                                        "tooltip": "storage value"
+                                        "tooltip": "storage value",
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1785,134 +1875,154 @@
                                         "text": "workOnSComplexCVL(x='{0}', s={s1.x='{1}', s1.y='{2}', s1.z1='{3}', s1.z2='{4}', s1.b1='{5}', s1.x2='{6}', s1.b2='{7}', s2.x='{8}', s2.y='{9}', s2.z1='{10}', s2.z2='{11}', s2.b1='{12}', s2.x2='{13}', s2.b2='{14}', b3='{15}'})",
                                         "arguments": [
                                             {
-                                                "value": "1",
+                                                "value": "0x2",
                                                 "values": [
-                                                    "1",
-                                                    "1",
-                                                    "0x1"
+                                                    "0x2",
+                                                    "2",
+                                                    "0x2"
                                                 ],
-                                                "tooltip": "1st parameter"
+                                                "tooltip": "1st parameter",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "12",
+                                                "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f",
                                                 "values": [
-                                                    "12",
-                                                    "12",
-                                                    "0xc"
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129637903",
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f"
                                                 ],
-                                                "tooltip": "value at s1.x"
+                                                "tooltip": "value at s1.x",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "0x4300",
+                                                "value": "0xfffffffffffffffffffffffffffffffffffff254",
                                                 "values": [
-                                                    "0x4300"
+                                                    "0xfffffffffffffffffffffffffffffffffffff254",
+                                                    "0xfffffffffffffffffffffffffffffffffffff254",
+                                                    "0xfffffffffffffffffffffffffffffffffffff254"
                                                 ],
-                                                "tooltip": "value at s1.y"
+                                                "tooltip": "value at s1.y",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "11",
+                                                "value": "0x29",
                                                 "values": [
-                                                    "11",
-                                                    "11",
-                                                    "0xb"
+                                                    "0x29",
+                                                    "41",
+                                                    "0x29"
                                                 ],
-                                                "tooltip": "value at s1.z1"
+                                                "tooltip": "value at s1.z1",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "9",
+                                                "value": "0xaa",
                                                 "values": [
-                                                    "9",
-                                                    "9",
-                                                    "0x9"
+                                                    "0xaa",
+                                                    "170",
+                                                    "0xaa"
                                                 ],
-                                                "tooltip": "value at s1.z2"
+                                                "tooltip": "value at s1.z2",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "value at s1.b1"
+                                                "tooltip": "value at s1.b1",
+                                                "truncatable": false
                                             },
                                             {
-                                                "value": "8",
+                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01",
                                                 "values": [
-                                                    "8",
-                                                    "8",
-                                                    "0x8"
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635329",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01"
                                                 ],
-                                                "tooltip": "value at s1.x2"
+                                                "tooltip": "value at s1.x2",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "value at s1.b2"
+                                                "tooltip": "value at s1.b2",
+                                                "truncatable": false
                                             },
                                             {
-                                                "value": "6",
+                                                "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c",
                                                 "values": [
-                                                    "6",
-                                                    "6",
-                                                    "0x6"
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129636924",
+                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c"
                                                 ],
-                                                "tooltip": "value at s2.x"
+                                                "tooltip": "value at s2.x",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "0x8200",
+                                                "value": "0xfffffffffffffffffffffffffffffffffffffd61",
                                                 "values": [
-                                                    "0x8200"
+                                                    "0xfffffffffffffffffffffffffffffffffffffd61",
+                                                    "0xfffffffffffffffffffffffffffffffffffffd61",
+                                                    "0xfffffffffffffffffffffffffffffffffffffd61"
                                                 ],
-                                                "tooltip": "value at s2.y"
+                                                "tooltip": "value at s2.y",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "13",
+                                                "value": "0xa9",
                                                 "values": [
-                                                    "13",
-                                                    "13",
-                                                    "0xd"
+                                                    "0xa9",
+                                                    "169",
+                                                    "0xa9"
                                                 ],
-                                                "tooltip": "value at s2.z1"
+                                                "tooltip": "value at s2.z1",
+                                                "truncatable": true
                                             },
                                             {
-                                                "value": "7",
+                                                "value": "MAX_UINT8",
                                                 "values": [
-                                                    "7",
-                                                    "7",
-                                                    "0x7"
+                                                    "MAX_UINT8",
+                                                    "255",
+                                                    "0xff"
                                                 ],
-                                                "tooltip": "value at s2.z2"
+                                                "tooltip": "value at s2.z2",
+                                                "truncatable": false
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "value at s2.b1"
+                                                "tooltip": "value at s2.b1",
+                                                "truncatable": false
                                             },
                                             {
-                                                "value": "10",
+                                                "value": "2^256 - 4104",
                                                 "values": [
-                                                    "10",
-                                                    "10",
-                                                    "0xa"
+                                                    "2^256 - 4104",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635832",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeff8"
                                                 ],
-                                                "tooltip": "value at s2.x2"
+                                                "tooltip": "value at s2.x2",
+                                                "truncatable": false
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "value at s2.b2"
+                                                "tooltip": "value at s2.b2",
+                                                "truncatable": false
                                             },
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
-                                                "tooltip": "value at b3"
+                                                "tooltip": "value at b3",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -1931,20 +2041,22 @@
                                                         "text": "Havoc of TestContract.m['{0}'].s1.b1 ↪ '{1}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0",
+                                                                "value": "0x0",
                                                                 "values": [
-                                                                    "0",
+                                                                    "0x0",
                                                                     "0",
                                                                     "0x0"
                                                                 ],
-                                                                "tooltip": "key"
+                                                                "tooltip": "key",
+                                                                "truncatable": true
                                                             },
                                                             {
                                                                 "value": "false",
                                                                 "values": [
                                                                     "false"
                                                                 ],
-                                                                "tooltip": "storage value"
+                                                                "tooltip": "storage value",
+                                                                "truncatable": false
                                                             }
                                                         ]
                                                     },
@@ -1989,20 +2101,22 @@
                                                         "text": "Load from TestContract.m['{0}'].s1.b1 ↪ '{1}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0",
+                                                                "value": "0x0",
                                                                 "values": [
-                                                                    "0",
+                                                                    "0x0",
                                                                     "0",
                                                                     "0x0"
                                                                 ],
-                                                                "tooltip": "key"
+                                                                "tooltip": "key",
+                                                                "truncatable": true
                                                             },
                                                             {
                                                                 "value": "false",
                                                                 "values": [
                                                                     "false"
                                                                 ],
-                                                                "tooltip": "storage value"
+                                                                "tooltip": "storage value",
+                                                                "truncatable": false
                                                             }
                                                         ]
                                                     },
@@ -2047,20 +2161,22 @@
                                                         "text": "Havoc of TestContract.m['{0}'].b3 ↪ '{1}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0",
+                                                                "value": "0x0",
                                                                 "values": [
-                                                                    "0",
+                                                                    "0x0",
                                                                     "0",
                                                                     "0x0"
                                                                 ],
-                                                                "tooltip": "key"
+                                                                "tooltip": "key",
+                                                                "truncatable": true
                                                             },
                                                             {
                                                                 "value": "false",
                                                                 "values": [
                                                                     "false"
                                                                 ],
-                                                                "tooltip": "storage value"
+                                                                "tooltip": "storage value",
+                                                                "truncatable": false
                                                             }
                                                         ]
                                                     },
@@ -2105,20 +2221,22 @@
                                                         "text": "Load from TestContract.m['{0}'].b3 ↪ '{1}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0",
+                                                                "value": "0x0",
                                                                 "values": [
-                                                                    "0",
+                                                                    "0x0",
                                                                     "0",
                                                                     "0x0"
                                                                 ],
-                                                                "tooltip": "key"
+                                                                "tooltip": "key",
+                                                                "truncatable": true
                                                             },
                                                             {
                                                                 "value": "false",
                                                                 "values": [
                                                                     "false"
                                                                 ],
-                                                                "tooltip": "storage value"
+                                                                "tooltip": "storage value",
+                                                                "truncatable": false
                                                             }
                                                         ]
                                                     },
@@ -2257,20 +2375,22 @@
                         "text": "Load from TestContract.m['{0}'].b3 ↪ '{1}'",
                         "arguments": [
                             {
-                                "value": "0",
+                                "value": "0x0",
                                 "values": [
-                                    "0",
+                                    "0x0",
                                     "0",
                                     "0x0"
                                 ],
-                                "tooltip": "key"
+                                "tooltip": "key",
+                                "truncatable": true
                             },
                             {
                                 "value": "false",
                                 "values": [
                                     "false"
                                 ],
-                                "tooltip": "storage value"
+                                "tooltip": "storage value",
+                                "truncatable": false
                             }
                         ]
                     },
@@ -2318,20 +2438,22 @@
                                                 "text": "m['{0}'].b3: '{1}' (changed)",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
                                                         "value": "false",
                                                         "values": [
                                                             "false"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -2357,20 +2479,22 @@
                                                 "text": "m['{0}'].s1.b1: '{1}' (changed)",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
                                                         "value": "false",
                                                         "values": [
                                                             "false"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -2396,20 +2520,22 @@
                                                 "text": "m['{0}'].s1.b2: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "true",
+                                                        "value": "false",
                                                         "values": [
-                                                            "true"
+                                                            "false"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -2435,22 +2561,24 @@
                                                 "text": "m['{0}'].s1.x: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "12",
+                                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f",
                                                         "values": [
-                                                            "12",
-                                                            "12",
-                                                            "0xc"
+                                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f",
+                                                            "115792089237316195423570985008687907853269984665640564039457584007913129637903",
+                                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80f"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -2476,22 +2604,24 @@
                                                 "text": "m['{0}'].s1.x2: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "8",
+                                                        "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01",
                                                         "values": [
-                                                            "8",
-                                                            "8",
-                                                            "0x8"
+                                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01",
+                                                            "115792089237316195423570985008687907853269984665640564039457584007913129635329",
+                                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffee01"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -2517,20 +2647,24 @@
                                                 "text": "m['{0}'].s1.y: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "0x4300",
+                                                        "value": "0xfffffffffffffffffffffffffffffffffffff254",
                                                         "values": [
-                                                            "0x4300"
+                                                            "0xfffffffffffffffffffffffffffffffffffff254",
+                                                            "0xfffffffffffffffffffffffffffffffffffff254",
+                                                            "0xfffffffffffffffffffffffffffffffffffff254"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -2556,22 +2690,24 @@
                                                 "text": "m['{0}'].s1.z1: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "11",
+                                                        "value": "0x29",
                                                         "values": [
-                                                            "11",
-                                                            "11",
-                                                            "0xb"
+                                                            "0x29",
+                                                            "41",
+                                                            "0x29"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -2597,22 +2733,24 @@
                                                 "text": "m['{0}'].s1.z2: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "9",
+                                                        "value": "0xaa",
                                                         "values": [
-                                                            "9",
-                                                            "9",
-                                                            "0x9"
+                                                            "0xaa",
+                                                            "170",
+                                                            "0xaa"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -2638,20 +2776,22 @@
                                                 "text": "m['{0}'].s2.b1: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "true",
+                                                        "value": "false",
                                                         "values": [
-                                                            "true"
+                                                            "false"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -2677,20 +2817,22 @@
                                                 "text": "m['{0}'].s2.b2: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "true",
+                                                        "value": "false",
                                                         "values": [
-                                                            "true"
+                                                            "false"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -2716,22 +2858,24 @@
                                                 "text": "m['{0}'].s2.x: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "6",
+                                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c",
                                                         "values": [
-                                                            "6",
-                                                            "6",
-                                                            "0x6"
+                                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c",
+                                                            "115792089237316195423570985008687907853269984665640564039457584007913129636924",
+                                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43c"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -2757,22 +2901,24 @@
                                                 "text": "m['{0}'].s2.x2: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "10",
+                                                        "value": "2^256 - 4104",
                                                         "values": [
-                                                            "10",
-                                                            "10",
-                                                            "0xa"
+                                                            "2^256 - 4104",
+                                                            "115792089237316195423570985008687907853269984665640564039457584007913129635832",
+                                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeff8"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -2798,20 +2944,24 @@
                                                 "text": "m['{0}'].s2.y: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "0x8200",
+                                                        "value": "0xfffffffffffffffffffffffffffffffffffffd61",
                                                         "values": [
-                                                            "0x8200"
+                                                            "0xfffffffffffffffffffffffffffffffffffffd61",
+                                                            "0xfffffffffffffffffffffffffffffffffffffd61",
+                                                            "0xfffffffffffffffffffffffffffffffffffffd61"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -2837,22 +2987,24 @@
                                                 "text": "m['{0}'].s2.z1: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "13",
+                                                        "value": "0xa9",
                                                         "values": [
-                                                            "13",
-                                                            "13",
-                                                            "0xd"
+                                                            "0xa9",
+                                                            "169",
+                                                            "0xa9"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -2878,22 +3030,24 @@
                                                 "text": "m['{0}'].s2.z2: '{1}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "key"
+                                                        "tooltip": "key",
+                                                        "truncatable": true
                                                     },
                                                     {
-                                                        "value": "7",
+                                                        "value": "MAX_UINT8",
                                                         "values": [
-                                                            "7",
-                                                            "7",
-                                                            "0x7"
+                                                            "MAX_UINT8",
+                                                            "255",
+                                                            "0xff"
                                                         ],
-                                                        "tooltip": "storage value"
+                                                        "tooltip": "storage value",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -2932,16 +3086,17 @@
                             "childrenList": [
                                 {
                                     "message": {
-                                        "text": "0x2380.balance: '{0}'",
+                                        "text": "0x2546.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
                                                 "values": [
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635721",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89"
                                                 ],
-                                                "tooltip": "balance"
+                                                "tooltip": "balance",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -2952,16 +3107,17 @@
                                 },
                                 {
                                     "message": {
-                                        "text": "TestContract (0xc100).balance: '{0}'",
+                                        "text": "TestContract.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
+                                                "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88",
                                                 "values": [
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000 (2^255)",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88",
+                                                    "115792089237316195423570985008687907853269984665640564039457584007913129635720",
+                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef88"
                                                 ],
-                                                "tooltip": "balance"
+                                                "tooltip": "balance",
+                                                "truncatable": true
                                             }
                                         ]
                                     },

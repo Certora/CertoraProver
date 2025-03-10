@@ -17,10 +17,8 @@
 
 package analysis.split
 
-import analysis.split.BitRange.Empty
-import analysis.split.BitRange.NonEmpty
-import analysis.split.Ternary.Companion.lowOnes
 import evm.EVM_BITWIDTH256
+import utils.ModZm.Companion.lowOnes
 import java.math.BigInteger
 
 

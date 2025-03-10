@@ -30,6 +30,8 @@ enum class UseLIAEnum {
     WITHOUT_VERIFIER,
     /** Run LIA solvers and verify violations with a NIA CEXVerifier */
     WITH_VERIFIER,
+    /** Run LIA solvers, taking UNSAT results as UNSAT, but SAT results as UNKNOWN (i.e. without a CEXVerifier)*/
+    UNSAT_ONLY
 }
 
 val UseLIAEnumConverter = Converter {
@@ -37,6 +39,7 @@ val UseLIAEnumConverter = Converter {
         "false", "no", "none" -> UseLIAEnum.NONE
         "without-verifier" -> UseLIAEnum.WITHOUT_VERIFIER
         "true", "yes", "with-verifier" -> UseLIAEnum.WITH_VERIFIER
+        "unsat-only" -> UseLIAEnum.UNSAT_ONLY
         else -> throw ConversionException(it, UseLIAEnum::class.java)
     }
 }

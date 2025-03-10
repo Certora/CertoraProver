@@ -115,7 +115,7 @@ open class DefaultTACExprTransformer : TACExprTransformer<TACExpr>() {
             tag
         )
 
-    override fun transformExponent(o1: TACExpr, o2: TACExpr, tag: Tag?): TACExpr =
+    override fun transformExponent(o1: TACExpr, o2: TACExpr, tag: Tag.Bits?): TACExpr =
         TACExprFactSimple.Exponent(
             transform(o1),
             transform(o2),
@@ -410,9 +410,9 @@ abstract class TACExprTransformer<T> {
 
     open fun transformExponent(e: TACExpr.BinOp.Exponent): T = transformExponent(e.o1, e.o2, e.tag)
 
-    abstract fun transformExponent(o1: TACExpr, o2: TACExpr, tag: Tag?): T
+    abstract fun transformExponent(o1: TACExpr, o2: TACExpr, tag: Tag.Bits?): T
 
-    open fun transformIntExponent(e: TACExpr.BinOp.IntExponent): T = transformExponent(e.o1, e.o2, e.tag)
+    open fun transformIntExponent(e: TACExpr.BinOp.IntExponent): T = transformIntExponent(e.o1, e.o2, e.tag)
 
     abstract fun transformIntExponent(o1: TACExpr, o2: TACExpr, tag: Tag.Int?): T
 

@@ -365,7 +365,7 @@ abstract class DefaultAccumulatingTACExprTransformer<ACC> : AccumulatingTACExprT
             transformArg(acc, o2, 1),
             tag
         )
-    override fun transformExponent(acc: ACC, o1: TACExpr, o2: TACExpr, tag: Tag?): TACExpr =
+    override fun transformExponent(acc: ACC, o1: TACExpr, o2: TACExpr, tag: Tag.Bits?): TACExpr =
         TACExprFactSimple.Exponent(
             transformArg(acc, o1, 0),
             transformArg(acc, o2, 1),
@@ -677,7 +677,7 @@ abstract class AccumulatingTACExprTransformer<ACC, RES> {
 
     open fun transformExponent(acc: ACC, e: TACExpr.BinOp.Exponent): RES = transformExponent(acc, e.o1, e.o2, e.tag)
 
-    abstract fun transformExponent(acc: ACC, o1: TACExpr, o2: TACExpr, tag: Tag?): RES
+    abstract fun transformExponent(acc: ACC, o1: TACExpr, o2: TACExpr, tag: Tag.Bits?): RES
 
     open fun transformIntExponent(acc: ACC, e: TACExpr.BinOp.IntExponent): RES = transformIntExponent(acc, e.o1, e.o2, e.tag)
 
@@ -954,7 +954,7 @@ abstract class AccumulatingTACExprTransFormerWithDefaultRes<ACC, RES> : Accumula
         defaultRes(acc, TACExpr.BinOp.SMod(o1, o2, tag))
     override fun transformIntMod(acc: ACC, o1: TACExpr, o2: TACExpr, tag: Tag.Int?): RES =
         defaultRes(acc, TACExpr.BinOp.IntMod(o1, o2, tag))
-    override fun transformExponent(acc: ACC, o1: TACExpr, o2: TACExpr, tag: Tag?): RES =
+    override fun transformExponent(acc: ACC, o1: TACExpr, o2: TACExpr, tag: Tag.Bits?): RES =
         defaultRes(acc, TACExpr.BinOp.Exponent(o1, o2, tag))
     override fun transformIntExponent(acc: ACC, o1: TACExpr, o2: TACExpr, tag: Tag.Int?): RES =
         defaultRes(acc, TACExpr.BinOp.IntExponent(o1, o2, tag))

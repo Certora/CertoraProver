@@ -17,10 +17,12 @@
 
 package analysis.split
 
+import analysis.split.Ternary.Companion.allXs
 import evm.EVM_BITWIDTH256
 import evm.EVM_MOD_GROUP256
 import evm.MAX_EVM_UINT256
-import utils.isInt
+import utils.*
+import utils.ModZm.Companion.lowOnes
 import java.math.BigInteger
 
 /**
@@ -109,12 +111,6 @@ sealed class Ternary {
 
         val allOnes get() = MAX_EVM_UINT256
 
-        /** bits are 1 from bit 0 up to bit [end] (non-inclusive) */
-        fun lowOnes(end: Int) = BigInteger.ONE.shiftLeft(end) - BigInteger.ONE
-
-        /** bits are 1 from bit [start] up to bit [end] (non-inclusive) */
-        fun onesRange(start: Int, end: Int) = lowOnes(end) - lowOnes(start)
-
         /** All [width] high bits are 1 */
         fun highOnes(width: Int) = allOnes - lowOnes(EVM_BITWIDTH256 - width)
 
@@ -129,11 +125,14 @@ sealed class Ternary {
         infix fun BigInteger.containedIn(o: BigInteger) =
             (this and o) == this
 
-        val BigInteger.isPowOf2 get() =
-            bitCount() == 1
+        val BigInteger.isPowOf2
+            get(): Boolean {
+                require(this >= BigInteger.ZERO) { "Can't call isPowOf2 on negative numbers : $this" }
+                return bitCount() == 1
+            }
 
-        val BigInteger.isPowOf2Minus1 get() =
-            (this + BigInteger.ONE).isPowOf2
+        val BigInteger.isPowOf2Minus1
+            get() = (this + BigInteger.ONE).isPowOf2
     }
 
     /**
@@ -324,7 +323,10 @@ sealed class Ternary {
                     if (surelyZerosBit >= EVM_BITWIDTH256) {
                         allXs
                     } else {
-                        Ternary(lowOnes(EVM_BITWIDTH256 - surelyZerosBit) shl surelyZerosBit, BigInteger.ZERO)
+                        Ternary(
+                            lowOnes(EVM_BITWIDTH256 - surelyZerosBit) shl surelyZerosBit,
+                            BigInteger.ZERO
+                        )
                     }
                 }
             }
@@ -391,6 +393,7 @@ sealed class Ternary {
         return when (this) {
             is Bottom ->
                 Ternary(BigInteger.ZERO, BigInteger.ZERO, topBit)
+
             is Constant -> {
                 val lowBits = value and keptBitsMask
                 Ternary(
@@ -401,6 +404,7 @@ sealed class Ternary {
                     }
                 )
             }
+
             is NonConstant -> {
                 val lowZeros = zeros and keptBitsMask
                 val lowOnes = ones and keptBitsMask
@@ -408,8 +412,10 @@ sealed class Ternary {
                 when {
                     zeros.testBit(topBit - 1) ->
                         Ternary(lowZeros or bwNot(keptBitsMask), lowOnes)
+
                     ones.testBit(topBit - 1) ->
                         Ternary(lowZeros, lowOnes or bwNot(keptBitsMask))
+
                     else ->
                         Ternary(lowZeros, lowOnes, minOf(signExtendBit, topBit))
                 }

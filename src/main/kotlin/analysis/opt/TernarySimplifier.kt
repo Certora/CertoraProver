@@ -27,7 +27,6 @@ import analysis.split.Ternary.Companion.bwNot
 import analysis.split.Ternary.Companion.containedIn
 import analysis.split.TernaryCalculator
 import evm.EVM_BYTE_SIZE
-import evm.lowOnes
 import log.*
 import tac.MetaKey
 import tac.Tag
@@ -174,8 +173,8 @@ object TernarySimplifier {
         fun simplifyBwAnd(lcmd: ExprView<TACExpr.BinOp.BWAnd>): List<TACCmd.Simple>? {
 
             /** this is for simplification of a 0xfff00 mask into a 0xfffff if possible */
-            fun f(mask : BigInteger, o : TACExpr, t : Ternary.NonBottom) : List<TACCmd.Simple>? {
-                val lowBits = lowOnes(mask.lowestSetBit) // this would be 0xff in the example.
+            fun f(mask: BigInteger, o: TACExpr, t: Ternary.NonBottom): List<TACCmd.Simple>? {
+                val lowBits = ModZm.lowOnes(mask.lowestSetBit) // this would be 0xff in the example.
                 return runIf(lowBits containedIn t.zeros) {
                     listOf(lcmd.cmd.copy(rhs = TACExpr.BinOp.BWAnd(o, (mask or lowBits).asTACExpr)))
                 }

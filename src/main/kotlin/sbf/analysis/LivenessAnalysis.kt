@@ -20,15 +20,12 @@ package sbf.analysis
 import datastructures.stdcollections.*
 import com.certora.collect.*
 import analysis.*
-import sbf.callgraph.ExternalFunction
-import sbf.callgraph.CVTFunction
-import sbf.callgraph.CompilerRtFunction
-import sbf.callgraph.SolanaFunction
 import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.sbfLogger
 import sbf.fixpoint.Wto
 import org.jetbrains.annotations.TestOnly
+import sbf.callgraph.*
 
 
 typealias LiveRegisters = Set<Value.Reg>
@@ -86,8 +83,8 @@ class LivenessAnalysis(graph: SbfCFG) :
     }
 
     private fun getFunctionId(inst: SbfInstruction.Call): ULong {
-        check(CVTFunction.from(inst.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS ||
-            CVTFunction.from(inst.name) == CVTFunction.SAVE_SCRATCH_REGISTERS)
+        check(CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS) ||
+            CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS))
         {"Precondition of getFunctionId failed"}
         val id = inst.metaData.getVal(SbfMeta.CALL_ID)
         check(id != null ) {"getFunctionId expects $inst to have IDs"}
@@ -105,7 +102,7 @@ class LivenessAnalysis(graph: SbfCFG) :
             Value.Reg(SbfRegister.R9)
         )
 
-        return  if (CVTFunction.from(call.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS) {
+        return  if (CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
             // kill scratch registers and remember the live scratch registers at this point
             val newLiveScratchRegsAfterFunction = inState.liveScratchRegsAfterFunction + (getFunctionId(call) to inState.registers.intersect(scratchRegs))
             genAndKill(inState.copy(liveScratchRegsAfterFunction = newLiveScratchRegsAfterFunction),
@@ -122,8 +119,8 @@ class LivenessAnalysis(graph: SbfCFG) :
         val cvtCall = CVTFunction.from(call.name)?.function
         val rtCall = CompilerRtFunction.from(call.name)?.function
 
-        return if (CVTFunction.from(call.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS ||
-                  CVTFunction.from(call.name) == CVTFunction.SAVE_SCRATCH_REGISTERS) {
+        return if (CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS) ||
+                  CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
             transformScratchRegisterOp(inState, call, cmd)
         } else if (call.isAllocFn()) {
             genAndKill(inState,

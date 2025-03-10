@@ -22,7 +22,7 @@
             "value": {
                 "type": "vc.data.SnippetCmd.CVLSnippetCmd.AssertCast",
                 "cvlExpOutSym": {
-                    "namePrefix": "I39",
+                    "namePrefix": "I40",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -30,7 +30,7 @@
                 },
                 "assertCond": {
                     "type": "vc.data.TACSymbol.Var.Full",
-                    "namePrefix": "B40",
+                    "namePrefix": "B41",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },

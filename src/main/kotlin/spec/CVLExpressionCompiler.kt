@@ -189,7 +189,7 @@ class CVLExpressionCompiler(
                     // DSA
                     outVar,
                     cvlCompiler.exprFact.Apply(
-                        TACBuiltInFunction.TwosComplement.Wrap.toTACFunctionSym(),
+                        TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256).toTACFunctionSym(),
                         listOf(inVar.asSym())
                     )
                 )), setOf(inVar, outVar))
@@ -210,7 +210,7 @@ class CVLExpressionCompiler(
             listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 outVar,
                 cvlCompiler.exprFact.Apply(
-                    TACBuiltInFunction.TwosComplement.Unwrap.toTACFunctionSym(),
+                    TACBuiltInFunction.TwosComplement.Unwrap(Tag.Bit256).toTACFunctionSym(),
                     listOf(inVar.asSym())
                 )
             )), setOf(outVar, inVar)
@@ -861,6 +861,18 @@ class CVLExpressionCompiler(
                 "The body out variable should have been assigned to"
             }
 
+            // ghost access annotations need to be kept so the values will be printed in the GhostState,
+            // and we want them as expressions in the final expression so they are within the scope of any quantified vars mentioned inside
+            val annotationsToKeep = tacProgram.parallelLtacStream().mapNotNull { l ->
+                when(l.cmd) {
+                        is TACCmd.Simple.AnnotationCmd -> l.cmd.annot.takeIf { it.v is SnippetCmd.CVLSnippetCmd.GhostAccess }
+                        else -> null
+                    }
+            }.collect(Collectors.toList())
+
+            // we wrap the annotations around the out symbol before folding the assignments, so that vars mentioned inside get transformed with if needed
+            val wrapped = annotationsToKeep.fold(bodyOut.asSym()) { acc : TACExpr, annot -> TACExpr.AnnotationExp(acc, annot) }
+
             // Folds the assignments from the compiled program into one long TACExpr
             // e.g.
             // AssignExp(tmp1, TACExpr.And(x y))
@@ -889,7 +901,7 @@ class CVLExpressionCompiler(
                         mapVar = { (transformVar(it.asSym()) as? TACExpr.Sym.Var)?.s ?: it }
                     ).uncheckedAs()
             }
-            val folded = assignmentFolder.transform(bodyOut.asSym())
+            val folded = assignmentFolder.transform(wrapped)
 
             // We need the conversion logic for VM params, so keep these commands too
             val extraCmds = tacProgram.parallelLtacStream().mapNotNull { l ->
@@ -1535,7 +1547,7 @@ class CVLExpressionCompiler(
         out: TACSymbol.Var,
         exp: CVLExp.ApplyExp.Ghost
     ): ParametricInstantiation<CVLTACProgram> {
-        val persistent = cvlCompiler.isPersistentGhost(exp.id, exp.getScope())
+        val persistent = cvlCompiler.fetchGhostDeclaration(exp.id)?.persistent == true
 
         return GhostCompilation.handleGhostApplication(
             cvlCompiler, exp, {
@@ -1605,25 +1617,6 @@ class CVLExpressionCompiler(
         val assignment = when (val rhsType = exp.getCVLType()) {
             is CVLType.VM -> buildTACFromCommand(TACCmd.CVL.AssignVMParam(allocatedTACSymbols.get(out.id), out.type, exp.id, rhsType))
             is CVLType.PureCVLType -> {
-                val isGhost = cvlCompiler.isGhostVariable(exp.id, exp.getScope()) || cvlCompiler.isGhostSum(exp.id, exp.getScope())
-
-                val sym = allocatedTACSymbols
-                    .get(exp.id)
-                    .letIf(isGhost) {
-                        it.withMeta(CVL_GHOST).withMeta(CVL_VAR, true).withMeta(CVL_DISPLAY_NAME, exp.toString())
-                    }
-
-                val ghostSnippet = if (isGhost) {
-                    SnippetCmd.CVLSnippetCmd.GhostRead(
-                        returnValueSym = sym,
-                        returnValueExp = exp,
-                        sort = GhostSort.Variable,
-                        persistent = cvlCompiler.isPersistentGhost(exp.id, exp.getScope())
-                    ).toAnnotation()
-                } else {
-                    null
-                }
-
                 val outTag = if (out.id.isWildcard()) {
                     check(out.type == CVLType.PureCVLType.Bottom) { "wildcard lhs should have been typed with 'Bottom'" }
                     // assigning to a wildcard, this assignment is sort of bogus, since it can't be used later. Just use
@@ -1633,7 +1626,9 @@ class CVLExpressionCompiler(
                     out.type.toTag()
                 }
 
-                val cmds = listOfNotNull(
+                val sym = allocatedTACSymbols.get(exp.id)
+
+                val cmds: MutableList<TACCmd.Spec> = mutableListOf(
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(
                         allocatedTACSymbols.get(out.id, outTag),
                         sym
@@ -1641,8 +1636,19 @@ class CVLExpressionCompiler(
                         CVL_EXP,
                         CVLExpToTACExprMeta.NullaryCVLExp(exp)
                     ),
-                    ghostSnippet
                 )
+
+                val ghost = cvlCompiler.fetchGhostDeclaration(exp.id)
+                if (ghost is CVLGhostDeclaration.Variable || ghost is CVLGhostDeclaration.Sum) {
+                    cmds.add(
+                        SnippetCmd.CVLSnippetCmd.GhostRead(
+                            returnValueSym = sym,
+                            returnValueExp = exp,
+                            sort = GhostSort.Variable,
+                            persistent = ghost.persistent
+                        ).toAnnotation()
+                    )
+                }
 
                 buildTACFromListOfCommands(cmds, compilationEnvironment)
             }
@@ -2708,10 +2714,8 @@ class CVLExpressionCompiler(
             ?: throw UnsupportedOperationException("expecting a variable here ($exp), got ${exp.array}")
         val arrayType = array.getPureCVLType() as? CVLType.PureCVLType.Ghost.Mapping
             ?: error("variable $array must have CVLMappingType at this point (got ${array.getCVLType()}")
-        val arrayTag = arrayType.toTag()
-        val arrayTacSym: TACSymbol.Var = allocatedTACSymbols.get(array.id, arrayTag)
-            .withMeta(CVL_GHOST).withMeta(CVL_DISPLAY_NAME, array.id)
-            .withMeta(CVL_VAR, true) // taken from compileGhost ..
+        val arrayTacSym: TACSymbol.Var = allocatedTACSymbols
+            .get(array.id, arrayType.toTag())
             .withMeta(CVL_TYPE, arrayType)
 
         return compileGhostAccess(
@@ -2721,7 +2725,7 @@ class CVLExpressionCompiler(
             ghostAccessExp = exp,
             types = arrayType.getKeys(),
             sort = GhostSort.Mapping,
-            persistent = cvlCompiler.isPersistentGhost(array.id, exp.getScope())
+            persistent = cvlCompiler.fetchGhostDeclaration(array.id)?.persistent == true
         )
     }
 
@@ -2838,7 +2842,7 @@ class CVLExpressionCompiler(
                 rhsExp = tmpOutCVLExp,
                 indices = indexVars.zip(indices),
                 sort = GhostSort.Mapping,
-                persistent = cvlCompiler.isPersistentGhost(array.id, lhs.getScope()),
+                persistent = cvlCompiler.fetchGhostDeclaration(array.id)?.persistent == true,
             ).toAnnotation()
         )
 
@@ -2867,19 +2871,24 @@ class CVLExpressionCompiler(
     ): ParametricInstantiation<CVLTACProgram> {
         val (lhsIds, progsToAppend) = assignedTo.mapIndexed { idx, lhs ->
             when (lhs) {
-                is CVLLhs.Id -> lhs to buildTACFromCommand(
-                    if (cvlCompiler.isGhostVariable(lhs.id, exp.getScope())) {
-                        SnippetCmd.CVLSnippetCmd.GhostAssignment(
-                            lhs = allocatedTACSymbols.get(lhs.id),
-                            rhsExp = exp,
-                            multiAssignIndex = idx.takeIf { assignedTo.size > 1 },
-                            sort = GhostSort.Variable,
-                            persistent = cvlCompiler.isPersistentGhost(lhs.id, exp.getScope()),
-                        ).toAnnotation()
-                    } else {
-                        TACCmd.Simple.NopCmd
-                    }
-                ).toSimple()
+                is CVLLhs.Id -> {
+                    val ghost = cvlCompiler.fetchGhostDeclaration(lhs.id)
+                    val cmd = buildTACFromCommand(
+                        if (ghost is CVLGhostDeclaration.Variable) {
+                            SnippetCmd.CVLSnippetCmd.GhostAssignment(
+                                lhs = allocatedTACSymbols.get(lhs.id),
+                                rhsExp = exp,
+                                multiAssignIndex = idx.takeIf { assignedTo.size > 1 },
+                                sort = GhostSort.Variable,
+                                persistent = ghost.persistent,
+                            ).toAnnotation()
+                        } else {
+                            TACCmd.Simple.NopCmd
+                        }
+                    ).toSimple()
+
+                    lhs to cmd
+                }
                 is CVLLhs.Array -> {
                     compileArrayAssignment(lhs,allocatedTACSymbols)
                 }

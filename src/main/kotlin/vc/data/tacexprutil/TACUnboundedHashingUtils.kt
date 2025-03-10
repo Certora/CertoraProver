@@ -35,6 +35,7 @@ import vc.data.TACCmd.Simple
 import vc.data.TACCmd.Simple.*
 import vc.data.TACExpr.SimpleHash
 import java.math.BigInteger
+import tac.MetaMap
 
 object TACUnboundedHashingUtils {
     private val configLengthBound = Config.PreciseHashingLengthBound.get()
@@ -212,6 +213,9 @@ object TACUnboundedHashingUtils {
         /**
          * Non-constant version of the masking.
          * This returns the expression `toMask & max_uint - ((1 << (256 - oddbits)) - 1)`.
+         *
+         * [oddBytes] is the number of bytes of [toMask] that overlap beyond the word boundary, i.e.
+         * "lengthInBytes % 32"; this function 0s everything after the oddbytes in [toMask].
          */
         fun mask(toMask: TACExpr, oddBytes: TACExpr): TACExpr =
             if (configMaskOddBytes) {
@@ -263,7 +267,11 @@ object TACUnboundedHashingUtils {
             LabelCmd("found ${leadingConstants.size} leading constants in unbounded hash; adding them to the length bound")
         }
 
-        val hashBoundExp = txf { lengthExpr le lengthBoundInBytesWithLeadingConstants.asTACExpr }
+        val lengthE = (lengthExpr as? TACExpr.Sym.Var)?.s?.let { it ->
+            val meta = it.meta.plus(MetaMap(TACMeta.HASHING_BOUND_LENGTH))
+            it.withMeta(meta)
+        }?.asSym() ?: lengthExpr
+        val hashBoundExp = (txf { lengthE le lengthBoundInBytesWithLeadingConstants.asTACExpr })
         val assertOrAssumeCmd =
             if (Config.OptimisticUnboundedHashing.get()) {
                 listOfNotNull(
@@ -274,11 +282,16 @@ object TACUnboundedHashingUtils {
             } else {
                 val auxVar = TACSymbol.Var("unboundedHashViolation", Tag.Bool).toUnique()
                 auxVarsToRegister.add(auxVar)
+                val assertCmd = if(lengthE is TACExpr.Sym.Var) {
+                    AssertCmd(auxVar, unboundedHashingAssertionMessage, MetaMap(TACMeta.HASHING_BOUND_ASSERT to lengthE.s))
+                } else {
+                    AssertCmd(auxVar, unboundedHashingAssertionMessage)
+                }
                 listOfNotNull(
                     leadingConstantsLabel,
                     LabelCmd("pessimistic hashing: assert hashedValue.length <= hashing_length_bound"),
                     AssigningCmd.AssignExpCmd(auxVar, hashBoundExp),
-                    AssertCmd(auxVar, unboundedHashingAssertionMessage),
+                    assertCmd
                 )
             }
         cmdsToAdd.addAll(assertOrAssumeCmd)
@@ -302,7 +315,10 @@ object TACUnboundedHashingUtils {
                             hashedWordsCount,
                             lengthExpr,
                             leadingConstants,
-                        ) { mask(it, lengthExpr) },
+                        ) {
+                            val oddBytes = txf { Mod(lengthExpr, number(EVM_BYTES_IN_A_WORD)) }
+                            mask(it, oddBytes)
+                          },
                         acc
                     )
                 }

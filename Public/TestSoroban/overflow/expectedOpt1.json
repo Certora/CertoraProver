@@ -1,0 +1,12 @@
+{
+	"assertMessages": {
+		"test_overflow_add_sanity": "Property satisfied",
+		"test_underflow_add_sanity": "Property satisfied"
+	},
+	"rules": {
+		"test_overflow_add": "SUCCESS",
+		"test_overflow_add_sanity": "SUCCESS",
+		"test_underflow_add": "SUCCESS",
+		"test_underflow_add_sanity": "SUCCESS"
+	}
+}

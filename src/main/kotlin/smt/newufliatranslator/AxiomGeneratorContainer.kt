@@ -95,7 +95,7 @@ abstract class AxiomGeneratorContainer(
      * constraints [AxiomatizedFunctionSymbol.UninterpMul] and [AxiomatizedFunctionSymbol.UninterpDiv], then we must
      * register [AxiomatizedFunctionSymbol.UninterpDiv] as a required function symbol, too.
      *
-     * Another application: define-fun for [AxiomatizedFunctionSymbol.UninterpMod256] requires
+     * Another application: define-fun for [AxiomatizedFunctionSymbol.UninterpTagMod] requires
      * [AxiomatizedFunctionSymbol.UninterpMod]
      *
      */

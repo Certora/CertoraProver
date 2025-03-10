@@ -18,6 +18,7 @@
 package vc.data.tacexprutil
 
 import analysis.CommandWithRequiredDecls
+import analysis.opt.ConstantPropagatorAndSimplifier.Companion.defaultTag
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import evm.EVM_BITWIDTH256
@@ -27,7 +28,6 @@ import tac.MetaMap
 import tac.Tag
 import utils.*
 import vc.data.*
-import vc.data.TACBuiltInFunction.*
 import vc.data.TACCmd.Simple.AnnotationCmd.Annotation
 import java.io.Serializable
 import java.math.BigInteger
@@ -165,12 +165,18 @@ inline fun <reified T : TACExpr> T.rebuild(newOps: List<TACExpr>): T {
     } as T
 }
 
+inline fun <reified T : TACExpr> T.rebuild(vararg newOps : T): T =
+    rebuild(newOps.toList())
+
 inline fun <reified T : TACExpr> T.rebuild(f : (TACExpr) -> TACExpr): T =
     rebuild(getOperands().map(f))
 
 fun TACExpr.postTransform(f : (TACExpr) -> TACExpr): TACExpr =
     f(rebuild(getOperands().map { it.postTransform(f) }))
 
+
+fun TACExpr.evalAsExprOrNull(vararg args : BigInteger) = eval(args.toList())?.asTACExpr(tag ?: defaultTag)
+fun TACExpr.evalAsExpr(vararg args : BigInteger) = evalAsExprOrNull(*args)!!
 
 /**
  * TAC function for cast expression
@@ -476,3 +482,19 @@ fun TACExpr.replaceVarsExtended(map : Map<TACSymbol.Var, TACSymbol.Var>) : TACEx
 
 fun TACExpr.replaceVarsExtended(vararg pairs : Pair<TACSymbol.Var, TACSymbol.Var>) =
     replaceVarsExtended(pairs.toMap())
+
+val TACExpr.isConst get() = this is TACExpr.Sym.Const
+val TACExpr.asConstOrNull get() = (this as? TACExpr.Sym.Const)?.s?.value
+val TACExpr.asConst get() = asConstOrNull!!
+
+val TACExpr.isVar get() = this is TACExpr.Sym.Var
+val TACExpr.asVarOrNull get() = (this as? TACExpr.Sym.Var)?.s
+val TACExpr.asVar get() = asVarOrNull!!
+
+val TACSymbol.isConst get() = this is TACSymbol.Const
+val TACSymbol.asConstOrNull get() = (this as? TACSymbol.Const)?.value
+val TACSymbol.asConst get() = asConstOrNull!!
+
+val TACSymbol.isVar get() = this is TACSymbol.Var
+val TACSymbol.asVarOrNull get() = this as? TACSymbol.Var
+val TACSymbol.asVar get() = asVarOrNull!!

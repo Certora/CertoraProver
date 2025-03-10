@@ -275,7 +275,8 @@
                                 "values": [
                                     "true"
                                 ],
-                                "tooltip": "value of expression"
+                                "tooltip": "value of expression",
+                                "truncatable": false
                             }
                         ]
                     },
@@ -323,13 +324,14 @@
                                                 "text": "toCast * 1 ↪ '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "value of expression"
+                                                        "tooltip": "value of expression",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -340,13 +342,14 @@
                                                         "text": "toCast ↪ '{0}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0",
+                                                                "value": "0x0",
                                                                 "values": [
-                                                                    "0",
+                                                                    "0x0",
                                                                     "0",
                                                                     "0x0"
                                                                 ],
-                                                                "tooltip": "value of expression"
+                                                                "tooltip": "value of expression",
+                                                                "truncatable": true
                                                             }
                                                         ]
                                                     },
@@ -442,7 +445,8 @@
                                                 "values": [
                                                     "false"
                                                 ],
-                                                "tooltip": "value of expression"
+                                                "tooltip": "value of expression",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -453,13 +457,14 @@
                                                 "text": "ret ↪ '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "0",
+                                                            "0x0",
                                                             "0",
                                                             "0x0"
                                                         ],
-                                                        "tooltip": "value of expression"
+                                                        "tooltip": "value of expression",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },

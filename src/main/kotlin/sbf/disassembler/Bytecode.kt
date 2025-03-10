@@ -94,6 +94,7 @@ enum class SbfRegister(val value: Byte) {
         )
 
         val maxArgument = R5_ARG
+
     }
 }
 

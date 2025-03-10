@@ -113,8 +113,6 @@ class ExpNormalizerBV(
                     exp.copy(f = TheoryFunctionSymbol.BV.BvUDiv(lxf.commonBitsTag(exp.args)))
                 is NonSMTInterpretedFunctionSymbol.Binary.Mod ->
                     exp.copy(f = TheoryFunctionSymbol.BV.BvURem(lxf.commonBitsTag(exp.args)))
-                is NonSMTInterpretedFunctionSymbol.Binary.SMod ->
-                    exp.copy(f = TheoryFunctionSymbol.BV.BvSRem(exp.args.deriveTag()))
                 is NonSMTInterpretedFunctionSymbol.Binary.Exp ->
                     exp.copy(f = AxiomatizedFunctionSymbol.UninterpExp(exp.args.deriveTag()))
                 is NonSMTInterpretedFunctionSymbol.Binary.ShiftLeft ->
@@ -262,11 +260,11 @@ class ExpNormalizerBV(
                     val tag = exp.arg.tag as Tag.Bits
                     val bits = (exp.f.i + 1) * 8
                     val lowOnes = BigInteger.TWO.pow(bits) - BigInteger.ONE
-                    val onlyLows = exp.arg bvAnd litBv(lowOnes, tag)
+                    val onlyLows = exp.arg bvAnd lit(lowOnes, tag)
                     ite(
-                        onlyLows bvULt litBv(twoToThe(bits - 1), tag),
+                        onlyLows bvULt lit(twoToThe(bits - 1), tag),
                         onlyLows,
-                        exp.arg bvOr litBv(MAX_EVM_UINT256 - lowOnes, tag)
+                        exp.arg bvOr lit(MAX_EVM_UINT256 - lowOnes, tag)
                     )
                 }.lift()
                 is AxiomatizedFunctionSymbol.UninterpExp ->
@@ -275,8 +273,8 @@ class ExpNormalizerBV(
                             val tag = exp.lhs.tag as Tag.Bits
                             when(val m = exp.lhs.asConst.lowestSetBit) {
                                 // 0 means m is 2. It is the same as the "else" case, but `m=1` so no need for multiplication.
-                                0 -> litBv(1, tag) bvShl exp.rhs
-                                else -> litBv(1, tag) bvShl (litBv(m, tag) bvMul exp.rhs)
+                                0 -> lit(1, tag) bvShl exp.rhs
+                                else -> lit(1, tag) bvShl (lit(m, tag) bvMul exp.rhs)
                             }
                         }.lift()
                     } else {

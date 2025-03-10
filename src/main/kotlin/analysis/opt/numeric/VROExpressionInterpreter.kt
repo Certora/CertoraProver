@@ -85,8 +85,8 @@ abstract class VROExpressionInterpreter<S: Map<TACSymbol.Var, VROInt>>(override 
                         wrapped = l.wrapped
                     )
                 }
-                TACBuiltInFunction.TwosComplement.Unwrap.toTACFunctionSym() -> {
-                    val newApprox = opValue?.x?.interval?.toMathInt()?.toSingle()?.let(::OpenInterval) ?: return default
+                TACBuiltInFunction.TwosComplement.Unwrap(Tag.Bit256).toTACFunctionSym() -> {
+                    val newApprox = opValue?.x?.interval?.toMathInt(Tag.Bit256)?.toSingle()?.let(::OpenInterval) ?: return default
                     return this.assign(
                         lhs = lhs,
                         toStep = toStep,
@@ -96,8 +96,8 @@ abstract class VROExpressionInterpreter<S: Map<TACSymbol.Var, VROInt>>(override 
                         wrapped = l.wrapped
                     )
                 }
-                TACBuiltInFunction.TwosComplement.Wrap.toTACFunctionSym() -> {
-                    val newValue = opValue?.x?.interval?.fromMathInt()?.toSingle()?.let(::OpenInterval) ?: return default
+                TACBuiltInFunction.TwosComplement.Wrap(Tag.Bit256).toTACFunctionSym() -> {
+                    val newValue = opValue?.x?.interval?.fromMathInt(Tag.Bit256)?.toSingle()?.let(::OpenInterval) ?: return default
                     return this.assign(
                         lhs = lhs,
                         toStep = toStep,

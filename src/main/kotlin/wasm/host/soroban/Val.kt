@@ -20,14 +20,14 @@ package wasm.host.soroban
 import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
-import datastructures.*
 import datastructures.stdcollections.*
-import evm.to2s
+import utils.ModZm.Companion.to2s
 import vc.data.*
-import vc.data.TACExprFactUntyped as expr
+import wasm.host.soroban.Val.digest
 import wasm.tacutils.*
-import wasm.traps.*
+import wasm.traps.Trap
 import java.math.BigInteger
+import vc.data.TACExprFactUntyped as expr
 
 // Implements the semantics of Soroban's `Val` discriminated union type:
 //   https://github.com/stellar/rs-soroban-env/blob/main/soroban-env-common/src/val.rs
@@ -155,9 +155,11 @@ object Val {
 
     // The tag is the low 8 bits of the 64-bit Val
     const val TAG_MUL = 0x100
+    const val TAG_BITS = 8
 
     // u32/i32 are encded in the upper 32 bits of the Val
     private const val INT32_MUL = 0x100000000L
+    private const val INT32_BITS = 32
 
     val VOID = Val(Tag.Void, 0)
 
@@ -190,10 +192,10 @@ object Val {
 
     fun decodeSmallInt(value: TACExpr, tag: Tag) = expr {
         when(tag) {
-            Tag.I32Val -> value.signExtendVal() sDiv INT32_MUL.asTACExpr
-            Tag.U32Val -> value div INT32_MUL.asTACExpr
-            Tag.I64Small, Tag.I128Small, Tag.I256Small -> value.signExtendVal() sDiv TAG_MUL.asTACExpr
-            Tag.U64Small, Tag.U128Small, Tag.U256Small -> value div TAG_MUL.asTACExpr
+            Tag.I32Val -> value.signExtendVal() shiftRArith INT32_BITS.asTACExpr
+            Tag.U32Val -> value shiftRLog INT32_BITS.asTACExpr
+            Tag.I64Small, Tag.I128Small, Tag.I256Small -> value.signExtendVal() shiftRArith TAG_BITS.asTACExpr
+            Tag.U64Small, Tag.U128Small, Tag.U256Small -> value shiftRLog TAG_BITS.asTACExpr
             else -> error("Tag $tag is not a small integer tag")
         }
     }
@@ -211,7 +213,7 @@ object Val {
     private val maxSmallUInt = 0xffff_ffff_ffff_ff.asTACExpr
     private val maxSmallInt = 0x7fff_ffff_ffff_ff.asTACExpr
     // the 2s complement sign-extended version of the `-0x8000_0000_0000_00`.
-    private val minSmallInt = (-0x8000_0000_0000_00).to2s().asTACExpr
+    private val minSmallInt = (-0x8000_0000_0000_00).to2s(tac.Tag.Bit256).asTACExpr
 
     fun fitsInSmallInt(value: TACExpr, tag: Tag) = expr {
         when(tag) {
@@ -243,6 +245,10 @@ object Val {
 
     fun hasTag(sym: TACExpr, tag: Tag) = expr {
         getTag(sym) eq Val(tag, 0)
+    }
+
+    fun isAllocated(sym: TACExpr) = expr {
+        select(TACKeyword.SOROBAN_OBJECTS.toVar().asSym(), sym)
     }
 
     /** Assert [sym] is a valid boolean (0 or 1) */
@@ -301,7 +307,7 @@ object Val {
                 assume {
                     // No need to check if this is an object; we don't care what SOROBAN_OBJECTS reports for
                     // non-objects.
-                    select(TACKeyword.SOROBAN_OBJECTS.toVar().asSym(), v)
+                    isAllocated(v)
                 }
             }
         }

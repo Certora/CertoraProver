@@ -107,6 +107,8 @@ object MapType : MappingType() {
         Defines a new map whose values are those of an old map, except for the value at [key], which is [value].
      */
     fun put(newHandle: TACSymbol.Var, oldHandle: TACSymbol, key: TACSymbol, value: TACSymbol) =
+        // DO NOT call setObjectDigest on the returned handle _without_ considering how it is being used
+        // in newFromMemory
         withKeyDigest(key) @Suppress("name_shadowing") { key ->
             withSize(oldHandle) { oldSize ->
                 withPresence(oldHandle, key) { oldPresence ->
@@ -158,6 +160,8 @@ object MapType : MappingType() {
         Defines a new map whose values are those of an old map, but with [key] removed.
      */
     fun delete(newHandle: TACSymbol.Var, oldHandle: TACSymbol, key: TACSymbol) =
+        // DO NOT call setObjectDigest without considering how it is being used in
+        // newFromMemory
         withKeyDigest(key) @Suppress("name_shadowing") { key ->
             mergeMany(
                 withPresence(oldHandle, key) { presence ->
@@ -336,14 +340,17 @@ object MapType : MappingType() {
                 // No constant length;  Just return a havoc'd map.
                 new(newHandle) { length }
             } else {
+                val keys = (0 ..< constLength).map { TACSymbol.Var("key", Tag.Bit256).toUnique("!") }
+                val values = (0 ..< constLength).map { TACSymbol.Var("value", Tag.Bit256).toUnique("!") }
+                val kvs = keys.zip(values)
                 // Compute the offsets of each key/value pair
                 val offsets = (0..<constLength).map { it * Val.sizeInBytes }
                 // Build a new map from the key/value pairs
-                val (builtMap, mapBuilder) = offsets.fold(
-                    newHandle to listOf(empty(newHandle))
-                ) { (oldHandle, prev), offset ->
-                    val key = TACSymbol.Var("key", Tag.Bit256).toUnique("!")
-                    val value = TACSymbol.Var("value", Tag.Bit256).toUnique("!")
+                val initialHandle = TACSymbol.Var("newMap", Tag.Bit256).toUnique("!")
+                val (builtMap, mapBuilder) = offsets.zip(kvs).fold(
+                    initialHandle to listOf(empty(initialHandle))
+                ) { (oldHandle, prev), (offset, kv) ->
+                    val (key, value) = kv
                     val newHandle = TACKeyword.TMP(Tag.Bit256)
                     val keyLoc = TACExprFactUntyped { keysPos add offset.asTACExpr }
                     newHandle to (
@@ -361,8 +368,18 @@ object MapType : MappingType() {
                     )
                 }
 
+                val setDigest = Val.setObjectDigest(
+                    tag,
+                    builtMap.asSym(),
+                    )  {
+                    kvs.flatMap { (key, value) ->
+                        listOf(Val.digest(key.asSym()), Val.digest(value.asSym()))
+                    }
+                }
+
                 mergeMany(
                     mergeMany(mapBuilder),
+                    setDigest,
                     assign(newHandle) { builtMap.asSym() }
                 )
             }

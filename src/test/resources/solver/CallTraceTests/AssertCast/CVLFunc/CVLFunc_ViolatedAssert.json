@@ -56,7 +56,7 @@
                     "type": "java.lang.Integer",
                     "erasureStrategy": "Canonical"
                 },
-                "value": 8
+                "value": 6
             }
         ]
     }

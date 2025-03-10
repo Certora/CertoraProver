@@ -29,7 +29,7 @@ class LExpressionExtensionsTest {
     val y = LExpression.Identifier("y", Tag.Bit256)
     val z = LExpression.Identifier("z", Tag.Bit256)
 
-    val l13 = lxf.litBv(13, Tag.Bit256)
+    val l13 = lxf.lit(13, Tag.Bit256)
 
 
     @Test

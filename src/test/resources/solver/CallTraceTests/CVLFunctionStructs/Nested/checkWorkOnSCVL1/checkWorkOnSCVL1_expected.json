@@ -271,70 +271,80 @@
                         "text": "workOnSCVL(x='{0}', s={x='{1}', y='{2}', z1='{3}', z2='{4}', b1='{5}', x2='{6}', b2='{7}'})",
                         "arguments": [
                             {
-                                "value": "0",
+                                "value": "0x0",
                                 "values": [
-                                    "0",
+                                    "0x0",
                                     "0",
                                     "0x0"
                                 ],
-                                "tooltip": "1st parameter"
+                                "tooltip": "1st parameter",
+                                "truncatable": true
                             },
                             {
-                                "value": "8",
+                                "value": "0x5",
                                 "values": [
-                                    "8",
-                                    "8",
-                                    "0x8"
-                                ],
-                                "tooltip": "value at x"
-                            },
-                            {
-                                "value": "0x401",
-                                "values": [
-                                    "0x401"
-                                ],
-                                "tooltip": "value at y"
-                            },
-                            {
-                                "value": "7",
-                                "values": [
-                                    "7",
-                                    "7",
-                                    "0x7"
-                                ],
-                                "tooltip": "value at z1"
-                            },
-                            {
-                                "value": "6",
-                                "values": [
-                                    "6",
-                                    "6",
-                                    "0x6"
-                                ],
-                                "tooltip": "value at z2"
-                            },
-                            {
-                                "value": "false",
-                                "values": [
-                                    "false"
-                                ],
-                                "tooltip": "value at b1"
-                            },
-                            {
-                                "value": "5",
-                                "values": [
-                                    "5",
+                                    "0x5",
                                     "5",
                                     "0x5"
                                 ],
-                                "tooltip": "value at x2"
+                                "tooltip": "value at x",
+                                "truncatable": true
+                            },
+                            {
+                                "value": "0x8200",
+                                "values": [
+                                    "0x8200",
+                                    "0x8200",
+                                    "0x8200"
+                                ],
+                                "tooltip": "value at y",
+                                "truncatable": true
+                            },
+                            {
+                                "value": "0xd",
+                                "values": [
+                                    "0xd",
+                                    "13",
+                                    "0xd"
+                                ],
+                                "tooltip": "value at z1",
+                                "truncatable": true
+                            },
+                            {
+                                "value": "0x7",
+                                "values": [
+                                    "0x7",
+                                    "7",
+                                    "0x7"
+                                ],
+                                "tooltip": "value at z2",
+                                "truncatable": true
                             },
                             {
                                 "value": "false",
                                 "values": [
                                     "false"
                                 ],
-                                "tooltip": "value at b2"
+                                "tooltip": "value at b1",
+                                "truncatable": false
+                            },
+                            {
+                                "value": "0xa",
+                                "values": [
+                                    "0xa",
+                                    "10",
+                                    "0xa"
+                                ],
+                                "tooltip": "value at x2",
+                                "truncatable": true
+                            },
+                            {
+                                "value": "false",
+                                "values": [
+                                    "false"
+                                ],
+                                "tooltip": "value at b2",
+                                "truncatable": false
                             }
                         ]
                     },

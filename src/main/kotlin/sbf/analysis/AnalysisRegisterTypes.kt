@@ -18,7 +18,7 @@
 package sbf.analysis
 
 import datastructures.stdcollections.*
-import sbf.callgraph.CVTFunction
+import sbf.callgraph.CVTCalltrace
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import sbf.domains.AbstractDomain
@@ -72,26 +72,14 @@ class AnalysisRegisterTypes<D: AbstractDomain<D>>(
                     post.getValue(regVal).get().takeUnless { regVal in written } ?: ty
                 }
             } else if (inst is SbfInstruction.Call) {
-                when (CVTFunction.from(inst.name)) {
-                    CVTFunction.CEX_PRINT_TAG,
-                    CVTFunction.CEX_PRINT_LOCATION,
-                    CVTFunction.CEX_ATTACH_LOCATION,
-                    CVTFunction.CEX_PRINT_i64_1, CVTFunction.CEX_PRINT_i64_2, CVTFunction.CEX_PRINT_i64_3,
-                    CVTFunction.CEX_PRINT_u64_1, CVTFunction.CEX_PRINT_u64_2, CVTFunction.CEX_PRINT_u64_3 -> {
-                        // We use the post-state to update only r1
-                        types[locInst] = types[locInst]!!.mapValues { (r, ty) ->
-                            val regVal = Value.Reg(r)
-                            post.getValue(regVal).get().takeUnless { r != SbfRegister.R1_ARG} ?: ty
-                        }
+                val calltraceFn = CVTCalltrace.from(inst.name)
+                if (calltraceFn != null) {
+                    val strings = calltraceFn.strings.map { it.string.r }
+                    // We use the post-state to update only string registers
+                    types[locInst] = types[locInst]!!.mapValues { (r, ty) ->
+                        val regVal = Value.Reg(r)
+                        post.getValue(regVal).get().takeUnless { !strings.contains(r) } ?: ty
                     }
-                    CVTFunction.CEX_PRINT_STRING -> {
-                        // We use the post-state to update only r1 and r3
-                        types[locInst] = types[locInst]!!.mapValues { (r, ty) ->
-                            val regVal = Value.Reg(r)
-                            post.getValue(regVal).get().takeUnless { r != SbfRegister.R1_ARG && r != SbfRegister.R3_ARG} ?: ty
-                        }
-                    }
-                    else -> {}
                 }
             }
         }

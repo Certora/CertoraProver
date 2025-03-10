@@ -18,6 +18,7 @@
 package instrumentation.transformers
 
 import algorithms.postOrder
+import algorithms.topologicalOrderOrNull
 import analysis.*
 import datastructures.MutableBijection
 import datastructures.stdcollections.*
@@ -540,17 +541,26 @@ object TACDSA {
         Collapse empty dsa assignment blocks (happens if variables are removed)
      */
     fun collapseEmptyAssignmentBlocks(c: CoreTACProgram): CoreTACProgram {
-        return c.patching { patching ->
-            c.analysisCache.graph.blocks.parallelStream().filter {
-                it.commands.first().maybeAnnotation(DSA_BLOCK_START) != null &&
+        val toRemove = c.analysisCache.graph.blocks.parallelStream().filter {
+            it.commands.first().maybeAnnotation(DSA_BLOCK_START) != null &&
                 it.commands.last().maybeAnnotation(DSA_BLOCK_END) != null &&
                 c.analysisCache.graph.succ(it).size == 1 &&
                 it.commands.none {
                     it.cmd is TACCmd.Simple.AssigningCmd
                 }
-            }.sequential().forEach {
-                patching.reroutePredecessorsTo(it.id, c.analysisCache.graph.succ(it).first().id)
-                patching.removeBlock(it.id)
+        }.map { it.id }.collect(Collectors.toSet())
+
+        val nodes = topologicalOrderOrNull(
+            toRemove.associateWith {
+                c.analysisCache.graph.succ(it).orEmpty() intersect toRemove
+            },
+            ignoreSelfLoops = true,
+        )?.reversed() ?: return c
+
+        return c.patching {patching ->
+            nodes.forEach {
+                patching.reroutePredecessorsTo(it, c.analysisCache.graph.succ(it).first())
+                patching.removeBlock(it)
             }
         }
     }

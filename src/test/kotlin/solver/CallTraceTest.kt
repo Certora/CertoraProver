@@ -33,9 +33,12 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import report.LocalAssignment
+import report.LocalAssignmentState
 import report.calltrace.CallEndStatus
 import report.calltrace.CallInstance
 import report.calltrace.CallTrace
+import report.calltrace.formatter.AlternativeRepresentations
+import report.calltrace.formatter.AlternativeRepresentations.Representations
 import report.calltrace.formatter.FormatterType
 import report.calltrace.sarif.Sarif
 import report.globalstate.GlobalState
@@ -62,13 +65,13 @@ class CallTraceTest {
     /** When this is true, every test that compares call trace jsons, actual vs expected, will dump the current
      * actual one to disk in the test folder. That way one can use a regular diff tool to see the changes and update
      * the expected one if needed. */
-    private val dumpActualCallTraceJsons: Boolean = false // set false on master
+    private val dumpActualCallTraceJsons: Boolean = true // set false on master
 
     /** Used when [dumpActualCallTraceJsons] is set, for dumping actual call trace jsons for offline comparison.  */
     private val jsonPP = Json { prettyPrint = true }
 
     /** The string used by CallTraceFormatter.UNKNOWN_VALUE, used in comparisons in some tests. */
-    private val unknownStr = "<\\?>"
+    private val unknownStr = "..."
 
     @BeforeEach
     fun beforeEach() {
@@ -251,7 +254,7 @@ class CallTraceTest {
 
     private fun dumpActualCallTraceJson(verifierResultPath: Path, actualJson: JsonObject) {
         if (dumpActualCallTraceJsons) {
-            File(Path(verifierResultPath.toString(), "actuallCallTrace.json").toString())
+            verifierResultPath.resolve("actualCallTrace.json").toFile()
                 .writeText(jsonPP.encodeToString(actualJson))
         }
     }
@@ -272,7 +275,7 @@ class CallTraceTest {
 
     private val maxUint = "MAX_U?INT[0-9]+"
     private val num = "[0-9A-Fa-fx]+"
-    private val numberRE = "($num( \\($maxUint\\)| \\(MAX_EVM_ADDRESS\\)| ($maxUint)| \\(2\\^[0-9]+( - [0-9]+)?\\))?)"
+    private val numberRE = "(($num)|\\(MAX_EVM_ADDRESS\\)|($maxUint)|(2\\^[0-9]+( - $num)?)?)"
     private val addressRE = "($numberRE|([a-zA-Z0-9]+ \\([0xa-fA-F0-9]+\\)))"
     private val boolRE = "(true|false)"
 
@@ -574,28 +577,28 @@ class CallTraceTest {
         val expecteds = listOf(
             Pair("Store at ComplexTypes.ownerAddr", "0x8000"),
             Pair("Store at ComplexTypes.flag", "true"),
-            Pair("Store at ComplexTypes.ui256", "16"),
-            Pair("Store at ComplexTypes.i256", "32"),
+            Pair("Store at ComplexTypes.ui256", "0x10"),
+            Pair("Store at ComplexTypes.i256", "0x20"),
             Pair("Store at ComplexTypes.neg[true]", "false"),
             Pair("Store at ComplexTypes.neg[false]", "true"),
-            Pair("Store at ComplexTypes.addressMap[17]", "true"),
-            Pair("Store at ComplexTypes.addressMap[34]", "false"),
-            Pair("Store at ComplexTypes.dict[1].num", "100"),
-            Pair("Store at ComplexTypes.dict[1].addr", "320"),
-            Pair("Store at ComplexTypes.dict[1].innerMap[3]", "false"),
-            Pair("Store at ComplexTypes.dict[1].innerMap[5]", "true"),
-            Pair("Store at ComplexTypes.dict[2].num", "110"),
-            Pair("Store at ComplexTypes.dict[2].addr", "336"),
-            Pair("Store at ComplexTypes.dict[2].innerMap[7]", "true"),
-            Pair("Store at ComplexTypes.dict[2].innerMap[8]", "false"),
+            Pair("Store at ComplexTypes.addressMap[0x11]", "true"),
+            Pair("Store at ComplexTypes.addressMap[0x22]", "false"),
+            Pair("Store at ComplexTypes.dict[0x1].num", "0x64"),
+            Pair("Store at ComplexTypes.dict[0x1].addr", "0x140"),
+            Pair("Store at ComplexTypes.dict[0x1].innerMap[0x3]", "false"),
+            Pair("Store at ComplexTypes.dict[0x1].innerMap[0x5]", "true"),
+            Pair("Store at ComplexTypes.dict[0x2].num", "0x6e"),
+            Pair("Store at ComplexTypes.dict[0x2].addr", "0x150"),
+            Pair("Store at ComplexTypes.dict[0x2].innerMap[0x7]", "true"),
+            Pair("Store at ComplexTypes.dict[0x2].innerMap[0x8]", "false"),
         )
         for ((store, expected) in stores.zip(expecteds)) {
             val (expectedPrefix, expectedLiteralValue) = expected
 
-            assertTrue(store.sarif.flatten().startsWith(expectedPrefix))
+            assertTrue(store.sarif.flatten(Representations.Hex).startsWith(expectedPrefix))
             assertEquals(
                 // using lastOrNull here because the storage path also might have sarif args
-                store.sarif.args.lastOrNull()?.values?.head,
+                store.sarif.args.lastOrNull()?.values?.get(Representations.Pretty),
                 expectedLiteralValue,
             )
         }
@@ -621,15 +624,15 @@ class CallTraceTest {
         }
 
         val t = checkAssignment("t")
-        assertEquals("20", t.formattedValue)
+        assertEquals("0x14", t.formattedValue)
         assertRangeMatches(t.range, SourcePosition(34u, 4u), SourcePosition(34u, 14u))
 
         val r1 = checkAssignment("r1")
-        assertEquals("20", r1.formattedValue)
+        assertEquals("0x14", r1.formattedValue)
         assertRangeMatches(r1.range, SourcePosition(35u, 4u), SourcePosition(35u, 14u))
 
         val r2 = checkAssignment("r2")
-        assertEquals("9", r2.formattedValue)
+        assertEquals("0x9", r2.formattedValue)
         assertRangeMatches(r2.range, SourcePosition(36u, 4u), SourcePosition(36u, 14u))
 
         val r3 = checkAssignment("r3")
@@ -1367,3 +1370,13 @@ private fun assertIsFalseOrZero(v: TACValue?) {
 private fun assertIsTrueOrOne(v: TACValue?) {
     assertTrue(v == TACValue.True || v == TACValue.valueOf(1))
 }
+
+private val LocalAssignment.scalarValue: TACValue?
+    get() = when (this.state) {
+        LocalAssignmentState.ByteMap -> null
+        is LocalAssignmentState.CVLString -> (this.state as LocalAssignmentState.CVLString).contents
+        is LocalAssignmentState.Contract -> (this.state as LocalAssignmentState.Contract).value
+        is LocalAssignmentState.Initialized -> (this.state as LocalAssignmentState.Initialized).value
+        LocalAssignmentState.InitializedButMissing -> null
+        LocalAssignmentState.Uninitialized -> null
+    }

@@ -24,7 +24,6 @@ import analysis.patterns.PatternHelpers.ops
 import analysis.patterns.get
 import analysis.split.SplitContext.Companion.isSimpleVar
 import analysis.split.Ternary.Companion.bwNot
-import analysis.split.Ternary.Companion.lowOnes
 import analysis.split.arrays.PackedArrayRewriter
 import analysis.split.arrays.PackingInfoKey.BITWIDTH
 import analysis.storage.StorageAnalysisResult.NonIndexedPath
@@ -38,10 +37,11 @@ import log.*
 import scene.ITACMethod
 import tac.TACBasicMeta.IS_IMMUTABLE
 import tac.Tag
+import utils.*
 import utils.Color.Companion.green
 import utils.Color.Companion.red
 import utils.Color.Companion.yellow
-import utils.`impossible!`
+import utils.ModZm.Companion.lowOnes
 import vc.data.TACCmd
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.TACExpr
@@ -49,9 +49,6 @@ import vc.data.TACSymbol
 import vc.data.freeVars
 import vc.data.tacexprutil.TACExprFreeVarsCollector
 import java.math.BigInteger
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.component3
 
 
 /**
@@ -83,7 +80,7 @@ class SplitFinder(
         }
 
         /** This is not a data class so that we can have different instances as different nodes in the graph. */
-        class AuxBWAnd : Node() {
+        class Aux : Node() {
             override fun toString() = "Aux${this.hashCode()}"
         }
 
@@ -129,7 +126,7 @@ class SplitFinder(
     /**
      * The [Ternary] of a [Node.Storage] is just unknown because we may read uninitialized storage.
      * That of [Node.Var] is the join of all places its used or assigned.
-     * That of [Node.AuxBWAnd] is set when it is created.
+     * That of [Node.Aux] is set when it is created.
      */
     private val Node.ternary
         get() = when (this) {
@@ -142,7 +139,7 @@ class SplitFinder(
                     else -> `impossible!`
                 }
 
-            is Node.AuxBWAnd -> ternaries[this]!!
+            is Node.Aux -> ternaries[this]!!
             is Node.External -> Ternary.allXs
         }
 
@@ -222,10 +219,13 @@ class SplitFinder(
     private fun storageNode(path: NonIndexedPath) =
         nodesCache(Node.Storage(path))
 
-    private fun auxBWAnd(mask: BigInteger, ofWhom: Node) =
-        nodesCache(Node.AuxBWAnd()).also {
-            ternaries[it] = ofWhom.ternary and Ternary(mask)
+    private fun auxNode(t : Ternary) =
+        nodesCache(Node.Aux()).also {
+            ternaries[it] = t
         }
+
+    private fun auxBWAnd(mask: BigInteger, ofWhom: Node) =
+        auxNode(ofWhom.ternary and Ternary(mask))
 
     private fun externalNode(split: Split) =
         nodesCache(Node.External(split))
@@ -625,8 +625,20 @@ class SplitFinder(
                             } ?: fallback()
                         }
 
-                        is TACExpr.BinOp.ShiftRightArithmetical ->
-                            fallback() // If this is ever used for splitting, it should be improved.
+                        // a shift right followed by a sign extend.
+                        is TACExpr.BinOp.ShiftRightArithmetical -> {
+                            ternaryOf(v2).asIntOrNull()?.let { by ->
+                                if (v1 is TACExpr.Sym.Var) {
+                                    val rhs = varNode(v1)
+                                    val aux1 = auxNode(rhs.ternary shiftRight by)
+                                    shiftGraph.add(aux1, rhs, by)
+                                    shiftGraph.add(rhs, aux1, -by)
+                                    unsplittable(lhs)
+                                } else {
+                                    fallback()
+                                }
+                            } ?: fallback()
+                        }
 
                         // We think of a sign-extend as being preceded with a bw-and that keeps only
                         // the lower bits of the argument. This is necessary the ternary of the sign-extend loses

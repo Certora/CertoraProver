@@ -313,20 +313,22 @@
                         "text": "func1(num='{0}') ↪ '{1}'",
                         "arguments": [
                             {
-                                "value": "2",
+                                "value": "0x2",
                                 "values": [
-                                    "2",
+                                    "0x2",
                                     "2",
                                     "0x2"
                                 ],
-                                "tooltip": "parameter"
+                                "tooltip": "parameter",
+                                "truncatable": true
                             },
                             {
                                 "value": "false",
                                 "values": [
                                     "false"
                                 ],
-                                "tooltip": "return value"
+                                "tooltip": "return value",
+                                "truncatable": false
                             }
                         ]
                     },
@@ -421,20 +423,22 @@
                                 "text": "func2(num='{0}') ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "7",
+                                        "value": "0x7",
                                         "values": [
-                                            "7",
+                                            "0x7",
                                             "7",
                                             "0x7"
                                         ],
-                                        "tooltip": "parameter"
+                                        "tooltip": "parameter",
+                                        "truncatable": true
                                     },
                                     {
                                         "value": "false",
                                         "values": [
                                             "false"
                                         ],
-                                        "tooltip": "return value"
+                                        "tooltip": "return value",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -520,7 +524,8 @@
                                                         "values": [
                                                             "false"
                                                         ],
-                                                        "tooltip": "value of expression"
+                                                        "tooltip": "value of expression",
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -531,13 +536,14 @@
                                                         "text": "num ↪ '{0}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "7",
+                                                                "value": "0x7",
                                                                 "values": [
-                                                                    "7",
+                                                                    "0x7",
                                                                     "7",
                                                                     "0x7"
                                                                 ],
-                                                                "tooltip": "value of expression"
+                                                                "tooltip": "value of expression",
+                                                                "truncatable": true
                                                             }
                                                         ]
                                                     },

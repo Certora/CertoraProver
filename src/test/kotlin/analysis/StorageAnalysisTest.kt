@@ -27,6 +27,7 @@ import annotation.SolidityVersion
 import annotation.SolidityVersions
 import annotations.TestTags.EXPENSIVE
 import bridge.NamedContractIdentifier
+import datastructures.stdcollections.*
 import loaders.SingleMethodTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.*
@@ -36,10 +37,10 @@ import tac.TACStorageLayout
 import tac.Tag
 import testing.ttl.TACMockLanguage
 import utils.*
-import vc.data.CoreTACProgram
-import vc.data.TACSymbol
+import vc.data.*
 import java.math.BigInteger
 import java.time.Duration
+import kotlin.streams.toList
 import analysis.storage.StorageAnalysis.AnalysisPath as AccessPath
 import analysis.storage.StorageTree.Root as ResultRoot
 import analysis.storage.StorageTree.Type as ResultType
@@ -1796,6 +1797,34 @@ class StorageAnalysisTest : SingleMethodTest {
                     } == true
                 }
             )
+        }
+    }
+
+    @Test
+    fun testZeroLoop() {
+        val cfg = TACMockLanguage.make {
+            L1021 = 0
+            `while`(L(1020, Tag.Bool), "Lt(L1021 0x0)") {
+                storage[L1021] = 0
+                L1021 = "L1021 + 0x1"
+            }
+        }
+
+        val prog = CoreTACProgram(
+            cfg.code,
+            cfg.blockGraph,
+            "TestProg",
+            TACSymbolTable.withTags(setOf(
+                TACSymbol.Var("L1020", Tag.Bool),
+                TACSymbol.Var("L1021", Tag.Bit256),
+                TACKeyword.STORAGE.toVar()
+            )),
+            UfAxioms.empty(),
+            IProcedural.empty()
+        )
+        val annotated = StorageLoopSummarizer.annotateLoops(prog)
+        annotated.ltacStream().mapNotNull { it.snarrowOrNull<StorageCopyLoopSummary>() }.toList().single().let {
+            assertEquals(BigInteger.ZERO, it.numIterations)
         }
     }
 

@@ -140,14 +140,14 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet()));
 
-    companion object: ExternalLibrary {
+    companion object: ExternalLibrary<SolanaFunction> {
         init {
             check(values().size < MAX_SYSCALL_FUNCTIONS) {"Exceeded maximum number of Solana syscalls"}
         }
 
         private val nameMap = values().associateBy { it.syscall.name }
         private val valueMap = values().associateBy { it.ordinal }
-        fun from(name: String) = nameMap[name]
+        override fun from(name: String) = nameMap[name]
         fun from(value: Int) = valueMap[value]
 
         fun toCallInst(function: SolanaFunction, metadata: MetaData = MetaData()) =

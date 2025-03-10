@@ -305,8 +305,8 @@ object AnnotateSkeyBifs {
                                     opsTransformed()
                                 }
 
-                                TACBuiltInFunction.TwosComplement.Unwrap,
-                                TACBuiltInFunction.TwosComplement.Wrap,
+                                is TACBuiltInFunction.TwosComplement.Unwrap,
+                                is TACBuiltInFunction.TwosComplement.Wrap,
 
                                 // these two require a numerical (i.e., non-skey) argument
                                 is TACBuiltInFunction.SafeMathNarrow,
@@ -316,11 +316,11 @@ object AnnotateSkeyBifs {
                                 is TACBuiltInFunction.UnsignedPromotion,
                                 is TACBuiltInFunction.SafeSignedNarrow,
                                 is TACBuiltInFunction.SafeUnsignedNarrow,
+                                is TACBuiltInFunction.NoSMulOverAndUnderflowCheck,
                                 is TACBuiltInFunction.WithSMTFunctionSymbol,
                                 TACBuiltInFunction.PrecompiledECRecover -> opsTransformedFromSkeyOpt()
 
                                 // these are basically identity functions (?) -- nooping
-                                TACBuiltInFunction.NoSMulOverAndUnderflowCheck,
                                 is TACBuiltInFunction.OpaqueIdentity -> opsTransformed()
 
                                 TACBuiltInFunction.LinkContractAddress,

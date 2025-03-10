@@ -261,7 +261,7 @@ object FreePointerScalarizer {
                             this += listOf(
                                 TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                     tmpOffset,
-                                    TACExpr.Vec.Add(longcopyCmd.copy.source.offset.asSym(), offsetDelta.asTACExpr)
+                                    TACExpr.Vec.Add(longcopyCmd.copy.source.offset.asSym(), offsetDelta.asTACExpr, Tag.Bit256)
                                 ),
                                 TACCmd.Simple.AssigningCmd.ByteLoad( // read from srcOffset
                                     tmpValue,
@@ -541,7 +541,7 @@ object FreePointerScalarizer {
         isConstructor: Boolean = false
     ): CoreTACProgram {
         val graph = code.analysisCache.graph
-        val expSimplifier = ExpressionSimplifier(graph)
+        val expSimplifier = ExpressionSimplifier(graph, defaultTo256Bits = true)
         if(graph.roots.isEmpty()) {
             return code
         }

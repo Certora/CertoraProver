@@ -17,8 +17,6 @@
 
 package analysis.opt.intervals
 
-import analysis.opt.intervals.HyperGraphFixedPointCalculator.Edge
-import analysis.opt.intervals.HyperGraphFixedPointCalculator.State
 import datastructures.add
 import datastructures.mutableMultiMapOf
 import datastructures.stdcollections.*

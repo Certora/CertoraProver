@@ -1,0 +1,2 @@
+CallTrace: Ghosts State added access path for myGhost (at C.spec:10:65).
+CallTrace: Ghosts State added access path for myOtherGhost (at C.spec:21:73).

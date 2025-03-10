@@ -20,9 +20,8 @@ package analysis.opt
 import analysis.opt.PatternRewriter.Key.*
 import analysis.split.Ternary.Companion.isPowOf2Minus1
 import datastructures.stdcollections.*
-import evm.EVMOps
-import evm.lowOnes
 import utils.*
+import utils.ModZm.Companion.lowOnes
 import vc.data.TACExpr
 import vc.data.asTACExpr
 import java.math.BigInteger
@@ -120,7 +119,7 @@ fun PatternRewriter.earlyPatternsList() = listOf(
         },
         handle = {
             runIf(SignUtilities.isInUnsignedBounds(C1.n)) {
-                Eq(sym(A), EVMOps.not(C1.n).asTACExpr)
+                Eq(sym(A), EVMOps.bwNot(C1.n).asTACExpr)
             }
         },
         TACExpr.BinRel.Eq::class.java

@@ -1,0 +1,34 @@
+[package]
+name = "u64-to-from-val"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[profile.release]
+opt-level = 2
+overflow-checks = true
+debug = 0
+strip = "none"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+[features]
+certora = []
+
+[dependencies.cvlr]
+git = "https://github.com/1arie1/cvlr.git"
+default-features = false
+
+[dependencies.cvlr-soroban-derive]
+git = "https://github.com/1arie1/cvlr-soroban.git"
+
+[dependencies.soroban-sdk]
+version = "=22.0.4"
+
+[dependencies.soroban-env-guest]
+version = "=22.1.2"

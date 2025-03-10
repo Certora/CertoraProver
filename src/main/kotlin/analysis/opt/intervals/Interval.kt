@@ -18,27 +18,23 @@
 package analysis.opt.intervals
 
 import analysis.opt.intervals.ExtBig.*
-import analysis.opt.intervals.ExtBig.Companion.Int256max
-import analysis.opt.intervals.ExtBig.Companion.Int256minMath
 import analysis.opt.intervals.ExtBig.Companion.MaxUInt
 import analysis.opt.intervals.ExtBig.Companion.MaxUInt512
 import analysis.opt.intervals.ExtBig.Companion.One
-import analysis.opt.intervals.ExtBig.Companion.TwoTo256
 import analysis.opt.intervals.ExtBig.Companion.TwoTo512
 import analysis.opt.intervals.ExtBig.Companion.Zero
 import analysis.opt.intervals.ExtBig.Companion.asExtBig
+import analysis.opt.intervals.Interval.Companion.IFull
 import analysis.opt.intervals.Interval.CutAtPoint.*
 import analysis.opt.intervals.Intervals.Companion.SEmpty
 import analysis.opt.intervals.Intervals.Companion.SFull
-import analysis.opt.intervals.Intervals.Companion.SFull256
 import analysis.opt.intervals.Intervals.Companion.unionOf
-import analysis.split.Ternary.Companion.bwNot
 import analysis.split.Ternary.Companion.isPowOf2Minus1
 import com.certora.collect.*
 import datastructures.stdcollections.*
-import evm.MAX_EVM_UINT256
-import evm.lowOnes
 import utils.*
+import utils.ModZm.Companion.lowOnes
+import utils.ModZm.Companion.onesRange
 import java.math.BigInteger
 import analysis.opt.intervals.Interval as I
 import analysis.opt.intervals.Intervals as S
@@ -94,8 +90,6 @@ sealed class Interval {
         val IFull = I(MInf, Inf)
         val IFull256 = I(Zero, MaxUInt)
         val IFull512 = I(Zero, MaxUInt512)
-        fun getIFull(bitwidth: Int) = I(Zero, BigInteger.TWO.pow(bitwidth).minus(BigInteger.ONE).asExtBig)
-
 
         fun boolInterval(surelyTrue: Boolean, surelyFalse: Boolean) =
             when {
@@ -294,7 +288,7 @@ sealed class Interval {
 
     /**
      * If anything is negative, then pow is undefined, and we return [IFull]. When results can go above 2^512,
-     * any value above 2^512 is included to the output interval.
+     * any value above 2^512 is included in the output interval.
      */
     fun pow(other: I) =
         ifNonEmpty(this, other) { x, y ->
@@ -312,10 +306,10 @@ sealed class Interval {
         }
 
     /** see [ExtBig.pow2limited] */
-    fun pow2Limited() =
+    fun pow2Limited(modZm: ModZm) =
         ifNonEmpty {
-            val l = low.pow2limited()
-            val h = high.pow2limited()
+            val l = low.pow2limited(modZm)
+            val h = high.pow2limited(modZm)
             if (l == null || h == null) {
                 IFull
             } else {
@@ -582,30 +576,37 @@ sealed class Interval {
             )
         }
 
-    fun bwNot() =
+    fun bwNot(modZm: ModZm) =
         ifNonEmpty {
             asConstOrNull
-                ?.let { I(bwNot(it)) }
-                ?: IFull256
+                ?.let { I(modZm.bwNot(it)) }
+                ?: I(Zero, modZm.maxUnsigned.asExtBig)
         }
 
 
-    infix fun signExtend(fromBit: Int): S =
-        if (this is NonEmpty) {
-            val maxPos = lowOnes(fromBit - 1)
-            val minNeg = bwNot(maxPos)
-            val problematic = this intersect I(maxPos + 1, minNeg - 1)
-            // if the interval is all within [0, 0x0000ffff] or within [0xffff0000, 0xffffffff],
-            // then sign-extend does nothing.
-            if (problematic is Empty) {
-                S(this)
-            } else {
-                S(BigInteger.ZERO, maxPos, minNeg, MAX_EVM_UINT256)
+    fun signExtend(fromBit: Int, toBit: Int): S =
+        when {
+            fromBit >= toBit -> S(this)
+            this is NonEmpty -> {
+                val maxPos = lowOnes(fromBit - 1)
+                val allOnes = lowOnes(toBit)
+                val minNeg = maxPos xor allOnes
+                val allowed = S(BigInteger.ZERO, maxPos, minNeg, allOnes)
+                when {
+                    // if the interval is all within <[0, 0x00007fff], [0xffff8000, 0xffffffff]>,
+                    // then sign-extend does nothing.
+                    S(this) containedIn allowed -> S(this)
+
+                    // If everything after the sign bit is 0, we can separate and signextend precisely.
+                    S(this) isLe lowOnes(fromBit) -> {
+                        val (pos, neg) = this.cutAt(maxPos.asExtBig, DOWN_ONLY)
+                        pos union (neg + (I(onesRange(fromBit, toBit))))
+                    }
+                    else -> allowed
+                }
             }
-        } else {
-            SEmpty
+            else -> SEmpty
         }
-
 
     infix fun lt(other: I) =
         ifNonEmpty(this, other) { i, j ->
@@ -647,50 +648,53 @@ sealed class Interval {
 
     infix fun neq(other: I) = !eq(other)
 
-    fun toMathInt(): S =
+    fun toMathInt(modZm : ModZm): S = with(modZm) {
         when {
-            this !is NonEmpty ->
+            this@Interval !is NonEmpty ->
                 SEmpty
 
-            low < Zero || high > MaxUInt ->
-                S(Int256minMath, Int256max)
+            low < Zero || high > maxUnsigned.asExtBig ->
+                S(minSignedMath, maxSigned)
 
-            high.is2sNonNeg ->
-                S(this)
+            isSurely2sNonNeg(modZm) ->
+                S(this@Interval)
 
-            low.is2sNeg ->
-                S(low - TwoTo256, high - TwoTo256)
+            isSurely2sNeg(modZm) ->
+                S(low - modulus, high - modulus)
 
             else ->
                 unionOf(
                     listOf(
-                        I(low, Int256max),
-                        I(Int256minMath, high - TwoTo256)
+                        I(low, maxSigned.asExtBig),
+                        I(minSignedMath.asExtBig, high - modulus)
                     )
                 )
         }
+    }
 
 
-    fun fromMathInt(): S =
+
+    fun fromMathInt(modZm : ModZm): S = with(modZm) {
         when {
-            this !is NonEmpty ->
+            this@Interval !is NonEmpty ->
                 SEmpty
 
-            low < Int256minMath || high > Int256max ->
-                SFull256
+            low < minSignedMath.asExtBig || high > maxSigned.asExtBig ->
+                S(BigInteger.ZERO, maxUnsigned)
 
             high < Zero ->
-                S(low + TwoTo256, high + TwoTo256)
+                S(low + modulus.asExtBig, high + modulus.asExtBig)
 
             low >= Zero ->
-                S(this)
+                S(this@Interval)
 
             else ->
                 unionOf(
                     I(Zero, high),
-                    I(low + TwoTo256, MaxUInt)
+                    I(low + modulus, maxUnsigned.asExtBig)
                 )
         }
+    }
 
 
     /** Removes [n] from the intervals of `this` */
@@ -749,9 +753,9 @@ sealed class Interval {
         }
 
 
-    val isSurely2sNeg get() = this is NonEmpty && low.is2sNeg
+    fun isSurely2sNeg(modZm: ModZm) = this is NonEmpty && low.is2sNeg(modZm)
 
-    val isSurely2sNonNeg get() = this is NonEmpty && high.is2sNonNeg
+    fun isSurely2sNonNeg(modZm : ModZm) = this is NonEmpty && high.is2sNonNeg(modZm)
 
     /** the maximum of the absolute values of `low` and `high` */
     fun norm(): ExtBig {

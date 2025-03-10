@@ -17,18 +17,18 @@
 
 package analysis.opt.intervals
 
-import analysis.opt.intervals.ExtBig.Companion.TwoTo256
 import analysis.opt.intervals.ExtBig.Companion.Zero
-import analysis.opt.intervals.Intervals.Companion.S2To256
+import analysis.opt.intervals.ExtBig.Companion.asExtBig
 import analysis.opt.intervals.Intervals.Companion.SFull
 import analysis.opt.intervals.Intervals.Companion.SFullBool
+import analysis.opt.intervals.Intervals.Companion.sFull
 import com.certora.collect.*
 import datastructures.stdcollections.*
-import evm.MAX_EVM_INT256
-import evm.MIN_EVM_INT256_AS_MATH_INT
+import evm.twoToThe
 import utils.*
 import vc.data.TACBuiltInFunction
 import vc.data.TACExpr
+import vc.data.getOperands
 import analysis.opt.intervals.Intervals as S
 
 object EdgeGenerator {
@@ -42,6 +42,9 @@ object EdgeGenerator {
     ) {
 
         val edgeName = "Edge${e.javaClass.simpleName}"
+
+        val outModZm by lazy { e.tag as ModZm }
+        val argsModZm by lazy { e.getOperands().first().tag as ModZm }
 
         fun spots() = listOf(resultSpot) + opSpots
 
@@ -59,11 +62,31 @@ object EdgeGenerator {
                 spots.also { require(it.size == 2) }
             )
 
+        fun addUnary(f: (S, S, ModZm) -> List<S>, modZm: ModZm = outModZm, name: String = edgeName, spots: List<Spt> = spots()) =
+            addVec(
+                { l ->
+                    require(l.size == 2)
+                    f(l[0], l[1], modZm)
+                },
+                name,
+                spots.also { require(it.size == 2) }
+            )
+
         fun addBinary(f: (S, S, S) -> List<S>, name: String = edgeName, spots: List<Spt> = spots()) =
             addVec(
                 { l ->
                     require(l.size == 3)
                     f(l[0], l[1], l[2])
+                },
+                name,
+                spots.also { require(it.size == 3) }
+            )
+
+        fun addBinary(f: (S, S, S, ModZm) -> List<S>, modZm : ModZm = outModZm, name: String = edgeName, spots: List<Spt> = spots()) =
+            addVec(
+                { l ->
+                    require(l.size == 3)
+                    f(l[0], l[1], l[2], modZm)
                 },
                 name,
                 spots.also { require(it.size == 3) }
@@ -80,27 +103,33 @@ object EdgeGenerator {
             )
 
 
-        fun addWithMod2To256(f: (List<S>) -> List<S>, name: String) {
+        fun addWithFinalMod(f: (List<S>) -> List<S>, name: String) {
             val spot = genAux(SFull)
             addVec(f, name, listOf(spot) + opSpots)
-            addUnary(BiPropagation::mod2To256, "mod256", listOf(resultSpot, spot))
+            addUnary(
+                f = { lhs, x -> BiPropagation.mod(lhs, x, outModZm) },
+                name = "mod${outModZm.bitwidth}",
+                spots = listOf(resultSpot, spot)
+            )
         }
 
         /**
          * Returns a new aux spot that represents `arg1.toMathint() op arg2.toMathint()`, i.e., it adds the edges
-         * that enforce it to be so.
+         * and auxiliary nodes that enforce it to be so.
          */
-        fun opAsInt(arg1 : Spt, arg2 : Spt, op: (S, S, S) -> List<S>) : Spt {
+        fun opAsInt(arg1 : Spt, arg2 : Spt, modZm : ModZm, op: (S, S, S) -> List<S>) : Spt {
             val resAsInt = genAux(SFull)
             val asInt1 = genAux(SFull)
             val asInt2 = genAux(SFull)
             addUnary(
                 f = BiPropagation::twosToMathint,
+                modZm = modZm,
                 name = "firstArg",
                 spots = listOf(asInt1, arg1)
             )
             addUnary(
                 f = BiPropagation::twosToMathint,
+                modZm = modZm,
                 name = "secondArg",
                 spots = listOf(asInt2, arg2)
             )
@@ -117,16 +146,16 @@ object EdgeGenerator {
          * the [argSpot] is the argument to the no overflow/underflow check, which is itself the result of a different
          * operation, e.g., multiplication.
          */
-        fun noSignedOverOrUnderflow(resSpot : Spt, argSpot : Spt) {
+        fun noSignedOverOrUnderflow(resSpot : Spt, argSpot : Spt, modZm: ModZm) {
             val overflow = genAux(SFullBool)
             val underflow = genAux(SFullBool)
             addUnary(
-                f = { lhs, x -> BiPropagation.le(lhs, x, S(MAX_EVM_INT256)) },
+                f = { lhs, x -> BiPropagation.le(lhs, x, S(modZm.maxSigned)) },
                 name = "noSignedOverflow_check",
                 spots = listOf(overflow, argSpot)
             )
             addUnary(
-                f = { lhs, x -> BiPropagation.ge(lhs, x, S(MIN_EVM_INT256_AS_MATH_INT)) },
+                f = { lhs, x -> BiPropagation.ge(lhs, x, S(modZm.minSignedMath)) },
                 name = "noSignedUnderflow_check",
                 spots = listOf(underflow, argSpot)
             )
@@ -197,15 +226,17 @@ object EdgeGenerator {
                     addBinary(BiPropagation::pow)
 
                 is TACExpr.BinOp.Exponent ->
-                    addWithMod2To256(
+                    addWithFinalMod(
                         f = { (lhs, x, y) -> BiPropagation.pow(lhs, x, y) },
                         name = "Exp"
                     )
 
                 is TACExpr.BinOp.IntMod ->
                     addBinary(BiPropagation::cvlMod)
+
                 is TACExpr.BinOp.Mod ->
                     addBinary(BiPropagation::unsignedMod)
+
                 is TACExpr.BinOp.SMod ->
                     addBinary(BiPropagation::sMod)
 
@@ -214,7 +245,7 @@ object EdgeGenerator {
 
                 is TACExpr.BinOp.ShiftLeft -> {
                     val (base, exponent) = opSpots
-                    val twoToExp = genAux(S(Zero, TwoTo256))
+                    val twoToExp = genAux(S(Zero, outModZm.modulus.asExtBig))
                     addUnary(
                         f = BiPropagation::powOf2Limited,
                         name = "shiftl_Pow2",
@@ -223,14 +254,14 @@ object EdgeGenerator {
                     addTernary(
                         f = BiPropagation::mulMod,
                         name = "shiftl_mulMod",
-                        spots = listOf(resultSpot, twoToExp, base, genAux(S2To256))
+                        spots = listOf(resultSpot, twoToExp, base, genAux(S(outModZm.modulus)))
                     )
                 }
 
                 is TACExpr.BinOp.ShiftRightLogical -> {
                     // result = base / 2^exponent
                     val (base, exponent) = opSpots
-                    val twoToExp = genAux(S(Zero, TwoTo256))
+                    val twoToExp = genAux(S(Zero, outModZm.modulus.asExtBig))
                     addUnary(
                         f = BiPropagation::powOf2Limited,
                         name = "shiftr_pow2",
@@ -244,13 +275,29 @@ object EdgeGenerator {
                 }
 
                 is TACExpr.BinOp.ShiftRightArithmetical ->
-                    Unit // these are rare, but we can implement this when we find time.
+                    e.o2.getAsConst()?.toIntOrNull()?.let {
+                        val shiftBy = minOf(it, outModZm.bitwidth)
+                        val op = opSpots[0]
+                        val shifted = genAux(sFull(outModZm))
+                        addBinary(
+                            f = BiPropagation::div,
+                            name = "sra_div",
+                            spots = listOf(shifted, op, genAux(S(twoToThe(shiftBy))))
+                        )
+                        addUnary(
+                            f = { lhs, rhs ->
+                                BiPropagation.signExtend(lhs, rhs, outModZm.bitwidth - shiftBy, outModZm.bitwidth)
+                            },
+                            name = "sra_extend",
+                            spots = listOf(resultSpot, shifted)
+                        )
+                    }
 
                 is TACExpr.BinOp.SignExtend ->
                     e.o1.getAsConst()?.toIntOrNull()?.let { c ->
                         addUnary(
                             f = { lhs, rhs ->
-                                BiPropagation.signExtend(lhs, rhs, (c + 1) * 8)
+                                BiPropagation.signExtend(lhs, rhs, (c + 1) * 8, outModZm.bitwidth)
                             },
                             spots = listOf(resultSpot, opSpots[1])
                         )
@@ -260,7 +307,7 @@ object EdgeGenerator {
                     addBinary(BiPropagation::minus)
 
                 is TACExpr.BinOp.Sub ->
-                    addWithMod2To256(
+                    addWithFinalMod(
                         f = { l ->
                             check(l.size == 3)
                             BiPropagation.minus(l[0], l[1], l[2])
@@ -275,7 +322,7 @@ object EdgeGenerator {
                     addVec(BiPropagation::plus)
 
                 is TACExpr.Vec.Add ->
-                    addWithMod2To256(BiPropagation::plus, "Add")
+                    addWithFinalMod(BiPropagation::plus, "Add")
 
                 is TACExpr.Vec.IntMul -> {
                     addVec(BiPropagation::mult)
@@ -283,7 +330,7 @@ object EdgeGenerator {
 
                 is TACExpr.Vec.Mul -> {
                     addBinary({ lhs, x, y ->
-                        BiPropagation.mulMod(lhs, x, y, S2To256)
+                        BiPropagation.mulMod(lhs, x, y, S(outModZm.modulus))
                     })
                 }
             }
@@ -306,21 +353,21 @@ object EdgeGenerator {
                         addBinary(BiPropagation::lt)
 
                     is TACExpr.BinRel.Slt ->
-                        addBinary(BiPropagation::sLt)
+                        addBinary(BiPropagation::sLt, argsModZm)
 
                     is TACExpr.BinRel.Sle ->
-                        addBinary(BiPropagation::sLe)
+                        addBinary(BiPropagation::sLe, argsModZm)
 
                     is TACExpr.BinRel.Sgt ->
-                        addBinary(BiPropagation::sGt)
+                        addBinary(BiPropagation::sGt, argsModZm)
 
                     is TACExpr.BinRel.Sge ->
-                        addBinary(BiPropagation::sGe)
+                        addBinary(BiPropagation::sGe, argsModZm)
                 }
 
 
             is TACExpr.Apply ->
-                when ((e.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif) {
+                when (val bif = (e.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif) {
                     is TACBuiltInFunction.NoAddOverflowCheck -> {
                         val addition = genAux(SFull)
                         addVec(
@@ -329,23 +376,37 @@ object EdgeGenerator {
                             spots = listOf(addition) + opSpots
                         )
                         addUnary(
-                            f = { lhs, x -> BiPropagation.lt(lhs, x, S2To256) },
+                            f = { lhs, x -> BiPropagation.le(lhs, x, S(bif.tag.maxUnsigned)) },
                             name = "noAddOverflowCheck_check",
                             spots = listOf(resultSpot, addition)
                         )
                     }
 
+                    is TACBuiltInFunction.SafeUnsignedNarrow,
+                    is TACBuiltInFunction.UnsignedPromotion,
                     is TACBuiltInFunction.SafeMathNarrow,
                     is TACBuiltInFunction.SafeMathPromotion ->
                         addUnary(BiPropagation::same, "safeMathEquivalence")
 
+                    is TACBuiltInFunction.SafeSignedNarrow ->
+                        addUnary(
+                            f = { lhs, x -> BiPropagation.bwAnd(lhs, x, S(bif.returnSort.maxUnsigned)) },
+                            name = "SafeSignedNarrow",
+                        )
+
+                    is TACBuiltInFunction.SignedPromotion ->
+                        addUnary(
+                            f = { lhs, x -> BiPropagation.signExtend(lhs, x, bif.paramSort.bitwidth, bif.returnSort.bitwidth) },
+                            name = "SafeSignedNarrow",
+                        )
+
                     is TACBuiltInFunction.TwosComplement.Wrap ->
-                        addUnary(f = BiPropagation::mathintTo2s, name = "2sWrap")
+                        addUnary(f = BiPropagation::mathintTo2s, modZm = bif.tag, name = "2sWrap")
 
                     is TACBuiltInFunction.TwosComplement.Unwrap ->
-                        addUnary(f = BiPropagation::twosToMathint, name = "2sUnwrap")
+                        addUnary(f = BiPropagation::twosToMathint, modZm = bif.tag, name = "2sUnwrap")
 
-                    TACBuiltInFunction.NoMulOverflowCheck -> {
+                    is TACBuiltInFunction.NoMulOverflowCheck -> {
                         val multiplication = genAux(SFull)
                         addVec(
                             f = BiPropagation::mult,
@@ -353,27 +414,39 @@ object EdgeGenerator {
                             spots = listOf(multiplication) + opSpots
                         )
                         addUnary(
-                            f = { lhs, x -> BiPropagation.lt(lhs, x, S2To256) },
+                            f = { lhs, x -> BiPropagation.le(lhs, x, S(bif.tag.maxUnsigned)) },
                             name = "noMulOverflowCheck_check",
                             spots = listOf(resultSpot, multiplication)
                         )
                     }
 
-                    TACBuiltInFunction.NoSMulOverAndUnderflowCheck -> {
+                    is TACBuiltInFunction.NoSMulOverAndUnderflowCheck -> {
                         check(opSpots.size == 2)
                         // creates a aux spot to hold the multiplication of the mathint version of the operands
                         // and connects that to the result spot via an no-under/over-flow edge.
-                        noSignedOverOrUnderflow(resultSpot, opAsInt(opSpots[0], opSpots[1], BiPropagation::mult))
+                        noSignedOverOrUnderflow(
+                            resultSpot,
+                            opAsInt(opSpots[0], opSpots[1], bif.tag, BiPropagation::mult),
+                            bif.tag
+                        )
                     }
 
-                    TACBuiltInFunction.NoSAddOverAndUnderflowCheck -> {
+                    is TACBuiltInFunction.NoSAddOverAndUnderflowCheck -> {
                         check(opSpots.size == 2)
-                        noSignedOverOrUnderflow(resultSpot, opAsInt(opSpots[0], opSpots[1], BiPropagation::plus))
+                        noSignedOverOrUnderflow(
+                            resultSpot,
+                            opAsInt(opSpots[0], opSpots[1], bif.tag, BiPropagation::plus),
+                            bif.tag
+                        )
                     }
 
-                    TACBuiltInFunction.NoSSubOverAndUnderflowCheck -> {
+                    is TACBuiltInFunction.NoSSubOverAndUnderflowCheck -> {
                         check(opSpots.size == 2)
-                        noSignedOverOrUnderflow(resultSpot, opAsInt(opSpots[0], opSpots[1], BiPropagation::minus))
+                        noSignedOverOrUnderflow(
+                            resultSpot,
+                            opAsInt(opSpots[0], opSpots[1], bif.tag, BiPropagation::minus),
+                            bif.tag
+                        )
                     }
 
                     else -> Unit

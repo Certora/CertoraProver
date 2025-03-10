@@ -21,6 +21,7 @@ package vc.data
 import allocator.Allocator
 import allocator.GenerateRemapper
 import allocator.GeneratedBy
+import allocator.SuppressRemapWarning
 import bridge.ContractIdentifier
 import bridge.NamedContractIdentifier
 import com.certora.collect.*
@@ -205,5 +206,31 @@ sealed class ProcedureId : AmbiSerializable {
 
         override fun toString(): String = summaryType.toUIString()
 
+    }
+
+    /**
+     * Used in CodeMap context -- when adding internal functions to the TAC program.
+     */
+    @KSerializable
+    @SuppressRemapWarning
+    data class Internal(val name: String, val externalProc: Procedure) : ProcedureId() {
+        init {
+            check(externalProc.procedureId !is Internal) {
+                "externalProc arg must not point to an internal procedure, got: name: $name, externalProc: $externalProc "
+            }
+        }
+        override val address: ContractOfProcedure
+            get() = externalProc.procedureId.address
+        override fun toString() = when (externalProc.procedureId) {
+            is Standard -> "${externalProc.procedureId.contract}.$name"
+            is Constructor, is WholeContract -> "${externalProc.procedureId}.$name"
+            else -> "${externalProc.procedureId.address}.$name"
+        }.sanitizeProcName() + "(internal)"
+
+        /** E.g. spaces in the procedure name make problems in [CodeMap] / tac dump land (wrong html, very annoying to
+         * debug..), so we sanitize the names here. */
+        private fun String.sanitizeProcName(): String =
+            this.replace(" ", "_")
+                .replace(":", "_")
     }
 }

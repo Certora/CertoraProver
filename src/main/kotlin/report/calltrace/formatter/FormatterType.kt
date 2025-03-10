@@ -22,7 +22,6 @@ import spec.cvlast.CVLType.PureCVLType.Primitive
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import utils.*
-import java.math.BigInteger
 
 /** Wraps types that can currently be formatted, to provide a shared interface for all such types
  *
@@ -156,37 +155,4 @@ sealed class ValueMeta {
     data object Boolean : ValueMeta()
 }
 
-/**
- * The representation of a number actually depends on the underlying type, which creates a coupling between a type
- * and the value assigned to that type by the model. For example, a number may be encoded in big-endian or 2s complement.
- * This function normalizes the representation to some agreed-upon standard.
- */
-fun BigInteger.normalizeRepresentation(type: FormatterType.Value<*>): BigInteger? {
-    val meta = type.toMeta()
-    return when {
-        meta is ValueMeta.Bytes -> this.undoRightPadding(meta.bytewidth)
-
-        // XXX alex: deactivating for now -- I think that when we do that from_2s conversion, we should be very explicit about it ..
-        //  (I'm also dubious regarding whether we always tell correctly whether something's a signed int from user perspective.)
-        // meta is ValueMeta.Int && type.isEVM() -> try {
-        //     this.from2sComplement()
-        // } catch (_: IllegalArgumentException) {
-        //     /**
-        //      * we can get here if we try to format a value past a violated assert,
-        //      * since such values are not constrained to be valid integers
-        //      */
-        //     null
-        // }
-
-        else -> this
-    }
-}
-
-/** BytesK values (where K is the bytewidth) are right-padded to 32 bytes. this removes the right-padding. */
-private fun BigInteger.undoRightPadding(k: Int): BigInteger {
-    require(k in 1..32) { "expected 1 <= bytewidth <= 32, got $k" }
-    val bytesToShift = 32 - k
-
-    return this.shiftRight(8 * bytesToShift)
-}
 

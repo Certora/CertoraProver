@@ -173,7 +173,7 @@ class TernaryCalculator(
 
             is TACExpr.Vec -> {
                 val ts = exp.ls.map { evalExp(it, ptr) }
-                if (ts.all { it.isConstant() } && exp.computable) {
+                if (ts.all { it.isConstant() }) {
                     return Ternary(exp.eval(ts.map { it.asConstant() }))
                 }
                 when (exp) {
@@ -246,7 +246,8 @@ class TernaryCalculator(
                             t2.asIntOrNull()?.let { by -> t1 shiftRight by } ?: allXs
 
                         is TACExpr.BinOp.ShiftRightArithmetical ->
-                            allXs // TODO: support it if we ever encounter it.
+                            t2.asIntOrNull()?.let { by -> (t1 shiftRight by) signExtend (256 - by) } ?: allXs
+
                         is TACExpr.BinOp.SignExtend ->
                             t1.asIntOrNull()?.let { b ->
                                 val topBit = (b + 1) * EVM_BYTE_SIZE.intValueExact()

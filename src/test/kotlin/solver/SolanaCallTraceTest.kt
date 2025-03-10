@@ -18,6 +18,9 @@
 package solver
 
 
+import annotations.PollutesGlobalState
+import cli.Ecosystem
+import config.Config
 import handleSolanaFlow
 import infra.CertoraBuildKind
 import infra.CertoraBuild
@@ -56,6 +59,12 @@ class SolanaCallTraceTest {
                 "rule_print_values",
                 "rule_print_values_nested_call",
                 "rule_print_values_in_match",
+                "rule_print_u64_as_fixed_main_body",
+                "rule_print_u64_as_fixed_nested_call",
+                "rule_print_u64_as_fixed_other_module",
+                "rule_nondet_main_body",
+                "rule_nondet_nested_call",
+                "rule_nondet_other_module",
                 "rule_print_location_main_body",
                 "rule_print_location_nested_call",
                 "rule_print_location_in_branch",
@@ -69,6 +78,12 @@ class SolanaCallTraceTest {
                 "rule_attach_location_print_value_main_body",
                 "rule_attach_location_print_value_nested_call",
                 "rule_attach_location_print_value_other_module",
+                "rule_attach_location_nondet_main_body",
+                "rule_attach_location_nondet_nested_call",
+                "rule_attach_location_nondet_other_module",
+                "rule_attach_location_satisfy_main_body",
+                "rule_attach_location_satisfy_nested_call",
+                "rule_attach_location_satisfy_other_module",
             )
 
         /* Path to configuration file of the projects. */
@@ -89,6 +104,7 @@ class SolanaCallTraceTest {
         }
 
         /** Runs the Solana flow in a blocking environment and returns the results. */
+        @OptIn(PollutesGlobalState::class)
         private fun runSolanaFlow(
             rules: HashSet<String>,
             confPath: Path,
@@ -97,6 +113,7 @@ class SolanaCallTraceTest {
             return CertoraBuild.inTempDir(CertoraBuildKind.SolanaBuild(rules), confPath)
                 .useWithBuildDir { _ ->
                     runBlocking {
+                        Config.ActiveEcosystem.set(Ecosystem.SOLANA)
                         // Use a safe dispatcher to ensure we don't leave the current thread context.
                         // If this is removed, the tests can incur in a [IllegalStateException].
                         withContext(Dispatchers.Default) {
@@ -190,11 +207,68 @@ class SolanaCallTraceTest {
     }
 
     @Test
-    fun valuesInMatch() {
+    fun printValuesInMatch() {
         ruleContainsSolanaPrintValuesAt(
             "rule_print_values_in_match",
             results,
             callInstanceRange("src/print_values.rs", 25U, 22U)
+        )
+    }
+
+    @Test
+    fun printU64AsFixedInMainBody() {
+        ruleContainsSolanaPrintValuesAtRangeWithFirstValue(
+            "rule_print_u64_as_fixed_main_body",
+            results,
+            callInstanceRange("src/print_fixed.rs", 5U, 1U),
+            "1.03448486328125"
+        )
+    }
+
+    @Test
+    fun printU64AsFixedInNestedCall() {
+        ruleContainsSolanaPrintValuesAtRangeWithFirstValue(
+            "rule_print_u64_as_fixed_nested_call",
+            results,
+            callInstanceRange("src/print_fixed.rs", 16U, 1U),
+            "1"
+        )
+    }
+
+    @Test
+    fun printU64AsFixedInOtherModule() {
+        ruleContainsSolanaPrintValuesAtRangeWithFirstValue(
+            "rule_print_u64_as_fixed_other_module",
+            results,
+            callInstanceRange("src/functionality.rs", 40U, 1U),
+            "1.5"
+        )
+    }
+
+    @Test
+    fun nondetInMainBody() {
+        ruleContainsSolanaExternalCallAt(
+            "rule_nondet_main_body",
+            results,
+            callInstanceRange("src/nondet_prints.rs", 5U, 22U)
+        )
+    }
+
+    @Test
+    fun nondetInNestedCall() {
+        ruleContainsSolanaExternalCallAt(
+            "rule_nondet_nested_call",
+            results,
+            callInstanceRange("src/nondet_prints.rs", 16U, 22U)
+        )
+    }
+
+    @Test
+    fun nondetInOtherModule() {
+        ruleContainsSolanaExternalCallAt(
+            "rule_nondet_other_module",
+            results,
+            callInstanceRange("src/functionality.rs", 27U, 14U)
         )
     }
 
@@ -315,6 +389,60 @@ class SolanaCallTraceTest {
         )
     }
 
+    @Test
+    fun attachLocationNondetInMainBody() {
+        ruleContainsSolanaExternalCallAt(
+            "rule_attach_location_nondet_main_body",
+            results,
+            callInstanceRange("src/attach_location.rs", 70U, 1U)
+        )
+    }
+
+    @Test
+    fun attachLocationNondetInNestedCall() {
+        ruleContainsSolanaExternalCallAt(
+            "rule_attach_location_nondet_nested_call",
+            results,
+            callInstanceRange("src/attach_location.rs", 81U, 1U)
+        )
+    }
+
+    @Test
+    fun attachLocationNondetInOtherModule() {
+        ruleContainsSolanaExternalCallAt(
+            "rule_attach_location_nondet_other_module",
+            results,
+            callInstanceRange("src/functionality.rs", 32U, 1U)
+        )
+    }
+
+    @Test
+    fun attachLocationSatisfyInMainBody() {
+        ruleContainsSolanaUserAssertAt(
+            "rule_attach_location_satisfy_main_body",
+            results,
+            callInstanceRange("src/attach_location.rs", 94U, 1U)
+        )
+    }
+
+    @Test
+    fun attachLocationSatisfyInNestedCall() {
+        ruleContainsSolanaUserAssertAt(
+            "rule_attach_location_satisfy_nested_call",
+            results,
+            callInstanceRange("src/attach_location.rs", 103U, 1U)
+        )
+    }
+
+    @Test
+    fun attachLocationSatisfyInOtherModule() {
+        ruleContainsSolanaUserAssertAt(
+            "rule_attach_location_satisfy_other_module",
+            results,
+            callInstanceRange("src/functionality.rs", 36U, 1U)
+        )
+    }
+
     private fun ruleContainsSolanaUserAssertAt(
         ruleName: String,
         results: List<RuleCheckResult.Single>,
@@ -357,8 +485,26 @@ class SolanaCallTraceTest {
         expectedRange: CVLRange.Range
     ) {
         val solanaPrintTags = getPrintValues(ruleName, results)
-        val existsPrintTagWithExpectedRange = existsCallInstanceAtRange(solanaPrintTags, expectedRange)
-        assert(existsPrintTagWithExpectedRange) { "Did not find any print values with range ${expectedRange.file}:${expectedRange.lineNumber}" }
+        val existsPrintValuesWithExpectedRange = existsCallInstanceAtRange(solanaPrintTags, expectedRange)
+        assert(existsPrintValuesWithExpectedRange) { "Did not find any print values with range ${expectedRange.file}:${expectedRange.lineNumber}" }
+    }
+
+    /**
+     * Checks that it exists a [CallInstance.SolanaCexPrintValues] entry in the call trace at a specific range, and that
+     * the first value in that entry corresponds to [expectedFirstValue].
+     */
+    private fun ruleContainsSolanaPrintValuesAtRangeWithFirstValue(
+        ruleName: String,
+        results: List<RuleCheckResult.Single>,
+        expectedRange: CVLRange.Range,
+        expectedFirstValue: String
+    ) {
+        val solanaPrintTags = getPrintValues(ruleName, results)
+        val existsPrintValuesWithExpectedRangeAndFirstValue =
+            existsPrintValuesAtRangeWithFirstValue(solanaPrintTags, expectedRange, expectedFirstValue)
+        assert(existsPrintValuesWithExpectedRangeAndFirstValue) {
+            "Did not find any print values with range ${expectedRange.file}:${expectedRange.lineNumber} with first value $expectedFirstValue"
+        }
     }
 
     private fun getPrintValues(
@@ -367,6 +513,24 @@ class SolanaCallTraceTest {
     ): List<CallInstance.SolanaCexPrintValues> {
         val calltrace = getCalltraceOfRule(ruleName, results)
         return calltrace.callHierarchyRoot.filterCallInstancesOf<CallInstance.SolanaCexPrintValues> { true }
+    }
+
+    private fun ruleContainsSolanaExternalCallAt(
+        ruleName: String,
+        results: List<RuleCheckResult.Single>,
+        expectedRange: CVLRange.Range
+    ) {
+        val solanaExternalCalls = getExternalCalls(ruleName, results)
+        val existsAssertWithExpectedRange = existsCallInstanceAtRange(solanaExternalCalls, expectedRange)
+        assert(existsAssertWithExpectedRange) { "Did not find any external call with range ${expectedRange.file}:${expectedRange.lineNumber}" }
+    }
+
+    private fun getExternalCalls(
+        ruleName: String,
+        results: List<RuleCheckResult.Single>,
+    ): List<CallInstance.SolanaExternalCall> {
+        val calltrace = getCalltraceOfRule(ruleName, results)
+        return calltrace.callHierarchyRoot.filterCallInstancesOf<CallInstance.SolanaExternalCall> { true }
     }
 
     private fun getCalltraceOfRule(
@@ -401,6 +565,25 @@ class SolanaCallTraceTest {
                     ?: fail("Failed to extract range") as? CVLRange.Range
                     ?: fail("Failed to cast range to CVLRange.Range.")
             callInstanceRange == expectedRange
+        }
+    }
+
+    /**
+     * Returns true iff there exists a call instance with the [expectedRange]. Furthermore, the first value in the
+     * Sarif output must be [expectedFirstValue].
+     */
+    private fun existsPrintValuesAtRangeWithFirstValue(
+        printValues: Iterable<CallInstance.SolanaCexPrintValues>,
+        expectedRange: CVLRange.Range,
+        expectedFirstValue: String,
+    ): Boolean {
+        return printValues.any { callInstance ->
+            val printValuesRange =
+                callInstance.range
+                    ?: fail("Failed to extract range") as? CVLRange.Range
+                    ?: fail("Failed to cast range to CVLRange.Range.")
+            val firstValueInPrintValues = callInstance.sarif.toString().split(' ')[1]
+            printValuesRange == expectedRange && firstValueInPrintValues == expectedFirstValue
         }
     }
 

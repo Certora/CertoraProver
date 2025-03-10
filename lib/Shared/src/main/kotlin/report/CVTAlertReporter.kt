@@ -209,17 +209,25 @@ sealed class CVTAlertReporter: Closeable {
             }
 
             val alert = CVTAlertInstance(type, severity, jumpToDefinition, message, hint, url)
+            val jsonObject = buildJsonObject(alert.jsonRepBuilder)
 
-            val jsonToAppend = buildString {
-                if (firstAlert) {
-                    firstAlert = false
-                } else {
-                    append(',')
-                }
-                append(buildJsonObject(alert.jsonRepBuilder))
-            }
-            /** all string formatting is already done at this point, to minimize time spent inside this [synchronized] block */
+            /**
+             * All string formatting is already done at this point, to minimize time spent inside this [synchronized] block.
+             * Note that the logic of whether to add the leading comma must also be within the [synchronized] block in
+             * order to avoid a case where thread A reads [firstAlert] as true so it just sets it to false, and
+             * then, before it starts writing to the file, thread B comes in, sees that [firstAlert] is false, adds the
+             * preceding comma, and gets to write first to the file. In this case we would end up with the malformed string:
+             * `[,{thread B alert}{thread A alert}]`
+             */
             synchronized(this) {
+                val jsonToAppend = buildString {
+                    if (firstAlert) {
+                        firstAlert = false
+                    } else {
+                        append(',')
+                    }
+                    append(jsonObject)
+                }
                 writer.write(jsonToAppend)
             }
         }

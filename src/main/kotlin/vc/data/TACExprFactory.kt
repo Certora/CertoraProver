@@ -68,7 +68,7 @@ open class TACExprFactory {
     open fun SMod(o1: TACExpr, o2: TACExpr, tag: Tag.Bits?): TACExpr = TACExpr.BinOp.SMod(o1, o2, tag)
     open fun IntMod(o1: TACExpr, o2: TACExpr, tag: Tag.Int?): TACExpr = TACExpr.BinOp.IntMod(o1, o2, tag)
 
-    open fun Exponent(o1: TACExpr, o2: TACExpr, tag: Tag?): TACExpr = TACExpr.BinOp.Exponent(o1, o2, tag)
+    open fun Exponent(o1: TACExpr, o2: TACExpr, tag: Tag.Bits?): TACExpr = TACExpr.BinOp.Exponent(o1, o2, tag)
 
     open fun IntExponent(o1: TACExpr, o2: TACExpr, tag: Tag.Int?): TACExpr = TACExpr.BinOp.IntExponent(o1, o2, tag)
 

@@ -20,20 +20,22 @@ package analysis.icfg
 import algorithms.dominates
 import analysis.*
 import analysis.dataflow.IDefAnalysis
-import config.Config
+import analysis.opt.ConstantPropagatorAndSimplifier.Companion.defaultTag
 import com.certora.collect.*
+import config.Config
 import datastructures.stdcollections.*
-import evm.MAX_EVM_UINT256
 import kotlinx.coroutines.yield
 import log.*
 import parallel.coroutines.onThisThread
 import tac.Tag
+import tac.Tag.Bit256
+import tac.commonSuperTag
 import utils.*
 import utils.SignUtilities.maxUnsignedValueOfBitwidth
 import utils.SignUtilities.minSignedValueOfBitwidth
-import utils.SignUtilities.to2sComplement
-import utils.SignUtilities.from2sComplement
+import utils.monadicMap
 import vc.data.*
+import vc.data.tacexprutil.rebuild
 import java.math.BigInteger
 
 private val logger = Logger(LoggerTypes.CONSTANT_PROPAGATION)
@@ -45,13 +47,18 @@ private val simplificationDepth get() = Config.SimplificationDepth.get()
  * This class will exclude tacM0x40 from the computations (since it can interfere with other parts of the pipeline).
  * [preservedNames] represents variables' names that should not be optimized out.
  * [preservedVars] represents variables that should not be optimized out
+ * [defaultTo256Bits] is a hack to support the use of this class when [g] is not type-checked. This happens in early
+ *   stages of the EVM pipeline. Ideally this shouldn't happen there but it does. If this is on, then any
+ *   [TACExpr] which we want to call `eval` on, and that `eval` needs to know the bit-width of the expression, yet
+ *   the expression has a `null` tag, will be evaluated as is it has the [Tag.Bit256] tag.
  */
 open class ExpressionSimplifier(
     val g: TACCommandGraph,
     customDefAnalysis: IDefAnalysis = g.cache.def,
     private val preservedNames: Set<String> = setOf(TACKeyword.MEM64.getName()),
     private val preservedVars: Set<TACSymbol.Var> = emptySet(),
-    private val trySimplifyConfluence: Boolean = false
+    private val trySimplifyConfluence: Boolean = false,
+    private val defaultTo256Bits: Boolean = false
 ) {
     val nonTrivialDefAnalysis = object : NonTrivialDefAnalysis(g, customDefAnalysis) {
         override fun transition(from: CmdPointer, to: CmdPointer): Boolean {
@@ -62,6 +69,46 @@ open class ExpressionSimplifier(
     }
 
     val standardNontrivialDef = NonTrivialDefAnalysis(g, customDefAnalysis)
+
+    private fun TACExpr.defaultEvalAsExpr(args: List<BigInteger>) =
+        letIf(defaultTo256Bits) {
+            fun opsTag() = commonSuperTag(getOperands().map { it.tag ?: Bit256 }) as Tag.Bits
+            when (this) {
+                // these needs their operands to have tags if we want to call eval. But instead of calling eval,
+                // we do the evaluation here.
+                is TACExpr.BinRel.Sge -> return opsTag().sge(args[0], args[1]).asTACExpr(Tag.Bool)
+                is TACExpr.BinRel.Sgt -> return opsTag().sgt(args[0], args[1]).asTACExpr(Tag.Bool)
+                is TACExpr.BinRel.Sle -> return opsTag().sle(args[0], args[1]).asTACExpr(Tag.Bool)
+                is TACExpr.BinRel.Slt -> return opsTag().slt(args[0], args[1]).asTACExpr(Tag.Bool)
+
+                else ->
+                    if (tag == null) {
+                        when (this) {
+                            // the eval of the following need the expression to have a tag, so we temporarily
+                            // rewrite with them with the default tag.
+                            is TACExpr.BinOp.Exponent -> copy(tag = defaultTag)
+                            is TACExpr.BinOp.SDiv -> copy(tag = defaultTag)
+                            is TACExpr.BinOp.SMod -> copy(tag = defaultTag)
+                            is TACExpr.BinOp.ShiftLeft -> copy(tag = defaultTag)
+                            is TACExpr.BinOp.ShiftRightArithmetical -> copy(tag = defaultTag)
+                            is TACExpr.BinOp.SignExtend -> copy(tag = defaultTag)
+                            is TACExpr.BinOp.Sub -> copy(tag = defaultTag)
+                            is TACExpr.UnaryExp.BWNot -> copy(tag = defaultTag)
+                            is TACExpr.Vec.Add -> copy(tag = defaultTag as Tag.Bits)
+                            is TACExpr.Vec.Mul -> copy(tag = defaultTag as Tag.Bits)
+                            else -> this
+                        }
+                    } else {
+                        this
+                    }
+            }
+        }.eval(args)!!.asTACExpr(tag ?: defaultTag)
+
+    private fun TACExpr.defaultEvalAsExpr(vararg args : BigInteger) =
+        defaultEvalAsExpr(args.toList())
+
+    val TACExpr.tagOrDefault
+        get() = tag ?: defaultTag.takeIf { defaultTo256Bits }!!
 
     protected class SimplificationContext(
         val inPrestate: Boolean,
@@ -88,15 +135,9 @@ open class ExpressionSimplifier(
         val (o1c, o2c) = o1.getAsConst() to o2.getAsConst()
 
         return if (o1c != null && o2c != null) {
-            e.eval(o1c, o2c).let {
-                if (e.tag == Tag.Bool) {
-                    it.asBoolTACSymbol()
-                } else {
-                    it.asTACSymbol()
-                }.asSym()
-            }
+            (e as TACExpr).defaultEvalAsExpr(o1c, o2c)
         } else {
-            TACExpr.BinExp.build(e)(o1, o2)
+            (e as TACExpr).rebuild(o1, o2)
         }
     }
 
@@ -108,15 +149,17 @@ open class ExpressionSimplifier(
     ): TACExpr {
         val (base, pow) = inPrestate { simplify(e.o1, ptr) to simplify(e.o2, ptr) }
         val powAsConst = pow.getAsConst()
-        val simplified = TACExpr.BinExp.build(e)(base, pow)
-        return if (powAsConst != null && (powAsConst.toInt().toBigInteger() != powAsConst || powAsConst < BigInteger.ZERO)) {
-            // got invalid power, keeping the crazy exp (it's probably unreachable anyway)
-            logger.warn { "Invalid power $powAsConst in $e in $ptr, from $base and $pow"}
-            simplified
-        } else if (powAsConst != null && base.getAsConst() != null){
-            e.eval(base.getAsConst()!!,pow.getAsConst()!!).asTACSymbol().asSym()
+        val baseAsConst = base.getAsConst()
+        return if (baseAsConst != null && powAsConst != null) {
+            if (powAsConst.toInt().toBigInteger() != powAsConst || powAsConst < BigInteger.ZERO) {
+                // got invalid power, keeping the crazy exp (it's probably unreachable anyway)
+                logger.warn { "Invalid power $powAsConst in $e in $ptr, from $base and $pow" }
+                e.rebuild(base, pow)
+            } else {
+                e.defaultEvalAsExpr(baseAsConst, powAsConst)
+            }
         } else {
-            simplified
+            e.rebuild(base, pow)
         }
     }
 
@@ -134,7 +177,7 @@ open class ExpressionSimplifier(
         val simplifiedO1AsConst = inPrestate { simplify(sub.o1, ptr).getAsConst() }
         val simplifiedO2AsConst = inPrestate { simplify(sub.o2, ptr).getAsConst() }
         if (simplifiedO1AsConst != null && simplifiedO2AsConst != null) {
-            return TACSymbol.lift(sub.eval(simplifiedO1AsConst, simplifiedO2AsConst)).asSym()
+            return sub.defaultEvalAsExpr(simplifiedO1AsConst, simplifiedO2AsConst)
         }
 
         // o1 will be c1 + (c2 + ... (cn + V)) and V will be m0x40. o2 will be m0x40. let's detect that...
@@ -160,13 +203,15 @@ open class ExpressionSimplifier(
                 is TACExpr.Sym -> {
                     // short-circuit here - got V-V == 0
                     if (def.exp == expectM0x40) {
-                        return BigInteger.ZERO.asTACSymbol().asSym()
+                        return 0.asTACExpr(sub.tagOrDefault)
                     }
                     null to null
                 }
+
                 is TACExpr.Vec.Add -> {
                     def.exp as TACExpr.Vec.Add to def.ptr
                 }
+
                 else -> null to null
             }
         } else {
@@ -209,7 +254,7 @@ open class ExpressionSimplifier(
         val finalSym = add
 
         if (finalSym == expectM0x40) {
-            return constAggregator.asTACSymbol().asSym()
+            return constAggregator.asTACExpr(sub.tagOrDefault)
         }
 
         val expectAddSecondArgAsM0x40 =
@@ -227,51 +272,19 @@ open class ExpressionSimplifier(
             }
 
         if (expectAddSecondArgAsM0x40 != null && expectM0x40 != null && expectAddSecondArgAsM0x40 == expectM0x40) {
-            return constAggregator.asTACSymbol().asSym()
+            return constAggregator.asTACExpr(sub.tagOrDefault)
         } else {
             return sub
         }
     }
 
     context(SimplificationContext)
-    private fun simplifyLs(
-        ls: List<TACExpr>,
-        eval: (List<BigInteger>) -> BigInteger,
-        build: (List<TACExpr>) -> TACExpr,
-        toReplaceIfAllConst: Boolean,
-        boolArgs: Boolean
-    ) =
-        ls.let { simplified ->
-            val (folder, copier) =
-                { l: List<TACExpr> -> eval(l.map { ((it as TACExpr.Sym).s as TACSymbol.Const).value }) } to
-                        build
-
-            val allConst = simplified.all { it is TACExpr.Sym && it.s is TACSymbol.Const }
-            if (allConst && toReplaceIfAllConst) {
-                folder(simplified).let {
-                    if (boolArgs) {
-                        it.asBoolTACSymbol()
-                    } else {
-                        it.asTACSymbol()
-                    }
-                }.asSym()
-            } else {
-                copier(simplified)
-            }
+    private suspend fun TACExpr.simplifyAndRebuild(ptr: CmdPointer): TACExpr =
+        getOperands().map { simplify(it, ptr) }.let { simplified ->
+            simplified.monadicMap { it.getAsConst() }
+                ?.let { defaultEvalAsExpr(it) }
+                ?: rebuild(simplified)
         }
-
-    context(SimplificationContext)
-    protected open suspend fun simplifyVecExp(
-        e: TACExpr.Vec,
-        ptr: CmdPointer,
-    ): TACExpr =
-        simplifyLs(
-            e.ls.map { simplify(it, ptr) },
-            { l: List<BigInteger> -> e.eval(l) },
-            TACExpr.Vec.build(e),
-            e.computable,
-            false
-        )
 
     context(SimplificationContext)
     protected open fun simplifyStructAccess(
@@ -350,23 +363,21 @@ open class ExpressionSimplifier(
                     ) {
                         "Oops, narrowing $simplifiedOp isn't safe!"
                     }
-                    simplifiedOp.s.value.asTACExpr(Tag.Bit256)
+                    simplifiedOp.s.value.asTACExpr(f.bif.returnSort)
                 }
+
                 is TACBuiltInFunction.SafeMathPromotion -> {
                     simplifiedOp
                 }
+
                 is TACBuiltInFunction.TwosComplement.Wrap -> {
-                    // Calculate the twos complement now so the smt doesn't need to.
-                    TACSymbol.Const(
-                        simplifiedOp.s.value.to2sComplement(), f.bif.returnSort
-                    ).asSym()
+                    e.defaultEvalAsExpr(simplifiedOp.s.value)
                 }
+
                 is TACBuiltInFunction.TwosComplement.Unwrap -> {
-                    // Calculate the value of the twos complement representation now so the smt doesn't need to.
-                    TACSymbol.Const(
-                        simplifiedOp.s.value.from2sComplement(), f.bif.returnSort
-                    ).asSym()
+                    e.defaultEvalAsExpr(simplifiedOp.s.value)
                 }
+
                 else -> simplifiedApply
             }
         } else {
@@ -395,70 +406,16 @@ open class ExpressionSimplifier(
             }
             return simplified.getOrPut(e to ptr) {
                 when (e) {
-                    is TACExpr.Sym -> {
-                        simplify(e.s, ptr)
-                    }
-                    is TACExpr.Vec -> {
-                        simplifyVecExp(e, ptr)
-                    }
-                    is TACExpr.UnaryExp -> {
-                        simplifyLs(
-                            listOf(simplify(e.o, ptr)),
-                            { l: List<BigInteger> ->
-                                l.single().let { arg ->
-                                    when (e) {
-                                        is TACExpr.UnaryExp.LNot -> {
-                                            if (arg != BigInteger.ZERO) {
-                                                BigInteger.ZERO
-                                            } else {
-                                                BigInteger.ONE
-                                            }
-                                        }
-                                        is TACExpr.UnaryExp.BWNot -> {
-                                            MAX_EVM_UINT256.andNot(arg)
-                                        }
-                                    }
-                                }
-                            },
-                            { l: List<TACExpr> ->
-                                l.single().let { arg ->
-                                    when (e) {
-                                        is TACExpr.UnaryExp.LNot -> {
-                                            e.copy(arg)
-                                        }
-                                        is TACExpr.UnaryExp.BWNot -> {
-                                            e.copy(arg)
-                                        }
-                                    }
-                                }
-                            },
-                            true,
-                            e is TACExpr.UnaryExp.LNot
-                        )
-                    }
-                    is TACExpr.BinBoolOp -> {
-                        simplifyLs(
-                            e.ls.map { simplify(it, ptr) },
-                            { l: List<BigInteger> -> e.eval(l) },
-                            TACExpr.BinBoolOp.build(e),
-                            true,
-                            true
-                        )
-                    }
+                    is TACExpr.Sym -> simplify(e.s, ptr)
+                    is TACExpr.Vec -> e.simplifyAndRebuild(ptr)
+                    is TACExpr.UnaryExp -> e.simplifyAndRebuild(ptr)
+                    is TACExpr.BinBoolOp -> e.simplifyAndRebuild(ptr)
                     is TACExpr.BinOp.Sub -> simplifySubtractExpr(e, ptr)
                     is TACExpr.BinOp.Exponent -> simplifyExponentExpr(e, ptr)
-                    is TACExpr.BinExp -> {
-                        simplifyBinExp(e, ptr)
-                    }
-                    is TACExpr.StructAccess -> {
-                        simplifyStructAccess(e, ptr)
-                    }
-                    is TACExpr.Apply -> {
-                        simplifyApply(e, ptr)
-                    }
-                    is TACExpr.TernaryExp.Ite -> {
-                        simplifyIte(e, ptr)
-                    }
+                    is TACExpr.BinExp -> simplifyBinExp(e, ptr)
+                    is TACExpr.StructAccess -> simplifyStructAccess(e, ptr)
+                    is TACExpr.Apply -> simplifyApply(e, ptr)
+                    is TACExpr.TernaryExp.Ite -> simplifyIte(e, ptr)
                     else -> e
                 }
             }
@@ -535,8 +492,8 @@ open class ExpressionSimplifier(
                 } else {
                     inPrestate {
                         simplify(cmd.rhs, ptr_)
-                        // the simplified value must be a constant
-                        .takeIf { it.getAsConst() != null } ?: v.asSym()
+                            // the simplified value must be a constant
+                            .takeIf { it.getAsConst() != null } ?: v.asSym()
                     }
                 }
             }

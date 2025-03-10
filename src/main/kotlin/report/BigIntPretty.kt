@@ -41,12 +41,10 @@ object BigIntPretty {
                 listOf(power to "2^${power.lowestSetBit}") +
                     offsets(power.lowestSetBit).flatMap { offset ->
                         listOf(
+                            // we could recursively compress the offset to get things like `2^16 - 2^7`, so far we're
+                            // showing  `2^16 - 128` in that case ... possible future work ...:W
                             (power + offset.toBigInteger()) to "2^${power.lowestSetBit} + $offset",
-//                            if (offset == 1 && power > 1024.toBigInteger()) {
-//                                (power - offset.toBigInteger()) to "MASK${power.lowestSetBit}"
-//                            } else {
-                                (power - offset.toBigInteger()) to "2^${power.lowestSetBit} - $offset"
-                            //},
+                            (power - offset.toBigInteger()) to "2^${power.lowestSetBit} - $offset",
                         )
                     }
             }.toMap()
@@ -56,6 +54,5 @@ object BigIntPretty {
      * If there is a nice string alias for [v] (e.g. "2^16" when [v] is 65536), returns the pair (<that alias>, `true`),
      * otherwise returns the pair (<[v].toString()>, `false`).
      */
-    fun bigIntPretty(v: BigInteger) =
-        bigIntToPretty[v]
+    fun bigIntPretty(v: BigInteger) = bigIntToPretty[v]
 }

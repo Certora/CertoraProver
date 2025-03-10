@@ -35,17 +35,32 @@ const val SBF_CALL_MAX_DEPTH = 64
  * Return a new call graph where the root is [newEntry] and the rest of functions have been inlined unless
  * they are recursive or the user didn't want to inline.
  *
- * The inliner starts from [entry] and folds each callee body into its caller.
- * Upon completion, the CFG with name [entry] is renamed with [newEntry].
+ * The inliner starts from [newEntry] (before it clones [entry] into [newEntry])
+ * and folds each callee body into its caller by cloning callee CFG into caller.
  */
-fun inline(entry: String, newEntry: String, prog: MutableSbfCallGraph, inlineConfig: InlinerConfig): MutableSbfCallGraph {
+fun inline(entry: String, newEntry: String, prog: SbfCallGraph, inlineConfig: InlinerConfig): MutableSbfCallGraph {
     if (debugInliner) {
         sbfLogger.info {prog.callGraphStructureToString()}
     }
+    val rootNames = prog.getCallGraphRoots().map{ it.getName()}
+    check(rootNames.contains(entry)) {"Inliner: $entry is not a root of the callgraph. Known roots=$rootNames"}
     return Inliner(entry, newEntry, prog, inlineConfig).inline()
 }
 
-fun inline(entry: String, prog: MutableSbfCallGraph, inlineConfig: InlinerConfig) = inline(entry, entry, prog, inlineConfig)
+fun inline(entry: String, prog: SbfCallGraph, inlineConfig: InlinerConfig) = inline(entry, entry, prog, inlineConfig)
+
+/**
+ * This class reduces the API of `SbfCallGraph` to avoid calling methods that might use obsolete information
+ * after some inliner action.
+ **/
+private class InlinerSbfCallGraph(private val prog: SbfCallGraph) {
+    fun getGlobals(): GlobalVariableMap = prog.getGlobals()
+    fun getCFG(name: String): SbfCFG? = prog.getCFG(name)
+    // precondition: ensure that if a new CFG is created during inlining then
+    // no existing CFG can call it.
+    fun getRecursiveFunctions(): Set<String> = prog.getRecursiveFunctions()
+    fun getStats(): CFGStats = prog.getStats()
+}
 
 
 /**
@@ -54,13 +69,19 @@ fun inline(entry: String, prog: MutableSbfCallGraph, inlineConfig: InlinerConfig
  **/
 private class Inliner(val entry: String,
                       private val newEntry: String,
-                      val prog: MutableSbfCallGraph,
+                      callgraph: SbfCallGraph,
                       private val inlinerConfig: InlinerConfig) {
+
+    val prog = InlinerSbfCallGraph(callgraph)
     // To assign a unique identifier to each pair of CVT_save_scratch_registers/CVT_restore_scratch_registers
     private var callId: ULong = 0UL
 
     private fun hasCalls(cfg: SbfCFG): Boolean {
-        return prog.getCallGraph()[cfg.getName()] != null
+        return cfg.getBlocks().values.any { b->
+            b.getInstructions().any {
+                it is SbfInstruction.Call && !it.isExternalFn()
+            }
+        }
     }
 
     private fun copy(cfg: SbfCFG): MutableSbfCFG {
@@ -165,8 +186,8 @@ private class Inliner(val entry: String,
             Pair(SbfMeta.INLINED_FUNCTION_NAME, calleeCFG.getName())
         )
 
-        val saveRegistersInst = SbfInstruction.Call(name = CVTFunction.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData)
-        val restoreRegistersInst = SbfInstruction.Call(name = CVTFunction.RESTORE_SCRATCH_REGISTERS.function.name, metaData = metaData)
+        val saveRegistersInst = SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData)
+        val restoreRegistersInst = SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name, metaData = metaData)
         callId++
         // r10 += 4096
         val increaseFramePtrInst = SbfInstruction.Bin(BinOp.ADD, Value.Reg(SbfRegister.R10_STACK_POINTER),
@@ -219,8 +240,7 @@ private class Inliner(val entry: String,
             for (locInst in bb.getLocatedInstructions()) {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Call) {
-                    val calleeCFG = prog.getCFG(inst.name)
-                    if (calleeCFG != null) {
+                    if (prog.getCFG(inst.name) != null) {
                         worklist.add(Pair(bb, locInst))
                     }
                 }
@@ -296,15 +316,13 @@ private class Inliner(val entry: String,
     }
 
     fun inline(): MutableSbfCallGraph {
-        val rootNames = prog.getCallGraphRoots().map{ it.getName()}
-        check(rootNames.contains(entry)) {"Inliner: $entry is not a root of the callgraph. Known roots=$rootNames"}
 
-        val entryCFG = prog.getMutableCFG(entry)
+
+        val entryCFG = prog.getCFG(entry)?.clone(newEntry)
         check(entryCFG != null) {"Inliner expects a callgraph with a single root"}
         val statsBefore = prog.getStats()
         // Start inlining from entry point
         inlineFunction(entryCFG, arrayListOf(), prog.getRecursiveFunctions(), 0)
-        entryCFG.setName(newEntry)
         entryCFG.simplify(prog.getGlobals())
         entryCFG.normalize()
         renameCVTCalls(entryCFG)

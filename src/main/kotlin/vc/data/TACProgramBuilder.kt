@@ -17,12 +17,12 @@
 
 package vc.data
 
+import allocator.Allocator
 import analysis.CmdPointer
 import analysis.TACProgramPrinter
 import com.certora.collect.*
 import config.Config
 import config.DestructiveOptimizationsModeEnum
-import datastructures.allValues
 import datastructures.stdcollections.*
 import instrumentation.calls.ArgNum
 import instrumentation.calls.CalldataEncoding
@@ -167,7 +167,7 @@ class TACProgramBuilder private constructor() {
      */
     fun construct(build: BlockBuilder.() -> Unit): BuiltTACProgram {
         BlockBuilder(0.nbid).apply { build() }
-        val graph = blocks.entries.associateTo(MutableBlockGraph()) { (nbid, block) -> nbid to block.jumps.toTreapSet() }
+        val graph = blocks.entries.associateTo(MutableBlockGraph()) { (nbid, block) -> nbid to block.jumps.toTreapSet() + treapSetOfNotNull(block.implicit) }
         val code = blocks.map { (nbid, block) -> nbid to block.cmds() }.toMap()
         labels.forEachEntry { (label, ptr) ->
             check(ptr.pos < code[ptr.block]!!.size) {
@@ -204,6 +204,7 @@ class TACProgramBuilder private constructor() {
         private val cmds = mutableListOf<TACCmd.Simple>()
         private var jumpCond: TACSymbol.Var? = null
         val jumps = mutableListOf<NBId>()
+        var implicit: NBId? = null
 
         fun addCmd(cmd: TACCmd.Simple) {
             check(jumps.isEmpty()) { "Can't add commands after a jump command has been added (Block ${nbid.num})" }
@@ -215,7 +216,13 @@ class TACProgramBuilder private constructor() {
         }
 
         fun jump(id: Int) {
+            check(implicit == null) { "Can't have an implicit next block and a jump"}
             jumps.add(id.nbid)
+        }
+
+        fun implicitJump(id: Int) {
+            check(jumps.isEmpty()) { "Can't have an implicit next block and a jump"}
+            implicit = id.nbid
         }
 
         private fun firstAnonErrMsg(id: Int) =
@@ -513,8 +520,9 @@ fun mockContract(code: CoreTACProgram): IContractClass {
 }
 
 /**
- * Provides an environment to build a [CoreTACProgram] where only the graph shape and the [CallId]s are of interest.
- * (The blocks and jump conditions are filled with dummies.)
+ * Provides an environment to build a [CoreTACProgram] where only the graph shape and the [CallId]s are of interest, by
+ * and large.
+ * (The blocks and jump conditions are filled with dummies by default, although it is possible to provide code as well.)
  *
  * Usage:
  *  - make procedures, blocks, and add edges (i.e. program transitions) via [proc], [blk], [edge]
@@ -523,9 +531,17 @@ fun mockContract(code: CoreTACProgram): IContractClass {
 class TacMockGraphBuilder private constructor() {
     private val allBlocks = mutableSetOf<NBId>()
     private val allProcedures = mutableSetOf<Procedure>()
+    private val addedCode = mutableMapOf<NBId, List<TACCmd.Simple>>()
 
     fun blk(proc: Procedure) =
-        BlockIdentifier(0, 0, 0, proc.callId, 0, allBlocks.size).also {
+        BlockIdentifier(
+            origStartPc = 0,
+            stkTop = 0,
+            decompCopy = 0,
+            calleeIdx = proc.callId,
+            topOfStackValue = 0,
+            freshCopy = Allocator.getFreshId(Allocator.Id.BLOCK_FRESH_COPY)
+        ).also {
             allBlocks += it
         }
 
@@ -533,13 +549,21 @@ class TacMockGraphBuilder private constructor() {
         check(allProcedures.none { (it.procedureId as? ProcedureId.CVLFunction)?.functionName == name }) {
             "procedure with name $name already registered, cannot register two procedures with the same name"
         }
-        val proc = Procedure(allProcedures.size, ProcedureId.CVLFunction(ContractOfProcedure.UNKNOWN, name))
+        val proc = Procedure(
+            Allocator.getFreshId(Allocator.Id.CALL_ID),
+            ProcedureId.CVLFunction(ContractOfProcedure.UNKNOWN, name)
+        )
         allProcedures += proc
         return proc
     }
 
-    private val dummyCmd = TACCmd.Simple.LabelCmd("dummyTestCmd")
-    private val dummyCond = true.asTACSymbol()
+    fun addCode(block: NBId, code: List<TACCmd.Simple>) {
+        check(block !in addedCode) { "code for block $block has already been added"}
+        addedCode[block] = code
+    }
+
+    val dummyCmd = TACCmd.Simple.LabelCmd("dummyTestCmd")
+    val dummyCond = true.asTACSymbol()
 
 
     val graph = MutableBlockGraph()
@@ -550,7 +574,7 @@ class TacMockGraphBuilder private constructor() {
 
     /** [CoreTACProgram] requires the graph to be well-formed, in particular, every node needs non-null successors. */
     private fun finalizeGraph() {
-        graph.allValues.toList().forEach { // need to materialize as a list to avoid concurrent modification
+        allBlocks.toList().forEach { // need to materialize as a list to avoid concurrent modification
             if (graph[it] == null)  {
                 graph[it] = treapSetOf()
             }
@@ -561,15 +585,14 @@ class TacMockGraphBuilder private constructor() {
         finalizeGraph()
         return CoreTACProgram(
             code = allBlocks.associateWith { node ->
-                val succ = graph[node]!!.toList()
+                val code = addedCode[node] ?: listOf(dummyCmd)
+                val succ = graph[node]?.toList()
+                    ?: error("successors missing for node $node")
                 if (succ.size > 1) {
                     check(succ.size == 2)
-                    listOf(
-                        dummyCmd,
-                        TACCmd.Simple.JumpiCmd(succ[0], succ[1], dummyCond)
-                    )
+                    code + TACCmd.Simple.JumpiCmd(succ[0], succ[1], dummyCond)
                 } else {
-                    listOf(dummyCmd)
+                    code
                 }
             },
             blockgraph = graph,

@@ -242,8 +242,8 @@ object InternalSummarizer {
 
             // TODO CERT-2736: there is significant duplication between this and [Summarizer]
             val setup = CommandWithRequiredDecls.mergeMany(
-                // calledContract
-                setupCalledContractForExpSumm(callId),
+                // calledContract and executingContract
+                setupSpecialVarsForExpSumm(callId),
 
                 // scene contracts
                 cvlCompiler.declareContractsAddressVars(),
@@ -375,15 +375,21 @@ object InternalSummarizer {
 
     /**
      * @return a command to set `calledContract` to the correct value: caller's address for library calls, and call's
-     * receiver otherwise
+     * receiver otherwise, plus one to set `executingContract` to the caller
      *
      * @param block the CallID where the summary will be inlined
      */
-    private fun setupCalledContractForExpSumm(block : CallId) : CommandWithRequiredDecls<TACCmd.Simple> {
+    private fun setupSpecialVarsForExpSumm(block : CallId) : CommandWithRequiredDecls<TACCmd.Simple> {
         // TODO CERT-2736: there is significant duplication between this and [Summarizer]
+        /**
+         * In the case of an internal function call the magic keywords `calledContract` and the `executingContract`
+         * are set to the same value. Having these is rather a convenience to the user. In the case of external calls these
+         * values will be assigned non-identical values, see [Summarizer].
+         */
         return CommandWithRequiredDecls(
-            TACCmd.Simple.AssigningCmd.AssignExpCmd(CVLKeywords.calledContract.toVar(), TACKeyword.ADDRESS.toVar(block)),
-            CVLKeywords.calledContract.toVar(), TACKeyword.ADDRESS.toVar(block)
+            listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(CVLKeywords.calledContract.toVar(), TACKeyword.ADDRESS.toVar(block)),
+                TACCmd.Simple.AssigningCmd.AssignExpCmd(CVLKeywords.executingContract.toVar(), TACKeyword.ADDRESS.toVar(block))),
+            CVLKeywords.calledContract.toVar(), TACKeyword.ADDRESS.toVar(block), CVLKeywords.executingContract.toVar()
         )
     }
 

@@ -1,3 +1,22 @@
+"""
+*
+*     The Certora Prover
+*     Copyright (C) 2025  Certora Ltd.
+*
+*     This program is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, version 3 of the License.
+*
+*     This program is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY, without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR a PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*
+"""
+
 # to be run from scripts/ directory in CI
 import json
 from os import getenv, makedirs, listdir, remove
@@ -16,7 +35,7 @@ import os
 LICENSE_TEXT = """
 MIT License
 
-Copyright (c) 2020 Certora
+Copyright (c) 2025 Certora
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -73,7 +92,7 @@ if __name__ == '__main__':
         branch = "local"
         triggering_job = "local"
     if branch and not tag:
-        BRANCH = branch.replace("/", "_").replace("-", "_")
+        BRANCH = branch.replace("/", "_")
     elif tag and not branch:
         TAG = tag
     else:
@@ -111,7 +130,7 @@ if __name__ == '__main__':
                 raise Exception(
                     f"Can release certora-cli-alpha-{BRANCH} only from release_cli_alpha, "
                     "tried to run from {triggering_job}")
-            NAME = f"certora_cli_alpha_{BRANCH}"
+            NAME = f"certora-cli-alpha-{BRANCH}"
             VERSION = f"{TIMESTAMP}+{COMMIT}"
         URL = f"https://pypi.org/project/{NAME}"
     else:

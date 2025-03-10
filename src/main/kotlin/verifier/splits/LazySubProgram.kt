@@ -146,7 +146,6 @@ class LazySubProgram(
                     ite(Config.UnderApproxStartDepth.get() >= 0, 1, 0)
                 ),
                 handleLeinoVars = true,
-                preserve = { false }
             )
         }
         .also { timesGenerated++ }

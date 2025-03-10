@@ -36,7 +36,7 @@ import config.ReportTypes
 import datastructures.NonEmptyList
 import datastructures.stdcollections.*
 import datastructures.toNonEmptyList
-import diagnostics.*
+import diagnostics.inCode
 import instrumentation.transformers.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
@@ -417,7 +417,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
             }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.TERNARY_OPTIMIZE) {
                 TernarySimplifier.simplify(it, afterSummarization = true, forbiddenVars = emptySet())
             }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
-                IntervalsRewriter.rewrite(it, handleLeinoVars = false, preserve = { false })
+                IntervalsRewriter.rewrite(it, handleLeinoVars = false)
             }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
                 simplifyDiamonds(it, iterative = false)
             }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) { code ->

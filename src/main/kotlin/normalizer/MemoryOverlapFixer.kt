@@ -23,10 +23,10 @@ import datastructures.stdcollections.*
 import evm.EVM_WORD_SIZE
 import evm.EVM_WORD_SIZE_INT
 import evm.MASK_SIZE
-import evm.highOnes
 import optimizer.isMemoryAccess
 import tac.MetaMap
 import tac.Tag
+import utils.EVMOps
 import utils.divRoundUp
 import utils.times
 import utils.toIntOrNull
@@ -120,7 +120,7 @@ object MemoryOverlapFixer {
                 v2: TACSymbol // write value
             ): Pair<CommandWithRequiredDecls<TACCmd.Simple>, TACSymbol.Var> {
                 val shift = (l2 - l1).times(BigInteger.valueOf(8)).toInt() /* we know l2-l1 is < 32 */
-                val leftMask = highOnes(shift)
+                val leftMask = EVMOps.highOnes(shift)
 
                 return ExprUnfolder.unfoldToSingleVar("memOverlap", TACExprFactUntyped {
                     Add(

@@ -23,7 +23,6 @@ import analysis.opt.inliner.InliningCalculator
 import analysis.opt.intervals.Intervals
 import config.Config
 import config.ConfigScope
-import evm.lowOnes
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import utils.*
@@ -349,7 +348,7 @@ class InliningCalculatorTest : TACBuilderAuxiliaries() {
         val prog = TACProgramBuilder {
             b assign Add(aS, 10.asTACExpr)
             bMap1[b] assign 7
-            assumeExp(Lt(cS, lowOnes(160).asTACExpr))
+            assumeExp(Lt(cS, ModZm.lowOnes(160).asTACExpr))
             d assign Add(bS, cS, 5.asTACExpr)
             label("query")
             bMap1[d] assign 10

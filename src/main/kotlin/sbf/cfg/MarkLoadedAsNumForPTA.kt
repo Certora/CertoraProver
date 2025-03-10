@@ -78,8 +78,8 @@ private fun allUsesAreNumForPTA(loadInst: LocatedSbfInstruction,
                         return Pair(SbfMeta.LOADED_AS_NUM_FOR_PTA, false)
                     }
                 } else if (!(loadedReg.r >= SbfRegister.R6 && loadedReg.r <= SbfRegister.R9)) {
-                    if (CVTFunction.from(nextUseInst.name) == CVTFunction.SAVE_SCRATCH_REGISTERS ||
-                        CVTFunction.from(nextUseInst.name) == CVTFunction.RESTORE_SCRATCH_REGISTERS) {
+                    if (CVTFunction.from(nextUseInst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS) ||
+                        CVTFunction.from(nextUseInst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
                         nextPos = nextUseLocInst.pos + 1
                         continue@inner
                     }

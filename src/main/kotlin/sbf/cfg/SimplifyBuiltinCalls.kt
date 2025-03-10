@@ -17,7 +17,7 @@
 
 package sbf.cfg
 
-import sbf.callgraph.CVTFunction
+import sbf.callgraph.CVTCore
 import sbf.callgraph.SolanaFunction
 import sbf.disassembler.SbfRegister
 
@@ -147,14 +147,14 @@ private fun renameCalls(cfg: MutableSbfCFG, renameFunction: (SbfInstruction.Call
 private fun renameCVTCall(call: SbfInstruction.Call): SbfInstruction? {
     // Remove namespaces
     val fname = removeNamespacesIfCVTCall(call.name)
-    val cvtFunction = CVTFunction.from(fname)
+    val cvtFunction = CVTCore.from(fname)
     if (cvtFunction != null) {
         when (cvtFunction) {
-            CVTFunction.ASSUME -> {
+            CVTCore.ASSUME -> {
                 val cond = Condition(CondOp.EQ, Value.Reg(SbfRegister.R1_ARG), Value.Imm(1UL))
                 return SbfInstruction.Assume(cond, call.metaData)
             }
-            CVTFunction.ASSERT -> {
+            CVTCore.ASSERT -> {
                 val cond = Condition(CondOp.NE, Value.Reg(SbfRegister.R1_ARG), Value.Imm(0UL))
                 return SbfInstruction.Assert(cond, call.metaData)
             }

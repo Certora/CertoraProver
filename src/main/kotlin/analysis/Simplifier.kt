@@ -445,7 +445,7 @@ object EthereumVariables {
         decls.add(trgNewValue)
         decls.add(trgOldValue)
         decls.add(trgNoOverflow)
-        bifs.add(TACBuiltInFunction.NoAddOverflowCheck.toInScopeBuiltinFunc())
+        bifs.add(TACBuiltInFunction.NoAddOverflowCheck(Tag.Bit256).toInScopeBuiltinFunc())
         val balanceAtTrg = getBalanceAt(trg)
         l.add(
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
@@ -466,7 +466,7 @@ object EthereumVariables {
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 trgNoOverflow,
                 TACExpr.Apply(
-                    TACBuiltInFunction.NoAddOverflowCheck.toTACFunctionSym(),
+                    TACBuiltInFunction.NoAddOverflowCheck(Tag.Bit256).toTACFunctionSym(),
                     listOf(trgOldValue.asSym(), amountSym.asSym()),
                     Tag.Bool
                 ),
@@ -545,9 +545,9 @@ object EthereumVariables {
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 checkOtherBalanceSymbol,
                 TACExprFactSimple.Apply(
-                    TACBuiltInFunction.NoAddOverflowCheck.toTACFunctionSym(),
+                    TACBuiltInFunction.NoAddOverflowCheck(Tag.Bit256).toTACFunctionSym(),
                     listOf(otherBalanceSymbol.asSym(), value.asSym()),
-                    TACBuiltInFunction.NoAddOverflowCheck.returnSort
+                    TACBuiltInFunction.NoAddOverflowCheck(Tag.Bit256).returnSort
                 ).let { overflowCheckExp ->
                     if (BalanceCondCheckIfCallerIsCalleeForOverflow.get()) {
                         TACExprFactUntyped.LOr(

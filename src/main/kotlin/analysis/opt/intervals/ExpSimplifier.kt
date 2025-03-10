@@ -20,8 +20,6 @@ package analysis.opt.intervals
 import analysis.CmdPointer
 import analysis.opt.ConstantPropagatorAndSimplifier.Companion.simplifyTop
 import analysis.opt.ConstantPropagatorAndSimplifier.Companion.simplifyTopOrNull
-import analysis.opt.intervals.ExtBig.Companion.Int256max
-import analysis.opt.intervals.ExtBig.Companion.Int256minMath
 import analysis.opt.intervals.ExtBig.Companion.MaxUInt
 import analysis.opt.intervals.ExtBig.Companion.Zero
 import analysis.opt.intervals.ExtBig.Companion.asExtBig
@@ -35,12 +33,12 @@ import analysis.opt.intervals.IntervalsCalculator.Companion.calcOneVarExpression
 import analysis.opt.intervals.IntervalsCalculator.Companion.intervalOfTag
 import analysis.split.Ternary.Companion.isPowOf2Minus1
 import datastructures.stdcollections.*
-import evm.EVM_MOD_GROUP256
-import evm.from2s
-import evm.lowOnes
-import evm.to2s
+import evm.twoToThe
 import tac.Tag
 import utils.*
+import utils.ModZm.Companion.from2s
+import utils.ModZm.Companion.lowOnes
+import utils.ModZm.Companion.to2s
 import vc.data.*
 import vc.data.tacexprutil.rebuild
 import java.math.BigInteger
@@ -59,6 +57,9 @@ class ExpSimplifer(
     private val txf: TACExprFact,
     private val preserve: (TACSymbol.Var) -> Boolean
 ) {
+
+    val TACExpr.outputModZm get() = this.tag as ModZm
+
     /** Returns the resulting expression and the `Intervals` we know about it */
     fun simplify(e: TACExpr): Pair<TACExpr, S> {
         if (e is TACExpr.Sym.Const) {
@@ -137,6 +138,13 @@ class ExpSimplifer(
     }
 
 
+    private fun narrowTo(tag: Tag?, e: TACExprFact.() -> TACExpr) =
+        when (tag) {
+            is Tag.Int -> txf(e)
+            is Tag.Bits -> txf { safeMathNarrow(e(), tag) }
+            else -> error("Shouldn't call `narrowTo` with tag $tag. Expression is ${txf(e)}")
+        }
+
     private fun handleBinOp(e: TACExpr, simpOps: List<TACExpr>, intervals: List<S>): TACExpr? {
         require(simpOps.size == 2)
         val (o1, o2) = simpOps
@@ -163,7 +171,7 @@ class ExpSimplifer(
             is TACExpr.BinOp.SignExtend -> {
                 val bit = i1.asConstOrNull?.toIntOrNull()?.let { (it + 1) * 8 }
                     ?: return null
-                runIf(i2.signExtend(bit) == i2) { o2 }
+                runIf(i2.signExtend(bit, e.outputModZm.bitwidth) == i2) { o2 }
             }
 
             is TACExpr.BinOp.BWOr ->
@@ -172,7 +180,7 @@ class ExpSimplifer(
                         c == BigInteger.ZERO -> op
 
                         i isLe (lowOnes(c.lowestSetBit)).asExtBig ->
-                            txf { safeMathNarrow(IntAdd(c.asTACExpr, op), Tag.Bit256) }
+                            narrowTo(e.tag) { IntAdd(c.asIntTACExpr, op) }
 
                         else -> null
                     }
@@ -184,10 +192,10 @@ class ExpSimplifer(
                         c == BigInteger.ZERO -> op
 
                         i isLe (lowOnes(c.lowestSetBit)).asExtBig ->
-                            txf { safeMathNarrow(IntAdd(c.asTACExpr, op), Tag.Bit256) }
+                            narrowTo(e.tag) { IntAdd(c.asIntTACExpr, op) }
 
                         c.isPowOf2Minus1 && i isLe c.asExtBig ->
-                            txf { safeMathNarrow(IntSub(c.asTACExpr, op), Tag.Bit256) }
+                            narrowTo(e.tag) { IntSub(c.asIntTACExpr, op) }
 
                         else -> null
                     }
@@ -196,7 +204,7 @@ class ExpSimplifer(
             is TACExpr.BinOp.Sub ->
                 when {
                     i2.asConstOrNull == BigInteger.ZERO -> o1
-                    i1 isGe i2 -> txf { safeMathNarrow(IntSub(o1, o2), Tag.Bit256) }
+                    i1 isGe i2 -> narrowTo(e.tag) { IntSub(o1, o2) }
                     else -> null
                 }
 
@@ -208,15 +216,15 @@ class ExpSimplifer(
 
             is TACExpr.BinOp.SMod ->
                 when {
-                    i1 isSLt i2 -> o1
-                    i1.isSurely2sNonNeg && i2.isSurely2sNonNeg -> txf.Mod(o1, o2)
+                    i1.isSLt(i2, e.outputModZm) -> o1
+                    i1.isSurely2sNonNeg(e.outputModZm) && i2.isSurely2sNonNeg(e.outputModZm) -> txf.Mod(o1, o2)
                     else -> null
                 }
 
             is TACExpr.BinOp.SDiv ->
                 when {
                     i2.asConstOrNull == BigInteger.ONE -> o1
-                    i1.isSurely2sNonNeg && i2.isSurely2sNonNeg -> txf.Div(o1, o2)
+                    i1.isSurely2sNonNeg(e.outputModZm) && i2.isSurely2sNonNeg(e.outputModZm) -> txf.Div(o1, o2)
                     else -> null
                 }
 
@@ -224,19 +232,19 @@ class ExpSimplifer(
                 when {
                     i2.asConstOrNull == BigInteger.ZERO -> o1
 
-                    // If x << y does not overflow, then we can save the mod256 by replacing with x * 2^y
+                    // If x << y does not overflow, then we can save the mod by replacing with x * 2^y
                     i1.max.nOrNull()?.let { a ->
                         i2.max.nOrNull()?.toIntOrNull()?.let { b ->
-                            b < 256 && a * BigInteger.TWO.pow(b) < EVM_MOD_GROUP256
+                            b < 256 && a * twoToThe(b) < e.outputModZm.modulus
                         }
                     } == true ->
                         txf {
                             val x = if (i2.isConst) {
-                                BigInteger.TWO.pow(i2.asConst.toInt()).asTACExpr
+                                twoToThe(i2.asConst.toInt()).asIntTACExpr
                             } else {
-                                Exponent(2.asTACExpr, o2)
+                                IntExponent(2.asIntTACExpr, o2)
                             }
-                            safeMathNarrow(IntMul(o1, x), Tag.Bit256)
+                            narrowTo(e.tagAssumeChecked) { IntMul(o1, x) }
                         }
 
                     else -> null
@@ -259,21 +267,21 @@ class ExpSimplifer(
             is TACExpr.TernaryExp.AddMod ->
                 (i1 + i2).let { sum ->
                     runIf(sum isGe Zero && sum isLt i3) {
-                        simplify(txf { safeMathNarrow(IntAdd(o1, o2), Tag.Bit256) }).first
+                        simplify(txf { narrowTo(e.tagAssumeChecked) { IntAdd(o1, o2) } }).first
                     }
                 }
 
             is TACExpr.TernaryExp.MulMod ->
                 (i1 * i2).let { prod ->
                     runIf(prod isGe Zero && prod isLt i3) {
-                        simplify(txf { safeMathNarrow(IntMul(o1, o2), Tag.Bit256) }).first
+                        simplify(txf { narrowTo(e.tagAssumeChecked) { IntMul(o1, o2) } }).first
                     }
                 }
         }
     }
 
 
-    @Suppress("UNUSED_PARAMETER")
+    @Suppress("UNUSED_PARAMETER", "unused")
     private fun handleBinBoolOp(e: TACExpr.BinBoolOp, simpOps: List<TACExpr>, intervals: List<S>) = null
 
     private fun handleBinRel(e: TACExpr.BinRel, simpOps: List<TACExpr>, intervals: List<S>): TACExpr? {
@@ -281,8 +289,8 @@ class ExpSimplifer(
         val (o1, o2) = simpOps
         val (i1, i2) = intervals
 
-        fun sameSign() =
-            (i1.isSurely2sNonNeg && i2.isSurely2sNonNeg) || (i1.isSurely2sNeg && i2.isSurely2sNeg)
+        fun sameSign() = (i1.isSurely2sNonNeg(o1.tag as Tag.Bits) && i2.isSurely2sNonNeg(o2.tag as Tag.Bits)) ||
+                (i1.isSurely2sNeg(o1.tag as Tag.Bits) && i2.isSurely2sNeg(o2.tag as Tag.Bits))
 
         with(txf) {
             return when (e) {
@@ -296,7 +304,7 @@ class ExpSimplifer(
     }
 
 
-    @Suppress("UNUSED_PARAMETER")
+    @Suppress("UNUSED_PARAMETER", "unused")
     private fun handleUnary(e: TACExpr.UnaryExp, simpOps: List<TACExpr>, intervals: List<S>) = null
 
     private fun handleVec(e: TACExpr.Vec, simpOps: List<TACExpr>, intervals: List<S>): TACExpr? =
@@ -322,21 +330,21 @@ class ExpSimplifer(
                     when {
                         ops.size == 1 -> ops.first()
 
-                        timesAll(vals) isLt (e.tagAssumeChecked as Tag.Bits).modulus.asExtBig -> {
+                        timesAll(vals) isLt (e.tag as Tag.Bits).modulus.asExtBig -> {
                             stats.plusOne("Mul->IntMul")
-                            txf { safeMathNarrow(IntMul(ops), e.tagAssumeChecked as Tag.Bits) }
+                            txf { safeMathNarrow(IntMul(ops), e.tag) }
                         }
 
                         vals.size == 2 -> {
-                            val m = vals[0].toMathInt() * vals[1].toMathInt()
-                            runIf(m isGe Int256minMath && m isLe Int256max) {
+                            val m = vals[0].toMathInt(e.tag) * vals[1].toMathInt(e.tag)
+                            runIf(m isGe e.tag.minSignedMath.asExtBig && m isLe e.tag.maxSigned.asExtBig) {
                                 stats.plusOne("Mul->SignedIntMul")
                                 txf {
                                     val inner = IntMul(
                                         twosUnwrap(simpOps[0], vals[0], createAnyway = true)!!,
                                         twosUnwrap(simpOps[1], vals[1], createAnyway = true)!!
                                     )
-                                    twosWrap(inner, m, createAnyway = true)!!
+                                    twosWrap(inner, m, e.tag, createAnyway = true)!!
                                 }
                             }
                         }
@@ -375,15 +383,15 @@ class ExpSimplifer(
 
 
     /**
-     * converts a mathint to a 2s complement bv256, but can simplify if it sees its not really needed.
+     * converts a mathint to a 2s complement [Tag.Bits], but can simplify if it sees its not really needed.
      * [createAnyway] will create the expression even if there is no simplification, otherwise, null is returned.
      */
-    private fun twosWrap(e: TACExpr, i: S, createAnyway: Boolean = false) =
+    private fun twosWrap(e: TACExpr, i: S, tag : Tag.Bits, createAnyway: Boolean = false) =
         when {
-            i.isConst -> i.asConst.to2s().asTACExpr
-            i isGe Zero -> txf.safeMathNarrow(e, Tag.Bit256)
-            i isLt Zero -> txf { safeMathNarrow(IntAdd(e, EVM_MOD_GROUP), Tag.Bit256) }
-            else -> runIf(createAnyway) { txf.twosWrap(e) }
+            i.isConst -> i.asConst.to2s(tag).asTACExpr(tag)
+            i isGe Zero -> txf.safeMathNarrow(e, tag)
+            i isLt Zero -> txf { safeMathNarrow(IntAdd(e, tag.modulus.asIntTACExpr), tag) }
+            else -> runIf(createAnyway) { txf.twosWrap(e, tag) }
         }
 
     /**
@@ -391,27 +399,29 @@ class ExpSimplifer(
      * [createAnyway] will create the expression even if there is no simplification, otherwise, null is returned.
      */
     private fun twosUnwrap(e: TACExpr, i: S, createAnyway: Boolean = false) =
-        when {
-            i.isConst -> i.asConst.from2s().asTACExpr
-            i.isSurely2sNonNeg -> e
-            i.isSurely2sNeg -> txf { IntSub(e, EVM_MOD_GROUP) }
-            else -> runIf(createAnyway) { txf.twosUnwrap(e) }
+        (e.tag as Tag.Bits).let { tag ->
+            when {
+                i.isConst -> i.asConst.from2s(tag).asIntTACExpr
+                i.isSurely2sNonNeg(tag) -> e
+                i.isSurely2sNeg(tag) -> txf { IntSub(e, tag.modulus.asIntTACExpr) }
+                else -> runIf(createAnyway) { txf.twosUnwrap(e, tag) }
+            }
         }
 
 
     /** assuming s is in mathint form */
-    private fun noSignedOverflow(s : S) =
+    private fun noSignedOverflow(s : S, modZm: ModZm) =
         when {
-            s isLt Int256minMath || s isGt Int256max -> txf.False
-            s isGe Int256minMath && s isLe Int256max -> txf.True
+            s isLt modZm.minSignedMath || s isGt modZm.maxSigned -> txf.False
+            s isGe modZm.minSignedMath && s isLe modZm.maxSigned -> txf.True
             else -> null
         }
 
 
     private fun handleApply(e: TACExpr.Apply, simpOps: List<TACExpr>, vals: List<S>): TACExpr? =
-        when ((e.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif) {
+        when (val bif = (e.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif) {
             is TACBuiltInFunction.TwosComplement.Wrap ->
-                twosWrap(simpOps[0], vals[0])
+                twosWrap(simpOps[0], vals[0], bif.tag)
 
             is TACBuiltInFunction.TwosComplement.Unwrap ->
                 twosUnwrap(simpOps[0], vals[0])
@@ -425,26 +435,42 @@ class ExpSimplifer(
                 }
             }
 
-            TACBuiltInFunction.NoMulOverflowCheck -> {
+            is TACBuiltInFunction.NoMulOverflowCheck -> {
                 val a = vals[0] * vals[1]
                 when {
-                    a isGt MaxUInt -> txf.False
-                    a isLe MaxUInt -> txf.True
+                    a isGt bif.tag.maxUnsigned -> txf.False
+                    a isLe bif.tag.maxUnsigned -> txf.True
                     else -> null
                 }
             }
 
-            TACBuiltInFunction.NoSMulOverAndUnderflowCheck ->
-                noSignedOverflow(vals[0].toMathInt() * vals[1].toMathInt())
+            is TACBuiltInFunction.NoSMulOverAndUnderflowCheck ->
+                noSignedOverflow(vals[0].toMathInt(bif.tag) * vals[1].toMathInt(bif.tag), bif.tag)
 
-            TACBuiltInFunction.NoSAddOverAndUnderflowCheck ->
-                noSignedOverflow(vals[0].toMathInt() + vals[1].toMathInt())
+            is TACBuiltInFunction.NoSAddOverAndUnderflowCheck ->
+                noSignedOverflow(vals[0].toMathInt(bif.tag) + vals[1].toMathInt(bif.tag), bif.tag)
 
-            TACBuiltInFunction.NoSSubOverAndUnderflowCheck ->
-                noSignedOverflow(vals[0].toMathInt() - vals[1].toMathInt())
+            is TACBuiltInFunction.NoSSubOverAndUnderflowCheck ->
+                noSignedOverflow(vals[0].toMathInt(bif.tag) - vals[1].toMathInt(bif.tag), bif.tag)
 
             is TACBuiltInFunction.SafeMathPromotion ->
                 simpOps.single()
+
+            is TACBuiltInFunction.SafeSignedNarrow ->
+                when {
+                    vals[0].isSurely2sNonNeg(bif.paramSort) ->
+                        txf.safeUnsignedNarrowTo(bif.returnSort, simpOps[0])
+
+                    else -> null
+                }
+
+            is TACBuiltInFunction.SignedPromotion ->
+                when {
+                    vals[0].isSurely2sNonNeg(bif.paramSort) ->
+                        txf.safeUnsignedNarrowTo(bif.returnSort, simpOps[0])
+
+                    else -> null
+                }
 
             else -> null
         }

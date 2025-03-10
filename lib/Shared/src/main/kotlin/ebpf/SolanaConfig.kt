@@ -19,7 +19,6 @@ package sbf
 
 import config.ConfigType
 import org.apache.commons.cli.Option
-import datastructures.stdcollections.*
 
 /** Static object that contains all the Solana CLI options **/
 object SolanaConfig {
@@ -236,19 +235,26 @@ object SolanaConfig {
         }
     }
 
-    val EnableTACOptimizations = object : ConfigType.IntCmdLine(
+    val TACOptLevel = object : ConfigType.IntCmdLine(
         0,
         Option(
             "solanaTACOptimize",
             true,
             "Perform TAC-to-TAC optimizations still as part of the Solana front-end. " +
-                "Possible values 0 (no optimization), 1, 2, and 3 (highest level of optimization) [default: 0]"
+                       "[default: 0 (no optimization)]"
         )
     ) {
-        override fun check(newValue: Int): Boolean {
-            return newValue == 0 || newValue == 1 || newValue == 2 || newValue == 3
-        }
+        override fun check(newValue: Int) = newValue >= 0
     }
+
+    val UseLegacyTACOpt = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "solanaUseLegacyTACOptimize",
+            true,
+            "Use old set of TAC optimizations [default: true]"
+        )
+    ) {}
 
     val UseTACMathInt = object : ConfigType.BooleanCmdLine(
         false,

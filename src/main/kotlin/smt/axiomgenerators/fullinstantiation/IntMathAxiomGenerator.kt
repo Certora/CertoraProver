@@ -21,7 +21,6 @@ import config.Config
 import datastructures.add
 import datastructures.mutableMultiMapOf
 import datastructures.stdcollections.*
-import evm.EVM_MOD_GROUP256
 import log.*
 import smt.FreeIdentifierCollector
 import smt.GenerateEnv
@@ -59,12 +58,19 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
 
     private val basicMathAxiomsDefs = BasicMathAxiomsDefs(lxf)
 
+    /** Tags see in parameters of `Add`. These will generate our simplified modulo function for the result of addition */
+    private val simpleAddTags = mutableSetOf<Tag.Bits>()
+
+    /** Same as [simpleAddTags], but for `Sub` */
+    private val simpleSubTags = mutableSetOf<Tag.Bits>()
+
     override fun visit(e: LExpression, env: GenerateEnv) {
         if (e !is LExpression.ApplyExpr) {
             return
         }
         if (!env.isEmpty() && // <- optimization to save the collect call below in case
-            cachedFreeIdentifierCollector.collect(e).containsAny(env.quantifiedVariables)) {
+            cachedFreeIdentifierCollector.collect(e).containsAny(env.quantifiedVariables)
+        ) {
             /** * See [BitwiseAxiomGenerator] for analogous case. */
             return
         }
@@ -78,7 +84,7 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
             }
         }
 
-        when (e.f) {
+        when (val f = e.f) {
 
             // a >>l b is same as a/2^b
             is NonSMTInterpretedFunctionSymbol.Binary.ShiftRightLogical -> {
@@ -87,7 +93,8 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
                 val exp = lxf {
                     ite(e.rhs intLt litInt(256), divExp, ZERO)
                 }
-                axioms.addX(listOf(), env,
+                axioms.addX(
+                    listOf(), env,
                     "shift right logical same as div" toExpr { e eq exp }
                 )
             }
@@ -98,11 +105,12 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
                 // mod is important because the implicit mod 2^256 of multiplication in LIA is modeled imprecisely,
                 // but we want shift-left to be precise.
                 val exp = lxf {
-                    ite(e.rhs intLt litInt(256), mulExp, ZERO) % TwoTo256
+                    ite(e.rhs intLt litInt(f.tag.bitwidth), mulExp, ZERO) % litInt(f.tag.modulus)
                 }
                 liaGenerator?.visit(mulExp, env)
                 liaGenerator?.visit(exp, env)
-                axioms.addX(listOf(), env,
+                axioms.addX(
+                    listOf(), env,
                     "shift left same as mul" toExpr { e eq exp }
                 )
             }
@@ -118,8 +126,10 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
                         val res = it <= Config.Smt.MaxPreciseConstantExponent.get()
                         if (!res) {
                             @Overapproximation("constant exponentiation: exponent too high")
-                            logger.warn { "Constant exponentiation with too-high exponent -- overapproximating it. " +
-                                "Expression: $e" }
+                            logger.warn {
+                                "Constant exponentiation with too-high exponent -- overapproximating it. " +
+                                    "Expression: $e"
+                            }
                         }
                         res
                     }?.let { i -> constPowerExprs.add(i, e.lhs) }
@@ -130,6 +140,12 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
                     lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.UninterpExp(Tag.Bit256))
                 }
             }
+
+            is NonSMTInterpretedFunctionSymbol.Binary.Sub ->
+                simpleSubTags += e.tag as Tag.Bits
+
+            is NonSMTInterpretedFunctionSymbol.Vec.Add ->
+                simpleAddTags += e.tag as Tag.Bits
 
             else -> Unit
         }
@@ -146,35 +162,40 @@ class IntMathAxiomGenerator(val lxf: LExpressionFactory, private val liaGenerato
         }
     }
 
-    override fun yieldDefineFuns(): List<DefType> {
-        return listOf(
+    override fun yieldDefineFuns(): List<DefType> =
+        simpleAddTags.map { tag ->
             // implement modulo for additions using a case split and possibly a subtraction
             lxf.buildConstantNewUFLIAwud("t!0", Tag.Int).let { t0 ->
                 DefType(
-                    AxiomatizedFunctionSymbol.SimpleAddModulo,
+                    AxiomatizedFunctionSymbol.SimpleAddModulo(tag),
                     listOf(t0),
                     Tag.Int, lxf {
-                        ite(t0.within(ZERO, TwoTo256), t0, t0 - TwoTo256)
-                    }
-                )
-            },
-            // implement modulo for subtractions using a case split and possibly an addition
-            lxf.buildConstantNewUFLIAwud("t!0", Tag.Int).let { t0 ->
-                DefType(
-                    AxiomatizedFunctionSymbol.SimpleSubModulo,
-                    listOf(t0),
-                    Tag.Int, lxf {
-                        ite(t0.within(litInt(-EVM_MOD_GROUP256), ZERO), t0 + TwoTo256, t0)
+                        ite(t0.within(ZERO, litInt(tag.modulus)), t0, t0 - litInt(tag.modulus))
                     }
                 )
             }
-        )
-    }
+        } + simpleSubTags.map { tag ->
+            // implement modulo for subtractions using a case split and possibly an addition
+            lxf.buildConstantNewUFLIAwud("t!0", Tag.Int).let { t0 ->
+                DefType(
+                    AxiomatizedFunctionSymbol.SimpleSubModulo(tag),
+                    listOf(t0),
+                    Tag.Int, lxf {
+                        ite(t0.within(litInt(-tag.modulus), ZERO), t0 + litInt(tag.modulus), t0)
+                    }
+                )
+            }
+        }
+
 
     override fun beforeScriptFreeze() {
         constPowerExprs.keys.forEach { basicMathAxiomsDefs.constantPowAxiom(it) } // registers them as a side effect
-        lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.SimpleAddModulo)
-        lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.SimpleSubModulo)
+        simpleAddTags.forEach {
+            lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.SimpleAddModulo(it))
+        }
+        simpleSubTags.forEach {
+            lxf.registerFunctionSymbol(AxiomatizedFunctionSymbol.SimpleSubModulo(it))
+        }
         super.beforeScriptFreeze()
     }
 }
