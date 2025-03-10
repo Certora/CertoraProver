@@ -1,5 +1,3 @@
-package vc.data.parser.infix;
-
 /*
  *     The Certora Prover
  *     Copyright (C) 2025  Certora Ltd.
@@ -16,6 +14,8 @@ package vc.data.parser.infix;
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
+package vc.data.parser.infix;
 
 import java_cup.runtime.ComplexSymbolFactory;
 import java_cup.runtime.ComplexSymbolFactory.Location;
@@ -136,3 +136,6 @@ import tac.Tag;
 /* error fallback */
 [^]                              { throw new IOException("Illegal character <"+
                                                         yytext()+"> in line: " + (yyline+1) + ", col: " + (yycolumn+1) + "File: " + theFilename); }
+
+
+
