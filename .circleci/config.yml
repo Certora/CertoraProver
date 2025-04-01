@@ -1,0 +1,393 @@
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@4.0.0
+  git-shallow-clone: guitarrapc/git-shallow-clone@2.8.0
+
+parameters:
+  run_certora_prover:
+    default: false
+    type: boolean
+  certora_ci_name:
+    default: "CertoraProver Sanity"
+    type: string
+  gambit_version:
+    default: "v1.0.5"
+    type: string
+  release_beta:
+    default: false
+    type: boolean
+  release_prod_version:
+    default: false
+    type: boolean
+
+commands:
+  proper_checkout:
+    description: "Performs a shallow checkout with submodules"
+    steps:
+      - git-shallow-clone/checkout_advanced:
+          clone_options: '--depth 1'
+      - run:
+          name: Sync and Update Submodules
+          command: |
+            git submodule sync
+            git submodule update --depth 1 --init
+
+  prepare_reg_test:
+    description: "Prepares environment for regression testing"
+    steps:
+      - run:
+          name: Install Python Dependencies
+          command: |
+            pip install twine
+            pip install -r scripts/certora_cli_requirements.txt
+      - run:
+          name: Install Certora CLI
+          command: |
+            python3 scripts/certora_cli_publish.py --local_install --pip_command pip
+
+  run_evm_sanity:
+    description: "Runs the EVM sanity tests"
+    steps:
+      - run:
+          name: Run EVM Sanity Tests
+          command: |
+            cd Public/TestEVM/CVLTypechecking/ArrayLiterals
+            certoraEVMProver Default.conf --server staging --prover_version ${PUBLIC_CIRCLE_BRANCH} --wait_for_results "all"
+
+  run_solana_sanity:
+    description: "Runs the Solana sanity tests"
+    steps:
+      - run:
+          name: Run Solana Sanity Tests
+          command: |
+            cd Public/TestSolana/SolanaFlowTest
+            certoraSolanaProver Default.conf --server staging --prover_version ${PUBLIC_CIRCLE_BRANCH} --wait_for_results "all"
+
+  run_soroban_sanity:
+    description: "Runs the Soroban sanity tests"
+    steps:
+      - run:
+          name: Run Soroban Sanity Tests
+          command: |
+            cd Public/TestSoroban/Meridian2024-workshop
+            certoraSorobanProver Default.conf --server staging --prover_version ${PUBLIC_CIRCLE_BRANCH} --wait_for_results "all"
+
+  download_gambit:
+    steps:
+      - run:
+          name: Get Gambit binaries
+          command: |
+            echo "Download gambit << pipeline.parameters.gambit_version >> released binaries"
+            wget https://github.com/Certora/gambit/releases/download/<< pipeline.parameters.gambit_version >>/gambit-linux-<< pipeline.parameters.gambit_version >> -O gambit-linux
+            wget https://github.com/Certora/gambit/releases/download/<< pipeline.parameters.gambit_version >>/gambit-macos-<< pipeline.parameters.gambit_version >> -O gambit-macos
+            chmod +x gambit-*
+
+  run_mutation_sanity:
+    description: "Runs the mutation tests"
+    steps:
+      - download_gambit
+      - run:
+          name: Rename the linux binary
+          command: |
+            mv gambit-linux gambit
+            chmod +x gambit
+            echo "export PATH=$PATH:$PWD" >> $BASH_ENV
+            source $BASH_ENV
+      - run:
+          name: Run Mutation Tests
+          command: |
+            cd Public/TestMutation/mulSolc8
+            certoraMutate --conf mul8_0.conf --sync --poll_timeout 8 --debug --server staging --prover_version ${PUBLIC_CIRCLE_BRANCH}
+
+  release_certora_cli:
+    steps:
+      - run:
+          name: Get dependencies for publishing python package
+          command: |
+            python3 -m pip install -r scripts/certora_cli_requirements.txt
+            python3 -m pip install twine wheel argcomplete
+      - download_gambit
+      - run:
+          name: Run deployment script
+          command: |
+            mkdir publish
+            cd publish
+            python3 ../scripts/certora_cli_publish.py
+      - run:
+          name: Test the just now released version
+          command: |
+            cd publish
+            chmod +x test.sh
+            ./test.sh
+
+jobs:
+  build:
+    docker:
+      - image: &img public.ecr.aws/certora/cvt-image:2025.02.20-4796-8cf5eae
+    working_directory: ~/repo
+    environment:
+      # configure sccache usage
+      RUSTC_WRAPPER: "../../.cargo/bin/sccache"
+      PUBLIC_CIRCLE_BRANCH: &public_circle_branch public-${CIRCLE_BRANCH}
+    steps:
+      - proper_checkout
+      - run: apt-get update && sudo apt-get install -y cmake
+      - run: echo "export CERTORA=$PWD" >> $BASH_ENV
+      - run: echo "export PATH=$PATH:$CERTORA" >> $BASH_ENV
+      - run: echo 'export DONT_USE_VERIFICATION_RESULTS_FOR_EXITCODE="1"' >> $BASH_ENV
+      - run: echo "Circle branch is ${PUBLIC_CIRCLE_BRANCH}"
+      - run:
+          name: run gradle - no cache
+          command: ./gradlew assemble testClasses testLists -Pdetekt.full --no-build-cache | tee assembleResults.txt
+      - run: cp build/libs/emv-0.4-jar-with-dependencies.jar emv.jar
+      - run: cp Typechecker/build/libs/Typechecker-0.4-all.jar Typechecker.jar
+      - run: cp ASTExtraction/build/libs/ASTExtraction-0.4-all.jar ASTExtraction.jar
+      - run: cp scripts/Gimli-DWARF-JSONDump/target/release/Gimli-DWARF-JSONDump Gimli-DWARF-JSONDump
+      - run:
+          name: Collect build warnings
+          command: |
+            grep "^w: " assembleResults.txt | tee warnings.txt || true
+      - run: mkdir bins
+      - run:
+          name: Copying scripts
+          command: |
+            cp -R scripts/Shared .
+            chmod +x scripts/Shared/*.py
+            cp -R scripts/CertoraProver .
+            chmod +x scripts/CertoraProver/*.py
+            cp -R scripts/Mutate .
+            chmod +x scripts/Mutate/*.py
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - ./repo/*.jar
+            - ./repo/Gimli-DWARF-JSONDump
+            - ./repo/*.py
+            - ./repo/scripts
+            - ./repo/Shared
+            - ./repo/CertoraProver
+            - ./repo/Mutate
+            - ./repo/gradlew
+            - ./repo/gradle
+            - ./repo/build.gradle.kts
+            - ./repo/settings.gradle.kts
+            - ./repo/gradle.properties
+            - ./repo/lib/DetektRules/build/classes
+            - ./repo/lib/DetektRules/src
+            - ./repo/lib/DetektRules/build.gradle.kts
+            - ./repo/lib/GeneralUtils/build/classes
+            - ./repo/lib/GeneralUtils/src
+            - ./repo/lib/GeneralUtils/build.gradle.kts
+            - ./repo/lib/KspGeneration/build/classes
+            - ./repo/lib/KspGeneration/src
+            - ./repo/lib/KspGeneration/build.gradle.kts
+            - ./repo/lib/MutationTest/build/classes
+            - ./repo/lib/MutationTest/src
+            - ./repo/lib/MutationTest/build.gradle.kts
+            - ./repo/lib/SMTLIBUtils/build/classes
+            - ./repo/lib/SMTLIBUtils/src
+            - ./repo/lib/SMTLIBUtils/build.gradle.kts
+            - ./repo/lib/Shared/build/classes
+            - ./repo/lib/Shared/src
+            - ./repo/lib/Shared/build.gradle.kts
+            - ./repo/lib/TestUtils/build/classes
+            - ./repo/lib/TestUtils/src
+            - ./repo/src
+            - ./repo/Public
+            - ./repo/Typechecker/src
+            - ./repo/tac_optimizer
+            - ./repo/fried-egg/target/release
+            - ./repo/certora_jars
+            - ./repo/fried-egg/src
+            - ./repo/fried-egg/build.sh
+            - ./repo/fried-egg/Cargo.lock
+            - ./repo/fried-egg/Cargo.toml
+            - ./repo/build/generated
+            - ./repo/build/classes
+            - ./repo/build/testLists
+            - ./repo/warnings.txt
+            - ./repo/.circleci
+            - ./repo/detekt
+            - ./repo/ASTExtraction/src
+            - .cargo
+
+  jar_deploy:
+    docker:
+      - image: cimg/base:2025.02
+    resource_class: small
+    working_directory: ~/repo
+    environment:
+      PUBLIC_CIRCLE_BRANCH: *public_circle_branch
+    steps:
+      - attach_workspace:
+          at: ~/
+      - aws-cli/setup:
+          role_arn: ${AWS_ROLE_ARN}
+          region: ${AWS_REGION}
+
+      - run:
+          name: Deploy to S3 in ARTIFACTS and create new records
+          command: |
+
+            timestamp=`date +%s`
+
+            if [ "$CIRCLE_TAG" != "" ]; then
+
+              # upload to S3 and tag files
+              # files related to main releases versions such as beta are excluded from s3 life-cycle policies
+              aws s3api put-object --bucket prover-artifacts --key ${CIRCLE_TAG}/emv-${CIRCLE_TAG}.jar --body emv.jar --tagging 'delete=false'
+              aws s3api put-object --bucket tac-optimizer-artifacts --key ${CIRCLE_TAG}/tac_optimizer-${CIRCLE_TAG} --body tac_optimizer --tagging 'delete=false'
+              aws s3api put-object --bucket ast-lsp-artifacts --key ${CIRCLE_TAG}/ASTExtraction-${CIRCLE_TAG}.jar --body ASTExtraction.jar --tagging 'delete=false'
+              aws s3 cp Gimli-DWARF-JSONDump s3://gimli-dumper-artifacts/Gimli-DWARF-JSONDump
+
+              # split the version into major, minor and patch
+              IFS=. read major minor patch \<<<"${CIRCLE_TAG##*-}"
+
+              # create new DB records for emv and tac
+              properties=$( jq -n \
+                --arg major "${major}" \
+                --arg minorpatch "$(($minor * 1000 + $patch))" \
+                --arg emv "${CIRCLE_TAG}/emv-${CIRCLE_TAG}.jar" \
+                --arg emvbucket "prover-artifacts" \
+                --arg tac "${CIRCLE_TAG}/tac_optimizer-${CIRCLE_TAG}" \
+                --arg tacbucket "tac-optimizer-artifacts" \
+                --argjson stable "true" \
+                --arg time "${timestamp}" \
+                --arg tag "${CIRCLE_TAG}" \
+                --arg commit "${CIRCLE_SHA1}" \
+                '{major: {N: $major}, "minor.patch": {N: $minorpatch}, timestamp: {N: $time}, prover_object_name: {S: $emv}, prover_bucket: {S: $emvbucket}, tac_optimizer_object_name: {S: $tac}, tac_optimizer_bucket: {S: $tacbucket}, active: {BOOL: $stable}, full_version: {S: $tag}, commit_hash: {S: $commit}}' )
+
+              echo "$properties"
+
+              aws dynamodb put-item --table-name versions --item "$properties" --return-consumed-capacity TOTAL
+            else
+              # upload to S3 and tag files
+              # files related to branches are included in s3 life-cycle policies
+              aws s3api put-object --bucket prover-artifacts --key ${PUBLIC_CIRCLE_BRANCH}/emv-${timestamp}.jar --body emv.jar --tagging 'delete=true'
+              aws s3api put-object --bucket tac-optimizer-artifacts --key ${PUBLIC_CIRCLE_BRANCH}/tac_optimizer-${timestamp} --body tac_optimizer --tagging 'delete=true'
+              aws s3api put-object --bucket ast-lsp-artifacts --key ${PUBLIC_CIRCLE_BRANCH}/ASTExtraction-${timestamp}.jar --body ASTExtraction.jar --tagging 'delete=true'
+              aws s3 cp Gimli-DWARF-JSONDump s3://gimli-dumper-artifacts/Gimli-DWARF-JSONDump
+
+              # create new DB records for emv and tac
+              properties=$( jq -n \
+                --arg branch "${PUBLIC_CIRCLE_BRANCH}" \
+                --arg time "${timestamp}" \
+                --arg emv "${PUBLIC_CIRCLE_BRANCH}/emv-${timestamp}.jar" \
+                --arg emvbucket "prover-artifacts" \
+                --arg tac "${PUBLIC_CIRCLE_BRANCH}/tac_optimizer-${timestamp}" \
+                --arg tacbucket "tac-optimizer-artifacts" \
+                --arg commit "${CIRCLE_SHA1}" \
+                '{branch: {S: $branch}, timestamp: {N: $time}, prover_object_name: {S: $emv}, prover_bucket: {S: $emvbucket}, tac_optimizer_object_name: {S: $tac}, tac_optimizer_bucket: {S: $tacbucket}, commit_hash: {S: $commit}}' )
+
+              echo "$properties"
+
+              aws dynamodb put-item --table-name develop --item "$properties" --return-consumed-capacity TOTAL
+            fi
+
+  certora_prover_sanity:
+    docker:
+      - image: *img
+    working_directory: ~/repo
+    environment:
+      RUSTC_WRAPPER: "../../.cargo/bin/sccache"
+      CERTORA_CI_CLIENT: << pipeline.parameters.certora_ci_name >>
+      PUBLIC_CIRCLE_BRANCH: *public_circle_branch
+    steps:
+      - attach_workspace:
+          at: ~/
+      - prepare_reg_test
+      - run_evm_sanity
+      - run_solana_sanity
+      - run_soroban_sanity
+      - run_mutation_sanity
+
+  # Prod release certora-cli - tag based
+  release_cli:
+    docker:
+      - image: &python python:3.11
+    resource_class: small
+    working_directory: ~/repo/
+    steps:
+      - attach_workspace:
+          at: ~/
+      - release_certora_cli
+
+  # Beta releases - tag based
+  release_cli_beta:
+    docker:
+      - image: *python
+    resource_class: small
+    working_directory: ~/repo/
+    steps:
+      - attach_workspace:
+          at: ~/
+      - release_certora_cli
+      - run:
+          name: Create mutation container
+          command: |
+            curl -X POST https://circleci.com/api/v2/project/gh/Certora/mutation-test-container/pipeline \
+            --header "Circle-Token: $CIRCLE_TOKEN" \
+            --header "content-type: application/json" \
+            --data '{"branch":"master"}'
+
+workflows:
+  prover-sanity:
+    when: << pipeline.parameters.run_certora_prover >>
+    jobs:
+      - build
+      - jar_deploy:
+          context:
+            - aws_artifacts
+          requires:
+            - build
+      - certora_prover_sanity:
+          requires:
+            - jar_deploy
+
+  release-beta:
+    when: << pipeline.parameters.release_beta >>
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /.*/
+      - jar_deploy:
+          context:
+            - aws_artifacts
+          requires:
+            - build
+          filters:
+            tags:
+              only: /.*/
+      - release_cli_beta: # beta is released only on tags
+          context:
+            - opscertora
+          requires:
+            - jar_deploy
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              ignore: # ignore all
+                - /.*/
+
+  release_prod_version_certora_cli:
+    when: << pipeline.parameters.release_prod_version >>
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /^(\d|[1-9]\d)\.(\d|[1-9]\d)\.(\d|[1-9]\d)$/
+            branches:
+              ignore: # ignore all
+                - /.*/
+      - release_cli:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^(\d|[1-9]\d)\.(\d|[1-9]\d)\.(\d|[1-9]\d)$/
+            branches:
+              ignore: # ignore all
+                - /.*/
