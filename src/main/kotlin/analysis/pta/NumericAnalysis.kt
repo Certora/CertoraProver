@@ -1986,9 +1986,10 @@ class NumericAnalysis(
         }
     }
 
-    fun kill(n_: NumericDomain, killedBySideEffects: Set<TACSymbol.Var>): NumericDomain {
+    fun kill(n_: NumericDomain, killedBySideEffects: PointerSemantics.WriteSideEffect): NumericDomain {
+        val killRelationalFacts = killedBySideEffects.killArrayLengthFacts + killedBySideEffects.killValue
         return n_.updateValues { p, abstractVal ->
-            if(p in killedBySideEffects) {
+            if(p in killedBySideEffects.killValue) {
                 return@updateValues AnyInt
             }
             if(abstractVal !is QualifiedInt) {
@@ -1996,9 +1997,7 @@ class NumericAnalysis(
             }
             abstractVal.copy(
                 qual = abstractVal.qual.retainAll { q ->
-                    killedBySideEffects.none { v ->
-                        q.relates(v)
-                    }
+                    !q.relatesAny(killRelationalFacts)
                 }
             )
         }
@@ -2008,7 +2007,7 @@ class NumericAnalysis(
         boundsAnalysis: NumericDomain,
         alloc: SyntheticAlloc
     ): NumericDomain {
-        return kill(boundsAnalysis, alloc.mapToTreapSet { it.first }) + alloc.associate { it ->
+        return kill(boundsAnalysis, PointerSemantics.WriteSideEffect(alloc.mapToTreapSet { it.first }, treapSetOf())) + alloc.associate { it ->
             it.first to if(it.second is EVMTypeDescriptor.EVMReferenceType) {
                 ANY_POINTER
             } else {

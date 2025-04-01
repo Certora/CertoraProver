@@ -47,6 +47,8 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     // TAC of a rule before the optimization passes
     PREOPTIMIZED_RULE(LoggerTypes.SPEC),
     PREINSTRUMENTED_RULE(LoggerTypes.SPEC),
+    PRECOMPILE_TO_SIMPLE(LoggerTypes.SPEC),
+    POSTCOMPILE_TO_SIMPLE(LoggerTypes.SPEC),
     // TAC after simple-simpling but before last optimization pass
     PRELASTOPT_RULE(LoggerTypes.SPEC),
     // The graphviz/dot dumps of all unsolved splits that we're using to do the coloring for the
@@ -196,7 +198,8 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     DROP_BW_NOPS(LoggerTypes.WHOLE_CONTRACT_TRANSFORMATION),
     INSTRUMENT_IMMUTABLES(LoggerTypes.INSTRUMENTATION),
     TERNARY_OPTIMIZE(LoggerTypes.TERNARY_SIMPLIFIER),
-    GLOBAL_INLINER(LoggerTypes.GLOBAL_INLINER),
+    GLOBAL_INLINER1(LoggerTypes.GLOBAL_INLINER),
+    GLOBAL_INLINER2(LoggerTypes.GLOBAL_INLINER),
     INTERVALS_OPTIMIZE(LoggerTypes.INTERVALS_SIMPLIFIER),
     EQUALITY_CHECK_NORMALIZATION(LoggerTypes.NORMALIZER),
     INT32_SCRATCH_NORMALIZATION(LoggerTypes.NORMALIZER),
@@ -253,7 +256,9 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     ABI_ENCODE_REMOVAL_POST_SUMMARY(LoggerTypes.ABI),
     REMOVE_CALLDATA_REFERENCES(LoggerTypes.ABI),
     ADHOC_INTERNAL_RETURN_FIXUP(LoggerTypes.SUMMARIZATION),
-    POST_SUMMARIZATION_STORAGE_CLEANUP(LoggerTypes.SUMMARIZATION)
+    POST_SUMMARIZATION_STORAGE_CLEANUP(LoggerTypes.SUMMARIZATION),
+    ARRAY_LENGTH_UPDATE_INSTRUMENTATION(LoggerTypes.ALIAS_ANALYSIS),
+    OPTIMIZE_WASM_BITOPS(LoggerTypes.OPTIMIZE)
     ;
 
     override fun isEnabled(): Boolean = this == NONE || Config.isEnabledLogger(this.loggerCategory) || Config.isEnabledReport(this)

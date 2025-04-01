@@ -373,6 +373,12 @@ class ContractClass(
 
             transforms.add(ReportTypes.OPAQUE_IDENTITY_REMOVAL, AnnotationRemover::removeOpaqueIdentities);
 
+            if(Config.AllowArrayLengthUpdates.get()) {
+                transforms.addExpensive(ReportTypes.ARRAY_LENGTH_UPDATE_INSTRUMENTATION) { m: ITACMethod ->
+                    OptimizeBasedOnPointsToAnalysis.validateLengthUpdates(m)
+                }
+            }
+
             transforms.addExpensive(ReportTypes.MEMORY_SPLITTER_AND_BRANCH_PRUNER) { m: ITACMethod ->
                 OptimizeBasedOnPointsToAnalysis.doWork(m)
             };
@@ -406,7 +412,7 @@ class ContractClass(
                                     check = true,
                                     entryBlock = root,
                                     code = mapOf(root to listOf(
-                                        TACCmd.Simple.AssertCmd(TACSymbol.False, "According to deletion summary at ${summary.cvlRange}," +
+                                        TACCmd.Simple.AssertCmd(TACSymbol.False, "According to deletion summary at ${summary.range}," +
                                             " the function ${c.name} was never supposed to be called from spec, but it was.")
                                     ))
                                 )

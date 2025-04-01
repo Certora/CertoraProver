@@ -23,9 +23,12 @@ import log.*
 import spec.CVLKeywords
 import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
+import spec.rules.CVLSingleRule
+import spec.rules.SingleRuleGenerationMeta
 import utils.CollectingResult
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.lift
+import utils.Range
 import utils.VoidResult
 
 private val logger = Logger(LoggerTypes.GENERIC_RULE)
@@ -49,14 +52,14 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
      * Gets the relevant method-param filter for the builtin.
      * (This is assuming instrumenting-builtin rules only take 1 parametric method.)
      */
-    abstract fun getMethodParamFilters(cvlRange: CVLRange, scope: CVLScope, symbolicFunctionName: String): MethodParamFilters
+    abstract fun getMethodParamFilters(range: Range, scope: CVLScope, symbolicFunctionName: String): MethodParamFilters
 
     /**
      * A function that a generator can run as part of typechecking to make sure generation
      * of the rule is possible.
      * Returns a [CVLError] if there is an error and null if the check is successful.
      */
-    abstract fun checkIfCanGenerate(cvlRange: CVLRange): VoidResult<CVLError>
+    abstract fun checkIfCanGenerate(range: Range): VoidResult<CVLError>
 
     /**
      * Determines what the final command will be.
@@ -80,18 +83,18 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
      * Generates the arguments for CVLCmd.Simple.contractFunction
      */
     private fun generateFunctionParams(symbolicFunction: String, symbolicCallDataArg: String, symbolicEnv: String) = listOf(
-        CVLParam(EVMBuiltinTypes.method, symbolicFunction, CVLRange.Empty()),
-        CVLParam(EVMBuiltinTypes.env, symbolicEnv, CVLRange.Empty()),
-        CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, symbolicCallDataArg, CVLRange.Empty())
+        CVLParam(EVMBuiltinTypes.method, symbolicFunction, Range.Empty()),
+        CVLParam(EVMBuiltinTypes.env, symbolicEnv, Range.Empty()),
+        CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, symbolicCallDataArg, Range.Empty())
     )
 
     override fun doGenerate(
         scope: CVLScope,
-        cvlRange: CVLRange,
+        range: Range,
         mainContract: String,
         functionsFromSpecFileAndContracts: Map<ContractInstanceInSDC, List<ContractFunction>>
     ): CollectingResult<CVLSingleRule,CVLError> {
-        checkIfCanGenerate(cvlRange).errorOrNull()?.let { return it.asError() }
+        checkIfCanGenerate(range).errorOrNull()?.let { return it.asError() }
 
         logger.debug { "Start generating builtin rule $eId" }
         val symbolicFunction = "f"
@@ -100,7 +103,7 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
         val functionParams = generateFunctionParams(symbolicFunction, symbolicCallDataArg, symbolicEnv)
 
         return scope.extendIn(CVLScope.Item::RuleScopeItem) { ruleScope ->
-            withScopeAndRange(ruleScope, cvlRange) {
+            withScopeAndRange(ruleScope, range) {
                 val arguments = listOf(
                     CVLExp.VariableExp(
                         symbolicEnv,
@@ -113,7 +116,7 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
                 )
                 val block = listOf<CVLCmd>(
                     CVLCmd.Simple.contractFunction(
-                        cvlRange,
+                        range,
                         ruleScope,
                         ParametricMethod(
                             symbolicFunction,
@@ -134,7 +137,7 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
                         BuiltInRuleSinkType.ASSERT_TRUE -> {
                             listOf(
                                 CVLCmd.Simple.Assert(
-                                    cvlRange,
+                                    range,
                                     CVLExp.Constant.BoolLit(true, CVLType.PureCVLType.Primitive.Bool.asTag()),
                                     "Dummy so last statement will be an assert",
                                     ruleScope
@@ -144,27 +147,27 @@ sealed class InstrumentingBuiltInRuleGenerator: BuiltInRuleGenerator() {
                         BuiltInRuleSinkType.ASSERT_TRUE_SATISFY_TRUE -> {
                             listOf(
                                 CVLCmd.Simple.Assert(
-                                    cvlRange,
+                                    range,
                                     CVLExp.Constant.BoolLit(true, CVLType.PureCVLType.Primitive.Bool.asTag()),
                                     "Checking auto-generated assertions",
                                     ruleScope
                                 ),
                                 CVLCmd.Simple.Satisfy(
-                                    cvlRange,
+                                    range,
                                     CVLExp.Constant.BoolLit(true, CVLType.PureCVLType.Primitive.Bool.asTag()),
                                     "Reaching end of method's code",
                                     ruleScope
                                 ),
                             )
                         }
-                        BuiltInRuleSinkType.NOP -> listOf(CVLCmd.Simple.Nop(cvlRange, ruleScope))
+                        BuiltInRuleSinkType.NOP -> listOf(CVLCmd.Simple.Nop(range, ruleScope))
                     }
 
-                val filters = getMethodParamFilters(cvlRange, ruleScope, symbolicFunction)
+                val filters = getMethodParamFilters(range, ruleScope, symbolicFunction)
 
                 CVLSingleRule(
                     ruleIdentifier = RuleIdentifier.freshIdentifier(eId.name),
-                    cvlRange = cvlRange,
+                    range = range,
                     ruleType = birType,
                     params = functionParams,
                     block = block,

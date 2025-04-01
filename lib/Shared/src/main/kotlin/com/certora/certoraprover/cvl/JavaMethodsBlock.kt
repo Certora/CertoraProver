@@ -39,6 +39,7 @@ import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.Range
 
 // This file contains the "Java" AST nodes for the methods block and its components.  See README.md for information about the Java AST.
 
@@ -62,7 +63,7 @@ fun getDefaultSummarizationMode(summary: CallSummary, target: MethodEntryTargetC
 
 /** Represents an entry in the `methods` block.  */
 class ImportedFunction(
-    private val cvlRange: CVLRange,
+    private val range: Range,
     /**
      * The undefaulted method signature. The `contract` field will be `null` if no contract is
      * specified, and will be "_" if the wildcard is specified.  The defaulting happens in the
@@ -72,7 +73,7 @@ class ImportedFunction(
     private val qualifiers: MethodQualifiers,
     private val summary: CallSummary?,
     private val withParams: List<CVLParam>?,
-    private val withRange: CVLRange?
+    private val withRange: Range?
 ) : MethodEntry {
     override fun toString() = "ImportedFunction($methodSignature,$qualifiers) => $summary"
 
@@ -93,20 +94,20 @@ class ImportedFunction(
         if (summary?.summarizationMode == SummarizationMode.UNRESOLVED_ONLY // user specified UNRESOLVED
             && qualifiers.visibility==Visibility.INTERNAL // for internal method
         ) {
-            collectError(UnresolvedSummaryModeOnInternalMethod(cvlRange))
+            collectError(UnresolvedSummaryModeOnInternalMethod(range))
         } else if (summary?.summarizationMode == SummarizationMode.DELETE // user specified DELETE
             && qualifiers.visibility==Visibility.INTERNAL // for internal method
         ) {
-            collectError(DeleteSummaryModeOnInternalMethod(cvlRange))
+            collectError(DeleteSummaryModeOnInternalMethod(range))
         } else if (summary is CallSummary.Dispatcher // user specified DISPATCHER
             && qualifiers.visibility == Visibility.INTERNAL // for an internal method
         ) {
-            collectError(DispatcherSummaryOnInternalMethod(cvlRange))
+            collectError(DispatcherSummaryOnInternalMethod(range))
         }
         val summary    = bind(summary?.kotlinize(resolver, scope, namedSig.params, withClause, defaultSummarizationMode) ?: null.lift())
 
         return@collectingErrors ConcreteMethodBlockAnnotation(
-            cvlRange,
+            range,
             namedSig,
             target,
             qualifiers,
@@ -138,7 +139,7 @@ class ImportedFunction(
 
 @Suppress("Deprecation") // TODO CERT-3752
 class CatchAllSummary(
-    private val range: CVLRange,
+    private val range: Range,
     private val ref: MethodReferenceExp,
     private val summary: CallSummary,
     private val preFlags: List<LocatedToken>
@@ -146,11 +147,11 @@ class CatchAllSummary(
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CatchAllSummaryAnnotation, CVLError> = collectingErrors{
         val contractId = ref.contract
         if (contractId == null || ref.method != CVLKeywords.wildCardExp.keyword) {
-            returnError(CVLError.General(ref.cvlRange, "Catch-all summaries must be of the form ContractName._"))
+            returnError(CVLError.General(ref.range, "Catch-all summaries must be of the form ContractName._"))
         }
 
         if (summary !is HavocingSummary) {
-            returnError(CVLError.General(ref.cvlRange, "Catch-all summaries must use havocing summaries (`NONDET`, `HAVOC_ALL`, `HAVOC_ECF`, `AUTO`)"))
+            returnError(CVLError.General(ref.range, "Catch-all summaries must use havocing summaries (`NONDET`, `HAVOC_ALL`, `HAVOC_ECF`, `AUTO`)"))
         }
 
         val contract = resolver.resolveContractName(contractId.id)
@@ -187,7 +188,7 @@ class CatchAllSummary(
 }
 
 class UnresolvedDynamicSummary(
-    private val range: CVLRange,
+    private val range: Range,
     private val methodReferenceExp: MethodReferenceExp,
     private val params: List<VMParam>?,
     private val preFlags: List<LocatedToken>,
@@ -229,11 +230,11 @@ class UnresolvedDynamicSummary(
 }
 
 sealed class CallSummary (
-    val range : CVLRange,
+    val range : Range,
     val summarizationMode: SummarizationMode?
 ) {
     constructor(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, summarizationMode: SummarizationMode?)
-        : this(CVLRange.Range(left,right), summarizationMode)
+        : this(Range.Range(left,right), summarizationMode)
 
     /**
      * @param funParams  the parameters to the summarized method
@@ -259,7 +260,9 @@ sealed class CallSummary (
             withClause: WithClause?,
             defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.Always, CVLError>
-            = returnValue.kotlinize(resolver, scope).map { retVal -> SpecCallSummary.Always(retVal, summarizationMode ?: defaultSummarizationMode, range) }
+            = returnValue.kotlinize(resolver, scope).map { retVal -> SpecCallSummary.Always(retVal, summarizationMode ?: defaultSummarizationMode,
+            this@Always.range
+        ) }
     }
 
     /** A CONSTANT summary  */
@@ -272,7 +275,7 @@ sealed class CallSummary (
             withClause: WithClause?,
             defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.Constant, CVLError> =
-            SpecCallSummary.Constant(summarizationMode ?: defaultSummarizationMode, range).lift()
+            SpecCallSummary.Constant(summarizationMode ?: defaultSummarizationMode, this@Constant.range).lift()
     }
 
     /** A PER_CALLEE_CONSTANT summary  */
@@ -284,17 +287,19 @@ sealed class CallSummary (
                                withClause: WithClause?,
                                defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.PerCalleeConstant, CVLError> =
-            SpecCallSummary.PerCalleeConstant(summarizationMode ?: defaultSummarizationMode, range).lift()
+            SpecCallSummary.PerCalleeConstant(summarizationMode ?: defaultSummarizationMode,
+                this@PerCalleeConstant.range
+            ).lift()
     }
 
     sealed interface HavocingSummary
 
     sealed class HavocingCallSummary (
-        range : CVLRange,
+        range : Range,
         summarizationMode: SummarizationMode?
     ) : CallSummary(range, summarizationMode), HavocingSummary {
         constructor(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, summarizationMode: SummarizationMode?)
-            : this(CVLRange.Range(left,right), summarizationMode)
+            : this(Range.Range(left,right), summarizationMode)
     }
 
     /** A NONDET summary  */
@@ -308,7 +313,7 @@ sealed class CallSummary (
             withClause: WithClause?,
             defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.HavocSummary.Nondet, CVLError> =
-            SpecCallSummary.HavocSummary.Nondet(summarizationMode ?: defaultSummarizationMode, range).lift()
+            SpecCallSummary.HavocSummary.Nondet(summarizationMode ?: defaultSummarizationMode, this@Nondet.range).lift()
     }
 
     /** A HAVOC_ECF summary  */
@@ -322,7 +327,7 @@ sealed class CallSummary (
             withClause: WithClause?,
             defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.HavocSummary.HavocECF, CVLError> =
-            SpecCallSummary.HavocSummary.HavocECF(summarizationMode ?: defaultSummarizationMode, range).lift()
+            SpecCallSummary.HavocSummary.HavocECF(summarizationMode ?: defaultSummarizationMode, this@HavocECF.range).lift()
     }
 
     /** A HAVOC_ALL summary  */
@@ -334,7 +339,7 @@ sealed class CallSummary (
                                withClause: WithClause?,
                                defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.HavocSummary.HavocAll, CVLError> =
-            SpecCallSummary.HavocSummary.HavocAll(summarizationMode ?: defaultSummarizationMode, range).lift()
+            SpecCallSummary.HavocSummary.HavocAll(summarizationMode ?: defaultSummarizationMode, this@HavocAll.range).lift()
     }
 
     class AssertFalse(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?)
@@ -345,7 +350,9 @@ sealed class CallSummary (
                                withClause: WithClause?,
                                defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.HavocSummary.AssertFalse, CVLError> =
-            SpecCallSummary.HavocSummary.AssertFalse(summarizationMode ?: defaultSummarizationMode, range).lift()
+            SpecCallSummary.HavocSummary.AssertFalse(summarizationMode ?: defaultSummarizationMode,
+                this@AssertFalse.range
+            ).lift()
     }
 
     /** An (explicit) AUTO summary  */
@@ -359,7 +366,7 @@ sealed class CallSummary (
             withClause: WithClause?,
             defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.HavocSummary.Auto, CVLError> =
-            SpecCallSummary.HavocSummary.Auto(summarizationMode ?: defaultSummarizationMode, range).lift()
+            SpecCallSummary.HavocSummary.Auto(summarizationMode ?: defaultSummarizationMode, this@Auto.range).lift()
     }
 
     /** A DISPATCHER summary  */
@@ -379,26 +386,28 @@ sealed class CallSummary (
             withClause: WithClause?,
             defaultSummarizationMode: SummarizationMode
         ): CollectingResult<SpecCallSummary.Dispatcher, CVLError> =
-            SpecCallSummary.Dispatcher(summarizationMode ?: defaultSummarizationMode, optimistic, useFallback, range).lift()
+            SpecCallSummary.Dispatcher(summarizationMode ?: defaultSummarizationMode, optimistic, useFallback,
+                this@Dispatcher.range
+            ).lift()
     }
 
     /** A special fallback dynamic summary for all unresolved calls */
     class DispatchList(
-        val cvlRange: CVLRange,
+        val range: Range,
         private val dispatcherList: List<PatternSig>,
         val default: HavocingCallSummary,
         val useFallback: Boolean
     ): Kotlinizable<SpecCallSummary.DispatchList> {
         sealed class PatternSig {
-            abstract val cvlRange: CVLRange
+            abstract val range: Range
         }
         data class PatternSigParams(val sig: MethodSig) : PatternSig() {
-            override val cvlRange: CVLRange
-                get() = sig.cvlRange
+            override val range: Range
+                get() = sig.range
         }
         data class PattenSigWildcardMethod(val sig: MethodSig) : PatternSig() {
-            override val cvlRange: CVLRange
-                get() = sig.cvlRange
+            override val range: Range
+                get() = sig.range
         }
 
         override fun kotlinize(
@@ -414,11 +423,11 @@ sealed class CallSummary (
                             WildCardMethodWithParams(sig).asError()
                         } else if (sig.baseContract() == CVLKeywords.wildCardExp.keyword) {
                             sig.kotlinizeExternal(resolver, scope).map { ext ->
-                                SpecCallSummary.DispatchList.Pattern.WildcardContract(pattern.cvlRange, ext)
+                                SpecCallSummary.DispatchList.Pattern.WildcardContract(pattern.range, ext)
                             }
                         } else {
                             sig.kotlinizeExternal(resolver, scope).map { resolution ->
-                                SpecCallSummary.DispatchList.Pattern.QualifiedMethod(pattern.cvlRange, resolution)
+                                SpecCallSummary.DispatchList.Pattern.QualifiedMethod(pattern.range, resolution)
                             }
                         }
                     }
@@ -433,7 +442,7 @@ sealed class CallSummary (
                         } else {
                             val target = sig.kotlinizeTarget(resolver)
                             check(target is SpecificTarget) {"Expecting a specific target from kotlinization, got $target"}
-                            SpecCallSummary.DispatchList.Pattern.WildcardMethod(pattern.cvlRange, target).lift()                        }
+                            SpecCallSummary.DispatchList.Pattern.WildcardMethod(pattern.range, target).lift()                        }
                     }
                 }
             }
@@ -446,7 +455,7 @@ sealed class CallSummary (
                         it as SpecCallSummary.HavocSummary
                     }
                 }
-            return kDefault.map(translatedFuns.flatten()) { d, t -> SpecCallSummary.DispatchList(cvlRange, t, d, useFallback) }
+            return kDefault.map(translatedFuns.flatten()) { d, t -> SpecCallSummary.DispatchList(this@DispatchList.range, t, d, useFallback) }
         }
     }
 
@@ -482,7 +491,7 @@ sealed class CallSummary (
                             exp,
                             funParams,
                             withClause,
-                            range,
+                            this@Expression.range,
                             childScope,
                             expectedType
                         )
@@ -521,10 +530,10 @@ sealed class CallSummary (
 
 
 class MethodQualifiers(
-    private val cvlRange: CVLRange,
+    private val range: Range,
     val preReturnsAnnotations: List<LocatedToken>,
     val postReturnsAnnotations: List<LocatedToken>
 ) : List<LocatedToken> by (preReturnsAnnotations + postReturnsAnnotations) {
     fun kotlinize(): CollectingResult<spec.cvlast.MethodQualifiers, CVLError>
-        = VMConfig.getMethodQualifierAnnotations(preReturnsAnnotations, postReturnsAnnotations, cvlRange)
+        = VMConfig.getMethodQualifierAnnotations(preReturnsAnnotations, postReturnsAnnotations, range)
 }

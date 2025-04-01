@@ -18,6 +18,7 @@
 package instrumentation.transformers
 
 import datastructures.stdcollections.*
+import tac.MetaKey
 import utils.mapNotNullToSet
 import vc.data.*
 import vc.data.TACMeta.REVERT_MANAGEMENT
@@ -40,7 +41,7 @@ interface FilteringFunctions {
         override fun isErasable(cmd: TACCmd.Simple.AssigningCmd) = REVERT_MANAGEMENT !in cmd.meta
     }
 
-    class CallTracePreserving(code: CoreTACProgram) : FilteringFunctions {
+    open class CallTracePreserving(code: CoreTACProgram) : FilteringFunctions {
         private val protectedMetas =
             listOf(
                 TACMeta.CVL_VAR,
@@ -49,7 +50,7 @@ interface FilteringFunctions {
                 TACMeta.IS_RETURNDATA
             )
 
-        private val protectedCmdMeta = listOf(TACMeta.CVL_EXP)
+        open val protectedCmdMeta: List<MetaKey<*>> = listOf(TACMeta.CVL_EXP)
 
         private val protectedVars =
             code.symbolTable.uninterpretedFunctions().mapNotNullToSet { it.asVarOrNull() }
@@ -61,9 +62,13 @@ interface FilteringFunctions {
             isInlineable(cmd.lhs) && protectedCmdMeta.none { it in cmd.meta }
     }
 
+    class BMCPreserving(code: CoreTACProgram) : CallTracePreserving(code) {
+        override val protectedCmdMeta: List<MetaKey<*>> = super.protectedCmdMeta + TACMeta.LAST_STORAGE_UPDATE
+    }
+
     companion object {
 
-        fun default(code: CoreTACProgram, keepRevertManagment: Boolean = false) =
+        fun default(code: CoreTACProgram, keepRevertManagment: Boolean = false, bmcAware: Boolean = false) =
             if (code.destructiveOptimizations) {
                 if (keepRevertManagment) {
                     NoFilterExceptRevertManagment
@@ -71,7 +76,11 @@ interface FilteringFunctions {
                     NoFilter
                 }
             } else {
-                CallTracePreserving(code)
+                if (bmcAware) {
+                    BMCPreserving(code)
+                } else {
+                    CallTracePreserving(code)
+                }
             }
     }
 }

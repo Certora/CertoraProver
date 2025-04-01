@@ -52,7 +52,7 @@ sealed class CallInstance : TreeViewReportable {
     /** this property will be deprecated soon, prefer [sarif] for newer sub-classes */
     open val name: String get() = this.sarif.flatten()
 
-    open val range: CVLRange.Range? get() = null
+    open val range: Range.Range? get() = null
     open var status: CallEndStatus = CallEndStatus.NONE
     val children: MutableList<CallInstance> = mutableListOf()
     var parent: ScopeInstance? = null
@@ -292,7 +292,7 @@ sealed class CallInstance : TreeViewReportable {
         class CVLFunctionInstance(
             override val callIndex: Int,
             override val callName: String,
-            override val range: CVLRange.Range?,
+            override val range: Range.Range?,
             override val formatter: CallTraceValueFormatter,
         ): PureCVLInvokingInstance()
 
@@ -313,7 +313,7 @@ sealed class CallInstance : TreeViewReportable {
                 info: EVMExternalMethodInfo?,
                 override val formatter: CallTraceValueFormatter,
             ) : SolidityInvokeInstance() {
-                override val params: List<VMParam> = info?.argTypes?.map { VMParam.Unnamed(it, CVLRange.Empty()) }.orEmpty()
+                override val params: List<VMParam> = info?.argTypes?.map { VMParam.Unnamed(it, Range.Empty()) }.orEmpty()
                 override val returnTypes: List<VMTypeDescriptor> = info?.resultTypes.orEmpty()
                 override val range = info?.sourceSegment?.range
             }
@@ -357,7 +357,7 @@ sealed class CallInstance : TreeViewReportable {
 
                 /** CERT-2214 avoids printing the keywords ANY and UNRESOLVED in the CallTrace */
                 val summaryString = when (summary) {
-                    is SpecCallSummary.ExpressibleInCVL -> "${summary.summaryName} summary @ ${summary.cvlRange}"
+                    is SpecCallSummary.ExpressibleInCVL -> "${summary.summaryName} summary @ ${summary.range}"
                     SpecCallSummary.OptimisticFallback -> "${summary.summaryName} summary"
                 }
 
@@ -365,7 +365,7 @@ sealed class CallInstance : TreeViewReportable {
             }
 
             override val range = when (val summary = annotation.summary) {
-                is SpecCallSummary.ExpressibleInCVL -> summary.cvlRange as? CVLRange.Range
+                is SpecCallSummary.ExpressibleInCVL -> summary.range as? Range.Range
                 SpecCallSummary.OptimisticFallback -> null
             }
 
@@ -420,21 +420,21 @@ sealed class CallInstance : TreeViewReportable {
          * a [CVL_LABEL_START]/[CVL_LABEL_END] and some aren't.
          * doing this would also allow us make [id] non-null, making [CVLSnippetCmd.EventID] more robust.
          */
-        constructor(message: String, labelId: Int? = null): this(CVLReportLabel.Message(message, CVLRange.Empty()), labelId)
+        constructor(message: String, labelId: Int? = null): this(CVLReportLabel.Message(message, Range.Empty()), labelId)
 
         override val name: String get() = label.toString()
-        override val range: CVLRange.Range? get() = label.rangeOrNull()
+        override val range: Range.Range? get() = label.rangeOrNull()
     }
 
     /** a CVL `if` block was entered */
-    class CVLIf(val predicate: String, override val id: Int, override val range: CVLRange.Range?) : ScopeInstance(), CVLSnippetCmd.EventID {
+    class CVLIf(val predicate: String, override val id: Int, override val range: Range.Range?) : ScopeInstance(), CVLSnippetCmd.EventID {
         override val name: String get() = "if (${predicate})"
     }
 
     class CVLBranch(
         val kind: CVLSnippetCmd.BranchStart.Kind,
         override val id: Int,
-        override val range: CVLRange.Range?
+        override val range: Range.Range?
     ) : ScopeInstance(), CVLSnippetCmd.EventID {
         override val sarif: Sarif get() = when (this.kind) {
             CVLSnippetCmd.BranchStart.Kind.THEN -> Sarif.fromPlainStringUnchecked("THEN branch")
@@ -445,7 +445,7 @@ sealed class CallInstance : TreeViewReportable {
     /**
      * AssertCast check for a CVL expression.
      */
-    class CastCheckInstance(override val name: String, override val range: CVLRange.Range?): ScopeInstance() {
+    class CastCheckInstance(override val name: String, override val range: Range.Range?): ScopeInstance() {
         override var status: CallEndStatus = CallEndStatus.ASSERT_CAST
     }
 
@@ -463,9 +463,9 @@ sealed class CallInstance : TreeViewReportable {
      * Storage access in the Solidity.
      */
     sealed class StorageInstance: CallInstance() {
-        class Store(override val sarif: Sarif, override val range: CVLRange.Range?): StorageInstance()
-        class Load(override val sarif: Sarif, override val range: CVLRange.Range?): StorageInstance()
-        class Havoc(override val sarif: Sarif, override val range: CVLRange.Range?): StorageInstance()
+        class Store(override val sarif: Sarif, override val range: Range.Range?): StorageInstance()
+        class Load(override val sarif: Sarif, override val range: Range.Range?): StorageInstance()
+        class Havoc(override val sarif: Sarif, override val range: Range.Range?): StorageInstance()
     }
 
     /**
@@ -477,9 +477,9 @@ sealed class CallInstance : TreeViewReportable {
     /**
      * Division by zero check.
      */
-    class DivZeroInstance(override val name: String, override val range: CVLRange.Range?): ScopeInstance()
+    class DivZeroInstance(override val name: String, override val range: Range.Range?): ScopeInstance()
 
-    class ViewReentrancyInstance(override val name: String, override val range: CVLRange.Range?): ScopeInstance()
+    class ViewReentrancyInstance(override val name: String, override val range: Range.Range?): ScopeInstance()
 
     /**
      * Loop information.
@@ -520,24 +520,24 @@ sealed class CallInstance : TreeViewReportable {
     }
 
     sealed class HaltInstance: CallInstance() {
-        class Return(override val range: CVLRange.Range?): HaltInstance() {
+        class Return(override val range: Range.Range?): HaltInstance() {
             override val name: String
                 get() = "Return"
         }
-        class Revert(override val range: CVLRange.Range?): HaltInstance() {
+        class Revert(override val range: Range.Range?): HaltInstance() {
             override val name: String
                 get() = "Revert"
         }
     }
 
-    class LocalAssignmentInstance(override val range: CVLRange.Range?, override val sarif: Sarif): CallInstance()
+    class LocalAssignmentInstance(override val range: Range.Range?, override val sarif: Sarif): CallInstance()
 
-    class NonSpecificDeclInstance(override val range: CVLRange.Range?, val lhs: String): CallInstance() {
+    class NonSpecificDeclInstance(override val range: Range.Range?, val lhs: String): CallInstance() {
         override val name: String
             get() = "Declare $lhs"
     }
 
-    class NonSpecificDefInstance(override val range: CVLRange.Range?, val lhs: String): CallInstance() {
+    class NonSpecificDefInstance(override val range: Range.Range?, val lhs: String): CallInstance() {
         override val name: String
             get() = "Define $lhs"
     }
@@ -546,7 +546,7 @@ sealed class CallInstance : TreeViewReportable {
      */
     class StorageStateValueInstance(
         override var status: CallEndStatus,
-        override val range: CVLRange.Range?,
+        override val range: Range.Range?,
         val value: StorageValue,
         val changedSincePrev: Boolean,
         val changedSinceStart: Boolean,
@@ -565,7 +565,7 @@ sealed class CallInstance : TreeViewReportable {
     /** observed value of a ghost at specific indices of the ghost map/function */
     class GhostValueInstance(
         override var status: CallEndStatus,
-        override val range: CVLRange.Range?,
+        override val range: Range.Range?,
         val value: StorageValue,
         changedSincePrev: Boolean,
         formatter: CallTraceValueFormatter
@@ -610,20 +610,20 @@ sealed class CallInstance : TreeViewReportable {
 
     // Information detected from the Solidity source code
     sealed class ContractSourceInstance: CallInstance() {
-        class Assignment(override val name: String, override val range: CVLRange.Range?): ContractSourceInstance()
+        class Assignment(override val name: String, override val range: Range.Range?): ContractSourceInstance()
     }
 
     /**
      * [CVLExp] as part of a [CVLCmd].
      */
-    class CVLExpInstance(override val sarif: Sarif, override val range: CVLRange.Range?, val value: TACValue?) : ScopeInstance() {
+    class CVLExpInstance(override val sarif: Sarif, override val range: Range.Range?, val value: TACValue?) : ScopeInstance() {
         companion object {
             /** for instances that have already-formatted values */
             fun withStringExpAndValue(
                 exp: String,
                 value: TACValue?,
                 formatterType: FormatterType.Value<*>,
-                range: CVLRange.Range?,
+                range: Range.Range?,
                 formatter: CallTraceValueFormatter
             ): CVLExpInstance {
                 val sarif = mkSarif {
@@ -642,14 +642,14 @@ sealed class CallInstance : TreeViewReportable {
     }
 
     // solana
-    class SolanaExternalCall(override val sarif: Sarif, override val range: CVLRange.Range?) : CallInstance()
-    class SolanaUserAssert(override val name: String, override val range: CVLRange.Range?) : CallInstance()
-    class SolanaCexPrintTag(override val name: String, override val range: CVLRange.Range?): CallInstance()
-    class SolanaCexPrintValues(override val sarif: Sarif, override  val range: CVLRange.Range?): CallInstance()
+    class SolanaExternalCall(override val sarif: Sarif, override val range: Range.Range?) : CallInstance()
+    class SolanaUserAssert(override val name: String, override val range: Range.Range?) : CallInstance()
+    class SolanaCexPrintTag(override val name: String, override val range: Range.Range?): CallInstance()
+    class SolanaCexPrintValues(override val sarif: Sarif, override  val range: Range.Range?): CallInstance()
 
     // wasm
-    class WasmUserAssume(override val name: String, override val range: CVLRange.Range?) : CallInstance()
-    class WasmUserAssert(override val name: String, override val range: CVLRange.Range?) : CallInstance()
+    class WasmUserAssume(override val name: String, override val range: Range.Range?) : CallInstance()
+    class WasmUserAssert(override val name: String, override val range: Range.Range?) : CallInstance()
 }
 
 fun callInstanceTreeStructureException(errorMsg: () -> String): Nothing {

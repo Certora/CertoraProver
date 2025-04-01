@@ -1,0 +1,19 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"verifyFoundryFuzzTests": {
+			"FAIL": ["testMockCallPartialData(uint256)"],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"testMockCallBasic(uint256)",
+				"testMockCallConditional(bool)",
+				"testMockCallDifferentCallees(uint256)",
+				"testMockCallMultipleMocks(uint256)",
+				"testMockCallUnresolved(uint256)",
+				"testMockCallWithValue(uint256)"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

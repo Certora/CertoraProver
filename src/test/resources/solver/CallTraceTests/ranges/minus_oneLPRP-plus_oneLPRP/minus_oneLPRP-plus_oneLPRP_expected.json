@@ -131,6 +131,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -140,17 +151,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -417,7 +417,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",
@@ -532,7 +532,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "2^255",
@@ -884,7 +884,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",
@@ -999,7 +999,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "2^255",

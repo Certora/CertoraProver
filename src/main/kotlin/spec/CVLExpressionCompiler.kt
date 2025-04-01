@@ -532,7 +532,7 @@ class CVLExpressionCompiler(
                             tag = CVLExpTag(
                                 scope = divisor.tag.scope,
                                 type = CVLType.PureCVLType.Primitive.NumberLiteral(BigInteger.ZERO),
-                                cvlRange = divisor.tag.cvlRange
+                                range = divisor.tag.range
                             )
                         ),
                         o2Out = TACSymbol.Const(BigInteger.ZERO),
@@ -748,7 +748,7 @@ class CVLExpressionCompiler(
         }
     )
 
-    private fun getDisplayName(exp: CVLExp) = "${exp.tag.cvlRange}: ${exp}"
+    private fun getDisplayName(exp: CVLExp) = "${exp.tag.range}: ${exp}"
 
     private fun compileIffExp(
         out: TACSymbol.Var,
@@ -997,13 +997,13 @@ class CVLExpressionCompiler(
             type: CVLType.PureCVLType
         ): CVLExp {
             if (indices.isEmpty()) {
-                return withScopeAndRange(exp.getScope(), CVLRange.Empty()) {
+                return withScopeAndRange(exp.getScope(), Range.Empty()) {
                     CVLExp.VariableExp(exp.sumGhostName, type.asTag())
                 }
             }
 
             val last = indices.last()
-            return withScopeAndRange(exp.getScope(), CVLRange.Empty()) {
+            return withScopeAndRange(exp.getScope(), Range.Empty()) {
                 val array = generateSumAccessExp(
                     indices.dropLast(1),
                     CVLType.PureCVLType.Ghost.Mapping(last.getOrInferPureCVLType(), type)
@@ -1574,6 +1574,7 @@ class CVLExpressionCompiler(
                 types = ty,
                 sort = GhostSort.Function,
                 persistent = persistent,
+                name = exp.id
             )
         }
     }
@@ -2725,7 +2726,8 @@ class CVLExpressionCompiler(
             ghostAccessExp = exp,
             types = arrayType.getKeys(),
             sort = GhostSort.Mapping,
-            persistent = cvlCompiler.fetchGhostDeclaration(array.id)?.persistent == true
+            persistent = cvlCompiler.fetchGhostDeclaration(array.id)?.persistent == true,
+            name = array.id
         )
     }
 
@@ -2738,8 +2740,13 @@ class CVLExpressionCompiler(
         types: List<CVLType.PureCVLType>,
         sort: GhostSort,
         persistent: Boolean,
+        name: String
     ) : ParametricInstantiation<CVLTACProgram> {
-        val sym = out.withMeta(CVL_GHOST).withMeta(CVL_VAR, true).withMeta(CVL_TYPE, ghostAccessExp.getOrInferPureCVLType())
+        val sym = out
+            .withMeta(CVL_GHOST)
+            .withMeta(CVL_VAR, true)
+            .withMeta(CVL_TYPE, ghostAccessExp.getOrInferPureCVLType())
+            .withMeta(CVL_DISPLAY_NAME, name)
         val compiledArgs = args.map { argExp ->
             compileExp(argExp).withMeta(CVL_TYPE, argExp.getOrInferPureCVLType())
         }

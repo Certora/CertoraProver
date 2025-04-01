@@ -737,7 +737,7 @@ class CloudVerification:
         elif Attrs.is_evm_app() and self.context.is_bytecode:
             # We zip the bytecode jsons and the spec
             paths = [Util.get_certora_build_file(), Util.get_certora_verify_file(),
-                     Util.get_certora_metadata_file()]
+                     Util.get_certora_metadata_file(), Util.get_configuration_layout_data_file()]
             if Util.get_certora_sources_dir().exists():
                 paths.append(Util.get_certora_sources_dir())
 
@@ -747,7 +747,9 @@ class CloudVerification:
             result = compress_files(self.ZipFilePath, *paths,
                                     short_output=Ctx.is_minimal_cli_output(self.context))
         elif Attrs.is_rust_app():
-            files_list = [Util.get_certora_metadata_file()]
+            files_list = [Util.get_certora_metadata_file(), Util.get_configuration_layout_data_file()]
+            if Util.get_certora_sources_dir().exists():
+                files_list.append(Util.get_certora_sources_dir())
 
             if hasattr(self.context, 'build_script') and self.context.build_script:
                 result = compress_files(self.logZipFilePath, Util.get_debug_log_file(),
@@ -756,8 +758,6 @@ class CloudVerification:
                 if not result:
                     return False
                 files_list.append(self.logZipFilePath)
-                if Util.get_certora_sources_dir().exists():
-                    files_list.append(Util.get_certora_sources_dir())
 
                 files_list.append(Util.get_build_dir() / Path(self.context.rust_executables).name)
 
@@ -820,7 +820,8 @@ class CloudVerification:
             if not result:
                 return False
             files_list = [Util.get_certora_build_file(), Util.get_certora_verify_file(),
-                          Util.get_certora_metadata_file(), self.logZipFilePath]
+                          Util.get_certora_metadata_file(), Util.get_configuration_layout_data_file(),
+                          self.logZipFilePath]
             if Util.get_certora_sources_dir().exists():
                 files_list.append(Util.get_certora_sources_dir())
             result = compress_files(self.ZipFilePath, *files_list, short_output=Ctx.is_minimal_cli_output(self.context))

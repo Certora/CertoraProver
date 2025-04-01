@@ -24,8 +24,8 @@ import log.Logger
 import log.LoggerTypes
 import rules.RuleCheckResult
 import scene.IScene
-import spec.cvlast.GroupRule
-import spec.cvlast.IRule
+import spec.rules.GroupRule
+import spec.rules.IRule
 import spec.cvlast.SpecType
 import utils.ArtifactFileUtils
 import utils.TimePing
@@ -130,7 +130,7 @@ object StatusReporter : OutputReporter {
         }
     }
 
-    override fun signalStart(rule: IRule, parentRule: IRule?) {}
+    override fun signalStart(rule: IRule) {}
 
     override fun resultFilter(result: RuleCheckResult): Boolean = true
 

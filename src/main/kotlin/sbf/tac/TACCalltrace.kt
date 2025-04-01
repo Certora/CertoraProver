@@ -42,7 +42,7 @@ object Calltrace {
     context(SbfCFGToTAC)
     fun printValueOrTag(locInst: LocatedSbfInstruction, cexPrintFunction: CVTFunction): TACCmd.Simple {
         val tag = getString(locInst, SbfRegister.R1_ARG)
-        return if (cexPrintFunction == CVTFunction.Calltrace(CVTCalltrace.CEX_PRINT_TAG)) {
+        return if (cexPrintFunction == CVTFunction.Calltrace(CVTCalltrace.PRINT_TAG)) {
             SnippetCmd.SolanaSnippetCmd.CexPrintTag(tag).toAnnotation()
         } else {
             val usedVars = mutableListOf<TACSymbol.Var>()
@@ -54,6 +54,14 @@ object Calltrace {
             }
             SnippetCmd.SolanaSnippetCmd.CexPrintValues(tag, usedVars).toAnnotation()
         }
+    }
+
+    context(SbfCFGToTAC)
+    fun print128BitsValue(locInst: LocatedSbfInstruction, signed: Boolean): TACCmd.Simple {
+        val tag = getString(locInst, SbfRegister.R1_ARG)
+        val low = exprBuilder.mkVar(SbfRegister.R3_ARG)
+        val high = exprBuilder.mkVar(SbfRegister.R4_ARG)
+        return SnippetCmd.SolanaSnippetCmd.CexPrint128BitsValue(tag, low, high, signed).toAnnotation()
     }
 
     context(SbfCFGToTAC)
@@ -77,6 +85,13 @@ object Calltrace {
     }
 
     context(SbfCFGToTAC)
+    fun ruleLocation(locInst: LocatedSbfInstruction): TACCmd.Simple {
+        val (filepath, lineNumber) = getFilepathAndLineNumber(locInst)
+        val ruleLocationAnnotation = RuleLocationAnnotation(filepath, lineNumber)
+        return TACCmd.Simple.AnnotationCmd(RULE_LOCATION, ruleLocationAnnotation)
+    }
+
+    context(SbfCFGToTAC)
     fun printString(locInst: LocatedSbfInstruction): TACCmd.Simple {
         val tag = getString(locInst, SbfRegister.R1_ARG)
         val str = getString(locInst, SbfRegister.R3_ARG)
@@ -92,7 +107,7 @@ object Calltrace {
         val value = (regTypes.typeAtInstruction(locInst, SbfRegister.R3_ARG) as? SbfType.NumType)?.value?.get()
         val lineNumber = if (value == null) {
             sbfLogger.warn {
-                "Cannot identify statically the content of the string associated with ${locInst.inst}. " +
+                "Cannot identify statically the line number associated with ${locInst.inst}. " +
                     "Returning 1 instead to be used by the calltrace."
             }
             1U

@@ -1,0 +1,8 @@
+{
+	"assertMessages": {
+		"ok": "Multiple assertions violated. x == y - Test.spec line 7 x != z - Test.spec line 8 y == currentContract.certoralink_Spec_b1... - Test.spec line 9"
+	},
+	"rules": {
+		"ok": "SUCCESS"
+	}
+}

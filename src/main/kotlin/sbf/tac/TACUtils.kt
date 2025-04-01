@@ -104,7 +104,7 @@ fun mergeU128(low: TACExpr.Sym, high: TACExpr.Sym, cmds: MutableList<TACCmd.Simp
 context(SbfCFGToTAC)
 fun mergeU128(res: TACSymbol.Var, low: TACExpr.Sym, high: TACExpr.Sym): TACCmd.Simple.AssigningCmd {
     val c64E = exprBuilder.SIXTY_FOUR.asSym()
-    return assign(res, TACExpr.Vec.Add(listOf(TACExpr.BinOp.ShiftLeft(high, c64E), low)))
+    return assign(res, TACExpr.Vec.Add(listOf(TACExpr.BinOp.ShiftLeft(high, c64E), exprBuilder.mask64(low))))
 }
 
 /** res = (w4 << 192) + (w3 << 128) + (w2 << 64) + w1 */

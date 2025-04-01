@@ -76,13 +76,12 @@ class StorageSplitter(val contract: IContractClass) {
             val rangeWithMsgDetails = lcmd?.let { getSourceHintWithRange(it, graph, m) } ?: FailureInfo.NoFailureInfo
 
             CVTAlertReporter.reportAlert(
-                CVTAlertType.ANALYSIS,
-                CVTAlertSeverity.WARNING,
-                rangeWithMsgDetails.range,
-                "Storage splitting failed in contract ${m.getContainingContract().name}, " +
+                type = CVTAlertType.STORAGE_SPLITTING,
+                severity = CVTAlertSeverity.WARNING,
+                jumpToDefinition = rangeWithMsgDetails.range,
+                message = "Storage splitting failed in contract ${m.getContainingContract().name}, " +
                     "function ${m.soliditySignature ?: m.name}. ${rangeWithMsgDetails.additionalUserFacingMessage} This might have an impact on running times",
-                rangeWithMsgDetails.hint,
-                CheckedUrl.ANALYSIS_OF_STORAGE,
+                url = CheckedUrl.ANALYSIS_OF_STORAGE,
             )
         }
 

@@ -50,7 +50,7 @@ import utils.*
 //         """,
 //     exampleMessage = "Expected a number literal for a fixed-size array type, not `3+5`",
 // )
-class ArraySizeMustBeLiteral private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class ArraySizeMustBeLiteral private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(index: com.certora.certoraprover.cvl.Exp) : this(index.range, "Expected a number literal for a fixed-size array type, not `$index`")
 }
 
@@ -76,13 +76,13 @@ class ArraySizeMustBeLiteral private constructor(override val location: CVLRange
         }
     """
 )
-class WrongArrayLiteralElementTypes private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location: CVLRange, badElements: List<CVLType.PureCVLType>, hintType: CVLType.PureCVLType) : this(
+class WrongArrayLiteralElementTypes private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range, badElements: List<CVLType.PureCVLType>, hintType: CVLType.PureCVLType) : this(
         location = location,
         message = "The array literal's type is $hintType, but some elements (with types ${badElements.joinToString()}) do not match."
     )
 
-    constructor(location: CVLRange) : this(
+    constructor(location: Range) : this(
         location = location,
         message = "Failed to infer a type for the array literal."
     )
@@ -103,8 +103,8 @@ class WrongArrayLiteralElementTypes private constructor(override val location: C
             """,
     exampleMessage = "Assigning to an array element requires an index",
 )
-class LhsIsDynamicArray private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location : CVLRange) : this(location, "Assigning to an array element requires an index")
+class LhsIsDynamicArray private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location : Range) : this(location, "Assigning to an array element requires an index")
 }
 
 // LhsIsMapping ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,7 +126,7 @@ class LhsIsDynamicArray private constructor(override val location: CVLRange, ove
 //             """,
 //     exampleMessage = "`mapping(uint => uint)` is not a valid left-hand side.",
 // )
-class LhsIsMapping private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class LhsIsMapping private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(e: com.certora.certoraprover.cvl.MappingType) : this(e.range, "`$e` is not a valid left-hand side.")
 }
 
@@ -167,8 +167,8 @@ class LhsIsMapping private constructor(override val location: CVLRange, override
         """,
     exampleMessage = "Syntax error: unexpected token near `)`",
 )
-class SyntaxError private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location: CVLRange, sym: ComplexSymbolFactory.ComplexSymbol)
+class SyntaxError private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range, sym: ComplexSymbolFactory.ComplexSymbol)
         : this(location, "Syntax error: unexpected token near `${sym.value?.toString() ?: sym.name}`")
 }
 
@@ -193,7 +193,7 @@ class SyntaxError private constructor(override val location: CVLRange, override 
 @CVLErrorExample("invariant i() true##")
 @CVLErrorExample("use rule example##")
 @CVLErrorExample("methods { function example() internal returns(uint) => NONDET## }")
-class CVL2MissingSemicolon private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class CVL2MissingSemicolon private constructor(override val location: Range, override val message: String) : CVLError() {
     enum class ExpectedLocation(val description: String) {
         IMPORT_STATEMENTS("`import` statements"),
         USING_STATEMENTS("`using` statements"),
@@ -201,7 +201,7 @@ class CVL2MissingSemicolon private constructor(override val location: CVLRange, 
         INVARIANTS("invariants"),
         USE_STATEMENTS("`use` statements"),
     }
-    constructor(location: CVLRange, typeDescription: ExpectedLocation) : this(location, "Since CVL 2, ${typeDescription.description} must end with `;`")
+    constructor(location: Range, typeDescription: ExpectedLocation) : this(location, "Since CVL 2, ${typeDescription.description} must end with `;`")
 }
 
 // CVL2IncorrectSemiColonPlacement /////////////////////////////////////////////////////////////////////////////////////
@@ -219,12 +219,12 @@ class CVL2MissingSemicolon private constructor(override val location: CVLRange, 
         """,
     exampleMessage = "Invariants with filtered blocks must not end with `;`",
 )
-class CVL2IncorrectSemiColonPlacement private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class CVL2IncorrectSemiColonPlacement private constructor(override val location: Range, override val message: String) : CVLError() {
     enum class ExpectedLocation(val description: String) {
         INVARIANT_FILTERED("Invariants with filtered blocks"),
     }
 
-    constructor(location: CVLRange, typeDescription: ExpectedLocation): this(location, "${typeDescription.description} must not end with `;`")
+    constructor(location: Range, typeDescription: ExpectedLocation): this(location, "${typeDescription.description} must not end with `;`")
 }
 
 @KSerializable
@@ -247,7 +247,7 @@ class CVL2IncorrectSemiColonPlacement private constructor(override val location:
         rule r { #bytes33# b; }
     """
 )
-class ToCVLTypeError(override val location: CVLRange, override val message: String) : CVLError()
+class ToCVLTypeError(override val location: Range, override val message: String) : CVLError()
 
 // CVL2RedundantStoragePlacement /////////////////////////////////////////////////////////////////////////////////////
 @KSerializable
@@ -262,8 +262,8 @@ class ToCVLTypeError(override val location: CVLRange, override val message: Stri
     """,
     exampleMessage = "`STORAGE` keyword is redundant in hooks",
 )
-class CVL2RedundantStoragePlacement private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location: CVLRange): this(location, "`STORAGE` keyword is redundant in hooks")
+class CVL2RedundantStoragePlacement private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range): this(location, "`STORAGE` keyword is redundant in hooks")
 }
 
 // CVL2MissingFunctionKW ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -281,8 +281,8 @@ class CVL2RedundantStoragePlacement private constructor(override val location: C
         """,
     exampleMessage = "Since CVL 2, methods block entries must begin with `function`",
 )
-class CVL2MissingFunctionKW private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location: CVLRange) : this(location, "Since CVL 2, methods block entries must begin with `function`")
+class CVL2MissingFunctionKW private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range) : this(location, "Since CVL 2, methods block entries must begin with `function`")
 }
 
 // TwoStateOnNonGhostFunction //////////////////////////////////////////////////////////////////////////////////////////
@@ -307,9 +307,9 @@ class CVL2MissingFunctionKW private constructor(override val location: CVLRange,
         """,
     exampleMessage = "Cannot use `@old` with non-ghost function `f`",
 )
-class TwoStateOnNonGhostFunction private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class TwoStateOnNonGhostFunction private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp, twoState: TwoStateIndex)
-        : this(exp.tag.cvlRange, "Cannot use `$twoState` with non-ghost function `${exp.methodId}`")
+        : this(exp.tag.range, "Cannot use `$twoState` with non-ghost function `${exp.methodId}`")
 }
 
 // ReservedKeywordAsFunction ///////////////////////////////////////////////////////////////////////////////////////////
@@ -335,8 +335,8 @@ class TwoStateOnNonGhostFunction private constructor(override val location: CVLR
 )
 @CVLErrorExample("methods { function #to_bytes3#(uint) external returns (uint) envfree; }")
 
-class ReservedKeywordAsFunction private constructor(override val location: CVLRange, override val message : String) : CVLError() {
-    constructor(keyword : String, location: CVLRange) : this(location, "`$keyword` is a reserved CVL keyword. Usage: `$keyword(valToConvert)`")
+class ReservedKeywordAsFunction private constructor(override val location: Range, override val message : String) : CVLError() {
+    constructor(keyword : String, location: Range) : this(location, "`$keyword` is a reserved CVL keyword. Usage: `$keyword(valToConvert)`")
 }
 
 // InvalidCatchAllFlag /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -361,7 +361,7 @@ class ReservedKeywordAsFunction private constructor(override val location: CVLRa
         """,
     exampleMessage = "Catch-all methods entries of the form `function f._` cannot be marked `envfree`",
 )
-class InvalidCatchAllFlag private constructor(override val location: CVLRange, override val message : String) : CVLError() {
+class InvalidCatchAllFlag private constructor(override val location: Range, override val message : String) : CVLError() {
     constructor(token : LocatedToken) : this(token.range, "Catch-all methods entries of the form `function f._` cannot be marked `${token.value}`")
 }
 
@@ -388,7 +388,7 @@ class InvalidCatchAllFlag private constructor(override val location: CVLRange, o
 // TODO CERT-3315: "invariant i() true { preserved #with()# {} }",
 // TODO CERT-3315: "invariant i() true { preserved #with(env e1, env e2)# {} }",
 
-class WithWrongNumberArguments(override val location: CVLRange, val number : Int) : CVLError() {
+class WithWrongNumberArguments(override val location: Range, val number : Int) : CVLError() {
     override val message = "`with` clause has $number arguments; `with` clauses must define a single argument of type `env` (e.g. `with(env e)`)"
 }
 
@@ -415,7 +415,7 @@ class WithWrongNumberArguments(override val location: CVLRange, val number : Int
 )
 // CERT-3315: @CVLErrorExample("invariant i() true { preserved #with(address x)# {} }")
 
-class WithWrongType private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class WithWrongType private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(param : CVLParam)
         : this(param.range, "`with` clause argument has type `${param.type}`; `with` clauses must define a single argument of type `env` (e.g. `with(env e)`)")
 }
@@ -449,7 +449,7 @@ class WithWrongType private constructor(override val location: CVLRange, overrid
     """,
     exampleMessage = "`with` clause argument must be a named variable, not a wildcard. If you don't need this variable, remove the entire `with` clause."
 )
-class WithWildcard(override val location: CVLRange) : CVLError() {
+class WithWildcard(override val location: Range) : CVLError() {
     override val message =
         "`with` clause argument must be a named variable, not a wildcard. " +
             "If you don't need this variable, remove the entire `with` clause."
@@ -478,7 +478,7 @@ class WithWildcard(override val location: CVLRange) : CVLError() {
         """,
     exampleMessage = "`envfree` methods-block entries must not declare a `with(env ...)` clause"
 )
-class EnvfreeAndWith(override val location: CVLRange) : CVLError() {
+class EnvfreeAndWith(override val location: Range) : CVLError() {
     override val message = "`envfree` methods-block entries must not declare a `with(env ...)` clause"
 }
 
@@ -503,7 +503,7 @@ class EnvfreeAndWith(override val location: CVLRange) : CVLError() {
     exampleMessage = "Summaries for internal methods cannot be marked as `UNRESOLVED`, since internal methods are always resolved. " +
         "Remove the `UNRESOLVED` keyword from the summary."
 )
-class UnresolvedSummaryModeOnInternalMethod(override val location: CVLRange) : CVLError() {
+class UnresolvedSummaryModeOnInternalMethod(override val location: Range) : CVLError() {
     override val message: String = "Summaries for internal methods cannot be marked as `UNRESOLVED`, since internal methods are always resolved. " +
         "Remove the `UNRESOLVED` keyword from the summary."
 }
@@ -529,7 +529,7 @@ class UnresolvedSummaryModeOnInternalMethod(override val location: CVLRange) : C
     exampleMessage = "Summaries for internal methods cannot be marked as `DELETE`, since internal methods can not be removed. " +
         "Remove the `DELETE` keyword from the summary."
 )
-class DeleteSummaryModeOnInternalMethod(override val location: CVLRange) : CVLError() {
+class DeleteSummaryModeOnInternalMethod(override val location: Range) : CVLError() {
     override val message: String = "Summaries for internal methods cannot be marked as `DELETE`, since internal methods can not be removed. " +
         "Remove the `DELETE` keyword from the summary."
 }
@@ -553,7 +553,7 @@ class DeleteSummaryModeOnInternalMethod(override val location: CVLRange) : CVLEr
         """,
     exampleMessage = "Cannot apply dispatcher summaries for internal methods."
 )
-class DispatcherSummaryOnInternalMethod(override val location: CVLRange) : CVLError() {
+class DispatcherSummaryOnInternalMethod(override val location: Range) : CVLError() {
     override val message: String = "Cannot apply dispatcher summaries for internal methods."
 }
 
@@ -576,7 +576,7 @@ class DispatcherSummaryOnInternalMethod(override val location: CVLRange) : CVLEr
         """,
     exampleMessage = "Optimistic dispatcher summaries must have at least one matching contract method."
 )
-class DispatcherSummaryNoImplementation(override val location: CVLRange) : CVLError() {
+class DispatcherSummaryNoImplementation(override val location: Range) : CVLError() {
     override val message: String = "Optimistic dispatcher summaries must have at least one matching contract method."
 }
 
@@ -622,8 +622,8 @@ class DispatcherSummaryNoImplementation(override val location: CVLRange) : CVLEr
 @CVLErrorExample("function f() { uint x; #uint[] x;# }")                         // Primitive / complex
 @CVLErrorExample("methods { function externalTakesUint(uint x) external with(#env x#) => summary(x) expect void; } function summary(uint x) {}") // with clause collides with argument
 
-class DuplicateDeclaration private constructor(override val location: CVLRange, override val message : String) : CVLError() {
-    constructor(id : String, location : CVLRange, previous : CVLRange) : this(location, "Redeclaring variables is not supported; `$id` was previously declared ${previous.relativeDescription(location)}")
+class DuplicateDeclaration private constructor(override val location: Range, override val message : String) : CVLError() {
+    constructor(id : String, location : Range, previous : Range) : this(location, "Redeclaring variables is not supported; `$id` was previously declared ${previous.relativeDescription(location)}")
 }
 
 // DeclaredKeyword /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -657,8 +657,8 @@ class DuplicateDeclaration private constructor(override val location: CVLRange, 
 @CVLErrorExample("hook Sstore (slot 0)[INDEX #uint executingContract#] uint i { uint ignore; }")    // `executingContract` is a keyword inside of hooks
 @CVLErrorExample("hook Sstore (slot 0) uint i { #uint executingContract;# }")         // `executingContract` is a keyword inside of hooks
 
-class DeclaredKeyword private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(id : String, location : CVLRange) : this(location, "`$id` is a CVL keyword and cannot be redeclared here.")
+class DeclaredKeyword private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(id : String, location : Range) : this(location, "`$id` is a CVL keyword and cannot be redeclared here.")
 }
 
 // AssignedToKeyword ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -682,8 +682,8 @@ class DeclaredKeyword private constructor(override val location: CVLRange, overr
         """,
     exampleMessage = "The special CVL variable `nativeCodesize` cannot be assigned to."
 )
-class AssignedToKeyword private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(id : String, location : CVLRange) : this(location, "The special CVL variable `$id` cannot be assigned to.")
+class AssignedToKeyword private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(id : String, location : Range) : this(location, "The special CVL variable `$id` cannot be assigned to.")
 }
 
 // AssignedAfterUse ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -713,8 +713,8 @@ class AssignedToKeyword private constructor(override val location: CVLRange, ove
 @CVLErrorExample("function f() { mathint x; assert forall mathint y . x == y; #x# = 3; }")  // havoced in quantified statement
 @CVLErrorExample("function f() { uint[] x; uint[] y; assert y[0] == 3; #y# = x; }")          // complex type
 
-class AssignedAfterUse private constructor(override val location : CVLRange, override val message: String) : CVLError() {
-    constructor(id : String, location: CVLRange, previousUse : CVLRange) : this(location, "Assigning to a CVL variable after it is accessed is disallowed; `$id` was previously used ${previousUse.relativeDescription(location)}.")
+class AssignedAfterUse private constructor(override val location : Range, override val message: String) : CVLError() {
+    constructor(id : String, location: Range, previousUse : Range) : this(location, "Assigning to a CVL variable after it is accessed is disallowed; `$id` was previously used ${previousUse.relativeDescription(location)}.")
 }
 
 // AssignFromVoid //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -748,7 +748,7 @@ class AssignedAfterUse private constructor(override val location : CVLRange, ove
     """,
     exampleMessage = "CVL function `returnsVoid` has type `void`. It cannot be assigned to a variable."
 )
-class AssignFromVoid(val rhsKind: RhsKind, val rhs: String, override val location: CVLRange) : CVLError() {
+class AssignFromVoid(val rhsKind: RhsKind, val rhs: String, override val location: Range) : CVLError() {
     enum class RhsKind(val description: String) {
         CVL_FUNC("CVL function"),
         EVM_FUNC("EVM function"),
@@ -819,8 +819,8 @@ class AssignFromVoid(val rhsKind: RhsKind, val rhs: String, override val locatio
 @CVLErrorExample("invariant i() true filtered { x -> #g#.selector != 0 }")
 
 
-class UndeclaredVariable private constructor(override val location: CVLRange, override val message : String) : CVLError() {
-    constructor(id : String, location : CVLRange) : this(location, specialize(id))
+class UndeclaredVariable private constructor(override val location: Range, override val message : String) : CVLError() {
+    constructor(id : String, location : Range) : this(location, specialize(id))
 
     companion object {
         /** Catch some special cases to give nicer error messages */
@@ -868,8 +868,8 @@ class UndeclaredVariable private constructor(override val location: CVLRange, ov
 @CVLErrorExample("function f() { uint x; #if (_) { if (_) { x = 0; } else { x = 1; } }# }") // nested if statements
 @CVLErrorExample("function f() { uint x; #if (_) { } else { if (_) { x = 0; } else { x = 1; } }# }") // nested in else
 
-class InconsistentVariableDefinition private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(id : String, ifLocation : CVLRange, definitionLocation : CVLRange, definedInThenBlock : Boolean)
+class InconsistentVariableDefinition private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(id : String, ifLocation : Range, definitionLocation : Range, definedInThenBlock : Boolean)
         : this(
             ifLocation,
             "`$id` is defined in the `${ if (definedInThenBlock) { "if" } else { "else" } }` branch (${definitionLocation.relativeDescription(ifLocation)})" +
@@ -898,7 +898,7 @@ class InconsistentVariableDefinition private constructor(override val location: 
     exampleMessage = "`with(...)` clauses are only allowed for methods-block entries with function summaries.",
 )
 @CVLErrorExample("methods { function externalFunction() external #with(env e)#; }")
-class InvalidSummaryForWithClause(override val location: CVLRange) : CVLError() {
+class InvalidSummaryForWithClause(override val location: Range) : CVLError() {
     override val message = "`with(...)` clauses are only allowed for methods-block entries with function summaries."
 }
 
@@ -927,14 +927,14 @@ class InvalidSummaryForWithClause(override val location: CVLRange) : CVLError() 
     "invariant i() true { #preserved externalFunction() {}# preserved externalFunction() {} }",
     "Invariant `i` has multiple preserved blocks for `PrimaryContract.externalFunction()` (additional block at position 1:54)."
 )
-class DuplicatePreserved private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class DuplicatePreserved private constructor(override val location: Range, override val message: String) : CVLError() {
     sealed class Target(val description : String)
     class Generic  : Target("generic preserved blocks")
     class Fallback : Target("fallback preserved blocks")
     class Specific(method : CVLPreserved.ExplicitMethod) : Target("preserved blocks for `${method.methodSignature}`")
 
     constructor(invariant: CVLInvariant, blocks : List<CVLPreserved>, type : Target)
-        : this(blocks.first().cvlRange, "Invariant `${invariant.id}` has multiple ${type.description} (additional block ${blocks[1].cvlRange.relativeDescription(blocks.first().cvlRange)}).")
+        : this(blocks.first().range, "Invariant `${invariant.id}` has multiple ${type.description} (additional block ${blocks[1].range.relativeDescription(blocks.first().range)}).")
 }
 
 @KSerializable
@@ -958,9 +958,9 @@ class DuplicatePreserved private constructor(override val location: CVLRange, ov
         "specify a preserved block for its methods in this way. Specify them using [PrimaryContract].\n" +
         "For example: `preserved PrimaryContract.externalExtensionFunction(...`"
 )
-class ExplicitPreservedOnExtensionContract private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class ExplicitPreservedOnExtensionContract private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(preserved: CVLPreserved. ExplicitMethod, extendedContractName: List<String>) : this(
-        preserved.cvlRange,
+        preserved.range,
         "`${preserved.methodSignature.qualifiedMethodName.host}` extends $extendedContractName, so one cannot " +
             "specify a preserved block for its methods in this way. Specify them using $extendedContractName.\n" +
             "For example: `preserved ${extendedContractName.first()}.${preserved.methodSignature.qualifiedMethodName.methodId}(...`"
@@ -984,8 +984,8 @@ class ExplicitPreservedOnExtensionContract private constructor(override val loca
         """,
     exampleMessage = "The generic preserved block can only get parameters of type `env`, got type `bool`"
 )
-class WithParamWrongType private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(preservedType: String, cvlType: CVLType.PureCVLType, location: CVLRange) :
+class WithParamWrongType private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(preservedType: String, cvlType: CVLType.PureCVLType, location: Range) :
         this(location, "The $preservedType preserved block can only get parameters of type `env`, got type `$cvlType`")
 }
 
@@ -1006,8 +1006,8 @@ class WithParamWrongType private constructor(override val location: CVLRange, ov
         """,
     exampleMessage = "The generic preserved block can have at most one variable inside the `with()` clause and its type should be `env`"
 )
-class MultipleWithParams private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(preservedType: String, location: CVLRange) :
+class MultipleWithParams private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(preservedType: String, location: Range) :
         this(location, "The $preservedType preserved block can have at most one variable inside the `with()` clause and its type should be `env`")
 }
 // AtOnNonContractCall /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1035,7 +1035,7 @@ class MultipleWithParams private constructor(override val location: CVLRange, ov
         """,
     exampleMessage = "`at s` may only be used for calls to contract functions; `f` is a CVL function.",
 )
-class AtOnNonContractCall private constructor(override val location: CVLRange, override val message : String) : CVLError() {
+class AtOnNonContractCall private constructor(override val location: Range, override val message : String) : CVLError() {
     constructor(app: CVLExp.UnresolvedApplyExp, func: SpecFunction)
         : this(app.getRangeOrEmpty(), "`at ${app.invokeStorage}` may only be used for calls to contract functions; `${app.callableName}` is a ${func.typeDescription}.")
 }
@@ -1055,7 +1055,7 @@ class AtOnNonContractCall private constructor(override val location: CVLRange, o
         """,
     exampleMessage = "`@withrevert` may only be used for calls to contract functions; `f` is a CVL function.",
 )
-class WithrevertOnNonContractCall private constructor(override val location: CVLRange, override val message : String) : CVLError() {
+class WithrevertOnNonContractCall private constructor(override val location: Range, override val message : String) : CVLError() {
     constructor(app : CVLExp.UnresolvedApplyExp, func : SpecFunction)
         : this(app.getRangeOrEmpty(), "`@withrevert` may only be used for calls to contract functions; `${app.callableName}` is a ${func.typeDescription}.")
 }
@@ -1066,13 +1066,13 @@ class WithrevertOnNonContractCall private constructor(override val location: CVL
 
 @KSerializable
 @Suppress("CVLErrorsNeedDocs")
-class TupleTypesAreCVLOnly private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class TupleTypesAreCVLOnly private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(e: com.certora.certoraprover.cvl.TupleType) : this(e.range, "`$e` cannot be used for a VM type")
 }
 
 @KSerializable
 @Suppress("CVLErrorsNeedDocs")
-class LhsIsTuple private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class LhsIsTuple private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(e: com.certora.certoraprover.cvl.TupleType) : this(e.range, "`$e` is not a valid left-hand side for an assignment; for parallel assignments, omit the parentheses.")
 }
 
@@ -1084,14 +1084,14 @@ class LhsIsTuple private constructor(override val location: CVLRange, override v
     category = CVLErrorCategory.TYPECHECKING,
     description = "Direct storage access must have restricted forms."
 )
-class StorageAccessMismatch(override val location: CVLRange, override val message: String) : CVLError()
+class StorageAccessMismatch(override val location: Range, override val message: String) : CVLError()
 
 @KSerializable
 @CVLErrorType(
     category = CVLErrorCategory.TYPECHECKING,
     description = "Direct immutable access must have restricted forms."
 )
-class ImmutableAccessMismatch(override val location: CVLRange, override val message: String): CVLError()
+class ImmutableAccessMismatch(override val location: Range, override val message: String): CVLError()
 
 @KSerializable
 @CVLErrorType(
@@ -1101,8 +1101,8 @@ class ImmutableAccessMismatch(override val location: CVLRange, override val mess
         A filter for some method parameter filters out all candidates.
         """
 )
-class NoValidInstantiationsLeft private constructor(override val location: CVLRange, override val message : String) : CVLError() {
-    constructor(location: CVLRange, methodArg: String, ruleName: String) : this(location, "After filtering, method argument $methodArg for rule $ruleName remains with no valid instantiations")
+class NoValidInstantiationsLeft private constructor(override val location: Range, override val message : String) : CVLError() {
+    constructor(location: Range, methodArg: String, ruleName: String) : this(location, "After filtering, method argument $methodArg for rule $ruleName remains with no valid instantiations")
 }
 
 @KSerializable
@@ -1120,7 +1120,7 @@ class NoValidInstantiationsLeft private constructor(override val location: CVLRa
     """,
     exampleMessage = "May not use method parameter filters on builtin rule msgValueInLoopRule.",
 )
-data class InvalidMethodParamFiltersOnBuiltinRule(override val location: CVLRange, private val ruleName: BuiltInRuleId) : CVLError() {
+data class InvalidMethodParamFiltersOnBuiltinRule(override val location: Range, private val ruleName: BuiltInRuleId) : CVLError() {
     override val message = "May not use method parameter filters on builtin rule $ruleName."
 }
 
@@ -1134,8 +1134,8 @@ data class InvalidMethodParamFiltersOnBuiltinRule(override val location: CVLRang
         #use builtin rule verifyFoundryFuzzTests;#
     """
 )
-class FuzzTestBirWithoutFoundryFlag private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location: CVLRange, ruleName: BuiltInRuleId) : this(
+class FuzzTestBirWithoutFoundryFlag private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range, ruleName: BuiltInRuleId) : this(
         location,
         "Cannot use the builtin rule `$ruleName` without setting the `${Config.Foundry.userFacingName()}` flag"
     )
@@ -1167,7 +1167,7 @@ class FuzzTestBirWithoutFoundryFlag private constructor(override val location: C
 @CVLErrorExample("function f() { if(true) { #method f;# } }")
 @CVLErrorExample("hook Sload uint256 u privateUintStorage { #method f;# }")
 
-data class MethodVariableNotInRule(override val location: CVLRange) : CVLError() {
+data class MethodVariableNotInRule(override val location: Range) : CVLError() {
     override val message = "`method` variables can only be declared in rules, at their out-most scope."
 }
 
@@ -1188,7 +1188,7 @@ data class MethodVariableNotInRule(override val location: CVLRange) : CVLError()
         """,
     exampleMessage = "Cannot define multiple filters for the same method parameter `f`.",
 )
-class MultipleFiltersSameMethodParam(override val location: CVLRange, private val methodParam: String) : CVLError() {
+class MultipleFiltersSameMethodParam(override val location: Range, private val methodParam: String) : CVLError() {
     override val message get() = "Cannot define multiple filters for the same method parameter `$methodParam`."
 }
 
@@ -1212,7 +1212,7 @@ class MultipleFiltersSameMethodParam(override val location: CVLRange, private va
 )
 @CVLErrorExample("rule r { mathint x = #currentContract@new.foo()#; assert false; }")
 
-class ApplyExpWithAtNewOrAtOldBase(override val location: CVLRange) : CVLError() {
+class ApplyExpWithAtNewOrAtOldBase(override val location: Range) : CVLError() {
     override val message get() = "@old or @new does not make sense here."
 }
 
@@ -1267,7 +1267,7 @@ class ApplyMethodOnNonContract(private val exp: CVLExp.UnresolvedApplyExp) : CVL
         function #exists# {}
     """
 )
-class InvalidUsageOfCVLKeyword(override val location: CVLRange, private val token: String) : CVLError() {
+class InvalidUsageOfCVLKeyword(override val location: Range, private val token: String) : CVLError() {
     override val message: String
         get() = "`$token` is a reserved CVL keyword and cannot be used here." + if(token == "sum") {
             " Starting with Prover version 7.23 this is a reserved word in CVL. See " +
@@ -1301,7 +1301,7 @@ class InvalidUsageOfCVLKeyword(override val location: CVLRange, private val toke
 @CVLErrorExample("hook Sload address n myMapping[KEY uint k1][#WHATEVER# uint index] {}")
 @CVLErrorExample("hook Sload uint index m[KEY address k].(offset 0).(#WHATEVER# 32) {}")
 
-class UnexpectedToken(override val location: CVLRange, private val token: String, private val expected: List<String>) : CVLError() {
+class UnexpectedToken(override val location: Range, private val token: String, private val expected: List<String>) : CVLError() {
     override val message get() = run {
         val expectedString = expected.singleOrNull()?.let { "`$it`" } ?: "one of ${expected.joinToString { "`$it`" }}"
         "Syntax error: unexpected token `$token`; expected $expectedString."
@@ -1342,7 +1342,7 @@ class UnexpectedToken(override val location: CVLRange, private val token: String
 )
 @CVLErrorExample("function example() { env e; calldataarg args; uint x = 3 + #overloadedFunction(e, args)#; }") // CERT-3436 parametricity comes from overloading
 
-class ParametricReturn private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class ParametricReturn private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(cmd : CVLExp.ApplicationExp, callType: SymbolicContractMethod) : this(cmd.getRangeOrEmpty(), specialize(callType))
 
     companion object {
@@ -1397,7 +1397,7 @@ class ParametricReturn private constructor(override val location: CVLRange, over
 
 // there should be lots more tests!
 
-class NotConvertible private constructor(override val location: CVLRange, override val message : String) : CVLError() {
+class NotConvertible private constructor(override val location: Range, override val message : String) : CVLError() {
     constructor(expression : CVLExp, expectedType : CVLType)
         : this(expression.getRangeOrEmpty(), specialize(expression, expectedType))
 
@@ -1482,7 +1482,7 @@ class NotConvertible private constructor(override val location: CVLRange, overri
 /** this can arguably be merged with [NotConvertible] but it's nice to have a specialized error for this common case */
 class NonBoolExpression(val exp: CVLExp, val kind: Kind): CVLError() {
     private val actualType = exp.getCVLType()
-    override val location: CVLRange get() = exp.getRangeOrEmpty()
+    override val location: Range get() = exp.getRangeOrEmpty()
     override val message: String get() = "${kind.description} must have type `bool`, got `$actualType`"
 
     enum class Kind(val description: String) {
@@ -1516,8 +1516,8 @@ class NonBoolExpression(val exp: CVLExp, val kind: Kind): CVLError() {
         """,
     exampleMessage = "enum `PrimaryContract.ExampleEnum` does not have a member `MISSING`."
 )
-class NoEnumMember private constructor(override val location : CVLRange, override val message : String) : CVLError() {
-    constructor(range : CVLRange, type : CVLType.PureCVLType, member: String) : this(range, "enum `$type` does not have a member `$member`.")
+class NoEnumMember private constructor(override val location : Range, override val message : String) : CVLError() {
+    constructor(range : Range, type : CVLType.PureCVLType, member: String) : this(range, "enum `$type` does not have a member `$member`.")
 }
 
 // MethodVariableTooManyContracts //////////////////////////////////////////////////////////////////////////////////////
@@ -1560,8 +1560,8 @@ class NoEnumMember private constructor(override val location : CVLRange, overrid
     }#
     """
 )
-class MethodVariableTooManyContracts private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location: CVLRange, ruleName: String, methodArg: String, contractNames: List<String>) :
+class MethodVariableTooManyContracts private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range, ruleName: String, methodArg: String, contractNames: List<String>) :
         this(location, "In rule $ruleName there are conflicting usages of `$methodArg` - it is marked as being parametric in more than a single contract: $contractNames")
 }
 
@@ -1578,7 +1578,7 @@ class MethodVariableTooManyContracts private constructor(override val location: 
     exampleCVLWithRange = "rule r { method f; d.#f()#; assert true; }",
     exampleMessage = "contract variable `d` not found. Contract variables must be introduced with a `using` statement."
 )
-class NoSuchContractInstance private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class NoSuchContractInstance private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp) : this(
         location = exp.getRangeOrEmpty(),
         message = "contract variable `${exp.base}` not found. Contract variables must be introduced with a `using` statement."
@@ -1591,7 +1591,7 @@ class NoSuchContractInstance private constructor(override val location: CVLRange
     description = "parametric methods can only be called on aliased contracts"
 )
 @CVLErrorExample("rule r { method f; address d; d.#f()#; assert true; }")
-class NotAContractInstance private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class NotAContractInstance private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp) : this(
         exp.getRangeOrEmpty(),
         "cannot perform parametric function calls on general address-typed variables - only contract aliases are supported for this."
@@ -1607,7 +1607,7 @@ class NotAContractInstance private constructor(override val location: CVLRange, 
         """
 )
 class ContractChoiceNoSuchContract(val contractName: String) : CVLError() {
-    override val location = CVLRange.Empty("invalid command line argument")
+    override val location = Range.Empty("invalid command line argument")
     override val message = "Invalid argument to `-contract`: No contract named $contractName in the scene"
 }
 
@@ -1649,7 +1649,7 @@ class ContractChoiceNoSuchContract(val contractName: String) : CVLError() {
         """,
     exampleMessage = "CVL function calls such as foo(x) are disallowed inside quantified formulas."
 )
-class DisallowedTypeUsedInQuantifier(override val location: CVLRange, override val message: String) : CVLError() {
+class DisallowedTypeUsedInQuantifier(override val location: Range, override val message: String) : CVLError() {
 
     enum class DisallowedType(val description: String) {
         CVL_FUNCTION_CALL("CVL function calls"),
@@ -1657,7 +1657,7 @@ class DisallowedTypeUsedInQuantifier(override val location: CVLRange, override v
         BUILT_IN_KECCAK256("CVL built-in `keccak256` function calls")
     }
 
-    constructor(location: CVLRange, exp: String, disallowedType: DisallowedType) :
+    constructor(location: Range, exp: String, disallowedType: DisallowedType) :
         this(location, "${disallowedType.description} such as $exp are disallowed inside quantified formulas.")
 }
 
@@ -1670,10 +1670,10 @@ class DisallowedTypeUsedInQuantifier(override val location: CVLRange, override v
         """
 )
 class BadSatisfy : CVLError {
-    override val location: CVLRange
+    override val location: Range
     private val errorPlace: String
 
-    constructor(location: CVLRange, errorPlace: String) : super() {
+    constructor(location: Range, errorPlace: String) : super() {
         this.location = location
         this.errorPlace = errorPlace
         this.message = "Satisfy statements are not allowed in $errorPlace."
@@ -1688,7 +1688,7 @@ class BadSatisfy : CVLError {
     description = "Only certain types of expressions are allowed as havoc targets."
 )
 class InvalidHavocTargetType(val exp: CVLExp) : CVLError() {
-    override val location get() = exp.tag.cvlRange
+    override val location get() = exp.tag.range
     override val message get() = "`$exp` cannot be havoced"
 }
 
@@ -1721,7 +1721,7 @@ class InvalidHavocTargetType(val exp: CVLExp) : CVLError() {
         """,
     exampleMessage = "Cannot havoc `args`. Havoc of calldataarg has been deprecated. Try defining a new variable instead."
 )
-class NonGhostVariableAsHavocTarget private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class NonGhostVariableAsHavocTarget private constructor(override val location: Range, override val message: String) : CVLError() {
     companion object {
         fun fromSymbolValue(variable: CVLExp.VariableExp, sv: Any?): NonGhostVariableAsHavocTarget {
             val location = variable.getRangeOrEmpty()
@@ -1755,7 +1755,7 @@ class NonGhostVariableAsHavocTarget private constructor(override val location: C
     exampleMessage = "Storage access literal `currentContract.uint_field` is not allowed in assuming expressions. Instead of using an assuming expression, try adding a require after the havoc."
 )
 class StorageAccessInAssumingExpression(private val storageAccessExp: CVLExp) : CVLError() {
-    override val location: CVLRange get() = storageAccessExp.getRangeOrEmpty()
+    override val location: Range get() = storageAccessExp.getRangeOrEmpty()
     override val message: String get() =
         "Storage access literal `$storageAccessExp` is not allowed in assuming expressions." +
         " Instead of using an assuming expression, try adding a require after the havoc."
@@ -1777,7 +1777,7 @@ class StorageAccessInAssumingExpression(private val storageAccessExp: CVLExp) : 
     exampleMessage = "`arrgh[0]` cannot be havoced since it did not originate from direct storage access. Try using a local CVL variable instead of a havoc command."
 )
 class HavocTargetLiteralMustBeStorageAccess(val target: CVLExp.HavocTarget) : CVLError() {
-    override val location: CVLRange get() = target.asExp.tag.cvlRange
+    override val location: Range get() = target.asExp.tag.range
     override val message: String get() = "`$target` cannot be havoced since it did not originate from direct storage access. Try using a local CVL variable instead of a havoc command."
 }
 
@@ -1796,7 +1796,7 @@ class HavocTargetLiteralMustBeStorageAccess(val target: CVLExp.HavocTarget) : CV
     exampleMessage = "cannot havoc `currentContract.array_field`. havoc of entire arrays is currently unsupported."
 )
 class UnsupportedStorageTarget(val target: CVLExp.HavocTarget, val input: Input) : CVLError() {
-    override val location: CVLRange get() = target.asExp.tag.cvlRange
+    override val location: Range get() = target.asExp.tag.range
 
     enum class Input(val description: String) {
         EntireMapping("entire mappings"),
@@ -1834,7 +1834,7 @@ class UnsupportedStorageTarget(val target: CVLExp.HavocTarget, val input: Input)
         }
         """,
 )
-class LibraryFunctionCallNotSupported private constructor(override val location: CVLRange, override val message: String): CVLError() {
+class LibraryFunctionCallNotSupported private constructor(override val location: Range, override val message: String): CVLError() {
     constructor(exp: CVLExp.ApplicationExp) : this(exp.getRangeOrEmpty(), "Calling Library functions from spec is not supported. Use a harness function that calls the library one if needed")
 }
 
@@ -1853,8 +1853,8 @@ class LibraryFunctionCallNotSupported private constructor(override val location:
     exampleMessage = "Cannot hook on the length of `string` or `bytes` in `PrimaryContract.bytes_field.length`"
 )
 @CVLErrorExample("#hook Sload uint len currentContract.string_field.length { require false; }#")
-class PackedBytes1ArrayLengthHook private constructor(override val location: CVLRange, override val message: String): CVLError() {
-    constructor(hook: CVLHook, pattern: CVLSlotPattern) : this(hook.cvlRange, "Cannot hook on the length of `string` or `bytes` in `$pattern`")
+class PackedBytes1ArrayLengthHook private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(hook: CVLHook, pattern: CVLSlotPattern) : this(hook.range, "Cannot hook on the length of `string` or `bytes` in `$pattern`")
 }
 
 @KSerializable
@@ -1882,7 +1882,7 @@ class PackedBytes1ArrayLengthHook private constructor(override val location: CVL
         """,
     exampleMessage = "Expression `PrimaryContract.externalFunction()` is not a struct but a `void` type. Cannot use `.selector` on it. Did you forget to use `sig:` for a method selector?"
 )
-class FieldSelectOnNonStruct private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class FieldSelectOnNonStruct private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.FieldSelectExp, ty: CVLType.PureCVLType) :
         this(
             exp.getRangeOrEmpty(),
@@ -1906,7 +1906,7 @@ class FieldSelectOnNonStruct private constructor(override val location: CVLRange
         """,
     exampleMessage = "Cannot directly compare `PrimaryContract.returnsStructOfArrayOfUints(e)` to `s` because these structs contain an array (in field `PrimaryContract.StructOfArrayOfUints.uArr`). Comparison can only be done field by field"
 )
-class StructComparisonContainsArrays private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class StructComparisonContainsArrays private constructor(override val location: Range, override val message: String) : CVLError() {
     companion object {
         /** Some logic to make sure we get `StructName.fieldName` instead of `varName.fieldName` */
         private tailrec fun getStructAndFields(base: CVLExp, rest: String): String {
@@ -1939,7 +1939,7 @@ class StructComparisonContainsArrays private constructor(override val location: 
         """,
     exampleMessage = "Catch unresolved summary can only be marked as external, got 'internal'."
 )
-class OnlyExternalSummaryAllowed constructor(override val location: CVLRange, override val message: String): CVLError() {
+class OnlyExternalSummaryAllowed constructor(override val location: Range, override val message: String): CVLError() {
     constructor(token: LocatedToken) : this(token.range, "Catch unresolved summary can only be marked as external, got '${token.value}'.")
 }
 
@@ -1957,8 +1957,8 @@ class OnlyExternalSummaryAllowed constructor(override val location: CVLRange, ov
         """,
     exampleMessage = "Summarizing with a dispatch list is only allowed with '_._' pattern, got 'C._'."
 )
-class DispatchListWithSpecificId private constructor(override val location: CVLRange, override val message: String): CVLError() {
-    constructor(exp: MethodReferenceExp) : this(exp.cvlRange, "Summarizing with a dispatch list is only allowed with '_._' pattern, got '${exp}'.")
+class DispatchListWithSpecificId private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(exp: MethodReferenceExp) : this(exp.range, "Summarizing with a dispatch list is only allowed with '_._' pattern, got '${exp}'.")
 }
 
 @KSerializable
@@ -1975,8 +1975,8 @@ class DispatchListWithSpecificId private constructor(override val location: CVLR
         """,
     exampleMessage = "A dispatch list may not contain the '_._' pattern."
 )
-class FullWildcardInDispatchList private constructor(override val location: CVLRange, override val message: String): CVLError() {
-    constructor(exp: MethodSig) : this(exp.id.cvlRange, "A dispatch list may not contain the '_._' pattern.")
+class FullWildcardInDispatchList private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(exp: MethodSig) : this(exp.id.range, "A dispatch list may not contain the '_._' pattern.")
 }
 
 @KSerializable
@@ -1994,7 +1994,7 @@ class FullWildcardInDispatchList private constructor(override val location: CVLR
 //        """,
 //    exampleMessage = "Expecting a havocing summary, but got ALWAYS(5)"
 //)
-class NonHavocingSummary private constructor(override val location: CVLRange, override val message: String): CVLError() {
+class NonHavocingSummary private constructor(override val location: Range, override val message: String): CVLError() {
     constructor(summary: CallSummary) : this(summary.range, "Expecting a havocing summary, but got $summary")
 }
 
@@ -2021,8 +2021,8 @@ class NonHavocingSummary private constructor(override val location: CVLRange, ov
         """,
     exampleMessage = "Expecting method parameters for _.a or a wildcard pattern <Some Contract>._"
 )
-class NonWildcardNoParams private constructor(override val location: CVLRange, override val message: String): CVLError() {
-    constructor(exp: MethodReferenceExp) : this(exp.cvlRange, "Expecting method parameters for $exp or a wildcard pattern " +
+class NonWildcardNoParams private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(exp: MethodReferenceExp) : this(exp.range, "Expecting method parameters for $exp or a wildcard pattern " +
         "${exp.contract.toString().letIf(exp.contract.toString() == CVLKeywords.wildCardExp.keyword) {"<Some Contract>"}}._")
 }
 
@@ -2040,8 +2040,8 @@ class NonWildcardNoParams private constructor(override val location: CVLRange, o
         """,
     exampleMessage = "Not expecting method parameters for wildcard method in C._()"
 )
-class WildCardMethodWithParams private constructor(override val location: CVLRange, override val message: String): CVLError() {
-    constructor(sig: MethodSig) : this(sig.cvlRange,
+class WildCardMethodWithParams private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(sig: MethodSig) : this(sig.range,
         "Not expecting method parameters for wildcard method in ${sig.baseContract()}._(${sig.params.joinToString(",") { it.toString() }})")
 }
 
@@ -2060,8 +2060,8 @@ class WildCardMethodWithParams private constructor(override val location: CVLRan
         """,
     exampleMessage = "Duplicate catch-unresolved summarization for all contracts"
 )
-class MultipleCatchUnresolvedSummaries private constructor(override val location: CVLRange, override val message: String): CVLError() {
-    constructor(entry: CatchUnresolvedSummaryAnnotation) : this(entry.cvlRange,
+class MultipleCatchUnresolvedSummaries private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(entry: CatchUnresolvedSummaryAnnotation) : this(entry.range,
         "Duplicate catch-unresolved summarization for all contracts")
 }
 
@@ -2089,11 +2089,11 @@ class MultipleCatchUnresolvedSummaries private constructor(override val location
         """,
     exampleMessage = "Contract D was not found in the solidity sources."
 )
-class DispatchListContractNotFound private constructor(override val location: CVLRange, override val message: String): CVLError() {
-    constructor(entry: SpecCallSummary.DispatchList.Pattern.WildcardMethod) : this(entry.cvlRange,
+class DispatchListContractNotFound private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(entry: SpecCallSummary.DispatchList.Pattern.WildcardMethod) : this(entry.range,
         "Contract ${entry.contract.contract.name} was not found in the solidity sources.")
 
-    constructor(entry: SpecCallSummary.DispatchList.Pattern.QualifiedMethod) : this(entry.cvlRange,
+    constructor(entry: SpecCallSummary.DispatchList.Pattern.QualifiedMethod) : this(entry.range,
         "Contract ${entry.sig.qualifiedMethodName.host} was not found in the solidity sources.")
 }
 
@@ -2134,12 +2134,12 @@ class DispatchListContractNotFound private constructor(override val location: CV
         """,
     exampleMessage = "A method with the signature `overloadedFunction(uint256, uint256)` from the dispatch list was not found in any contract."
 )
-class DispatchListNoMatchingMethodFound private constructor(override val location: CVLRange, override val message: String): CVLError() {
-    constructor(entry: SpecCallSummary.DispatchList.Pattern.WildcardContract) : this(entry.cvlRange,
+class DispatchListNoMatchingMethodFound private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(entry: SpecCallSummary.DispatchList.Pattern.WildcardContract) : this(entry.range,
         "A method with the signature `${entry.sig.printMethodParameterSignature()}` from the dispatch list " +
             "was not found in any contract.")
 
-    constructor(entry: SpecCallSummary.DispatchList.Pattern.QualifiedMethod) : this(entry.cvlRange,
+    constructor(entry: SpecCallSummary.DispatchList.Pattern.QualifiedMethod) : this(entry.range,
         "A method with the signature `${entry.sig.printMethodParameterSignature()}` from the dispatch list " +
             "was not found in contract `${entry.sig.qualifiedMethodName.host}`.")
 }
@@ -2225,9 +2225,9 @@ class DispatchListNoMatchingMethodFound private constructor(override val locatio
         """,
     exampleMessage = "CVL Function doesNotReturn3 does not end with a return statement"
 )
-class DoesNotEndWithReturn private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class DoesNotEndWithReturn private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(sub: CVLFunction) : this(
-        sub.cvlRange, "CVL Function ${sub.declarationId} does not end with a return statement"
+        sub.range, "CVL Function ${sub.declarationId} does not end with a return statement"
     )
 }
 
@@ -2289,9 +2289,9 @@ class DoesNotEndWithReturn private constructor(override val location: CVLRange, 
 //        """,
 //    exampleMessage = "Unreachable statement after `revert`: `assert true`"
 //)
-class UnreachableStatement private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class UnreachableStatement private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(cmd: CVLCmd, reason: CVLCmd.Simple.HaltingCVLCmd) : this(
-        cmd.cvlRange, "Unreachable statement after `${reason.cmdName}`: `${cmd.toPrintString()}`"
+        cmd.range, "Unreachable statement after `${reason.cmdName}`: `${cmd.toPrintString()}`"
     )
 }
 
@@ -2357,8 +2357,8 @@ class UnreachableStatement private constructor(override val location: CVLRange, 
         }
     """
 )
-class LastRevertedAfterNonRevertingCall private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(lastCalls: Set<CVLExp.ApplyExp.RevertAnnotatable>, location: CVLRange) : this(
+class LastRevertedAfterNonRevertingCall private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(lastCalls: Set<CVLExp.ApplyExp.RevertAnnotatable>, location: Range) : this(
         location,
         "‘lastReverted’ refers to the previous call from spec and is always false " +
             "after non-reverting call(s) $lastCalls. Did you mean to add `@withrevert`?"
@@ -2378,7 +2378,7 @@ class LastRevertedAfterNonRevertingCall private constructor(override val locatio
     """,
     exampleMessage = "The flag 'optimistic' is declared multiple times"
 )
-class DuplicateKey(override val location: CVLRange, private val flag: String) : CVLError() {
+class DuplicateKey(override val location: Range, private val flag: String) : CVLError() {
     override val message get() = "The flag '$flag' is declared multiple times"
 }
 
@@ -2395,7 +2395,7 @@ class DuplicateKey(override val location: CVLRange, private val flag: String) : 
     """,
     exampleMessage = "The flag 'optimistic' is required when declaring a `DISPATCHER` summary with keyword arguments"
 )
-class OptimisticFlagRequired(override val location: CVLRange) : CVLError() {
+class OptimisticFlagRequired(override val location: Range) : CVLError() {
     override val message get() = "The flag 'optimistic' is required when declaring a `DISPATCHER` summary with keyword arguments"
 }
 
@@ -2420,8 +2420,8 @@ class OptimisticFlagRequired(override val location: CVLRange) : CVLError() {
     """,
     exampleMessage = "The flags [non_existent] are unsupported for `DISPATCH` summaries"
 )
-class UnexpectedSummaryFlags private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location: CVLRange, flags: Map<String, Boolean>, summaryType: String) : this(
+class UnexpectedSummaryFlags private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range, flags: Map<String, Boolean>, summaryType: String) : this(
         location, "The flags ${flags.keys} are unsupported for `$summaryType` summaries"
     )
 }
@@ -2439,7 +2439,7 @@ class UnexpectedSummaryFlags private constructor(override val location: CVLRange
         }
     """
 )
-class AddressFuncCallWithRevert private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class AddressFuncCallWithRevert private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp) : this(exp.getRangeOrEmpty(), "Cannot use `@withrevert` for address function calls")
 }
 
@@ -2456,7 +2456,7 @@ class AddressFuncCallWithRevert private constructor(override val location: CVLRa
         }
     """
 )
-class AddressFuncCallNoEnv private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class AddressFuncCallNoEnv private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp) : this(exp.getRangeOrEmpty(), "Address function calls require to use an `env` variable in the call")
 }
 
@@ -2481,7 +2481,7 @@ class AddressFuncCallNoEnv private constructor(override val location: CVLRange, 
         }
     """
 )
-class AddressFuncCallNoFuncs private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class AddressFuncCallNoFuncs private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp) : this(exp.getRangeOrEmpty(), "Did not find any contract functions that match the given name and arguments")
 }
 
@@ -2499,7 +2499,7 @@ class AddressFuncCallNoFuncs private constructor(override val location: CVLRange
     """,
     exampleMessage = "The function `differentReturnTypes` has several implementation with different return values [uint256, int256]. Cannot perform an address function call on them"
 )
-class AddressFuncCallMultipleReturnTypes private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class AddressFuncCallMultipleReturnTypes private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp, returnTypes: Set<CVLType>) : this(
         exp.getRangeOrEmpty(),
         "The function `${exp.methodId}` has several implementation with different return values $returnTypes. Cannot perform an address function call on them"
@@ -2520,7 +2520,7 @@ class AddressFuncCallMultipleReturnTypes private constructor(override val locati
     """,
     exampleMessage = "can only `reset_storage` of `currentContract`, `allContracts`, or contracts declared via a `using` statement. Got `a`"
 )
-class ResetStorageOnNonContract private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class ResetStorageOnNonContract private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp) : this(
         exp.getRangeOrEmpty(),
         "can only `reset_storage` of `currentContract`, `allContracts`, or contracts declared via a `using` statement. Got `$exp`"
@@ -2532,8 +2532,8 @@ class ResetStorageOnNonContract private constructor(override val location: CVLRa
     category = CVLErrorCategory.TYPECHECKING,
     description = "filtered out all possible foundry fuzz tests"
 )
-class NoFoundryTestsLeft private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(range: CVLRange, ruleName: String, mainContract: String) : this(
+class NoFoundryTestsLeft private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(range: Range, ruleName: String, mainContract: String) : this(
         range,
         if (Config.MethodChoices == null) {
             "Rule `$ruleName` found no fuzz tests in contract `$mainContract`!\""
@@ -2554,9 +2554,9 @@ class NoFoundryTestsLeft private constructor(override val location: CVLRange, ov
         #using Extension as extension#;
     """
 )
-class AliasingExtensionContract private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class AliasingExtensionContract private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(impContract: CVLImportedContract, extendedContractName: List<String>) : this(
-        impContract.cvlRange,
+        impContract.range,
         "${impContract.contractName} is an extension contract of $extendedContractName " +
             "so can't be referenced directly in CVL. Its methods should be called " +
             "directly from the extended contract."
@@ -2568,9 +2568,9 @@ class AliasingExtensionContract private constructor(override val location: CVLRa
     category = CVLErrorCategory.CLI,
     description = "a non-existent method was specified via `--method`"
 )
-class NoSuchMethodChoice private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class NoSuchMethodChoice private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(methodChoice: String, suggestions: Set<String>) : this(
-        CVLRange.Empty(),
+        Range.Empty(),
         "Could not find a method named $methodChoice in the scene." + if (suggestions.isEmpty()) {
             ""
         } else {
@@ -2618,7 +2618,7 @@ class NoSuchMethodChoice private constructor(override val location: CVLRange, ov
         }
     """
 )
-class SumOnNonGhostVariable private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class SumOnNonGhostVariable private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(body: CVLExp) : this(
         body.getRangeOrEmpty(),
         "Summing is only supported on ghost mappings, got `$body`"
@@ -2639,7 +2639,7 @@ class SumOnNonGhostVariable private constructor(override val location: CVLRange,
         }
     """
 )
-class SumVariableNotValueType private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class SumVariableNotValueType private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.SumExp, param: CVLParam) : this(
         exp.getRangeOrEmpty(),
         "Sum param $param must have a value type"
@@ -2669,7 +2669,7 @@ class SumVariableNotValueType private constructor(override val location: CVLRang
         }
     """
 )
-class SumBodyNotSummable private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class SumBodyNotSummable private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(body: CVLExp.ArrayDerefExp) : this(
         body.getRangeOrEmpty(),
         "The body of a sum must have a type that is summable (for instance int, uint, address), got ${body.getCVLType()}"
@@ -2690,7 +2690,7 @@ class SumBodyNotSummable private constructor(override val location: CVLRange, ov
         }
     """
 )
-class SumUnusedArguments private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class SumUnusedArguments private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.SumExp, unusedArgs: List<CVLParam>) : this(
         exp.getRangeOrEmpty(),
         "All sum arguments must be used in the sum body. The following are unused: ${unusedArgs.joinToString { it.id }}"
@@ -2713,7 +2713,7 @@ class SumUnusedArguments private constructor(override val location: CVLRange, ov
     """,
     exampleMessage = "Cannot use nested sums. Use multiple arguments in the outermost sum instead. e.g. `sum address a, int256 m. ...`"
 )
-class NestedSumsExpressions private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class NestedSumsExpressions private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.SumExp, subSums: List<CVLExp.SumExp>) : this(
         exp.getRangeOrEmpty(),
         "Cannot use nested sums. Use multiple arguments in the outermost sum instead. e.g. " +
@@ -2735,7 +2735,7 @@ class NestedSumsExpressions private constructor(override val location: CVLRange,
         }
     """
 )
-class SumNonBasicParamExpression private constructor(override val location: CVLRange, override val message: String) : CVLError() {
+class SumNonBasicParamExpression private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(nonVarExp: CVLExp) : this(
         nonVarExp.getRangeOrEmpty(),
         "Sum parameters can only be used as index values, not $nonVarExp"
@@ -2766,8 +2766,8 @@ class SumNonBasicParamExpression private constructor(override val location: CVLR
         }
     """
 )
-class SumSignedAndUnsignedNotSupported private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(origGhostName: String, location: CVLRange) : this(
+class SumSignedAndUnsignedNotSupported private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(origGhostName: String, location: Range) : this(
         location,
         "Cannot use both `sum` and `usum` on the same ghost $origGhostName"
     )
@@ -2786,8 +2786,8 @@ class SumSignedAndUnsignedNotSupported private constructor(override val location
         }
     """
 )
-class UnsignedSumOnSignedGhostType private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(location: CVLRange, body: CVLExp.ArrayDerefExp) : this(
+class UnsignedSumOnSignedGhostType private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(location: Range, body: CVLExp.ArrayDerefExp) : this(
         location,
         "Cannot use `usum` on ${body.baseArray}, since its target type is not unsigned."
     )
@@ -2812,8 +2812,8 @@ class UnsignedSumOnSignedGhostType private constructor(override val location: CV
 //    """,
 //    exampleMessage = "Revert statement is not allowed outside a CVL function."
 //)
-class RevertCmdOutsideOfFunction private constructor(override val location: CVLRange, override val message: String) : CVLError() {
-    constructor(range: CVLRange) : this(
+class RevertCmdOutsideOfFunction private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(range: Range) : this(
         range,
         "Revert statement is not allowed outside a CVL function."
     )

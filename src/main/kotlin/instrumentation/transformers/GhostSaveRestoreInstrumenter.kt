@@ -72,7 +72,7 @@ object GhostSaveRestoreInstrumenter {
                         val src = ghostToVar(ghostFunc)
                         val trg = TACSymbol.Var(ghostCheckpointed(saveTo, ghostFunc.name), tag)
                         if (tag is Tag.GhostMap) {
-                            p.addUf(ghostFunc.copy(name = trg.namePrefix))
+                            p.addUf(ghostFunc.copy(name = trg.namePrefix, declarationName = trg.namePrefix))
                         } else {
                             p.addVarDecl(src)
                             p.addVarDecl(trg)

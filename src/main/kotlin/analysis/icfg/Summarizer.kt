@@ -645,16 +645,12 @@ object Summarizer {
                         appliedSummary,
                         callSumm.summaryId
                     )
+                ),
+                // Even though we're just assumeing false, link it to the rest of the graph to prevent malformed TAC dumps
+                TACCmd.Simple.JumpCmd(
+                    dst = inlineSuccessor
                 )
             )
-            if (callees.isEmpty()) {
-                // if no callees found, and we're just going to assume false, at least link to the rest of the graph
-                optimisticBlock.add(
-                    TACCmd.Simple.JumpCmd(
-                        dst = inlineSuccessor
-                    )
-                )
-            }
             patching.addBlock(
                 where.ptr.block, optimisticBlock
             ).also {
@@ -1177,7 +1173,7 @@ object Summarizer {
          * [constSummaryGenerator] is expected to generate either [SpecCallSummary.Constant] or [SpecCallSummary.PerCalleeConstant] summaries.
          */
         fun generateConstSummToInline(
-            summaryRange: CVLRange,
+            summaryRange: Range,
             constSummaryGenerator: (sighash: BigInteger, summ: CallSummary, callerCallIndex: CallId) -> CommandWithRequiredDecls<TACCmd.Simple>,
         ): SummaryToInline {
             // We expect this check to hold when this function is called
@@ -1261,11 +1257,11 @@ object Summarizer {
                     }
 
                     is SpecCallSummary.Constant -> {
-                        generateConstSummToInline(specCallSumm.cvlRange, ::generateConstantSummary)
+                        generateConstSummToInline(specCallSumm.range, ::generateConstantSummary)
                     }
 
                     is SpecCallSummary.PerCalleeConstant -> {
-                        generateConstSummToInline(specCallSumm.cvlRange, ::generatePerCalleeSummary)
+                        generateConstSummToInline(specCallSumm.range, ::generatePerCalleeSummary)
                     }
 
                     is SpecCallSummary.Dispatcher -> {

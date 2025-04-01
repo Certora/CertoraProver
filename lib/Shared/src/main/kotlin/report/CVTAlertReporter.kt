@@ -64,6 +64,37 @@ enum class CVTAlertType(
         externalName = "Analysis",
         defaultUrl = CheckedUrl.PROVER_TECHNIQUES,
     ),
+    /** Problems related to internal functions or the auto finder */
+    INTERNAL_FUNCTION_ANALYSIS(
+        externalName = "Internal Function Analysis",
+        defaultUrl = CheckedUrl.PROVER_TECHNIQUES,
+    ),
+    /** Problems in the Storage Analysis */
+    STORAGE_ANALYSIS(
+        externalName = "Storage Analysis",
+        defaultUrl = CheckedUrl.PROVER_TECHNIQUES,
+    ),
+    /** Problems with Storage Splitting */
+    STORAGE_SPLITTING(
+        externalName = "Storage Splitting",
+        defaultUrl = CheckedUrl.PROVER_TECHNIQUES,
+    ),
+    /** Problems when generating the call graph */
+    CALL_GRAPH(
+        externalName = "Call Graph",
+        defaultUrl = CheckedUrl.PROVER_TECHNIQUES,
+    ),
+    /** Problems with Pointer Analysis for Optimizations */
+    PTA_FOR_OPTIMIZATIONS(
+        externalName = "Pointer Analysis for Optimizations",
+        defaultUrl = CheckedUrl.PROVER_TECHNIQUES,
+    ),
+
+    /** Problems with the Memory Partitioning */
+    MEMORY_PARITIONING(
+        externalName = "Memory Partitioning",
+        defaultUrl = CheckedUrl.PROVER_TECHNIQUES,
+    ),
     /** CVT ran out of resources -- time or memory, typically */
     OUT_OF_RESOURCES(
         externalName = "Out of Resources",
@@ -79,6 +110,11 @@ enum class CVTAlertType(
         externalName = "Diagnosability",
         CheckedUrl.LATEST_DOCS,
     ),
+    /** Alerts related to a bounded model checker run */
+    BMC(
+        externalName = "Bounded Model Check",
+        defaultUrl = CheckedUrl.LATEST_DOCS
+    )
     ;
 }
 
@@ -149,11 +185,12 @@ sealed class CVTAlertReporter: Closeable {
         message: String,
         hint: String?,
         url: CheckedUrl? = null,
+        throwable: Throwable? = null,
     ) {
         when (severity) {
             CVTAlertSeverity.INFO -> logger.info { message }
             CVTAlertSeverity.WARNING -> Logger.alwaysWarn(message)
-            CVTAlertSeverity.ERROR -> Logger.alwaysError(message)
+            CVTAlertSeverity.ERROR -> Logger.alwaysError(message, throwable)
         }
         Logger.regression { "Report alert: ${message}" }
         Logger.regression { "hint: ${hint}" }
@@ -199,8 +236,9 @@ sealed class CVTAlertReporter: Closeable {
             message: String,
             hint: String?,
             url: CheckedUrl?,
+            throwable: Throwable?,
         ) {
-            super.reportAlert(type, severity, jumpToDefinition, message, hint, url)
+            super.reportAlert(type, severity, jumpToDefinition, message, hint, url, throwable)
 
             val writer = synchronized(this) { fileWriter }
             if (writer == null) {
@@ -258,8 +296,9 @@ sealed class CVTAlertReporter: Closeable {
             severity: CVTAlertSeverity,
             jumpToDefinition: TreeViewLocation?,
             message: String,
-            hint: String?,
+            hint: String? = null,
             url: CheckedUrl? = null,
-        ) = Companion().reportAlert(type, severity, jumpToDefinition, message, hint, url)
+            throwable: Throwable? = null,
+        ) = Companion().reportAlert(type, severity, jumpToDefinition, message, hint, url, throwable)
     }
 }

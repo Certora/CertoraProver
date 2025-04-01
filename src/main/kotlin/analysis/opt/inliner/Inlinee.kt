@@ -119,7 +119,7 @@ sealed interface Inlinee {
 
         fun evaluate(eval: (TACSymbol.Var) -> Intervals) =
             term.literals.entries.fold(Intervals(term.c)) { acc, t ->
-                (eval(t.key) * Intervals(t.value) + acc).mod(Tag.Bit256)
+                (eval(t.key) * t.value + acc).mod(Tag.Bit256)
             }
 
         override fun toString() = term.toString()

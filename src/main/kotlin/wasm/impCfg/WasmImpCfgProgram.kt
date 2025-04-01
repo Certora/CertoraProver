@@ -268,6 +268,7 @@ class WasmImpCfgProgram(
             is Control.BrTable -> c.copy(dests = c.dests.map { it.replaceIfDst() })
             is Control.Brif -> c.copy(ifpc = c.ifpc.replaceIfDst(), elpc = c.elpc.replaceIfDst())
             is Control.Jump -> c.copy(pc = c.pc.replaceIfDst())
+            is Control.CertoraUnreachable,
             is Control.Ret,
             is Control.Unreach -> throw IllegalStateException("Impossible - there is no edge from src $src to dest $dst in the graph")
         }

@@ -17,6 +17,7 @@ import sys
 import argparse
 from typing import Any, NoReturn, Dict, Optional, Callable, List
 from Shared import certoraUtils as Util
+from CertoraProver.certoraCollectConfigurationLayout import AttributeJobConfigData
 from enum import auto
 from dataclasses import dataclass, field
 from rich.console import Console
@@ -101,6 +102,8 @@ class AttributeDefinition:
     jar_no_value: Optional[bool] = False  # if true, flag is sent with no value
     temporary_jar_invocation_allowed: bool = False  # If true we can call the jar flag without raising an error
     name: str = ''  # the name of the CONST will be set during set_attribute_list()
+    # A description of the configuration data to be presented in the report
+    config_data: Optional[AttributeJobConfigData] = AttributeJobConfigData()
 
     def get_conf_key(self) -> str:
         return self.name.lower()
@@ -189,5 +192,4 @@ class Attributes:
             cls._attribute_list = [set_name(name) for name in dir(cls) if name.isupper()]
             cls._all_conf_names = [attr.name.lower() for attr in cls.attribute_list()]
             #  'compiler_map' does not have a matching 'compiler' attribute
-            cls._all_map_attrs = [attr for attr in cls._all_conf_names
-                                  if attr.endswith(Util.MAP_SUFFIX) and attr != 'compiler_map']
+            cls._all_map_attrs = [attr for attr in cls._all_conf_names if attr.endswith(Util.MAP_SUFFIX)]

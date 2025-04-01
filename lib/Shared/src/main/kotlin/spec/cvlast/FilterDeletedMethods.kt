@@ -18,13 +18,14 @@
 package spec.cvlast
 
 import bridge.ContractInstanceInSDC
-import datastructures.stdcollections.*
 import spec.cvlast.transformer.CVLAstTransformer
 import spec.cvlast.transformer.CVLCmdTransformer
 import spec.cvlast.transformer.CVLExpTransformer
+import spec.rules.CVLSingleRule
 import utils.CollectingResult
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.safeForce
+import utils.Range
 import utils.mapToSet
 
 /**
@@ -49,7 +50,7 @@ class FilterDeletedMethods(private val ast: CVLAst, private val functionInfo: Ma
         val methodParams = rule.params.filter { it.type == EVMBuiltinTypes.method }
 
         val deletedMethodsParamFilters = MethodParamFilters.dontCallFilters(
-            CVLRange.Empty("don't call deleted methods filters"),
+            Range.Empty("don't call deleted methods filters"),
             rule.scope,
             methodParams.mapToSet { it.id },
             deletedContractFunctions.map {
@@ -59,7 +60,7 @@ class FilterDeletedMethods(private val ast: CVLAst, private val functionInfo: Ma
         )
 
         // Conjunct the deleted-methods filters we just created with whatever filters the rule already has.
-        val newFilters = MethodParamFilters.conjunct(rule.cvlRange, rule.scope, rule.methodParamFilters, deletedMethodsParamFilters)
+        val newFilters = MethodParamFilters.conjunct(rule.range, rule.scope, rule.methodParamFilters, deletedMethodsParamFilters)
 
         return rule.copy(methodParamFilters = newFilters).lift()
     }

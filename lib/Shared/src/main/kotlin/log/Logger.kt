@@ -83,6 +83,7 @@ enum class LoggerTypes : LoggerName {
     TIMEOUT_REPORTING,
     SKEY_DETECTION,
     HOOK_INSTRUMENTATION,
+    STRONG_INVARIANT_INLINER,
     WHOLE_CONTRACT_TRANSFORMATION,
     ABI_ENCODER,
     ABI_DECODER,
@@ -127,7 +128,8 @@ enum class LoggerTypes : LoggerName {
     TWOSTAGE,
     FOUNDRY,
     DEBUG_SYMBOLS,
-    OVERFLOW_PATTERN_REWRITER
+    OVERFLOW_PATTERN_REWRITER,
+    BOUNDED_MODEL_CHECKER
     ;
 }
 
@@ -241,7 +243,7 @@ fun Logger.reportOnEventInCode(eventInCodeName: String) {
 
 
 // utility logger, just so it's always easy to call errors/warnings even without a logger object
-private val alwaysLogger = Logger(LoggerTypes.ALWAYS)
+private val alwaysLogger = KotlinLoggingLogger(LoggerTypes.ALWAYS)
 
 fun Logger.Companion.always(s: String, respectQuiet: Boolean) {
     val beQuiet = respectQuiet && Config.QuietMode.get()
@@ -268,12 +270,6 @@ fun Logger.Companion.alwaysError(s: String) {
 fun Logger.Companion.alwaysError(s: String, t: Throwable?) {
     OutPrinter.printErrorToScreen(s)
     alwaysLogger.error(t, s)
-}
-
-fun Logger.Companion.devError(t: Throwable) {
-    if (DevMode.isDevMode()) {
-        Logger.alwaysError("Exception details:", t)
-    }
 }
 
 fun Logger.Companion.alwaysWarn(s: String, t: Throwable?) {

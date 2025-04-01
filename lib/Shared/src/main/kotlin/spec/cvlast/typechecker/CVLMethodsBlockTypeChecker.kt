@@ -121,7 +121,7 @@ class CVLMethodsBlockTypeChecker(
                 // A specific target means we should be able to find this exact method in the scene. This means
                 // we can find the correct return types.
                 return@collectingErrors (entry.methodParameterSignature as? MethodSignature)?.resType
-                    ?: returnError(CVLError.General(entry.cvlRange, "Cannot specify summary for ${entry.prettyPrint()} without return type information")) // Should be impossible
+                    ?: returnError(CVLError.General(entry.range, "Cannot specify summary for ${entry.prettyPrint()} without return type information")) // Should be impossible
             }
 
             MethodEntryTargetContract.WildcardTarget -> {
@@ -133,7 +133,7 @@ class CVLMethodsBlockTypeChecker(
                         message += " Instead, indicate the expected return type of the summary by adding expect <type> after the summary."
                     }
 
-                    returnError(CVLError.General(entry.cvlRange,message))
+                    returnError(CVLError.General(entry.range,message))
                 }
                 return@collectingErrors null
             }
@@ -153,7 +153,7 @@ class CVLMethodsBlockTypeChecker(
             if(entry.qualifiers.visibility == Visibility.INTERNAL && summary !is SpecCallSummary.InternalSummary) {
                 return CVLError.General(
                     message = "Cannot use summary ${summary.summaryName} for internal functions.",
-                    cvlRange = summary.cvlRange
+                    range = summary.range
                 ).asError()
             }
         return when(summary) {
@@ -188,7 +188,7 @@ class CVLMethodsBlockTypeChecker(
                 message = "Cannot use NONDET summary for function with return type(s) ${res!!.joinToString(", ") {
                     "`${it.prettyPrint()}`"
                 }}; using a NONDET summary for reference types causes unsoundness.",
-               cvlRange = summary.cvlRange
+               range = summary.range
             ).asError()
         }
         return summary.lift()
@@ -214,7 +214,7 @@ class CVLMethodsBlockTypeChecker(
                 val typeCheckedSummExp = bind(
                     expTypeChecker.typeCheck(
                         summExp,
-                        CVLTypeEnvironment.empty(entry.cvlRange, CVLScope.AstScope)
+                        CVLTypeEnvironment.empty(entry.range, CVLScope.AstScope)
                     )
                 )
                 when {
@@ -228,7 +228,7 @@ class CVLMethodsBlockTypeChecker(
                         // summarizing a void function!
                         returnError(
                             CVLError.General(
-                                cvlRange = entry.cvlRange,
+                                range = entry.range,
                                 message = "${entry.prettyPrint()} is a void function, so can't be summarized with ${summary.summaryName}"
                             )
                         )
@@ -237,7 +237,7 @@ class CVLMethodsBlockTypeChecker(
                     res.size > 1 -> {
                         returnError(
                             CVLError.General(
-                                cvlRange = entry.cvlRange,
+                                range = entry.range,
                                 message = "Cannot use constant summary for function ${entry.prettyPrint()} that returns multiple values"
                             )
                         )
@@ -261,7 +261,7 @@ class CVLMethodsBlockTypeChecker(
 
             else -> returnError(
                 CVLError.General(
-                    cvlRange = entry.cvlRange,
+                    range = entry.range,
                     message = "The argument of an ALWAYS summary must be a constant, got `$summExp`"
                 )
             )
@@ -288,7 +288,7 @@ class CVLMethodsBlockTypeChecker(
                 it is VMReferenceTypeDescriptor && it.isDynamicSize()
             }) {
             CVLError.General(
-                cvlRange = entry.cvlRange,
+                range = entry.range,
                 message = "${entry.summary} cannot be used for complex return types specified for ${entry.prettyPrint()}"
             ).asError()
         } else {
@@ -318,12 +318,12 @@ class CVLMethodsBlockTypeChecker(
             is MethodEntryTargetContract.WildcardTarget -> {
                 require(declaredReturn == null) // ensured by [typeCheckReturnType]
                 summary.expectedType
-                    ?: returnError(CVLError.General(entry.cvlRange, "Wildcard method entry with summary ${summary.exp} must include an expected return type"))
+                    ?: returnError(CVLError.General(entry.range, "Wildcard method entry with summary ${summary.exp} must include an expected return type"))
             }
             is MethodEntryTargetContract.SpecificTarget -> {
                 require(declaredReturn != null) // ensured by [typeCheckReturnType]
                 if (summary.expectedType != null) {
-                    collectError(CVLError.General(entry.cvlRange, "An exact summary target may not contain expected return type in the summary body."))
+                    collectError(CVLError.General(entry.range, "An exact summary target may not contain expected return type in the summary body."))
                 }
                 declaredReturn
             }
@@ -351,7 +351,7 @@ class CVLMethodsBlockTypeChecker(
         // check conversion from actual return type to expected return type
         val actualReturn = typeCheckedBody.getCVLType() as? CVLType.PureCVLType
             ?: returnError(CVLError.General(
-                entry.cvlRange,
+                entry.range,
                 "Cannot summarize '${entry.methodParameterSignature}' with '$typeCheckedBody'. Only CVL constructs (e.g. CVL functions or ghosts) can be used as summaries"
             ))
 
@@ -418,10 +418,10 @@ class CVLMethodsBlockTypeChecker(
             // a dispatcher only really makes sense on unresolved calls
             returnError(CVLError.General(message = "A summary ${SpecCallSummary.FORCED_KEYWORD} is not allowed for " +
                 "dispatcher summaries, please remove the ${SpecCallSummary.FORCED_KEYWORD} keyword " +
-                "or add the ${SpecCallSummary.UNRESOLVED_KEYWORD} for the summary ${entry.summary}", cvlRange = entry.cvlRange))
+                "or add the ${SpecCallSummary.UNRESOLVED_KEYWORD} for the summary ${entry.summary}", range = entry.range))
         }
         if (summary.optimistic && matchingFunctionsInSymbolTable(symbolTable, entry.methodParameterSignature).isEmpty()) {
-            collectError(DispatcherSummaryNoImplementation(entry.cvlRange))
+            collectError(DispatcherSummaryNoImplementation(entry.range))
         }
         return@collectingErrors summary
     }

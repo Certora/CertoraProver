@@ -28,7 +28,7 @@ import scene.ISceneIdentifiers
 import scene.SceneFactory
 import scene.source.DegenerateContractSource
 import solver.SolverResult
-import spec.cvlast.IRule.Companion.createDummyRule
+import spec.rules.IRule.Companion.createDummyRule
 import tac.NBId
 import utils.*
 import vc.data.*

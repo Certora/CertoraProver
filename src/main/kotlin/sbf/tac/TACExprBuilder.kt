@@ -193,6 +193,22 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
         )
     }
 
+    /** Return the equivalent TAC expression of logical [op1] xor [op2] **/
+    private fun mkXorExpr(op1: TACExpr.Sym, op2: TACExpr): TACExpr {
+        /* mask64 because TAC uses 256bits but SBF uses 64bits */
+        return mask64(TACExpr.BinOp.BWXOr(op1, op2))
+    }
+
+    /** Return the equivalent TAC expression of logical [op1] or [op2] **/
+    private fun mkOrExpr(op1: TACExpr.Sym, op2: TACExpr): TACExpr {
+        return TACExpr.BinOp.BWOr(op1, op2)
+    }
+
+    /** Return the equivalent TAC expression of logical [op1] and [op2] **/
+    private fun mkAndExpr(op1: TACExpr.Sym, op2: TACExpr): TACExpr {
+        return TACExpr.BinOp.BWAnd(op1, op2)
+    }
+
     /**
      * Return the equivalent TAC expression [dstE] [op] [srcE]
      * By default, all the operations are 256-bit modulo.
@@ -208,9 +224,9 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
             BinOp.ARSH -> mkArshExpr(dstE, srcE)
             BinOp.RSH -> mkRshExpr(dstE, srcE)
             BinOp.LSH -> mkLshExpr(dstE, srcE)
-            BinOp.OR  -> TACExpr.BinOp.BWOr(dstE, srcE)
-            BinOp.AND -> TACExpr.BinOp.BWAnd(dstE, srcE)
-            BinOp.XOR -> TACExpr.BinOp.BWXOr(dstE, srcE)
+            BinOp.AND -> mkAndExpr(dstE, srcE)
+            BinOp.OR  -> mkOrExpr(dstE, srcE)
+            BinOp.XOR -> mkXorExpr(dstE, srcE)
             BinOp.MOV -> throw TACTranslationError("mkBinExpr cannot be called with op=MOV")
         }
     }

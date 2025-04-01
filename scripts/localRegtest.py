@@ -33,16 +33,17 @@ sys.path.append(str(test_dir))
 from ConfTester.RegTestDispatch import BASE_FLAGS
 
 
-def filter_confs(confs: List[Path]) -> List[Path]:
+def filter_confs(confs: List[Path], ignore_confs: Path) -> List[Path]:
     """
     Filter a list of configuration files based on specified criteria.
     Args:
         confs (List[Path]): List of configuration file paths.
+        ignore_confs (Path): Path to a file containing a  list of .conf files to skip.
     Returns:
         List[Path]: Filtered list of configuration file paths.
     """
     # List of configuration files to skip
-    with open(Path(__file__).parent / "conf_tester/conf_ignore.txt", "r") as f:
+    with open(ignore_confs, "r") as f:
         confs_to_skip = [c.strip() for c in f.readlines()]
 
     # Remove files that should be skipped
@@ -68,6 +69,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--recursive', action="store_true", help='Recursively search for conf files in directories')
     parser.add_argument('--clean_output', action="store_true", help='Delete the test output after running the tests')
     parser.add_argument('--jacoco', action="store_true", help='Decide if execute with Jacoco data collection')
+    parser.add_argument('--ignore_confs', default=Path(__file__).parent / "conf_tester/conf_ignore.txt", type=Path,
+                        help="A file containing a list of .conf files to skip")
 
     args = parser.parse_args()
 
@@ -84,7 +87,7 @@ def main() -> None:
     else:
         confs = [args.path]
 
-    confs = filter_confs(confs)
+    confs = filter_confs(confs, args.ignore_confs)
     confs = [conf.resolve() for conf in confs]
 
     checks = [VerificationCheck(), RegressionCheck(), AnalysisCheck()]

@@ -15,7 +15,7 @@
         "type": "vc.data.TACCmd.Simple.AssertCmd",
         "o": {
             "type": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "B138",
+            "namePrefix": "B144",
             "tag": {
                 "type": "tac.Tag.Bool"
             },
@@ -34,12 +34,20 @@
             },
             {
                 "key": {
+                    "name": "tac.assert.id",
+                    "type": "java.lang.Integer",
+                    "erasureStrategy": "Canonical"
+                },
+                "value": 10
+            },
+            {
+                "key": {
                     "name": "cvl.range",
-                    "type": "spec.cvlast.CVLRange",
+                    "type": "utils.Range",
                     "erasureStrategy": "CallTrace"
                 },
                 "value": {
-                    "type": "spec.cvlast.CVLRange.Range",
+                    "type": "utils.Range.Range",
                     "specFile": "test.spec",
                     "start": {
                         "line": 42,
@@ -50,14 +58,6 @@
                         "charByteOffset": 35
                     }
                 }
-            },
-            {
-                "key": {
-                    "name": "tac.assert.id",
-                    "type": "java.lang.Integer",
-                    "erasureStrategy": "Canonical"
-                },
-                "value": 24
             }
         ]
     }

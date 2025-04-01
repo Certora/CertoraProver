@@ -18,7 +18,6 @@
 package com.certora.certoraprover.cvl
 
 import cli.InvariantType
-import com.certora.collect.*
 import config.Config
 import spec.TypeResolver
 import spec.cvlast.*
@@ -36,7 +35,7 @@ import utils.ErrorCollector.Companion.collectingErrors
 
 class Invariant(
     val isImportedSpecFile: Boolean,
-    val cvlRange: CVLRange,
+    val range: Range,
     val id: String,
     val params: List<CVLParam>,
     val exp: Exp,
@@ -68,7 +67,7 @@ class Invariant(
             val invariantType = getInvariantType(invariantType)
 
             map(_params, _exp, _mpf, _proof) { params, exp, mpf, proof ->
-                CVLInvariant(cvlRange, id, source, params, exp, mpf, proof, iScope, !isImportedSpecFile, RuleIdentifier.freshIdentifier(id), invariantType)
+                CVLInvariant(range, id, source, params, exp, mpf, proof, iScope, !isImportedSpecFile, RuleIdentifier.freshIdentifier(id), invariantType)
             }
         }}
     }
@@ -80,7 +79,7 @@ class InvariantProof(val preserved: List<Preserved>) : Kotlinizable<CVLInvariant
         = preserved.map { it.kotlinize(resolver, scope) }.flatten().map { CVLInvariantProof(it) }
 }
 
-sealed class Preserved(val cvlRange: CVLRange, val withParams: List<CVLParam>, val block: List<Cmd>) : Kotlinizable<CVLPreserved> {
+sealed class Preserved(val range: Range, val withParams: List<CVLParam>, val block: List<Cmd>) : Kotlinizable<CVLPreserved> {
     /** @return the kotlinization of `this` after [block] and [withParams] have been kotlinized */
     abstract fun create(resolver: TypeResolver, scope: CVLScope, block : List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>) : CollectingResult<CVLPreserved, CVLError>
 
@@ -96,29 +95,29 @@ sealed class Preserved(val cvlRange: CVLRange, val withParams: List<CVLParam>, v
 }
 
 class ExplicitMethodPreserved(
-    cvlRange: CVLRange,
+    range: Range,
     val methodSig: MethodSig,
     withParams: List<CVLParam>?,
     block: List<Cmd>
-) : Preserved(cvlRange, withParams.orEmpty(), block) {
+) : Preserved(range, withParams.orEmpty(), block) {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
         = methodSig.kotlinizeExternal(resolver, scope).map { methodSig ->
-            ExplicitMethod(cvlRange, methodSig, block, withParams, scope)
+            ExplicitMethod(range, methodSig, block, withParams, scope)
         }
 }
 
-class FallbackPreserved(cvlRange: CVLRange, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(cvlRange, withParams.orEmpty(), block) {
+class FallbackPreserved(range: Range, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(range, withParams.orEmpty(), block) {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
-        = CVLPreserved.Fallback(cvlRange, block, withParams, scope).lift()
+        = CVLPreserved.Fallback(range, block, withParams, scope).lift()
 }
 
 
-class TransactionBoundaryPreserved(cvlRange: CVLRange, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(cvlRange, withParams.orEmpty(), block) {
+class TransactionBoundaryPreserved(range: Range, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(range, withParams.orEmpty(), block) {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
-        = CVLPreserved.TransactionBoundary(cvlRange, block, withParams, scope).lift()
+        = CVLPreserved.TransactionBoundary(range, block, withParams, scope).lift()
 }
 
-class GenericPreserved(cvlRange: CVLRange, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(cvlRange, withParams.orEmpty(), block) {
+class GenericPreserved(range: Range, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(range, withParams.orEmpty(), block) {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
-        = CVLPreserved.Generic(cvlRange, block, withParams, scope).lift()
+        = CVLPreserved.Generic(range, block, withParams, scope).lift()
 }

@@ -18,7 +18,7 @@
 package spec
 
 import com.certora.collect.*
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLScope
 import utils.AmbiSerializable
 import utils.KSerializable
@@ -26,16 +26,16 @@ import utils.KSerializable
 @KSerializable
 @Treapable
 sealed class CVLDefinitionSite : AmbiSerializable {
-    abstract val range: CVLRange?
+    abstract val range: Range?
 
     @KSerializable
-    data class Function(override val range: CVLRange? = null) : CVLDefinitionSite()
+    data class Function(override val range: Range? = null) : CVLDefinitionSite()
 
     @KSerializable
-    data class Rule(override val range: CVLRange? = null) : CVLDefinitionSite()
+    data class Rule(override val range: Range? = null) : CVLDefinitionSite()
 
     companion object {
-        fun fromScope(scope: CVLScope, range: CVLRange) : CVLDefinitionSite? {
+        fun fromScope(scope: CVLScope, range: Range) : CVLDefinitionSite? {
             return if (scope.enclosingRule() != null) {
                 Rule(range)
             } else if (scope.enclosingInvariant() != null) {

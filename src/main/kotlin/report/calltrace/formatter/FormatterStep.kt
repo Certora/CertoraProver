@@ -67,7 +67,8 @@ internal class ValueFormattingJob(val tacValueIn: TACValue,
 
         tv = undoBoolReplacement(tv)
 
-        val (tacValuePrettyPrint, truncatable) = computePrettyRepresentation(tv)
+        val (tacValuePrettyPrint, truncatableImmut) = computePrettyRepresentation(tv)
+        var truncatable = truncatableImmut
 
         val alternativeRepresentations = AlternativeRepresentations.computeRepresentations(tv, tacValuePrettyPrint, type)
 
@@ -89,6 +90,9 @@ internal class ValueFormattingJob(val tacValueIn: TACValue,
                 res[Representations.Pretty] = "$contractName"
                 res[Representations.Decimal] = "$contractName"
                 // HEX is shown as hex -- no update needed
+
+                // we don't allow truncating the contract name
+                truncatable = false
             } else {
                 // we replace the DEC case with the hexadecimal/pretty (as per the design doc)
                 res[Representations.Decimal] = res[Representations.Pretty]!!

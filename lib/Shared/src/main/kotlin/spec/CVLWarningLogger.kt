@@ -21,7 +21,7 @@ import report.CVTAlertSeverity
 import report.CVTAlertType
 import report.CVTAlertReporter
 import report.TreeViewLocation
-import spec.cvlast.CVLRange
+import utils.Range
 import java.util.concurrent.ConcurrentHashMap
 
 object CVLWarningLogger {
@@ -46,17 +46,17 @@ object CVLWarningLogger {
     }
 
     /**
-     * @param cvlRange the range in the spec file that led to the error (use cvlRange.Empty if there is none)
+     * @param range the range in the spec file that led to the error (use range.Empty if there is none)
      */
-    fun syntaxWarning(msg: String, cvlRange: CVLRange) {
-        warn(CVTAlertType.CVL, "Syntax warning in spec file $cvlRange: $msg", cvlRange as? TreeViewLocation)
+    fun syntaxWarning(msg: String, range: Range) {
+        warn(CVTAlertType.CVL, "Syntax warning in spec file $range: $msg", range as? TreeViewLocation)
     }
 
     fun warning(type: CVTAlertType, msg: String, location: TreeViewLocation? = null) {
         warn(type, msg, location)
     }
 
-    fun warning(type: CVTAlertType, msg: String, location: CVLRange?) {
+    fun warning(type: CVTAlertType, msg: String, location: Range?) {
         warning(type, msg, location as? TreeViewLocation)
     }
 }

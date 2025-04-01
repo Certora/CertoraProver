@@ -22,10 +22,18 @@ import config.Config
 import config.ReportTypes
 import datastructures.stdcollections.listOf
 import log.*
+import report.CVTAlertReporter
+import report.CVTAlertSeverity
+import report.CVTAlertType
+import report.TreeViewLocation
 import tac.NBId
 import utils.*
+import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACProgram
+import vc.data.destructiveOptimizations
+
+private val logger = Logger(LoggerTypes.COMMON)
 
 /**
  * Helpers for narrowing down bugs in the tac pipeline. (Hopefully helps answering questions like "Which transformation
@@ -66,7 +74,10 @@ class TacPipelineDebuggerJustForTemporaryDebugging : TacPipelineDebugger {
 
 interface TacPipelineDebugger {
     fun <T : TACCmd> oneStateInvariant(prog: TACProgram<T>, loc: ReportTypes) {
-        oneStateInvariant(prog.code) { InvariantLocation.ReportTypes(loc) }
+        oneStateInvariant(prog) { InvariantLocation.ReportTypes(loc) }
+    }
+    fun <T : TACCmd> oneStateInvariant(prog: TACProgram<T>, loc: () -> InvariantLocation) {
+        oneStateInvariant(prog.code, loc)
     }
     fun <T : TACCmd> oneStateInvariant(prog: Map<NBId, List<T>>, loc: () -> InvariantLocation)
     fun <T1 : TACCmd, T2 : TACCmd> twoStateInvariant(old: TACProgram<T1>, new: TACProgram<T2>, loc: ReportTypes) {
@@ -78,16 +89,32 @@ interface TacPipelineDebugger {
         loc: () -> InvariantLocation
     ) {
         /* Check the one state invariants also for the hooks that check the two state ones. */
-        oneStateInvariant(old.code) { InvariantLocation.Pre(loc()) }
-        oneStateInvariant(new.code) { InvariantLocation.Post(loc()) }
+        oneStateInvariant(old) { InvariantLocation.Pre(loc()) }
+        oneStateInvariant(new) { InvariantLocation.Post(loc()) }
     }
 }
 
 class TacPipelineCIInvariants : TacPipelineDebugger {
-    override fun <T : TACCmd> oneStateInvariant(prog: TACProgram<T>, loc: ReportTypes) {
-        oneStateInvariant(prog.code) { InvariantLocation.ReportTypes(loc) }
-        if (false && Config.TestMode.get()) {
-            CVLLabelStack(prog.analysisCache?.graph ?: error("Could not get CommandGraph"), check = true)
+    override fun <T : TACCmd> oneStateInvariant(prog: TACProgram<T>, loc: () -> InvariantLocation) {
+        super.oneStateInvariant(prog, loc)
+        fun TACProgram<T>.isInDesctructiveMode(): Boolean{
+            return (this as? CoreTACProgram)?.destructiveOptimizations ?: false
+        }
+
+        if (Config.TestMode.get() && !prog.isInDesctructiveMode()) {
+            val graph = prog.analysisCache?.graph
+            if (graph == null) {
+                logger.warn { "Could not get CommandGraph at ${loc()}" }
+                return
+            }
+            logger.info { "Checking CVLLabelStack for ${prog.name} at ${loc()}..." }
+            try {
+                CVLLabelStack(graph, check = true)
+            } catch (e: IllegalStateException) {
+                val msg = "CVLLabelStack check for ${prog.name} failed at ${loc()} with ${e.message}"
+                CVTAlertReporter.reportAlert(CVTAlertType.CVL, CVTAlertSeverity.ERROR, TreeViewLocation.Empty, msg, null)
+                check(false)
+            }
         }
     }
 

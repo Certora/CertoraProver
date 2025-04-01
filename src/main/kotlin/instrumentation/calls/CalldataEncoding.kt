@@ -17,12 +17,9 @@
 
 package instrumentation.calls
 
-import analysis.CmdPointer
-import analysis.CommandWithRequiredDecls
-import analysis.TACCommandGraph
+import analysis.*
 import analysis.icfg.CallInput
 import analysis.icfg.CalldataDeterminismHelper
-import analysis.maybeNarrow
 import bridge.EVMExternalMethodInfo
 import com.certora.collect.*
 import config.Config
@@ -38,10 +35,11 @@ import scene.ICalldataEncoding
 import scene.ITACMethod
 import tac.CallId
 import tac.Tag
-import utils.hashObject
+import utils.*
 import vc.data.*
 import vc.data.TACSymbol.Companion.atSync
-import vc.data.tacexprutil.TACExprFreeVarsCollector
+import vc.data.tacexprutil.ExprUnfolder
+import vc.data.tacexprutil.getFreeVars
 import java.io.Serializable
 import java.math.BigInteger
 
@@ -49,7 +47,9 @@ import java.math.BigInteger
  * Inclusive [to]
  */
 @Treapable
-data class CalldataByteRange(val from: BigInteger, val to: BigInteger) : Serializable
+data class CalldataByteRange(val from: BigInteger, val to: BigInteger) : Serializable {
+    fun size() = (to - from) + BigInteger.ONE
+}
 
 
 /**
@@ -251,8 +251,7 @@ data class CalldataEncoding(
         input: CallInput,
         callee: ITACMethod
     ): CommandWithRequiredDecls<TACCmd.Simple> {
-        val ret = mutableListOf<TACCmd.Simple>()
-        val newDecls = mutableSetOf<TACSymbol.Var>()
+        val ret = MutableCommandWithRequiredDecls<TACCmd.Simple>()
 
         check(checkInputSizeForArgsOnly(input))
         {
@@ -270,74 +269,46 @@ data class CalldataEncoding(
         val inputSizeIsKnown: Boolean =
             input.size is TACExpr.Sym.Const || (this.valueTypesArgsOnly && expectedCalldataSize != null && input.inputSizeLowerBound == expectedCalldataSize)
 
-        val assumeVar = TACKeyword.TMP(Tag.Bool, "Bool")
 
         if (!inputSizeIsKnown) {
             val refinedInputSizeLowerBound: BigInteger? = input.inputSizeLowerBound
 
             if (refinedInputSizeLowerBound != null) {
-                //[calldataSize] >= [refinedInputSizeLowerBound]
-                ret.add(
-                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                        assumeVar,
-                        TACExpr.BinRel.Ge(calldataSize, TACSymbol.lift(refinedInputSizeLowerBound).asSym())
-                    )
-                )
-                ret.add(TACCmd.Simple.AssumeCmd(assumeVar))
+                ExprUnfolder.unfoldPlusOneCmd("callSizeLowerBound", TACExprFactoryExtensions.run {
+                    calldataSize ge refinedInputSizeLowerBound
+                }) {
+                    TACCmd.Simple.AssumeCmd(it.s)
+                }.let(ret::extend)
             }
         }
 
         // calldatasize checks
         // calldatasize
-        val calldataSizeEq = TACExpr.BinRel.Eq(
-            calldataSize,
-            input.size
-        ).let { calldatasizeComparison ->
-            if (inputSizeIsKnown && input.size !is TACExpr.Sym.Const) {
-                TACExpr.BinBoolOp.LAnd(
-                    calldatasizeComparison,
-                    TACExpr.BinRel.Eq(
-                        calldataSize,
-                        TACSymbol.Const(expectedCalldataSize!!).asSym()
-                    )
-                )
-            } else {
-                calldatasizeComparison
+        ExprUnfolder.unfoldPlusOneCmd("calldataEq", TACExprFactoryExtensions.run {
+            (calldataSize eq input.size).letIf(inputSizeIsKnown && input.size !is TACExpr.Sym.Const) {
+                it and (calldataSize eq expectedCalldataSize!!)
             }
-        }
-        ret.addAll(
-            listOf(
-                // calldatasize
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    assumeVar,
-                    calldataSizeEq
-                ),
-                TACCmd.Simple.AssumeCmd(assumeVar)
-            )
-        )
-        newDecls.addAll(TACExprFreeVarsCollector.getFreeVars(calldataSizeEq) + assumeVar)
+        }) {
+            TACCmd.Simple.AssumeCmd(it.s)
+        }.let(ret::extend)
+        ret.extend(calldataSize.s)
+        ret.extend(input.size.s)
 
         // Feed in the first 4 bytes (the function selector), if we know we have a selector,
         // but not if size is known to be 0
         if (sighashSize > BigInteger.ZERO && !(inputSizeIsKnown && input.size.s == TACSymbol.Zero)) {
-            TACExpr.BinRel.Eq(
-                funArgAtOffset(BigInteger.ZERO),
-                input.inputArgAtOffset(BigInteger.ZERO, sighashSize)
-            ).let { fourByteEq ->
-                ret.addAll(
-                    listOf(
-                        // first 4 bytes
-                        TACCmd.Simple.AssigningCmd.AssignExpCmd(assumeVar, fourByteEq),
-                        TACCmd.Simple.AssumeCmd(assumeVar)
-                    )
-                )
-                newDecls.addAll(TACExprFreeVarsCollector.getFreeVars(fourByteEq))
-            }
+            val sighashArg = funArgAtOffset(BigInteger.ZERO)
+            val data = input.inputArgAtOffset(BigInteger.ZERO, sighashSize)
+            ExprUnfolder.unfoldPlusOneCmd("sighashEq", TACExprFactoryExtensions.run {
+                sighashArg eq data
+            }) {
+                TACCmd.Simple.AssumeCmd(it.s)
+            }.let(ret::extend)
+            ret.extend(sighashArg.getFreeVars())
             val calleeSighash = callee.sigHash?.n
             if(calleeSighash != null) {
                 val deterministicFor = CalldataDeterminismHelper.deterministicFor(3)
-                newDecls.add(deterministicFor)
-                newDecls.add(calldataBase.s)
+                ret.extend(deterministicFor, calldataBase.s)
                 for (i in 1 until DEFAULT_SIGHASH_SIZE_INT) {
                     val actual = TACExpr.Select(calldataBase, i.asTACExpr)
                     val determinism = TACExpr.Select.buildMultiDimSelect(
@@ -345,153 +316,77 @@ data class CalldataEncoding(
                             i.asTACExpr, input.size, calleeSighash.asTACExpr
                         )
                     )
-                    ret.addAll(listOf(
-                        TACCmd.Simple.AssigningCmd.AssignExpCmd(assumeVar, TACExpr.BinRel.Eq(
-                            actual, determinism
-                        )),
-                        TACCmd.Simple.AssumeCmd(assumeVar)
-                    ))
+                    ExprUnfolder.unfoldPlusOneCmd("sighashMidByte$i", TACExprFactoryExtensions.run {
+                        actual eq determinism
+                    }) {
+                        TACCmd.Simple.AssumeCmd(it.s)
+                    }.let(ret::extend)
                 }
             }
         }
+        val start = sighashSize
+        val inputStartVar = TACKeyword.TMP(Tag.Bit256, "inputStart")
+        val totalSize = TACKeyword.TMP(Tag.Bit256, "payloadLength")
+        ExprUnfolder.unfoldTo(TACExprFactoryExtensions.run { input.offset add start }, inputStartVar).let(ret::extend)
+        ExprUnfolder.unfoldTo(TACExprFactoryExtensions.run { input.size sub sighashSize }, totalSize).let(ret::extend)
 
-        // Feed in the rest of the input arguments
-        /* All arguments that can be handled with scalar assignments, will be handled with the loop.
-         * maxScalarRange is the maximal offset of unpacked calldata variables and will be the loop's bound.
+        ret.extend(inputStartVar, totalSize, calldataBase.s, input.baseVar.s, input.offset.s, input.size.s)
+        ret.extend(TACCmd.Simple.ByteLongCopy(
+            dstBase = calldataBase.s,
+            dstOffset = sighashSize.asTACSymbol(),
+            length = totalSize,
+            srcBase = input.baseVar.s,
+            srcOffset = inputStartVar
+        ))
+
+        // bind the explicit arguments
+        for((k, v) in byteOffsetToScalar) {
+            check(k.size() == EVM_WORD_SIZE || (k.size() == DEFAULT_SIGHASH_SIZE && k.from == BigInteger.ZERO)) {
+                "Unsupport input size in $k"
+            }
+            if(k.size() != EVM_WORD_SIZE) { // this *must* be at 0 per the above
+                continue
+            }
+            val exp = input.inputArgAtOffset(k.from, sighashSize)
+            ret.extend(TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                lhs = v,
+                rhs = exp
+            ))
+            ret.extend(v)
+            ret.extend(exp.getFreeVars())
+        }
+        /**
+         * The following copies are technically redundant w.r.t. the bytelong copy above. However, it can help
+         * to have explicit stores at constant indices which can be inlined later via the [analysis.opt.inliner.GlobalInliner].
+         * In addition, these global stores can work around the following extremely specific scenario:
+         * 1. There are unaligned writes to a buffer
+         * 2. PTA succeeded
+         * 3. Loop analysis succeeded
+         * 4. Copy loop rewriting was not enabled
+         *
+         * This is niche to be certain, but it also (in principle) helps out the byteload inliner.
          */
-        val maxScalarRange =
-            byteOffsetToScalar.keys
-                .maxByOrNull { it.to }?.to // max for calldata
-                ?.max(input.rangeToDecomposedArg.keys.maxByOrNull { it.to }?.to ?: BigInteger.ZERO) // with max from memory
-                ?.plus(BigInteger.ONE) // plus 1 (to get the next one to read)
-                    ?: BigInteger.ZERO // 0 if null
-
-        // assign all that can by scalars
-        assignmentToCalldata(
-            maxScalarRange,
-            input,
-            newDecls,
-            ret,
-            assumeVar,
-            inputSizeIsKnown,
-            input.inputSizeLowerBound
-        )
-        // for the remaining - use a longstore bounded by inputSize (how much we were supposed to write) minus maxScalarRange (how much we wrote with scalars)
-        // Better not to issue the longstore if length is definitely 0
-        if (!inputSizeIsKnown || input.inputSizeLowerBound // a lower bound size of the input
-                ?.minus(maxScalarRange) // not including the max scalar range
-                ?.let { sz -> sz > BigInteger.ZERO } // should be strictly greater than 0 to do a longstore
-                ?: true) { // or we don't know, and then do a long copy anyway
-            val offsetFromStartAfterScalar =   (if (sighashSize > BigInteger.ZERO) {
-                sighashCalldataRange(sighashSize).to + BigInteger.ONE
-            } else {
-                BigInteger.ZERO
-            }).max(maxScalarRange)
-            assignmentToCalldataByLongCopy(
-                input,
-                TACExpr.Vec.Add(
-                    input.simplifiedOffset ?: input.offset, TACSymbol.lift(offsetFromStartAfterScalar).asSym()),
-                TACSymbol.lift(
-                    offsetFromStartAfterScalar
-                ).asSym(), // copy to original dstOffset + 4
-                TACExpr.BinOp.Sub(
-                        input.size,
-                        TACSymbol.lift(offsetFromStartAfterScalar).asSym()),
-            ).let { (cmds, decls) ->
-                ret.addAll(cmds)
-                newDecls.addAll(decls)
-                if (input.simplifiedOffset == null && input.offset.s is TACSymbol.Var) {
-                    newDecls.add(input.offset.s as TACSymbol.Var)
+        if(input.inputSizeLowerBound != null && input.inputSizeLowerBound.mod(EVM_WORD_SIZE) == sighashSize) {
+            var inputOffsets = sighashSize
+            while(inputOffsets < input.inputSizeLowerBound) {
+                val currOffs = inputOffsets
+                inputOffsets += EVM_WORD_SIZE
+                val sym = input.inputArgAtOffset(currOffs, sighashSize)
+                if(sym !is TACExpr.Sym.Var) {
+                    continue
                 }
+                ret.extend(sym.s)
+                ret.extend(TACCmd.Simple.AssigningCmd.ByteStore(
+                    base = calldataBase.s,
+                    loc = currOffs.asTACSymbol(),
+                    value = sym.s
+                ))
+                ret.extend(sym.s)
             }
         }
-
-        return CommandWithRequiredDecls(ret, newDecls)
+        return ret.toCommandWithRequiredDecls()
     }
 
-    private fun assignmentToCalldataByLongCopy(
-        input: CallInput,
-        srcOffset: TACExpr,
-        dstOffset: TACExpr,
-        length: TACExpr,
-    ): Pair<List<TACCmd.Simple>, List<TACSymbol.Var>> {
-        val longCopy = TACCmd.Simple.AssigningCmd.AssignExpCmd(
-            calldataBase.s,
-            TACExpr.LongStore(
-                calldataBase,
-                dstOffset,
-                input.baseVar,
-                srcOffset,
-                length
-            )
-        )
-        return listOf(longCopy) to listOf(calldataBase.s, input.baseVar.s)
-    }
-
-    private fun assignmentToCalldata(
-        maxSize: BigInteger,
-        input: CallInput,
-        newDecls: MutableSet<TACSymbol.Var>,
-        ret: MutableList<TACCmd.Simple>,
-        assumeVar: TACSymbol.Var,
-        inputSizeIsKnown: Boolean,
-        simplifiedSize: BigInteger?
-    ) {
-        var offset: BigInteger = sighashSize
-        while (offset < maxSize) {
-            offset =
-                singleAssignmentToCalldata(offset, input, newDecls, ret, assumeVar, inputSizeIsKnown, simplifiedSize)
-        }
-    }
-
-    private fun singleAssignmentToCalldata(
-        offset: BigInteger,
-        input: CallInput,
-        newDecls: MutableSet<TACSymbol.Var>,
-        ret: MutableList<TACCmd.Simple>,
-        assumeVar: TACSymbol.Var,
-        inputSizeIsKnown: Boolean,
-        simplifiedSize: BigInteger?
-    ): BigInteger {
-        val feedTo = funArgAtOffset(offset)
-        val inputArg = input.inputArgAtOffset(offset, sighashSize)
-        val eq: TACExpr = TACExpr.BinRel.Eq(
-            feedTo, // to callee
-            inputArg // from caller
-        )
-
-        val assume = TACCmd.Simple.AssumeCmd(assumeVar)
-
-        newDecls.addAll(TACExprFreeVarsCollector.getFreeVars(eq))
-
-        if (!inputSizeIsKnown && (input.inputSizeLowerBound == null || offset >= simplifiedSize)) {
-            //NOTE: The second conjunct above entails that if we have assumed that [calldataSize] is at least [input.simplifiedSize],
-            // then [offset] is also at least [input.simplifiedSize] (otherwise, it holds that [offset] < [calldataSize]).
-            // trg[offset] = src[offset] || offset >= [calldataSize]
-            ret.add(
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    assumeVar, TACExpr.BinBoolOp.LOr(
-                        eq, TACExpr.BinRel.Ge(offset.asTACSymbol().asSym(), calldataSize)
-                    )
-                )
-            )
-            ret.add(assume)
-        } else if (feedTo is TACExpr.Sym.Var) {
-            val eqAsAssignment = TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                feedTo.s, inputArg
-            )
-            ret.add(eqAsAssignment)
-        } else {
-            ret.add(
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    assumeVar, eq
-                )
-            )
-            ret.add(assume)
-        }
-
-        return offset + 32.toBigInteger()
-    }
 
     fun copyWithCallId(callId: CallId): CalldataEncoding {
         val baseWithId =  calldataBase.s.atSync(callIndex = callId).asSym()

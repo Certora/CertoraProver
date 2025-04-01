@@ -31,7 +31,7 @@ import report.calltrace.sarif.sarifForStorageLocation
 import report.globalstate.toInstantiatedDisplayPath
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLType
 import spec.cvlast.StorageBasis
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
@@ -580,7 +580,7 @@ internal class EVMCallTraceGenerator(
 
                 is SnippetCmd.CVLSnippetCmd.SumGhostUpdate -> sarifFormatter.fmt("{} = {}", FmtArg(idp), accessedValue)
             },
-            sc.range as? CVLRange.Range,
+            sc.range as? Range.Range,
             accessedValueModel.leftOrNull()?.first,
         )
 
@@ -785,7 +785,7 @@ internal class EVMCallTraceGenerator(
         val instance = CallInstance.CVLIf(
             CVLReportLabel.Exp(snippetCmd.cond).toString(),
             snippetCmd.id,
-            snippetCmd.range as? CVLRange.Range,
+            snippetCmd.range as? Range.Range,
         )
         callTracePush(instance)
         evaldCVLExpBuilder.materializeCVLBoolCondExpInfo(snippetCmd.condVar, currCallInstance)
@@ -794,7 +794,7 @@ internal class EVMCallTraceGenerator(
     }
 
     private fun handleBranchStart(snippetCmd: SnippetCmd.CVLSnippetCmd.BranchStart): HandleCmdResult {
-        val instance = CallInstance.CVLBranch(snippetCmd.kind, snippetCmd.id, snippetCmd.range as? CVLRange.Range)
+        val instance = CallInstance.CVLBranch(snippetCmd.kind, snippetCmd.id, snippetCmd.range as? Range.Range)
         callTracePush(instance)
         return HandleCmdResult.Continue
     }

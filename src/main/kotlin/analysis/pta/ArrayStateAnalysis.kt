@@ -496,35 +496,50 @@ class ArrayStateAnalysis(
         }
     }
 
-    private fun killVars(m: ArrayStateDomain, toKill: Set<TACSymbol.Var>) : ArrayStateDomain {
+    /**
+     * The variables in [toKillValues] are known to have new values, and all information about them should be killed. In
+     * contrast, the variables in [toKillLengthInfo] are still around, but information about them in the heap (namely, their length)
+     * should be killed.
+     */
+    private fun killVars(m: ArrayStateDomain, toKillValues: Set<TACSymbol.Var>, toKillLengthInfo: TreapSet<TACSymbol.Var>) : ArrayStateDomain {
         return m.updateValues { k, v ->
-            if (k in toKill) {
+            if (k in toKillValues) {
                 return@updateValues null
             }
             when (v) {
                 is Value.ElementPointer -> {
-                    if (v.arrayPtr.containsAny(toKill)) {
+                    if (v.arrayPtr.containsAny(toKillValues)) {
                         val arrayPtr = v.arrayPtr
-                        removeArrayPointerVars(arrayPtr, toKill) {
-                            v.copy(arrayPtr = it, untilEnd = v.untilEnd - toKill, indexVars = v.indexVars - toKill)
+                        removeArrayPointerVars(arrayPtr, toKillValues) {
+                            v.copy(arrayPtr = it, untilEnd = v.untilEnd - toKillValues, indexVars = v.indexVars - toKillValues)
                         }
-                    } else if (v.untilEnd usesAny toKill || v.indexVars.containsAny(toKill)) {
-                        v.copy(untilEnd = v.untilEnd - toKill, indexVars = v.indexVars - toKill)
+                    } else if (v.untilEnd usesAny toKillValues || v.indexVars.containsAny(toKillValues)) {
+                        v.copy(untilEnd = v.untilEnd - toKillValues, indexVars = v.indexVars - toKillValues)
                     } else {
                         v
                     }
                 }
 
-                is Value.ArrayBasePointer -> v
-                is Value.MaybeElementPointer -> {
-                    if (v.arrayPtr.containsAny(toKill)) {
-                        removeArrayPointerVars(v.arrayPtr, toKill) { it ->
-                            v.copy(arrayPtr = it, untilEnd = v.untilEnd - toKill, indexVars = v.indexVars - toKill)
-                        }
-                    } else if (v.indexVars.containsAny(toKill) || v.untilEnd usesAny toKill ) {
+                is Value.ArrayBasePointer -> {
+                    if(k in toKillLengthInfo) {
+                        // NB that we have to kill the lower bound here because we don't know what the total length is
+                        // but we know it can't go below 0, hence the lower bound here
                         v.copy(
-                            indexVars = v.indexVars - toKill,
-                            untilEnd = v.untilEnd - toKill
+                            logicalLength = IntValue.Interval(lb = BigInteger.ZERO, ub = v.logicalLength.ub)
+                        )
+                    } else {
+                        v
+                    }
+                }
+                is Value.MaybeElementPointer -> {
+                    if (v.arrayPtr.containsAny(toKillValues)) {
+                        removeArrayPointerVars(v.arrayPtr, toKillValues) { it ->
+                            v.copy(arrayPtr = it, untilEnd = v.untilEnd - toKillValues, indexVars = v.indexVars - toKillValues)
+                        }
+                    } else if (v.indexVars.containsAny(toKillValues) || v.untilEnd usesAny toKillValues ) {
+                        v.copy(
+                            indexVars = v.indexVars - toKillValues,
+                            untilEnd = v.untilEnd - toKillValues
                         )
                     } else {
                         v
@@ -541,7 +556,7 @@ class ArrayStateAnalysis(
         if(x.cmd !is TACCmd.Simple.AssigningCmd) {
             return p.arrayState
         }
-        val r = killVars(p.arrayState, setOf(x.cmd.lhs))
+        val r = killVars(p.arrayState, setOf(x.cmd.lhs), toKillLengthInfo = treapSetOf())
         val toRet: ArrayStateDomain = if (x.cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd) {
             when (x.cmd.rhs) {
                 is TACExpr.Sym -> {
@@ -1390,7 +1405,7 @@ class ArrayStateAnalysis(
         val (toKill, arrayVars) = it.partition { (_, ty) ->
             ty !is EVMTypeDescriptor.PackedBytes1Array && ty !is EVMTypeDescriptor.DynamicArrayDescriptor
         }
-        var stateAccum = killVars(arrayState, toKill.mapToTreapSet { it.first })
+        var stateAccum = killVars(arrayState, toKill.mapToTreapSet { it.first }, toKillLengthInfo = treapSetOf())
         for((sym, _) in arrayVars) {
             stateAccum += (sym to Value.ArrayBasePointer(
                 logicalLength = IntValue.Nondet
@@ -1399,8 +1414,8 @@ class ArrayStateAnalysis(
         return stateAccum
     }
 
-    fun kill(s: ArrayStateDomain, toKill: Set<TACSymbol.Var>) : ArrayStateDomain {
-        return killVars(s, toKill)
+    fun kill(s: ArrayStateDomain, toKill: PointerSemantics.WriteSideEffect) : ArrayStateDomain {
+        return killVars(s, toKill.killValue, toKill.killArrayLengthFacts)
     }
 
 }

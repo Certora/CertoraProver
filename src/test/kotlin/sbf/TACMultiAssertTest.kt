@@ -26,6 +26,9 @@ import sbf.cfg.*
 import sbf.testing.SbfTestDSL
 import log.*
 import org.junit.jupiter.api.*
+import spec.cvlast.RuleIdentifier
+import spec.rules.EcosystemAgnosticRule
+import spec.cvlast.SpecType
 import utils.*
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
@@ -108,7 +111,12 @@ class TACMultiAssertTest {
         sbfLogger.warn { "=== Original TAC ===\n${dumpTAC(tacProg)}" }
 
         ConfigScope(Config.MultiAssertCheck, true).use {
-            val rules = multiAssertChecks(listOf(CompiledSolanaRule(tacProg, false)))
+            val rules = multiAssertChecks(listOf(CompiledSolanaRule(
+                code = tacProg,
+                rule = EcosystemAgnosticRule(
+                    ruleIdentifier = RuleIdentifier.freshIdentifier(tacProg.name),
+                    ruleType = SpecType.Single.FromUser.SpecFile
+                ))))
             Assertions.assertEquals(true, rules.size == 2)
             var counter = 0
             rules.forEach {

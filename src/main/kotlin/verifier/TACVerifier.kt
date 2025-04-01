@@ -54,6 +54,9 @@ import solver.SMTCounterexampleModel
 import solver.SolverResult
 import spec.cvlast.*
 import spec.genericrulegenerators.BuiltInRuleId
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
+import spec.rules.SingleRuleGenerationMeta
 import statistics.*
 import statistics.data.*
 import tac.DumpTime
@@ -114,7 +117,7 @@ class TACVerifier private constructor(
     private var numProblemsAttempted = 0
     private var totalWeight = 0.0
 
-    fun nameToSolveSummaryKey(name: NameObject): SDFeatureKey = "${name.baseName}_solving_summary".toSDFeatureKey()
+    private fun nameToSolveSummaryKey(name: NameObject): SDFeatureKey = "${name.baseName}_solving_summary".toSDFeatureKey()
 
     private val isCMDLineSanityRule = when ((rule as? CVLSingleRule)?.ruleGenerationMeta?.sanity) {
         SingleRuleGenerationMeta.Sanity.PRE_SANITY_CHECK,
@@ -298,13 +301,13 @@ class TACVerifier private constructor(
     }
 
     private suspend fun checkVCOnPresimplified(tacObject: CoreTACProgram): VerifierResult {
-        oneStateInvariant(tacObject, ReportTypes.PRESIMPLIFIED_RULE)
         ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
             tacObject,
             ReportTypes.PRESIMPLIFIED_RULE,
             StaticArtifactLocation.Outputs,
             DumpTime.AGNOSTIC
         )
+        oneStateInvariant(tacObject, ReportTypes.PRESIMPLIFIED_RULE)
 
         // returns a Presolver tac
         val finalTac = toSimpleSimpleSSAFoldAndSkeyAnnotate(
@@ -320,13 +323,13 @@ class TACVerifier private constructor(
             )
         }
 
-        oneStateInvariant(finalTac, ReportTypes.PRESOLVER_RULE)
         ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
             finalTac,
             ReportTypes.PRESOLVER_RULE,
             StaticArtifactLocation.Outputs,
             DumpTime.AGNOSTIC
         )
+        oneStateInvariant(finalTac, ReportTypes.PRESOLVER_RULE)
 
         return handlePresolver(finalTac)
     }
@@ -393,7 +396,7 @@ class TACVerifier private constructor(
                 CVTAlertReporter.reportAlert(
                     CVTAlertType.GENERAL,
                     CVTAlertSeverity.WARNING,
-                    rule.cvlRange as? CVLRange.Range,
+                    rule.range as? Range.Range,
                     "Coverage information (e.g. for unsat cores) is not supported with -${Config.ParallelSplitting.name} yet.",
                     null
                 )
@@ -763,7 +766,7 @@ class TACVerifier private constructor(
         // treatment right now
         val withInternalFunctions =
             difficultyStatsCollector!!.codeMap.withInternalFunctions as? CoreTACProgram ?: run {
-                logger.warn { "failed to return per-rule difficulty stats, due to cast to CoreTACProgram failing (very suprising)" }
+                logger.warn { "failed to return per-rule difficulty stats, due to cast to CoreTACProgram failing (very surprising)" }
                 return
             }
         reportSplitDifficultyStats(SplitAddress.Root, withInternalFunctions)

@@ -20,8 +20,8 @@ package rules.genericrulecheckers
 import log.*
 import rules.RuleCheckResult
 import rules.RuleChecker
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.genericrulegenerators.FoundryFuzzTestsGenerator
 

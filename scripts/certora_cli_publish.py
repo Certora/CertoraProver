@@ -1,7 +1,7 @@
 """
 *
 *     The Certora Prover
-*     Copyright (C) 2025  Certora Ltd.
+*     Copyright (C) 2025 Certora Ltd.
 *
 *     This program is free software: you can redistribute it and/or modify
 *     it under the terms of the GNU General Public License as published by
@@ -92,7 +92,7 @@ if __name__ == '__main__':
         branch = "local"
         triggering_job = "local"
     if branch and not tag:
-        BRANCH = branch.replace("/", "_")
+        BRANCH = branch.replace("/", "-")
     elif tag and not branch:
         TAG = tag
     else:
@@ -135,7 +135,7 @@ if __name__ == '__main__':
         URL = f"https://pypi.org/project/{NAME}"
     else:
         # not uploaded only use for local install
-        NAME = "certora_cli"
+        NAME = "certora-cli"
         VERSION = f"{TIMESTAMP}+{COMMIT}"
         URL = f"https://pypi.org/project/{NAME}"
 

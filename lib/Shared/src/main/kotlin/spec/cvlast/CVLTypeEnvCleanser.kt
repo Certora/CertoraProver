@@ -20,6 +20,7 @@ package spec.cvlast
 import spec.cvlast.transformer.CVLExpTransformer
 import utils.CollectingResult
 import utils.CollectingResult.Companion.lift
+import utils.Range
 import utils.extend
 
 @Suppress("unused")
@@ -32,7 +33,7 @@ class CVLTypeEnvCleanser(val symbolTable: CVLSymbolTable): CVLExpTransformer<Not
         val newExp = { super.quant(newQVar) }
         return if (isBeingInTheStateOfHavingToModifyTheStack) {
             substitutions.extend(exp.qVarName, CVLExp.VariableExp(newQVar.qVarName, tag = CVLExpTag( // TODO(jtoman): this is right?
-                cvlRange = CVLRange.Empty(),
+                range = Range.Empty(),
                 type = exp.qVarType,
                 scope = exp.tag.scope
             )), newExp)

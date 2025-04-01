@@ -21,6 +21,7 @@ import com.certora.collect.*
 import datastructures.stdcollections.*
 import spec.cvlast.*
 import spec.cvlast.CVLType.PureCVLType.VMInternal
+import spec.rules.HasRange
 import utils.*
 import java.math.BigInteger
 
@@ -29,40 +30,40 @@ import java.math.BigInteger
 @Treapable
 sealed class CVLReportLabel : AmbiSerializable, HasRange {
     @KSerializable
-    data class Message(val s: String, override val cvlRange: CVLRange = CVLRange.Empty()) : CVLReportLabel() {
+    data class Message(val s: String, override val range: Range = Range.Empty()) : CVLReportLabel() {
         override fun toString() = s
     }
 
     @KSerializable
     data class Cmd(val cmd: CVLCmd.Simple) : CVLReportLabel() {
         override fun toString() = cmd.p()
-        override val cvlRange get() = cmd.cvlRange
+        override val range get() = cmd.range
     }
 
     @KSerializable
     data class Exp(val exp: CVLExp) : CVLReportLabel() {
         override fun toString() = exp.p()
-        override val cvlRange get() = exp.getRangeOrEmpty()
+        override val range get() = exp.getRangeOrEmpty()
     }
 
     @KSerializable
     data class Return(val stmt: CVLCmd.Simple.Return) : CVLReportLabel() {
         override fun toString() = stmt.p()
-        override val cvlRange get() = stmt.cvlRange
+        override val range get() = stmt.range
     }
 
     @KSerializable
     data class Revert(val stmt: CVLCmd.Simple.Revert) : CVLReportLabel() {
         override fun toString() = stmt.p()
-        override val cvlRange get() = stmt.cvlRange
+        override val range get() = stmt.range
     }
 
     @KSerializable
-    data class ApplyHook(val hookPatternString: String, override val cvlRange: CVLRange) : CVLReportLabel() {
+    data class ApplyHook(val hookPatternString: String, override val range: Range) : CVLReportLabel() {
         override fun toString() = "Apply hook $hookPatternString"
     }
 
-    fun rangeOrNull(): CVLRange.Range? = tryAs<HasRange>()?.cvlRange?.tryAs()
+    fun rangeOrNull(): Range.Range? = tryAs<HasRange>()?.range?.tryAs()
 }
 
 fun CVLCmd.Simple.p(): String =

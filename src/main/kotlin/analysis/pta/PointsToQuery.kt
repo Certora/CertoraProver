@@ -2416,3 +2416,12 @@ data object PrunablePaths : PointsToQuery<Collection<Pair<LTACCmdView<TACCmd.Sim
     }
 
 }
+
+data object LengthUpdateBoundQuery : PointsToQuery<Collection<LTACCmdView<TACCmd.Simple.AssigningCmd.ByteStore>>>() {
+    override fun compute(pta: PointsToAnalysis, pts: IPointsToInformation, graph: TACCommandGraph): Collection<LTACCmdView<TACCmd.Simple.AssigningCmd.ByteStore>> {
+        return pta.pointerAnalysis.needBoundProof.map {
+            graph.elab(it).narrow()
+        }
+    }
+
+}

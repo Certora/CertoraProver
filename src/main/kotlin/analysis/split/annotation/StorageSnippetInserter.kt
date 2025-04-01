@@ -20,7 +20,7 @@ package analysis.split.annotation
 import analysis.CmdPointer
 import analysis.split.SplitRewriter
 import datastructures.stdcollections.*
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import vc.data.*
 import java.math.BigInteger
@@ -49,7 +49,7 @@ sealed class StorageSnippetInserter(protected val patcher: SimplePatchingProgram
         loc: TACSymbol?,
         value: TACSymbol?,
         storageType: EVMTypeDescriptor.EVMValueType?,
-        range: CVLRange.Range?,
+        range: Range.Range?,
     )
 
     /** [StorageSnippetInserter] works on a list of changes coming from [SplitRewriter], each change is represented by
@@ -64,7 +64,7 @@ sealed class StorageSnippetInserter(protected val patcher: SimplePatchingProgram
         loc: TACSymbol?,
         value: TACSymbol?,
         storageType: EVMTypeDescriptor.EVMValueType?,
-        range: CVLRange.Range?,
+        range: Range.Range?,
     ): SnippetCmd.EVMSnippetCmd.RawStorageAccess? {
         if (loc == null) {
             return null

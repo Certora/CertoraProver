@@ -32,7 +32,7 @@ import rules.CompiledRule
 import rules.IsFromCache
 import rules.RuleCheckResult.Single.RuleCheckInfo
 import scene.*
-import spec.cvlast.CVLSingleRule
+import spec.rules.CVLSingleRule
 import utils.*
 import utils.CollectingResult.Companion.map
 import vc.data.CoreTACProgram

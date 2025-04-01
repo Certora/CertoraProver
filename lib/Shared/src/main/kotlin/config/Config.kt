@@ -140,6 +140,26 @@ object Config {
         pythonName = "--foundry_tests_mode"
     ) {}
 
+    val BoundedModelChecking = object : ConfigType.IntCmdLine(
+        null,
+        Option(
+            "boundedModelChecking",
+            true,
+            "Check via bounded model checking instead of regular invariants"
+        ),
+        pythonName = "--bmc"
+    ) {}
+
+    val BoundedModelCheckingFailureLimit = object : ConfigType.IntCmdLine(
+        1,
+        Option(
+            "boundedModelCheckingFailureLimit",
+            true,
+            "When in bounded checking mode, defines how many counter examples to find before stopping the search. 0 means don't stop [default=1]"
+        ),
+        pythonName = "--bmc_failure_limit"
+    ) {}
+
     val AutoDispatcher = object : ConfigType.BooleanCmdLine(
         false,
         Option(
@@ -971,7 +991,7 @@ object Config {
         object : ConfigType.IntCmdLine(
             1,
             Option("b", true, desc),
-            aliases = listOf(Option("bmc", true, desc)),
+            aliases = listOf(Option("loopIter", true, desc)),
             pythonName = "--loop_iter"
         ) {
             override fun check(newValue: Int): Boolean {
@@ -1372,6 +1392,15 @@ object Config {
                 "WARNING: Can introduce unsoundness into the results."
         )
     ) {}
+
+    val AllowArrayLengthUpdates = object : ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "allowArrayLengthUpdates",
+            true,
+            "Allow explicit updates to array lengths. Generates a proof obligation that the array length never increases."
+        )
+    ) { }
 
     val RelaxedPointsToSemantics = object : ConfigType.RelaxedSemantics(
         default = arrayOf(),
@@ -3076,7 +3105,7 @@ object Config {
 
     @Suppress("HashCodeStability")
     fun isEnabledReport(reportName: String): Boolean {
-        val onByDefault =
+        val onByDefault = if (BoundedModelChecking.getOrNull() == null) {
             setOf(
                 ReportTypes.REPORT,
                 ReportTypes.CFG,
@@ -3084,7 +3113,14 @@ object Config {
                 ReportTypes.OPTIMIZE,
                 ReportTypes.ENVFREE,
                 ReportTypes.ERROR
-            )/*
+            )
+        } else {
+            setOf(
+                ReportTypes.REPORT,
+                ReportTypes.ENVFREE,
+                ReportTypes.ERROR
+            )
+        }/*
             Until Presimplified dumps get unf--ked this needs to be turned off I guess
              + if(DevMode.isDevMode()) {
                 setOf(

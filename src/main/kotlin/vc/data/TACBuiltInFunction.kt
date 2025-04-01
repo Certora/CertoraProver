@@ -654,11 +654,9 @@ sealed class TACBuiltInFunction : AmbiSerializable {
 
         override fun eval(params: List<BigInteger>): BigInteger? =
             super.eval(params).let {
-                params.single().also {
-                    check(it.inBounds(returnSort)) {
-                        "SafeMathNarrow of $it is out of bounds of $returnSort"
-                    }
-                }
+                // We completely trust whoever used this safeMathNarrow. If the value is out of bounds then we assume
+                // this is due to some vacuity regardless of this narrowing.
+                params.single().takeIf { it.inBounds(returnSort) }
             }
 
     }

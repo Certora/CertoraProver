@@ -23,7 +23,7 @@ import log.LoggerTypes
 import rules.genericrulecheckers.msgvalueinloop.NoMsgValueInLoopInstrumenting
 import scene.IScene
 import scene.ITACMethod
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.genericrulegenerators.MsgValueInLoopGenerator
 import vc.data.CoreTACProgram
@@ -59,7 +59,7 @@ object MsgValueInLoopChecker: InstrumentingBuiltinRuleChecker<MsgValueInLoopGene
      * Add instrumentation to each function in the contract.
      * See NoMsgValueInLoopInstrumenting class for more information on how it works.”
      */
-    override fun instrumentingTransform(scene: IScene, currentContractId: BigInteger, cvlRange: CVLRange, m: ITACMethod): CoreTACProgram {
+    override fun instrumentingTransform(scene: IScene, currentContractId: BigInteger, range: Range, m: ITACMethod): CoreTACProgram {
         val payableFunctions = getPayableFunctionsOfCurrentContract(scene, currentContractId)
         val newProg = NoMsgValueInLoopInstrumenting( scene = scene,
             m.code as

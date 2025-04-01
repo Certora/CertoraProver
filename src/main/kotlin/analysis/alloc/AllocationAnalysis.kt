@@ -625,9 +625,8 @@ object AllocationAnalysis {
     private fun precedingDefiniteWriteHeuristic(
         graph: TACCommandGraph,
         fpUpdate: LTACCmdView<TACCmd.Simple.AssigningCmd>,
-        data: Alloc.ConstBlock
+        data: Alloc.ConstBlock,
     ): Alloc? {
-
         val (startPoint, precedingWrite) = findPrecedingDefiniteWrite(graph, fpUpdate) ?: return null
         val constantAnalysis = MustBeConstantAnalysis(graph, NonTrivialDefAnalysis(graph))
         // We think this is a constant array alloc when we wrote the size of the array to the (about to be) old value of
@@ -648,6 +647,7 @@ object AllocationAnalysis {
                     finalWrite = fpUpdate.ptr
                 )
             } else {
+                // if we see a write that is *definitely* not a length, return non-null here, short-circuiting later checks
                 data
             }
         }
@@ -655,6 +655,30 @@ object AllocationAnalysis {
             constSize = writtenConst,
             eSz = EVM_WORD_SIZE
         )
+    }
+
+    private fun TACCommandGraph.blockCommandsForwardIgnoreRevert(ptr: CmdPointer) : Sequence<LTACCmd> {
+        return sequence {
+            for(c in this@blockCommandsForwardIgnoreRevert.blockCmdsForwardFrom(ptr)) {
+                yield(c)
+            }
+            val rev = cache.revertBlocks
+            var nxt = succ(ptr.block).singleOrNull {
+                it !in rev
+            }
+            val visited = treapSetBuilderOf<NBId>()
+            while(nxt != null) {
+                if(!visited.add(nxt)) {
+                    return@sequence
+                }
+                elab(nxt).commands.forEach {
+                    yield(it)
+                }
+                nxt = succ(nxt).singleOrNull {
+                    it !in rev
+                }
+            }
+        }
     }
 
     /**
@@ -674,24 +698,71 @@ object AllocationAnalysis {
         graph: TACCommandGraph,
         fpUpdate: LTACCmdView<TACCmd.Simple.AssigningCmd>,
         data: Alloc.ConstBlock
-    ): Alloc.ConstantArrayAlloc? {
-        val writtenConst = graph.blockCmdsForwardFrom(fpUpdate.ptr)
-            .mapNotNull { c ->
-                c.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()
-            }.firstNotNullOfOrNull { byteStore ->
-                MustBeConstantAnalysis(graph, NonTrivialDefAnalysis(graph))
-                    .mustBeConstantAt(byteStore.ptr, byteStore.cmd.value)
-                    ?.takeIf {
-                        BigInteger.ZERO < it
-                            && (it * EVM_WORD_SIZE + EVM_WORD_SIZE == data.sz)
-                            && TACKeyword.MEM64.toVar() in graph.cache.gvn.findCopiesAt(fpUpdate.ptr,byteStore.ptr to byteStore.cmd.loc)
-                    }
-            } ?: return null
-
-        return Alloc.ConstantArrayAlloc(
-            constSize = writtenConst,
-            eSz = EVM_WORD_SIZE
-        )
+    ): Alloc? {
+        val byteStore = graph.blockCmdsForwardFrom(fpUpdate.ptr).firstNotNullOfOrNull { c ->
+            c.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()
+        } ?: return null
+        val constValue = MustBeConstantAnalysis(graph, NonTrivialDefAnalysis(graph)).mustBeConstantAt(byteStore.ptr, byteStore.cmd.value) ?: return null
+        if(BigInteger.ZERO == constValue || TACKeyword.MEM64.toVar() !in graph.cache.gvn.findCopiesAt(fpUpdate.ptr,byteStore.ptr to byteStore.cmd.loc)) {
+            return null
+        }
+        /*
+         * If we are allocing a constant sized byte-sized array (which has not already been caught by the string heuristic, harumph)
+         * then we insist on finding a bytelong copy for init.
+         *
+         * Otherwise we end up with something cursed happening like:
+         * ```
+         * struct Foo {
+         *    uint a;
+         *    address whatever;
+         * }
+         *
+         * Foo memory x = Foo{ a: 8, address: ... };
+         * ```
+         *
+         * Where `x` gets classified as a constant alloc (8 rounded up to nearest word + 32 == 64 == sizeOf(Foo) and
+         * 8 is written in the first word post alloc...)
+         */
+        if((constValue + 31.toBigInteger()).andNot(31.toBigInteger()) + EVM_WORD_SIZE == data.sz) {
+            val seenInit = graph.succ(byteStore.ptr).singleOrNull()?.let {
+                graph.blockCommandsForwardIgnoreRevert(it)
+            }?.takeWhile {
+                it.cmd.getLhs() != TACKeyword.MEM64.toVar() && it.cmd !is TACCmd.Simple.AssigningCmd.ByteLoad && it.cmd !is TACCmd.Simple.AssigningCmd.ByteStore
+            }?.firstOrNull {
+                 it.cmd is TACCmd.Simple.ByteLongCopy
+            }?.let {
+                it.cmd is TACCmd.Simple.ByteLongCopy && it.cmd.length == constValue.asTACSymbol()
+            } == true
+            // we have extremely strong evidence this is a byte array alloc, namely that we have seen a revert-free
+            // path to a long copy of exactly n bytes. choose that interpretation
+            if (seenInit) {
+                return Alloc.ConstantArrayAlloc(
+                    constSize = constValue,
+                    eSz = BigInteger.ONE
+                )
+            }
+        }
+        if(constValue * EVM_WORD_SIZE + EVM_WORD_SIZE == data.sz) {
+            // insist that we don't see any other writes into memory in this block.
+            // if we do *not* have this property, this *strongly* suggests we are seeing sequential field
+            // initialization, and we should not interpret this as a constant array
+            // when can we get multiple successors for a pointer? when it's at the end of the block, meaning
+            // that the property above is trivially satisfied.
+            val noWritesBeforeBlockEndOrCopy = graph.succ(byteStore.ptr).singleOrNull()?.let {
+                graph.blockCmdsForwardFrom(it).takeWhile {
+                    it.cmd !is TACCmd.Simple.ByteLongCopy
+                }.none {
+                    it.cmd is TACCmd.Simple.AssigningCmd.ByteStore
+                }
+            }
+            if(noWritesBeforeBlockEndOrCopy != false) {
+                return Alloc.ConstantArrayAlloc(
+                    constSize = constValue,
+                    eSz = EVM_WORD_SIZE
+                )
+            }
+        }
+        return null
     }
 
     private fun packedByteArrayHeuristic(

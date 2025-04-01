@@ -34,19 +34,20 @@ import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.Range
 import utils.hash
 import java.math.BigInteger
 
 // This file contains the "Java" AST nodes for all expressions.  See README.md for information about the Java AST.
 
 /** Super type for all the CVL expressions, e.g., [AddExp] etc. */
-sealed class Exp(val range : CVLRange, var hasParens: Boolean = false) : Kotlinizable<CVLExp> {
+sealed class Exp(val range : Range, var hasParens: Boolean = false) : Kotlinizable<CVLExp> {
     fun addParens() { hasParens = true }
 }
 
 class ErrorExpr(override val error : CVLError) : Exp(error.location), ErrorASTNode<CVLExp>
 
-sealed class BinaryExp(val l : Exp, val r : Exp, val g : Generator, range : CVLRange) : Exp(range) {
+sealed class BinaryExp(val l : Exp, val r : Exp, val g : Generator, range : Range) : Exp(range) {
     fun interface Generator {
         fun generate(l : CVLExp, r : CVLExp, tag : CVLExpTag) : CVLExp
     }
@@ -58,24 +59,24 @@ sealed class BinaryExp(val l : Exp, val r : Exp, val g : Generator, range : CVLR
     }
 }
 
-class AddExp          (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::AddExp, range)
-class SubExp          (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::SubExp, range)
-class ModExp          (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::ModExp, range)
-class MulExp          (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::MulExp, range)
-class LorExp          (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::LorExp, range)
-class LandExp         (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::LandExp, range)
-class BwLeftShiftExp  (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::BwLeftShiftExp, range)
-class BwRightShiftExp (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::BwRightShiftExp, range)
-class BwAndExp        (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::BwAndExp, range)
-class BwOrExp         (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::BwOrExp, range)
-class BwXOrExp        (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::BwXOrExp, range)
-class ExponentExp     (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::ExponentExp, range)
-class DivExp          (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::DivExp, range)
-class IffExp          (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::IffExp, range)
-class ImpliesExp      (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::ImpliesExp, range)
-class BwRightShiftWithZerosExp (l: Exp, r: Exp, range: CVLRange) : BinaryExp(l, r, CVLExp.BinaryExp::BwRightShiftWithZerosExp, range)
+class AddExp          (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::AddExp, range)
+class SubExp          (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::SubExp, range)
+class ModExp          (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::ModExp, range)
+class MulExp          (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::MulExp, range)
+class LorExp          (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::LorExp, range)
+class LandExp         (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::LandExp, range)
+class BwLeftShiftExp  (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::BwLeftShiftExp, range)
+class BwRightShiftExp (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::BwRightShiftExp, range)
+class BwAndExp        (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::BwAndExp, range)
+class BwOrExp         (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::BwOrExp, range)
+class BwXOrExp        (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::BwXOrExp, range)
+class ExponentExp     (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::ExponentExp, range)
+class DivExp          (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::DivExp, range)
+class IffExp          (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::IffExp, range)
+class ImpliesExp      (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::ImpliesExp, range)
+class BwRightShiftWithZerosExp (l: Exp, r: Exp, range: Range) : BinaryExp(l, r, CVLExp.BinaryExp::BwRightShiftWithZerosExp, range)
 
-sealed class UnaryExp(val o: Exp, private val g: Generator, range: CVLRange) : Exp(range) {
+sealed class UnaryExp(val o: Exp, private val g: Generator, range: Range) : Exp(range) {
     fun interface Generator {
         fun generate(o: CVLExp, tag: CVLExpTag): CVLExp
     }
@@ -84,10 +85,10 @@ sealed class UnaryExp(val o: Exp, private val g: Generator, range: CVLRange) : E
         = o.kotlinize(resolver, scope).map { o: CVLExp -> g.generate(o, CVLExpTag(scope, range, hasParens)) }
 }
 
-class LNotExp  (_e: Exp, range: CVLRange) : UnaryExp(_e, CVLExp.UnaryExp::LNotExp, range)
-class BwNotExp (_e: Exp, range: CVLRange) : UnaryExp(_e, CVLExp.UnaryExp::BwNotExp, range)
+class LNotExp  (_e: Exp, range: Range) : UnaryExp(_e, CVLExp.UnaryExp::LNotExp, range)
+class BwNotExp (_e: Exp, range: Range) : UnaryExp(_e, CVLExp.UnaryExp::BwNotExp, range)
 
-class UMinusExp(_exp: Exp, range: CVLRange) : UnaryExp(_exp, CVLExp.UnaryExp::UnaryMinusExp, range) {
+class UMinusExp(_exp: Exp, range: Range) : UnaryExp(_exp, CVLExp.UnaryExp::UnaryMinusExp, range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> {
         return if (o is NumberExp) {
             NumberExp(o.n.negate(), range, o.printHint).kotlinize(resolver, scope)
@@ -97,13 +98,13 @@ class UMinusExp(_exp: Exp, range: CVLRange) : UnaryExp(_exp, CVLExp.UnaryExp::Un
     }
 }
 
-sealed class ConstExp(range: CVLRange) : Exp(range) {
+sealed class ConstExp(range: Range) : Exp(range) {
     abstract fun asCVLConstant(scope: CVLScope): CVLExp.Constant
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp.Constant, CVLError>
         = asCVLConstant(scope).lift()
 }
 
-class BoolExp(_b: Boolean, range: CVLRange) : ConstExp(range) {
+class BoolExp(_b: Boolean, range: Range) : ConstExp(range) {
     val b: BigInteger = if (_b) { BigInteger.ONE } else { BigInteger.ZERO }
 
     override fun asCVLConstant(scope: CVLScope): CVLExp.Constant {
@@ -112,9 +113,9 @@ class BoolExp(_b: Boolean, range: CVLRange) : ConstExp(range) {
 }
 
 /** A number literal  */
-class NumberExp(val n: BigInteger, range : CVLRange, val printHint: String) : ConstExp(range) {
-    constructor(s: String, range: CVLRange) : this(parse(s), range)
-    private constructor(p: Pair<BigInteger, String>, range: CVLRange) : this(p.first, range, p.second)
+class NumberExp(val n: BigInteger, range : Range, val printHint: String) : ConstExp(range) {
+    constructor(s: String, range: Range) : this(parse(s), range)
+    private constructor(p: Pair<BigInteger, String>, range: Range) : this(p.first, range, p.second)
 
     companion object {
         fun parse(s: String): Pair<BigInteger, String> =
@@ -133,7 +134,7 @@ class NumberExp(val n: BigInteger, range : CVLRange, val printHint: String) : Co
 }
 
 // TODO CERT-3750
-class CastExpr(val castExpr: CVLCastFunction, val exp: Exp, range: CVLRange) : Exp(range) {
+class CastExpr(val castExpr: CVLCastFunction, val exp: Exp, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> {
         return exp.kotlinize(resolver, scope).map { e: CVLExp ->
             CVLExp.CastExpr(
@@ -146,7 +147,7 @@ class CastExpr(val castExpr: CVLCastFunction, val exp: Exp, range: CVLRange) : E
     }
 }
 
-class BifApplicationExpr(private val bifName: String, val args: List<Exp>, range: CVLRange) : Exp(range) {
+class BifApplicationExpr(private val bifName: String, val args: List<Exp>, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> {
         return args.map {
             it.kotlinize(resolver, scope)
@@ -162,7 +163,7 @@ class BifApplicationExpr(private val bifName: String, val args: List<Exp>, range
     }
 }
 
-class CondExp(val c: Exp, val e1: Exp, val e2: Exp, range: CVLRange) : Exp(range) {
+class CondExp(val c: Exp, val e1: Exp, val e2: Exp, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> = collectingErrors {
         map(c.kotlinize(resolver, scope), e1.kotlinize(resolver, scope), e2.kotlinize(resolver, scope))
             { c: CVLExp, e1: CVLExp, e2: CVLExp -> CVLExp.CondExp(c, e1, e2, CVLExpTag(scope, range, hasParens)) }
@@ -186,8 +187,8 @@ enum class ERelop(val symbol : String, val generator : BinaryExp.Generator) {
 }
 
 // TODO CERT-3750
-class RelopExp(val relop: ERelop, val l: Exp, val r: Exp, range: CVLRange) : Exp(range) {
-    constructor(_relop: String, _l: Exp, _r: Exp, _cvlRange: CVLRange) : this(ERelop.fromString(_relop), _l, _r, _cvlRange)
+class RelopExp(val relop: ERelop, val l: Exp, val r: Exp, range: Range) : Exp(range) {
+    constructor(_relop: String, _l: Exp, _r: Exp, _range: Range) : this(ERelop.fromString(_relop), _l, _r, _range)
     override fun toString() = "$relop($l,$r)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> = collectingErrors {
@@ -197,8 +198,8 @@ class RelopExp(val relop: ERelop, val l: Exp, val r: Exp, range: CVLRange) : Exp
     }
 }
 
-class VariableExp(val id: String, val annotation: Annotation, range: CVLRange) : Exp(range) {
-    constructor(_id: String, range: CVLRange) : this(_id, Annotation.NONE, range)
+class VariableExp(val id: String, val annotation: Annotation, range: Range) : Exp(range) {
+    constructor(_id: String, range: Range) : this(_id, Annotation.NONE, range)
 
     enum class Annotation(val kotlinized : TwoStateIndex) {
         // two state indices for ghosts and variables
@@ -224,12 +225,12 @@ class VariableExp(val id: String, val annotation: Annotation, range: CVLRange) :
     }
 
     companion object {
-        @JvmStatic fun oldVariable(_id: String, range: CVLRange) = VariableExp(_id, Annotation.OLD, range)
-        @JvmStatic fun newVariable(_id: String, range: CVLRange) = VariableExp(_id, Annotation.NEW, range)
+        @JvmStatic fun oldVariable(_id: String, range: Range) = VariableExp(_id, Annotation.OLD, range)
+        @JvmStatic fun newVariable(_id: String, range: Range) = VariableExp(_id, Annotation.NEW, range)
     }
 }
 
-class ArrayLitExp(val a: List<Exp>, range: CVLRange) : Exp(range) {
+class ArrayLitExp(val a: List<Exp>, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> {
         return a.map { it.kotlinize(resolver, scope) }.flatten().map { CVLExp.ArrayLitExp(it, CVLExpTag(scope, range, hasParens)) }
     }
@@ -237,7 +238,7 @@ class ArrayLitExp(val a: List<Exp>, range: CVLRange) : Exp(range) {
 
 // TODO CERT-3750
 /** Represents array dereferences */
-class ArrayDerefExp(val ad: Exp, val indx: Exp, range: CVLRange) : Exp(range) {
+class ArrayDerefExp(val ad: Exp, val indx: Exp, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> = collectingErrors {
         map(ad.kotlinize(resolver, scope), indx.kotlinize(resolver, scope)) { ad, indx ->
             CVLExp.ArrayDerefExp(ad, indx, CVLExpTag(scope, range, hasParens))
@@ -246,7 +247,7 @@ class ArrayDerefExp(val ad: Exp, val indx: Exp, range: CVLRange) : Exp(range) {
 }
 
 /** Represents access to a struct field. E.g. "msg.value", or "userStruct.field" */
-class FieldSelectExp(val b: Exp, val m: String, range: CVLRange) : Exp(range) {
+class FieldSelectExp(val b: Exp, val m: String, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> {
         /*
          * Enum constants have the form `ContractName.EnumName.MemberName`.
@@ -279,7 +280,7 @@ class FieldSelectExp(val b: Exp, val m: String, range: CVLRange) : Exp(range) {
 }
 
 
-class QuantifierExp(var is_forall: Boolean, val param: CVLParam, val body: Exp, range: CVLRange) : Exp(range) {
+class QuantifierExp(var is_forall: Boolean, val param: CVLParam, val body: Exp, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> = collectingErrors {
         val _param = param.kotlinize(resolver, scope)
         val _body  = body.kotlinize(resolver, scope)
@@ -287,7 +288,7 @@ class QuantifierExp(var is_forall: Boolean, val param: CVLParam, val body: Exp, 
     }
 }
 
-class SumExp(val params: List<CVLParam>, val body: Exp, range: CVLRange, private val isUnsigned: Boolean) : Exp(range) {
+class SumExp(val params: List<CVLParam>, val body: Exp, range: Range, private val isUnsigned: Boolean) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> = collectingErrors {
         val _params = params.kotlinize(resolver, scope)
         val _body  = body.kotlinize(resolver, scope)
@@ -304,7 +305,7 @@ class SumExp(val params: List<CVLParam>, val body: Exp, range: CVLRange, private
 
 // TODO CERT-3750: could be Binop
 /** Note: `SetMem` stands for "set membership" not "set memory".  This is used for `f.selector in Contract` expressions */
-class SetMemExp(val e: Exp, val set: Exp, range: CVLRange) : Exp(range) {
+class SetMemExp(val e: Exp, val set: Exp, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp, CVLError> = collectingErrors {
         map(e.kotlinize(resolver, scope), set.kotlinize(resolver, scope)) { e: CVLExp, set: CVLExp ->
             CVLExp.SetMemExp(e, set, CVLExpTag(scope, range, hasParens))
@@ -314,7 +315,7 @@ class SetMemExp(val e: Exp, val set: Exp, range: CVLRange) : Exp(range) {
 
 // TODO CERT-3750 This could be a ConstExp
 class SignatureLiteralExp(
-    range: CVLRange,
+    range: Range,
     _methodReference: MethodReferenceExp,
     paramTypes: List<VMParam>
 ) : Exp(range) {
@@ -327,7 +328,7 @@ class SignatureLiteralExp(
 }
 
 // TODO CERT-3750 This could be a ConstExp
-class StringExp(_s: String, range: CVLRange) : Exp(range) {
+class StringExp(_s: String, range: Range) : Exp(range) {
     // TODO CERT-3748
     // remove quotes
     val s: String
@@ -344,7 +345,7 @@ class StringExp(_s: String, range: CVLRange) : Exp(range) {
 }
 
 
-class UnresolvedApplyExp(@JvmField var base: Exp?, val method: String, val args: List<Exp>, val annotation: Annotation, val storage: VariableExp, range: CVLRange) : Exp(range) {
+class UnresolvedApplyExp(@JvmField var base: Exp?, val method: String, val args: List<Exp>, val annotation: Annotation, val storage: VariableExp, range: Range) : Exp(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLExp.UnresolvedApplyExp, CVLError> = collectingErrors {
         val ind = when(annotation) {
             Annotation.NEW -> TwoStateIndex.NEW

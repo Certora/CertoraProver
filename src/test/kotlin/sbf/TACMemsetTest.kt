@@ -70,6 +70,12 @@ class TACMemsetTest {
         errContent.close()
     }
 
+    private fun checkVerify(cfg: SbfCFG, expectedResult: Boolean) {
+        val tacProg = toTAC(cfg)
+        sbfLogger.warn { dumpTAC(tacProg) }
+        Assertions.assertEquals(expectedResult, verify(tacProg))
+    }
+
     @Test
     fun test01() {
         // zero memset on stack
@@ -94,9 +100,7 @@ class TACMemsetTest {
         cfg.normalize()
         cfg.verify(true)
         sbfLogger.warn { "$cfg" }
-        val tacProg = toTAC(cfg)
-        sbfLogger.warn { dumpTAC(tacProg) }
-        Assertions.assertEquals(true, verify(tacProg))
+        checkVerify(cfg, true)
     }
 
     @Test
@@ -125,9 +129,12 @@ class TACMemsetTest {
         cfg.verify(true)
         sbfLogger.warn {"$cfg"}
         ConfigScope(SolanaConfig.AddMemLayoutAssumptions, false).use {
-            val tacProg = toTAC(cfg)
-            sbfLogger.warn { dumpTAC(tacProg) }
-            Assertions.assertEquals(true, verify(tacProg))
+            ConfigScope(SolanaConfig.TACMaxUnfoldedMemset, 8).use {
+                checkVerify(cfg, expectedResult = true)
+            }
+            ConfigScope(SolanaConfig.TACMaxUnfoldedMemset, 64).use {
+                checkVerify(cfg, expectedResult = true)
+            }
         }
     }
 
@@ -157,9 +164,12 @@ class TACMemsetTest {
         cfg.verify(true)
         sbfLogger.warn {"$cfg"}
         ConfigScope(SolanaConfig.AddMemLayoutAssumptions, false).use {
-            val tacProg = toTAC(cfg)
-            sbfLogger.warn { dumpTAC(tacProg) }
-            Assertions.assertEquals(false, verify(tacProg))
+            ConfigScope(SolanaConfig.TACMaxUnfoldedMemset, 8).use {
+                checkVerify(cfg, expectedResult = false)
+            }
+            ConfigScope(SolanaConfig.TACMaxUnfoldedMemset, 64).use {
+                checkVerify(cfg, expectedResult = false)
+            }
         }
     }
 
@@ -187,9 +197,12 @@ class TACMemsetTest {
         cfg.verify(true)
         sbfLogger.warn {"$cfg"}
         ConfigScope(SolanaConfig.AddMemLayoutAssumptions, false).use {
-            val tacProg = toTAC(cfg)
-            sbfLogger.warn { dumpTAC(tacProg) }
-            Assertions.assertEquals(false, verify(tacProg))
+            ConfigScope(SolanaConfig.TACMaxUnfoldedMemset, 8).use {
+                checkVerify(cfg, expectedResult = false)
+            }
+            ConfigScope(SolanaConfig.TACMaxUnfoldedMemset, 32).use {
+                checkVerify(cfg, expectedResult = false)
+            }
         }
     }
 
@@ -236,9 +249,12 @@ class TACMemsetTest {
         cfg.verify(true)
         sbfLogger.warn {"$cfg"}
         ConfigScope(SolanaConfig.AddMemLayoutAssumptions, false).use {
-            val tacProg = toTAC(cfg)
-            sbfLogger.warn { dumpTAC(tacProg) }
-            Assertions.assertEquals(false, verify(tacProg))
+            ConfigScope(SolanaConfig.TACMaxUnfoldedMemset, 1).use {
+                checkVerify(cfg, expectedResult = false)
+            }
+            ConfigScope(SolanaConfig.TACMaxUnfoldedMemset, 16).use {
+                checkVerify(cfg, expectedResult = false)
+            }
         }
     }
 }

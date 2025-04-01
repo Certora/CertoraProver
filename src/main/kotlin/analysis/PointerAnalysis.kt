@@ -77,16 +77,27 @@ object PointerAnalysis {
                 val tipsOrErrorCode = tipsToUser.joinToString(". ").ifEmpty {
                     "Error code ${CertoraException.getErrorCodeForException(x)}"
                 }
-
                 val addAlertInfo = getSourceHintWithRange(x.where, graph, p)
 
+                val message = prefix + if(x.enclosingInternalMethod != null){
+                    " in internal function ${x.enclosingInternalMethod.methodSignature} (when called from external function ${p.soliditySignature ?: p.name} of contract ${p.getContainingContract().name}). "
+                } else{
+                    " in contract ${p.getContainingContract().name}, function ${p.soliditySignature ?: p.name}. "
+                } + "${addAlertInfo.additionalUserFacingMessage} $tipsOrErrorCode"
+
                 CVTAlertReporter.reportAlert(
-                    CVTAlertType.ANALYSIS,
+                    // Group the different PTARunPurpose into respective alert types for the Rule report.
+                    when(purpose){
+                        PTARunPurpose.CGB,
+                        PTARunPurpose.CGB_INDIRECT -> CVTAlertType.CALL_GRAPH
+                        PTARunPurpose.OPTIMIZATION -> CVTAlertType.PTA_FOR_OPTIMIZATIONS
+                        PTARunPurpose.ABI,
+                        PTARunPurpose.TEST,
+                        PTARunPurpose.HASHING -> CVTAlertType.ANALYSIS
+                    },
                     CVTAlertSeverity.WARNING,
                     addAlertInfo.range,
-                    "$prefix in contract ${p.getContainingContract().name}, " +
-                        "function ${p.soliditySignature ?: p.name}. ${addAlertInfo.additionalUserFacingMessage} $tipsOrErrorCode",
-                    addAlertInfo.additionalUserFacingMessage
+                    message
                 )
                 val fatalMessage = "(fatal: discarding all pointer analysis) ".takeIf { x.fatal }.orEmpty()
                 logger.warn(x) {

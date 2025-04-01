@@ -30,6 +30,7 @@ import vc.data.TransformableVarEntityWithSupport
 
 val SBF_INLINED_FUNCTION_START = MetaKey<SbfInlinedFuncStartAnnotation>("sbf.inline.start")
 val SBF_INLINED_FUNCTION_END = MetaKey<SbfInlinedFuncEndAnnotation>("sbf.inline.end")
+val SBF_INLINED_FUNCTION_NOP = MetaKey<SbfInlinedFuncNopAnnotation>("sbf.inline.nop")
 
 // This should be an enum, but enums do not have stable hash codes.
 @KSerializable
@@ -114,8 +115,37 @@ data class SbfInlinedFuncStartAnnotation(
  */
 @KSerializable
 @Treapable
-data class SbfInlinedFuncEndAnnotation(
+data class SbfInlinedFuncEndAnnotation (
     val name: String,
     val id: Int,
     val retVal: TACSymbol.Var,
-): HasKSerializable, AmbiSerializable
+): HasKSerializable, AmbiSerializable,
+    TransformableVarEntityWithSupport<SbfInlinedFuncEndAnnotation> {
+    override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): SbfInlinedFuncEndAnnotation {
+        return this.copy (retVal = f(retVal))
+    }
+
+    override val support: Set<TACSymbol.Var>
+        get() = setOf(this.retVal)
+}
+
+/**
+ * An annotation that is used as padding before [SbfInlinedFuncStartAnnotation].
+ * This is because [report.dumps.AddInternalFunctions] assumes that there is at least one TAC command in between
+ * [SbfInlinedFuncEndAnnotation] and [SbfInlinedFuncStartAnnotation].
+ */
+@KSerializable
+@Treapable
+object SbfInlinedFuncNopAnnotation : HasKSerializable, AmbiSerializable,
+    TransformableVarEntityWithSupport<SbfInlinedFuncNopAnnotation> {
+    override fun hashCode() = treapHashObject(this)
+
+    private fun readResolve(): Any = SbfInlinedFuncNopAnnotation
+
+    override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): SbfInlinedFuncNopAnnotation {
+        return this
+    }
+
+    override val support: Set<TACSymbol.Var>
+        get() = setOf()
+}

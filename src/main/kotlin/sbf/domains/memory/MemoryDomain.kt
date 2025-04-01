@@ -234,19 +234,37 @@ class MemoryDomain(private val scalars: ScalarDomain,
         }
     }
 
-    private fun reductionFromPtaGraphToScalars(reg: Value) {
+    private fun reductionFromPtaGraphToScalars(b: SbfBasicBlock, locInst: LocatedSbfInstruction, reg: Value) {
         if (reg is Value.Reg) {
             val x = ptaGraph.getRegCell(reg)
             if (x != null && x.isReified()) {
                 val c = x.reify()
                 if (c.node.mustBeInteger()) {
+                    val change = scalars.refineValue(reg, ScalarValue.anyNum())
+                    if (change) {
+                        /// Changing metadata serves here as caching the reduction.
+                        val newMetadata = locInst.inst.metaData.plus(
+                            Pair(SbfMeta.REG_TYPE, Pair(reg, SbfType.NumType(Constant.makeTop())))
+                        )
+                        val newInst = locInst.inst.copyInst(metadata = newMetadata)
+                        (b as MutableSbfBasicBlock).replaceInstruction(locInst.pos, newInst)
+                    }
+                    return
+                }
+            }
+
+            /// If the analysis previously determined that `reg` is a number then we keep using that fact,
+            /// even if the pointer analysis lost precision and cannot infer that fact anymore.
+            locInst.inst.metaData.getVal(SbfMeta.REG_TYPE)?.let { (refinedReg, type) ->
+                if (refinedReg == reg && type is SbfType.NumType) {
                     scalars.refineValue(reg, ScalarValue.anyNum())
                 }
             }
         }
     }
 
-    private fun analyzeBin(locInst: LocatedSbfInstruction,
+    private fun analyzeBin(b: SbfBasicBlock,
+                           locInst: LocatedSbfInstruction,
                            globals: GlobalVariableMap,
                            memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeBin on bottom in memory domain"}
@@ -256,8 +274,10 @@ class MemoryDomain(private val scalars: ScalarDomain,
         val src = stmt.v
         val dst = stmt.dst
 
-        reductionFromPtaGraphToScalars(src)
-        reductionFromPtaGraphToScalars(dst)
+        reductionFromPtaGraphToScalars(b, locInst, src)
+        if (stmt.op != BinOp.MOV) {
+            reductionFromPtaGraphToScalars(b, locInst, dst)
+        }
 
         // @dstType must be obtained before the transfer function on the scalar domain takes place
         // since @dst can be overwritten to top.
@@ -314,15 +334,16 @@ class MemoryDomain(private val scalars: ScalarDomain,
         }
     }
 
-    private fun analyzeSelect(locInst: LocatedSbfInstruction,
+    private fun analyzeSelect(b: SbfBasicBlock,
+                              locInst: LocatedSbfInstruction,
                               globals: GlobalVariableMap,
                               memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeSelect on bottom in memory domain"}
         val inst = locInst.inst
         check(inst is SbfInstruction.Select)
 
-        reductionFromPtaGraphToScalars(inst.trueVal)
-        reductionFromPtaGraphToScalars(inst.falseVal)
+        reductionFromPtaGraphToScalars(b, locInst, inst.trueVal)
+        reductionFromPtaGraphToScalars(b, locInst, inst.falseVal)
 
         scalars.analyze(locInst, globals, memSummaries)
         if (scalars.isBottom()) {
@@ -371,7 +392,8 @@ class MemoryDomain(private val scalars: ScalarDomain,
              it is SbfInstruction.Exit}
     }
 
-    private fun analyze(locInst: LocatedSbfInstruction,
+    private fun analyze(b: SbfBasicBlock,
+                        locInst: LocatedSbfInstruction,
                         globals: GlobalVariableMap,
                         memSummaries: MemorySummaries) {
 
@@ -380,14 +402,14 @@ class MemoryDomain(private val scalars: ScalarDomain,
         if (!isBottom()) {
             when (inst) {
                 is SbfInstruction.Un -> analyzeUn(locInst, globals, memSummaries)
-                is SbfInstruction.Bin -> analyzeBin(locInst, globals, memSummaries)
+                is SbfInstruction.Bin -> analyzeBin(b, locInst, globals, memSummaries)
                 is SbfInstruction.Call -> analyzeCall(locInst, globals, memSummaries)
                 is SbfInstruction.CallReg-> {
                     if (!SolanaConfig.SkipCallRegInst.get()) {
                         throw MemoryDomainError("Memory domain does not support $inst")
                     }
                 }
-                is SbfInstruction.Select -> analyzeSelect(locInst, globals, memSummaries)
+                is SbfInstruction.Select -> analyzeSelect(b, locInst, globals, memSummaries)
                 is SbfInstruction.Havoc -> analyzeHavoc(locInst, globals, memSummaries)
                 is SbfInstruction.Jump.ConditionalJump -> {}
                 is SbfInstruction.Assume -> analyzeAssume(locInst, globals, memSummaries)
@@ -418,7 +440,7 @@ class MemoryDomain(private val scalars: ScalarDomain,
             }
             out.checkConsistencyBetweenSubdomains(globals, "Before ${b.getLabel()}")
             for (locInst in b.getLocatedInstructions()) {
-                out.analyze(locInst, globals, memSummaries)
+                out.analyze(b, locInst, globals, memSummaries)
                 if (out.isBottom()) {
                     break
                 }
@@ -432,7 +454,7 @@ class MemoryDomain(private val scalars: ScalarDomain,
             }
             for (locInst in b.getLocatedInstructions()) {
                 listener.instructionEventBefore(locInst, out)
-                out.analyze(locInst, globals, memSummaries)
+                out.analyze(b, locInst, globals, memSummaries)
                 listener.instructionEventAfter(locInst, out)
             }
             return out

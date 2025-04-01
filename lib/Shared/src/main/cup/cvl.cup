@@ -30,10 +30,9 @@ import spec.cvlast.CVLType;
 import spec.cvlast.typechecker.*;
 import spec.cvlast.Visibility;
 import spec.CVLCastFunction;
-import spec.cvlast.CVLRange;
 import utils.CollectingResult;
+import utils.Range;
 import spec.cvlast.typechecker.CVLError;
-import spec.cvlast.CVLRange;
 import utils.SourcePosition;
 import org.jetbrains.annotations.NotNull;
 import kotlin.UInt;
@@ -204,8 +203,8 @@ parser code {:
     }
 
     /** @return a new range from [left] to [right] */
-    private CVLRange.Range range(Location left, Location right) {
-        return new CVLRange.Range(left, right);
+    private Range.Range range(Location left, Location right) {
+        return new Range.Range(left, right);
     }
 
     // CONVENIENCE FUNCTIONS ///////////////////////////////////////////////////////////////////////////////////////////
@@ -213,16 +212,16 @@ parser code {:
     private final static String FALLBACK_FUNCTION_NAME = CVLReservedVariables.certorafallback_0.name();
     private List<CVLError> errors = new ArrayList<CVLError>();
 
-    /** @return A CVLRange from the start to the end of [s] */
-    private CVLRange symbolRange(ComplexSymbol s) {
+    /** @return A Range from the start to the end of [s] */
+    private Range symbolRange(ComplexSymbol s) {
         return makeRange(s.xleft, s.xright);
     }
 
-    /** @return an unspecified CVLRange in the file */
-    private CVLRange fileRange() {
+    /** @return an unspecified Range in the file */
+    private Range fileRange() {
         SourcePosition start = SourcePosition.zero();
         SourcePosition end   = SourcePosition.zero();
-        return new CVLRange.Range(theFilename, start, end);
+        return new Range.Range(theFilename, start, end);
     }
 
     private ParserCVL(Lexer lexer, SymbolFactory factory, String theFilename, boolean isImported) {
@@ -231,8 +230,8 @@ parser code {:
         this.isImportedFile = isImported;
     }
 
-    private CVLRange makeRange(ComplexSymbolFactory.Location left, ComplexSymbolFactory.Location right) {
-        return new CVLRange.Range(left, right);
+    private Range makeRange(ComplexSymbolFactory.Location left, ComplexSymbolFactory.Location right) {
+        return new Range.Range(left, right);
     }
 
     private static class CVLCUPParserException extends Exception {}
@@ -593,7 +592,7 @@ method_dec ::=
     function_opt:f method_signature:sig with_env_opt:env summary_opt:summ sc_opt:sc {:
         expectFunction(f,sigxleft,sigxright);
         expectSemicolon(sc, CVL2MissingSemicolon.ExpectedLocation.METHODS_ENTRIES);
-        RESULT = new ImportedFunction(new CVLRange.Range(fxleft, scxright), sig, sig.methodQualifiers, summ, env, new CVLRange.Range(envxleft,envxright));
+        RESULT = new ImportedFunction(new Range.Range(fxleft, scxright), sig, sig.methodQualifiers, summ, env, new Range.Range(envxleft,envxright));
     :}
   | function_opt:f method_reference:m pre_return_method_dec_flags:preflags post_return_method_dec_flags:postflags IMPLIES summary:s sc_opt:sc {:
         // catch-all summary - the method_reference must be `ContractName._` and the summary must be `NONDET`.
@@ -880,7 +879,7 @@ override_decl ::=
   | OVERRIDE cvl_function:f                                        {: RESULT = new OverrideDeclaration.CVLFunction(f);     :}
 ;
 
-tuple_type ::= LP:l non_singleton_type_list:tt RP:r {: RESULT = new TupleType(tt, new CVLRange.Range(lxleft, rxright)); :};
+tuple_type ::= LP:l non_singleton_type_list:tt RP:r {: RESULT = new TupleType(tt, new Range.Range(lxleft, rxright)); :};
 
 non_singleton_type_list ::=
      type:t1 COMMA type:t2                      {: RESULT = append(singletonList(t1), t2); :}
@@ -1458,6 +1457,6 @@ apply_annotation ::=
 ;
 
 storage_type ::=
-    /* empty */ {: RESULT = new VariableExp("lastStorage", new CVLRange.Empty("empty storage type")); :}
+    /* empty */ {: RESULT = new VariableExp("lastStorage", new Range.Empty("empty storage type")); :}
   | AT ID:s     {: RESULT = new VariableExp(s, range(sxleft, sxright));                               :}
 ;

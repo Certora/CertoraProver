@@ -21,6 +21,9 @@ import datastructures.stdcollections.*
 import sbf.SolanaConfig
 import sbf.cfg.*
 import sbf.disassembler.*
+import sbf.domains.MemorySummaries
+import sbf.inliner.InlineSpec
+import sbf.inliner.InlinerConfig
 import sbf.sbfLogger
 import sbf.support.demangle
 
@@ -28,7 +31,18 @@ import sbf.support.demangle
  * Conversion of an SbfProgram (i.e., a sequence of labeled sbf instructions)
  * to a list of CFGs.
  **/
-fun sbfProgramToSbfCfgs(prog: SbfProgram): MutableSbfCallGraph {
+fun sbfProgramToSbfCfgs(prog: SbfProgram, inlinerConfig: InlinerConfig, memSumaries: MemorySummaries): SbfCallGraph {
+    val newEntriesMap = mutableMapOf<String,ElfAddress>()
+    newEntriesMap.putAll(prog.entriesMap)
+    prog.funcMan.getAllFunctions().filter { isMangledMockFn(it.name) }.forEach {
+        val start = it.entryPoint
+        check(start != null) {"Found mock ${it.name} without start address"}
+        newEntriesMap[it.name] = start
+    }
+    return sbfProgramWithMocksToSbfCfgs(prog.copy(entriesMap = newEntriesMap), inlinerConfig, memSumaries)
+}
+
+private fun sbfProgramWithMocksToSbfCfgs(prog: SbfProgram, inlinerConfig: InlinerConfig, memSummaries: MemorySummaries): SbfCallGraph {
     /**
      * We first build a big monolithic CFG representing the whole sbf program.
      * Since an sbf program can have multiple functions,
@@ -36,10 +50,9 @@ fun sbfProgramToSbfCfgs(prog: SbfProgram): MutableSbfCallGraph {
      * Note that @monoCFG will be thrown away later, so it won't survive beyond this function.
      **/
     val monoCFG = MutableSbfCFG("mono_cfg")
-    val functions = mutableSetOf<Pair<String, ElfAddress>>()
-    prog.entriesMap.forEachEntry {
-        functions.add(it.key to it.value)
-    }
+
+    val functions = mutableSetOf<SbfFunction>()
+    functions.addAll(prog.entriesMap.map { SbfFunction(it.key, it.value)})
 
     val targets = MutableSbfCFG.getTargets(prog)
     var curBlock: MutableSbfBasicBlock? = null
@@ -105,7 +118,7 @@ fun sbfProgramToSbfCfgs(prog: SbfProgram): MutableSbfCallGraph {
                 if (funcStart != null) {
                     val funcName = prog.funcMan.getFunction(funcStart)?.name
                         ?: throw CFGBuilderError("cannot find a name for a function starting at address $funcStart")
-                    functions.add(funcName to funcStart)
+                    functions.add(SbfFunction(funcName, funcStart))
                 }
             }
 
@@ -157,8 +170,9 @@ fun sbfProgramToSbfCfgs(prog: SbfProgram): MutableSbfCallGraph {
     val labelMap = monoCFG.renameLabels() //needed by postProcessCFG
     val cfgs = ArrayList<MutableSbfCFG>()
     for ((name, start) in functions) {
+        check(start != null)
         val labeledStart = labelMap[Label.Address(start)]
-        check(labeledStart != null) { "found a label in the label map" }
+        check(labeledStart != null) { "cannot find address $start in the label map $labelMap" }
         val entryBlock = monoCFG.getBlock(labeledStart)
             ?: throw CFGBuilderError("cannot find basic block for function=${name} at entry block=$start")
         val cfg = monoCFG.sliceFrom(entryBlock.getLabel(), name)
@@ -169,11 +183,15 @@ fun sbfProgramToSbfCfgs(prog: SbfProgram): MutableSbfCallGraph {
         postProcessCFG(clonedCfg, prog.globalsMap)
         cfgs.add(clonedCfg)
     }
-    val roots = prog.entriesMap.map { it.key }.toSet()
     val demangler = Demangler(cfgs)
+    val roots = prog.entriesMap.map { demangler.demangle(it.key) ?: it.key }.toSet()
+
     return relink(
-        MutableSbfCallGraph(demangler.get(), roots, prog.globalsMap)
-    ) { demangler.isOverloaded(it) }
+        MutableSbfCallGraph(demangler.get(), roots, prog.globalsMap),
+        demangler
+    ).let {
+        relinkAbort(it, inlinerConfig, memSummaries)
+    }
 }
 
 private fun postProcessCFG(cfg: MutableSbfCFG, globalsMap: GlobalVariableMap) {
@@ -193,14 +211,66 @@ private fun postProcessCFG(cfg: MutableSbfCFG, globalsMap: GlobalVariableMap) {
 }
 
 
+/**
+ *  Relink functions that always abort by direct call to abort
+ *  **Precondition**: the function names are demangled
+ *
+ *  After replacing calls with abort we ensure that the callgraph is re-computed again.
+ */
+private fun relinkAbort(prog: SbfCallGraph, inlinerConfig: InlinerConfig, memSummaries: MemorySummaries): SbfCallGraph {
+    val newCFGs = mutableListOf<MutableSbfCFG>()
+    prog.getCFGs().forEach {
+        if (!memSummaries.isKnownAbortFn(it.getName())) {
+            val newCFG = it.clone(it.getName())
+            relinkAbort(newCFG, inlinerConfig, memSummaries)
+            newCFGs.add(newCFG)
+        }
+    }
+    return MutableSbfCallGraph(
+        newCFGs,
+        prog.getCallGraphRoots().map {it.getName()}.toSet(),
+        prog.getGlobals(),
+        check = false)
+}
+
+private fun relinkAbort(cfg: MutableSbfCFG, inlinerConfig: InlinerConfig, memSummaries: MemorySummaries) {
+    var changed = false
+    for (b in cfg.getMutableBlocks().values) {
+        for (locInst in b.getLocatedInstructions()) {
+            val inst = locInst.inst
+            if (inst is SbfInstruction.Call) {
+                val fname = inst.name
+                if (inlinerConfig.getInlineSpec(fname) is InlineSpec.DoInline) {
+                    continue
+                }
+                if (memSummaries.getSummary(fname)?.isAbort == true) {
+                    val abortInst = SolanaFunction.toCallInst(
+                        SolanaFunction.ABORT,
+                        MetaData(SbfMeta.COMMENT to fname)
+                    )
+                    b.replaceInstruction(locInst, abortInst)
+                    changed = true
+                }
+            }
+        }
+    }
+    if (changed) {
+        // Cleanup after adding `abort` statements
+        cfg.deadCodeElimination()
+        cfg.removeUnreachableBlocks()
+        cfg.normalize()
+    }
+}
+
 
 private class Demangler(private val cfgs: List<MutableSbfCFG>) {
     private val demangledSep = "_"
     private val demangledCFGs = ArrayList<MutableSbfCFG>(cfgs.size)
-    // This is for mangled function names that might have been overloaded.
-    // This is typically functions with generic types (each instantiation produces a different hash) or when two
+    // Map from mangled to demangled names
+    private val demanglerMap: MutableMap<String, String> = mutableMapOf()
+    // Functions with generic types (each instantiation produces a different hash) or when two
     // copies of the same library is used by mistake.
-    private val overloadedNames = mutableSetOf<String>()
+    private val nonUniqueNames = mutableSetOf<String>()
 
     init {
         run()
@@ -208,7 +278,9 @@ private class Demangler(private val cfgs: List<MutableSbfCFG>) {
 
     fun get() = demangledCFGs
 
-    fun isOverloaded(name: String) = overloadedNames.contains(name)
+    fun isUnique(name: String) = !nonUniqueNames.contains(name)
+
+    fun demangle(name:String): String? = demanglerMap[name]
 
     /**
      *  Make [inMap] an injective function. Given `inMap`:
@@ -239,13 +311,13 @@ private class Demangler(private val cfgs: List<MutableSbfCFG>) {
                     val codomainVal = inMap[domainVal]
                     val demangledName = "$codomainVal$demangledSep$i"
                     inMap[domainVal] = demangledName
-                    overloadedNames.add(demangledName)
+                    nonUniqueNames.add(demangledName)
                 }
             }
         }
     }
 
-    private fun buildDemanglerMap(): Map<String, String>? {
+    private fun buildDemanglerMap() {
         // Collect all function and calls names
         val mangledNames = mutableSetOf<String>()
         for (cfg in cfgs) {
@@ -260,22 +332,21 @@ private class Demangler(private val cfgs: List<MutableSbfCFG>) {
         }
         val mangledNamesList = mangledNames.toList()
         val demangledNames = demangle(mangledNamesList) // call rustfilt to demangle names
-        return if (demangledNames == null || demangledNames.size != mangledNamesList.size) {
-            // here if the call to rustfilt fails for some reason
-            null
-        } else {
-            val remap: MutableMap<String, String> = mutableMapOf()
-            mangledNamesList.forEachIndexed { i, mangledName ->
-                remap[mangledName] = demangledNames[i]
-            }
-            makeInjective(remap)
-            remap
+        if (demangledNames == null || demangledNames.size != mangledNamesList.size) {
+            // do nothing: here if the call to rustfilt fails for some reason
+            return
         }
+
+        mangledNamesList.forEachIndexed { i, mangledName ->
+            demanglerMap[mangledName] = demangledNames[i]
+        }
+        makeInjective(demanglerMap)
     }
 
     private fun run() {
-        val demanglerMap = buildDemanglerMap()
-        if (demanglerMap == null) {
+        buildDemanglerMap()
+
+        if (demanglerMap.isEmpty()) {
             demangledCFGs.addAll(cfgs)
             return
         }
@@ -301,46 +372,37 @@ private class Demangler(private val cfgs: List<MutableSbfCFG>) {
  * Conceptually it replaces all calls to `f` with  some function `g`.
  * Physically, this function replaces `f`'s body with `g`'s body.
  *
- * How we determine which function `g` is a replacement and which function `f` should be replaced is decided
- * based on their qualified names. See [findFunctionToBeRelinked] for details.
- *
  * Preconditions: all function names have been already demangled.
  */
-private fun relink(prog: MutableSbfCallGraph, isOverloaded: (String) -> Boolean): MutableSbfCallGraph {
+private fun relink(prog: SbfCallGraph, demangler: Demangler): SbfCallGraph {
     // This relinking process will create a new call-graph from scratch
 
     val newCFGs = mutableListOf<MutableSbfCFG>()
     val relinkedFunctions = mutableSetOf<String>()
 
     // First, we add the new CFGs for the functions to be relinked.
-    prog.getMutableCFGs().forEach { cfg ->
-        val newFn = cfg.getName()
-        if (!isOverloaded(newFn)) {
-            val oldFn = findFunctionToBeRelinked(newFn)
-            if (oldFn != null) {
-                if (prog.getCFG(oldFn) != null) {
-                    val newCFG = prog.getCFG(newFn)?.clone(oldFn)
-                    check(newCFG != null) { "relink cannot find CFG for $newFn" }
-                    sbfLogger.warn { "All calls to $oldFn have been redirected to $newFn" }
-                    relinkedFunctions.add(oldFn)
-                    newCFGs.add(newCFG)
-                } else {
-                    sbfLogger.warn {
-                        "$newFn is identified as a function that should replace $oldFn but $oldFn cannot be found"
-                    }
+    prog.getCFGs().forEach { cfg ->
+        val mockFn = cfg.getName()
+        if (isMockFn(mockFn, demangler)) {
+            val origFn = getFunctionToBeMocked(mockFn, demangler)
+            if (prog.getCFG(origFn) != null) {
+                val newCFG = prog.getCFG(mockFn)?.clone(origFn)
+                check(newCFG != null) { "relink cannot find CFG for $mockFn" }
+                sbfLogger.warn { "MOCKING: calls to $origFn (if any) have been redirected to $mockFn" }
+                relinkedFunctions.add(origFn)
+                newCFGs.add(newCFG)
+            } else {
+                sbfLogger.warn {
+                    "MOCKING: $mockFn is identified as a function that should replace $origFn but $origFn cannot be found"
                 }
-            }
-        } else {
-            sbfLogger.warn {
-                "$newFn seems an overloaded function and relinking does not support this kind of function"
             }
         }
     }
 
     // Second, we add the unchanged CFGs for the rest of the functions
-    prog.getMutableCFGs().forEach { cfg ->
+    prog.getCFGs().forEach { cfg ->
         if (!relinkedFunctions.contains(cfg.getName())) {
-            newCFGs.add(cfg)
+            newCFGs.add(cfg.clone(cfg.getName()))
         }
     }
 
@@ -348,53 +410,32 @@ private fun relink(prog: MutableSbfCallGraph, isOverloaded: (String) -> Boolean)
     return MutableSbfCallGraph(newCFGs, prog.getCallGraphRoots().map { it.getName() }.toSet(), prog.getGlobals())
 }
 
-/**
- * If [newName] is identified as a function that is meant to replace another one,
- * then return the function that is paired with. [findFunctionToBeRelinked] returns a non-null string if [newName]
- * follows this convention:
- *
- * ```
- * crate_name::certora::mocks::rest_of_the_qualified_name
- * ```
- *
- * And the returned string is:
- *
- * ```
- * crate_name::rest_of_the_qualified_name
- * ```
- */
-private fun findFunctionToBeRelinked(newName: String,
-                                     defaultDirs: List<String> = listOf("mocks", "summaries")): String? {
-    val (s1, r1) = splitFQFN(newName)
-    if (s1 == "") {
-        return null
-    }
-    val (s2,r2) = splitFQFN(r1)
-    if (s2 == "") {
-        return null
-    }
-    val (s3,r3) = splitFQFN(r2)
-    if (s3 == "") {
-        return null
-    }
-    return if (s2 == "certora" && defaultDirs.contains(s3)) {
-        "$s1::$r3"
+private const val certoraNamespace = "certora"
+private const val mocksNamespace = "mocks"
+private const val mangledMockPrefix = "$certoraNamespace${mocksNamespace.length}$mocksNamespace"
+private const val demangledMockPrefix = "$certoraNamespace::$mocksNamespace"
+
+@Suppress("ForbiddenMethodCall")
+private fun isMangledMockFn(name: String): Boolean =
+    name.contains(mangledMockPrefix)
+
+@Suppress("ForbiddenMethodCall")
+private fun isMockFn(name: String, demangler: Demangler): Boolean {
+    return if (name.contains(demangledMockPrefix)) {
+        if (!demangler.isUnique(name)) {
+            sbfLogger.warn {
+                "MOCKING: $name seems an overloaded function and relinking does not support this kind of function"
+            }
+            false
+        } else {
+            true
+        }
     } else {
-        null
+        false
     }
 }
 
-/**
- * Split [qualifiedName] into two substrings (s1, s2) where s1 is the string before the first occurrence of `::`
- * and s2 is the rest of the string after the first occurrence of `::`.
- *
- * Precondition: all function names have been already demangled.
- */
-private fun splitFQFN(qualifiedName: String): Pair<String, String> {
-    val end = qualifiedName.indexOf("::", 0, false)
-    return if (end == -1) {
-        "" to qualifiedName
-    } else {
-        qualifiedName.substring(0, end) to qualifiedName.removeRange(0, end+2)
-    }
+private fun getFunctionToBeMocked(name: String, demangler: Demangler): String {
+    check(isMockFn(name, demangler)) {"precondition of getFunctionToBeMocked failed"}
+    return name.replace("$demangledMockPrefix::", "")
 }

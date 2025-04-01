@@ -21,6 +21,7 @@ import spec.cvlast.*
 import spec.isWildcard
 import utils.CollectingResult
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.Range
 
 class CVLParamTypeChecker(
     symbolTable: CVLSymbolTable
@@ -29,12 +30,12 @@ class CVLParamTypeChecker(
 
     fun typeCheckCVLParams(
         params: List<CVLParam>,
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope,
         fromUser: Boolean = true
     ): CollectingResult<List<CVLParam>, CVLError> = collectingErrors {
         val typeCheckedTypes = collectAndFilter(params.associateWith { param ->
-            typeTypeChecker.typeCheck(param.type, cvlRange, scope)
+            typeTypeChecker.typeCheck(param.type, range, scope)
         })
         return@collectingErrors typeCheckedTypes.map { (param, type) ->
             // If the rule is a derived rule, it's parameters are also derived, and
@@ -46,7 +47,7 @@ class CVLParamTypeChecker(
                     is CVLScope.Item.CVLFunctionScopeItem -> "CVL function"
                     else -> error("unexpected scope for param typechecks")
                 }
-                collectError(CVLError.General(cvlRange, "CVL does not support mappings as $where parameters"))
+                collectError(CVLError.General(range, "CVL does not support mappings as $where parameters"))
             }
 
             val topLevelScope = scope.topLevelScope()
@@ -55,7 +56,7 @@ class CVLParamTypeChecker(
             // Do not accept wildcard-named params, except for the case of preserved blocks in an invariant - the
             // arguments there must be named, and this is a good way to signal to the reader the argument should be ignored.
             if (!isInvariantDerived && param.id.isWildcard()) {
-                collectError(CVLError.General(cvlRange, "`_` is the wildcard variable. Cannot declare an argument with that name"))
+                collectError(CVLError.General(range, "`_` is the wildcard variable. Cannot declare an argument with that name"))
             }
             param.copy(type = type)
         }

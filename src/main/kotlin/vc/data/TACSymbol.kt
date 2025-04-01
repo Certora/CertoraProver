@@ -40,7 +40,9 @@ import java.math.BigInteger
 
 @KSerializable
 @Treapable
-sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 */ PrefersHashTreap, TransformableSymEntity<TACSymbol>, HasKSerializable {
+sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 */ PrefersHashTreap, TransformableSymEntity<TACSymbol>, HasKSerializable, ToTACExpr {
+
+    override fun toTACExpr(): TACExpr = asSym()
 
     abstract fun toSMTRep(): String
 

@@ -28,9 +28,9 @@ import smtlibutils.data.SmtExp
 import smtlibutils.data.SmtSymbolTable
 import smtlibutils.data.Sort
 import solver.CounterexampleModel.ResolvingFailure.UnexpectedResultValue.Expected
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLType
-import spec.cvlast.IRule
+import spec.rules.IRule
 import spec.cvlast.SpecType
 import tac.MetaKey
 import tac.NBId
@@ -246,8 +246,8 @@ sealed class CounterexampleModel: AmbiSerializable {
                     val assertId: Int = ltac.cmd.meta.find(TACMeta.ASSERT_ID) ?: throw IllegalStateException(
                         "Expected ${ltac.cmd}@${ltac.ptr} to have an ASSERT_ID meta key, but got ${ltac.cmd.meta}"
                     )
-                    if (rule.ruleType is SpecType.Single.MultiAssertSubRule.SpecFile) {
-                        val multiAssertRuleType = rule.ruleType as SpecType.Single.MultiAssertSubRule.SpecFile
+                    if (rule.ruleType is SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.SpecFile) {
+                        val multiAssertRuleType = rule.ruleType as SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.SpecFile
                         if (multiAssertRuleType.assertId != assertId) {
                             throw IllegalStateException(
                                 "Expected the violated assert Id to be ${
@@ -256,7 +256,7 @@ sealed class CounterexampleModel: AmbiSerializable {
                             )
                         }
                     }
-                    val cvlRange: CVLRange = ltac.cmd.meta.find(TACMeta.CVL_RANGE)?: CVLRange.Empty()
+                    val range: Range = ltac.cmd.meta.find(TACMeta.CVL_RANGE)?: Range.Empty()
                     val msg = if (assertMsg == "" && defaultAssertMessage != null) {
                         defaultAssertMessage
                     } else {
@@ -265,7 +265,7 @@ sealed class CounterexampleModel: AmbiSerializable {
                     return@findMetaOfFirstViolatedAssert RuleCheckResult.RuleFailureMeta.ViolatedAssert(
                         rule.ruleIdentifier.derivedAssertIdentifier(msg, assertId),
                         msg,
-                        cvlRange,
+                        range,
                     )
                 }
         }

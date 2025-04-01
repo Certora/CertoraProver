@@ -23,11 +23,10 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import scene.TEST_SPEC_FILE_NAME
-import spec.cvlast.CVLRange
+import utils.Range
 import utils.SourcePosition
 import spec.errors.ErrorExample
 import spec.cvlast.typechecker.*
-import java.lang.AssertionError
 import kotlin.collections.single
 import kotlin.io.path.Path
 import kotlin.reflect.KClass
@@ -86,7 +85,7 @@ class ErrorTests {
         errors.forEach {
             val range = it.location
             println("  > $range [${it::class.simpleName}] ${it.message}")
-            if (range is CVLRange.Range) { println(example.renderWithRange(range).prependIndent("      ┃ ")) }
+            if (range is Range.Range) { println(example.renderWithRange(range).prependIndent("      ┃ ")) }
         }
 
         assert(errors.size == 1) { "Failed: too many errors" }
@@ -148,7 +147,7 @@ class ErrorTests {
         println()
 
         println("testing parsing:")
-        val expectedRange = CVLRange.Range("CVL Example", SourcePosition(startLine.toUInt()-1u,startChar.toUInt()), SourcePosition(endLine.toUInt()-1u, endChar.toUInt()))
+        val expectedRange = Range.Range("CVL Example", SourcePosition(startLine.toUInt()-1u,startChar.toUInt()), SourcePosition(endLine.toUInt()-1u, endChar.toUInt()))
         val expectedText  = text.replace("#","")
 
         val actual = ErrorExample("CVL Example", text)
@@ -165,7 +164,7 @@ class ErrorTests {
         println()
 
         println("testing printing with range at start:")
-        val renderedAtStart = actual.renderWithRange(CVLRange.Range("CVL Example", SourcePosition.zero(), SourcePosition.zero()))
+        val renderedAtStart = actual.renderWithRange(Range.Range("CVL Example", SourcePosition.zero(), SourcePosition.zero()))
         println(renderedAtStart.prependIndent("  ┃ "))
         assertEquals("##$expectedText", renderedAtStart)
         println()

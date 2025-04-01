@@ -46,21 +46,15 @@ data class RunMetadata(
     val cliVersion: String,
     @SerialName("CLI_package_name")
     val cliPackageName: String,
-    @SerialName("main_spec")
-    val mainSpec: String?,  // For cloud use, not used by the jar
-    @SerialName("conf_path")
-    val confPath: String?,  // For cloud use, not used by the jar
-    @SerialName("group_id")
-    val groupID: String?,  // For cloud use, not used by the jar
     @SerialName("python_version")
-    val pythonVersion: String,
-    @SerialName("certora_ci_client")
-    val certoraCIClient: String?  // For cloud use, not used by the jar
+    val pythonVersion: String
 ) {
     companion object {
         fun deserializeFromJson(s: String): RunMetadata =
             try {
-                Json.decodeFromString(s)
+                Json {
+                    ignoreUnknownKeys = true
+                }.decodeFromString(s)
             } catch (e: SerializationException) {
                 throw CertoraException(
                     CertoraErrorType.INCOMPATIBLE_SERIALIZATION,

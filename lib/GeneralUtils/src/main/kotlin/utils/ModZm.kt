@@ -89,7 +89,13 @@ interface ModZm {
     fun add(a: BigInteger, b: BigInteger): BigInteger = checkAndMod(a, b, BigInteger::plus)
     fun sub(a: BigInteger, b: BigInteger): BigInteger = checkAndMod(a, b, BigInteger::minus)
     fun mul(a: BigInteger, b: BigInteger): BigInteger = checkAndMod(a, b, BigInteger::multiply)
-    fun mod(a: BigInteger, b: BigInteger): BigInteger = checkAnd(a, b, BigInteger::mod)
+    fun mod(a: BigInteger, b: BigInteger): BigInteger = checkAnd(a, b) { x, y ->
+        if (y == BigInteger.ZERO) {
+            BigInteger.ZERO
+        } else {
+            x.mod(y)
+        }
+    }
     fun exp(a: BigInteger, b: BigInteger): BigInteger = checkAnd(a, b) { x, y -> x.modPow(y, modulus) }
 
     fun signExtendFromBit(a: BigInteger, fromBit: Int): BigInteger =

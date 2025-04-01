@@ -25,7 +25,7 @@ import analysis.storage.DisplayPath
 import analysis.storage.singleDisplayPathOrNull
 import datastructures.stdcollections.*
 import log.*
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMValueType
 import tac.NBId
 import vc.data.*
@@ -170,7 +170,7 @@ class StorageAnalysisFailWithMeta(
         loc: TACSymbol?,
         value: TACSymbol?,
         storageType: EVMValueType?,
-        range: CVLRange.Range?,
+        range: Range.Range?,
     ) {
         val valueOkToUse = value?.takeIf { it !in varsFromChangesWontBeDeclared }
         val locOkToUse = loc?.takeIf { it !in varsFromChangesWontBeDeclared }
@@ -228,7 +228,7 @@ class DummyStorageAnalysisFail(patcher: SimplePatchingProgram, contId: BigIntege
         loc: TACSymbol?,
         value: TACSymbol?,
         storageType: EVMValueType?,
-        range: CVLRange.Range?
+        range: Range.Range?
     ) {
         addEVMStorageSnippetCmd(ptr, rawStorageAccessSnippet(loadCmd, loc, value, storageType, range))
     }

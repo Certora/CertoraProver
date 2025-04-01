@@ -29,9 +29,9 @@ import scene.source.Sighash
 import solver.SolverResult
 import spec.CVLKeywords
 import spec.CVLReservedVariables
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
-import spec.cvlast.SingleRuleGenerationMeta
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
+import spec.rules.SingleRuleGenerationMeta
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.genericrulegenerators.TrustedMethods
 import spec.isWildcard
@@ -120,8 +120,8 @@ class TrustedMethodChecker :
     }
 
     override suspend fun doCheck(
-            ruleChecker: RuleChecker,
-            rule: IRule,
+        ruleChecker: RuleChecker,
+        rule: IRule,
     ): RuleCheckResult {
         check(rule is CVLSingleRule){"Expected an instance of type ${CVLSingleRule::class.java}, but found ${rule}"}
         return CompiledRule.staticRules(ruleChecker.scene, ruleChecker.cvl, rule).mapCatching { codesToCheck ->
@@ -141,7 +141,7 @@ class TrustedMethodChecker :
             }
             val results = rulesCodesAndMethodNames.map { (newRule, currCode, methodName) ->
 
-                ruleChecker.reporter.signalStart(newRule, rule)
+                ruleChecker.reporter.signalStart(newRule)
                 ruleChecker.treeViewReporter.registerSubruleOf(newRule, rule)
                 ruleChecker.treeViewReporter.signalStart(newRule)
                 StatusReporter.registerSubrule(newRule)

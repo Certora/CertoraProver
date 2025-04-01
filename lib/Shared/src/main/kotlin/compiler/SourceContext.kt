@@ -21,7 +21,7 @@ import com.certora.collect.*
 import log.Logger
 import log.LoggerTypes
 import report.TreeViewLocation
-import spec.cvlast.CVLRange
+import utils.Range
 import utils.*
 import java.io.File
 import java.io.Serializable
@@ -75,7 +75,7 @@ data class SourceIdentifier(val source: Int, val begin: Int, val len: Int): Seri
 @KSerializable
 @Treapable
 data class SourceSegment(
-    val range: CVLRange.Range,
+    val range: Range.Range,
     val content: String
 ): Serializable, TreeViewLocation by range {
     /** Canonical representation of [content] with trimmed spaces. */
@@ -87,7 +87,7 @@ data class SourceSegment(
      * representation of syntactically legal Solidity code.
      */
     val sanitizedContentWithLoc: String
-        get() = "/* ${range.fileName}: ${range.lineNumber}: */ $sanitizedContent"
+        get() = "/* ${range.fileName}: ${range.lineNumber}: */ ${sanitizedContent.condense(1)}"
 
     companion object {
         /**
@@ -118,7 +118,7 @@ data class SourceSegment(
                 return null
             }
 
-            val range = CVLRange.Range(
+            val range = Range.Range(
                 relativeFile,
                 start = lineStarts.sourcePosition(startIndex),
                 end = lineStarts.sourcePosition(startIndex + size),

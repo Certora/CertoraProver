@@ -25,15 +25,16 @@ import analysis.opt.intervals.ExtBig.Companion.Zero
 import analysis.opt.intervals.ExtBig.Companion.asExtBig
 import analysis.opt.intervals.ExtBig.Inf
 import analysis.opt.intervals.ExtBig.MInf
+import analysis.opt.intervals.Interval.Companion.IFullBool
 import analysis.opt.intervals.Intervals.Companion.S2To256
 import analysis.opt.intervals.Intervals.Companion.SEmpty
+import analysis.opt.intervals.Intervals.Companion.SFullBool
 import analysis.opt.intervals.Intervals.Companion.SmaxUint
 import analysis.opt.intervals.Intervals.Companion.mulMod
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import tac.Tag
-import utils.minus
+import utils.*
 import analysis.opt.intervals.Interval.Companion as I
 import analysis.opt.intervals.Intervals.Companion as S
 
@@ -148,5 +149,45 @@ class IntervalsTest {
         assertEquals(S(MAX_UINT), I(3).signExtend(2, 256))
         assertEquals(S(0, 1) union S(MAX_UINT - 1), I(0, 2).signExtend(2, 256))
     }
+
+    @Test
+    fun testIsBool() {
+        assertTrue(SFullBool.isBool)
+        assertTrue(IFullBool.isBool)
+    }
+
+    @Test
+    fun testMul() {
+        // pos * pos
+        assertEquals(I(8, 15), I(2, 3) * I(4, 5))
+
+        // neg * neg
+        assertEquals(I(8, 15), I(-3, -2) * I(-5, -4))
+
+        // dual * dual
+        assertEquals(I(-12, 15), I(-2, 3) * I(-4, 5))
+
+        // pos * dual
+        assertEquals(I(-12, 15), I(0, 3) * I(-4, 5))
+
+        // dual * pos
+        assertEquals(I(-12, 15), I(-4, 5) * I(2, 3))
+
+        // neg * dual
+        assertEquals(I(-10, 8), I(-2, -1) * I(-4, 5))
+
+        // dual * neg
+        assertEquals(I(-10, 8), I(-4, 5) * I(-2, 0))
+
+        // pos * neg
+        assertEquals(I(-15, -8), I(-3, -2) * I(4, 5))
+
+        // neg * pos
+        assertEquals(I(-15, -8), I(4, 5) * I(-3, -2))
+
+        // with 0
+        assertEquals(I(-15, 0), I(0, 5) * I(-3, -2))
+    }
+
 
 }

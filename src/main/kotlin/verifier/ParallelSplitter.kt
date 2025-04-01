@@ -35,7 +35,7 @@ import smtlibutils.data.FactorySmtScript
 import smtlibutils.data.SatResult
 import smtlibutils.statistics.*
 import solver.*
-import spec.cvlast.IRule
+import spec.rules.IRule
 import statistics.data.TACProgramMetadata
 import utils.*
 import vc.data.CoreTACProgram

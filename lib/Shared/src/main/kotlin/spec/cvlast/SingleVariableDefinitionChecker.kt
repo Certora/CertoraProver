@@ -30,7 +30,9 @@ import utils.VoidResult
 import datastructures.stdcollections.*
 import spec.CVLKeywords.Companion.CURRENT_CONTRACT
 import spec.cvlast.typechecker.*
+import spec.rules.CVLSingleRule
 import utils.CollectingResult.Companion.lift
+import utils.Range
 import utils.arrayDequeOf
 
 /**
@@ -53,10 +55,10 @@ class SingleVariableDefinitionChecker {
         // Note: this is a `use` rather than an `assign` because [CVLLhs] is used in places other than just definitions
         // (e.g. as an array base or havoc variable).  The call to `assign` happens in [cmdTransformer.def]
         override fun idLhs(idLhs: CVLLhs.Id): CollectingResult<CVLLhs.Id, CVLError>
-            = variables.use(idLhs.id, idLhs.cvlRange).map { idLhs }
+            = variables.use(idLhs.id, idLhs.range).map { idLhs }
 
         override fun variable(exp: CVLExp.VariableExp): CollectingResult<CVLExp, CVLError>
-            = variables.use(exp.id, exp.tag.cvlRange).map { exp }
+            = variables.use(exp.id, exp.tag.range).map { exp }
 
         override fun quant(exp: CVLExp.QuantifierExp): CollectingResult<CVLExp, CVLError>
             = defineAndCheckCVL(listOf(exp.param)) { super.quant(exp) }
@@ -72,9 +74,9 @@ class SingleVariableDefinitionChecker {
 
             if (cmd.type != null) {
                 // something like `mathint x = e`
-                cmd.definedVariables.forEach { collect(variables.declareLocal(it.id, cmd.cvlRange)) }
+                cmd.definedVariables.forEach { collect(variables.declareLocal(it.id, cmd.range)) }
             }
-            cmd.definedVariables.forEach { collect(variables.assign(it.id, it.cvlRange)) }
+            cmd.definedVariables.forEach { collect(variables.assign(it.id, it.range)) }
 
             // if the lhs is just an identifier, we want to leave it unused, but otherwise we need to traverse its components.
             val newLhs = collectAndFilter(cmd.idL.map { (it as? CVLLhs.Id)?.lift() ?: expTransformer.lhs(it) })
@@ -84,7 +86,7 @@ class SingleVariableDefinitionChecker {
 
         // Note: this doesn't include things like `mathint x = 5`; these are `def`s rather than `decl`s
         override fun decl(cmd: CVLCmd.Simple.Declaration): CollectingResult<CVLCmd, CVLError>
-            = variables.declareLocal(cmd.id, cmd.cvlRange).map { cmd }
+            = variables.declareLocal(cmd.id, cmd.range).map { cmd }
 
         override fun ifCmd(cmd: CVLCmd.Composite.If): CollectingResult<CVLCmd, CVLError> = collectingErrors {
             // check the condition
@@ -100,7 +102,7 @@ class SingleVariableDefinitionChecker {
             val _elseResult = cmd(cmd.elseCmd)
             val elseSnapshot = variables.pop()
 
-            collect(variables.combineBranches(cmd.cvlRange, thenSnapshot, elseSnapshot))
+            collect(variables.combineBranches(cmd.range, thenSnapshot, elseSnapshot))
 
             return@collectingErrors map(_condResult, _thenResult, _elseResult) { condResult, thenCmd, elseCmd ->
                 cmd.copy(cond = condResult, thenCmd = thenCmd, elseCmd = elseCmd)
@@ -158,7 +160,7 @@ class SingleVariableDefinitionChecker {
                     val preserved = collectAndFilter(inv.proof.preserved.map(::preserved))
                     val _expr     = expTransformer.expr(inv.exp)
                     val _filters  = defineAndCheck(
-                        params   = inv.methodParamFilters.methodParamToFilter.keys.toList().map { it to inv.methodParamFilters.cvlRange },
+                        params   = inv.methodParamFilters.methodParamToFilter.keys.toList().map { it to inv.methodParamFilters.range },
                         checkBody = { methodParamFilters(inv.methodParamFilters) }
                     )
                     return@collectingErrors map(_expr, _filters) { expr, filters ->
@@ -177,10 +179,10 @@ class SingleVariableDefinitionChecker {
             variables.registerWildcard()
 
             ast.importedContracts
-                .forEach { collect(variables.declareLocal(it.solidityContractVarId, it.cvlRange)) }
+                .forEach { collect(variables.declareLocal(it.solidityContractVarId, it.range)) }
 
             ast.ghosts
-                .forEach { collect(variables.declareGhost(it.id, it.cvlRange)) }
+                .forEach { collect(variables.declareGhost(it.id, it.range)) }
 
             return@collectingErrors bind(super.ast(ast))
         }
@@ -216,7 +218,7 @@ class SingleVariableDefinitionChecker {
 
     /** @return the result of [checkBody] in a scope where [params] are declared and defined. */
     private fun <T> defineAndCheck(
-        params : List<Pair<String, CVLRange>>,
+        params : List<Pair<String, Range>>,
         checkBody : () -> CollectingResult<T,CVLError>
     ) : CollectingResult<T, CVLError> = collectingErrors {
         variables.push()
@@ -251,12 +253,12 @@ private class VarDefState {
     fun registerWildcard() { variableState[CVLKeywords.wildCardExp.keyword] = Wildcard }
 
     /** Declare a ghost variable */
-    fun declareGhost(id : String, location : CVLRange): VoidResult<CVLError> {
+    fun declareGhost(id : String, location : Range): VoidResult<CVLError> {
         return declareLocal(id, location).map { variableState[id] = Ghost(location) }
     }
 
     /** Declare a variable (e.g. `mathint x` or `mathint x = 5`) */
-    fun declareLocal(id: String, location: CVLRange): VoidResult<CVLError> {
+    fun declareLocal(id: String, location: Range): VoidResult<CVLError> {
         return when(val previous = variableState[id]) {
             null        -> ok.also { variableState[id] = Local(location) }
             is Keyword  -> markError(id, DeclaredKeyword(id, location))
@@ -268,7 +270,7 @@ private class VarDefState {
     }
 
     /** Assign to a variable (e.g. `x = 5` or `mathint x = 5`) */
-    fun assign(id: String, location: CVLRange): VoidResult<CVLError> {
+    fun assign(id: String, location: Range): VoidResult<CVLError> {
         return when(val previous = variableState[id]) {
             null        -> markError(id, UndeclaredVariable(id, location))
             is Keyword  -> markError(id, AssignedToKeyword(id, location))
@@ -280,7 +282,7 @@ private class VarDefState {
     }
 
     /** Mark a variable as having been read. */
-    fun use(id: String, location: CVLRange): VoidResult<CVLError> {
+    fun use(id: String, location: Range): VoidResult<CVLError> {
         return when(val previous = variableState[id]) {
             null     -> markError(id, UndeclaredVariable(id, location))
             is Local -> ok.also { variableState[id] = previous.copy(use = location) }
@@ -295,7 +297,7 @@ private class VarDefState {
      * definitions and uses of preexisting variables.
      */
     fun combineBranches(
-        location: CVLRange,
+        location: Range,
         thenBlock : Map<String, VariableDefState?>,
         elseBlock : Map<String, VariableDefState?>,
     ): VoidResult<CVLError> = collectingErrors {
@@ -345,12 +347,12 @@ private class VarDefState {
     sealed class VariableDefState
 
     private data class Local (
-        val declaration : CVLRange,
-        val definition  : CVLRange? = null,
-        val use         : CVLRange? = null,
+        val declaration : Range,
+        val definition  : Range? = null,
+        val use         : Range? = null,
     ) : VariableDefState()
 
-    private class  Ghost(val declaration : CVLRange) : VariableDefState()
+    private class  Ghost(val declaration : Range) : VariableDefState()
     private object Keyword                           : VariableDefState() // variable is a (currently defined) keyword
     private object Wildcard                          : VariableDefState() // variable is "_"
     private object Error                             : VariableDefState() // we've already encountered an error; no need to report again

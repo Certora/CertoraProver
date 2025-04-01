@@ -323,7 +323,7 @@ class BasicMathAxiomsDefs(val lxf: LExpressionFactory) {
     val combinedBinaryMulWithConst = Memoized { tag: Tag ->
         BinaryIntAxiomDef(
             lxf,
-            "combinedMulConst_$tag ",
+            "combinedMulConst_$tag",
             "mul by const axioms",
             mulBinaryWithConstTagAxioms(tag) + mulBinaryWithConstAxioms
         )

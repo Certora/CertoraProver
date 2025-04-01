@@ -20,6 +20,7 @@ package analysis.pta.abi
 
 import analysis.LTACCmd
 import analysis.pta.ArrayStateAnalysis
+import analysis.pta.PointerSemantics
 import analysis.pta.PointsToDomain
 import analysis.pta.StructStateAnalysis
 import analysis.pta.abi.ObjectPathGen.*
@@ -205,13 +206,14 @@ class ObjectPathAnalysis {
     }
 
     fun getPathOf(v: TACSymbol.Var, whole: PointsToDomain) : Set<ObjectPath> = whole.objectPath[v].orEmpty() + Root(ObjectRoot(v))
-    fun kill(o_: PathState, killedBySideEffects: Set<TACSymbol.Var>): PathState {
+    fun kill(o_: PathState, killedBySideEffects: PointerSemantics.WriteSideEffect): PathState {
+        val killRelation = killedBySideEffects.killArrayLengthFacts + killedBySideEffects.killArrayLengthFacts
         return o_.updateValues { p, objectPathGens ->
-            if(p in killedBySideEffects) {
+            if(p in killedBySideEffects.killValue) {
                 return@updateValues null
             }
             objectPathGens.retainAll { path ->
-                path.rootVar?.let { it in killedBySideEffects } != true
+                path.rootVar?.let { it in killRelation } != true
             }
         }
     }

@@ -19,6 +19,7 @@ package vc.data
 
 import allocator.Allocator
 import analysis.TACExprWithRequiredCmdsAndDecls
+import analysis.opt.intervals.IntervalsRewriter.Companion.NON_ZERO_META
 import analysis.storage.StorageAnalysisResult
 import analysis.storage.indices
 import analysis.storage.toNonIndexed
@@ -53,15 +54,14 @@ import utils.ModZm.Companion.shr
 import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
 import vc.data.TACCmd.Simple.AnnotationCmd.Annotation
 import vc.data.TACMeta.ACCESS_PATHS
-import vc.data.TACMeta.CVL_DEF_SITE
 import vc.data.TACMeta.CVL_DISPLAY_NAME
 import vc.data.TACMeta.CVL_STRUCT_PATH
 import vc.data.TACMeta.CVL_TYPE
-import vc.data.TACMeta.CVL_VAR
 import vc.data.TACMeta.DIRECT_STORAGE_ACCESS_TYPE
 import vc.data.TACSymbol.Var.Companion.KEYWORD_ENTRY
 import vc.data.compilation.storage.InternalCVLCompilationAPI
 import vc.data.tacexprutil.TACUnboundedHashingUtils
+import vc.data.tacexprutil.asVarOrNull
 import vc.data.tacexprutil.evaluators.TACExprInterpreter
 import vc.data.tacexprutil.subs
 import verifier.PolarityCalculator
@@ -73,10 +73,12 @@ private val tacToLExprLogger = Logger(LoggerTypes.TAC_TO_LEXPR_CONVERTER)
 
 @KSerializable
 @Treapable
-sealed class TACExpr : AmbiSerializable, ToLExpression {
+sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
     companion object {
         val zeroExpr = 0.asTACExpr
     }
+
+    override fun toTACExpr(): TACExpr = this
 
     abstract val tag: Tag?
 
@@ -1093,7 +1095,13 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
             override fun toLExpression(conv: ToLExpression.Conv, meta: MetaMap?): LExpression {
                 // in the division-by-0 case, we allow an unconstrained value
                 // we introduce a fresh variable for this purpose
-                val skolem = conv.lxf.const("div0" + Allocator.getFreshId(Allocator.Id.DIV_0_NONDET), Tag.Int)
+                // however, if we proved that the value is of the denominator is never 0, we prefer to plug in
+                // 0 instead of a skolem, because SMT solvers seem to behave better in that case.
+                val skolem = if (o2.asVarOrNull?.meta?.contains(NON_ZERO_META) == true) {
+                    conv.lxf.litInt(0)
+                } else {
+                    conv.lxf.const("div0" + Allocator.getFreshId(Allocator.Id.DIV_0_NONDET), Tag.Int)
+                }
                 return conv.lxf {
                     ite(
                         eq(conv(o2), ZERO),
@@ -2229,16 +2237,10 @@ sealed class TACExpr : AmbiSerializable, ToLExpression {
 
         private fun derefStructSym(tag: Tag.UserDefined.Struct, sym: TACSymbol.Var): TACSymbol.Var {
             val resultTag = tag.getField(fieldName)!!.type
-            val theVariable = TACSymbol.Var("${sym.namePrefix}.$fieldName", resultTag)
+            val theVariable = TACSymbol.Var("${sym.namePrefix}.$fieldName", resultTag).withMeta(sym.meta)
             var ret = theVariable
             sym.meta.find(CVL_DISPLAY_NAME)?.let { display ->
                 ret = ret.withMeta(CVL_DISPLAY_NAME, "$display.$fieldName")
-            }
-            sym.meta.find(CVL_VAR)?.let { v ->
-                ret = ret.withMeta(CVL_VAR, v)
-            }
-            sym.meta.find(CVL_DEF_SITE)?.let { v ->
-                ret = ret.withMeta(CVL_DEF_SITE, v)
             }
             sym.meta.find(CVL_TYPE)?.let { t ->
                 (t as? CVLType.PureCVLType.Struct)?.getEntryOrNull(fieldName)?.cvlType?.let { newType ->

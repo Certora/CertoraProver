@@ -17,9 +17,10 @@
 
 package sbf
 
+import analysis.maybeAnnotation
 import analysis.maybeNarrow
+import cli.SanityValues
 import config.Config
-import config.ReportTypes
 import vc.data.CoreTACProgram
 import datastructures.stdcollections.*
 import dwarf.InlinedFramesInfo
@@ -37,8 +38,10 @@ import org.jetbrains.annotations.TestOnly
 import report.CVTAlertReporter
 import report.CVTAlertSeverity
 import report.CVTAlertType
-import spec.cvlast.IRule
-import tac.DumpTime
+import utils.Range
+import spec.cvlast.RuleIdentifier
+import spec.rules.EcosystemAgnosticRule
+import spec.cvlast.SpecType
 import vc.data.TACCmd
 import vc.data.TACMeta
 import kotlin.streams.*
@@ -52,17 +55,43 @@ val sbfLogger = Logger(LoggerTypes.SBF)
 
 data class CompiledSolanaRule(
     val code: CoreTACProgram,
-    val isSatisfyRule: Boolean,
+    val rule: EcosystemAgnosticRule
 )
 
-const val sanitySuffix = "\$sanity"
+// Any rule name with these suffixes will be considered a vacuity/sanity rule
+const val devVacuitySuffix = "\$sanity"
+const val vacuitySuffix = "rule_not_vacuous_cvlr"
 
 /* Entry point to the Solana SBF front-end */
 @Suppress("ForbiddenMethodCall")
 fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
     sbfLogger.info { "Started Solana front-end" }
     val start0 = System.currentTimeMillis()
-    val targets = Config.SolanaEntrypoint.get()
+    val targets = Config.SolanaEntrypoint.get().map { ruleName ->
+        EcosystemAgnosticRule(
+            ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
+            ruleType = SpecType.Single.FromUser.SpecFile,
+            isSatisfyRule = ruleName.endsWith(devVacuitySuffix)
+        )
+    }
+
+    val sanityRules = if (Config.DoSanityChecksForRules.get() != SanityValues.NONE) {
+        /**
+         * In the case we are in sanity mode, all rules are duplicated for the vacuity check.
+         * The new rules are derived from the original baseRule, this relationship is maintained
+         * by using the rule type [SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck].
+         *
+         * We rely on this information to be present when building the rule tree via the [report.TreeViewReporter].
+         */
+        targets.filter { !it.isSatisfyRule }.map { baseRule ->
+            baseRule.copy(
+                ruleIdentifier = baseRule.ruleIdentifier.freshDerivedIdentifier(vacuitySuffix),
+                ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(baseRule)
+            )
+        }
+    } else {
+        listOf()
+    }
 
     // Initialize the [InlinedFramesInfo] object for subsequent inlined frames queries.
     InlinedFramesInfo.init(elfFile)
@@ -70,23 +99,26 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
     // 1. Process the ELF file that contains the SBF bytecode
     sbfLogger.info { "Disassembling ELF program $elfFile" }
     val disassembler = ElfDisassembler(elfFile)
-    val bytecode = disassembler.read(targets.toList().map { it.removeSuffix(sanitySuffix)}. toSet())
+    val bytecode = disassembler.read(targets.mapToSet { it.ruleIdentifier.displayName.removeSuffix(devVacuitySuffix) })
     val globalsSymbolTable = disassembler.getGlobalsSymbolTable()
-    // 2. Convert to sequence of labeled (pair of program counter and instruction) SBF instructions
-    val sbfProgram = bytecodeToSbfProgram(bytecode)
-    // 3. Convert to a set of CFGs (one per function)
-    sbfLogger.info { "Generating a CFG for each function" }
-    val cfgs = sbfProgramToSbfCfgs(sbfProgram)
 
-    // 4. Read environment files
+    // 2. Read environment files
     val (memSummaries, inliningConfig) = readEnvironmentFiles()
     // Added default summaries for known external functions.
     // These default summaries are only used if no summary is already found in any of the environment files.
-    CVTFunction.addSummaries(memSummaries)
-    SolanaFunction.addSummaries(memSummaries)
-    CompilerRtFunction.addSummaries(memSummaries)
+    addDefaultSummaries(memSummaries)
 
-    val rules = targets.mapNotNull { target ->
+    // 3. Convert to sequence of labeled (pair of program counter and instruction) SBF instructions
+    val sbfProgram = bytecodeToSbfProgram(bytecode)
+    // 4. Convert to a set of CFGs (one per function)
+    sbfLogger.info { "Generating a CFG for each function" }
+    val cfgs = sbfProgramToSbfCfgs(sbfProgram, inliningConfig, memSummaries)
+
+    if (SolanaConfig.PrintAnalyzedToDot.get()) {
+        cfgs.callGraphStructureToDot(ArtifactManagerFactory().outputDir)
+    }
+
+    val rules = (targets + sanityRules).mapNotNull { target ->
         try {
             solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries, globalsSymbolTable, start0)
         } catch (e: SolanaError) {
@@ -94,7 +126,7 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
                 type = CVTAlertType.ANALYSIS,
                 severity = CVTAlertSeverity.ERROR,
                 jumpToDefinition = null,
-                message = "Cannot analyze rule $target:\n$e",
+                message = "Cannot analyze rule ${target.ruleIdentifier.displayName}:\n$e",
                 hint = null
             )
             null
@@ -107,17 +139,24 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
     return multiAssertChecks(rules)
 }
 
-private fun solanaRuleToTAC(target: String,
-                            cfgs: SbfCallGraph,
+private fun solanaRuleToTAC(rule: EcosystemAgnosticRule,
+                            prog: SbfCallGraph,
                             inliningConfig: InlinerConfig,
                             memSummaries: MemorySummaries,
                             globalsSymbolTable: GlobalsSymbolTable,
                             start0: Long): CompiledSolanaRule {
 
+    val target = rule.ruleIdentifier.toString()
     // 1. Inline all internal calls starting from `target` as root
     sbfLogger.info { "[$target] Started inlining " }
     val start1 = System.currentTimeMillis()
-    val inlinedProg = inline(target.removeSuffix(sanitySuffix), target, cfgs, inliningConfig)
+
+    // `root` must be the name of an existing function. There are cases (e.g., vacuity rules) where `target` is not name of a function.
+    //
+    // If the rule is not a vacuity rule, the ruleIdentifier doesn't have a parent and `root` is the name of the rule (i.e., `target`)
+    // after removing `devVacuitySuffix` in case it has it. Otherwise, `root` is the name of the parent rule associated with the vacuity rule.
+    val root = rule.ruleIdentifier.parentIdentifier?.displayName ?: target.removeSuffix(devVacuitySuffix)
+    val inlinedProg = inline(root, target, prog, inliningConfig)
     val end1 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished inlining in ${(end1 - start1) / 1000}s" }
 
@@ -165,6 +204,7 @@ private fun solanaRuleToTAC(target: String,
                     is UnknownStackContentError,
                     is UnknownMemcpyLenError,
                     is DerefOfAbsoluteAddressError -> explainPTAError(e, analyzedProg, memSummaries)
+
                     else -> {}
                 }
                 // we throw again the exception for the user to see
@@ -191,13 +231,6 @@ private fun solanaRuleToTAC(target: String,
     val start2 = System.currentTimeMillis()
     val coreTAC = sbfCFGsToTAC(analyzedProg, memSummaries, analysisResults)
     val isSatisfyRule = hasSatisfy(coreTAC)
-    ArtifactManagerFactory().dumpCodeArtifacts(
-        coreTAC,
-        ReportTypes.SBF_TO_TAC,
-        StaticArtifactLocation.Reports,
-        DumpTime.AGNOSTIC
-    )
-
     val end2 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished translation to CoreTACProgram in ${(end2 - start2) / 1000}s" }
 
@@ -212,7 +245,81 @@ private fun solanaRuleToTAC(target: String,
     val end0 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished TAC optimizations in ${(end0 - start3) / 1000}s" }
 
-    return CompiledSolanaRule(code = optCoreTAC, isSatisfyRule)
+    return attachRangeToRule(rule, optCoreTAC, isSatisfyRule)
+}
+
+/**
+ * Attaches the correct range to a Solana rule and updates its originating rule if applicable.
+ *
+ * This function determines the correct range for the given rule and applies necessary modifications.
+ * If the rule is derived from a basic rule, it updates the parent rule's range accordingly.
+ */
+private fun attachRangeToRule(
+    rule: EcosystemAgnosticRule,
+    optCoreTAC: CoreTACProgram,
+    isSatisfyRule: Boolean
+): CompiledSolanaRule {
+    val ruleRange: Range = getRuleRange(optCoreTAC)
+
+    return if (rule.ruleType is SpecType.Single.GeneratedFromBasicRule) {
+        // If the rule has been generated from a basic rule, then we have to update the parent rule range.
+        // It would be more elegant to generate the original rule with the correct range, but [getRuleRange] relies on
+        // annotation commands that can be generated only after the static analysis.
+        // In fact, those annotations need the value and pointer analysis to be executed to be able to infer the compile
+        // time constants that represent the file name and the line number.
+        val parentRule = rule.ruleType.getOriginatingRule() as EcosystemAgnosticRule
+        val newBaseRule = parentRule.copy(range = ruleRange)
+        val ruleType = (rule.ruleType as SpecType.Single.GeneratedFromBasicRule).copyWithOriginalRule(newBaseRule)
+        CompiledSolanaRule(
+            code = optCoreTAC,
+            rule = rule.copy(ruleType = ruleType, isSatisfyRule = isSatisfyRule, range = ruleRange)
+        )
+    } else {
+        CompiledSolanaRule(
+            code = optCoreTAC,
+            rule = rule.copy(isSatisfyRule = isSatisfyRule, range = ruleRange)
+        )
+    }
+}
+
+/**
+ * Returns the [Range] associated with [tacProgram].
+ * Iterates over the commands, and if *any* command is a [RuleLocationAnnotation], returns the
+ * location associated with such command.
+ * If there are no [RuleLocationAnnotation] or the location does not exist in the uploaded files, returns
+ * [Range.Empty].
+ * If there are multiple [RuleLocationAnnotation], selects nondeterministically one to read the
+ * location from. If in the rules [CVT_rule_location] is called exactly once as the first instruction, this never
+ * happens.
+ */
+private fun getRuleRange(tacProgram: CoreTACProgram): Range {
+    val rangeFromAnnotation = tacProgram.parallelLtacStream()
+        .mapNotNull { it.maybeAnnotation(RULE_LOCATION) }
+        .findAny()
+        .orElse(null)
+        ?.toRange()
+    return if (rangeFromAnnotation != null) {
+        val fileInSourcesDir = File(Config.prependSourcesDir(rangeFromAnnotation.file))
+        if (fileInSourcesDir.exists()) {
+            rangeFromAnnotation
+        } else {
+            sbfLogger.warn { "file '$fileInSourcesDir' does not exist: jump to source information for rule will not be available" }
+            Range.Empty()
+        }
+    } else {
+        Range.Empty()
+    }
+}
+
+/**
+ * Add default summaries for some known external functions.
+ * These default summaries are only used if no summary is already found in any of the environment files.
+ */
+private fun addDefaultSummaries(memSummaries: MemorySummaries) {
+    CVTFunction.addSummaries(memSummaries)
+    SolanaFunction.addSummaries(memSummaries)
+    CompilerRtFunction.addSummaries(memSummaries)
+    AbortFunction.addSummaries(memSummaries)
 }
 
 /**
@@ -238,10 +345,9 @@ fun multiAssertChecks(rules: List<CompiledSolanaRule>): List<CompiledSolanaRule>
     return if (Config.MultiAssertCheck.get()) {
         val newRules = mutableListOf<CompiledSolanaRule>()
         rules.forEach { solanaRule ->
-            val cvlRule = IRule.createDummyRule(solanaRule.code.name, solanaRule.isSatisfyRule)
-            if (TACMultiAssert.shouldExecute(cvlRule)) {
-                TACMultiAssert.transformTac(solanaRule.code, cvlRule).forEach {
-                    newRules.add(CompiledSolanaRule(it.first, cvlRule.isSatisfyRule))
+            if (TACMultiAssert.shouldExecute(solanaRule)) {
+                TACMultiAssert.transformTac(solanaRule.rule, solanaRule.code).forEach { (newRule, code) ->
+                    newRules.add(CompiledSolanaRule(code = code, rule = newRule))
                 }
             } else {
                 newRules.add(solanaRule)
@@ -258,7 +364,7 @@ fun multiAssertChecks(rules: List<CompiledSolanaRule>): List<CompiledSolanaRule>
  * are highlighted with different colors.
  * **Caveat**: the data-dependency analysis used to color instructions do not reason about non-stack memory.
  */
- private fun explainPTAError(e: PointerAnalysisError, prog: SbfCallGraph, memSummaries: MemorySummaries) {
+private fun explainPTAError(e: PointerAnalysisError, prog: SbfCallGraph, memSummaries: MemorySummaries) {
     if (!SolanaConfig.PrintDevMsg.get()) {
         return
     }
@@ -269,10 +375,10 @@ fun multiAssertChecks(rules: List<CompiledSolanaRule>): List<CompiledSolanaRule>
     }
     val cfg = prog.getCallGraphRootSingleOrFail()
     val dda = DataDependencyAnalysis(errLocInst, errReg, cfg, prog.getGlobals(), memSummaries)
-    val colorMap = dda.deps.associateWith {"Cyan"}.merge(dda.sources.associateWith {"Red"}) { _, c1, c2 ->
-        if (c1!=null && c2==null) {
+    val colorMap = dda.deps.associateWith { "Cyan" }.merge(dda.sources.associateWith { "Red" }) { _, c1, c2 ->
+        if (c1 != null && c2 == null) {
             c1
-        } else if (c1==null && c2!=null) {
+        } else if (c1 == null && c2 != null) {
             c2
         } else {
             "Orange"

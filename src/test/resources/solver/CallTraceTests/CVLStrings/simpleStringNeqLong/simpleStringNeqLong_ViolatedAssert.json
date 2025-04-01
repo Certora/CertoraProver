@@ -2,7 +2,7 @@
     "ptr": {
         "block": {
             "type": "tac.BlockIdentifier",
-            "origStartPc": 37,
+            "origStartPc": 15,
             "stkTop": 0,
             "decompCopy": 0,
             "calleeIdx": 0,
@@ -33,12 +33,20 @@
             },
             {
                 "key": {
+                    "name": "tac.assert.id",
+                    "type": "java.lang.Integer",
+                    "erasureStrategy": "Canonical"
+                },
+                "value": 4
+            },
+            {
+                "key": {
                     "name": "cvl.range",
-                    "type": "spec.cvlast.CVLRange",
+                    "type": "utils.Range",
                     "erasureStrategy": "CallTrace"
                 },
                 "value": {
-                    "type": "spec.cvlast.CVLRange.Range",
+                    "type": "utils.Range.Range",
                     "specFile": "cvlStrings.spec",
                     "start": {
                         "line": 21,
@@ -49,14 +57,6 @@
                         "charByteOffset": 20
                     }
                 }
-            },
-            {
-                "key": {
-                    "name": "tac.assert.id",
-                    "type": "java.lang.Integer",
-                    "erasureStrategy": "Canonical"
-                },
-                "value": 4
             }
         ]
     }

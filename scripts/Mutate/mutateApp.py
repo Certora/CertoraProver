@@ -1173,17 +1173,17 @@ class MutateApp:
 
     def get_solc_version(self, path_to_file: Path) -> str:
         solc = getattr(self.prover_context, 'solc', '')
-        solc_map = getattr(self.prover_context, 'solc_map', None)
-        if solc and solc_map:
-            raise Util.CertoraUserInputError("You cannot use both 'solc' and 'solc_map' arguments: "
-                                             f"solc is {solc} and solc_map is {solc_map}")
+        compiler_map = getattr(self.prover_context, 'solc_map', None) or getattr(self.prover_context, 'compiler_map', None)
+        if solc and compiler_map:
+            raise Util.CertoraUserInputError("You cannot use both 'solc' and 'solc_map/compiler_map' arguments: "
+                                             f"solc is {solc} and solc_map/compiler_map is {compiler_map}")
         if solc:
             compiler = solc
-        elif solc_map:
+        elif compiler_map:
             compiler = get_relevant_compiler(path_to_file, self.prover_context)
             if not compiler:
-                raise Util.CertoraUserInputError("Cannot resolve Solidity compiler from 'solc' and 'solc_map' for  "
-                                                 f"{path_to_file}: solc is {solc} and solc_map: {solc_map}")
+                raise Util.CertoraUserInputError(f"Cannot resolve Solidity compiler for {path_to_file}: "
+                                                 f"solc is {solc} and solc_map/compiler_map: {compiler_map}")
         else:
             compiler = Util.DEFAULT_SOLC_COMPILER
 

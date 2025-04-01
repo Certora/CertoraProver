@@ -425,7 +425,9 @@ object WasmCfgToWasmImpCfg {
      *
      * */
      fun callIndirectToCall(
-        wtac: WasmImpCfgProgram
+        wtac: WasmImpCfgProgram,
+        types: Map<WasmName, WasmProgram.WasmFuncDesc>,
+        typeTable: Map<WasmName, WasmType>
     ): WasmImpCfgProgram {
         val splitWtac = wtac.mksplitWtac<StraightLine.CallIndirect>()
         var nextBid = splitWtac.getLargestBlockId() + 1
@@ -439,6 +441,8 @@ object WasmCfgToWasmImpCfg {
                 var currPc = node.key
                 var elBr = 0
                 for ((idx, funcId) in callIndirect.elemTable.funcNames.withIndex()) {
+                    val typeCorrect = types[WasmName(funcId)]?.fnType == typeTable[callIndirect.typeUse.name]
+
                     val cond = WasmIcfgBinaryExpr(
                         BinaryComparisonOp.I32EQ,
                         callIndirect.elemIndex,
@@ -451,7 +455,8 @@ object WasmCfgToWasmImpCfg {
                     val checkAndJump = Control.Brif(condCheckVar.second, ifBr, elBr, callIndirect.addr)
                     val nb = WasmBlock(listOf(condStmt), checkAndJump, wtac.funcId)
                     newNodes[currPc] = nb
-                    val callBlock = mkBlockFromCall(
+                    val callBlock = if (typeCorrect) {
+                        mkBlockFromCall(
                             callIndirect.maybeRet,
                             WasmName(funcId),
                             callIndirect.args,
@@ -459,6 +464,9 @@ object WasmCfgToWasmImpCfg {
                             wtac.funcId,
                             callIndirect.addr
                         )
+                    } else {
+                        mkBlockFromUnreach(wtac.funcId, callIndirect.addr)
+                    }
                     newNodes[ifBr] = callBlock
                     currPc = elBr
                     nextBid += 2

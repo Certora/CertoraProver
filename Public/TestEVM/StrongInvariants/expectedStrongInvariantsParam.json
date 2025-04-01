@@ -1,0 +1,100 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "trivialInvariant_bytes": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "callUnresolveExternal(address)",
+            "trivialReturn(uint256)",
+            "trivialUse((uint256,(uint256)))",
+            "trivialUse(bytes)",
+            "trivialUse(uint256[])",
+            "trivialUse(uint256[][])"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "trivialInvariant_multiArray": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "callUnresolveExternal(address)",
+            "trivialReturn(uint256)",
+            "trivialUse((uint256,(uint256)))",
+            "trivialUse(bytes)",
+            "trivialUse(uint256[])",
+            "trivialUse(uint256[][])"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "trivialInvariant_singleArray": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "callUnresolveExternal(address)",
+            "trivialReturn(uint256)",
+            "trivialUse((uint256,(uint256)))",
+            "trivialUse(bytes)",
+            "trivialUse(uint256[])",
+            "trivialUse(uint256[][])"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "trivialInvariant_struct": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "callUnresolveExternal(address)",
+            "trivialReturn(uint256)",
+            "trivialUse((uint256,(uint256)))",
+            "trivialUse(bytes)",
+            "trivialUse(uint256[])",
+            "trivialUse(uint256[][])"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "trivialInvariant_uint": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "callUnresolveExternal(address)",
+            "trivialReturn(uint256)",
+            "trivialUse((uint256,(uint256)))",
+            "trivialUse(bytes)",
+            "trivialUse(uint256[])",
+            "trivialUse(uint256[][])"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    }
+  }
+}

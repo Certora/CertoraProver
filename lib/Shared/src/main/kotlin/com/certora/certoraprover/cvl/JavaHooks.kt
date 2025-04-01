@@ -31,19 +31,20 @@ import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.Range
 import java.math.BigInteger
 
 // This file contains the "Java" AST nodes for Hooks and their components.  See README.md for information about the Java AST.
 
 // TODO CERT-3751: this whole hierarchy is much more complicated than it needs to be
 
-class Hook(private val cvlRange: CVLRange, private val pattern: HookPattern, private val commands: List<Cmd>) : Kotlinizable<CVLHook> {
+class Hook(private val range: Range, private val pattern: HookPattern, private val commands: List<Cmd>) : Kotlinizable<CVLHook> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLHook, CVLError> {
         return scope.extendInCollecting(::HookScopeItem) { hookScope: CVLScope ->
             collectingErrors {
                 val pattern_  = pattern.kotlinize(resolver, hookScope)
                 val commands_ = commands.map { it.kotlinize(resolver, hookScope) }.flatten()
-                map(pattern_, commands_) { pattern, commands -> CVLHook(pattern, commands, cvlRange, hookScope) }
+                map(pattern_, commands_) { pattern, commands -> CVLHook(pattern, commands, range, hookScope) }
             }
         }
     }
@@ -51,7 +52,7 @@ class Hook(private val cvlRange: CVLRange, private val pattern: HookPattern, pri
 
 // TODO CERT-3751: This should have a more refined hierarchy
 class HookPattern(
-    private val cvlRange: CVLRange,
+    private val range: Range,
     private val hookType: HookType,
     private val value: NamedVMParam?,
     private val oldValue: NamedVMParam?,
@@ -61,27 +62,27 @@ class HookPattern(
 
     enum class Base { NONE, STORAGE }
 
-    constructor(cvlRange: CVLRange, hookType: HookType, value: NamedVMParam?, slot: SlotPattern?)
-        : this(cvlRange, hookType, value, null, slot, null)
+    constructor(range: Range, hookType: HookType, value: NamedVMParam?, slot: SlotPattern?)
+        : this(range, hookType, value, null, slot, null)
 
-    constructor(cvlRange: CVLRange, hookType: HookType, value: NamedVMParam?, oldValue: NamedVMParam?, slot: SlotPattern?)
-        : this(cvlRange, hookType, value, oldValue, slot, null)
+    constructor(range: Range, hookType: HookType, value: NamedVMParam?, oldValue: NamedVMParam?, slot: SlotPattern?)
+        : this(range, hookType, value, oldValue, slot, null)
 
     /** Constructor for non-storage hooks (e.g., hooks on create) */
-    constructor(cvlRange: CVLRange, hookType: HookType, value: NamedVMParam?)
-        : this(cvlRange, hookType, value, null, null, null)
+    constructor(range: Range, hookType: HookType, value: NamedVMParam?)
+        : this(range, hookType, value, null, null, null)
 
     // Constructors for opcode hooks
 
     /** hookable opcodes with a return value */
-    constructor(cvlRange: CVLRange, hookTypeName: String, params: List<NamedVMParam>, value: NamedVMParam?)
+    constructor(range: Range, hookTypeName: String, params: List<NamedVMParam>, value: NamedVMParam?)
         // The valueOf call is guaranteed to succeed as the lexer uses HookType for EVMConfig to define hookable opcodes with 1 return value
-        : this(cvlRange, HookType.valueOf(hookTypeName), value, null, null, params)
+        : this(range, HookType.valueOf(hookTypeName), value, null, null, params)
 
     /** hookable opcodes with no return values */
-    constructor(cvlRange: CVLRange, hookTypeName: String, params: List<NamedVMParam>)
+    constructor(range: Range, hookTypeName: String, params: List<NamedVMParam>)
         // The valueOf call is guaranteed to succeed as the lexer uses HookType for EVMConfig to define hookableOpcodes
-        : this(cvlRange, HookType.valueOf(hookTypeName), null, null, null, params)
+        : this(range, HookType.valueOf(hookTypeName), null, null, null, params)
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLHookPattern, CVLError> = collectingErrors {
         val kvalue    = bind(value?.kotlinize(resolver, scope) ?: null.lift())
@@ -94,7 +95,7 @@ class HookPattern(
             else -> {
                 check(hookType.lowLevel) { "Did not expect a non-opcode low-level hook type ${hookType.name}" }
                 check(GeneratedOpcodeParsers.supportsAutoParse(hookType)) { "Unrecognized hook pattern ${hookType.name}" }
-                bind(GeneratedOpcodeParsers.handleParse(resolver,scope,hookType,value,params!!,cvlRange))
+                bind(GeneratedOpcodeParsers.handleParse(resolver,scope,hookType,value,params!!,range))
             }
         }
     }
@@ -107,7 +108,7 @@ class HookPattern(
 
 
 
-class ArrayAccessSlotPattern(private val base: SlotPattern, private val key: NamedVMParam) : SlotPattern(base.cvlRange) {
+class ArrayAccessSlotPattern(private val base: SlotPattern, private val key: NamedVMParam) : SlotPattern(base.range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError> = collectingErrors {
         val base_ = base.kotlinize(resolver, scope)
         val key_  = key.kotlinize(resolver, scope)
@@ -213,7 +214,7 @@ enum class HookType(val lowLevel: Boolean, @Suppress("Unused") val numInputs: In
     RETURNDATASIZE(true, 0, 1)
 }
 
-sealed class SlotPattern(val cvlRange: CVLRange) : Kotlinizable<CVLSlotPattern>
+sealed class SlotPattern(val range: Range) : Kotlinizable<CVLSlotPattern>
 
 class SlotPatternError(override val error : CVLError) : SlotPattern(error.location), ErrorASTNode<CVLSlotPattern>
 
@@ -231,7 +232,7 @@ class SlotPatternError(override val error : CVLError) : SlotPattern(error.locati
  *
  * [elements] contains the sequence of elements as described above
  */
-class StaticSlotPattern(_cvlRange: CVLRange) : SlotPattern(_cvlRange) {
+class StaticSlotPattern(_range: Range) : SlotPattern(_range) {
     private val elements: MutableList<StaticSlotPatternElement> = mutableListOf()
 
     fun add(e: StaticSlotPatternElement) {
@@ -241,7 +242,7 @@ class StaticSlotPattern(_cvlRange: CVLRange) : SlotPattern(_cvlRange) {
     // TODO CERT-3751: Could be refactored
     @Suppress("Deprecation") // TODO CERT-3752
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError> {
-        check(elements.size != 0) { "Missed case at $cvlRange" }
+        check(elements.size != 0) { "Missed case at $range" }
         return if (elements.size == 1) {
             when (val first = elements[0]) {
                 is StaticSlotPatternNamed -> /* my_slot */ CVLSlotPattern.Static.Named(getSolidityContract(resolver), first.name).lift()
@@ -280,12 +281,12 @@ class StaticSlotPattern(_cvlRange: CVLRange) : SlotPattern(_cvlRange) {
                                     CVLSlotPattern.StructAccess(CVLSlotPattern.Static.Named(getSolidityContract(resolver), first.name), (offset as NumberLit).n)
                                 }
                             }
-                            else   -> CVLError.General(cvlRange, "keyword should either be 'slot' or 'offset' at $cvlRange").asError()
+                            else   -> CVLError.General(range, "keyword should either be 'slot' or 'offset' at $range").asError()
                         }
 
                         is StaticSlotPatternTwoNumbers -> {
                             if (second.prefix1 != SLOT || second.prefix2 != OFFSET) {
-                                CVLError.General(cvlRange, "Static slot must be of the form '(slot X, offset Y)' at $cvlRange").asError()
+                                CVLError.General(range, "Static slot must be of the form '(slot X, offset Y)' at $range").asError()
                             } else {
                                 val _slot   = second.number1.kotlinize(resolver, scope)
                                 val _offset = second.number2.kotlinize(resolver, scope)
@@ -296,9 +297,9 @@ class StaticSlotPattern(_cvlRange: CVLRange) : SlotPattern(_cvlRange) {
                 }
 
                 is StaticSlotPatternNumber -> {
-                    if(first.prefix != SLOT)                    { CVLError.General(cvlRange, "static slot must have the form '(slot X)' at $cvlRange").asError() }
-                    else if(second !is StaticSlotPatternNumber) { CVLError.General(cvlRange, "static slot must be followed by struct offset or array/map dereference at $cvlRange").asError() }
-                    else if (second.prefix != OFFSET)           { CVLError.General(cvlRange, "static slot must be followed by struct offset or array/map dereference at $cvlRange").asError() }
+                    if(first.prefix != SLOT)                    { CVLError.General(range, "static slot must have the form '(slot X)' at $range").asError() }
+                    else if(second !is StaticSlotPatternNumber) { CVLError.General(range, "static slot must be followed by struct offset or array/map dereference at $range").asError() }
+                    else if (second.prefix != OFFSET)           { CVLError.General(range, "static slot must be followed by struct offset or array/map dereference at $range").asError() }
                     else {
                         // (slot X).(offset Y)
                         val _slot = first.number.kotlinize(resolver, scope)
@@ -314,8 +315,8 @@ class StaticSlotPattern(_cvlRange: CVLRange) : SlotPattern(_cvlRange) {
 
                 is StaticSlotPatternTwoNumbers -> {
                     // (slot X, offset Y).(offset Z)
-                    if (first.prefix1 != SLOT || first.prefix2 != OFFSET)                   { CVLError.General(cvlRange,"Static slot must be of the form '(slot X, offset Y)' at $cvlRange").asError() }
-                    else if (second !is StaticSlotPatternNumber || second.prefix != OFFSET) { CVLError.General(cvlRange, "static slot must be followed by struct offset or array/map dereference at $cvlRange").asError() }
+                    if (first.prefix1 != SLOT || first.prefix2 != OFFSET)                   { CVLError.General(range,"Static slot must be of the form '(slot X, offset Y)' at $range").asError() }
+                    else if (second !is StaticSlotPatternNumber || second.prefix != OFFSET) { CVLError.General(range, "static slot must be followed by struct offset or array/map dereference at $range").asError() }
                     else {
                         val _slot = first.number1.kotlinize(resolver, scope)
                         val _offset1 = first.number2.kotlinize(resolver, scope)
@@ -334,16 +335,16 @@ class StaticSlotPattern(_cvlRange: CVLRange) : SlotPattern(_cvlRange) {
             // some sequence of (offset X) following first two elements
             for (i in 2 until elements.size) {
                 val el = elements[i]
-                val msg = "pattern $curr must be followed by a sequence of (offset X) or field names $cvlRange"
+                val msg = "pattern $curr must be followed by a sequence of (offset X) or field names $range"
                 curr = when (el) {
                     is StaticSlotPatternNumber -> {
-                        if (el.prefix != OFFSET) { CVLError.General(cvlRange, msg).asError() }
+                        if (el.prefix != OFFSET) { CVLError.General(range, msg).asError() }
                         else { curr.map(el.number.kotlinize(resolver, scope)) { base, offset -> CVLSlotPattern.StructAccess(base, (offset as NumberLit).n) } }
                     }
 
                     is StaticSlotPatternNamed -> curr.map { CVLSlotPattern.FieldAccess(it, el.name) }
 
-                    else -> CVLError.General(cvlRange, msg).asError()
+                    else -> CVLError.General(range, msg).asError()
                 }
             }
             curr
@@ -361,13 +362,13 @@ class StaticSlotPattern(_cvlRange: CVLRange) : SlotPattern(_cvlRange) {
 }
 
 
-class FieldAccessSlotPattern(private val base: SlotPattern, private val fieldName: String) : SlotPattern(base.cvlRange) {
+class FieldAccessSlotPattern(private val base: SlotPattern, private val fieldName: String) : SlotPattern(base.range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError>
         = base.kotlinize(resolver, scope).map { base -> CVLSlotPattern.FieldAccess(base, fieldName) }
 }
 
 
-class MapAccessSlotPattern(private val base: SlotPattern, private val key: NamedVMParam) : SlotPattern(base.cvlRange) {
+class MapAccessSlotPattern(private val base: SlotPattern, private val key: NamedVMParam) : SlotPattern(base.range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError> = collectingErrors {
         map(base.kotlinize(resolver, scope), key.kotlinize(resolver, scope))
             { base, key -> CVLSlotPattern.MapAccess(base, key) }
@@ -380,7 +381,7 @@ class StaticSlotPatternNamed(val name: String) : StaticSlotPatternElement
 class StaticSlotPatternNumber(val prefix: String, val number: NumberExp) : StaticSlotPatternElement
 class StaticSlotPatternTwoNumbers(val prefix1: String, val number1: NumberExp, val prefix2: String, val number2: NumberExp) : StaticSlotPatternElement
 
-class StructAccessSlotPattern(val base: SlotPattern, val offset: NumberExp) : SlotPattern(base.cvlRange) {
+class StructAccessSlotPattern(val base: SlotPattern, val offset: NumberExp) : SlotPattern(base.range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError> = collectingErrors {
         map(base.kotlinize(resolver, scope), offset.kotlinize(resolver, scope))
             { base, offset -> CVLSlotPattern.StructAccess(base, (offset as NumberLit).n) }

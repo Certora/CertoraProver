@@ -27,16 +27,21 @@ import sbf.sbfLogger
 import sbf.tac.*
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLType
 import tac.NBId
+import tac.Tag
+import utils.ModZm.Companion.from2s
 import utils.SourcePosition
+import utils.letIf
 import utils.removeLast
 import utils.toIntOrNull
 import vc.data.CoreTACProgram
 import vc.data.SnippetCmd
 import vc.data.TACCmd
 import vc.data.TACMeta
+import vc.data.TACSymbol
+import vc.data.state.TACValue
 import java.io.File
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -61,7 +66,7 @@ internal class SolanaCallTraceGenerator(
      * [SnippetCmd.SolanaSnippetCmd.CexAttachLocation] is found, and consumed by the following calltrace entry that
      * needs range information.
      */
-    private val rangesFromAttachLocation: MutableList<CVLRange.Range> = mutableListOf()
+    private val rangesFromAttachLocation: MutableList<Range.Range> = mutableListOf()
 
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {
@@ -73,12 +78,14 @@ internal class SolanaCallTraceGenerator(
                             is SnippetCmd.SolanaSnippetCmd -> {
                                 when (snippetCmd) {
                                     is SnippetCmd.SolanaSnippetCmd.CexPrintValues -> handleSolanaCexPrintValues(snippetCmd, cmd)
+                                    is SnippetCmd.SolanaSnippetCmd.CexPrint128BitsValue -> handleSolanaCexPrint128BitsValue(snippetCmd, cmd)
                                     is SnippetCmd.SolanaSnippetCmd.CexPrintU64AsFixed -> handleSolanaCexPrintU64AsFixed(snippetCmd, cmd)
                                     is SnippetCmd.SolanaSnippetCmd.CexPrintLocation -> handleSolanaCexPrintLocation(snippetCmd)
                                     is SnippetCmd.SolanaSnippetCmd.CexAttachLocation -> handleSolanaCexAttachLocation(snippetCmd)
                                     is SnippetCmd.SolanaSnippetCmd.CexPrintTag -> handleSolanaCexPrintTag(snippetCmd, cmd)
                                     is SnippetCmd.SolanaSnippetCmd.ExternalCall -> handleSolanaExternalCall(snippetCmd, cmd)
-                                    is SnippetCmd.SolanaSnippetCmd.Assert -> handleSolanaUserAssert(snippetCmd, cmd) }
+                                    is SnippetCmd.SolanaSnippetCmd.Assert -> handleSolanaUserAssert(snippetCmd, cmd)
+                                }
                             }
                             else -> super.handleCmd(cmd, cmdIdx, currBlock, blockIdx)
                         }
@@ -110,6 +117,44 @@ internal class SolanaCallTraceGenerator(
         callTraceAppend(CallInstance.SolanaCexPrintValues(sarif, range))
         return HandleCmdResult.Continue
     }
+
+    private fun handleSolanaCexPrint128BitsValue(
+        snippetCmd: SnippetCmd.SolanaSnippetCmd.CexPrint128BitsValue,
+        stmt: TACCmd.Simple.AnnotationCmd
+    ): HandleCmdResult {
+        val range = consumeAttachedRangeOrResolve(stmt)
+        val low = get64BitsNumber(snippetCmd.low)
+        val high = get64BitsNumber(snippetCmd.high)
+        if (low != null && high != null) {
+             // Combines two 64-bit values (`high` and `low`) into a single 128-bit value. If the `signed` flag is true,
+             // the result is interpreted as a signed two's complement number.
+             val bigInt = ((high shl 64) or low).letIf(snippetCmd.signed) {
+                  it.from2s(Tag.Bit128)
+             }
+            val sarif = sarifFormatter.fmt(
+                "${snippetCmd.displayMessage}: {}", FmtArg.CtfValue.buildOrUnknown(
+                    tv = TACValue.valueOf(bigInt),
+                    type = CVLType.PureCVLType.Primitive.UIntK(256),
+                    tooltip = "value of a 128-bit number"
+                )
+            )
+            callTraceAppend(CallInstance.SolanaCexPrintValues(sarif, range))
+        } else {
+            sbfLogger.warn { "cannot infer value of ${snippetCmd.high} or ${snippetCmd.low} to print 128-bit number. Got: $high and $low" }
+        }
+        return HandleCmdResult.Continue
+    }
+
+    /**
+     * Returns the [BigInteger] associated with [v] in the model. Ensures that only the lowest 64 bits of the number are
+     * possibly non-zero, while the highest 192 bits are zeroed. This is useful because negative numbers are sign-extended:
+     * for example, -1 is represented as 256 bits with all 1s, but we only care about the lowest 64 bits of the number,
+     * so the highest 192 bits are cleared.
+     */
+    private fun get64BitsNumber(v: TACSymbol.Var): BigInteger? =
+        model.valueAsTACValue(v)?.asBigIntOrNull()?.let {
+            it and Tag.Bit64.maxUnsigned
+        }
 
     private fun handleSolanaCexPrintU64AsFixed(
         snippetCmd: SnippetCmd.SolanaSnippetCmd.CexPrintU64AsFixed,
@@ -160,16 +205,16 @@ internal class SolanaCallTraceGenerator(
     }
 
     /** Converts a filepath and a line number to a range. If the file is not in the sources dir, returns [null]. */
-    private fun filepathAndLineNumberToRange(filepath: String, lineNumber: UInt): CVLRange.Range? {
+    private fun filepathAndLineNumberToRange(filepath: String, lineNumber: UInt): Range.Range? {
         val fileInSourcesDir = File(Config.prependSourcesDir(filepath))
         return if (fileInSourcesDir.exists()) {
-            val cvlRangeLineNumber = lineNumber - 1U
+            val rangeLineNumber = lineNumber - 1U
             // We do not have column information.
-            val cvlRangeColNumber = 0U
-            val sourcePositionStart = SourcePosition(cvlRangeLineNumber, cvlRangeColNumber)
+            val rangeColNumber = 0U
+            val sourcePositionStart = SourcePosition(rangeLineNumber, rangeColNumber)
             // Since we do not have end range information, we just assume it is the next line.
-            val sourcePositionEnd = SourcePosition(cvlRangeLineNumber + 1U, cvlRangeColNumber)
-            CVLRange.Range(filepath, sourcePositionStart, sourcePositionEnd)
+            val sourcePositionEnd = SourcePosition(rangeLineNumber + 1U, rangeColNumber)
+            Range.Range(filepath, sourcePositionStart, sourcePositionEnd)
         } else {
             sbfLogger.warn {
                 "file '$fileInSourcesDir' does not exist: jump to source information will not be available"
@@ -195,7 +240,7 @@ internal class SolanaCallTraceGenerator(
      * If [rangesFromAttachLocation] has at least one entry, pops the range and returns it.
      * If [rangesFromAttachLocation] is empty, reads the range from the debug information from the executable.
      */
-    private fun consumeAttachedRangeOrResolve(stmt: TACCmd.Simple.AnnotationCmd): CVLRange.Range? {
+    private fun consumeAttachedRangeOrResolve(stmt: TACCmd.Simple.AnnotationCmd): Range.Range? {
         return if (rangesFromAttachLocation.isNotEmpty()) {
             rangesFromAttachLocation.removeLast()
         } else {
@@ -288,7 +333,7 @@ internal class SolanaCallTraceGenerator(
     private fun sbfAddressToRangeWithHeuristic(
         stmt: TACCmd.Simple.AnnotationCmd,
         windowSize: UShort = 80U
-    ): CVLRange.Range? {
+    ): Range.Range? {
         return stmt.meta[SBF_ADDRESS]?.let { address ->
             val uLongAddress = address.toULong()
             // Consider address, address - 8, address - 16, ..., address - (windowSize + 8)

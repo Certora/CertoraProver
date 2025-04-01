@@ -21,6 +21,7 @@ import analysis.*
 import analysis.alloc.AllocationAnalysis
 import analysis.dataflow.IMustEqualsAnalysis
 import analysis.ip.InternalFuncRet
+import analysis.ip.InternalFuncStartAnnotation
 import analysis.loop.SimpleLoopSummarization
 import analysis.numeric.IntQualifier
 import analysis.numeric.IntValue
@@ -64,6 +65,7 @@ class TypeMismatchFailureException(s: String) : AnalysisFailureException(s)
 
 class PointsToAnalysisFailedException(
     val msg: String,
+    val enclosingInternalMethod: InternalFuncStartAnnotation?,
     val where: LTACCmd,
     t: Throwable? = null,
     val fatal: Boolean = t != null && t !is AnalysisFailureException,
@@ -107,7 +109,7 @@ Tracks points-to failures.  We keep one failure for each TAC location, discardin
 private data class PointsToFailures(
     val failures: Map<CmdPointer, PointsToAnalysisFailedException> = mapOf()
 ) : PointsToResult {
-    constructor(msg: String, where: LTACCmd, t: Throwable? = null) : this(PointsToAnalysisFailedException(msg, where, t))
+    constructor(msg: String, enclosingInternalMethod: InternalFuncStartAnnotation?, where: LTACCmd, t: Throwable? = null) : this(PointsToAnalysisFailedException(msg, enclosingInternalMethod, where, t))
     constructor(failure: PointsToAnalysisFailedException) : this(mapOf(failure.where.ptr to failure))
     operator fun plus(that: PointsToFailures) = PointsToFailures(this.failures + that.failures)
     override fun containsFatalError() = failures.values.any { it.fatal }
@@ -171,7 +173,8 @@ class PointsToAnalysis(
     method: ITACMethod?,
     val allocSites: Map<CmdPointer, AllocationAnalysis.AbstractLocation>,
     val scratchSite: Map<CmdPointer, Optional<BigInteger>>,
-    val initialFreePointerValue: BigInteger?
+    val initialFreePointerValue: BigInteger?,
+    allowLengthUpdates: Boolean = false
 ) {
 
     private val lva = graph.cache.lva
@@ -495,7 +498,8 @@ class PointsToAnalysis(
         numericAnalysis = numericAnalysis,
         graph = graph,
         relaxedAddition = relaxedSemantics,
-        initialFreePointerValue = initialFreePointerValue
+        initialFreePointerValue = initialFreePointerValue,
+        allowLengthUpdates = allowLengthUpdates
     )
 
     private val arrayAnalysis = ArrayStateAnalysis(
@@ -1314,7 +1318,7 @@ class PointsToAnalysis(
                 decoderState = decoderAnalysis.kill(s.decoderState, retVars),
                 encoderState = encoderAnalysis.kill(s.encoderState, retVars),
                 invariants = s.invariants.killAll(retVars),
-                objectPath = objectPathAnalysis.kill(s.objectPath, retVars),
+                objectPath = objectPathAnalysis.kill(s.objectPath, PointerSemantics.WriteSideEffect.killValues(retVars)),
                 pointsToState = pointerUpdate,
                 structState = structUpdate
             ).andPp()
@@ -1417,7 +1421,7 @@ class PointsToAnalysis(
     }
 
     private fun PointsToDomain.andKillSideEffects(
-        killedBySideEffects: TreapSet<TACSymbol.Var>
+        killedBySideEffects: PointerSemantics.WriteSideEffect
     ) : PointsToDomain {
         return if(killedBySideEffects.isEmpty()) {
             this
@@ -1426,11 +1430,11 @@ class PointsToAnalysis(
                 pointsToState = pointerAnalysis.kill(this.pointsToState, killedBySideEffects),
                 boundsAnalysis = numericAnalysis.kill(this.boundsAnalysis, killedBySideEffects),
                 arrayState = arrayAnalysis.kill(this.arrayState, killedBySideEffects),
-                decoderState = decoderAnalysis.kill(this.decoderState, killedBySideEffects),
-                encoderState = encoderAnalysis.kill(this.encoderState, killedBySideEffects),
+                decoderState = decoderAnalysis.kill(this.decoderState, killedBySideEffects.killValue),
+                encoderState = encoderAnalysis.kill(this.encoderState, killedBySideEffects.killValue),
                 objectPath = objectPathAnalysis.kill(this.objectPath, killedBySideEffects),
-                structState = structAnalysis.kill(this.structState, killedBySideEffects),
-                invariants = this.invariants.killAll(killedBySideEffects),
+                structState = structAnalysis.kill(this.structState, killedBySideEffects.killValue),
+                invariants = this.invariants.killAll(killedBySideEffects.killValue),
             )
         }
     }
@@ -1651,4 +1655,16 @@ class PointsToAnalysis(
             decoderAnalysis.isDynamicOffset(v, it)
         } ?: false
     }
+
+    /**
+     * Function to construct an exception of type [PointsToAnalysisFailedException] - before constructing,
+     * the methods computes the internal function the [LTACCmd] 'where' may be located within (via [getContainingInternalFuncStart])
+     */
+    private fun PointsToAnalysisFailedException(message: String, where: LTACCmd, t: Throwable? = null, fatal: Boolean = t != null && t !is AnalysisFailureException) = PointsToAnalysisFailedException(message, getContainingInternalFuncStart(where.ptr, graph), where, t, fatal)
+
+    /**
+     * Function to construct the failures of type [PointsToFailures] - before constructing,
+     * the methods computes the internal function the [LTACCmd] 'where' may be located within (via [getContainingInternalFuncStart])
+     */
+    private fun PointsToFailures(message: String, where: LTACCmd, t: Throwable? = null) = PointsToFailures(message, getContainingInternalFuncStart(where.ptr, graph), where, t)
 }

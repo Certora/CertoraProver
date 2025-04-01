@@ -20,6 +20,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -29,17 +40,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -229,31 +229,34 @@
                         "text": "math(x='{0}', y='{1}') ↪ '{2}'",
                         "arguments": [
                             {
-                                "value": "6",
+                                "value": "0xa",
                                 "values": [
-                                    "6",
-                                    "6",
-                                    "0x6"
+                                    "0xa",
+                                    "10",
+                                    "0xa"
                                 ],
-                                "tooltip": "1st parameter"
+                                "tooltip": "1st parameter",
+                                "truncatable": true
                             },
                             {
-                                "value": "9",
+                                "value": "0x9",
                                 "values": [
-                                    "9",
+                                    "0x9",
                                     "9",
                                     "0x9"
                                 ],
-                                "tooltip": "2nd parameter"
+                                "tooltip": "2nd parameter",
+                                "truncatable": true
                             },
                             {
-                                "value": "6",
+                                "value": "0x28",
                                 "values": [
-                                    "6",
-                                    "6",
-                                    "0x6"
+                                    "0x28",
+                                    "40",
+                                    "0x28"
                                 ],
-                                "tooltip": "return value"
+                                "tooltip": "return value",
+                                "truncatable": true
                             }
                         ]
                     },
@@ -318,7 +321,8 @@
                                                 "values": [
                                                     "false"
                                                 ],
-                                                "tooltip": "value of expression"
+                                                "tooltip": "value of expression",
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -329,13 +333,14 @@
                                                 "text": "z ↪ '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "12",
+                                                        "value": "0x3",
                                                         "values": [
-                                                            "12",
-                                                            "12",
-                                                            "0xc"
+                                                            "0x3",
+                                                            "3",
+                                                            "0x3"
                                                         ],
-                                                        "tooltip": "value of expression"
+                                                        "tooltip": "value of expression",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -414,13 +419,14 @@
                                         "text": "x + y / z * x ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "6",
+                                                "value": "0x28",
                                                 "values": [
-                                                    "6",
-                                                    "6",
-                                                    "0x6"
+                                                    "0x28",
+                                                    "40",
+                                                    "0x28"
                                                 ],
-                                                "tooltip": "value of expression"
+                                                "tooltip": "value of expression",
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -431,13 +437,14 @@
                                                 "text": "x ↪ '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "6",
+                                                        "value": "0xa",
                                                         "values": [
-                                                            "6",
-                                                            "6",
-                                                            "0x6"
+                                                            "0xa",
+                                                            "10",
+                                                            "0xa"
                                                         ],
-                                                        "tooltip": "value of expression"
+                                                        "tooltip": "value of expression",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -461,13 +468,14 @@
                                                 "text": "y / z * x ↪ '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0",
+                                                        "value": "0x1e",
                                                         "values": [
-                                                            "0",
-                                                            "0",
-                                                            "0x0"
+                                                            "0x1e",
+                                                            "30",
+                                                            "0x1e"
                                                         ],
-                                                        "tooltip": "value of expression"
+                                                        "tooltip": "value of expression",
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -478,13 +486,14 @@
                                                         "text": "y / z ↪ '{0}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0",
+                                                                "value": "0x3",
                                                                 "values": [
-                                                                    "0",
-                                                                    "0",
-                                                                    "0x0"
+                                                                    "0x3",
+                                                                    "3",
+                                                                    "0x3"
                                                                 ],
-                                                                "tooltip": "value of expression"
+                                                                "tooltip": "value of expression",
+                                                                "truncatable": true
                                                             }
                                                         ]
                                                     },
@@ -495,13 +504,14 @@
                                                                 "text": "y ↪ '{0}'",
                                                                 "arguments": [
                                                                     {
-                                                                        "value": "9",
+                                                                        "value": "0x9",
                                                                         "values": [
-                                                                            "9",
+                                                                            "0x9",
                                                                             "9",
                                                                             "0x9"
                                                                         ],
-                                                                        "tooltip": "value of expression"
+                                                                        "tooltip": "value of expression",
+                                                                        "truncatable": true
                                                                     }
                                                                 ]
                                                             },
@@ -525,13 +535,14 @@
                                                                 "text": "z ↪ '{0}'",
                                                                 "arguments": [
                                                                     {
-                                                                        "value": "12",
+                                                                        "value": "0x3",
                                                                         "values": [
-                                                                            "12",
-                                                                            "12",
-                                                                            "0xc"
+                                                                            "0x3",
+                                                                            "3",
+                                                                            "0x3"
                                                                         ],
-                                                                        "tooltip": "value of expression"
+                                                                        "tooltip": "value of expression",
+                                                                        "truncatable": true
                                                                     }
                                                                 ]
                                                             },
@@ -568,13 +579,14 @@
                                                         "text": "x ↪ '{0}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "6",
+                                                                "value": "0xa",
                                                                 "values": [
-                                                                    "6",
-                                                                    "6",
-                                                                    "0x6"
+                                                                    "0xa",
+                                                                    "10",
+                                                                    "0xa"
                                                                 ],
-                                                                "tooltip": "value of expression"
+                                                                "tooltip": "value of expression",
+                                                                "truncatable": true
                                                             }
                                                         ]
                                                     },

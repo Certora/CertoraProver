@@ -44,13 +44,13 @@ data class HasDelegateCalls(private val methodParamFilters: MethodParamFilters) 
     override val noRevert = false
 
     override fun getMethodParamFilters(
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope,
         symbolicFunctionName: String
     ): MethodParamFilters = methodParamFilters.copy(
-        cvlRange = cvlRange,
+        range = range,
         scope = scope,
         methodParamToFilter = methodParamFilters.methodParamToFilter.mapValues { it.value.copy(scope = scope) })
 
-    override fun checkIfCanGenerate(cvlRange: CVLRange): VoidResult<CVLError> = ok
+    override fun checkIfCanGenerate(range: Range): VoidResult<CVLError> = ok
 }

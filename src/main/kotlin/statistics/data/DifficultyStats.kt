@@ -186,9 +186,9 @@ data class PathCountStats(
 
     fun asLongText(lineSeparator: String = "<br/>\n") =
             "Detailed path count info (call id: #local paths, #inlined paths (log2)):$lineSeparator" +
-                callIdToPathCountData.map { (callId, pathCount) ->
+                callIdToPathCountData.joinToString(lineSeparator) { (callId, pathCount) ->
                     "$callId: ${pathCount.localPathCount}, ${pathCount.inlinedPathCount} (${pathCount.inlinedLog2})"
-                }.joinToString(lineSeparator)
+                }
 
     companion object {
 

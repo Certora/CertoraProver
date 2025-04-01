@@ -55,6 +55,7 @@ class InlinedMethodCallStack(graph: TACCommandGraph, includeCVLFunctions: Boolea
     }
 
     fun currentCaller(ptr: CmdPointer): StackPushRecord? = stackAt(ptr).topOrNull()
+    fun currentCallIds(ptr: CmdPointer): List<CallId> = stackAt(ptr).map { it.callId }
     fun iterateUpCallers(ptr: CmdPointer): List<CallableRef> = stackAt(ptr).map { it.ref }
     fun iterateUpCallersMethodOnly(ptr: CmdPointer): List<MethodRef> = stackAt(ptr).mapNotNull { it.ref as? MethodRef }
 }

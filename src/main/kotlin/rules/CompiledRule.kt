@@ -19,14 +19,7 @@ package rules
 
 import allocator.Allocator
 import analysis.LTACCmd
-import analysis.controlflow.InfeasiblePaths
-import analysis.icfg.SummaryStack
-import analysis.maybeAnnotation
 import analysis.opt.*
-import analysis.opt.inliner.GlobalInliner
-import analysis.opt.intervals.IntervalsRewriter
-import analysis.opt.overflow.OverflowPatternRewriter
-import analysis.split.BoolOptimizer
 import cache.CacheManager
 import cache.VerifyingCacheManager
 import cli.SanityValues
@@ -37,7 +30,6 @@ import datastructures.NonEmptyList
 import datastructures.stdcollections.*
 import datastructures.toNonEmptyList
 import diagnostics.inCode
-import instrumentation.transformers.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -46,7 +38,6 @@ import log.*
 import log.RuleTestArtifactKey.TestArtifactKind
 import normalizer.NonCanonicalTranslationTable
 import normalizer.canonicalDump
-import optimizer.Pruner
 import report.*
 import report.callresolution.CallResolutionTable
 import report.callresolution.CallResolutionTableBase
@@ -63,9 +54,9 @@ import smt.CoverageInfoEnum
 import solver.SolverResult
 import spec.CVL
 import spec.CVLCompiler
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
-import spec.cvlast.SingleRuleGenerationMeta
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
+import spec.rules.SingleRuleGenerationMeta
 import spec.cvlast.SpecType
 import statistics.SDCollector
 import statistics.SDCollectorFactory
@@ -74,13 +65,13 @@ import testing.TacPipelineDebuggers.oneStateInvariant
 import utils.*
 import vc.data.*
 import vc.data.ParametricMethodInstantiatedCode.toCheckableTACs
-import vc.data.SimplePatchingProgram.Companion.patchForEach
 import vc.data.parser.serializeTAC
 import vc.data.tacexprutil.QuantDefaultTACExprTransformer
 import verifier.*
 import java.io.IOException
 import java.util.*
 import java.util.stream.Collectors
+import analysis.controlflow.checkIfAllPathsAreLastReverted
 
 
 private val logger = Logger(LoggerTypes.COMMON)
@@ -146,6 +137,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
         val isSolverResultFromCache: IsFromCache,
         val stats: SDCollector = SDCollectorFactory.collector()
     ) {
+
         suspend fun toCheckResult(
             scene: ISceneIdentifiers,
             compiledRule: CompiledRule
@@ -164,7 +156,12 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
             } else {
                 null
             }
-            val alerts = RuleAlertReport(listOfNotNull(isSolverResultFromCacheAlert, isEmptyCodeAlert))
+            val isAlwaysRevertingAlert = if (checkIfAllPathsAreLastReverted(compiledRule.tac)) {
+                RuleAlertReport.Info(msg = "The rule contains only reverting paths.")
+            } else {
+                null
+            }
+            val alerts = RuleAlertReport(listOfNotNull(isSolverResultFromCacheAlert, isEmptyCodeAlert, isAlwaysRevertingAlert))
             if (!Config.CoinbaseFeaturesMode.get()) {
                 generateSingleResult(scene, compiledRule.rule, res, time, isOptimizedRuleFromCache, isSolverResultFromCache, alerts)
             } else {
@@ -205,13 +202,13 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
 
     protected fun dumpPreOptimize() {
         // output to a file
-        oneStateInvariant(tac, ReportTypes.PREOPTIMIZED_RULE)
         ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
             tac,
             ReportTypes.PREOPTIMIZED_RULE,
             StaticArtifactLocation.Outputs,
             DumpTime.AGNOSTIC
         )
+        oneStateInvariant(tac, ReportTypes.PREOPTIMIZED_RULE)
         if (Config.VerifyTACDumps.get()) {
             synchronized(ArtifactManagerFactory) {
                 ArtifactManagerFactory().dumpBinary(
@@ -247,14 +244,29 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
         }
     }
 
+    /**
+     * Perform the actual verification of [tac], including running optimization prior to the verification.
+     *
+     * The [nonLocalOptimizationsOnly] flag determines which optimizations to run. The default `false` case will run all
+     * optimizations, while setting it to `true` will run only optimizations which are affected by a program as a whole.
+     *
+     * The idea is that sometimes we have several optimized [CoreTACProgram] which we merge together. In that case we only
+     * need to run the non-local optimization on the whole program.
+     *
+     * See [CompiledRule.optimizeNonLocal] for the list of non-local optimizations.
+     */
     @Suppress("SuspendFunSwallowedCancellation") // mapCheckResult deals with CancellationException
-    open suspend fun check(scene: SceneIdentifiers): CompileRuleCheckResult = runCatching {
+    open suspend fun check(scene: SceneIdentifiers, nonLocalOptimizationsOnly: Boolean = false): CompileRuleCheckResult = runCatching {
         logger.info { "Checking compiled rule ${rule.declarationId}" }
         /**
          * NOTE: At this point, we assume that summaries and ghost hooks have already been handled.
          * */
         dumpPreOptimize()
-        val tacToCheck = optimize(scene, tac).also(::dumpPostOptimized)
+        val tacToCheck = if (nonLocalOptimizationsOnly) {
+            optimizeNonLocal(tac)
+        } else {
+            optimize(scene, tac)
+        }.also(::dumpPostOptimized)
 
         /**
          * It is easier to read the TAC Coverage Info visualisation if we do not canonicalize the (spec) variable names.
@@ -314,125 +326,72 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
         tacToCheck: CoreTACProgram
     ) = Verifier.JoinedResult(TACVerifier.verify(scene, tacToCheck, liveStatsReporter, rule))
 
-
     protected open suspend fun optimize(scene: SceneIdentifiers, tacToCheck: CoreTACProgram) =
         CompiledRule.optimize(scene, tacToCheck)
 
+    protected open suspend fun optimizeNonLocal(tacToCheck: CoreTACProgram) =
+        CompiledRule.optimizeNonLocal(tacToCheck)
 
     companion object {
-        /**
-         * should not be called directly from the outside, but rather from a class method like here or [CachingCompiledRule].
-         */
         fun optimize(scene: SceneIdentifiers, tacToCheck: CoreTACProgram) = inCode(tacToCheck) {
-            CoreTACProgram.Linear(tacToCheck)
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SNIPPET_REMOVAL) { c ->
-                SnippetRemover.rewrite(c)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
-                ConstantPropagatorAndSimplifier(it).rewrite()
-                    .let(BlockMerger::mergeBlocks)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
-                // we don't fold diamonds with assumes in them, because it creates assumes with disjunctions, and
-                // `IntervalsCalculator` can't work well with those.
-                simplifyDiamonds(it, iterative = false, allowAssumes = false)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) {
-                // this should actually happen much earlier in the pipeline (there is some mismatch between the tag
-                // from cvl and the new bool tag?
-                BoolOptimizer(it).go()
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.ASSUME_STRICT_MONOTONIC_FP) { c ->
-                FPMonotonicityInstrumenter.assumeStrictlyMonotonicFP(c)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.MATERIALIZE_DISJOINT_HASHES) { c ->
-                DisjointHashesMaterializer.materializeDisjointHashes(scene, c)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1) { code ->
-                ConstantPropagator.propagateConstants(code, emptySet()).let {
-                    BlockMerger.mergeBlocks(it)
-                }
-            })
-            .mapIfAllowed(
-                CoreToCoreTransformer(
-                    ReportTypes.REMOVE_CALL_ANNOTATIONS
-                ) { it ->
-                    if (it.destructiveOptimizations) {
-                        it.parallelLtacStream().filter {
-                            it.maybeAnnotation(SummaryStack.END_EXTERNAL_SUMMARY) != null ||
-                                it.maybeAnnotation(SummaryStack.START_EXTERNAL_SUMMARY) != null ||
-                                it.maybeAnnotation(SummaryStack.START_INTERNAL_SUMMARY) != null ||
-                                it.maybeAnnotation(SummaryStack.END_INTERNAL_SUMMARY) != null
+            val fullOptimizationPass = with(CTPOptimizationPass) {
+                listOf(
+                    snippetRemoval,
+                    constantPropagatorAndSimplifier(mergeBlocks = true),
+                    // we don't fold diamonds with assumes in them, because it creates assumes with disjunctions, and
+                    // `IntervalsCalculator` can't work well with those.
+                    simplifyDiamonds(iterative = false, allowAssumes = false),
+                    boolOptimizer,
+                    FPMonotonicityInstrumentor,
+                    disjointHashesMaterializer(scene),
+                    constantPropagator(1, mergeBlocks = true),
+                    removeCallAnnotations,
+                    removeUnusedWrites,
+                    rewriteCopyLoops,
+                    removeDeadPartitions,
+                    optimizeAssignments(keepRevertManagement = true, bmcAware = true),
+                    pruner(1),
+                    infeasiblePaths,
+                    simpleSummaries(1),
+                    constantPropagatorAndSimplifier(mergeBlocks = false),
+                    negationNormalizer,
+                    patternRewriter(PatternRewriter::earlyPatternsList),
+                    negationNormalizer,
+                    globalInliner(1),
+                    constantPropagatorAndSimplifier(mergeBlocks = true),
+                    optimizeAssignments(keepRevertManagement = true, bmcAware = true),
+                    overflowPatternRewriter,
+                    patternRewriter(PatternRewriter::basicPatternsList),
+                    globalInliner(2),
+                    ternarySimplifier,
+                    intervalsRewriter,
+                    simplifyDiamonds(iterative = false),
+                    constantPropagator(2, mergeBlocks = false),
+                    pruner(2),
+                    blockMerger,
+                    quantifierAnnotator
+                )
+            }
+            fullOptimizationPass.fold(CoreTACProgram.Linear(tacToCheck)) { acc, opt ->
+                acc.mapIfAllowed(CoreToCoreTransformer(opt.reportType) { c -> opt.optimize(c) })
+            }.ref
+        }
 
-                        }.patchForEach(it) {
-                            replaceCommand(it.ptr, listOf(TACCmd.Simple.NopCmd))
-                        }
-                    } else {
-                        it
-                    }
-                }
-            )
-            .mapIfAllowed(
-                CoreToCoreTransformer(
-                    ReportTypes.REMOVE_UNUSED_WRITES,
-                    SimpleMemoryOptimizer::removeUnusedWrites
+        fun optimizeNonLocal(tacToCheck: CoreTACProgram) = inCode(tacToCheck) {
+            val nonLocalOptimizationPass = with(CTPOptimizationPass) {
+                listOf(
+                    optimizeAssignments(keepRevertManagement = true, bmcAware = false),
+                    infeasiblePaths,
+                    intervalsRewriter,
+                    globalInliner(2),
+                    ternarySimplifier,
+                    constantPropagatorAndSimplifier(mergeBlocks = true)
                 )
-            )
-            .mapIfAllowed(
-                CoreToCoreTransformer(
-                    ReportTypes.REWRITE_COPY_LOOP,
-                    SimpleMemoryOptimizer::rewriteCopyLoops
-                )
-            )
-            .mapIfAllowed(
-                CoreToCoreTransformer(
-                    ReportTypes.REMOVE_UNUSED_PARTITIONS,
-                    SimpleMemoryOptimizer::removeDeadPartitions
-                )
-            )
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) { c ->
-                optimizeAssignments(c, FilteringFunctions.default(c, keepRevertManagment = true))
-                    .let(BlockMerger::mergeBlocks)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { c ->
-                Pruner(c).prune()
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_INFEASIBLE_PATHS) { c ->
-                InfeasiblePaths.doInfeasibleBranchAnalysisAndPruning(c)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.SIMPLE_SUMMARIES1) {
-                it.simpleSummaries()
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
-                ConstantPropagatorAndSimplifier(it).rewrite()
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) {
-                NegationNormalizer(it).rewrite()
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATTERN_REWRITER) { c ->
-                PatternRewriter.rewrite(c, PatternRewriter::earlyPatternsList)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) {
-                    NegationNormalizer(it).rewrite()
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.GLOBAL_INLINER) {
-                GlobalInliner.inlineAll(it)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
-                ConstantPropagatorAndSimplifier(it).rewrite().let(BlockMerger::mergeBlocks)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
-                optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
-                    .let(BlockMerger::mergeBlocks)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) {
-                OverflowPatternRewriter(it).go()
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATTERN_REWRITER) { c ->
-                PatternRewriter.rewrite(c, PatternRewriter::basicPatternsList)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.GLOBAL_INLINER) {
-                GlobalInliner.inlineAll(it)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.TERNARY_OPTIMIZE) {
-                TernarySimplifier.simplify(it, afterSummarization = true, forbiddenVars = emptySet())
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
-                IntervalsRewriter.rewrite(it, handleLeinoVars = false)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
-                simplifyDiamonds(it, iterative = false)
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) { code ->
-                // after pruning infeasible paths, there are more constants to propagate
-                ConstantPropagator.propagateConstants(code, emptySet())
-            }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { code ->
-                Pruner(code).prune()
-            }).mapIfAllowed(
-                CoreToCoreTransformer(
-                    ReportTypes.OPTIMIZE_MERGE_BLOCKS,
-                    BlockMerger::mergeBlocks
-                )
-            ).mapIfAllowed(CoreToCoreTransformer(ReportTypes.QUANTIFIER_POLARITY) { code ->
-                QuantifierAnnotator(code).annotate()
-            }).ref
+            }
+
+            nonLocalOptimizationPass.fold(CoreTACProgram.Linear(tacToCheck)) { acc, opt ->
+                acc.mapIfAllowed(CoreToCoreTransformer(opt.reportType) { c -> opt.optimize(c) })
+            }.ref
         }
 
         /**
@@ -471,7 +430,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
 
             val patchingProg = compiledRuleTacProg.toPatchingProgram()
             when (val ruleType = rule.ruleType) {
-                is SpecType.Single.MultiAssertSubRule.SpecFile -> {
+                is SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.SpecFile -> {
                     // We have a multi-assert subrule that was generated for a single user-defined assert command.
                     // It may be that this only assert command has been removed at a later stage by some transformation,
                     // so we expected to find at most one assert command in the compiled rule.
@@ -493,7 +452,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
                 else -> {
                     // We have either a multi-assert subrule generated for (possibly multiple) auto-generated assert commands,
                     // or a rule for which multi-assert splitting was not performed, e.g., a rule-sanity check rule.
-                    if (ruleType == SpecType.Single.MultiAssertSubRule.AutoGenerated) {
+                    if (ruleType is SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AutoGenerated) {
                         // Check that all asserts are indeed auto-generated (i.e., not originating from a spec file)
                         val userDefinedAsserts = assertCmds.filter { TACMeta.CVL_USER_DEFINED_ASSERT in it.cmd.meta }
                         if (userDefinedAsserts.isNotEmpty()) {

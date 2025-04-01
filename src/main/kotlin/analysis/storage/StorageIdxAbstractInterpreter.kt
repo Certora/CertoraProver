@@ -23,12 +23,11 @@ import com.certora.collect.*
 import config.Config
 import datastructures.stdcollections.*
 import datastructures.ProjectedMap
+import evm.EVM_ADDRESS_SIZE
+import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import utils.foldFirstOrNull
 import utils.mapNotNullToSet
-import vc.data.TACCmd
-import vc.data.TACExpr
-import vc.data.TACSummary
-import vc.data.TACSymbol
+import vc.data.*
 import java.math.BigInteger
 
 class SimpleQualifiedIntPathSemantics<T: Any>(
@@ -218,6 +217,58 @@ class SimpleQualifiedIntAbstractInterpreter<T: Any> private constructor (
             l: LTACCmd
         ): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
             return (toStep - lhs)
+        }
+
+        // Add type-derived bounds to scalar return values
+        private fun stepInternalCall(
+            call: InternalCallSummary,
+            toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
+            whole: SimpleQualifiedIntAbstractInterpreterState<T>,
+            l: LTACCmd,
+        ): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
+            val resTypes = call.signature.resType
+            val rets = call.internalExits
+            if (resTypes.size != rets.size) {
+                return rets.fold(toStep) { st, x -> forget(x.s, st, st, whole, l)}
+            }
+
+            return rets.zip(resTypes)
+                .fold(toStep) { st, (ret, ty) ->
+                    when (ty) {
+                        is EVMTypeDescriptor.EVMNumericType -> {
+                            val range = IntValue(ty.minValue, ty.maxValue)
+                            st + (ret.s to SimpleQualifiedInt(range))
+                        }
+
+                        is EVMTypeDescriptor.bool -> {
+                            val range = IntValue(BigInteger.ZERO, BigInteger.ONE)
+                            st + (ret.s to SimpleQualifiedInt(range))
+                        }
+
+                        is EVMTypeDescriptor.address -> {
+                            val range = IntValue(
+                                BigInteger.ZERO,
+                                BigInteger.TWO.pow(EVM_ADDRESS_SIZE) - BigInteger.ONE
+                            )
+                            st + (ret.s to SimpleQualifiedInt(range))
+                        }
+
+                        else -> this.forget(ret.s, st, st, whole, l)
+                    }
+                }
+        }
+
+        override fun stepCommand(
+            l: LTACCmd,
+            toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
+            input: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
+            whole: SimpleQualifiedIntAbstractInterpreterState<T>
+        ): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
+            return super.stepCommand(l, toStep, input, whole).let { st ->
+                l.snarrowOrNull<InternalCallSummary>()?.let { call ->
+                    stepInternalCall(call, toStep, whole, l)
+                } ?: st
+            }
         }
 
         override fun stepExpression(

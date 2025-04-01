@@ -25,6 +25,7 @@ import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import utils.CollectingResult
+import utils.Range
 import java.util.function.Predicate
 import kotlin.reflect.KClass
 
@@ -50,7 +51,7 @@ open class AbstractCVLTest {
 
         fun testLocationAndMessage(t: CVLError): Boolean {
             val range = t.location
-            if (range !is CVLRange.Range) {
+            if (range !is Range.Range) {
                 println("expected source file range, got empty range")
                 return false
             }
@@ -228,7 +229,7 @@ open class AbstractCVLTest {
         override fun test(t: CVLError): Boolean {
             val line = this.line.toUInt()
             val range = t.location
-            if (range !is CVLRange.Range) {
+            if (range !is Range.Range) {
                 println("expected error on line ${line}, but received error has no location")
                 return false
             }

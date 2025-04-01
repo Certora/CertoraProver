@@ -34,6 +34,7 @@ import analysis.opt.intervals.Interval.CutAtPoint
 import datastructures.stdcollections.*
 import utils.*
 import java.math.BigInteger
+import kotlin.collections.get
 import analysis.opt.intervals.Interval as I
 import analysis.opt.intervals.Intervals as S
 
@@ -49,8 +50,8 @@ value class Intervals private constructor(
     fun toSingle() = I(min, max)
 
     init {
-        zipWithNext().forEach { (it1, it2) ->
-            check(it1.high + 1 < it2.low) {
+        intervals.forWithNext { i, j ->
+            check(i.high + 1 < j.low) {
                 "$intervals should be ascending and non-adjacent"
             }
         }
@@ -109,17 +110,18 @@ value class Intervals private constructor(
             S(intervals.toList())
 
         operator fun invoke(vararg l: ExtBig): S =
-            if (l.size == 1) {
-                S(I(l[0], l[0]))
-            } else {
-                S(
-                    l.toList().chunked(2).map {
+            when (l.size) {
+                0 -> SEmpty
+                1 -> S(I(l[0]))
+                2 -> S(I(l[0], l[1]))
+                else -> {
+                    S(l.toList().chunked(2).map {
                         check(it.size == 2) {
                             "Initializing Intervals with odd number of args: ${l.toList()}"
                         }
                         I(it[0], it[1])
-                    }
-                )
+                    })
+                }
             }
 
         operator fun invoke(vararg l: BigInteger): S =
@@ -268,6 +270,14 @@ value class Intervals private constructor(
             }
         )
 
+    /** The union of running [f] on all pairwise combinations of single intervals from `this` and [other] */
+    inline fun lift(other: ExtBig, f: (I, ExtBig) -> I): S =
+        unionOf(
+            map { i ->
+                f(i, other)
+            }
+        )
+
     /** The union of running [f] on all intervals of `this` */
     private inline fun lift(f: (I) -> S): S =
         unionOf(flatMap(f))
@@ -295,6 +305,12 @@ value class Intervals private constructor(
 
     operator fun times(other: S) =
         lift(other, I::times)
+
+    operator fun times(other: ExtBig) =
+        lift(other, I::times)
+
+    operator fun times(other: BigInteger) =
+        this * other.asExtBig
 
     operator fun div(other: S) =
         lift(other, I::div)

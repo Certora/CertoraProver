@@ -26,7 +26,7 @@ import config.Config
 import datastructures.stdcollections.*
 import log.*
 import scene.IScene
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.MaybeRevert
 import spec.cvlast.SpecCallSummary
 import tac.CallId
@@ -58,7 +58,7 @@ object Havocer {
         }
 
         @KSerializable
-        data class AssertFalse(val cvlRange: CVLRange) : HavocType(), NotAffectingGlobalState {
+        data class AssertFalse(val range: Range) : HavocType(), NotAffectingGlobalState {
             override fun isRevertable() = false
             override fun toString(): String = "A havoc that should be unreachable"
         }
@@ -235,7 +235,7 @@ object Havocer {
     fun generateHavocCRD(havoc: HavocType, scene: IScene): CommandWithRequiredDecls<TACCmd.Simple> {
         if (havoc is HavocType.AssertFalse) {
             return CommandWithRequiredDecls(
-                TACCmd.Simple.AssertCmd(false.asTACSymbol(), "A havoc result that should be unreachable, due to summary in ${havoc.cvlRange}")
+                TACCmd.Simple.AssertCmd(false.asTACSymbol(), "A havoc result that should be unreachable, due to summary in ${havoc.range}")
             )
         }
         val decl = mutableSetOf<TACSymbol.Var>()
@@ -394,7 +394,7 @@ object Havocer {
                     defaultHavoc(scene, caller, callSummary)
                 }
                 is SpecCallSummary.HavocSummary.AssertFalse -> {
-                    HavocType.AssertFalse(havocSpecSummary.cvlRange)
+                    HavocType.AssertFalse(havocSpecSummary.range)
                 }
             }
         }

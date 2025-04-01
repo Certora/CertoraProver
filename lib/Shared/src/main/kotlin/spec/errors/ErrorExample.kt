@@ -17,13 +17,13 @@
 
 package spec.errors
 
-import spec.cvlast.CVLRange
+import utils.Range
 import utils.SourcePosition
 
 /** Convenience class for constructing a CVL example from a CVL String with a designated range. */
 class ErrorExample private constructor(
-        private val lines : List<String>,
-        val range : CVLRange.Range,
+    private val lines : List<String>,
+    val range : Range.Range,
 ) {
     val text : String = lines.joinToString("")
 
@@ -39,7 +39,7 @@ class ErrorExample private constructor(
                 """.trimIndent()
             }
 
-            return ErrorExample(lines, CVLRange.Range(sourceName, delimiters[0], delimiters[1]))
+            return ErrorExample(lines, Range.Range(sourceName, delimiters[0], delimiters[1]))
         }
 
         /** @return [delimitedText] split into a lines (with delimiters removed) and a list of the delimiter positions */
@@ -71,7 +71,7 @@ class ErrorExample private constructor(
     }
 
     /** @return [lines] with [range] marked with DELIMITER */
-    fun renderWithRange(range : CVLRange.Range) = buildString {
+    fun renderWithRange(range : Range.Range) = buildString {
         val startLine = range.start.line.toInt()
         val startChar = range.start.charByteOffset.toInt()
         val endLine = range.end.line.toInt()

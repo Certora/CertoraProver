@@ -30,6 +30,7 @@ import scene.*
 import scene.source.*
 import smt.SmtDumpEnum
 import spec.cvlast.*
+import spec.rules.AssertRule
 import testutils.TestLogger
 import utils.*
 import vc.data.*
@@ -72,12 +73,16 @@ abstract class WasmTestFixture {
         entry: String,
         assumeNoTraps: Boolean = false,
         allowUnresolvedCalls: Boolean = false,
+        recursionLimit: Int = 3,
+        recursionLimitIsError: Boolean = false,
         optimize: Boolean = true
     ): Boolean {
         val report = maybeEnableReportGeneration()
         var res = false
         ConfigScope(Config.TrapAsAssert, !assumeNoTraps)
         .extend(Config.QuietMode, true)
+        .extend(Config.RecursionErrorAsAssertInAllCases, recursionLimitIsError)
+        .extend(Config.RecursionEntryLimit, recursionLimit)
         .use {
             val wasmFile = watToWasm(wat)
             val program = WasmEntryPoint.wasmToTAC(wasmFile.toFile(), setOf(entry), host, optimize).single().code

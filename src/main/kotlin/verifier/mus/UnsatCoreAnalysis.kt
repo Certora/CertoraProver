@@ -35,7 +35,7 @@ import smtlibutils.cmdprocessor.SmtFormulaCheckerQuery
 import solver.SolverConfig
 import solver.Z3SolverInfo
 import spec.CVLExpToTACExprMeta
-import spec.cvlast.CVLRange
+import utils.Range
 import statistics.SmtFileDumping
 import utils.*
 import vc.data.CoreTACProgram
@@ -264,7 +264,7 @@ class UnsatCoreAnalysis private constructor(
         fun isFromSpec(cmd: TACCmd) =
             cmd.meta.size > 0 &&
                 cmd.meta.map.values.any { m -> m is CVLExpToTACExprMeta } &&
-                (cmd.meta[TACMeta.CVL_RANGE] as? CVLRange.Range) != null
+                (cmd.meta[TACMeta.CVL_RANGE] as? Range.Range) != null
         fun isFromSol(cmd: TACCmd) = cmd.metaSrcInfo?.getSourceDetails() != null
 
 
@@ -286,7 +286,7 @@ class UnsatCoreAnalysis private constructor(
 
         fun getSpecCmdData(cmd: TACCmd): UnsatCoreCmdFromSpec {
             require(isFromSpec(cmd)) { "$cmd is not a command from spec and hence cannot be converted to UnsatCoreCmdFromSpec" }
-            val rangeMeta = cmd.meta[TACMeta.CVL_RANGE] as? CVLRange.Range
+            val rangeMeta = cmd.meta[TACMeta.CVL_RANGE] as? Range.Range
             val expMeta = cmd.meta[TACMeta.CVL_EXP] as CVLExpToTACExprMeta
             val cmdString = expMeta.exp.toString()
             check(rangeMeta != null)

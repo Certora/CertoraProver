@@ -31,6 +31,7 @@ import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.Range
 
 // This file contains the "Java" AST nodes that are used in many places, such as parameters and method signatures.
 // See README.md for a description of the Java AST.
@@ -49,54 +50,54 @@ fun <T> List<Kotlinizable<T>>.kotlinize(resolver : TypeResolver, scope : CVLScop
  * understanding is that this is not currently possible in Solidity but that the Solidity team is actively working
  * on supporting it.
  */
-sealed class VMParam(val type: TypeOrLhs, val location: String?, val cvlRange: CVLRange) : Kotlinizable<spec.cvlast.VMParam>
+sealed class VMParam(val type: TypeOrLhs, val location: String?, val range: Range) : Kotlinizable<spec.cvlast.VMParam>
 
-class UnnamedVMParam(type: TypeOrLhs, loc: String?, cvlRange: CVLRange) : VMParam(type, loc, cvlRange) {
+class UnnamedVMParam(type: TypeOrLhs, loc: String?, range: Range) : VMParam(type, loc, range) {
     override fun toString() = "UnnamedVMParam($type)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<Unnamed, CVLError>
-        = type.toVMType(resolver, location, scope).map { Unnamed(it, cvlRange) }
+        = type.toVMType(resolver, location, scope).map { Unnamed(it, range) }
 }
 
 
-class NamedVMParam(type: TypeOrLhs, loc: String?, val id: String, cvlRange: CVLRange) : VMParam(type, loc, cvlRange) {
+class NamedVMParam(type: TypeOrLhs, loc: String?, val id: String, range: Range) : VMParam(type, loc, range) {
     override fun toString() = "NamedVMParam($type,$id)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<spec.cvlast.VMParam.Named, CVLError>
-        = type.toVMType(resolver, location, scope).map { spec.cvlast.VMParam.Named(id, it, cvlRange, id) }
+        = type.toVMType(resolver, location, scope).map { spec.cvlast.VMParam.Named(id, it, range, id) }
 }
 
 
-class CVLParam(val type: TypeOrLhs, val id: String, val cvlRange: CVLRange) : Kotlinizable<spec.cvlast.CVLParam> {
+class CVLParam(val type: TypeOrLhs, val id: String, val range: Range) : Kotlinizable<spec.cvlast.CVLParam> {
     override fun toString() = "CVLParam($type,$id)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<spec.cvlast.CVLParam, CVLError>
-        = type.toCVLType(resolver, scope).map { CVLParam(it, id, cvlRange) }
+        = type.toCVLType(resolver, scope).map { CVLParam(it, id, range) }
 }
 
-class LocatedToken internal constructor(val range: CVLRange, val value: String) {
+class LocatedToken internal constructor(val range: Range, val value: String) {
     override fun toString() = value
 }
 
-class MethodParamFilterDef(private val cvlRange: CVLRange, private val methodParam: VariableExp, private val filterExp: Exp) : Kotlinizable<MethodParamFilter> {
+class MethodParamFilterDef(private val range: Range, private val methodParam: VariableExp, private val filterExp: Exp) : Kotlinizable<MethodParamFilter> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<MethodParamFilter, CVLError> = collectingErrors {
         val _methodParam = methodParam.kotlinize(resolver, scope)
         val _filterExp   = filterExp.kotlinize(resolver, scope)
-        map(_methodParam, _filterExp) { methodParam, filterExp -> MethodParamFilter(methodParam, filterExp, cvlRange, scope) }
+        map(_methodParam, _filterExp) { methodParam, filterExp -> MethodParamFilter(methodParam, filterExp, range, scope) }
     }
 }
 
 
-class MethodParamFiltersMap(private val cvlRange: CVLRange, private val methodParamFilters: Map<String, MethodParamFilterDef>?) : Kotlinizable<MethodParamFilters> {
+class MethodParamFiltersMap(private val range: Range, private val methodParamFilters: Map<String, MethodParamFilterDef>?) : Kotlinizable<MethodParamFilters> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<MethodParamFilters, CVLError> = collectingErrors {
-        if (methodParamFilters == null) { return@collectingErrors noFilters(CVLRange.Empty(), scope) }
+        if (methodParamFilters == null) { return@collectingErrors noFilters(Range.Empty(), scope) }
 
         val mpf = collectAndFilter(methodParamFilters.mapValues { (_, filter) -> filter.kotlinize(resolver, scope) })
-        MethodParamFilters(cvlRange, scope, mpf)
+        MethodParamFilters(range, scope, mpf)
     }
 
     companion object {
-        @JvmField val NO_METHOD_PARAM_FILTERS: MethodParamFiltersMap = MethodParamFiltersMap(CVLRange.Empty(), null)
+        @JvmField val NO_METHOD_PARAM_FILTERS: MethodParamFiltersMap = MethodParamFiltersMap(Range.Empty(), null)
     }
 }
 
@@ -104,9 +105,9 @@ class MethodParamFiltersMap(private val cvlRange: CVLRange, private val methodPa
 /**
  * @param contract the contents of the receiver, if any.  Null otherwise
  * @param method   the name of the method
- * @param cvlRange the location of the method reference
+ * @param range the location of the method reference
  */
-class MethodReferenceExp(@JvmField var contract: VariableExp?, val method: String, val cvlRange: CVLRange) {
+class MethodReferenceExp(@JvmField var contract: VariableExp?, val method: String, val range: Range) {
     override fun toString() = "${contract?.id?.let { "$it." }.orEmpty()}$method"
 
     fun baseContract() = contract?.id
@@ -121,7 +122,7 @@ class MethodReferenceExp(@JvmField var contract: VariableExp?, val method: Strin
 }
 
 class MethodSig @JvmOverloads constructor(
-    val cvlRange: CVLRange,
+    val range: Range,
     val id: MethodReferenceExp,
     val params: List<VMParam>,
     val resParams: List<VMParam>?, // null for no returns specified

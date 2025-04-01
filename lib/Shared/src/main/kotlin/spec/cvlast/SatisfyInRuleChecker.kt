@@ -26,9 +26,11 @@ import spec.cvlast.transformer.CVLExpTransformer
 import spec.cvlast.typechecker.BadSatisfy
 import spec.cvlast.typechecker.CVLAstTypeChecker
 import spec.cvlast.typechecker.CVLError
+import spec.rules.CVLSingleRule
 import utils.CollectingResult
 import utils.CollectingResult.Companion.bind
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.Range
 import utils.removeLast
 
 /**
@@ -86,12 +88,12 @@ class SatisfyInRuleChecker : CVLAstTransformer<CVLError> {
     private class CheckSatisfyUsage(val satisfyFuncs: List<DeclarationName>) : CVLExpTransformer<CVLError> {
         sealed class Config {
             object Allowed : Config()
-            data class Disallowed(val context: String, val location: CVLRange) : Config()
+            data class Disallowed(val context: String, val location: Range) : Config()
         }
 
         // Default is disallowed for a general call
         private val configs: MutableList<Config> =
-            mutableListOf(Config.Disallowed("this location.", CVLRange.Empty("unspecified location")))
+            mutableListOf(Config.Disallowed("this location.", Range.Empty("unspecified location")))
 
         fun <R> withConfig(newConfig: Config, actions: () -> R): R {
             this.configs.add(newConfig)
@@ -153,7 +155,7 @@ class SatisfyInRuleChecker : CVLAstTransformer<CVLError> {
      */
     private class CVLCmdChecker(val exprTransformer: CheckSatisfyUsage) : CVLCmdTransformer<CVLError>(exprTransformer) {
         override fun assertCmd(cmd: CVLCmd.Simple.Assert): CollectingResult<CVLCmd, CVLError> {
-            return exprTransformer.withConfig(CheckSatisfyUsage.Config.Disallowed("assert statement", cmd.cvlRange)) {
+            return exprTransformer.withConfig(CheckSatisfyUsage.Config.Disallowed("assert statement", cmd.range)) {
                 super.assertCmd(cmd)
             }
         }
@@ -162,7 +164,7 @@ class SatisfyInRuleChecker : CVLAstTransformer<CVLError> {
             return exprTransformer.withConfig(
                 CheckSatisfyUsage.Config.Disallowed(
                     "nested satisfy statement",
-                    cmd.cvlRange
+                    cmd.range
                 )
             ) {
                 super.satisfyCmd(cmd)
@@ -170,19 +172,19 @@ class SatisfyInRuleChecker : CVLAstTransformer<CVLError> {
         }
 
         override fun assumeCmd(cmd: CVLCmd.Simple.AssumeCmd.Assume): CollectingResult<CVLCmd, CVLError> {
-            return exprTransformer.withConfig(CheckSatisfyUsage.Config.Disallowed("require statement", cmd.cvlRange)) {
+            return exprTransformer.withConfig(CheckSatisfyUsage.Config.Disallowed("require statement", cmd.range)) {
                 super.assumeCmd(cmd)
             }
         }
 
         override fun assumeInv(cmd: CVLCmd.Simple.AssumeCmd.AssumeInvariant): CollectingResult<CVLCmd, CVLError> {
-            return exprTransformer.withConfig(CheckSatisfyUsage.Config.Disallowed("assume statement", cmd.cvlRange)) {
+            return exprTransformer.withConfig(CheckSatisfyUsage.Config.Disallowed("assume statement", cmd.range)) {
                 super.assumeInv(cmd)
             }
         }
 
         override fun havoc(cmd: CVLCmd.Simple.Havoc): CollectingResult<CVLCmd, CVLError> {
-            return exprTransformer.withConfig(CheckSatisfyUsage.Config.Disallowed("assume statement", cmd.cvlRange)) {
+            return exprTransformer.withConfig(CheckSatisfyUsage.Config.Disallowed("assume statement", cmd.range)) {
                 super.havoc(cmd)
             }
         }
@@ -192,11 +194,11 @@ class SatisfyInRuleChecker : CVLAstTransformer<CVLError> {
     override fun hook(hook: CVLHook): CollectingResult<CVLHook, CVLError> {
         return collectingErrors<CVLHook, CVLError> {
             collectSatisfyCalls(hook.block).map {
-                collectError(BadSatisfy(it.cvlRange, "hooks"))
+                collectError(BadSatisfy(it.range, "hooks"))
             }
             hook
         }.bind {
-            checker.withConfig(CheckSatisfyUsage.Config.Disallowed("hooks", it.cvlRange)) {
+            checker.withConfig(CheckSatisfyUsage.Config.Disallowed("hooks", it.range)) {
                 super.hook(it)
             }
         }
@@ -217,24 +219,24 @@ class SatisfyInRuleChecker : CVLAstTransformer<CVLError> {
     override fun preserved(preserved: CVLPreserved): CollectingResult<CVLPreserved, CVLError> {
         return collectingErrors<CVLPreserved, CVLError> {
             collectSatisfyCalls(preserved.block).map {
-                collectError(BadSatisfy(it.cvlRange, "preserved blocks"))
+                collectError(BadSatisfy(it.range, "preserved blocks"))
             }
             preserved
         }.bind {
-            checker.withConfig(CheckSatisfyUsage.Config.Disallowed("preserved blocks", it.cvlRange)) {
+            checker.withConfig(CheckSatisfyUsage.Config.Disallowed("preserved blocks", it.range)) {
                 super.preserved(it)
             }
         }
     }
 
     override fun inv(inv: CVLInvariant): CollectingResult<CVLInvariant, CVLError> {
-        return checker.withConfig(CheckSatisfyUsage.Config.Disallowed("invariants", inv.cvlRange)) {
+        return checker.withConfig(CheckSatisfyUsage.Config.Disallowed("invariants", inv.range)) {
             super.inv(inv)
         }
     }
 
     override fun ghost(ghost: CVLGhostDeclaration): CollectingResult<CVLGhostDeclaration, CVLError> {
-        return checker.withConfig(CheckSatisfyUsage.Config.Disallowed("ghosts", ghost.cvlRange)) {
+        return checker.withConfig(CheckSatisfyUsage.Config.Disallowed("ghosts", ghost.range)) {
             super.ghost(ghost)
         }
     }
@@ -248,7 +250,7 @@ class SatisfyInRuleChecker : CVLAstTransformer<CVLError> {
 
     override fun importedMethod(importedMethod: ConcreteMethodBlockAnnotation): CollectingResult<ConcreteMethodBlockAnnotation, CVLError> {
         // Let the exp transformer catch bad summarizations
-        return checker.withConfig(CheckSatisfyUsage.Config.Disallowed("summaries", importedMethod.cvlRange)) {
+        return checker.withConfig(CheckSatisfyUsage.Config.Disallowed("summaries", importedMethod.range)) {
             super.importedMethod(importedMethod)
         }
     }

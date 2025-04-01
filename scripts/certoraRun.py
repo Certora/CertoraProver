@@ -29,6 +29,7 @@ from Shared import certoraUtils as Util
 from CertoraProver.certoraCloudIO import CloudVerification, validate_version_and_branch
 
 from CertoraProver.certoraCollectRunMetadata import collect_run_metadata
+from CertoraProver.certoraCollectConfigurationLayout import collect_configuration_layout
 from Shared.certoraLogging import LoggingManager
 from CertoraProver.certoraBuild import build
 from CertoraProver.certoraBuildRust import build_rust_app
@@ -119,6 +120,12 @@ def run_certora(args: List[str], attrs_class: Optional[Type[AttrUtil.Attributes]
         raise Util.TestResultsReady(metadata)
     metadata.dump()
 
+    configuration_layout = collect_configuration_layout()
+
+    if context.test == str(Util.TestValue.CHECK_CONFIG_LAYOUT):
+        raise Util.TestResultsReady(configuration_layout)
+    configuration_layout.dump()
+
     if Attrs.is_evm_app() and context.split_rules:
         context.build_only = True
         build(context)
@@ -181,7 +188,7 @@ def run_certora(args: List[str], attrs_class: Optional[Type[AttrUtil.Attributes]
 
             timings["buildTime"] = round(build_end - build_start, 4)
             if context.test == str(Util.TestValue.AFTER_BUILD):
-                raise Util.TestResultsReady(None)
+                raise Util.TestResultsReady(True)
 
         if not context.build_only and exit_code == 0:
             # either we skipped building (TAC MODE) or build succeeded

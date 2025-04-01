@@ -300,15 +300,17 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
             val succs = g[b].orEmpty()
             when (succs.size) {
                 0 -> {
-                    val lastAssert =
-                        origG.blockCmdsBackwardSeq(b).firstOrNull { (ptr, cmd) ->
-                            (replacements[ptr] ?: listOf(cmd)).any { isNonTrivialAssert(it) }
-                        } ?: error("No assert in leaf block $b, so why is it not erased?")
-                    val (block, eraseFrom) = lastAssert.ptr + 1
-                    graph.lcmdSequence(block, low = eraseFrom).forEach {
-                        delete(it.ptr)
+                    if (code.coiOptimizations) {
+                        val lastAssert =
+                            origG.blockCmdsBackwardSeq(b).firstOrNull { (ptr, cmd) ->
+                                (replacements[ptr] ?: listOf(cmd)).any { isNonTrivialAssert(it) }
+                            } ?: error("No assert in leaf block $b, so why is it not erased?")
+                        val (block, eraseFrom) = lastAssert.ptr + 1
+                        graph.lcmdSequence(block, low = eraseFrom).forEach {
+                            delete(it.ptr)
+                        }
+                        setSuccs(block, treapSetOf())
                     }
-                    setSuccs(block, treapSetOf())
                 }
 
                 1 -> if (origG.succ(b).size == 2) {

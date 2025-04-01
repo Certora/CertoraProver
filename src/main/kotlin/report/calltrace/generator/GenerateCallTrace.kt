@@ -24,7 +24,7 @@ import report.calltrace.CallTrace
 import report.calltrace.formatter.CallTraceValueFormatter
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
-import spec.cvlast.IRule
+import spec.rules.IRule
 import vc.data.CoreTACProgram
 
 /**

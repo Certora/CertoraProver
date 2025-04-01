@@ -9,7 +9,7 @@
             "topOfStackValue": 0,
             "freshCopy": 0
         },
-        "pos": 61
+        "pos": 64
     },
     "cmd": {
         "type": "vc.data.TACCmd.Simple.AnnotationCmd",
@@ -22,7 +22,7 @@
             "value": {
                 "type": "vc.data.SnippetCmd.CVLSnippetCmd.AssertCast",
                 "cvlExpOutSym": {
-                    "namePrefix": "I10",
+                    "namePrefix": "I14",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -30,14 +30,14 @@
                 },
                 "assertCond": {
                     "type": "vc.data.TACSymbol.Var.Full",
-                    "namePrefix": "B11",
+                    "namePrefix": "B15",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
                     "callIndex": 0
                 },
                 "range": {
-                    "type": "spec.cvlast.CVLRange.Range",
+                    "type": "utils.Range.Range",
                     "specFile": "Cast.spec",
                     "start": {
                         "line": 19,
@@ -54,11 +54,11 @@
             {
                 "key": {
                     "name": "cvl.range",
-                    "type": "spec.cvlast.CVLRange",
+                    "type": "utils.Range",
                     "erasureStrategy": "CallTrace"
                 },
                 "value": {
-                    "type": "spec.cvlast.CVLRange.Range",
+                    "type": "utils.Range.Range",
                     "specFile": "Cast.spec",
                     "start": {
                         "line": 19,

@@ -92,6 +92,8 @@ sealed class Stride {
      * @property v the range of values of this term
      */
     data class SymValue(val x: TACSymbol.Var?, val v: IntValue) {
+        constructor(v: IntValue): this(null, v)
+
         fun joinOp(f: SymValue, widen: Boolean): SymValue =
                 SymValue(
                         x = x.takeIf { x == f.x },

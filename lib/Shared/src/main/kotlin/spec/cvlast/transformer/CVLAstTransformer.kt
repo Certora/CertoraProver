@@ -18,6 +18,7 @@
 package spec.cvlast.transformer
 
 import spec.cvlast.*
+import spec.rules.*
 import utils.CollectingResult
 import utils.CollectingResult.Companion.bind
 import utils.CollectingResult.Companion.bindMany
@@ -106,7 +107,7 @@ open class CVLAstTransformer<E>(
     }
 
     @Suppress("NAME_SHADOWING")
-    open fun rule(rule: IRule): CollectingResult<IRule, E> = when (rule) {
+    open fun rule(rule: ICVLRule): CollectingResult<ICVLRule, E> = when (rule) {
         is CVLSingleRule -> rule(rule)
         is GroupRule -> rule.rules.map { rule -> rule(rule) }.flatten().bind { rules ->
             rule.copy(rules = rules).lift()
@@ -115,7 +116,7 @@ open class CVLAstTransformer<E>(
         is StaticRule -> rule.lift()
     }
 
-    open fun rules(rules: List<IRule>) = rules.map(::rule).flatten()
+    open fun rules(rules: List<ICVLRule>) = rules.map(::rule).flatten()
 
     open fun param(param: CVLParam): CollectingResult<CVLParam, E> = param.lift()
 

@@ -30,7 +30,7 @@ import report.LiveStatsReporter
 import rules.IsFromCache.*
 import scene.SceneIdentifiers
 import solver.SolverResult
-import spec.cvlast.CVLSingleRule
+import spec.rules.CVLSingleRule
 import statistics.IStatsJson
 import statistics.IStatsJson.Companion.collect
 import statistics.IStatsJson.Companion.totalMs
@@ -87,7 +87,7 @@ class CachingCompiledRule(
     )
 
     @Suppress("SuspendFunSwallowedCancellation") // mapCheckResult deals with CancellationException
-    override suspend fun check(scene: SceneIdentifiers): CompileRuleCheckResult {
+    override suspend fun check(scene: SceneIdentifiers, nonLocalOptimizationsOnly: Boolean): CompileRuleCheckResult {
         val checkResult = runCatching(::getCachedResult).transpose()?.mapCatching { response ->
             logger.info { "Compiled rule ${rule.declarationId}, digest: $digest response was cache" }
             dumpPreOptimize()
@@ -95,7 +95,10 @@ class CachingCompiledRule(
                 nonCanonicalTable.patch(response.simpleSimpleSSATAC).also(::dumpPostOptimized)
             ResultAndTime(response.replaceTAC(simpleSimpleSSATAC), VerifyTime.None)
             // FIXME: isOptimizedRuleFromCache should probably not be a HIT here. Change this after [CERT-2896] lands
-        }?.mapCheckResult(isOptimizedRuleFromCache = if(existsCachedTAC()) { IsFromCache.HIT } else { IsFromCache.MISS }, isSolverResultFromCache = IsFromCache.HIT) ?: super.check(scene)
+        }?.mapCheckResult(
+            isOptimizedRuleFromCache = if(existsCachedTAC()) { IsFromCache.HIT } else { IsFromCache.MISS },
+            isSolverResultFromCache = IsFromCache.HIT
+        ) ?: super.check(scene, nonLocalOptimizationsOnly)
 
         stats.totalMs().defaults().collect()
 
@@ -106,11 +109,19 @@ class CachingCompiledRule(
         scene: SceneIdentifiers,
         tacToCheck: CoreTACProgram,
     ): CoreTACProgram {
-        // the non-canonical values are translated from
         return getCachedTAC()?.let {
-            logger.info { "Compiled rule ${rule.declarationId}, digest: $digest optimized-rule was cache" }
+            logger.info { "Compiled rule ${rule.declarationId}, digest: $digest optimized-rule was cached" }
             nonCanonicalTable.patch(it)
         } ?: super.optimize(scene, tacToCheck).also { putTAC(it) }
+    }
+
+    override suspend fun optimizeNonLocal(
+        tacToCheck: CoreTACProgram,
+    ): CoreTACProgram {
+        return getCachedTAC()?.let {
+            logger.info { "Compiled rule ${rule.declarationId}, digest: $digest optimized-rule was cached" }
+            nonCanonicalTable.patch(it)
+        } ?: super.optimizeNonLocal(tacToCheck).also { putTAC(it) }
     }
 
     override suspend fun verify(

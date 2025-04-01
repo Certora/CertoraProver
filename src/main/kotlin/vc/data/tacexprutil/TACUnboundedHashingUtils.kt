@@ -36,6 +36,7 @@ import vc.data.TACCmd.Simple.*
 import vc.data.TACExpr.SimpleHash
 import java.math.BigInteger
 import tac.MetaMap
+import vc.data.TACMeta.HASHING_BOUND_LENGTH
 
 object TACUnboundedHashingUtils {
     private val configLengthBound = Config.PreciseHashingLengthBound.get()
@@ -267,10 +268,7 @@ object TACUnboundedHashingUtils {
             LabelCmd("found ${leadingConstants.size} leading constants in unbounded hash; adding them to the length bound")
         }
 
-        val lengthE = (lengthExpr as? TACExpr.Sym.Var)?.s?.let { it ->
-            val meta = it.meta.plus(MetaMap(TACMeta.HASHING_BOUND_LENGTH))
-            it.withMeta(meta)
-        }?.asSym() ?: lengthExpr
+        val lengthE = lengthExpr.asVarOrNull?.withMeta(HASHING_BOUND_LENGTH)?.asSym() ?: lengthExpr
         val hashBoundExp = (txf { lengthE le lengthBoundInBytesWithLeadingConstants.asTACExpr })
         val assertOrAssumeCmd =
             if (Config.OptimisticUnboundedHashing.get()) {

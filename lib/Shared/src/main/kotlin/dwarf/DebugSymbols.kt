@@ -28,7 +28,7 @@ import log.*
 import report.CVTAlertReporter
 import report.CVTAlertSeverity
 import report.CVTAlertType
-import spec.cvlast.CVLRange
+import utils.Range
 import utils.*
 import java.io.File
 
@@ -149,17 +149,17 @@ data class LineNumberInfo(
     val address: Long? = null, val file_path: String? = null, val col: Long? = null, val line: Long? = null
 ) {
     /**
-     * This function returns a [CVLRange.Range] indicating which file and line:col information
+     * This function returns a [Range.Range] indicating which file and line:col information
      * this [DWARFTreeNode] belongs to.
      *
      * Note: It's rarely possible to resolve more than the original line number from the debug information.
      * I.e. we cannot restore column information. As a fallback this method currently highlights
      * the first three characters of the line.
      */
-    fun getRange(): CVLRange {
+    fun getRange(): Range {
         // Therefore, we require that the line number is strictly positive.
         if (file_path == null || line == null) {
-            return CVLRange.Empty("No file information provided in the debug information")
+            return Range.Empty("No file information provided in the debug information")
         }
 
         // We must substract -1 from the line number as the DWARF debug information is 1-based, but we use 0-based source positions.
@@ -168,7 +168,7 @@ data class LineNumberInfo(
         } else {
             col - 1
         }
-        return CVLRange.Range(
+        return Range.Range(
             file_path,
             SourcePosition((line - 1).toUInt(), col.toUInt()),
             SourcePosition((line - 1).toUInt(), (col + 3).toUInt())
@@ -288,14 +288,14 @@ data class DWARFTreeNode(
     }
 
     /**
-     * This function returns a [CVLRange.Range] indicating which file and line:col information
+     * This function returns a [Range.Range] indicating which file and line:col information
      * this [DWARFTreeNode] belongs to.
      *
      * Note: It's rarely possible to resolve more than the original line number from the debug information.
      * I.e. we cannot restore column information. As a fallback this method currently highlights
      * the first three characters of the line.
      */
-    fun getRange(): CVLRange.Range? {
+    fun getRange(): Range.Range? {
         if (decl_file == null && call_file == null) {
             return null
         }
@@ -303,7 +303,7 @@ data class DWARFTreeNode(
         val file = decl_file.takeIf { it != null } ?: call_file!!
         val line = decl_line.takeIf { it != null } ?: call_line
         return line?.let { l ->
-            CVLRange.Range(
+            Range.Range(
                 file, SourcePosition((l - 1).toUInt(), (0).toUInt()), SourcePosition((l - 1).toUInt(), (3).toUInt())
             )
         }

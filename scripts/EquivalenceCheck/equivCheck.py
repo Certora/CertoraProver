@@ -43,6 +43,7 @@ TMP_SANITY_CONF = Path("tmp.conf")
 VERIFY = "verify"
 SOLC = "solc"
 SOLC_MAP = "solc_map"
+COMPILER_MAP = "compiler_map"
 FILES = "files"
 FUNCTIONS = "functions"
 CONTRACTS = "contracts"
@@ -55,7 +56,7 @@ class EquivalenceChecker:
     def __init__(self) -> None:
         self.funcs: List[List[FunctionSig]] = []
         self.conf_path: Optional[Path] = None
-        self.solc_map: Optional[Path] = None
+        self.compiler_map: Optional[Path] = None
         self.solcs: List[str] = []
         self.files: List[Path] = []
         self.is_multicontract = False
@@ -191,8 +192,8 @@ class EquivalenceChecker:
                 sys.exit(1)
             if SOLC in contents:
                 self.solcs = [contents[SOLC], contents[SOLC]]
-            elif SOLC_MAP in contents:
-                self.solc_map = contents[SOLC_MAP]
+            elif SOLC_MAP in contents or COMPILER_MAP in contents:
+                self.compiler_map = contents[SOLC_MAP] or contents[COMPILER_MAP]
             else:
                 print("INPUT ERROR: conf file must contain either a solc or solc map")
                 sys.exit(1)
@@ -323,7 +324,7 @@ class EquivalenceChecker:
                 if self.solcs[0] == self.solcs[1]:
                     contents[SOLC] = self.solcs[0]
                 else:
-                    contents[SOLC_MAP] = {self.contracts[0]: self.solcs[0], self.contracts[1]: self.solcs[1]}
+                    contents[COMPILER_MAP] = {self.contracts[0]: self.solcs[0], self.contracts[1]: self.solcs[1]}
                 contents['msg'] = f'EquivalenceCheck of {self.functions[0]} and {self.functions[1]}'
         contents[VERIFY] = f'{self.contracts[0]}:{spec}'
         contents[OPTIMISTIC_FALLBACK_SETTING] = True

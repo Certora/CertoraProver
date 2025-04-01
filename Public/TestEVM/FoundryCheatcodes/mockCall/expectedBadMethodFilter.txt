@@ -1,0 +1,1 @@
+Error in spec file (C.spec:8:1): After filtering to methods specified by `--method` [nonTestFunction()], no fuzz test methods were left.

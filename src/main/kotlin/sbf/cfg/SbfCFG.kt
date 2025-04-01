@@ -136,17 +136,8 @@ class MutableSbfBasicBlock(private val label: Label): SbfBasicBlock {
         insts[i] = newInst
     }
 
-    fun replaceInstruction(oldInst: LocatedSbfInstruction, newInst: SbfInstruction) {
-        for (i in 0 until insts.size) {
-            if (oldInst.pos == i) {
-                insts[i] = newInst
-                return
-            }
-        }
-        check(false) {
-            "replaceInstruction called on instruction not present in basic block"
-        }
-    }
+    fun replaceInstruction(oldInst: LocatedSbfInstruction, newInst: SbfInstruction) =
+        replaceInstruction(oldInst.pos, newInst)
 
     /** Replace each located instruction in `remap` with a sequence of consecutive instructions **/
     fun replaceInstructions(remap: Map<LocatedSbfInstruction, List<SbfInstruction>>) {
@@ -725,7 +716,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
         }
     }
 
-    private fun removeUnreachableBlocks() {
+    fun removeUnreachableBlocks() {
         class ReachableBlocksVisitor(val reachable: MutableSet<Label>): DfsVisitAction {
             override fun applyBeforeChildren(b: SbfBasicBlock)
             { reachable.add(b.getLabel()) }
@@ -748,7 +739,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
     }
 
     // DCE is pretty simple here. We just look for abort-like calls and remove code after.
-    private fun deadCodeElimination() {
+    fun deadCodeElimination() {
         class MarkFailureBlocks(val failureBlocks: MutableSet<Label>): DfsVisitAction {
             override fun applyBeforeChildren(b: SbfBasicBlock) {
                 if (b.getInstructions().any { inst -> inst.isAbort()}) {

@@ -37,6 +37,9 @@ import java.util.stream.Collectors
 import rules.*
 import spec.cvlast.*
 import spec.genericrulegenerators.HasDelegateCalls
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
+import spec.rules.SingleRuleGenerationMeta
 
 
 private val logger = Logger(LoggerTypes.COMMON)
@@ -135,7 +138,7 @@ sealed class BuiltInRuleCustomChecker<G : BuiltInRuleGenerator> {
                     Triple(newRule, currCode, methodName)
                 }
                 val results = rulesCodesAndMethodNames.map { (newRule, currCode, methodName) ->
-                    ruleChecker.reporter.signalStart(newRule, rule)
+                    ruleChecker.reporter.signalStart(newRule)
                     ruleChecker.treeViewReporter.registerSubruleOf(newRule, rule)
                     ruleChecker.treeViewReporter.signalStart(newRule)
                     StatusReporter.registerSubrule(newRule)

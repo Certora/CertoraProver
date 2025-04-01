@@ -424,9 +424,9 @@
                                                 "truncatable": true
                                             },
                                             {
-                                                "value": "false",
+                                                "value": "true",
                                                 "values": [
-                                                    "false"
+                                                    "true"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": false
@@ -453,6 +453,135 @@
                                 {
                                     "message": {
                                         "text": "m['{0}'].s2.x: '{1}'",
+                                        "arguments": [
+                                            {
+                                                "value": "0x0",
+                                                "values": [
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
+                                                ],
+                                                "tooltip": "key",
+                                                "truncatable": true
+                                            },
+                                            {
+                                                "value": "0x6",
+                                                "values": [
+                                                    "0x6",
+                                                    "6",
+                                                    "0x6"
+                                                ],
+                                                "tooltip": "storage value",
+                                                "truncatable": true
+                                            }
+                                        ]
+                                    },
+                                    "status": "HAVOC",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": {
+                                        "file": "TestContract.sol",
+                                        "start": {
+                                            "line": 27,
+                                            "col": 9
+                                        },
+                                        "end": {
+                                            "line": 27,
+                                            "col": 31
+                                        }
+                                    },
+                                    "changedSincePreviousPrint": false,
+                                    "changedSinceStart": false
+                                },
+                                {
+                                    "message": {
+                                        "text": "m['{0}'].s2.x2: '{1}'",
+                                        "arguments": [
+                                            {
+                                                "value": "0x0",
+                                                "values": [
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
+                                                ],
+                                                "tooltip": "key",
+                                                "truncatable": true
+                                            },
+                                            {
+                                                "value": "0x7",
+                                                "values": [
+                                                    "0x7",
+                                                    "7",
+                                                    "0x7"
+                                                ],
+                                                "tooltip": "storage value",
+                                                "truncatable": true
+                                            }
+                                        ]
+                                    },
+                                    "status": "HAVOC",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": {
+                                        "file": "TestContract.sol",
+                                        "start": {
+                                            "line": 27,
+                                            "col": 9
+                                        },
+                                        "end": {
+                                            "line": 27,
+                                            "col": 31
+                                        }
+                                    },
+                                    "changedSincePreviousPrint": false,
+                                    "changedSinceStart": false
+                                },
+                                {
+                                    "message": {
+                                        "text": "m['{0}'].s2.y: '{1}'",
+                                        "arguments": [
+                                            {
+                                                "value": "0x0",
+                                                "values": [
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
+                                                ],
+                                                "tooltip": "key",
+                                                "truncatable": true
+                                            },
+                                            {
+                                                "value": "0x938c",
+                                                "values": [
+                                                    "0x938c",
+                                                    "0x938c",
+                                                    "0x938c"
+                                                ],
+                                                "tooltip": "storage value",
+                                                "truncatable": true
+                                            }
+                                        ]
+                                    },
+                                    "status": "HAVOC",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": {
+                                        "file": "TestContract.sol",
+                                        "start": {
+                                            "line": 27,
+                                            "col": 9
+                                        },
+                                        "end": {
+                                            "line": 27,
+                                            "col": 31
+                                        }
+                                    },
+                                    "changedSincePreviousPrint": false,
+                                    "changedSinceStart": false
+                                },
+                                {
+                                    "message": {
+                                        "text": "m['{0}'].s2.z1: '{1}'",
                                         "arguments": [
                                             {
                                                 "value": "0x0",
@@ -495,93 +624,7 @@
                                 },
                                 {
                                     "message": {
-                                        "text": "m['{0}'].s2.x2: '{1}'",
-                                        "arguments": [
-                                            {
-                                                "value": "0x0",
-                                                "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
-                                                ],
-                                                "tooltip": "key",
-                                                "truncatable": true
-                                            },
-                                            {
-                                                "value": "0xa",
-                                                "values": [
-                                                    "0xa",
-                                                    "10",
-                                                    "0xa"
-                                                ],
-                                                "tooltip": "storage value",
-                                                "truncatable": true
-                                            }
-                                        ]
-                                    },
-                                    "status": "HAVOC",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": {
-                                        "file": "TestContract.sol",
-                                        "start": {
-                                            "line": 27,
-                                            "col": 9
-                                        },
-                                        "end": {
-                                            "line": 27,
-                                            "col": 31
-                                        }
-                                    },
-                                    "changedSincePreviousPrint": false,
-                                    "changedSinceStart": false
-                                },
-                                {
-                                    "message": {
-                                        "text": "m['{0}'].s2.y: '{1}'",
-                                        "arguments": [
-                                            {
-                                                "value": "0x0",
-                                                "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
-                                                ],
-                                                "tooltip": "key",
-                                                "truncatable": true
-                                            },
-                                            {
-                                                "value": "0x8200",
-                                                "values": [
-                                                    "0x8200",
-                                                    "0x8200",
-                                                    "0x8200"
-                                                ],
-                                                "tooltip": "storage value",
-                                                "truncatable": true
-                                            }
-                                        ]
-                                    },
-                                    "status": "HAVOC",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": {
-                                        "file": "TestContract.sol",
-                                        "start": {
-                                            "line": 27,
-                                            "col": 9
-                                        },
-                                        "end": {
-                                            "line": 27,
-                                            "col": 31
-                                        }
-                                    },
-                                    "changedSincePreviousPrint": false,
-                                    "changedSinceStart": false
-                                },
-                                {
-                                    "message": {
-                                        "text": "m['{0}'].s2.z1: '{1}'",
+                                        "text": "m['{0}'].s2.z2: '{1}'",
                                         "arguments": [
                                             {
                                                 "value": "0x0",
@@ -599,49 +642,6 @@
                                                     "0xd",
                                                     "13",
                                                     "0xd"
-                                                ],
-                                                "tooltip": "storage value",
-                                                "truncatable": true
-                                            }
-                                        ]
-                                    },
-                                    "status": "HAVOC",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": {
-                                        "file": "TestContract.sol",
-                                        "start": {
-                                            "line": 27,
-                                            "col": 9
-                                        },
-                                        "end": {
-                                            "line": 27,
-                                            "col": 31
-                                        }
-                                    },
-                                    "changedSincePreviousPrint": false,
-                                    "changedSinceStart": false
-                                },
-                                {
-                                    "message": {
-                                        "text": "m['{0}'].s2.z2: '{1}'",
-                                        "arguments": [
-                                            {
-                                                "value": "0x0",
-                                                "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
-                                                ],
-                                                "tooltip": "key",
-                                                "truncatable": true
-                                            },
-                                            {
-                                                "value": "0x7",
-                                                "values": [
-                                                    "0x7",
-                                                    "7",
-                                                    "0x7"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -683,7 +683,7 @@
                     "childrenList": [
                         {
                             "message": {
-                                "text": "0xc100.balance: '{0}'",
+                                "text": "0x5d52.balance: '{0}'",
                                 "arguments": [
                                     {
                                         "value": "2^255",
@@ -733,6 +733,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -742,17 +753,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -1002,11 +1002,11 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0xc100",
+                                        "value": "0x5d52",
                                         "values": [
-                                            "0xc100",
-                                            "0xc100",
-                                            "0xc100"
+                                            "0x5d52",
+                                            "0x5d52",
+                                            "0x5d52"
                                         ],
                                         "tooltip": "address of sender",
                                         "truncatable": true
@@ -1016,10 +1016,10 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x4300"
+                                            "0xa"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",
@@ -1131,10 +1131,10 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x4300"
+                                            "0xa"
                                         ],
                                         "tooltip": "address",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "2^255",
@@ -1493,11 +1493,11 @@
                                         "truncatable": true
                                     },
                                     {
-                                        "value": "0x5",
+                                        "value": "0x6",
                                         "values": [
-                                            "0x5",
-                                            "5",
-                                            "0x5"
+                                            "0x6",
+                                            "6",
+                                            "0x6"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": true
@@ -1534,11 +1534,11 @@
                                         "truncatable": true
                                     },
                                     {
-                                        "value": "0x8200",
+                                        "value": "0x938c",
                                         "values": [
-                                            "0x8200",
-                                            "0x8200",
-                                            "0x8200"
+                                            "0x938c",
+                                            "0x938c",
+                                            "0x938c"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": true
@@ -1575,11 +1575,11 @@
                                         "truncatable": true
                                     },
                                     {
-                                        "value": "0xd",
+                                        "value": "0x5",
                                         "values": [
-                                            "0xd",
-                                            "13",
-                                            "0xd"
+                                            "0x5",
+                                            "5",
+                                            "0x5"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": true
@@ -1616,11 +1616,11 @@
                                         "truncatable": true
                                     },
                                     {
-                                        "value": "0x7",
+                                        "value": "0xd",
                                         "values": [
-                                            "0x7",
-                                            "7",
-                                            "0x7"
+                                            "0xd",
+                                            "13",
+                                            "0xd"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": true
@@ -1696,11 +1696,11 @@
                                         "truncatable": true
                                     },
                                     {
-                                        "value": "0xa",
+                                        "value": "0x7",
                                         "values": [
-                                            "0xa",
-                                            "10",
-                                            "0xa"
+                                            "0x7",
+                                            "7",
+                                            "0x7"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": true
@@ -1737,9 +1737,9 @@
                                         "truncatable": true
                                     },
                                     {
-                                        "value": "false",
+                                        "value": "true",
                                         "values": [
-                                            "false"
+                                            "true"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": false
@@ -1809,10 +1809,10 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x4300"
+                                            "0xa"
                                         ],
                                         "tooltip": "address",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "2^255",
@@ -1885,23 +1885,33 @@
                                                 "truncatable": true
                                             },
                                             {
+                                                "value": "0x6",
+                                                "values": [
+                                                    "0x6",
+                                                    "6",
+                                                    "0x6"
+                                                ],
+                                                "tooltip": "value at x",
+                                                "truncatable": true
+                                            },
+                                            {
+                                                "value": "0x938c",
+                                                "values": [
+                                                    "0x938c",
+                                                    "0x938c",
+                                                    "0x938c"
+                                                ],
+                                                "tooltip": "value at y",
+                                                "truncatable": true
+                                            },
+                                            {
                                                 "value": "0x5",
                                                 "values": [
                                                     "0x5",
                                                     "5",
                                                     "0x5"
                                                 ],
-                                                "tooltip": "value at x",
-                                                "truncatable": true
-                                            },
-                                            {
-                                                "value": "0x8200",
-                                                "values": [
-                                                    "0x8200",
-                                                    "0x8200",
-                                                    "0x8200"
-                                                ],
-                                                "tooltip": "value at y",
+                                                "tooltip": "value at z1",
                                                 "truncatable": true
                                             },
                                             {
@@ -1910,16 +1920,6 @@
                                                     "0xd",
                                                     "13",
                                                     "0xd"
-                                                ],
-                                                "tooltip": "value at z1",
-                                                "truncatable": true
-                                            },
-                                            {
-                                                "value": "0x7",
-                                                "values": [
-                                                    "0x7",
-                                                    "7",
-                                                    "0x7"
                                                 ],
                                                 "tooltip": "value at z2",
                                                 "truncatable": true
@@ -1933,19 +1933,19 @@
                                                 "truncatable": false
                                             },
                                             {
-                                                "value": "0xa",
+                                                "value": "0x7",
                                                 "values": [
-                                                    "0xa",
-                                                    "10",
-                                                    "0xa"
+                                                    "0x7",
+                                                    "7",
+                                                    "0x7"
                                                 ],
                                                 "tooltip": "value at x2",
                                                 "truncatable": true
                                             },
                                             {
-                                                "value": "false",
+                                                "value": "true",
                                                 "values": [
-                                                    "false"
+                                                    "true"
                                                 ],
                                                 "tooltip": "value at b2",
                                                 "truncatable": false
@@ -2534,9 +2534,9 @@
                                                         "truncatable": true
                                                     },
                                                     {
-                                                        "value": "false",
+                                                        "value": "true",
                                                         "values": [
-                                                            "false"
+                                                            "true"
                                                         ],
                                                         "tooltip": "storage value",
                                                         "truncatable": false
@@ -2563,6 +2563,135 @@
                                         {
                                             "message": {
                                                 "text": "m['{0}'].s2.x: '{1}'",
+                                                "arguments": [
+                                                    {
+                                                        "value": "0x0",
+                                                        "values": [
+                                                            "0x0",
+                                                            "0",
+                                                            "0x0"
+                                                        ],
+                                                        "tooltip": "key",
+                                                        "truncatable": true
+                                                    },
+                                                    {
+                                                        "value": "0x6",
+                                                        "values": [
+                                                            "0x6",
+                                                            "6",
+                                                            "0x6"
+                                                        ],
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
+                                                    }
+                                                ]
+                                            },
+                                            "status": "HAVOC",
+                                            "childrenList": [
+                                            ],
+                                            "jumpToDefinition": {
+                                                "file": "TestContract.sol",
+                                                "start": {
+                                                    "line": 27,
+                                                    "col": 9
+                                                },
+                                                "end": {
+                                                    "line": 27,
+                                                    "col": 31
+                                                }
+                                            },
+                                            "changedSincePreviousPrint": false,
+                                            "changedSinceStart": false
+                                        },
+                                        {
+                                            "message": {
+                                                "text": "m['{0}'].s2.x2: '{1}'",
+                                                "arguments": [
+                                                    {
+                                                        "value": "0x0",
+                                                        "values": [
+                                                            "0x0",
+                                                            "0",
+                                                            "0x0"
+                                                        ],
+                                                        "tooltip": "key",
+                                                        "truncatable": true
+                                                    },
+                                                    {
+                                                        "value": "0x7",
+                                                        "values": [
+                                                            "0x7",
+                                                            "7",
+                                                            "0x7"
+                                                        ],
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
+                                                    }
+                                                ]
+                                            },
+                                            "status": "HAVOC",
+                                            "childrenList": [
+                                            ],
+                                            "jumpToDefinition": {
+                                                "file": "TestContract.sol",
+                                                "start": {
+                                                    "line": 27,
+                                                    "col": 9
+                                                },
+                                                "end": {
+                                                    "line": 27,
+                                                    "col": 31
+                                                }
+                                            },
+                                            "changedSincePreviousPrint": false,
+                                            "changedSinceStart": false
+                                        },
+                                        {
+                                            "message": {
+                                                "text": "m['{0}'].s2.y: '{1}'",
+                                                "arguments": [
+                                                    {
+                                                        "value": "0x0",
+                                                        "values": [
+                                                            "0x0",
+                                                            "0",
+                                                            "0x0"
+                                                        ],
+                                                        "tooltip": "key",
+                                                        "truncatable": true
+                                                    },
+                                                    {
+                                                        "value": "0x938c",
+                                                        "values": [
+                                                            "0x938c",
+                                                            "0x938c",
+                                                            "0x938c"
+                                                        ],
+                                                        "tooltip": "storage value",
+                                                        "truncatable": true
+                                                    }
+                                                ]
+                                            },
+                                            "status": "HAVOC",
+                                            "childrenList": [
+                                            ],
+                                            "jumpToDefinition": {
+                                                "file": "TestContract.sol",
+                                                "start": {
+                                                    "line": 27,
+                                                    "col": 9
+                                                },
+                                                "end": {
+                                                    "line": 27,
+                                                    "col": 31
+                                                }
+                                            },
+                                            "changedSincePreviousPrint": false,
+                                            "changedSinceStart": false
+                                        },
+                                        {
+                                            "message": {
+                                                "text": "m['{0}'].s2.z1: '{1}'",
                                                 "arguments": [
                                                     {
                                                         "value": "0x0",
@@ -2605,93 +2734,7 @@
                                         },
                                         {
                                             "message": {
-                                                "text": "m['{0}'].s2.x2: '{1}'",
-                                                "arguments": [
-                                                    {
-                                                        "value": "0x0",
-                                                        "values": [
-                                                            "0x0",
-                                                            "0",
-                                                            "0x0"
-                                                        ],
-                                                        "tooltip": "key",
-                                                        "truncatable": true
-                                                    },
-                                                    {
-                                                        "value": "0xa",
-                                                        "values": [
-                                                            "0xa",
-                                                            "10",
-                                                            "0xa"
-                                                        ],
-                                                        "tooltip": "storage value",
-                                                        "truncatable": true
-                                                    }
-                                                ]
-                                            },
-                                            "status": "HAVOC",
-                                            "childrenList": [
-                                            ],
-                                            "jumpToDefinition": {
-                                                "file": "TestContract.sol",
-                                                "start": {
-                                                    "line": 27,
-                                                    "col": 9
-                                                },
-                                                "end": {
-                                                    "line": 27,
-                                                    "col": 31
-                                                }
-                                            },
-                                            "changedSincePreviousPrint": false,
-                                            "changedSinceStart": false
-                                        },
-                                        {
-                                            "message": {
-                                                "text": "m['{0}'].s2.y: '{1}'",
-                                                "arguments": [
-                                                    {
-                                                        "value": "0x0",
-                                                        "values": [
-                                                            "0x0",
-                                                            "0",
-                                                            "0x0"
-                                                        ],
-                                                        "tooltip": "key",
-                                                        "truncatable": true
-                                                    },
-                                                    {
-                                                        "value": "0x8200",
-                                                        "values": [
-                                                            "0x8200",
-                                                            "0x8200",
-                                                            "0x8200"
-                                                        ],
-                                                        "tooltip": "storage value",
-                                                        "truncatable": true
-                                                    }
-                                                ]
-                                            },
-                                            "status": "HAVOC",
-                                            "childrenList": [
-                                            ],
-                                            "jumpToDefinition": {
-                                                "file": "TestContract.sol",
-                                                "start": {
-                                                    "line": 27,
-                                                    "col": 9
-                                                },
-                                                "end": {
-                                                    "line": 27,
-                                                    "col": 31
-                                                }
-                                            },
-                                            "changedSincePreviousPrint": false,
-                                            "changedSinceStart": false
-                                        },
-                                        {
-                                            "message": {
-                                                "text": "m['{0}'].s2.z1: '{1}'",
+                                                "text": "m['{0}'].s2.z2: '{1}'",
                                                 "arguments": [
                                                     {
                                                         "value": "0x0",
@@ -2709,49 +2752,6 @@
                                                             "0xd",
                                                             "13",
                                                             "0xd"
-                                                        ],
-                                                        "tooltip": "storage value",
-                                                        "truncatable": true
-                                                    }
-                                                ]
-                                            },
-                                            "status": "HAVOC",
-                                            "childrenList": [
-                                            ],
-                                            "jumpToDefinition": {
-                                                "file": "TestContract.sol",
-                                                "start": {
-                                                    "line": 27,
-                                                    "col": 9
-                                                },
-                                                "end": {
-                                                    "line": 27,
-                                                    "col": 31
-                                                }
-                                            },
-                                            "changedSincePreviousPrint": false,
-                                            "changedSinceStart": false
-                                        },
-                                        {
-                                            "message": {
-                                                "text": "m['{0}'].s2.z2: '{1}'",
-                                                "arguments": [
-                                                    {
-                                                        "value": "0x0",
-                                                        "values": [
-                                                            "0x0",
-                                                            "0",
-                                                            "0x0"
-                                                        ],
-                                                        "tooltip": "key",
-                                                        "truncatable": true
-                                                    },
-                                                    {
-                                                        "value": "0x7",
-                                                        "values": [
-                                                            "0x7",
-                                                            "7",
-                                                            "0x7"
                                                         ],
                                                         "tooltip": "storage value",
                                                         "truncatable": true
@@ -2793,7 +2793,7 @@
                             "childrenList": [
                                 {
                                     "message": {
-                                        "text": "0xc100.balance: '{0}'",
+                                        "text": "0x5d52.balance: '{0}'",
                                         "arguments": [
                                             {
                                                 "value": "2^255",

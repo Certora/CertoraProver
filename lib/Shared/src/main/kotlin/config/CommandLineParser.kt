@@ -83,7 +83,6 @@ open class DefaultCommandLineParser {
 
     private fun reportCommandLineParsingErrors(msg: String) {
         // Let's make the OutPrinter (that was supposed to be created only later), print the error, and good-bye
-        OutPrinter.init()
         OutPrinter.print(msg)
         OutPrinter.close()
         val alertReporter = CVTAlertReporter()
@@ -226,6 +225,7 @@ open class DefaultCommandLineParser {
     // this should be called just once and early on in the process
     @PollutesGlobalState
     fun processArgsAndConfig(args: Array<String>) {
+        OutPrinter.init()
         val cmdLineArgs = getCommandLineArgs(args)
         basicChecksSkippedByApache(cmdLineArgs, args)
         if (cmdLineArgs.args.size == 1) {

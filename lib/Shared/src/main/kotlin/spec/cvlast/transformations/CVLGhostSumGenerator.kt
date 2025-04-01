@@ -54,7 +54,7 @@ object CVLGhostSumGenerator {
 
         sumGhosts.groupBy { it.origGhost.id }.forEachEntry { (origGhostName, sumGhosts) ->
             if (!sumGhosts.allSame { it.isUnsigned }) {
-                collectError(SumSignedAndUnsignedNotSupported(origGhostName, sumGhosts.first().origGhost.cvlRange))
+                collectError(SumSignedAndUnsignedNotSupported(origGhostName, sumGhosts.first().origGhost.range))
             }
         }
 

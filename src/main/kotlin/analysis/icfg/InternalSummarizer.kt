@@ -261,7 +261,7 @@ object InternalSummarizer {
 
             val convertIns = TACCmd.CVL.VMParamConverter { assignVMParam ->
                 check(assignVMParam.rhsType.context == FromVMContext.InternalSummaryArgBinding) { throw CertoraInternalException(CertoraInternalErrorType.SUMMARY_INLINING,
-                    "Got a VM Value of non-internal summary context in an internal summary context: ${VMParam.Named(assignVMParam.rhsName, assignVMParam.rhsType.descriptor, CVLRange.Empty())}")}
+                    "Got a VM Value of non-internal summary context in an internal summary context: ${VMParam.Named(assignVMParam.rhsName, assignVMParam.rhsType.descriptor, Range.Empty())}")}
                 assignVMParam.rhsType.descriptor.converterTo(assignVMParam.lhsType, FromVMContext.InternalSummaryArgBinding.getVisitor()).force()
                     .convertTo(
                         funParamToInternalArgInput[assignVMParam.rhsName]
@@ -396,7 +396,7 @@ object InternalSummarizer {
     private fun generateAlwaysSummary(summary: SpecCallSummary.Always, rets: List<TACSymbol.Var>, where: CmdPointer, funId: CVL.SummarySignature.Internal) =
         rets.map { ret ->
             val rhs = normalizeBool(TACExprFactTypeCheckedOnlyPrimitives.Sym(Summarizer.alwaysSummaryRhs(summary.exp)), ret.tag)
-            checkReturn(rhs.tagAssumeChecked, ret.tag, funId, summary.cvlRange)
+            checkReturn(rhs.tagAssumeChecked, ret.tag, funId, summary.range)
             TACCmd.Simple.AssigningCmd.AssignExpCmd(ret, rhs)
         }.withDecls(rets).toCode(where.block.getCallId())
 
@@ -725,7 +725,7 @@ object InternalSummarizer {
                     AutosummaryWithDifficulty(
                         SpecCallSummary.HavocSummary.Nondet(
                             SpecCallSummary.SummarizationMode.ALL,
-                            CVLRange.Empty("by auto-summarizer (potentially difficult function, difficulty ${difficulty.computeDifficultyScore()})")
+                            Range.Empty("by auto-summarizer (potentially difficult function, difficulty ${difficulty.computeDifficultyScore()})")
                         ),
                         difficulty
                     )
@@ -778,7 +778,7 @@ object InternalSummarizer {
                     CVTAlertReporter.reportAlert(
                         CVTAlertType.SUMMARIZATION,
                         CVTAlertSeverity.ERROR,
-                        summToApply.cvlRange as? TreeViewLocation,
+                        summToApply.range as? TreeViewLocation,
                         msg,
                         null
                     )
@@ -1337,9 +1337,9 @@ object InternalSummarizer {
         }
     }
 
-    private fun checkReturn(rhsTag: Tag, retTag: Tag, funId: CVL.SummarySignature.Internal, cvlRange: CVLRange) {
+    private fun checkReturn(rhsTag: Tag, retTag: Tag, funId: CVL.SummarySignature.Internal, range: Range) {
         if (!rhsTag.isSubtypeOf(retTag)) {
-            val msg = "$cvlRange: Summary type $rhsTag must be a subtype of function return type " +
+            val msg = "$range: Summary type $rhsTag must be a subtype of function return type " +
                     "(${retTag}) when summarizing ${funId.namedFuncSignature}"
             Logger.alwaysError(msg)
             throw IllegalStateException(msg)

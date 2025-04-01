@@ -26,7 +26,7 @@ import log.*
 import report.*
 import report.dumps.BlockDifficulty
 import spec.CVL
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.SpecCallSummary
 import spec.cvlast.VMParam
 import utils.CertoraErrorType
@@ -89,17 +89,17 @@ private sealed interface Signature {
 private data class SummaryMonitorKey(
     val host: Contract,
     val signature: Signature,
-    val loc: CVLRange,
+    val loc: Range,
     val isExternal: Boolean
 ) {
 
     val locationMsg: String
         get() = when (loc) {
-            is CVLRange.Range -> {
+            is Range.Range -> {
                 "File: ${File(loc.specFile).name} line: ${loc.start.lineForIDE}"
             }
 
-            is CVLRange.Empty -> "unknown location"
+            is Range.Empty -> "unknown location"
         }
 
     val alertMsg: String
@@ -121,7 +121,7 @@ private fun Pair<CVL.SummarySignature, SpecCallSummary.ExpressibleInCVL>.toSumma
         is CVL.ExternalAnyInContract -> SummaryMonitorKey(
             host = Contract.Exact(summSig.hostContract.name),
             signature = Signature.Any,
-            loc = specCallSumm.cvlRange,
+            loc = specCallSumm.range,
             isExternal = true
         )
 
@@ -129,7 +129,7 @@ private fun Pair<CVL.SummarySignature, SpecCallSummary.ExpressibleInCVL>.toSumma
             SummaryMonitorKey(
                 host = Contract.Exact(summSig.signature.qualifiedMethodName.host.name),
                 signature = Signature.NameWithParams(summSig.signature.functionName, summSig.signature.params),
-                loc = specCallSumm.cvlRange,
+                loc = specCallSumm.range,
                 isExternal = true
             )
         }
@@ -138,7 +138,7 @@ private fun Pair<CVL.SummarySignature, SpecCallSummary.ExpressibleInCVL>.toSumma
             SummaryMonitorKey(
                 host = Contract.Any,
                 signature = Signature.NameWithParams(summSig.signature.functionName, summSig.signature.params),
-                loc = specCallSumm.cvlRange,
+                loc = specCallSumm.range,
                 isExternal = true
             )
         }
@@ -147,7 +147,7 @@ private fun Pair<CVL.SummarySignature, SpecCallSummary.ExpressibleInCVL>.toSumma
             SummaryMonitorKey(
                 host = Contract.Exact(summSig.signature.qualifiedMethodName.host.name),
                 signature = Signature.NameWithParams(summSig.signature.functionName, summSig.signature.params),
-                loc = specCallSumm.cvlRange,
+                loc = specCallSumm.range,
                 isExternal = false
             )
         }
@@ -156,7 +156,7 @@ private fun Pair<CVL.SummarySignature, SpecCallSummary.ExpressibleInCVL>.toSumma
             SummaryMonitorKey(
                 host = Contract.Any,
                 signature = Signature.NameWithParams(summSig.signature.functionName, summSig.signature.params),
-                loc = specCallSumm.cvlRange,
+                loc = specCallSumm.range,
                 isExternal = false
             )
         }
@@ -165,7 +165,7 @@ private fun Pair<CVL.SummarySignature, SpecCallSummary.ExpressibleInCVL>.toSumma
             SummaryMonitorKey(
                 host = Contract.Any,
                 signature = Signature.Any,
-                loc = specCallSumm.cvlRange,
+                loc = specCallSumm.range,
                 isExternal = true
             )
     }
@@ -178,7 +178,7 @@ object AutosummarizedMonitor {
         = ConcurrentHashMap<SummaryMonitorKey, Pair<CVL.InternalExact,BlockDifficulty>>()
 
     private fun SummaryMonitorKey.getSummaryMonitorKeyForAutosummarizer() =
-        this.copy(loc = CVLRange.Empty()) // remove the cvl loc as sometimes the same pair can map to slightly different difficulties, leading to double keys
+        this.copy(loc = Range.Empty()) // remove the cvl loc as sometimes the same pair can map to slightly different difficulties, leading to double keys
 
     // xxx is "contains" not safe in concurrent hashmap that we do it like this both here and in SummaryMonitor?
     fun hasAutosummary(appliedSummary: Summarization.AppliedSummary.MethodsBlock) =

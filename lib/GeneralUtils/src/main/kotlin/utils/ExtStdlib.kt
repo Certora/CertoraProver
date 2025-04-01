@@ -1195,3 +1195,17 @@ fun <V: Any> generateSequenceAfter(start : V, succ : (V) -> V?) =
         .orEmpty()
 
 fun <X, Y> Pair<X, Y>.reverse() = second to first
+
+/**
+ * An optimized version of:
+ * ```
+ * zipWithNext().forEach {
+ *    action(it.first, it.second)
+ * }
+ * ```
+ */
+inline fun <T> List<T>.forWithNext(action : (T, T) -> Unit) {
+    for (i in 0 until size - 1) {
+        action(this[i], this[i+1])
+    }
+}

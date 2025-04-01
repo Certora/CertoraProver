@@ -31,7 +31,7 @@ import scene.IContractWithSource
 import scene.IScene
 import solver.SolverResult
 import spec.CVLTestGenerator
-import spec.cvlast.IRule
+import spec.rules.IRule
 import spec.cvlast.SpecType
 import utils.ArtifactFileUtils
 import utils.CertoraErrorType
@@ -185,11 +185,12 @@ object HTMLReporter : OutputReporter {
         ruleType: SpecType?,
         reportType: ReportTypes = ReportTypes.REPORT,
         reportNameIndex: ReportNameIndex = ReportNameIndex.None,
-        withHTMLExtension: Boolean = true
+        withHTMLExtension: Boolean = true,
+        customSuffix: String = ""
     ): String =
         when (ruleType) {
             null -> ""
-            else -> getReportNameByReportType(baseName, reportType, reportNameIndex, withHTMLExtension)
+            else -> getReportNameByReportType(baseName, reportType, reportNameIndex, withHTMLExtension, customSuffix)
         }
 
     fun getReportPath(basename: String, ruleType: SpecType?): String =
@@ -202,13 +203,16 @@ object HTMLReporter : OutputReporter {
         reportType: ReportTypes,
         reportNameIndex: ReportNameIndex = ReportNameIndex.None,
         withHTMLExtension: Boolean = true,
-    ) : String = getReportName(
-        "$parent${OUTPUT_NAME_DELIMITER}$name",
-        ruleType,
-        reportType,
-        reportNameIndex,
-        withHTMLExtension
-    )
+        customSuffix: String = ""
+    ): String =
+        getReportName(
+            "$parent${OUTPUT_NAME_DELIMITER}$name",
+            ruleType,
+            reportType,
+            reportNameIndex,
+            withHTMLExtension,
+            customSuffix
+        )
 
     /** Wraps the different suffixes we use for our reports. Use [toString] to get the suffix for the report name. */
     interface ReportNameIndex {
@@ -232,9 +236,10 @@ object HTMLReporter : OutputReporter {
         baseName: String,
         reportType: ReportTypes,
         reportNameIndex: ReportNameIndex = ReportNameIndex.None,
-        withHTMLExtension: Boolean = true
+        withHTMLExtension: Boolean = true,
+        customSuffix: String = "",
     ): String {
-        return "${reportType.toFilenamePrefix()}$OUTPUT_NAME_DELIMITER${baseName}$reportNameIndex" +
+        return "${reportType.toFilenamePrefix()}$OUTPUT_NAME_DELIMITER${baseName}$reportNameIndex$customSuffix" +
             ".html".takeIf { withHTMLExtension }.orEmpty()
     }
 
@@ -349,7 +354,7 @@ object HTMLReporter : OutputReporter {
     }
 
     private fun isMultiResult(results: RuleCheckResult): Boolean {
-        return results is RuleCheckResult.Multi && results.getAllSingleRules().count { it.ruleType !is SpecType.Single.GeneratedFromBasicRule.VacuityCheck } > 1
+        return results is RuleCheckResult.Multi && results.getAllSingleRules().count { it.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck } > 1
     }
 
     private fun processRuleCheckResultWithSideEffects(results: RuleCheckResult) {
@@ -517,7 +522,7 @@ object HTMLReporter : OutputReporter {
         }
     }
 
-    override fun signalStart(rule: IRule, parentRule: IRule?) {}
+    override fun signalStart(rule: IRule) {}
 
     // This lets us get reliable total number of rules to check
     var expectedNumberOfRules: Int = 0

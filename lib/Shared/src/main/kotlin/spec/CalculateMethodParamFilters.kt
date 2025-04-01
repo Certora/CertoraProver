@@ -29,6 +29,7 @@ import spec.cvlast.typechecker.ContractChoiceNoSuchContract
 import spec.cvlast.typechecker.MethodVariableTooManyContracts
 import spec.cvlast.typechecker.NoValidInstantiationsLeft
 import spec.genericrulegenerators.BuiltInRuleId
+import spec.rules.*
 import utils.CollectingResult
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.flatten
@@ -36,6 +37,7 @@ import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.CollectingResult.Companion.safeForce
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.Range
 import utils.mapValuesNotNull
 import java.math.BigInteger
 
@@ -53,7 +55,7 @@ class CalculateMethodParamFilters(
      * 2. a mapping rule -> methodArgName -> list of filtered-in methods
      *
      */
-    fun calculate(rules: List<IRule>): CollectingResult<Pair<List<IRule>, Map<RuleIdentifier, Map<String, List<Method>>>>, CVLError> = collectingErrors {
+    fun calculate(rules: List<ICVLRule>): CollectingResult<Pair<List<ICVLRule>, Map<RuleIdentifier, Map<String, List<Method>>>>, CVLError> = collectingErrors {
         // Validate the `-contract` config flag which is used by this class
         Config.contractChoice.get()
             .filter { contract -> contract !in contracts.map { it.name }}
@@ -63,7 +65,7 @@ class CalculateMethodParamFilters(
 
         // filter out parametric rules that have no instantiations (e.g. generic preserved rules when there
         // are explicit preserves for all relevant functions). Preserve the rule topology while doing so.
-        fun filterRules(rules: List<IRule>): List<IRule> {
+        fun filterRules(rules: List<ICVLRule>): List<ICVLRule> {
             return rules.mapNotNull { rule ->
                 when (rule) {
                     is GroupRule -> rule.copy(rules = filterRules(rule.rules)).let {
@@ -92,7 +94,7 @@ class CalculateMethodParamFilters(
         return@collectingErrors filterRules(rules) to filters.mapValuesNotNull { it.value }
     }
 
-    private fun calculateRecursive(rules: List<IRule>): CollectingResult<Map<RuleIdentifier, Map<String, List<Method>>?>, CVLError> {
+    private fun calculateRecursive(rules: List<ICVLRule>): CollectingResult<Map<RuleIdentifier, Map<String, List<Method>>?>, CVLError> {
         return rules.map { rule ->
             when (rule) {
                 is GroupRule -> calculateRecursive(rule.rules)
@@ -132,28 +134,28 @@ class CalculateMethodParamFilters(
             }
         }
 
-        val emptyRange = CVLRange.Empty("internal method param filters")
+        val emptyRange = Range.Empty("internal method param filters")
         var allFilters = rule.methodParamFilters
 
         // if the `ignoreViewFunctions` flag is set, then add this filter to all methodParams that don't have an explicit filter
         if (Config.IgnoreViewFunctionsInParametricRules.get()) {
             methodArgs.filter { it.id !in allFilters.methodParamToFilter }.map { methodParam ->
-                val methodParamAsVarExp = CVLExp.VariableExp(methodParam.id, CVLExpTag(allFilters.scope, EVMBuiltinTypes.method, CVLRange.Empty("")))
+                val methodParamAsVarExp = CVLExp.VariableExp(methodParam.id, CVLExpTag(allFilters.scope, EVMBuiltinTypes.method, Range.Empty("")))
                 methodParam.id to MethodParamFilter.ignoreViewMethodsFilter(methodParamAsVarExp, emptyRange, allFilters.scope)
             }.toMap().let { trivialFilters ->
                 val filters = MethodParamFilters(emptyRange, allFilters.scope, trivialFilters)
-                allFilters = MethodParamFilters.conjunct(allFilters.cvlRange, allFilters.scope, allFilters, filters)
+                allFilters = MethodParamFilters.conjunct(allFilters.range, allFilters.scope, allFilters, filters)
             }
         }
 
         // Now add a trivial accept-all filter to all method-params that don't have any filter defined yet.
         // This way the rest of the code can assume that all method parameters exist as keys to the methodParamFilters map.
         methodArgs.filter { it.id !in allFilters.methodParamToFilter }.map { methodParam ->
-            val methodParamAsVarExp = CVLExp.VariableExp(methodParam.id, CVLExpTag(allFilters.scope, EVMBuiltinTypes.method, CVLRange.Empty("")))
+            val methodParamAsVarExp = CVLExp.VariableExp(methodParam.id, CVLExpTag(allFilters.scope, EVMBuiltinTypes.method, Range.Empty("")))
             methodParam.id to MethodParamFilter.acceptAllMethodsFilter(methodParamAsVarExp, emptyRange, allFilters.scope)
         }.toMap().let { trivialFilters ->
             val filters = MethodParamFilters(emptyRange, allFilters.scope, trivialFilters)
-            allFilters = MethodParamFilters.conjunct(allFilters.cvlRange, allFilters.scope, allFilters, filters)
+            allFilters = MethodParamFilters.conjunct(allFilters.range, allFilters.scope, allFilters, filters)
         }
 
         // Finally, construct the mapping of methodParam to the list of functions that pass its filter
@@ -166,7 +168,7 @@ class CalculateMethodParamFilters(
             // Get the set of hostnames used for methodArg. A set larger than a singleton is an error which we catch below.
             val host = getMethodParamHosts(rule, methodArg.id).let { methodParamHosts ->
                 if (methodParamHosts.size > 1) {
-                    return MethodVariableTooManyContracts(rule.cvlRange, rule.declarationId, methodArg.id, methodParamHosts.map { it.name }).asError()
+                    return MethodVariableTooManyContracts(rule.range, rule.declarationId, methodArg.id, methodParamHosts.map { it.name }).asError()
                 } else {
                     methodParamHosts.singleOrNull() ?: AllContracts // can be null if the method is never called :/
                 }
@@ -236,7 +238,7 @@ class CalculateMethodParamFilters(
                                     "skipping this rule"
                             )
                         else ->
-                            collectError(NoValidInstantiationsLeft(rule.cvlRange, methodArg, rule.declarationId))
+                            collectError(NoValidInstantiationsLeft(rule.range, methodArg, rule.declarationId))
                     }
                     null
                 } else {
@@ -354,7 +356,7 @@ class CalculateMethodParamFilters(
 
         val unusedMethodArgs = (methodArgs - usedMethodArgs.toSet()).toSet()
         unusedMethodArgs.forEach { methodArg ->
-            CVLWarningLogger.syntaxWarning("The method parameter ${methodArg.id} is declared but unused. Ignoring...", this.cvlRange)
+            CVLWarningLogger.syntaxWarning("The method parameter ${methodArg.id} is declared but unused. Ignoring...", this.range)
         }
 
         return this.copy(params = this.params - unusedMethodArgs)

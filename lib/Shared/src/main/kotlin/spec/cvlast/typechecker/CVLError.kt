@@ -27,6 +27,7 @@ import spec.cvlast.*
 import utils.DetektDeprecatedClass
 import utils.HasKSerializable
 import utils.KSerializable
+import utils.Range
 
 /**
  * These categories are used to group together errors in the generated list of all error messages.  They are primarily
@@ -108,7 +109,7 @@ annotation class CVLErrorExample(
 @KSerializable
 sealed class CVLError : HasKSerializable {
     /** The source location of the error */
-    abstract val location: CVLRange
+    abstract val location: Range
 
     /** The error text, not including decorations like line numbers */
     abstract val message: String
@@ -117,7 +118,7 @@ sealed class CVLError : HasKSerializable {
     // relies on the `message` not containing the former "error prefix", so [Lhs] and [Exp] need to override it.  Once
     // these deprecated classes are removed, we should remove this as well.
     /** A nicely formatted message */
-    open fun display(): String = "Error in spec file${(location as? CVLRange.Range)?.let { " ($it)" }.orEmpty()}: $message"
+    open fun display(): String = "Error in spec file${(location as? Range.Range)?.let { " ($it)" }.orEmpty()}: $message"
 
     // STUFF I'D LIKE TO REFACTOR //////////////////////////////////////////////////////////////////////////////////////
     // These things might be good to change if/when we clean up and nicely format our CLI output
@@ -152,25 +153,25 @@ sealed class CVLError : HasKSerializable {
     /** Catch-all category for CVL errors that don't have more information supplied */
     @DetektDeprecatedClass("Make a specific subclass of CVLError instead")
     @KSerializable
-    class General(val cvlRange: CVLRange, override val message: String) : CVLError() {
-        override val location = cvlRange
+    class General(val range: Range, override val message: String) : CVLError() {
+        override val location = range
     }
 
     /** Catch-all error for left-hand side type checking. */
     @DetektDeprecatedClass("Make a specific subclass of CVLError instead")
     @KSerializable
-    class Lhs private constructor(override val location: CVLRange, override val message: String, val lhs: CVLLhs) : CVLError() {
-        constructor(lhs: CVLLhs, message: String) : this(lhs.tag.cvlRange, message, lhs)
+    class Lhs private constructor(override val location: Range, override val message: String, val lhs: CVLLhs) : CVLError() {
+        constructor(lhs: CVLLhs, message: String) : this(lhs.tag.range, message, lhs)
 
-        override fun display() = "Error in spec file${(location as? CVLRange.Range)?.let { " ($it)" }.orEmpty()}: could not type expression \"$lhs\", message: $message"
+        override fun display() = "Error in spec file${(location as? Range.Range)?.let { " ($it)" }.orEmpty()}: could not type expression \"$lhs\", message: $message"
     }
 
     /** Catch-all error for expression type-checking. */
     @DetektDeprecatedClass("Make a specific subclass of CVLError instead")
     @KSerializable
-    class Exp private constructor(override val location: CVLRange, override val message: String, val exp: CVLExp) : CVLError() {
-        constructor(exp: CVLExp, message: String) : this(exp.tag.cvlRange, message, exp)
+    class Exp private constructor(override val location: Range, override val message: String, val exp: CVLExp) : CVLError() {
+        constructor(exp: CVLExp, message: String) : this(exp.tag.range, message, exp)
 
-        override fun display() = "Error in spec file${(location as? CVLRange.Range)?.let { " ($it)" }.orEmpty()}: could not type expression \"$exp\", message: $message"
+        override fun display() = "Error in spec file${(location as? Range.Range)?.let { " ($it)" }.orEmpty()}: could not type expression \"$exp\", message: $message"
     }
 }

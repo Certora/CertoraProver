@@ -52,7 +52,7 @@ class DefinitionsInliner(val symbolTable: CVLSymbolTable) : CVLAstTransformer<No
                 // substitute old/new's
                 val substitutions = definition.params.map { it.id }.zip(exp.args).toMap()
                 return SubstitutorExp(substitutions).expr(definition.body).bind { body ->
-                    super.expr(body.updateTag(body.tag.copy(cvlRange = exp.getRangeOrEmpty())))
+                    super.expr(body.updateTag(body.tag.copy(range = exp.getRangeOrEmpty())))
                 }
             }
         }

@@ -22,7 +22,7 @@ import kotlinx.coroutines.*
 import log.Logger
 import log.LoggerTypes
 import scene.ISceneIdentifiers
-import spec.cvlast.IRule
+import spec.rules.IRule
 import spec.cvlast.SpecType
 import vc.FullProgramReachabilityResult
 import vc.ReachabilityFailureSourceFinder
@@ -37,7 +37,7 @@ private val logger = Logger(LoggerTypes.COMMON)
  */
 object FindReachabilityFailureSource {
     fun shouldCheck(rule: IRule): Boolean =
-        rule.ruleType is SpecType.Single.GeneratedFromBasicRule.VacuityCheck && Config.FindReachabilityFailurePoint.get()
+        rule.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck && Config.FindReachabilityFailurePoint.get()
 
     private suspend fun find(tacProgram: CoreTACProgram, scene: ISceneIdentifiers) =
         ReachabilityFailureSourceFinder(

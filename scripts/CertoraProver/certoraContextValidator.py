@@ -19,8 +19,9 @@ import re
 import sys
 import itertools
 import tempfile
+import fnmatch
 from pathlib import Path
-from typing import Dict, List, Tuple, Set, Any, Union
+from typing import Dict, List, Tuple, Set, Any, Union, Optional
 
 import CertoraProver.certoraContext as Ctx
 import CertoraProver.certoraContextAttributes as Attrs
@@ -154,15 +155,14 @@ class CertoraContextValidator:
         check_files_input(context.files)
         check_vyper_flag(context)
         check_via_ir_attr(context)
-        check_compiler_map_flag(context)
         check_contract_name_arg_inputs(context)  # Here context.contracts is set
         Util.check_packages_arguments(context)
+        convert_to_compiler_map(context)
         if Attrs.is_evm_app():
-            if context.solc_map is None and context.bytecode_jsons is None:  # xxx - we would need to reiterate here
+            if context.compiler_map is None and context.bytecode_jsons is None:  # xxx - we would need to reiterate here
                 # once we allow combining raw bytecode with Solidity
                 context.solc = Vf.is_solc_file_valid(context.solc)
             check_map_attributes(context)
-
         check_parametric_contracts(context)
         check_optional_jar_flags_consistency(context)
         check_autofinder_settings(context)
@@ -310,6 +310,35 @@ def warn_validate_file_args(files: List[str]) -> Tuple[Set[str], Set[str], Dict[
 def check_via_ir_attr(context: CertoraContext) -> None:
     context.solc_via_ir = bool(context.solc_via_ir or context.solc_experimental_via_ir)
 
+
+def convert_to_compiler_map(context: CertoraContext) -> None:
+
+    # the compiler flags
+    compiler_map_flags_keys = [Attrs.EvmProverAttributes.SOLC_MAP.get_conf_key(),
+                               Attrs.EvmProverAttributes.COMPILER_MAP.get_conf_key()]
+    compiler_flags_keys = compiler_map_flags_keys + [Attrs.EvmProverAttributes.SOLC.get_conf_key(),
+                                                     Attrs.EvmProverAttributes.VYPER.get_conf_key()]
+
+    # dictionary of the compiler flags that are not None value
+    compiler_flags = {k: getattr(context, k) for k in compiler_flags_keys if getattr(context, k) is not None}
+
+    # no compiler flags, defaults will be used
+    if len(compiler_flags) == 0:
+        return
+
+    # if a map flags is set it is the only compiler flag
+    if len(compiler_flags) > 1 and any(key in compiler_flags for key in compiler_map_flags_keys):
+        raise Util.CertoraUserInputError("compiler map flags cannot be set with other compiler flags. "
+                                         f"Got {compiler_flags}")
+
+    if context.solc_map:
+        context.compiler_map = context.solc_map
+        context.solc_map = None
+    if context.solc:
+        context.compiler_map = {'*.sol': f'{context.solc}'}
+    if context.vyper:
+        context.compiler_map = {'*.vy': f'{context.vyper}'}
+
 def check_vyper_flag(context: CertoraContext) -> None:
     if context.vyper:
         non_vy_paths = [path for path in context.files if not path.endswith(".vy")]
@@ -318,14 +347,6 @@ def check_vyper_flag(context: CertoraContext) -> None:
         if context.solc:
             raise Util.CertoraUserInputError("cannot set both vyper attribute and solc attribute")
         context.solc = context.vyper
-
-
-def check_compiler_map_flag(context: CertoraContext) -> None:
-    if context.compiler_map:
-        if context.solc_map:
-            raise Util.CertoraUserInputError("cannot set both compiler_map attribute and solc_map attribute")
-        context.solc_map = context.compiler_map
-
 
 def check_contract_name_arg_inputs(context: CertoraContext) -> None:
     """
@@ -609,11 +630,11 @@ def check_mode_of_operation(context: CertoraContext) -> None:
                                          "when running the Certora Prover")
 
 
-def _normalize_maps(context: CertoraContext, map_attr_name: str, map_attr: Dict) -> None:
+def _normalize_maps(context: CertoraContext, map_attr_name: str, map_attr: Dict) -> Dict[str, str]:
     """
 
     :param context:
-    :param map_attr_name: name of the attribute e.g. solc_map
+    :param map_attr_name: name of the attribute e.g. solc_optimize_map
     :param map_attr: the value of the map attribute, a dictionary mapping contract/file to a value
     :return:
 
@@ -621,30 +642,27 @@ def _normalize_maps(context: CertoraContext, map_attr_name: str, map_attr: Dict)
     Solidity file to be compiled, therefore it translates all keys to a relative path to a file
     """
 
-    for (key, value) in map_attr.copy().items():
-        file_part = key.split(':')[0]  # remove contract extension of the form a.sol:MyContract
+    def find_matching_files(context: CertoraContext, pattern: str) -> List[str]:
+        file_part = pattern.split(':')[0]
         if Path(file_part).suffix == "":  # no suffix means the key is a contract
-            try:
-                file_part = context.contract_to_file[file_part]  # finding the Solidity file holding the contract
-            except KeyError:
-                raise Util.CertoraUserInputError(f"in '{map_attr_name}' cannot find contract {file_part}")
-        file_part = str(Path(file_part).resolve(strict=False).relative_to(Path.cwd()))
-        attr_value = map_attr.get(file_part)
-        # normalized form
-        if attr_value is None:  # key in file paths but no mapping yet
-            map_attr[file_part] = value
-            map_attr.pop(key)  # we know key != file_part, we remove the old entry
-        elif attr_value != value:  # key already in mappings? check if value is different
-            raise Util.CertoraUserInputError(f"trying to set '{file_part}' in '{map_attr_name}' "
-                                             f"to both {map_attr[file_part]} and {value}")
-        elif key != file_part:  # mapping already exists (e.g. 2 contracts mapped to the same value)
-            map_attr.pop(key)
-    setattr(context, f"{map_attr_name}", map_attr)
+            matching_contracts = fnmatch.filter(context.contracts, pattern)  # find matching contracts
+            return [context.contract_to_file[contract] for contract in matching_contracts]
+        else:
+            return [file_part]
+
+    new_map_attr: Dict[str, str] = {}
+    for (pattern, value) in map_attr.copy().items():
+        matching_files = find_matching_files(context, pattern)
+        for file in matching_files:
+            file = str(Path(file).resolve(strict=False).relative_to(Path.cwd()))
+            attr_value = new_map_attr.get(file)
+            if attr_value is None:  # key in file paths but no mapping yet
+                new_map_attr[file] = value
+    return new_map_attr
 
 
 def check_map_attributes(context: CertoraContext) -> None:
 
-    #  'compiler_map' does not have a matching 'compiler' attribute
     map_attrs = Attrs.EvmAttributes.all_map_attrs()
     for map_attr_name in map_attrs:
         if map_attr_name.endswith(Util.MAP_SUFFIX):
@@ -661,16 +679,21 @@ def check_map_attributes(context: CertoraContext) -> None:
             raise Util.CertoraUserInputError(f"You cannot use both '{attr_prefix}' and '{map_attr_name}' arguments")
         if not isinstance(map_attr, dict):
             raise RuntimeError(f"map_attr is not dictionary, got {map_attr}")
-        _normalize_maps(context, map_attr_name, map_attr)
-        sources_mappings = {file_path: None for file_path in context.file_paths}  # initially mapping files to None
-        for (key, value) in map_attr.items():
-            if key not in sources_mappings.keys():
-                raise Util.CertoraUserInputError(f"{key} in {map_attr_name} not a valid source file")
-            elif not sources_mappings.get(key):  # key in file paths but no mapping yet
-                sources_mappings[key] = value
-            elif sources_mappings.get(key) != value:  # key already in mappings? check if value is different
-                raise Util.CertoraUserInputError(f"trying to set '{attr_prefix}' to both {sources_mappings.get(key)} "
-                                                 f"and {value}")
+        map_attr = _normalize_maps(context, map_attr_name, map_attr)
+        setattr(context, f"{map_attr_name}", map_attr)
+
+        sources_mappings: Dict[str, Optional[str]] = {file_path: None for file_path in context.file_paths}  # initially mapping files to None
+        for file in sources_mappings.keys():
+            match: Optional[str] = None
+            for (pattern, value) in map_attr.items():
+                if fnmatch.fnmatch(file, pattern):
+                    match = pattern
+                    break
+            if not match:
+                raise Util.CertoraUserInputError(f"No matching for {file} in {map_attr_name}. Pattens: {map_attr}")
+            elif not sources_mappings.get(file):  # key in file paths but no mapping yet
+                sources_mappings[file] = match
+
         # Now we check if all sources were mapped
         paths_not_set = [path for path, value in sources_mappings.items() if value is None]
         if paths_not_set:

@@ -29,6 +29,7 @@ import datastructures.stdcollections.*
 import instrumentation.transformers.removeUnusedAssignments
 import log.*
 import org.jetbrains.annotations.TestOnly
+import tac.MetaKey
 import tac.MetaMap
 import tac.Tag
 import utils.*
@@ -36,6 +37,8 @@ import utils.Color.Companion.blue
 import utils.Color.Companion.cyan
 import vc.data.*
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
+import vc.data.tacexprutil.asVarOrNull
+import vc.data.tacexprutil.postTransform
 import verifier.PatchingProgramWrapper
 import java.math.BigInteger
 import analysis.opt.intervals.Intervals as S
@@ -78,6 +81,9 @@ class IntervalsRewriter(
                 }
                 removeUnusedAssignments(result, expensive = true)
             }
+
+        /** We eventually add this meta to variables which are known to be non zero via intervals analysis */
+        val NON_ZERO_META = MetaKey.Nothing("tac.non.zero.var")
     }
 
     private val graph = code.analysisCache.graph
@@ -197,7 +203,18 @@ class IntervalsRewriter(
                 if (resInterval.isConst) {
                     check(newE is TACExpr.Sym.Const)
                 }
-                newE.runIf(newE != exp, newCmd)
+                var changed = false
+                // adds a meta to every variable in the resulting expression that is known to never be equal to zero.
+                val augmented = newE.postTransform { e ->
+                    e.asVarOrNull
+                        ?.takeIf { it.tag is Tag.Int || it.tag is Tag.Bits }
+                        ?.takeIf { 0 !in intervals.getS(ptr, it) }
+                        ?.withMeta(NON_ZERO_META)?.asSym()
+                        ?.also { changed = true }
+                        ?: e
+                }
+                // null if nothing changed, oherwise create the new command with the new expression.
+                augmented.runIf(changed || augmented != exp, newCmd)
             }
 
         val simpCommand = when (cmd) {

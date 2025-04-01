@@ -42,6 +42,10 @@ import solver.SolverResult
 import spec.CVLCompiler
 import spec.CVLTestGenerator
 import spec.cvlast.*
+import spec.rules.CVLSingleRule
+import spec.rules.ICVLRule
+import spec.rules.IRule
+import spec.rules.SingleRule
 import utils.*
 import vc.data.*
 import vc.data.TACMeta.CONTRACT_ADDR_KEY
@@ -144,13 +148,13 @@ sealed class RuleCheckResult(open val rule: IRule) {
          * Represents a TAC assert command that the counter-example model violates in a rule.
          *
          * @property message The assert message (may be an empty string)
-         * @property cvlRange The location of the corresponding assert statement in the cvl spec
+         * @property range The location of the corresponding assert statement in the cvl spec
          * @property identifier An identifier that also contains the rule name
          * (not null if there exists such a statement)
          */
-        data class ViolatedAssert(val identifier: AssertIdentifier, override val message: String, val cvlRange: CVLRange) :
+        data class ViolatedAssert(val identifier: AssertIdentifier, override val message: String, val range: Range) :
             RuleFailureMeta() {
-            constructor(identifier: AssertIdentifier, _message: String) : this(identifier, _message, CVLRange.Empty())
+            constructor(identifier: AssertIdentifier, _message: String) : this(identifier, _message, Range.Empty())
         }
     }
 
@@ -229,13 +233,13 @@ sealed class RuleCheckResult(open val rule: IRule) {
                     } else {
                         null
                     }
-                } else if (rule.ruleType is SpecType.Single.MultiAssertSubRule.SpecFile) {
+                } else if (rule.ruleType is SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.SpecFile) {
                     /*
                 If the rule is not violated (e.g., ERROR, TIMEOUT, VERIFIED),
                 and it was generated for an assert statement that is originating from the spec
                  */
                     val multiAssertRuleType =
-                        rule.ruleType as SpecType.Single.MultiAssertSubRule.SpecFile
+                        rule.ruleType as SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.SpecFile
                     if (multiAssertRuleType.assertMessage != "") {
                         multiAssertRuleType.assertMessage
                     } else {
@@ -389,7 +393,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
                                         put(CallTraceAttribute.TRUNCATABLE(), false)
                                     }
 
-                                    put(OutputReportViewAttribute.JUMP_TO_DEFINITION(), local.range as? CVLRange.Range)
+                                    put(OutputReportViewAttribute.JUMP_TO_DEFINITION(), local.range as? Range.Range)
                                     // not dumping this for now, since we're not using it -- but might put it to use later, so leaving it for now
                                     // put(CallTraceAttribute.TYPE(), local.formatterType.toTypeString()) // XXX toString or toTypeString??
                                 }
@@ -421,11 +425,15 @@ sealed class RuleCheckResult(open val rule: IRule) {
                     rule: IRule,
                     reportType: ReportTypes,
                     reportNameIndex: HTMLReporter.ReportNameIndex,
+                    customSuffix: String = "",
                     withHTMLExtension: Boolean = true
                 ): String =
                     ArtifactFileUtils.sanitizePath(
                         rule.parentIdentifier?.displayName?.let { directParentName ->
-                            val parentsNames = CVLCompiler.getParentsNames(rule, directParentName)
+                            val parentsNames = when(rule){
+                                is ICVLRule -> CVLCompiler.getParentsNames(rule, directParentName)
+                                else -> directParentName
+                            }
                             // TODO: move this function out of HTMLReporter
                             HTMLReporter.getReportNameMultiCase(
                                 rule.declarationId,
@@ -434,6 +442,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
                                 reportType,
                                 reportNameIndex,
                                 withHTMLExtension,
+                                customSuffix
                             )
                         } ?: HTMLReporter.getReportName(
                             rule.declarationId,
@@ -441,19 +450,20 @@ sealed class RuleCheckResult(open val rule: IRule) {
                             reportType,
                             reportNameIndex,
                             withHTMLExtension,
+                            customSuffix
                         )
                     )
 
                 /**
                  * Returns the filename of the final HTML report generated to show the TAC dump of [rule] annotated
                  * with the counterexample model whose index is [exampleIndex].
-                 * @param withHTMLExtension whether to append an '.html' suffix to the filename
                  */
-                fun cexDumpGraphLinkOf(rule: IRule, exampleIndex: Int): String =
+                fun cexDumpGraphLinkOf(rule: IRule, exampleIndex: Int, customSuffix: String = ""): String =
                     dumpGraphLinkOf(
                         rule,
                         ReportTypes.REPORT,
                         HTMLReporter.ReportNameIndex.Example(exampleIndex),
+                        customSuffix
                     )
 
                 /**

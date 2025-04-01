@@ -1,0 +1,34 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "storageValueIsConstantWithExplicitPreservedRestrictParam": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "invariantMayHold(uint256)",
+            "mustFailForAll(address,uint256)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "summarizedValue(uint256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        },
+        "Using specific requirements": {
+          "FAIL": [
+            "invariantDoesntHoldAfterHavocing(address,uint256)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "invariantDoesHoldAfterBasicCall(address,uint256)",
+            "invariantDoesHoldAfterHavocing(address,uint256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    }
+  }
+}

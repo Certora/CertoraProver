@@ -71,14 +71,14 @@ class CVLAstBuilder(
         ast.importedContracts.map { importedContract ->
             if (contracts.none { c -> c.name == importedContract.solidityContractName.name }) {
                 returnError(CVLError.General(
-                    cvlRange = CVLRange.Empty(),
+                    range = Range.Empty(),
                     message = "\"using ${importedContract.solidityContractName}\" - could not find contract instance for \"${importedContract.solidityContractName}\""
                 ))
             } else {
                 ast.importedContracts.groupingBy { it.solidityContractVarId }.eachCount()
                     .filter { it.value > 1 }.keys.firstOrNull()?.let { duplicateKey ->
                         returnError(CVLError.General(
-                            cvlRange = CVLRange.Empty(),
+                            range = Range.Empty(),
                             message = "Multiple declaration of alias \"${duplicateKey}\""
                         ))
                     }
@@ -203,7 +203,7 @@ class CVLAstBuilder(
                     val k = CVL.ExternalAnyInContract(hostContract = annot.target.contract)
                     if(k in externalSummaries) {
                         return@map CVLError.General(
-                            cvlRange = annot.cvlRange,
+                            range = annot.range,
                             message = "Duplicate catch-all summarization for contract ${annot.target.contract}"
                         ).asError()
                     }
@@ -257,7 +257,7 @@ class CVLAstBuilder(
 
                 if (annot.qualifiers.envFree) {
                     return CVLError.General(
-                        annot.cvlRange,
+                        annot.range,
                         "Method annotation ${annot.methodParameterSignature} with both envfree and summary specification without explicit base contract is not allowed. If this is truly the behavior you want, add an explicit ${SolidityContract.Current.name} qualifier",
                     ).asError()
                 }
@@ -271,7 +271,7 @@ class CVLAstBuilder(
                                 k is CVL.ExternalWildcard && (k.sighashInt == sighashABI || k.sighashInt == sighashLib)
                             }) {
                             CVLError.General(
-                                annot.cvlRange,
+                                annot.range,
                                 "Multiple summaries for all external functions with the signature ${annot.methodParameterSignature.printQualifiedMethodParameterSignature()}",
                             ).asError()
                         } else {
@@ -300,7 +300,7 @@ class CVLAstBuilder(
                                 )
                             }) {
                             CVLError.General(
-                                annot.cvlRange,
+                                annot.range,
                                 "Multiple summaries for all internal functions with the signature ${annot.methodParameterSignature.printQualifiedMethodParameterSignature()}",
                             ).asError()
                         } else {
@@ -342,7 +342,7 @@ class CVLAstBuilder(
                                     ok
                                 } else {
                                     CVLError.General(
-                                        annot.cvlRange,
+                                        annot.range,
                                         "Added a summary for the external method ${annot.target.contract.name}.${annot.methodParameterSignature}, but no such method appears in the ABI",
                                     ).asError()
                                 }
@@ -351,14 +351,14 @@ class CVLAstBuilder(
                                 k is CVL.ExternalExact && k.signature.qualifiedMethodName == methodId && (k.sighashInt == sighashABI || k.sighashInt == sighashLib)
                             }) {
                             return CVLError.General(
-                                annot.cvlRange,
+                                annot.range,
                                 "Duplicate summaries for the external method ${annot.methodParameterSignature.printQualifiedMethodParameterSignature()}",
                             ).asError()
                         }
                         if (!annot.summary.summarizeAllCalls) {
                             CVLWarningLogger.syntaxWarning(
                                 "Unforced summaries for explicit external methods have no effect",
-                                annot.cvlRange
+                                annot.range
                             )
                         }
 
@@ -386,7 +386,7 @@ class CVLAstBuilder(
                                     && k.signature.matchesContractAndParams(methodParameterSignature)
                             }) {
                             return CVLError.General(
-                                annot.cvlRange,
+                                annot.range,
                                 "Multiple summaries for the internal method ${annot.methodParameterSignature.printQualifiedMethodParameterSignature()}",
                             ).asError()
                         }
@@ -483,7 +483,7 @@ class CVLAstBuilder(
                     when (annot.methodParameterSignature) {
                         is MethodSignature -> Unit
                         else -> errors.add(CVLError.General(
-                            cvlRange = annot.cvlRange,
+                            range = annot.range,
                             message = "A method entry for a specific target must include return types. If the function returns nothing write `returns void`."
                         ))
                     }
@@ -492,11 +492,11 @@ class CVLAstBuilder(
             }
 
             if (!annot.qualifiers.envFree && !annot.qualifiers.virtual && annot.summary == null) {
-                CVLWarningLogger.syntaxWarning("Method declaration for ${annot.methodParameterSignature} is neither `envfree`, `optional`, nor summarized, so it has no effect.", annot.cvlRange)
+                CVLWarningLogger.syntaxWarning("Method declaration for ${annot.methodParameterSignature} is neither `envfree`, `optional`, nor summarized, so it has no effect.", annot.range)
                 continue
             }
 
-            fun contractNotFound(target: MethodEntryTargetContract.SpecificTarget) = CVLError.General(annot.cvlRange, "Contract `${target.contract.name}` not found. Receiver contracts must be `currentContract`, the name of a contract in the scene, or a name introduced by a `using` statement.").asError()
+            fun contractNotFound(target: MethodEntryTargetContract.SpecificTarget) = CVLError.General(annot.range, "Contract `${target.contract.name}` not found. Receiver contracts must be `currentContract`, the name of a contract in the scene, or a name introduced by a `using` statement.").asError()
 
             fun getBaseContractForExternalFunction(target: MethodEntryTargetContract.SpecificTarget) =
                 contracts.find { it.name == target.contract.name }.let { baseContract ->
@@ -534,7 +534,7 @@ class CVLAstBuilder(
                                 if (paramVmType.location != null && paramVmType.location != EVMLocationSpecifier.storage) {
                                     errors.add(
                                         CVLError.General(
-                                            cvlRange = annot.cvlRange,
+                                            range = annot.range,
                                             message = "In entry for ${annot.methodParameterSignature}, $paramName is a reference type with non-storage location specifier ${paramVmType.location}, " +
                                                 "which are not part of external (contract or library) method signatures"
                                         )
@@ -547,7 +547,7 @@ class CVLAstBuilder(
 
                     // give an error for unresolved specific contract methods
                     val unresolvedFlag = if (annot.summary?.summarizationMode == SpecCallSummary.SummarizationMode.UNRESOLVED_ONLY) {
-                        CVLError.General(annot.cvlRange, "`UNRESOLVED` summaries can only be used on wildcard receivers; " +
+                        CVLError.General(annot.range, "`UNRESOLVED` summaries can only be used on wildcard receivers; " +
                             "a call to `${annot.target.prettyPrint()}.${annot.methodParameterSignature.functionName}` can never be unresolved.  " +
                             "Did you mean to summarize `_.${annot.methodParameterSignature.printMethodParameterSignature()}`?").asError()
                     } else {
@@ -598,14 +598,14 @@ class CVLAstBuilder(
                         if (idxOfMatch == -1) {
                             // add the method if it doesn't exist
                             val virtualFlag = if (!annot.qualifiers.virtual) {
-                                CVLError.General(annot.cvlRange, "External method declaration for ${annot.methodParameterSignature}" +
+                                CVLError.General(annot.range, "External method declaration for ${annot.methodParameterSignature}" +
                                     " does not correspond to any known declaration. Did you mean to add $OPTIONAL_METHOD_NAME?").asError()
                             } else {
-                                CVLWarningLogger.syntaxWarning("Method declaration has no counterpart in contracts (${annot.methodParameterSignature.printQualifiedMethodParameterSignature()})", annot.cvlRange)
+                                CVLWarningLogger.syntaxWarning("Method declaration has no counterpart in contracts (${annot.methodParameterSignature.printQualifiedMethodParameterSignature()})", annot.range)
                                 ok
                             }
                             if (annot.qualifiers.envFree) {
-                                CVLWarningLogger.syntaxWarning("No implementation for function ${annot.methodParameterSignature.printQualifiedMethodParameterSignature()} exists, env-free check will be skipped", annot.cvlRange)
+                                CVLWarningLogger.syntaxWarning("No implementation for function ${annot.methodParameterSignature.printQualifiedMethodParameterSignature()} exists, env-free check will be skipped", annot.range)
                             }
                             val generatedFunction = ContractFunction(
                                 stateMutability = SolidityFunctionStateMutability.payable,
@@ -647,13 +647,13 @@ class CVLAstBuilder(
                                 if (paramVmType.location != null) {
                                     if (!currFun.annotation.library) {
                                         errors.add(CVLError.General(
-                                            cvlRange = annot.cvlRange,
+                                            range = annot.range,
                                             message = "In entry `${annot.methodParameterSignature}`, $paramName is a reference type with location specifier ${paramVmType.location}, " +
                                                 "location annotations are not allowed for non-library external methods"
                                         ))
                                     } else if (paramVmType.location != EVMLocationSpecifier.storage) {
                                         errors.add(CVLError.General(
-                                            cvlRange = annot.cvlRange,
+                                            range = annot.range,
                                             message = "In entry for ${annot.methodParameterSignature}, $paramName is a reference type with a non-storage location ${paramVmType.location}, " +
                                                 "external library function signatures may only have 'storage' locations"
                                         ))
@@ -673,7 +673,7 @@ class CVLAstBuilder(
                             )
 
                             signature.mergeWith(currFun.methodSignature)
-                                .mapErrors { CVLError.General(annot.cvlRange, it) }
+                                .mapErrors { CVLError.General(annot.range, it) }
                                 .bind { ext ->
                                     contractList[idxOfMatch] = currFun.copy(
                                         methodSignature = ext, annotation = MethodQualifiers(
@@ -690,26 +690,26 @@ class CVLAstBuilder(
                 }
                 Visibility.INTERNAL -> {
                     val virtualFlag = if (annot.qualifiers.virtual) {
-                        CVLError.General(annot.cvlRange, "The optional qualifier is not allowed on internal functions").asError()
+                        CVLError.General(annot.range, "The optional qualifier is not allowed on internal functions").asError()
                     } else {
                         ok
                     }
                     val envfreeFlag = if (annot.qualifiers.envFree) {
-                        CVLError.General(annot.cvlRange, "The envfree qualifier is not allowed on internal functions").asError()
+                        CVLError.General(annot.range, "The envfree qualifier is not allowed on internal functions").asError()
                     } else {
                         ok
                     }
                     if (annot.summary == null) {
-                        CVLWarningLogger.syntaxWarning("An internal function declaration without a summary has no effect", annot.cvlRange)
+                        CVLWarningLogger.syntaxWarning("An internal function declaration without a summary has no effect", annot.range)
                     }
                     // moved this logic to JavaMethodsBlock.kt, so shouldn't be reachable. It will trigger if default
                     // summarization mode is badly set though
                     val unresolvedFlag = when (annot.summary?.summarizationMode) {
                         SpecCallSummary.SummarizationMode.UNRESOLVED_ONLY ->
-                            UnresolvedSummaryModeOnInternalMethod(annot.cvlRange).asError()
+                            UnresolvedSummaryModeOnInternalMethod(annot.range).asError()
 
                         SpecCallSummary.SummarizationMode.DELETE ->
-                            DeleteSummaryModeOnInternalMethod(annot.cvlRange).asError()
+                            DeleteSummaryModeOnInternalMethod(annot.range).asError()
 
                         else -> ok
                     }
@@ -723,7 +723,7 @@ class CVLAstBuilder(
                         if (paramVmType.location == null) {
                             errors.add(
                                 CVLError.General(
-                                    cvlRange = annot.cvlRange,
+                                    range = annot.range,
                                     message = "In entry `${annot.methodParameterSignature}`, $paramName is a " +
                                         "reference type without a location specifier; " +
                                         "location specifiers (i.e. either `memory` or `calldata`) are required for " +
@@ -738,7 +738,7 @@ class CVLAstBuilder(
                             if (ty is VMReferenceTypeDescriptor && ty.location == null) {
                                 val resName = "return value ${(index + 1).toOrdinalString()}"
                                 errors.add(CVLError.General(
-                                    cvlRange = annot.cvlRange,
+                                    range = annot.range,
                                     message = "In summary entry for internal method ${annot.methodParameterSignature}, $resName is a " +
                                         "reference type without a location specifier; " +
                                         "location specifiers (i.e. either `memory` or `calldata`) are required for " +
@@ -763,7 +763,7 @@ class CVLAstBuilder(
                                 val distinctByContract = matching.distinctBy { (m, _) -> m.declaringContract }
 
                                 if (distinctByContract.size > 1) {
-                                    CVLError.General(annot.cvlRange, "Internal method entry ${annot.methodParameterSignature} references method with multiple possible resolutions. Unable to apply entry.").asError()
+                                    CVLError.General(annot.range, "Internal method entry ${annot.methodParameterSignature} references method with multiple possible resolutions. Unable to apply entry.").asError()
                                 } else if (matching.isEmpty()) {
                                     // It just might be that the user is trying to reference a function that's declared in some parent contract/library, so let's search
                                     // for such a function and provide a nicer message if this is the case
@@ -775,7 +775,7 @@ class CVLAstBuilder(
                                     if (candidateDeclaringContracts.isNotEmpty()) {
                                         val onlyMethodName = annot.name + "(" + annot.methodParameterSignature.paramListString() + ")"
                                         CVLError.General(
-                                            annot.cvlRange,
+                                            annot.range,
                                             "Internal method `$onlyMethodName` is not declared in contract `${annot.target.contract}`, " +
                                                 "although it is defined in `${candidateDeclaringContracts.joinToString(separator = "`, `")}`. " +
                                                 "Consider changing entry from `${annot.prettyPrint()}` to `${candidateDeclaringContracts.first()}.$onlyMethodName`. " +
@@ -783,14 +783,14 @@ class CVLAstBuilder(
                                         ).asError()
                                     } else {
                                         CVLError.General(
-                                            annot.cvlRange,
+                                            annot.range,
                                             "Internal method entry ${annot.methodParameterSignature} does not appear in code."
                                         ).asError()
                                     }
                                 } else {
                                     check(annot.methodParameterSignature is MethodSignature)
                                     MergeableSignature.mergeReturns(matching.first().second, annot.methodParameterSignature).bindEither(
-                                        errorCallback = { errorList -> CVLError.General(annot.cvlRange, "Bad internal method returns: ${errorList.joinToString(", ")}").asError()},
+                                        errorCallback = { errorList -> CVLError.General(annot.range, "Bad internal method returns: ${errorList.joinToString(", ")}").asError()},
                                         resultCallback = { ok }
                                     )
                                 }
@@ -819,7 +819,7 @@ class CVLAstBuilder(
                                                 "`${it.printMethodSignature()}`"
                                             }} which return reference typed values, and using a ${annot.summary.summaryName} summary for these values can lead to unsoundness. Consider using an exact method signature " +
                                             "to match specific instances of `${annot.methodParameterSignature.functionName}` that do not return reference typed values.",
-                                        cvlRange = annot.cvlRange
+                                        range = annot.range
                                     ).asError()
                                 }
                             }
@@ -917,7 +917,7 @@ class CVLAstBuilder(
         // Report any unresolved builtin rules use declarations
         unresolvedBirUseDecls.forEach { unresolvedDecl ->
             errors.add(CVLError.General(
-                unresolvedDecl.cvlRange,
+                unresolvedDecl.range,
                 "Cannot resolve the 'use' declaration: unknown identifier ${unresolvedDecl.id}"
             ))
         }
@@ -932,7 +932,7 @@ class CVLAstBuilder(
             useDecls.forEach {
                 errors.add(
                     CVLError.General(
-                        it.birUseDecl.cvlRange,
+                        it.birUseDecl.range,
                         "Another 'use' declaration also uses the identifier $repeatingBirId. " +
                             "Each identifier can occur in at most one 'use' declaration"
                     )
@@ -958,8 +958,8 @@ class CVLAstBuilder(
     ): CollectingResult<CVLAst, CVLError> {
         val generatedBirs = getGeneratorsOfBuiltInRulesInUse(cvlAst).bind { birGenerators ->
             birGenerators.map { birGenerator ->
-                val cvlRange = birGenerator.getCVLRange(cvlAst)
-                birGenerator.generate(CVLScope.AstScope, cvlRange, mainContractName, functionsFromSpecFileAndContracts)
+                val range = birGenerator.getRange(cvlAst)
+                birGenerator.generate(CVLScope.AstScope, range, mainContractName, functionsFromSpecFileAndContracts)
             }.flatten()
         }
         // create a rule group for each invariant

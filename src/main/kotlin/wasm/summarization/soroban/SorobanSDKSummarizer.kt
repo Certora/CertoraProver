@@ -79,6 +79,14 @@ class SorobanSDKSummarizer(
             null
         ),
 
+        // The SDK Symbol type is actually a struct comprising an Env and a soroban_env_common::Symbol.
+        // However, for the wasm target, the Env impl is a 0-size Guest struct, so this method
+        // ends up looking exactly the same as the soroban_env_common::Symbol implementation
+        SDK_SYMBOL_TRY_FROM_VAL_STRREF(
+            "\$<soroban_sdk::symbol::Symbol as soroban_env_common::convert::TryFromVal<soroban_sdk::env::Env,&str>>::try_from_val",
+            listOf(WasmPrimitiveType.I32, WasmPrimitiveType.I32),
+            WasmPrimitiveType.I64),
+
         SYMBOL_TRY_FROM_VAL_STRREF(
             "\$<soroban_env_common::symbol::Symbol as soroban_env_common::convert::TryFromVal<E,&str>>::try_from_val",
             listOf(WasmPrimitiveType.I32, WasmPrimitiveType.I32),
@@ -105,6 +113,7 @@ class SorobanSDKSummarizer(
 
     context(WasmImpCfgContext) override fun summarizeCall(call: StraightLine.Call): CommandWithRequiredDecls<TACCmd.Simple> {
         return when (val f = asSDKFunc(call.id)) {
+            SorobanSDKBuiltin.SDK_SYMBOL_TRY_FROM_VAL_STRREF,
             SorobanSDKBuiltin.SYMBOL_TRY_FROM_VAL_STRREF,
             SorobanSDKBuiltin.SYMBOL_NEW -> {
                 check(call.maybeRet != null) { "expected Symbol::new to have an lhs" }

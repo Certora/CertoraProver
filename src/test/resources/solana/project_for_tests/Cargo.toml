@@ -1,0 +1,12 @@
+[package]
+name = "project_for_tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/spec.rs"
+
+[profile.dev]
+split-debuginfo = "unpacked"

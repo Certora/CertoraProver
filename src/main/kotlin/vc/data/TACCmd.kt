@@ -25,7 +25,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLType
 import spec.cvlast.ComparisonBasis
 import tac.*
@@ -84,7 +84,7 @@ sealed class TACCmd : Serializable, ITACCmd {
     val metaSrcInfo: TACMetaInfo?
         get() = meta.find(META_INFO_KEY)
 
-    fun sourceRange(): CVLRange.Range? = metaSrcInfo?.getSourceDetails()?.range
+    fun sourceRange(): Range.Range? = metaSrcInfo?.getSourceDetails()?.range
 
     open fun nameString(): String {
         return this.javaClass.simpleName
@@ -1344,7 +1344,7 @@ sealed class TACCmd : Serializable, ITACCmd {
 
                 /** this meta might be absent for manually-generated asserts */
                 val range = meta.find(TACMeta.CVL_RANGE)
-                if (range is CVLRange.Range) {
+                if (range is Range.Range) {
                     this.append(" - ${range.specFile} line ${range.start.lineForIDE}")
                 }
             }

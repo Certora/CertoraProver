@@ -7,7 +7,5 @@ sly
 tabulate
 tqdm
 StrEnum
-tomli
 universalmutator
 jinja2
-setuptools==75.8.2

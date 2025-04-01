@@ -1,0 +1,57 @@
+{
+  "AddInternalFunctions": {
+    "Minimal-test1(bytes28)": [
+      true,
+      true
+    ],
+    "Minimal-test2(uint64)": [
+      true,
+      true
+    ],
+    "constructor_Minimal": [
+      true,
+      true
+    ]
+  },
+  "CALLGRAPH": {
+    "constructor()": false,
+    "test2(uint64)": true,
+    "test1(bytes28)": true
+  },
+  "INIT": {
+    "Minimal-test1(bytes28)": true,
+    "Minimal-test2(uint64)": true
+  },
+  "NonLinearStats": {
+    "Minimal-test1(bytes28)": [
+      true,
+      true
+    ],
+    "Minimal-test2(uint64)": [
+      true,
+      true
+    ]
+  },
+  "POINTSTO": {
+    "Minimal-test2(uint64)": true,
+    "Minimal-test1(bytes28)": true,
+    "constructor()": false,
+    "test1(bytes28)": true,
+    "test2(uint64)": true
+  },
+  "PathCountStats": {
+    "Minimal-test1(bytes28)": [
+      true,
+      true
+    ],
+    "Minimal-test2(uint64)": [
+      true,
+      true
+    ]
+  },
+  "SKeyDetection": {
+    "Minimal-test1(bytes28)": true,
+    "Minimal-test2(uint64)": true,
+    "constructor_Minimal": true
+  }
+}

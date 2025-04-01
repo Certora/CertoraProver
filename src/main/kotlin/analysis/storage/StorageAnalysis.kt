@@ -2519,7 +2519,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                         }) to false
                     } else {
                         handleFieldAddition(
-                                where, v1.elementPointers, offset = fieldOffset, v1.accessPaths.map {
+                                where.ptr, v1.elementPointers, offset = fieldOffset, v1.accessPaths.map {
                             check(it is AnalysisPath.ArrayAccess)
                             it.copy(index = (v2AsConst / elemSizes).asTACSymbol())
                         }
@@ -2567,7 +2567,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             }
         }
 
-        private fun plusSemanticsStoragePointer(where: LTACCmd, v1: SValue.StoragePointer, v2: SValue, v2AsConst: BigInteger?, s2: TACSymbol): Pair<SValue, Boolean> {
+        private fun plusSemanticsStoragePointer(where: CmdPointer, v1: SValue.StoragePointer, v2: SValue, v2AsConst: BigInteger?, s2: TACSymbol?): Pair<SValue, Boolean> {
             data class StaticArrayWithinStruct(
                 val offset: BigInteger,
                 val storage: Storage.Derived,
@@ -2745,7 +2745,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
 
                 else -> {
                     check(v1 is SValue.StoragePointer)
-                    return plusSemanticsStoragePointer(where, v1, v2, v2AsConst, s2)
+                    return plusSemanticsStoragePointer(where.ptr, v1, v2, v2AsConst, s2)
                 }
             }
         }
@@ -2809,14 +2809,14 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
          * The [context] argument provides information about where the addition is happening, and is only used for error
          * messages.
          */
-        private fun handleFieldAddition(context: LTACCmd, v: Set<Storage>, offset: BigInteger, parentPath: AnalysisPaths) : Pair<SValue, Boolean> {
+        private fun handleFieldAddition(context: CmdPointer, v: Set<Storage>, offset: BigInteger, parentPath: AnalysisPaths) : Pair<SValue, Boolean> {
             var changed = false
             val s = v.monadicMap {
                 storage.computeIfAbsent(it) {
                     changed = true
                     Value.Struct(mutableMapOf())
                 } as? Value.Struct
-            } ?: throw StorageAnalysisFailedException("Attempting to add to a non-struct value at $context in stored in $v", context.ptr)
+            } ?: throw StorageAnalysisFailedException("Attempting to add to a non-struct value at $context in stored in $v", context)
             /* does this offset fall into a range of a static array?
                Because we do not want to greedily traverse the contents of static arrays, the lower bound here is *strict*,
                so that adding enough to just be the start location of the static array will be the field pointer
@@ -2831,8 +2831,8 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             }
             // then some are null, some are not, that's bad!
             if(staticRange.map { it != null }.uniqueOrNull() == null) {
-                throw StorageAnalysisFailedException("At addition for $context, reaching field $offset in $v gave inconsistent" +
-                        "information about whether we are in a static array", context.ptr)
+                throw StorageAnalysisFailedException("At addition for ${graph.elab(context)}, reaching field $offset in $v gave inconsistent" +
+                        "information about whether we are in a static array", context)
             }
 
             if(staticRange.first() != null) {
@@ -2845,7 +2845,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 }
                 val (where, _, sz) = arrays.map {
                     Triple(it.first, it.second.numElems, it.second.wordsPerElem)
-                }.uniqueOrNull() ?: throw StorageAnalysisFailedException("Multiple possible shapes in $staticRange", context.ptr)
+                }.uniqueOrNull() ?: throw StorageAnalysisFailedException("Multiple possible shapes in $staticRange", context)
                 val index = (offset - where) / sz
                 val indexWithin = (offset - where) % sz
                 val staticArrayBase = arrays.map { (_, sa) ->
@@ -3110,75 +3110,118 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             return out
         }
 
-        private fun storageCopyLoopSummarySimpleQualifiedIntExitState(
-            storageCopyLoop: StorageCopyLoopSummary,
-            entryState: TreapMap<TACSymbol.Var, SValue>,
-            loop: CmdPointer,
-        ): ProjectedMap<TACSymbol.Var, SValue, SimpleQualifiedInt> {
-            val wrappedEntry = ProjectedMap(entryState, SValue::narrowIdx, SValue::mergeIdx)
-            var wrappedOut = ProjectedMap(entryState, SValue::narrowIdx, SValue::mergeIdx)
-            for ((x, eff) in storageCopyLoop.effects) {
-                val initialIntValue = interpreter.interp(eff.initial, wrappedEntry, loop).x
-                val loopExit = when (eff) {
-                    is ConstantEffect ->
-                        storageCopyLoop.numIterations?.let {
-                            SimpleQualifiedInt(
-                                initialIntValue.add(IntValue.Constant(it * eff.k)).first,
-                                setOf()
-                            )
-                        }
+        /**
+         * Compute the abstraction of this effect
+         *   when [inLoop]: after [0, numIter) iterations (i.e., while the loop is executing)
+         *   when [!inLoop]: after numIter iterations (i.e., after the loop)
+         */
+        private fun LoopEffect.toLoopAbstraction(
+            numIter: BigInteger?, inLoop: Boolean
+        ): SValue.I? = if (inLoop) {
+            toLoopAbstraction(numIter)
+        } else {
+            toPostLoopAbstraction(numIter)
+        }
 
-                    is SummarizedEffect ->
-                        SimpleQualifiedInt(
-                            initialIntValue.add(eff.loopExit).first,
-                            setOf()
-                        )
-
-                    is BytePtrUpdate -> {
-                        storageCopyLoop.numIterations?.let {
-                            val numPacked = EVM_WORD_SIZE / eff.k
-                            val loopExitIt = (eff.initial.value + it).mod(numPacked)*eff.k
-                            val finalValue = SimpleQualifiedInt(IntValue.Constant(loopExitIt), setOf(SimpleIntQualifier.MultipleOf(eff.k)))
-                            finalValue
-                        }
+        /**
+         * Compute the abstraction of this effect after some number of iterations up to [numIter],
+         * i.e. [0, numIter) iterations
+         */
+        private fun LoopEffect.toLoopAbstraction(
+            numIter: BigInteger?,
+        ): SValue.I? {
+            return when (this) {
+                is ConstantEffect -> {
+                    if (numIter == null) {
+                        return null
                     }
-                } ?: continue
+                    SValue.I(
+                        cs = null,
+                        stride = treapSetOf(
+                            Stride.SumOfTerms.sumOf(
+                                treapMapOf(k to Stride.SymValue(IntValue(BigInteger.ZERO, numIter - BigInteger.ONE))),
+                                BigInteger.ZERO
+                            )
+                        ),
+                        i = SimpleQualifiedInt(
+                            IntValue.Constant(k).mult(IntValue(BigInteger.ZERO, numIter - BigInteger.ONE)).first,
+                        )
+                    )
+                }
 
-                wrappedOut += x to loopExit
+                is SummarizedEffect -> {
+                    SValue.I(
+                        cs = null,
+                        stride = treapSetOf(Stride.SumOfTerms(Stride.SymValue(loopBodyInvariant))),
+                        i = SimpleQualifiedInt(loopBodyInvariant)
+                    )
+                }
+
+                is BytePtrUpdate ->
+                    null
             }
-            return wrappedOut
+        }
+
+        /**
+         * Compute the abstraction of this effect after the loop has executed [numIter] iterations
+         */
+        private fun LoopEffect.toPostLoopAbstraction(numIter: BigInteger?): SValue.I? {
+            return when (this) {
+                is ConstantEffect -> {
+                    if (numIter == null) {
+                        return null
+                    }
+                    SValue.I(
+                        cs = null,
+                        stride = treapSetOf(
+                            Stride.SumOfTerms.sumOf(
+                                treapMapOf(k to Stride.SymValue(IntValue.Constant(numIter))),
+                                BigInteger.ZERO
+                            )
+                        ),
+                        i = SimpleQualifiedInt(IntValue.Constant(k*numIter))
+                    )
+                }
+
+                is SummarizedEffect -> {
+                    SValue.I(
+                        cs = null,
+                        stride = treapSetOf(Stride.SumOfTerms(Stride.SymValue(loopExit))),
+                        i = SimpleQualifiedInt(loopExit)
+                    )
+                }
+
+                is BytePtrUpdate ->
+                    null
+            }
         }
 
         private fun storageCopyLoopSummarySimpleQualifiedIntLoopState(
             storageCopyLoop: StorageCopyLoopSummary,
             entryState: TreapMap<TACSymbol.Var, SValue>,
-            loop: CmdPointer
+            loop: CmdPointer,
+            inLoop: Boolean,
         ): ProjectedMap<TACSymbol.Var, SValue, SimpleQualifiedInt> {
             val projEntry = ProjectedMap(entryState, SValue::narrowIdx, SValue::mergeIdx)
             var projLoop = projEntry
-            val i = storageCopyLoop.numIterations?.let { IntValue(BigInteger.ZERO, it - BigInteger.ONE) }
             for ((x, eff) in storageCopyLoop.effects) {
                 val initialIntValue = interpreter.interp(eff.initial, projEntry, loop).x
                 val loopSummary = when (eff) {
+                    is SummarizedEffect,
                     is ConstantEffect ->
-                        i?.let {
-                            SimpleQualifiedInt(
-                                initialIntValue.add(it.mult(IntValue.Constant(eff.k)).first).first,
-                                setOf()
-                            )
+                        eff.toLoopAbstraction(storageCopyLoop.numIterations, inLoop)?.let { sval ->
+                            SimpleQualifiedInt(initialIntValue.add(sval.i.x).first)
                         }
 
-                    is SummarizedEffect ->
-                        SimpleQualifiedInt(
-                            initialIntValue.add(eff.loopBodyInvariant).first,
-                            setOf()
-                        )
-
                     is BytePtrUpdate -> {
-                        storageCopyLoop.numIterations?.let {
+                        storageCopyLoop.numIterations?.let { numIterations ->
                             val numPacked = EVM_WORD_SIZE / eff.k
-                            val lastLoopIt = (eff.initial.value + it - BigInteger.ONE).mod(numPacked)*eff.k
-                            SimpleQualifiedInt(IntValue(BigInteger.ZERO, lastLoopIt), setOf(SimpleIntQualifier.MultipleOf(eff.k)))
+                            val loopIt = if (inLoop) {
+                                IntValue(BigInteger.ZERO, (eff.initial.value + numIterations - BigInteger.ONE).mod(numPacked) * eff.k)
+                            } else {
+                                IntValue.Constant((eff.initial.value + numIterations).mod(numPacked) * eff.k)
+                            }
+                            SimpleQualifiedInt(loopIt, setOf(SimpleIntQualifier.MultipleOf(eff.k)))
                         }
                     }
                 } ?: continue
@@ -3188,59 +3231,52 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             return projLoop
         }
 
-        private fun storageCopyLoopSummaryStridesExitState(
-            storageCopyLoop: StorageCopyLoopSummary,
-            entryState: TreapMap<TACSymbol.Var, SValue>,
-        ): ProjectedMap<TACSymbol.Var, SValue, TreapSet<Stride>> {
-            var wrappedOut = ProjectedMap(entryState, SValue::narrowStrides, SValue::mergeStrides)
-            for ((x, eff) in storageCopyLoop.effects) {
-                when (eff) {
-                    is ConstantEffect -> {
-                        storageCopyLoop.numIterations?.let { numIter ->
-                            wrappedOut += x to wrappedOut.interpretSum(eff.initial).add(
-                                treapSetOf(Stride.SumOfTerms(eff.k*numIter))
-                            )
-                        }
-                    }
-                    is SummarizedEffect -> {
-                        wrappedOut += x to wrappedOut.interpretSum(eff.initial).add(
-                            treapSetOf(Stride.SumOfTerms(Stride.SymValue(null, eff.loopExit)))
-                        )
-                    }
-                    else -> {}
-                }
-            }
-
-            return wrappedOut
-        }
-
         private fun storageCopyLoopSummaryStridesLoopState(
             storageCopyLoop: StorageCopyLoopSummary,
             entryState: TreapMap<TACSymbol.Var, SValue>,
+            inLoop: Boolean
         ): ProjectedMap<TACSymbol.Var, SValue, TreapSet<Stride>> {
             var wrappedIn = ProjectedMap(entryState, SValue::narrowStrides, SValue::mergeStrides)
             for ((x, eff) in storageCopyLoop.effects) {
-                when (eff) {
-                    is ConstantEffect -> {
-                        storageCopyLoop.numIterations?.let { numIter ->
-                            wrappedIn += x to wrappedIn.interpretSum(eff.initial).add(
-                                    treapSetOf(Stride.SumOfTerms.sumOf(
-                                            treapMapOf(eff.k to Stride.SymValue(null, IntValue(BigInteger.ZERO, numIter - BigInteger.ONE))),
-                                            BigInteger.ZERO
-                                    ))
-                            )
-                        }
-                    }
-                    is SummarizedEffect -> {
-                        wrappedIn += x to wrappedIn.interpretSum(eff.initial).add(
-                                treapSetOf(Stride.SumOfTerms(Stride.SymValue(null, eff.loopBodyInvariant)))
-                        )
-                    }
-                    else -> {}
+                eff.toLoopAbstraction(storageCopyLoop.numIterations, inLoop)?.let { sval ->
+                    wrappedIn += x to wrappedIn.interpretSum(eff.initial).add(sval.stride)
                 }
             }
 
             return wrappedIn
+        }
+
+        private fun storageCopyLoopSummaryStorageLoopState(
+            storageCopyLoop: StorageCopyLoopSummary,
+            entryState: TreapMap<TACSymbol.Var, SValue>,
+            inLoop: Boolean,
+        ): TreapMap<TACSymbol.Var, SValue> {
+            val mutState = entryState.builder()
+
+            storageCopyLoop.effects.forEachEntry { (x, eff) ->
+                val sValue = entryState.interp(eff.initial)
+                if (sValue !is SValue.StoragePointer) {
+                    return@forEachEntry
+                }
+                val finalValue = eff.toLoopAbstraction(storageCopyLoop.numIterations, inLoop)
+                val addendVal = finalValue ?: SValue.Nondet
+                val v2AsConst = finalValue?.i?.x?.let {
+                    if (!inLoop && it.isConstant) {
+                        it.c
+                    } else {
+                        null
+                    }
+                }
+                mutState[x] = plusSemanticsStoragePointer(
+                    CmdPointer(storageCopyLoop.originalBlockStart, 0),
+                    sValue,
+                    addendVal,
+                    v2AsConst,
+                    null,
+                ).first
+            }
+
+            return mutState.build()
         }
 
         /**
@@ -3276,7 +3312,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             // blow that away.
             val shouldSummarize = (storageCopyLoop.storageCmds.all {
                 (graph.elab(it).cmd as? TACCmd.Simple.StorageAccessCmd)?.loc?.let {
-                    m.interp(it) is SValue.I
+                    m.interp(it) is SValue.I || m.interp(it) is SValue.StoragePointer
                 } == true
             })
             if (!shouldSummarize) {
@@ -3310,32 +3346,20 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
 
         private fun storageCopyLoopSummaryState(
             storageCopyLoop: StorageCopyLoopSummary,
-            m: TreapMap<TACSymbol.Var, SValue>
+            m: TreapMap<TACSymbol.Var, SValue>,
+            inLoop: Boolean,
         ): TreapMap<TACSymbol.Var, SValue> {
             val entryState = m.retainAllKeys { it !in storageCopyLoop.modifiedVars }
-            val loopStrides = storageCopyLoopSummaryStridesLoopState(storageCopyLoop, entryState)
+            val storagePointers = storageCopyLoopSummaryStorageLoopState(storageCopyLoop, entryState, inLoop)
+            val loopStrides = storageCopyLoopSummaryStridesLoopState(storageCopyLoop, storagePointers, inLoop)
             val loopIntervals = storageCopyLoopSummarySimpleQualifiedIntLoopState(
                 storageCopyLoop,
                 loopStrides.wrapped,
-                CmdPointer(storageCopyLoop.originalBlockStart, 0)
+                CmdPointer(storageCopyLoop.originalBlockStart, 0),
+                inLoop
             )
 
             return loopIntervals.wrapped
-        }
-
-        private fun storageCopyLoopPostState(
-            storageCopyLoop: StorageCopyLoopSummary,
-            m: TreapMap<TACSymbol.Var, SValue>
-        ): TreapMap<TACSymbol.Var, SValue> {
-            val entryState = m.retainAllKeys { it !in storageCopyLoop.modifiedVars }
-            val postLoopStrides = storageCopyLoopSummaryStridesExitState(storageCopyLoop, entryState)
-            val postLoopIntervals = storageCopyLoopSummarySimpleQualifiedIntExitState(
-                storageCopyLoop,
-                postLoopStrides.wrapped,
-                CmdPointer(storageCopyLoop.originalBlockStart, 0)
-            )
-
-            return postLoopIntervals.wrapped
         }
 
         /**
@@ -3504,7 +3528,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                     val next = if (shouldApply && storageCopyLoop.skipTarget == succ) {
                         storageCopyLoops += setOf(currBlock to storageCopyLoop)
                         visited.addAll(storageCopyLoop.summarizedBlocks)
-                        storageCopyLoopPostState(storageCopyLoop, m)
+                        storageCopyLoopSummaryState(storageCopyLoop, m, false)
                     } else if (!shouldApply && storageCopyLoop.originalBlockStart == succ) {
                         nextWithPathCond
                     } else {
@@ -3761,7 +3785,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 check(summary.originalBlockStart !in inState) {
                     "Attempting to summarize a loop that has already been visited"
                 }
-                var state = storageCopyLoopSummaryState(summary, entryState)
+                var state = storageCopyLoopSummaryState(summary, entryState, true)
                 inState[summary.originalBlockStart] = state
                 for (cmd in graph.elab(summary.originalBlockStart).commands) {
                     try {
@@ -4083,8 +4107,23 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             }
         }
         this.finalize()
-        accum.mapValuesTo(result) {
-            it.value.toResult()
+        accum.mapValuesTo(result) { (_, worker) ->
+            try {
+                worker.toResult()
+            } catch (x: StorageAnalysisFailedException) {
+                logger.warn {
+                    "Storage Analysis Failed while finalizing results for ${worker.graph.name}: ${x.s}\n" +
+                        "This will only be an error if the analysis is consumed further on in the workflow"
+                }
+                recordSuccess(worker.graph.name, STATISTICS_KEY, ANALYSIS_STORAGE_SUBKEY, false)
+                StorageAnalysisResult.Failure(x)
+            } catch(x: Throwable) {
+                logger.error(x) {
+                     "failed finalizing results for ${worker.graph.name}"
+                }
+                recordSuccess(worker.graph.name, STATISTICS_KEY, ANALYSIS_STORAGE_SUBKEY, false)
+                StorageAnalysisResult.Failure(x)
+            }
         }
         return result
     }

@@ -35,11 +35,11 @@
                                         "text": "n: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xf",
+                                                "value": "0x8",
                                                 "values": [
-                                                    "0xf",
-                                                    "15",
-                                                    "0xf"
+                                                    "0x8",
+                                                    "8",
+                                                    "0x8"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -131,6 +131,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -140,17 +151,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -340,11 +340,11 @@
                         "text": "Load from MultipleCandidates.n ↪ '{0}'",
                         "arguments": [
                             {
-                                "value": "0xf",
+                                "value": "0x8",
                                 "values": [
-                                    "0xf",
-                                    "15",
-                                    "0xf"
+                                    "0x8",
+                                    "8",
+                                    "0x8"
                                 ],
                                 "tooltip": "storage value",
                                 "truncatable": true
@@ -417,7 +417,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",
@@ -532,7 +532,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "2^255",
@@ -585,11 +585,11 @@
                                         "text": "Load from MultipleCandidates.n ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xf",
+                                                "value": "0x8",
                                                 "values": [
-                                                    "0xf",
-                                                    "15",
-                                                    "0xf"
+                                                    "0x8",
+                                                    "8",
+                                                    "0x8"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -637,11 +637,11 @@
                                         "text": "Store at MultipleCandidates.n ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x10",
+                                                "value": "0x9",
                                                 "values": [
-                                                    "0x10",
-                                                    "16",
-                                                    "0x10"
+                                                    "0x9",
+                                                    "9",
+                                                    "0x9"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -705,11 +705,11 @@
                                                         "text": "n: '{0}' (changed)",
                                                         "arguments": [
                                                             {
-                                                                "value": "0x10",
+                                                                "value": "0x9",
                                                                 "values": [
-                                                                    "0x10",
-                                                                    "16",
-                                                                    "0x10"
+                                                                    "0x9",
+                                                                    "9",
+                                                                    "0x9"
                                                                 ],
                                                                 "tooltip": "storage value",
                                                                 "truncatable": true
@@ -884,7 +884,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",
@@ -999,7 +999,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "2^255",
@@ -1052,11 +1052,11 @@
                                         "text": "Load from MultipleCandidates.n ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x10",
+                                                "value": "0x9",
                                                 "values": [
-                                                    "0x10",
-                                                    "16",
-                                                    "0x10"
+                                                    "0x9",
+                                                    "9",
+                                                    "0x9"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -1104,11 +1104,11 @@
                                         "text": "Store at MultipleCandidates.n ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xf",
+                                                "value": "0x8",
                                                 "values": [
-                                                    "0xf",
-                                                    "15",
-                                                    "0xf"
+                                                    "0x8",
+                                                    "8",
+                                                    "0x8"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -1172,11 +1172,11 @@
                                                         "text": "n: '{0}' (changed)",
                                                         "arguments": [
                                                             {
-                                                                "value": "0xf",
+                                                                "value": "0x8",
                                                                 "values": [
-                                                                    "0xf",
-                                                                    "15",
-                                                                    "0xf"
+                                                                    "0x8",
+                                                                    "8",
+                                                                    "0x8"
                                                                 ],
                                                                 "tooltip": "storage value",
                                                                 "truncatable": true
@@ -1326,11 +1326,11 @@
                         "text": "Load from MultipleCandidates.n ↪ '{0}'",
                         "arguments": [
                             {
-                                "value": "0xf",
+                                "value": "0x8",
                                 "values": [
-                                    "0xf",
-                                    "15",
-                                    "0xf"
+                                    "0x8",
+                                    "8",
+                                    "0x8"
                                 ],
                                 "tooltip": "storage value",
                                 "truncatable": true
@@ -1410,11 +1410,11 @@
                                         "text": "before ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xf",
+                                                "value": "0x8",
                                                 "values": [
-                                                    "0xf",
-                                                    "15",
-                                                    "0xf"
+                                                    "0x8",
+                                                    "8",
+                                                    "0x8"
                                                 ],
                                                 "tooltip": "value of expression",
                                                 "truncatable": true
@@ -1441,11 +1441,11 @@
                                         "text": "after ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xf",
+                                                "value": "0x8",
                                                 "values": [
-                                                    "0xf",
-                                                    "15",
-                                                    "0xf"
+                                                    "0x8",
+                                                    "8",
+                                                    "0x8"
                                                 ],
                                                 "tooltip": "value of expression",
                                                 "truncatable": true
@@ -1522,11 +1522,11 @@
                                                 "text": "n: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0xf",
+                                                        "value": "0x8",
                                                         "values": [
-                                                            "0xf",
-                                                            "15",
-                                                            "0xf"
+                                                            "0x8",
+                                                            "8",
+                                                            "0x8"
                                                         ],
                                                         "tooltip": "storage value",
                                                         "truncatable": true

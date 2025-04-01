@@ -202,14 +202,25 @@ class BitwiseAxiomsDefs(val lxf: LExpressionFactory, private val precision: Int)
                 }
             }
 
+            // mask with only one 1s-interval, e.g., 0xfff000, but f's go all the way up.
+            ones.size == 1 && ones[0].left == EVM_BITWIDTH256 && precision >= 2-> {
+                val right = ones[0].right
+                unaryAxiom("${name}_via_mod", "a & 0xfff...f0 = a - (a % 16)") {
+                    eq(
+                        a bitwiseAnd lMask,
+                        a - (a intModDontNorm twoTo(right)),
+                    )
+                }
+            }
+
             // mask with only one 1s-interval, e.g., 0xfff000
             ones.size == 1 && precision >= 3 -> {
                 val left = ones[0].left
                 val right = ones[0].right
                 unaryAxiom("${name}_via_mod", "a & 0xf0 = (a % 256) - (a % 16)") {
                     eq(
-                        (a bitwiseAnd lMask) + (a intModDontNorm twoTo(right)),
-                        a intModDontNorm twoTo(left)
+                        a bitwiseAnd lMask,
+                        (a intModDontNorm twoTo(left)) - (a intModDontNorm twoTo(right))
                     )
                 }
             }

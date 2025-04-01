@@ -61,13 +61,18 @@ interface Flippable {
 }
 
 sealed class IntQualifier : SelfQualifier<IntQualifier> {
+    override abstract fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean
+
     /**
      * This integer is a "pointer" to the beginning of an (empty) data segment for an array-like constant struct.
      */
     object EmptyDataSegment : IntQualifier() {
         override fun hashCode() = utils.hashObject(this)
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = false
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = listOf(this)
         override fun relates(v: TACSymbol.Var): Boolean = false
+
     }
 
     /**
@@ -75,6 +80,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      */
     object CalldataSize : IntQualifier() {
         override fun hashCode() = utils.hashObject(this)
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = false
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = listOf(this)
         override fun relates(v: TACSymbol.Var): Boolean = false
     }
@@ -85,6 +92,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      */
     object CalldataPayloadSize : IntQualifier() {
         override fun hashCode() = utils.hashObject(this)
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = false
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = listOf(this)
         override fun relates(v: TACSymbol.Var): Boolean = false
     }
@@ -94,6 +103,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * encoded array is held in [calldataArrayVar]
      */
     data class LengthOfCalldataArray(override val calldataArrayVar: TACSymbol.Var) : IntQualifier(), CalldataAnnot {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = calldataArrayVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = this.argSaturate(equivClasses, ::LengthOfCalldataArray)
         override fun relates(v: TACSymbol.Var): Boolean = v == calldataArrayVar
     }
@@ -102,6 +113,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * A valid calldata index into the array (encoded in the calldata buffer) at [calldataArrayVar]
      */
     data class ValidCalldataArrayIndex(override val calldataArrayVar: TACSymbol.Var) : IntQualifier(), CalldataAnnot {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = calldataArrayVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return argSaturate(equivClasses, ::ValidCalldataArrayIndex)
         }
@@ -114,6 +127,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * yield the element at index [index]
      */
     data class SafeCalldataOffset(override val calldataArrayVar: TACSymbol.Var, val index: TACSymbol.Var) : IntQualifier(), CalldataAnnot {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = calldataArrayVar in vars || index in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(index).flatMap { indEquiv ->
                 argSaturate(equivClasses) {
@@ -129,6 +144,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * This integer actually represents the base pointer of a byte array plus its length
      */
     data class BasePlusLength(override val arrayVar: TACSymbol.Var) : ArrayAnnot, IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return argSaturate(equivClasses, IntQualifier::BasePlusLength)
         }
@@ -229,6 +246,7 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
     ) : BinaryQualifer<IntQualifier>, IntQualifier(), Flippable, ConditionQualifier {
 
         override fun hashCode() = hash { it + op1 + op2 + condition }
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = op1 in vars || op2 in vars
 
         override fun saturateWith(equivClasses: VariableSaturation): List<ConditionVar> {
             return argSaturate(equivClasses) { a, b ->
@@ -249,6 +267,7 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
     ) : BinaryQualifer<IntQualifier>, IntQualifier(), Flippable, LogicalConnectiveQualifier {
 
         override fun hashCode() = hash { it + op1 + op2 + connective + applyNot }
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = op1 in vars || op2 in vars
 
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return argSaturate(equivClasses) { a, b ->
@@ -273,6 +292,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      */
     data class LengthOfArray(override val arrayVar: TACSymbol.Var) : ArrayAnnot, IntQualifier() {
         override fun relates(v: TACSymbol.Var): Boolean = arrayVar == v
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = argSaturate(equivClasses, ::LengthOfArray)
     }
 
@@ -281,6 +302,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      */
     data class LengthOfElementSegment(val elementBlockVar: TACSymbol.Var) : IntQualifier() {
         override fun relates(v: TACSymbol.Var): Boolean = elementBlockVar == v
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = elementBlockVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = equivClasses(elementBlockVar).map(::LengthOfElementSegment)
     }
 
@@ -291,6 +314,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      */
     data class ElementOffsetFor(override val arrayVar: TACSymbol.Var, val index: TACSymbol.Var?) : ArrayAnnot, IntQualifier() {
         override fun relates(v: TACSymbol.Var): Boolean = arrayVar == v || index == v
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars || (index != null && index in vars)
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = index?.let(equivClasses)?.flatMap { ind ->
             argSaturate(equivClasses) { arr ->
                 ElementOffsetFor(arr, ind)
@@ -307,6 +332,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      */
     data class SafeArrayOffset(override val arrayVar: TACSymbol.Var, val index: TACSymbol.Var?) : ArraySafetyAnnot, IntQualifier() {
         override fun relates(v: TACSymbol.Var): Boolean = arrayVar == v || index == v
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars || (index != null && index in vars)
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = if(index == null) {
             argSaturate(equivClasses) { arr ->
                 SafeArrayOffset(arr, null)
@@ -325,6 +352,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      */
     data class ValidIndexOf(override val arrayVar: TACSymbol.Var) : ArrayAnnot, IntQualifier() {
         override fun relates(v: TACSymbol.Var): Boolean = v == arrayVar
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = argSaturate(equivClasses, ::ValidIndexOf)
     }
 
@@ -337,6 +366,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
                 { "Factor is $factor, should be >0" }
         }
         override fun relates(v: TACSymbol.Var): Boolean = false
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = false
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> = listOf(MultipleOf(factor))
 
     }
@@ -345,6 +376,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * The PHYSICAL size (i.e., in bytes) of the data segment of the BASE array pointed to by [arrayVar]
      */
     data class SizeOfElementSegment(override val arrayVar: TACSymbol.Var) : ArrayAnnot, IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(arrayVar).map(::SizeOfElementSegment)
         }
@@ -356,6 +389,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * Holds the PHYSICAL length (i.e., in bytes) of the entire array segment held in [arrayVar]
      */
     data class SizeOfArrayBlock(override val arrayVar: TACSymbol.Var) : ArrayAnnot, IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return argSaturate(equivClasses, ::SizeOfArrayBlock)
         }
@@ -369,6 +404,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * This variable points to the location in memory where the block for the array [arrayVar] ends.
      */
     data class EndOfArraySegment(override val arrayVar: TACSymbol.Var) : ArrayAnnot, IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(arrayVar).map(::EndOfArraySegment)
         }
@@ -419,6 +456,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
             }
         }
 
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = mightBeElem in vars || vars.any { upperBound.contains(it) }
+
         override fun relates(v: TACSymbol.Var): Boolean = mightBeElem == v || v in upperBound
     }
 
@@ -427,6 +466,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * element at [arrayElem] and the end of the array
      */
     data class UntilEndFor(val arrayElem: TACSymbol.Var) : IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayElem in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(arrayElem).map(IntQualifier::UntilEndFor)
         }
@@ -435,6 +476,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
     }
 
     data class MaskedOf(val op: TACSymbol.Var, val bitWidth: Int) : IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = op in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(op).map {
                 MaskedOf(it, bitWidth)
@@ -451,6 +494,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * and untilEnd fields to prove future pointer arithmetic safe.
      */
     data class RemainingElementsProofFor(val indexVar: TACSymbol.Var, override val arrayVar: TACSymbol.Var) : IntQualifier(), ArrayAnnot {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars || indexVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(indexVar).flatMap { ind ->
                 equivClasses(arrayVar).map { array ->
@@ -471,6 +516,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * [arrayVar], the resulting element pointer will have [remaining] as its [analysis.pta.ArrayStateAnalysis.Value.EndTracking.untilEnd] field
      */
     data class RemainingBound(val arrayVar: TACSymbol.Var, val remaining: CanonicalSum) : IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = arrayVar in vars || vars.any { remaining.contains(it) }
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(arrayVar).map { o1 ->
                 RemainingBound(o1, remaining)
@@ -485,6 +532,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * by [other]. The bound is strong or weak depending on the value of [weak]
      */
     data class HasUpperBound(val other: IntQualifier, val weak: Boolean) : IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = other.relatesAny(vars)
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return other.saturateWith(equivClasses).map {
                 HasUpperBound(it, this.weak)
@@ -503,6 +552,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * difference between v and [other]).
      */
     data class ModularUpperBound(override val other: TACSymbol.Var, override val modulus: BigInteger, override val strong: Boolean) : IntQualifier(), ModularUpperBoundQualifier {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = other in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(other).map {
                 ModularUpperBound(it, this.modulus, this.strong)
@@ -520,6 +571,8 @@ sealed class IntQualifier : SelfQualifier<IntQualifier> {
      * variable qualified with this is non-zero.
      */
     data class NullabilityFlagFor(val pointerVar: TACSymbol.Var) : IntQualifier() {
+        override fun relatesAny(vars: Collection<TACSymbol.Var>): Boolean = pointerVar in vars
+
         override fun saturateWith(equivClasses: VariableSaturation): List<IntQualifier> {
             return equivClasses(pointerVar).map(::NullabilityFlagFor)
         }

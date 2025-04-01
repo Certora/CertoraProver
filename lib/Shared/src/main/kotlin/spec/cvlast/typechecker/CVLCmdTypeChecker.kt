@@ -80,7 +80,7 @@ class CVLCmdTypeChecker(
                         CVLType.PureCVLType.Void -> {
                             if(returnOperands.isNotEmpty()) {
                                 CVLError.General(
-                                    cmd.cvlRange,
+                                    cmd.range,
                                     "Cannot return values in CVL function ${enclosingFunction.functionName().methodId} that returns void."
                                 ).asError()
                             } else {
@@ -90,7 +90,7 @@ class CVLCmdTypeChecker(
                         is CVLType.PureCVLType.TupleType -> {
                             if(returnOperands.size != expectedReturnType.elements.size) {
                                 CVLError.General(
-                                    cmd.cvlRange,
+                                    cmd.range,
                                     "Incorrect number of values returned for CVL function ${enclosingFunction.functionName().methodId}: expected ${expectedReturnType.elements.size} but saw ${returnOperands.size}."
                                 ).asError()
                             } else {
@@ -109,7 +109,7 @@ class CVLCmdTypeChecker(
                         }
                         else -> if(returnOperands.size != 1) {
                             CVLError.General(
-                                cmd.cvlRange,
+                                cmd.range,
                                 "Multiple values are returned for function ${enclosingFunction.functionName().methodId} where only one was expected."
                             ).asError()
                         } else if(returnOperands.single().getCVLType() isConvertibleTo expectedReturnType) {
@@ -123,16 +123,16 @@ class CVLCmdTypeChecker(
                     }
                 }
             }
-        } ?: CVLError.General(cmd.cvlRange, "Return statement not allowed here").asError()
+        } ?: CVLError.General(cmd.range, "Return statement not allowed here").asError()
     }
 
     private fun typeCheckRevertCmd(cmd: CVLCmd.Simple.Revert): CollectingResult<CVLCmd.Simple.Revert, CVLError> {
         if (Config.CvlFunctionRevert.get()) {
             return cmd.scope.enclosingCVLFunction()?.let {
                 cmd.lift()
-            } ?: RevertCmdOutsideOfFunction(cmd.cvlRange).asError()
+            } ?: RevertCmdOutsideOfFunction(cmd.range).asError()
         }
-        return CVLError.General(cmd.cvlRange, "Revert statement is only supported when ${Config.CvlFunctionRevert.userFacingName()} is true.").asError()
+        return CVLError.General(cmd.range, "Revert statement is only supported when ${Config.CvlFunctionRevert.userFacingName()} is true.").asError()
     }
 
     private fun typeCheckResetStorageCmd(cmd: CVLCmd.Simple.ResetStorage): CollectingResult<CVLCmd.Simple.ResetStorage, CVLError> {
@@ -291,13 +291,13 @@ class CVLCmdTypeChecker(
                 val symbolInfo = symbolTable.lookUpNonFunctionLikeSymbol(id, cmd.scope)
                 if (symbolInfo != null && symbolInfo.symbolValue is CVLParam) {
                     return CVLError.General(
-                        cmd.cvlRange, "assignments to a rule/subroutine parameter (here: $id) are forbidden"
+                        cmd.range, "assignments to a rule/subroutine parameter (here: $id) are forbidden"
                     ).asError()
                 }
             }
         } else {
             if (cmd.idL.single().getIdLhs().isWildCard()) {
-                return CVLError.General(cmd.cvlRange, "`_` is the wildcard variable. Cannot declare an argument with that name").asError()
+                return CVLError.General(cmd.range, "`_` is the wildcard variable. Cannot declare an argument with that name").asError()
             }
         }
 
@@ -312,7 +312,7 @@ class CVLCmdTypeChecker(
         ) : CollectingResult<CVLCmd.Simple.Definition, CVLError> {
             return if (cmd.idL.size != t.size) {
                 CVLError.General(
-                    cmd.cvlRange,
+                    cmd.range,
                     "Cannot assign ${t.size}-ary function to ${cmd.idL.size} variable${cmd.idL.singleOrNull()?.let { "" } ?: "s"}"
                 ).asError()
             } else {
@@ -325,22 +325,22 @@ class CVLCmdTypeChecker(
                         }
                     }.flatten().map {
                         cmd
-                    }.mapErrors { e -> CVLError.General(cmd.cvlRange, e) }
+                    }.mapErrors { e -> CVLError.General(cmd.range, e) }
             }
         }
 
         // typecheck the rhs
-        return expTypeChecker.typeCheck(cmd.exp, CVLTypeEnvironment.empty(cmd.cvlRange, cmd.scope)).bind { exp ->
+        return expTypeChecker.typeCheck(cmd.exp, CVLTypeEnvironment.empty(cmd.range, cmd.scope)).bind { exp ->
             cmd.copy(exp = exp).lift()
         }.bind { cmd ->
             // typecheck [cmd.type]
             if (cmd.type != null) {
-                typeTypeChecker.typeCheck(cmd.type, cmd.cvlRange, cmd.scope)
+                typeTypeChecker.typeCheck(cmd.type, cmd.range, cmd.scope)
             } else {
                 null.lift()
             }.bind { type ->
                 if (type is CVLType.PureCVLType.Ghost.Mapping) {
-                    CVLError.General(cmd.cvlRange, "CVL does not support mappings as local variables").asError()
+                    CVLError.General(cmd.range, "CVL does not support mappings as local variables").asError()
                 } else {
                     cmd.copy(type = type).lift()
                 }
@@ -348,14 +348,14 @@ class CVLCmdTypeChecker(
         }.bind { cmd ->
             // typecheck the lhs
             cmd.idL.map { lhs ->
-                expTypeChecker.typeCheck(lhs, CVLTypeEnvironment.empty(cmd.cvlRange, cmd.scope)).bind { idL ->
+                expTypeChecker.typeCheck(lhs, CVLTypeEnvironment.empty(cmd.range, cmd.scope)).bind { idL ->
                     if (idL.getCVLTypeOrNull() == EVMBuiltinTypes.method) {
                         CVLError.General(
-                            cvlRange = cmd.cvlRange, message = "Cannot assign to values of type method"
+                            range = cmd.range, message = "Cannot assign to values of type method"
                         ).asError()
                     } else if(idL is CVLLhs.Array && idL.innerLhs.getCVLType() is CVLType.PureCVLType.CVLArrayType) {
                         CVLError.General(
-                            cvlRange = cmd.cvlRange, message = "Cannot perform '$cmd', cannot assign to array elements. " +
+                            range = cmd.range, message = "Cannot perform '$cmd', cannot assign to array elements. " +
                                 "The same effect could be achieved with a 'require' statement: `require $idL == ${cmd.exp}`"
                         ).asError()
                     } else {
@@ -404,7 +404,7 @@ class CVLCmdTypeChecker(
                     cmd.lift()
                 }
             } else {
-                CVLError.General(cmd.cvlRange, "Assignments to multiple lhs only work for calls to functions which return multiple values.").asError()
+                CVLError.General(cmd.range, "Assignments to multiple lhs only work for calls to functions which return multiple values.").asError()
             }
         }
     }
@@ -424,20 +424,20 @@ class CVLCmdTypeChecker(
                     "$requiredType or type mathint"
                 }
             }"
-            CVLError.General(cmd.cvlRange, errStr)
+            CVLError.General(cmd.range, errStr)
         } else if (rhsType is CVLType.PureCVLType.Void && cmd.exp is CVLExp.ApplyExp) {
             // This is a parametric/overloading function call
             when (val context = cmd.exp.methodIdWithCallContext) {
                 is SymbolicContractMethod -> ParametricReturn(cmd.exp, context)
-                is SpecDeclaration -> AssignFromVoid(AssignFromVoid.RhsKind.CVL_FUNC, context.toString(), cmd.cvlRange)
-                is ConcreteMethod -> AssignFromVoid(AssignFromVoid.RhsKind.EVM_FUNC, context.toString(), cmd.cvlRange)
+                is SpecDeclaration -> AssignFromVoid(AssignFromVoid.RhsKind.CVL_FUNC, context.toString(), cmd.range)
+                is ConcreteMethod -> AssignFromVoid(AssignFromVoid.RhsKind.EVM_FUNC, context.toString(), cmd.range)
                 is UniqueMethod -> `impossible!` // calling any unique method (specifically, the constructor) should fail the apply-expression typecheck
                 is CVLBuiltInFunction -> `impossible!` // all built in functions should return a type
             }
         } else if (rhsType is CVLType.PureCVLType.Void && cmd.exp is CVLExp.AddressFunctionCallExp) {
-            AssignFromVoid(AssignFromVoid.RhsKind.ADDRESS_FUNC, cmd.exp.toString(), cmd.cvlRange)
+            AssignFromVoid(AssignFromVoid.RhsKind.ADDRESS_FUNC, cmd.exp.toString(), cmd.range)
         } else if (rhsType is CVLType.PureCVLType.Enum && rhsType.isCastableTo(lhsType)) {
-            CVLError.General(cmd.cvlRange, "Cannot directly assign enum $rhsType to $lhsType. Use an explicit cast (e.g. assert_$lhsType(${cmd.exp})")
+            CVLError.General(cmd.range, "Cannot directly assign enum $rhsType to $lhsType. Use an explicit cast (e.g. assert_$lhsType(${cmd.exp})")
         } else {
             NotConvertible(cmd.exp, lhsType)
         }
@@ -446,18 +446,18 @@ class CVLCmdTypeChecker(
     private fun typeCheckDeclarationCmd(cmd: CVLCmd.Simple.Declaration): CollectingResult<CVLCmd.Simple.Declaration, CVLError> {
         if (cmd.id.isWildcard()) {
             return CVLError.General(
-                cmd.cvlRange,
+                cmd.range,
                 "`_` is the wildcard variable. Cannot declare a variable with that name"
             ).asError()
         }
 
-        return typeTypeChecker.typeCheck(cmd.cvlType, cmd.cvlRange, cmd.scope).bind { type ->
+        return typeTypeChecker.typeCheck(cmd.cvlType, cmd.range, cmd.scope).bind { type ->
             when (type) {
                 is CVLType.PureCVLType.Ghost.Mapping ->
-                    CVLError.General(cmd.cvlRange, "CVL does not support mappings as local variables").asError()
+                    CVLError.General(cmd.range, "CVL does not support mappings as local variables").asError()
 
                 is CVLType.PureCVLType.VMInternal.BlockchainState ->
-                    CVLError.General(cmd.cvlRange, "Storage references must be explicitly initialized").asError()
+                    CVLError.General(cmd.range, "Storage references must be explicitly initialized").asError()
 
                 else -> cmd.copy(cvlType = type).lift()
             }
@@ -466,20 +466,20 @@ class CVLCmdTypeChecker(
 
     private fun typeCheckAssumeInvariantCmd(cmd: CVLCmd.Simple.AssumeCmd.AssumeInvariant): CollectingResult<CVLCmd.Simple.AssumeCmd.AssumeInvariant, CVLError> {
         val symbol = symbolTable.lookUpNonFunctionLikeSymbol(cmd.id, cmd.scope)?.symbolValue
-            ?: return CVLError.General(cmd.cvlRange, "Could not find invariant ${cmd.id}").asError()
+            ?: return CVLError.General(cmd.range, "Could not find invariant ${cmd.id}").asError()
 
         val invariant = symbol as? CVLInvariant
-            ?: return CVLError.General(cmd.cvlRange, "${cmd.id} is not an invariant").asError()
+            ?: return CVLError.General(cmd.range, "${cmd.id} is not an invariant").asError()
 
         val params = cmd.params.map {
             expTypeChecker.typeCheck(
                 it,
-                CVLTypeEnvironment.empty(cmd.cvlRange, cmd.scope)
+                CVLTypeEnvironment.empty(cmd.range, cmd.scope)
             )
         }.flatten()
 
         if (cmd.params.size != invariant.params.size) {
-            return CVLError.General(cmd.cvlRange, "Wrong number of arguments passed to ${cmd.id}: expected ${invariant.params.size}, got ${cmd.params.size}").asError()
+            return CVLError.General(cmd.range, "Wrong number of arguments passed to ${cmd.id}: expected ${invariant.params.size}, got ${cmd.params.size}").asError()
         }
 
         return params.bind() { params ->
@@ -488,7 +488,7 @@ class CVLCmdTypeChecker(
 
                 if (!currentConvertible) {
                     CVLError.General(
-                        cmd.cvlRange,
+                        cmd.range,
                         "Wrong argument type passed to ${cmd.id}: expected ${param.type}, got ${givenArg.tag.type}"
                     ).asError()
                 } else {

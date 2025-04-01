@@ -29,6 +29,9 @@ import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
 import spec.cvlast.typechecker.NoFoundryTestsLeft
 import spec.cvlast.typedescriptors.ToVMContext
+import spec.rules.CVLSingleRule
+import spec.rules.ICVLRule
+import spec.rules.SingleRuleGenerationMeta
 import utils.*
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.lift
@@ -47,10 +50,10 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
 
     override fun doGenerate(
         scope: CVLScope,
-        cvlRange: CVLRange,
+        range: Range,
         mainContract: String,
         functionsFromSpecFileAndContracts: Map<ContractInstanceInSDC, List<ContractFunction>>
-    ): CollectingResult<IRule, CVLError> {
+    ): CollectingResult<ICVLRule, CVLError> {
         val importedFuncs = functionsFromSpecFileAndContracts.findEntry { contract, _ -> contract.name == mainContract }?.second
             ?: error("The main contract $mainContract should have been in the SDC mapping")
 
@@ -71,11 +74,11 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
         }
 
         if (callableFuncs.isEmpty()) {
-            return NoFoundryTestsLeft(cvlRange, eId.name, mainContract).asError()
+            return NoFoundryTestsLeft(range, eId.name, mainContract).asError()
         }
 
         return scope.extendInCollecting(CVLScope.Item::RuleScopeItem) { ruleScope ->
-            val emptyTag = CVLExpTag(ruleScope, cvlRange)
+            val emptyTag = CVLExpTag(ruleScope, range)
 
             val g_expectRevertAllowed = CVLExp.VariableExp("g_expectRevertAllowed", emptyTag)
             val g_expectRevert = CVLExp.VariableExp("g_expectRevert", emptyTag)
@@ -96,16 +99,16 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
             fun insertSpecificFuncCall(func: ContractFunction, ruleScope: CVLScope): CVLCmd =
                 ruleScope.extendIn(CVLScope.Item::BlockCmdScopeItem) { blockScope ->
                     CVLCmd.Composite.Block(
-                        cvlRange,
+                        range,
                         func.methodSignature.params.mapIndexed { i, param ->
                             CVLCmd.Simple.Declaration(
-                                cvlRange,
+                                range,
                                 param.vmType.getPureTypeToConvertFrom(ToVMContext.ArgumentPassing).force(),
                                 "param_$i",
                                 blockScope
                             )
                         } + CVLCmd.Simple.contractFunction(
-                            cvlRange,
+                            range,
                             blockScope,
                             ConcreteMethod(func.methodSignature as ExternalQualifiedMethodSignature),
                             listOf(envParamExp) + List(func.methodSignature.params.size) { i ->
@@ -150,13 +153,13 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
              */
             val block = listOfNotNull(
                 CVLCmd.Simple.AssumeCmd.Assume(
-                    cvlRange,
+                    range,
                     CVLExp.RelopExp.EqExp(g_expectRevertAllowed, CVLExp.Constant.BoolLit(withRevert, emptyTag), emptyTag),
                     ruleScope
                 ),
                 if (withRevert) {
                     CVLCmd.Simple.AssumeCmd.Assume(
-                        cvlRange,
+                        range,
                         CVLExp.RelopExp.EqExp(g_expectRevert, CVLExp.Constant.BoolLit(false, emptyTag), emptyTag),
                         ruleScope
                     )
@@ -164,7 +167,7 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
                     null
                 },
                 CVLCmd.Simple.AssumeCmd.Assume(
-                    cvlRange,
+                    range,
                     CVLExp.RelopExp.EqExp(
                         CVLExp.FieldSelectExp(CVLExp.FieldSelectExp(envParamExp, "msg", emptyTag), "value", emptyTag),
                         CVLExp.Constant.NumberLit(BigInteger.ZERO, emptyTag), emptyTag
@@ -172,20 +175,20 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
                     ruleScope
                 ),
                 CVLCmd.Simple.Apply(
-                    cvlRange,
+                    range,
                     CVLExp.ApplyExp.CVLFunction("init_fuzz_tests", listOf(funParamExp, envParamExp), emptyTag, noRevert = true),
                     ruleScope
                 )
             ) + callableFuncs.drop(1).fold(insertSpecificFuncCall(callableFuncs.first(), ruleScope)) { acc, func ->
                 CVLCmd.Composite.If(
-                    cvlRange,
+                    range,
                     compareSelectorExp(func),
                     insertSpecificFuncCall(func, ruleScope),
                     acc,
                     ruleScope
                 )
             } + CVLCmd.Simple.Assert(
-                cvlRange,
+                range,
                 if (withRevert) {
                     CVLExp.RelopExp.EqExp(g_expectRevert, CVLExp.VariableExp(CVLKeywords.lastReverted.keyword, emptyTag), emptyTag)
                 } else {
@@ -197,10 +200,10 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
 
             CVLSingleRule(
                 ruleIdentifier = RuleIdentifier.freshIdentifier(this.eId.name),
-                cvlRange = cvlRange,
+                range = range,
                 params = listOf(
-                    CVLParam(EVMBuiltinTypes.method, funParamName, cvlRange),
-                    CVLParam(EVMBuiltinTypes.env, envParamName, cvlRange),
+                    CVLParam(EVMBuiltinTypes.method, funParamName, range),
+                    CVLParam(EVMBuiltinTypes.env, envParamName, range),
                     ),
                 description = "",
                 goodDescription = "",
@@ -208,7 +211,7 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
                 ruleType = SpecType.Single.BuiltIn(this.eId),
                 scope = ruleScope,
                 methodParamFilters = MethodParamFilters(
-                    cvlRange,
+                    range,
                     ruleScope,
                     mapOf(funParamName to MethodParamFilter(
                         funParamExp,
@@ -218,7 +221,7 @@ class FoundryFuzzTestsGenerator(val withRevert: Boolean) : BuiltInRuleGenerator(
                                 acc,
                                 emptyTag)
                         },
-                        cvlRange,
+                        range,
                         ruleScope
                     ))),
                 ruleGenerationMeta = SingleRuleGenerationMeta.Empty

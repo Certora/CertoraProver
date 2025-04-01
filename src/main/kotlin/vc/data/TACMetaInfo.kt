@@ -35,7 +35,7 @@ import disassembler.EVMMetaInfo
 import log.Logger
 import log.LoggerTypes
 import scene.ITACMethod
-import spec.cvlast.CVLRange
+import utils.Range
 import utils.*
 import java.math.BigInteger
 
@@ -154,8 +154,8 @@ fun InternalFuncStartAnnotation.descWithContentAndLocation(): String {
 }
 
 /** legacy function for convenience */
-fun getSourceStringOrInternalFuncForPtr(lcmd: LTACCmd, graph: TACCommandGraph): String? {
-    return getSourceHintWithRange(lcmd, graph, null).hint
+fun getSourceStringOrInternalFuncForPtr(lcmd: LTACCmd): String? {
+    return lcmd.cmd.metaSrcInfo?.getSourceDetails()?.sanitizedContentWithLoc
 }
 
 /** attempts to get a source string describing [lcmd] given [graph], along with a location matching this command. */
@@ -171,7 +171,7 @@ fun getSourceHintWithRange(lcmd: LTACCmd, graph: TACCommandGraph?, method: ITACM
      * 5. Fall back that really no information is available
      */
     return if (cmdSource != null) {
-        FailureInfo.AdditionalFailureInfo(hint = cmdSource.sanitizedContentWithLoc, range = cmdSource.range)
+        FailureInfo.AdditionalFailureInfo(range = cmdSource.range)
     } else if (lcmd.cmd.sourceRange() != null) {
         FailureInfo.AdditionalFailureInfo(range = lcmd.cmd.sourceRange())
     } else {
@@ -179,8 +179,7 @@ fun getSourceHintWithRange(lcmd: LTACCmd, graph: TACCommandGraph?, method: ITACM
         val range = funcStart?.callSiteSrc?.getSourceDetails()?.range
         if (range != null) {
             FailureInfo.AdditionalFailureInfo(additionalUserFacingMessage = "No precise source code information available for the location, range information points to the next method that inlined the call. " +
-                "I.e. inspect the highlighted method and any of it's potentially inlined callees.",
-                hint = funcStart.descWithContentAndLocation(), range = range)
+                "I.e. inspect the highlighted method and any of it's potentially inlined callees.", range = range)
         } else if (method?.evmExternalMethodInfo?.sourceSegment?.range != null) {
             FailureInfo.AdditionalFailureInfo(additionalUserFacingMessage = "No precise source code information available for the location, range information points to the next enclosing external method that inlined the call. " +
                 "I.e. inspect the highlighted method and any of it's potentially inlined callees.", range = method.evmExternalMethodInfo?.sourceSegment?.range)
@@ -199,18 +198,13 @@ sealed class FailureInfo: AmbiSerializable {
     abstract val additionalUserFacingMessage: String
 
     /**
-     * A hint message that will be output to the logs.
-     */
-    abstract val hint: String?
-
-    /**
      * An optional range for the Failure Info
      */
-    abstract val range: CVLRange.Range?
+    abstract val range: Range.Range?
 
     @KSerializable
     @Treapable
-    data class AdditionalFailureInfo(override val additionalUserFacingMessage: String = "", override val hint: String = "", override val range: CVLRange.Range?) : FailureInfo()
+    data class AdditionalFailureInfo(override val additionalUserFacingMessage: String = "", override val range: Range.Range?) : FailureInfo()
 
     @KSerializable
     @Treapable
@@ -218,9 +212,7 @@ sealed class FailureInfo: AmbiSerializable {
         private fun readResolve(): Any = NoFailureInfo
         override val additionalUserFacingMessage: String
             get() = "No source code information available for the location."
-        override val hint: String?
-            get() = null
-        override val range: CVLRange.Range?
+        override val range: Range.Range?
             get() = null
 
         override fun hashCode() = treapHashObject(this)

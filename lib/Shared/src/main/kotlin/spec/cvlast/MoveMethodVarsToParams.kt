@@ -21,6 +21,7 @@ import datastructures.stdcollections.*
 import spec.cvlast.transformer.CVLAstTransformer
 import spec.cvlast.transformer.CVLCmdTransformer
 import spec.cvlast.transformer.CVLExpTransformer
+import spec.rules.CVLSingleRule
 import utils.CollectingResult
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.safeForce
@@ -46,7 +47,7 @@ class MoveMethodVarsToParams : CVLAstTransformer<Nothing>(
         }.let { (methodDecls, rest) ->
             rule.copy(
                 block = rest,
-                params = rule.params + methodDecls.map { CVLParam(EVMBuiltinTypes.method, (it as CVLCmd.Simple.Declaration).id, it.cvlRange) }
+                params = rule.params + methodDecls.map { CVLParam(EVMBuiltinTypes.method, (it as CVLCmd.Simple.Declaration).id, it.range) }
             )
         }.lift()
     }

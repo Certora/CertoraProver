@@ -29,7 +29,7 @@ import spec.CVLCompiler
 import spec.RETURN_VALUE
 import tac.DumpTime
 import tac.NBId
-import utils.containsAny
+import utils.*
 
 /**
  * Contains functionality to combine and create TACPrograms, sequentially, parallel, and from single commands.
@@ -56,6 +56,13 @@ private fun getLeaves(c : TACProgram<*>) : Set<NBId> {
 
 object TACProgramCombiners {
     fun mergeCodes(first: CoreTACProgram, second: CoreTACProgram) : CoreTACProgram {
+        if (first.isEmptyCode()) {
+            return second
+        }
+        if (second.isEmptyCode()) {
+            return first
+        }
+
         val rootId = second.rootBlock.id
         return first.copy(
             code = first.code + second.code,
@@ -71,6 +78,8 @@ object TACProgramCombiners {
         )
     }
 
+    infix fun CoreTACProgram.andThen(other: CoreTACProgram) = mergeCodes(this, other)
+
     infix fun <T: TACCmd.Spec> CommandWithRequiredDecls<T>.andThen(next: TACExpr) = TACExprWithRequiredCmdsAndDecls<T>(
         exp = next,
         cmdsToAdd = this.cmds,
@@ -81,6 +90,8 @@ object TACProgramCombiners {
      * Sequentially compose two [CommandWithRequiredDecls] with a common supertype [T].
      */
     infix fun <T: TACCmd, U: T, V: T> CommandWithRequiredDecls<U>.andThen(other: CommandWithRequiredDecls<V>) = this.merge(other)
+
+    infix fun <T: TACCmd, U: T, V: T> CommandWithRequiredDecls<U>.andThen(other: V) = this.merge(other)
 
     /**
      * Sequentially composed a sequence of commands of subtype of type [T] with the composable program [ProgType] held in a
@@ -154,19 +165,19 @@ fun mergeCodes(first : CVLTACProgram, second : CVLTACProgram) : CVLTACProgram {
 }
 
 /** Another apt name would be "parallelCompositionWithCondition" (for [CoreTACProgram]s) */
-fun mergeIfCodes(
-    condCode: CVLTACProgram,
+fun <T: TACCmd, U> mergeIfCodes(
+    condCode: U,
     jumpiCmd: TACCmd.Simple.JumpiCmd,
-    thenCode: CVLTACProgram,
-    elseCode: CVLTACProgram
-): CVLTACProgram {
+    thenCode: U,
+    elseCode: U
+): U where U: TACProgram<T>, U: IProcedural{
     val leavesCond = getLeaves(condCode)
     val thenRoot = thenCode.entryBlockId
     val elseRoot = elseCode.entryBlockId
 
     logger.info{"Merging leaves of condition code $leavesCond to then root and else root $thenRoot, $elseRoot"}
     // TODO: Check that no intersection of block IDs
-    val blocks = mutableMapOf<NBId,List<TACCmd.Spec>>()
+    val blocks = mutableMapOf<NBId,List<T>>()
     blocks.putAll(condCode.code)
     blocks.putAll(thenCode.code)
     blocks.putAll(elseCode.code)
@@ -177,15 +188,16 @@ fun mergeIfCodes(
 
     leavesCond.single().let { leaf ->
         graph[leaf] = graph[leaf].orEmpty() + thenRoot + elseRoot
-        blocks[leaf] = blocks[leaf]!!.plus(jumpiCmd)
+        @Suppress("UNCHECKED_CAST")
+        blocks[leaf] = blocks[leaf]!!.plus(jumpiCmd as T)
     }
 
-    return condCode.copy(
-        code = blocks,
+    return condCode.copyWith(
+        code = blocks.uncheckedAs(),
         blockgraph = graph,
         symbolTable = symbolTable,
         procedures = procedures
-    )
+    ).uncheckedAs()
 }
 
 fun codeFromCommandWithVarDecls(

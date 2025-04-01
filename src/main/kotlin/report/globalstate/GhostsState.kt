@@ -29,7 +29,7 @@ import solver.CounterexampleModel
 import solver.CounterexampleModel.ResolvingFailure
 import spec.CVLKeywords
 import spec.QUANTIFIED_VAR_TYPE
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLType
 import spec.cvlast.GhostSort
 import utils.*
@@ -287,7 +287,7 @@ internal class GhostsState(
             state.changed = false
 
             val value = CallInstance.StorageValue(idpString, observedValue)
-            val range = ghostAccessData.idpToRange[idp] as? CVLRange.Range
+            val range = ghostAccessData.idpToRange[idp] as? Range.Range
             val child = CallInstance.GhostValueInstance(state.compType.callEndStatus, range, value, changed, formatter)
             parent.addChild(child)
             Logger.regression { "CallTrace: Ghosts State added access path for ${(idp as InstantiatedDisplayPath.Root).name} (at ${range})." }
@@ -350,7 +350,7 @@ private sealed class State {
 class GhostAccessData internal constructor(seqGen: SequenceGenerator, model: CounterexampleModel) {
     internal val isPersistent: Map<GhostId, Boolean>
     val instantiatedDisplayPaths: Map<GhostAccess, InstantiatedDisplayPath.Root>
-    val idpToRange: Map<InstantiatedDisplayPath.Root, CVLRange>
+    val idpToRange: Map<InstantiatedDisplayPath.Root, Range>
 
     init {
         isPersistent = mutableMapOf()

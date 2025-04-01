@@ -16,6 +16,7 @@
  */
 
 package instrumentation.transformers
+
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.LTACCmd
 import analysis.MutableCommandWithRequiredDecls
@@ -24,11 +25,13 @@ import analysis.icfg.MetaKeyPairDetector
 import analysis.icfg.SummaryStack
 import analysis.maybeAnnotation
 import datastructures.stdcollections.*
-import report.callresolution.CallResolutionTableSummaryInfo
+import log.*
+import report.callresolution.CallResolutionTableRow
 import scene.IScene
 import spec.CVLCompiler
 import spec.GenerateRulesForInvariantsAndEnvFree
 import spec.cvlast.*
+import spec.rules.CVLSingleRule
 import tac.CallId
 import tac.DataField
 import utils.*
@@ -36,6 +39,8 @@ import vc.data.*
 import vc.data.ParametricInstantiation.Companion.toSimple
 import java.util.stream.Collectors
 
+
+private val logger = Logger(LoggerTypes.STRONG_INVARIANT_INLINER)
 
 /**
  * This transformer pass adds support for strong invariant - which will be checked before and after a summarized call.
@@ -52,9 +57,9 @@ import java.util.stream.Collectors
  */
 class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, val rule: CVLSingleRule) : CodeTransformer() {
 
-    private fun getCallResolutionInfo(summaryStart: LTACCmd) = ((summaryStart.cmd as TACCmd.Simple.AnnotationCmd).annot.v as SummaryStack.SummaryStart).callResolutionTableInfo
+    private fun asSummaryStart(summaryStart: LTACCmd) = ((summaryStart.cmd as TACCmd.Simple.AnnotationCmd).annot.v as SummaryStack.SummaryStart)
 
-    private fun getExternalSummaryInfo(summaryStart: LTACCmd): SummaryStack.SummaryStart.External? = when(val cmd = summaryStart.cmd){
+    private fun getExternalSummaryInfo(summaryStart: LTACCmd): SummaryStack.SummaryStart.External? = when (val cmd = summaryStart.cmd) {
         is TACCmd.Simple.AnnotationCmd -> cmd.annot.v as? SummaryStack.SummaryStart.External
         else -> null
     }
@@ -71,13 +76,13 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
          * Only apply the transformation to the induction step (i.e. [spec.cvlast.SpecType.Single.InvariantCheck.GenericPreservedInductionStep] or
          * [spec.cvlast.SpecType.Single.InvariantCheck.ExplicitPreservedInductionStep])
          */
-        if((rule.ruleType !is SpecType.Single.InvariantCheck.GenericPreservedInductionStep && rule.ruleType !is SpecType.Single.InvariantCheck.ExplicitPreservedInductionStep)){
+        if ((rule.ruleType !is SpecType.Single.InvariantCheck.GenericPreservedInductionStep && rule.ruleType !is SpecType.Single.InvariantCheck.ExplicitPreservedInductionStep)) {
             return ast;
         }
         val inductionStep = rule.ruleType as SpecType.Single.InvariantCheck
-        val invariant = cvlCompiler.cvl.invariants.first{ it.id == inductionStep.originalInv.id};
+        val invariant = cvlCompiler.cvl.invariants.first { it.id == inductionStep.originalInv.id };
 
-        if(invariant.invariantType == WeakInvariantType){
+        if (invariant.invariantType == WeakInvariantType) {
             return ast
         }
 
@@ -88,37 +93,54 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
             MetaKeyPairDetector.isMetaKey(SummaryStack.END_EXTERNAL_SUMMARY),
             MetaKeyPairDetector.externalSummaryStartEndMatcher
         ).getResultsAtSinkBlock()
-            summaryStartEndPairs
+
+        logger.info { "Found a total of ${summaryStartEndPairs.size} summaries in the program." }
+
+        summaryStartEndPairs
             /**
              * Apply the logic for call resolution only if the call is unresolved or if there is a summarization failure. I.e. we don't apply the logic in the case there is a CVL function summary for the call
              * and neither in the case that the call could be linked and inlined.
              */
-            .filter { getCallResolutionInfo(it.key) is CallResolutionTableSummaryInfo.HavocInfo.UnresolvedCall || getCallResolutionInfo(it.key) is CallResolutionTableSummaryInfo.HavocInfo.SummarizationFailureHavoc }
-            .forEachEntry{
-                (summaryStart, summaryEnds) ->
+            .filter {
+                /**
+                 * The Strong Invariant Logic _only_ applies in cases there is an unresolved call,
+                 * and the call resolution table shows a red warning note [CallResolutionTableRow.Status.NotOk]
+                 * or the user/prover inlined a [spec.cvlast.SpecCallSummary.HavocSummary.HavocAll]
+                 * or a [spec.cvlast.SpecCallSummary.HavocSummary.HavocECF].
+                 */
+                asSummaryStart(it.key).callResolutionTableInfo.callResolutionTableRowStatus is CallResolutionTableRow.Status.NotOk ||
+                    asSummaryStart(it.key).summary is SpecCallSummary.HavocSummary.HavocAll ||
+                    asSummaryStart(it.key).summary is SpecCallSummary.HavocSummary.HavocECF
+            }
+            .also { filteredPairs ->
+                logger.info { "Applying strong invariant logic to a total of ${filteredPairs.size} summaries (after filtering)" }
+            }
+            .forEachEntry { (summaryStart, summaryEnds) ->
                 val summaryEnd = summaryEnds.singleOrNull() ?: error("expected a single exit point from this summary")
-                check(summaryStart.ptr.block.getCallId() == summaryEnd.ptr.block.getCallId()){"The summary start and summary end call ids are different. ${summaryStart.ptr.block.getCallId()} and ${summaryEnd.ptr.block.getCallId()}"}
+                check(summaryStart.ptr.block.getCallId() == summaryEnd.ptr.block.getCallId()) { "The summary start and summary end call ids are different. ${summaryStart.ptr.block.getCallId()} and ${summaryEnd.ptr.block.getCallId()}" }
                 /**
                  * Assert that the invariant still holds before the actual call, the invariant will be asserted before all call types, i.e.: static, regular and delegate call.
                  */
                 val summaryCallStartProg = listOf(summaryStart.cmd).withDecls()
+                logger.info { "Adding assertion of strong invariant ${invariant.id} before start of summary at command pointer ${summaryStart.ptr}" }
                 patchingProgram.replaceCommand(summaryStart.ptr, generateAssertInvariantProg(invariant, summaryStart, ast).appendToSinks(summaryCallStartProg))
 
                 /**
                  * In the case of a delegate call or a regular call or a call code, apply additional steps but only after the summary has been inlined
                  * such that any havoc'ing logic of the summary will not interfere and will be "overwritten" by the logic below.
                  */
-                if(isCallType(summaryStart){type -> type == TACCallType.DELEGATE || type == TACCallType.REGULAR_CALL || type == TACCallType.CALLCODE}) {
+                if (isCallType(summaryStart) { type -> type == TACCallType.DELEGATE || type == TACCallType.REGULAR_CALL || type == TACCallType.CALLCODE }) {
                     val summaryCallEndProg = listOf(summaryEnd.cmd).withDecls()
+                    logger.info { "Adding post commands for strong invariant ${invariant.id} at command pointer ${summaryEnd.ptr}" }
                     patchingProgram.replaceCommand(summaryEnd.ptr, generatePostCallCommands(invariant, summaryStart, ast).prependToBlock0(summaryCallEndProg))
                 }
-        }
+            }
         return patchingProgram.toCode(ast)
     }
 
     private fun generateAssertInvariantProg(invariant: CVLInvariant, summaryStart: LTACCmd, code: CoreTACProgram): CoreTACProgram {
         val assertInvariantCmds = GenerateRulesForInvariantsAndEnvFree.assertInvariant(invariant, rule.scope, "assert strong invariant before external call", getExternalCallRange(summaryStart)
-                ?: invariant.cvlRange)
+            ?: invariant.range)
         val inlinedCode = cvlCompiler.compileInvariantCmds(listOf(), invariant.params, assertInvariantCmds, summaryStart.ptr.block.getCallId()).getAsSimple().transformToCore(scene);
         return createParameterAssignment(code, inlinedCode)
     }
@@ -142,23 +164,27 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
      */
     private fun generatePostCallCommands(invariant: CVLInvariant, summaryStart: LTACCmd, code: CoreTACProgram): CoreTACProgram {
         val callId = summaryStart.ptr.block.getCallId()
+
         /**
          * Step 1: Assume the invariant again to restrict the storage to the right values.
          */
         val assumeInvariantCmds = GenerateRulesForInvariantsAndEnvFree.assumeInvariant(invariant, rule.scope, "assume strong invariant after unresolved external call")
         val preservedBlock = getPreservedBlock(invariant)
 
-        val preservedBlockCmds = preservedBlock?.let{preserved ->
+        val preservedBlockCmds = preservedBlock?.let { preserved ->
             GenerateRulesForInvariantsAndEnvFree.getInstrumentedPreservedBlock(preserved, rule.scope)
         } ?: listOf()
 
         val params = invariant.params + (preservedBlock?.params ?: listOf())
         val commands = preservedBlockCmds + assumeInvariantCmds
-        val assumeInvariantProgStep1 = cvlCompiler.compileInvariantCmds(preservedBlock?.withParams ?: listOf(), params, commands, callId)
+        val assumeInvariantProgStep1 = cvlCompiler.compileInvariantCmds(preservedBlock?.withParams
+            ?: listOf(), params, commands, callId)
 
         val currAddress = code.procedures.mapNotNull {
-            it.takeIf { it.callId == callId }?.procedureId?.address?.asBigInteger()}.uniqueOrNull()
-        val progsToMerge = if(isCallType(summaryStart){type -> type == TACCallType.DELEGATE || type == TACCallType.CALLCODE} && currAddress != null) {
+            it.takeIf { it.callId == callId }?.procedureId?.address?.asBigInteger()
+        }.uniqueOrNull()
+        val progsToMerge = if (isCallType(summaryStart) { type -> type == TACCallType.DELEGATE || type == TACCallType.CALLCODE } && currAddress != null) {
+            logger.info { "Havoc'ing storage of current contract and re-asserting strong invariant due to a delegate call" }
             /**
              * In case of delegatecall or call code only:
              * Step 2: Havoc the current contracts' storage
@@ -170,8 +196,8 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
              * Step 3: Check that the invariant still holds and the havocing of the current contract doesn't break the invariant.
              */
             val assertInvariantCmds = GenerateRulesForInvariantsAndEnvFree.assertInvariant(invariant, rule.scope, "strong invariant: assert invariant after havoc'ing the current contract after an unresolved delegate call", getExternalCallRange(summaryStart)
-                ?: invariant.cvlRange)
-            val assertProgStep3 = cvlCompiler.compileInvariantCmds(listOf(),  invariant.params, assertInvariantCmds, callId)
+                ?: invariant.range)
+            val assertProgStep3 = cvlCompiler.compileInvariantCmds(listOf(), invariant.params, assertInvariantCmds, callId)
             listOf(assumeInvariantProgStep1, havocCurrentContractStep2, assertProgStep3)
         } else {
             listOf(assumeInvariantProgStep1)
@@ -181,17 +207,19 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
     }
 
     private fun getPreservedBlock(invariant: CVLInvariant): CVLPreserved? {
-        return when(val ruleType = rule.ruleType){
+        return when (val ruleType = rule.ruleType) {
             is SpecType.Single.InvariantCheck.GenericPreservedInductionStep ->
-                invariant.proof.preserved.filterIsInstance<CVLPreserved.Generic>().let{
-                    check(it.size <= 1){ "Found more than one generic preserved."}
+                invariant.proof.preserved.filterIsInstance<CVLPreserved.Generic>().let {
+                    check(it.size <= 1) { "Found more than one generic preserved." }
                     it
                 }.uniqueOrNull()
+
             is SpecType.Single.InvariantCheck.ExplicitPreservedInductionStep ->
-                invariant.proof.preserved.filterIsInstance<CVLPreserved.ExplicitMethod>().filter { it.methodSignature == ruleType.methodSignature }.let{
-                    check(it.size <= 1){ "Found more than one matching preserved block for method signature ${ruleType.methodSignature}"}
+                invariant.proof.preserved.filterIsInstance<CVLPreserved.ExplicitMethod>().filter { it.methodSignature == ruleType.methodSignature }.let {
+                    check(it.size <= 1) { "Found more than one matching preserved block for method signature ${ruleType.methodSignature}" }
                     it
                 }.uniqueOrNull()
+
             else -> {
                 `impossible!`
             }
@@ -200,7 +228,7 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
 
     private fun generateHavocProgram(havoc: Havocer.HavocType, summaryEndCallId: CallId): ParametricInstantiation<CVLTACProgram> {
         val havocCmdsAndDecls = Havocer.generateHavocCRD(havoc, scene)
-        val prog = cvlCompiler.codeFromCommandVarWithDecls(CVLCompiler.CompilationEnvironment(summaryEndCallId).newBlockId(), havocCmdsAndDecls,"Applying havoc logic with havoc type ${havoc}")
+        val prog = cvlCompiler.codeFromCommandVarWithDecls(CVLCompiler.CompilationEnvironment(summaryEndCallId).newBlockId(), havocCmdsAndDecls, "Applying havoc logic with havoc type ${havoc}")
         return prog.toSimple()
     }
 
@@ -210,19 +238,21 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
      * Returns a mapping from CVL parameter to the set of TAC variables the parameter creates.
      */
     private fun CoreTACProgram.cvlAccessPathToTACVariable() = this.parallelLtacStream()
-            .mapNotNull { it.maybeAnnotation(CVLCompiler.Companion.TraceMeta.VariableDeclaration.META_KEY) }
-            .collect(Collectors.toSet()).flatMap { p ->
-                when(p.type){
-                    is CVLCompiler.Companion.TraceMeta.DeclarationType.Parameter ->{
-                        when(p.v){
-                            is CVLCompiler.Companion.TraceMeta.ValueIdentity.CVLVar -> listOf()
-                            is CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar -> listOf(CVLAccessPath(p.type, listOf()) to p.v.t)
-                        } + (p.fields?.map { CVLAccessPath(p.type,it.key) to it.value }?: listOf())
-                    }
-                    else -> listOf()
+        .mapNotNull { it.maybeAnnotation(CVLCompiler.Companion.TraceMeta.VariableDeclaration.META_KEY) }
+        .collect(Collectors.toSet()).flatMap { p ->
+            when (p.type) {
+                is CVLCompiler.Companion.TraceMeta.DeclarationType.Parameter -> {
+                    when (p.v) {
+                        is CVLCompiler.Companion.TraceMeta.ValueIdentity.CVLVar -> listOf()
+                        is CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar -> listOf(CVLAccessPath(p.type, listOf()) to p.v.t)
+                    } + (p.fields?.map { CVLAccessPath(p.type, it.key) to it.value } ?: listOf())
                 }
-            }.associate {
-                    it.first to it.second}
+
+                else -> listOf()
+            }
+        }.associate {
+            it.first to it.second
+        }
 
     /**
      * @param codeBeforeInlining The CoreTACprogram before inlining (think of it as the TACProgram of the weak invariant)
@@ -252,9 +282,9 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
         val originalCodeParams = codeBeforeInlining.cvlAccessPathToTACVariable()
         val inlinedCodeParams = codeToBeInlined.cvlAccessPathToTACVariable()
         // intersect CVL display names of both TAC programs and associate the variables to them.
-        val result = (originalCodeParams.keys intersect inlinedCodeParams.keys).associateWith {
-            declParam ->
-            (originalCodeParams[declParam]!! to inlinedCodeParams[declParam]!!) }
+        val result = (originalCodeParams.keys intersect inlinedCodeParams.keys).associateWith { declParam ->
+            (originalCodeParams[declParam]!! to inlinedCodeParams[declParam]!!)
+        }
 
         val mutRes = MutableCommandWithRequiredDecls<TACCmd.Simple>()
 
@@ -263,8 +293,8 @@ class StrongInvariantInliner(val scene: IScene, val cvlCompiler: CVLCompiler, va
             val inlinedParam = entry.value.second
 
             val assign = TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    inlinedParam,
-                    originalParam
+                inlinedParam,
+                originalParam
             )
             mutRes.extend(listOf(assign))
         }

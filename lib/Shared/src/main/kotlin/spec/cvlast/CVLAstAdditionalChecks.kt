@@ -30,6 +30,7 @@ import spec.cvlast.typechecker.CVLError
 import spec.cvlast.typechecker.LastRevertedAfterNonRevertingCall
 import spec.cvlast.typechecker.MethodVariableNotInRule
 import spec.cvlast.typechecker.QuantifierChecker
+import spec.rules.CVLSingleRule
 import utils.CollectingResult
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.bind
@@ -38,6 +39,7 @@ import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.CollectingResult.Companion.ok
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.Range
 import utils.VoidResult
 
 /**
@@ -62,7 +64,7 @@ private class CVLCmdAddtionalChecks: CVLCmdTransformer<CVLError>(
         }
 
         val enclosingRuleScopeItem = cmd.scope.enclosingRule()
-            ?: return MethodVariableNotInRule(cmd.cvlRange).asError()
+            ?: return MethodVariableNotInRule(cmd.range).asError()
 
         if (enclosingRuleScopeItem.isDerivedFromInvariant()) {
             // In order to avoid duplicate errors, we skip the check for rules derived from invariants and
@@ -71,7 +73,7 @@ private class CVLCmdAddtionalChecks: CVLCmdTransformer<CVLError>(
         }
 
         if (enclosingRuleScopeItem != cmd.scope.scopeStack.last()) {
-            return MethodVariableNotInRule(cmd.cvlRange).asError()
+            return MethodVariableNotInRule(cmd.range).asError()
         }
 
         return ok
@@ -90,7 +92,7 @@ private class CVLCmdAddtionalChecks: CVLCmdTransformer<CVLError>(
 
         if (cmd.exp is CVLExp.ApplyExp && cmd.exp is CVLExp.ApplyExp.RevertAnnotatable && !cmd.exp.noRevert) {
             CVLWarningLogger.syntaxWarning("${cmd.exp.callableName} is called with `@withrevert`, it's return values ${cmd.idL} are undefined if this call reverts. " +
-                "Make sure to check that `!${CVLKeywords.lastReverted.keyword}` before using them", cmd.cvlRange)
+                "Make sure to check that `!${CVLKeywords.lastReverted.keyword}` before using them", cmd.range)
         }
 
         return super.def(cmd)
@@ -127,7 +129,7 @@ class CVLAstAdditionalChecks(val symbolTable: CVLSymbolTable): CVLAstTransformer
                 // actually have a location in some completely different part of the .spec file, which is why we're
                 // the error here will print both.
                 val invokeExpLocation = exp.getRangeOrEmpty().let { range ->
-                    if (range is CVLRange.Empty) {
+                    if (range is Range.Empty) {
                         ""
                     } else {
                         " (at $range)"
@@ -319,7 +321,7 @@ class CVLAstAdditionalChecks(val symbolTable: CVLSymbolTable): CVLAstTransformer
             override fun applyExp(exp: CVLExp.ApplyExp): CollectingResult<CVLExp, CVLError> {
                 return if (exp is CVLExp.ApplyExp.ContractFunction || exp is CVLExp.ApplyExp.CVLFunction || exp is CVLExp.ApplyExp.Definition) {
                     CVLError.General(
-                        exp.tag.cvlRange,
+                        exp.tag.range,
                         "$context may not contain calls to contract or CVL functions, but found a call to ${exp.methodIdWithCallContext}"
                     ).asError()
                 } else {

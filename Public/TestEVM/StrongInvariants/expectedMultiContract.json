@@ -1,0 +1,45 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "storageValueIsConstant": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "MultiContract.shouldFail_beforeExternalCallSummarizedNonDet(address)",
+            "MultiContract.shouldFail_callOtherContractUnresolvedDelegateCall(address)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "ContractWithDelegate.methodWithDelegateCallResolved(address)",
+            "ContractWithDelegate.methodWithDelegateCallUnresolved(address)",
+            "Dummy.havocAllContracts()",
+            "Dummy.havocOnlyReturn()",
+            "Dummy.repay()",
+            "MultiContract.shouldSucceed_callOtherContractUnresolvedDelegateCall(address)",
+            "MultiContract.shouldSucceed_callOtherContractUnresolvedDelegateCall_forceInvariantToHold(address)",
+            "MultiContract.shouldSuceed_callOtherContractResolvedDelegateCall()",
+            "MultiContract.shouldSuceed_callOtherContractResolvedDelegateCall_forceInvariantToHold()"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "storageValueIsConstantNonCurrentContract": {
+      "Induction base: After the constructor": "FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "ContractWithDelegate.methodWithDelegateCallResolved(address)",
+            "ContractWithDelegate.methodWithDelegateCallUnresolved(address)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"verifyFoundryFuzzTests": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"test_signing(bytes)"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

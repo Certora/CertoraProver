@@ -28,6 +28,51 @@ import vc.data.*
 import java.math.BigInteger
 
 object BitopsRewriter {
+    /**
+     * Rewrites
+     *   V := ((X xor Y) | (X' xor Y')) == 0)
+     * To
+     *   V := (X == Y) && (X' == Y')
+     */
+    fun rewriteXorEquality(core: CoreTACProgram): CoreTACProgram {
+        val patt = PatternMatcher.compilePattern(core.analysisCache.graph, xorEquality)
+
+        // This is a pair of pairs of variables (each sub-pair are being compared for equality)
+        val matches = core.parallelLtacStream().mapNotNull {
+            it.maybeNarrow<TACCmd.Simple.AssigningCmd>()
+        }.mapNotNull {
+            it `to?` patt.queryFrom(it).toNullableResult()
+        }
+
+        return core.patching {
+            for ((cmd, m) in matches) {
+                val (xy1, xy2) = m
+                val newCmds = assign(cmd.cmd.lhs) {
+                    (xy1.first eq xy1.second) and (xy2.first eq xy2.second)
+                }
+                it.replaceCommand(
+                    cmd.ptr,
+                    newCmds.cmds
+                )
+                it.addVarDecls(newCmds.varDecls)
+            }
+        }
+    }
+    /* Proof:
+       (declare-const X (_ BitVec 64))
+       (declare-const Y (_ BitVec 64))
+       (declare-const A (_ BitVec 64))
+       (declare-const B (_ BitVec 64))
+
+       (assert (= (bvor (bvxor X Y) (bvxor A B)) (_ bv0 64)))
+       (assert (not (and (= X Y) (= A B))))
+
+       (check-sat); UNSAT
+    */
+
+    val xorEquality = PatternDSL.build {
+        (((Var xor Var) or (Var xor Var)) `==` 0()).commute.withAction { theOr, _ -> theOr }
+    }
 
     /**
      * Rewrites

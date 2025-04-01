@@ -226,12 +226,8 @@ abstract class AbstractTACChecker {
         private fun lastOptimizations(ssaTAC: CoreTACProgram, enableHeuristicalFolding: Boolean): CoreTACProgram {
             val linear = CoreTACProgram.Linear(ssaTAC)
                 .map(CoreToCoreTransformer(ReportTypes.INSERT_MAP_DEFINITION, InsertMapDefinitions::transform))
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_SCALARIZER) { code ->
-                    if (code.destructiveOptimizations) {
-                        ByteMapScalarizer.go(code)
-                    } else {
-                        code
-                    }
+                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_SCALARIZER) {
+                    ByteMapScalarizer.go(it)
                 })
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
                     optimizeAssignments(it, default(it)).let(BlockMerger::mergeBlocks)
@@ -272,13 +268,13 @@ abstract class AbstractTACChecker {
         ): CoreTACProgram {
             val fullySSAd = toSimpleSimpleSSA(tacObject)
 
-            oneStateInvariant(fullySSAd, ReportTypes.PRELASTOPT_RULE)
             ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
                 fullySSAd,
                 ReportTypes.PRELASTOPT_RULE,
                 StaticArtifactLocation.Outputs,
                 DumpTime.AGNOSTIC
             )
+            oneStateInvariant(fullySSAd, ReportTypes.PRELASTOPT_RULE)
 
             val preSolverProgram = lastOptimizations(fullySSAd, enableHeuristicalFolding)
                 .let(AnnotateSkeyBifs::annotate)

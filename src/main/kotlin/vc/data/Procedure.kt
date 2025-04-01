@@ -233,4 +233,27 @@ sealed class ProcedureId : AmbiSerializable {
             this.replace(" ", "_")
                 .replace(":", "_")
     }
+
+    /** Solana procedure. Corresponds to a method call. */
+    @KSerializable
+    @SuppressRemapWarning
+    data class Solana(val name: String) : ProcedureId() {
+
+        @KSerializable
+        object SolanaEntryPointContractOfProcedure : ContractOfProcedure() {
+            override fun hashCode() = hashObject(this)
+            override fun toString(): String = "main"
+            override fun asBigInteger() = null
+            fun readResolve(): Any = SolanaEntryPointContractOfProcedure
+        }
+
+        override val address: ContractOfProcedure get() =
+            // Since in Solana there is no concept of contracts of a procedure, we just use a dummy one.
+            SolanaEntryPointContractOfProcedure
+
+        override fun toString() =
+            // We sanitize the name: if there are spaces, they are substituted by the underscore. Names in Rust should
+            // not have spaces though.
+            name.replace(" ", "_")
+    }
 }

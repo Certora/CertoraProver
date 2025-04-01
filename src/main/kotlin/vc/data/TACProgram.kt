@@ -82,6 +82,7 @@ import vc.data.parser.ReadableTACJson
 import vc.data.parser.serializeTAC
 import vc.data.tacexprutil.getFreeVars
 import vc.data.TACMeta.CONTRACT_ADDR_KEY
+import vc.data.TACMeta.CVL_GHOST
 import vc.data.TACMeta.CVL_LABEL_END
 import vc.data.TACMeta.CVL_LABEL_START
 import vc.data.TACMeta.CVL_LABEL_START_ID
@@ -293,11 +294,27 @@ abstract class TACProgram<T : TACCmd>(entry: NBId? = null) : NamedCode<ReportTyp
 
 
     private fun writeGraph(edges: Map<Edge, List<TACExpr>>, reportName: String) {
+        // We produce two reports: one with, and one without internal functions.
+        writeGraph(reportName, edges, addInternalFunctions = false)
+        writeGraph(reportName, edges, addInternalFunctions = true)
+    }
+
+    private fun writeGraph(
+        reportName: String,
+        edges: Map<Edge, List<TACExpr>>,
+        addInternalFunctions: Boolean,
+    ) {
         if (ArtifactManagerFactory.isEnabled() && Config.isEnabledReport(reportName) && !Config.LowFootprint.get()) {
-            val codeMap = generateCodeMap(this, reportName, edges)
+            // If we have internal functions, the report will have the `_with_internal` suffix.
+            val reportSuffix = if (addInternalFunctions) {
+                "_with_internal"
+            } else {
+                ""
+            }
+            val codeMap = generateCodeMap(this, reportName, edges, addInternalFunctions)
             DumpGraphHTML.writeCodeToHTML(
                 codeMap,
-                ArtifactManagerFactory().fitFileLength(reportName, ".html")
+                ArtifactManagerFactory().fitFileLength(reportName + reportSuffix, ".html")
             )
         }
     }
@@ -469,6 +486,14 @@ abstract class TACProgram<T : TACCmd>(entry: NBId? = null) : NamedCode<ReportTyp
             }
         }
     }
+
+    abstract fun copyWith(
+        code: BlockNodes<T> = this.code,
+        blockgraph: BlockGraph = this.blockgraph,
+        name: String = this.name,
+        symbolTable: TACSymbolTable = this.symbolTable,
+        procedures: Set<Procedure>? = null,
+    ): TACProgram<T>
 }
 
 sealed interface WithUFAxioms {
@@ -615,6 +640,14 @@ data class CanonicalTACProgram<T : TACCmd.Spec, E : ShouldErase>(
 
     override fun dumpBinary(where: String, label: String): TACFile =
         error("dumpBinary Not implemented for CanonicalTACProgram please convert it to CoreTACProgram")
+
+    override fun copyWith(
+        code: BlockNodes<T>,
+        blockgraph: BlockGraph,
+        name: String,
+        symbolTable: TACSymbolTable,
+        procedures: Set<Procedure>?,
+    ) = this.copy(code = code, blockgraph = blockgraph, name = name, symbolTable = symbolTable, procedures = procedures ?: this.procedures)
 }
 
 
@@ -749,6 +782,14 @@ data class EVMTACProgram(
             ContractUtils.transformEVMToSimple(this)
         }
     }
+
+    override fun copyWith(
+        code: BlockNodes<TACCmd>,
+        blockgraph: BlockGraph,
+        name: String,
+        symbolTable: TACSymbolTable,
+        procedures: Set<Procedure>?,
+    ) = this.copy(code = code, blockgraph = blockgraph, name = name, symbolTable = symbolTable)
 }
 
 @SuppressRemapWarning
@@ -903,6 +944,14 @@ data class CVLTACProgram(
         val end = TACCmd.Simple.AnnotationCmd(CVL_LABEL_END, labelId)
         return this.wrapWith(start, end)
     }
+
+    override fun copyWith(
+        code: BlockNodes<TACCmd.Spec>,
+        blockgraph: BlockGraph,
+        name: String,
+        symbolTable: TACSymbolTable,
+        procedures: Set<Procedure>?,
+    ) = this.copy(code = code, blockgraph = blockgraph, name = name, symbolTable = symbolTable, procedures = procedures ?: this.procedures)
 }
 
 
@@ -1019,7 +1068,8 @@ class CoreTACProgram private constructor(
                     ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2,
                     ReportTypes.OPTIMIZE_INFEASIBLE_PATHS,
                     ReportTypes.INTERVALS_OPTIMIZE,
-                    ReportTypes.GLOBAL_INLINER,
+                    ReportTypes.GLOBAL_INLINER1,
+                    ReportTypes.GLOBAL_INLINER2,
                     ReportTypes.OPTIMIZE_OVERFLOW
                 ))
             }
@@ -1353,10 +1403,12 @@ class CoreTACProgram private constructor(
             CONTRACT_ADDR_KEY in v.meta ||
             NO_CALLINDEX in v.meta ||
             IS_IMMUTABLE in v.meta ||
+            CVL_GHOST in v.meta ||
             TACMeta.STORAGE_READ_TRACKER in v.meta ||
             TACMeta.SUMMARY_GLOBAL in v.meta ||
             v.meta[TACSymbol.Var.KEYWORD_ENTRY]?.name == CVLKeywords.lastReverted.keyword ||
-            v.meta[TACSymbol.Var.KEYWORD_ENTRY]?.name == CVLKeywords.lastHasThrown.keyword
+            v.meta[TACSymbol.Var.KEYWORD_ENTRY]?.name == CVLKeywords.lastHasThrown.keyword ||
+            v.meta[TACSymbol.Var.KEYWORD_ENTRY]?.name == CVLKeywords.lastStorage.keyword
 
 
         val copyRemapper = CodeRemapper(
@@ -1813,6 +1865,14 @@ class CoreTACProgram private constructor(
         unrolledCode.logStats("Unrolled", logger)
         return unrolledCode
     }
+
+    override fun copyWith(
+        code: BlockNodes<TACCmd.Simple>,
+        blockgraph: BlockGraph,
+        name: String,
+        symbolTable: TACSymbolTable,
+        procedures: Set<Procedure>?,
+    ) = this.copy(code = code, blockgraph = blockgraph, name = name, symbolTable = symbolTable, procedures = procedures ?: this.procedures)
 }
 
 internal fun BlockGraph.leafNodes() =

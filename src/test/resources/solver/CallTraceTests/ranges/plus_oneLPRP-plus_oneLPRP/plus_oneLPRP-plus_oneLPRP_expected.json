@@ -35,11 +35,11 @@
                                         "text": "n: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x7",
+                                                "value": "0x6",
                                                 "values": [
-                                                    "0x7",
-                                                    "7",
-                                                    "0x7"
+                                                    "0x6",
+                                                    "6",
+                                                    "0x6"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -131,6 +131,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -140,17 +151,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -340,11 +340,11 @@
                         "text": "Load from MultipleCandidates.n ↪ '{0}'",
                         "arguments": [
                             {
-                                "value": "0x7",
+                                "value": "0x6",
                                 "values": [
-                                    "0x7",
-                                    "7",
-                                    "0x7"
+                                    "0x6",
+                                    "6",
+                                    "0x6"
                                 ],
                                 "tooltip": "storage value",
                                 "truncatable": true
@@ -417,7 +417,7 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",
@@ -532,7 +532,474 @@
                                             "0x4300"
                                         ],
                                         "tooltip": "address",
+                                        "truncatable": false
+                                    },
+                                    {
+                                        "value": "2^255",
+                                        "values": [
+                                            "2^255",
+                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                        ],
+                                        "tooltip": "storage value",
+                                        "truncatable": false
+                                    }
+                                ]
+                            },
+                            "status": "",
+                            "childrenList": [
+                            ],
+                            "jumpToDefinition": null
+                        },
+                        {
+                            "message": {
+                                "text": "Evaluate branch condition",
+                                "arguments": [
+                                ]
+                            },
+                            "status": "",
+                            "childrenList": [
+                            ],
+                            "jumpToDefinition": {
+                                "file": "MultipleCandidates.sol",
+                                "start": {
+                                    "line": 3,
+                                    "col": 1
+                                },
+                                "end": {
+                                    "line": 13,
+                                    "col": 2
+                                }
+                            }
+                        },
+                        {
+                            "message": {
+                                "text": "MultipleCandidates.plus_one()",
+                                "arguments": [
+                                ]
+                            },
+                            "status": "",
+                            "childrenList": [
+                                {
+                                    "message": {
+                                        "text": "Load from MultipleCandidates.n ↪ '{0}'",
+                                        "arguments": [
+                                            {
+                                                "value": "0x6",
+                                                "values": [
+                                                    "0x6",
+                                                    "6",
+                                                    "0x6"
+                                                ],
+                                                "tooltip": "storage value",
+                                                "truncatable": true
+                                            }
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": {
+                                        "file": "MultipleCandidates.sol",
+                                        "start": {
+                                            "line": 7,
+                                            "col": 9
+                                        },
+                                        "end": {
+                                            "line": 7,
+                                            "col": 15
+                                        }
+                                    }
+                                },
+                                {
+                                    "message": {
+                                        "text": "Evaluate branch condition",
+                                        "arguments": [
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": {
+                                        "file": "MultipleCandidates.sol",
+                                        "start": {
+                                            "line": 7,
+                                            "col": 9
+                                        },
+                                        "end": {
+                                            "line": 7,
+                                            "col": 15
+                                        }
+                                    }
+                                },
+                                {
+                                    "message": {
+                                        "text": "Store at MultipleCandidates.n ↪ '{0}'",
+                                        "arguments": [
+                                            {
+                                                "value": "0x7",
+                                                "values": [
+                                                    "0x7",
+                                                    "7",
+                                                    "0x7"
+                                                ],
+                                                "tooltip": "storage value",
+                                                "truncatable": true
+                                            }
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": {
+                                        "file": "MultipleCandidates.sol",
+                                        "start": {
+                                            "line": 7,
+                                            "col": 9
+                                        },
+                                        "end": {
+                                            "line": 7,
+                                            "col": 15
+                                        }
+                                    }
+                                }
+                            ],
+                            "jumpToDefinition": {
+                                "file": "MultipleCandidates.sol",
+                                "start": {
+                                    "line": 6,
+                                    "col": 5
+                                },
+                                "end": {
+                                    "line": 8,
+                                    "col": 6
+                                }
+                            }
+                        },
+                        {
+                            "message": {
+                                "text": "Global State",
+                                "arguments": [
+                                ]
+                            },
+                            "status": "",
+                            "childrenList": [
+                                {
+                                    "message": {
+                                        "text": "Storage State",
+                                        "arguments": [
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                        {
+                                            "message": {
+                                                "text": "MultipleCandidates",
+                                                "arguments": [
+                                                ]
+                                            },
+                                            "status": "",
+                                            "childrenList": [
+                                                {
+                                                    "message": {
+                                                        "text": "n: '{0}' (changed)",
+                                                        "arguments": [
+                                                            {
+                                                                "value": "0x7",
+                                                                "values": [
+                                                                    "0x7",
+                                                                    "7",
+                                                                    "0x7"
+                                                                ],
+                                                                "tooltip": "storage value",
+                                                                "truncatable": true
+                                                            }
+                                                        ]
+                                                    },
+                                                    "status": "HAVOC DEPENDENT",
+                                                    "childrenList": [
+                                                    ],
+                                                    "jumpToDefinition": {
+                                                        "file": "MultipleCandidates.sol",
+                                                        "start": {
+                                                            "line": 7,
+                                                            "col": 9
+                                                        },
+                                                        "end": {
+                                                            "line": 7,
+                                                            "col": 15
+                                                        }
+                                                    },
+                                                    "changedSincePreviousPrint": true,
+                                                    "changedSinceStart": true
+                                                }
+                                            ],
+                                            "jumpToDefinition": null,
+                                            "storageId": null
+                                        }
+                                    ],
+                                    "jumpToDefinition": null,
+                                    "storageId": 2
+                                },
+                                {
+                                    "message": {
+                                        "text": "Balances",
+                                        "arguments": [
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                        {
+                                            "message": {
+                                                "text": "0x8200.balance: '{0}'",
+                                                "arguments": [
+                                                    {
+                                                        "value": "2^255",
+                                                        "values": [
+                                                            "2^255",
+                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                        ],
+                                                        "tooltip": "balance",
+                                                        "truncatable": false
+                                                    }
+                                                ]
+                                            },
+                                            "status": "",
+                                            "childrenList": [
+                                            ],
+                                            "jumpToDefinition": null
+                                        },
+                                        {
+                                            "message": {
+                                                "text": "MultipleCandidates.balance: '{0}'",
+                                                "arguments": [
+                                                    {
+                                                        "value": "2^255",
+                                                        "values": [
+                                                            "2^255",
+                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                        ],
+                                                        "tooltip": "balance",
+                                                        "truncatable": false
+                                                    }
+                                                ]
+                                            },
+                                            "status": "",
+                                            "childrenList": [
+                                            ],
+                                            "jumpToDefinition": null
+                                        }
+                                    ],
+                                    "jumpToDefinition": null,
+                                    "storageId": 2
+                                }
+                            ],
+                            "jumpToDefinition": null,
+                            "storageId": null
+                        },
+                        {
+                            "message": {
+                                "text": "Return",
+                                "arguments": [
+                                ]
+                            },
+                            "status": "",
+                            "childrenList": [
+                            ],
+                            "jumpToDefinition": {
+                                "file": "MultipleCandidates.sol",
+                                "start": {
+                                    "line": 6,
+                                    "col": 5
+                                },
+                                "end": {
+                                    "line": 8,
+                                    "col": 6
+                                }
+                            }
+                        }
+                    ],
+                    "jumpToDefinition": {
+                        "file": "MultipleCandidates.sol",
+                        "start": {
+                            "line": 6,
+                            "col": 5
+                        },
+                        "end": {
+                            "line": 8,
+                            "col": 6
+                        }
+                    }
+                }
+            ],
+            "jumpToDefinition": {
+                "file": "Parametric.spec",
+                "start": {
+                    "line": 3,
+                    "col": 5
+                },
+                "end": {
+                    "line": 3,
+                    "col": 15
+                }
+            }
+        },
+        {
+            "message": {
+                "text": "g(e, arg)",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+                {
+                    "message": {
+                        "text": "MultipleCandidates.plus_one()",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                        {
+                            "message": {
+                                "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
+                                "arguments": [
+                                    {
+                                        "value": "0x8200",
+                                        "values": [
+                                            "0x8200",
+                                            "0x8200",
+                                            "0x8200"
+                                        ],
+                                        "tooltip": "address of sender",
                                         "truncatable": true
+                                    },
+                                    {
+                                        "value": "MultipleCandidates",
+                                        "values": [
+                                            "MultipleCandidates",
+                                            "MultipleCandidates",
+                                            "0x4300"
+                                        ],
+                                        "tooltip": "address of receiver",
+                                        "truncatable": false
+                                    },
+                                    {
+                                        "value": "0x0",
+                                        "values": [
+                                            "0x0",
+                                            "0",
+                                            "0x0"
+                                        ],
+                                        "tooltip": "transferred amount",
+                                        "truncatable": true
+                                    }
+                                ]
+                            },
+                            "status": "TRANSFER",
+                            "childrenList": [
+                                {
+                                    "message": {
+                                        "text": "Load from: sender.balance ↪ '{0}'",
+                                        "arguments": [
+                                            {
+                                                "value": "2^255",
+                                                "values": [
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                ],
+                                                "tooltip": "balance",
+                                                "truncatable": false
+                                            }
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": null
+                                },
+                                {
+                                    "message": {
+                                        "text": "Store at: sender.balance ↪ '{0}'",
+                                        "arguments": [
+                                            {
+                                                "value": "2^255",
+                                                "values": [
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                ],
+                                                "tooltip": "balance",
+                                                "truncatable": false
+                                            }
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": null
+                                },
+                                {
+                                    "message": {
+                                        "text": "Load from: receiver.balance ↪ '{0}'",
+                                        "arguments": [
+                                            {
+                                                "value": "2^255",
+                                                "values": [
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                ],
+                                                "tooltip": "balance",
+                                                "truncatable": false
+                                            }
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": null
+                                },
+                                {
+                                    "message": {
+                                        "text": "Store at: receiver.balance ↪ '{0}'",
+                                        "arguments": [
+                                            {
+                                                "value": "2^255",
+                                                "values": [
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                ],
+                                                "tooltip": "balance",
+                                                "truncatable": false
+                                            }
+                                        ]
+                                    },
+                                    "status": "",
+                                    "childrenList": [
+                                    ],
+                                    "jumpToDefinition": null
+                                }
+                            ],
+                            "jumpToDefinition": null
+                        },
+                        {
+                            "message": {
+                                "text": "Load from MultipleCandidates.[raw storage address] '{0}' ↪ '{1}'",
+                                "arguments": [
+                                    {
+                                        "value": "MultipleCandidates",
+                                        "values": [
+                                            "MultipleCandidates",
+                                            "MultipleCandidates",
+                                            "0x4300"
+                                        ],
+                                        "tooltip": "address",
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "2^255",
@@ -739,473 +1206,6 @@
                                         }
                                     ],
                                     "jumpToDefinition": null,
-                                    "storageId": 2
-                                },
-                                {
-                                    "message": {
-                                        "text": "Balances",
-                                        "arguments": [
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                        {
-                                            "message": {
-                                                "text": "0x8200.balance: '{0}'",
-                                                "arguments": [
-                                                    {
-                                                        "value": "2^255",
-                                                        "values": [
-                                                            "2^255",
-                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
-                                                        ],
-                                                        "tooltip": "balance",
-                                                        "truncatable": false
-                                                    }
-                                                ]
-                                            },
-                                            "status": "",
-                                            "childrenList": [
-                                            ],
-                                            "jumpToDefinition": null
-                                        },
-                                        {
-                                            "message": {
-                                                "text": "MultipleCandidates.balance: '{0}'",
-                                                "arguments": [
-                                                    {
-                                                        "value": "2^255",
-                                                        "values": [
-                                                            "2^255",
-                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
-                                                        ],
-                                                        "tooltip": "balance",
-                                                        "truncatable": false
-                                                    }
-                                                ]
-                                            },
-                                            "status": "",
-                                            "childrenList": [
-                                            ],
-                                            "jumpToDefinition": null
-                                        }
-                                    ],
-                                    "jumpToDefinition": null,
-                                    "storageId": 2
-                                }
-                            ],
-                            "jumpToDefinition": null,
-                            "storageId": null
-                        },
-                        {
-                            "message": {
-                                "text": "Return",
-                                "arguments": [
-                                ]
-                            },
-                            "status": "",
-                            "childrenList": [
-                            ],
-                            "jumpToDefinition": {
-                                "file": "MultipleCandidates.sol",
-                                "start": {
-                                    "line": 6,
-                                    "col": 5
-                                },
-                                "end": {
-                                    "line": 8,
-                                    "col": 6
-                                }
-                            }
-                        }
-                    ],
-                    "jumpToDefinition": {
-                        "file": "MultipleCandidates.sol",
-                        "start": {
-                            "line": 6,
-                            "col": 5
-                        },
-                        "end": {
-                            "line": 8,
-                            "col": 6
-                        }
-                    }
-                }
-            ],
-            "jumpToDefinition": {
-                "file": "Parametric.spec",
-                "start": {
-                    "line": 3,
-                    "col": 5
-                },
-                "end": {
-                    "line": 3,
-                    "col": 15
-                }
-            }
-        },
-        {
-            "message": {
-                "text": "g(e, arg)",
-                "arguments": [
-                ]
-            },
-            "status": "",
-            "childrenList": [
-                {
-                    "message": {
-                        "text": "MultipleCandidates.plus_one()",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                        {
-                            "message": {
-                                "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
-                                "arguments": [
-                                    {
-                                        "value": "0x8200",
-                                        "values": [
-                                            "0x8200",
-                                            "0x8200",
-                                            "0x8200"
-                                        ],
-                                        "tooltip": "address of sender",
-                                        "truncatable": true
-                                    },
-                                    {
-                                        "value": "MultipleCandidates",
-                                        "values": [
-                                            "MultipleCandidates",
-                                            "MultipleCandidates",
-                                            "0x4300"
-                                        ],
-                                        "tooltip": "address of receiver",
-                                        "truncatable": true
-                                    },
-                                    {
-                                        "value": "0x0",
-                                        "values": [
-                                            "0x0",
-                                            "0",
-                                            "0x0"
-                                        ],
-                                        "tooltip": "transferred amount",
-                                        "truncatable": true
-                                    }
-                                ]
-                            },
-                            "status": "TRANSFER",
-                            "childrenList": [
-                                {
-                                    "message": {
-                                        "text": "Load from: sender.balance ↪ '{0}'",
-                                        "arguments": [
-                                            {
-                                                "value": "2^255",
-                                                "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
-                                                ],
-                                                "tooltip": "balance",
-                                                "truncatable": false
-                                            }
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": null
-                                },
-                                {
-                                    "message": {
-                                        "text": "Store at: sender.balance ↪ '{0}'",
-                                        "arguments": [
-                                            {
-                                                "value": "2^255",
-                                                "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
-                                                ],
-                                                "tooltip": "balance",
-                                                "truncatable": false
-                                            }
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": null
-                                },
-                                {
-                                    "message": {
-                                        "text": "Load from: receiver.balance ↪ '{0}'",
-                                        "arguments": [
-                                            {
-                                                "value": "2^255",
-                                                "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
-                                                ],
-                                                "tooltip": "balance",
-                                                "truncatable": false
-                                            }
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": null
-                                },
-                                {
-                                    "message": {
-                                        "text": "Store at: receiver.balance ↪ '{0}'",
-                                        "arguments": [
-                                            {
-                                                "value": "2^255",
-                                                "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
-                                                ],
-                                                "tooltip": "balance",
-                                                "truncatable": false
-                                            }
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": null
-                                }
-                            ],
-                            "jumpToDefinition": null
-                        },
-                        {
-                            "message": {
-                                "text": "Load from MultipleCandidates.[raw storage address] '{0}' ↪ '{1}'",
-                                "arguments": [
-                                    {
-                                        "value": "MultipleCandidates",
-                                        "values": [
-                                            "MultipleCandidates",
-                                            "MultipleCandidates",
-                                            "0x4300"
-                                        ],
-                                        "tooltip": "address",
-                                        "truncatable": true
-                                    },
-                                    {
-                                        "value": "2^255",
-                                        "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
-                                        ],
-                                        "tooltip": "storage value",
-                                        "truncatable": false
-                                    }
-                                ]
-                            },
-                            "status": "",
-                            "childrenList": [
-                            ],
-                            "jumpToDefinition": null
-                        },
-                        {
-                            "message": {
-                                "text": "Evaluate branch condition",
-                                "arguments": [
-                                ]
-                            },
-                            "status": "",
-                            "childrenList": [
-                            ],
-                            "jumpToDefinition": {
-                                "file": "MultipleCandidates.sol",
-                                "start": {
-                                    "line": 3,
-                                    "col": 1
-                                },
-                                "end": {
-                                    "line": 13,
-                                    "col": 2
-                                }
-                            }
-                        },
-                        {
-                            "message": {
-                                "text": "MultipleCandidates.plus_one()",
-                                "arguments": [
-                                ]
-                            },
-                            "status": "",
-                            "childrenList": [
-                                {
-                                    "message": {
-                                        "text": "Load from MultipleCandidates.n ↪ '{0}'",
-                                        "arguments": [
-                                            {
-                                                "value": "0x8",
-                                                "values": [
-                                                    "0x8",
-                                                    "8",
-                                                    "0x8"
-                                                ],
-                                                "tooltip": "storage value",
-                                                "truncatable": true
-                                            }
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": {
-                                        "file": "MultipleCandidates.sol",
-                                        "start": {
-                                            "line": 7,
-                                            "col": 9
-                                        },
-                                        "end": {
-                                            "line": 7,
-                                            "col": 15
-                                        }
-                                    }
-                                },
-                                {
-                                    "message": {
-                                        "text": "Evaluate branch condition",
-                                        "arguments": [
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": {
-                                        "file": "MultipleCandidates.sol",
-                                        "start": {
-                                            "line": 7,
-                                            "col": 9
-                                        },
-                                        "end": {
-                                            "line": 7,
-                                            "col": 15
-                                        }
-                                    }
-                                },
-                                {
-                                    "message": {
-                                        "text": "Store at MultipleCandidates.n ↪ '{0}'",
-                                        "arguments": [
-                                            {
-                                                "value": "0x9",
-                                                "values": [
-                                                    "0x9",
-                                                    "9",
-                                                    "0x9"
-                                                ],
-                                                "tooltip": "storage value",
-                                                "truncatable": true
-                                            }
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                    ],
-                                    "jumpToDefinition": {
-                                        "file": "MultipleCandidates.sol",
-                                        "start": {
-                                            "line": 7,
-                                            "col": 9
-                                        },
-                                        "end": {
-                                            "line": 7,
-                                            "col": 15
-                                        }
-                                    }
-                                }
-                            ],
-                            "jumpToDefinition": {
-                                "file": "MultipleCandidates.sol",
-                                "start": {
-                                    "line": 6,
-                                    "col": 5
-                                },
-                                "end": {
-                                    "line": 8,
-                                    "col": 6
-                                }
-                            }
-                        },
-                        {
-                            "message": {
-                                "text": "Global State",
-                                "arguments": [
-                                ]
-                            },
-                            "status": "",
-                            "childrenList": [
-                                {
-                                    "message": {
-                                        "text": "Storage State",
-                                        "arguments": [
-                                        ]
-                                    },
-                                    "status": "",
-                                    "childrenList": [
-                                        {
-                                            "message": {
-                                                "text": "MultipleCandidates",
-                                                "arguments": [
-                                                ]
-                                            },
-                                            "status": "",
-                                            "childrenList": [
-                                                {
-                                                    "message": {
-                                                        "text": "n: '{0}' (changed)",
-                                                        "arguments": [
-                                                            {
-                                                                "value": "0x9",
-                                                                "values": [
-                                                                    "0x9",
-                                                                    "9",
-                                                                    "0x9"
-                                                                ],
-                                                                "tooltip": "storage value",
-                                                                "truncatable": true
-                                                            }
-                                                        ]
-                                                    },
-                                                    "status": "HAVOC DEPENDENT",
-                                                    "childrenList": [
-                                                    ],
-                                                    "jumpToDefinition": {
-                                                        "file": "MultipleCandidates.sol",
-                                                        "start": {
-                                                            "line": 7,
-                                                            "col": 9
-                                                        },
-                                                        "end": {
-                                                            "line": 7,
-                                                            "col": 15
-                                                        }
-                                                    },
-                                                    "changedSincePreviousPrint": true,
-                                                    "changedSinceStart": true
-                                                }
-                                            ],
-                                            "jumpToDefinition": null,
-                                            "storageId": null
-                                        }
-                                    ],
-                                    "jumpToDefinition": null,
                                     "storageId": 3
                                 },
                                 {
@@ -1326,11 +1326,11 @@
                         "text": "Load from MultipleCandidates.n ↪ '{0}'",
                         "arguments": [
                             {
-                                "value": "0x9",
+                                "value": "0x8",
                                 "values": [
-                                    "0x9",
-                                    "9",
-                                    "0x9"
+                                    "0x8",
+                                    "8",
+                                    "0x8"
                                 ],
                                 "tooltip": "storage value",
                                 "truncatable": true
@@ -1394,11 +1394,11 @@
                                 "text": "before ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x7",
+                                        "value": "0x6",
                                         "values": [
-                                            "0x7",
-                                            "7",
-                                            "0x7"
+                                            "0x6",
+                                            "6",
+                                            "0x6"
                                         ],
                                         "tooltip": "value of expression",
                                         "truncatable": true
@@ -1425,11 +1425,11 @@
                                 "text": "after ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x9",
+                                        "value": "0x8",
                                         "values": [
-                                            "0x9",
-                                            "9",
-                                            "0x9"
+                                            "0x8",
+                                            "8",
+                                            "0x8"
                                         ],
                                         "tooltip": "value of expression",
                                         "truncatable": true
@@ -1493,11 +1493,11 @@
                                                 "text": "n: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0x9",
+                                                        "value": "0x8",
                                                         "values": [
-                                                            "0x9",
-                                                            "9",
-                                                            "0x9"
+                                                            "0x8",
+                                                            "8",
+                                                            "0x8"
                                                         ],
                                                         "tooltip": "storage value",
                                                         "truncatable": true

@@ -23,6 +23,7 @@ import sbf.domains.MemSummaryArgument
 import sbf.domains.MemSummaryArgumentType
 import sbf.domains.MemorySummaries
 import datastructures.stdcollections.*
+import sbf.domains.MemorySummary
 
 /** compiler-rt library used by Clang/LLVM **/
 
@@ -66,11 +67,11 @@ enum class CompilerRtFunction(val function: ExternalFunction) {
             for (f in nameMap.values) {
                 when (f) {
                     MULTI3, UDIVTI3, DIVTI3 -> {
-                        val summaryArgs = datastructures.stdcollections.listOf(
+                        val summaryArgs = listOf(
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM)
                         )
-                        memSummaries.addSummary(f.function.name, summaryArgs)
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }
                 }
             }

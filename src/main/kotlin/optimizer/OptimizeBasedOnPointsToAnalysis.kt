@@ -20,6 +20,7 @@ package optimizer
 import allocator.Allocator
 import allocator.SuppressRemapWarning
 import analysis.*
+import analysis.alloc.AllocationAnalysis
 import analysis.ip.*
 import analysis.pta.*
 import analysis.pta.TypedSetVisitor.Companion.OK
@@ -35,6 +36,7 @@ import log.*
 import log.regression
 import optimizer.OptimizeBasedOnPointsToAnalysis.AccessAnnotation.*
 import scene.ITACMethod
+import utils.Range
 import statistics.ANALYSIS_POINTSTO_SUBKEY
 import statistics.ElapsedTimeStats
 import statistics.toTimeTag
@@ -44,6 +46,9 @@ import tac.NBId
 import tac.Tag
 import utils.*
 import vc.data.*
+import vc.data.SimplePatchingProgram.Companion.patchForEach
+import vc.data.TACProgramCombiners.andThen
+import vc.data.tacexprutil.ExprUnfolder
 import verifier.*
 import verifier.ContractUtils.transformMethod
 import java.math.BigInteger
@@ -60,7 +65,7 @@ fun LTACCmd.isMemoryAccess(): Boolean =
         })
 
 /** a source string and the matching range, generated when a points-to analysis fails */
-val PTA_FAILURE_SOURCE = MetaKey<FailureInfo>("pta.failure.source")
+val PTA_FAILURE_SOURCE = MetaKey<Pair<String, Range.Range?>>("pta.failure.source")
 val UNINDEXED_PARTITION = MetaKey<UnindexedPartition>("tac.memory.partition")
 val UNINDEXED_PARTITION_INFO = MetaKey<UnindexedPartitionInfo>("tac.memory.partition-info")
 
@@ -1070,24 +1075,13 @@ object OptimizeBasedOnPointsToAnalysis {
         }
         if (failures.isNotEmpty()) {
             logger.warn { "Failed to fully process ${prog.name}" }
-            return GroupingResult(prog.patching {
-                it.addBefore(
-                    prog.analysisCache.graph.roots.first().ptr,
-                    failures
-                        .mapToSet { (_, src) -> src }
-                        .map { src -> TACCmd.Simple.AnnotationCmd(PTA_FAILURE_SOURCE, src) }
-                )
-
+            return GroupingResult(prog.patching { patching ->
                 failures
-                    .mapToSet { (cmd, _) -> cmd }
-                    .map { ptr ->
-                        val sourceWithRange = FailureInfo.AdditionalFailureInfo("", ptr.toString(), null)
-                        it.addBefore(
-                            ptr,
-                            listOf(TACCmd.Simple.AnnotationCmd(PTA_FAILURE_SOURCE, sourceWithRange))
-                        )
-                    }
-
+                    .map { (ptr, failureInfo) ->
+                        patching.addBefore(ptr,
+                            // This info is picked up in [MemoryPartition.kt] - the ptr.toString will be used as additional hint for the warning, the range for jump to source.
+                            listOf(TACCmd.Simple.AnnotationCmd(PTA_FAILURE_SOURCE, ptr.toString() to failureInfo.range)))
+                         }
             }, null, setOf())
         }
 
@@ -1554,12 +1548,6 @@ object OptimizeBasedOnPointsToAnalysis {
                 continue
             }
             val upd = pts.strongestUpdate()
-            if(sort == MemorySort.Long || upd != WritablePointsToSet.UpdateType.STRONG) {
-                for (d in pts.nodes) {
-                    markBadNode(d)
-                }
-                continue
-            }
             /*
                don't split fields of structs that are later written into memory, it prevents the PTA from inferring
                the types of the written struct objects and causes an error later, see CERT-6720
@@ -1568,6 +1556,12 @@ object OptimizeBasedOnPointsToAnalysis {
                 pta.reachableObjects(cmd.ptr, sort.operand)?.let {
                     markObjectGraphUnsplittable(cmd.ptr, it)
                 }
+            }
+            if(sort == MemorySort.Long || upd != WritablePointsToSet.UpdateType.STRONG) {
+                for (d in pts.nodes) {
+                    markBadNode(d)
+                }
+                continue
             }
             pts.nodes.forEach { n ->
                 recordNode(n, cmd)
@@ -1620,6 +1614,55 @@ object OptimizeBasedOnPointsToAnalysis {
         }
         Logger.regression { "Memory splitting of ${p.name} succeeded" }
         return patching.toCode(p)
+    }
+
+    fun validateLengthUpdates(m: ITACMethod): CoreTACProgram {
+        val prog = m.code as CoreTACProgram
+        val graph = prog.analysisCache.graph
+        val ai = AllocationAnalysis.runAnalysis(graph) ?: return prog
+        val pta = PointsToAnalysis(
+            method = m,
+            graph = graph,
+            allocSites = ai.abstractAllocations,
+            initialFreePointerValue = ai.initialFreePointerValue,
+            scratchSite = ai.scratchReads,
+            allowLengthUpdates = true
+        ).let {
+            if(it.failures.isNotEmpty()) {
+                return prog
+            }
+            FlowPointsToInformation(
+                graph = graph,
+                pta = it,
+                allocationInformation = ai,
+                isCompleteSuccess = true
+            )
+        }
+        val needsProofObligations = pta.query(LengthUpdateBoundQuery)?.takeIf { it.isNotEmpty() } ?: return prog
+        return needsProofObligations.stream().map { lenUpdate ->
+            val newVal = lenUpdate.cmd.value
+            val loc = lenUpdate.cmd.loc
+            val currLength = TACKeyword.TMP(Tag.Bit256, "currLength!")
+            val replacement = CommandWithRequiredDecls(listOf(
+                TACCmd.Simple.AssigningCmd.ByteLoad(
+                    lhs = currLength,
+                    loc = loc,
+                    base = TACKeyword.MEMORY.toVar()
+                )
+            ), setOf(loc, currLength)) andThen ExprUnfolder.unfoldPlusOneCmd(
+                "lengthAssertion",
+                TACExprFactTypeCheckedOnlyPrimitives {
+                    newVal.asSym() le currLength.asSym()
+                }
+            ) {
+                TACCmd.Simple.AssertCmd(it.s, "Auto-generated unsafe array update")
+            } andThen lenUpdate.cmd.mapMeta {
+                it + TACMeta.VALIDATED_LENGTH_UPDATE
+            }
+            lenUpdate.ptr to replacement
+        }.patchForEach(prog, check = true) { (where, repl) ->
+            replaceCommand(where, repl)
+        }
     }
 }
 

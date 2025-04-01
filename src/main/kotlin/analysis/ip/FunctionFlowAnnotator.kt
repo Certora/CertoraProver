@@ -2013,7 +2013,7 @@ object FunctionFlowAnnotator {
 
         // for each set, we don't need multiple entries if the hint will be empty.
         unknownFunctionIds.distinctByFuncStart().forEach { (where, functionIdAsHexStr) ->
-            logger.error("${g.name}: Could not find any function in source contract ${source.name} with id $functionIdAsHexStr @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where), g)}")
+            logger.error("${g.name}: Could not find any function in source contract ${source.name} with id $functionIdAsHexStr @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where))}")
         }
 
         functionIdsWithoutAMatch.distinctByFuncStart().forEach { (where, functionIdAsHexStr) ->
@@ -2026,7 +2026,7 @@ object FunctionFlowAnnotator {
             val internalFunc = source.internalFunctions[functionIdAsHexStr] ?: `impossible!`
             // the alert may be confusing so starting with logs that will be monitored
             // printInternalFuncMiss("Detected an internal function but it's not matching, we expected ${getMethodReferenceSignature(internalFunc)}", where)
-            logger.error("${g.name}: Detected an internal function but it's not matching, we expected ${getMethodReferenceSignature(internalFunc)} @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where), g)}")
+            logger.error("${g.name}: Detected an internal function but it's not matching, we expected ${getMethodReferenceSignature(internalFunc)} @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where))}")
         }
 
         val existing = c.parallelLtacStream().filter {
@@ -2058,7 +2058,7 @@ object FunctionFlowAnnotator {
 
     private fun printInternalFuncMiss(message: String, callerContractName: String?, hint: String?, range: TreeViewLocation?) {
         CVTAlertReporter.reportAlert(
-            CVTAlertType.ANALYSIS,
+            CVTAlertType.INTERNAL_FUNCTION_ANALYSIS,
             CVTAlertSeverity.WARNING,
             range,
             callerContractName?.let { "Failed to locate an internal function called from ${callerContractName}: $message" }

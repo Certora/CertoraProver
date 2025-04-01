@@ -79,7 +79,9 @@ object BlockMaker {
     fun mkBlockFromJump(pc: PC, funcId: WasmName, addr: WASMAddress?): WasmBlock {
         return WasmBlock(listOf(), Control.Jump(pc, addr), funcId)
     }
-
+    fun mkBlockFromInternalUnreach(funcId: WasmName, addr: WASMAddress?, isAssert: Boolean, message: String): WasmBlock {
+        return WasmBlock(listOf(), Control.CertoraUnreachable(addr, isAssert, message), funcId)
+    }
     fun mkBlockFromUnreach(funcId: WasmName, addr: WASMAddress?): WasmBlock {
         return WasmBlock(listOf(), Control.Unreach(addr), funcId)
     }

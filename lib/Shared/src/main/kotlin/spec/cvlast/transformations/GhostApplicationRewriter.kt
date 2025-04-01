@@ -46,7 +46,7 @@ class GhostApplicationRewriter(symbolTable: CVLSymbolTable) : CVLAstTransformer<
                                 castType = CastType.CONVERT,
                                 tag = CVLExpTag(
                                     scope = mappedIndex.getScope(),
-                                    cvlRange = mappedIndex.getRangeOrEmpty(),
+                                    range = mappedIndex.getRangeOrEmpty(),
                                     type = null
                                 )
                             )
@@ -98,7 +98,7 @@ class GhostApplicationRewriter(symbolTable: CVLSymbolTable) : CVLAstTransformer<
                         CVLExp.CastExpr(
                             tag = CVLExpTag(
                                 scope = arg.getScope(),
-                                cvlRange = arg.getRangeOrEmpty(),
+                                range = arg.getRangeOrEmpty(),
                                 type = null
                             ),
                             arg = arg,

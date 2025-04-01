@@ -23,6 +23,9 @@ import spec.cvlast.CVLScope.Item.CVLFunctionScopeItem
 import spec.cvlast.CVLScope.Item.RuleScopeItem
 import spec.cvlast.CVLType.PureCVLType
 import spec.cvlast.typechecker.CVLError
+import spec.rules.CVLSingleRule
+import spec.rules.ICVLRule
+import spec.rules.SingleRuleGenerationMeta
 import utils.CollectingResult
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.bind
@@ -33,6 +36,7 @@ import utils.CollectingResult.Companion.map
 import utils.CollectingResult.Companion.safeForce
 import utils.ErrorCollector.Companion.collectingErrors
 import utils.KSerializable
+import utils.Range
 import utils.hash
 
 // This file contains the simple top-level "Java" AST nodes, such as rules, definitions, etc.  More complicated syntactic
@@ -146,7 +150,7 @@ class AstBaseBlocks {
 }
 
 class CVLFunction @JvmOverloads constructor(
-    val cvlRange: CVLRange,
+    val range: Range,
     val id: String,
     val params: List<CVLParam>,
     val returnType: TypeOrLhs? = null, // null == void return type
@@ -161,7 +165,7 @@ class CVLFunction @JvmOverloads constructor(
             val _returnType = returnType?.toCVLType(resolver, subScope) ?: PureCVLType.Void.lift()
 
             map(_params, _block, _returnType) { params, block, returnType ->
-                CVLFunction(cvlRange, id, params, returnType, block, subScope)
+                CVLFunction(range, id, params, returnType, block, subScope)
             }
         }}
     }
@@ -169,18 +173,18 @@ class CVLFunction @JvmOverloads constructor(
 
 class Rule(
     private val isImportedSpecFile: Boolean,
-    private val cvlRange: CVLRange,
+    private val range: Range,
     private val id: String,
     private val params: List<CVLParam>,
     private val methodParamFilters: MethodParamFiltersMap,
     private val description: String?,
     private val goodDescription: String?,
     private val block: List<Cmd>
-) : Kotlinizable<IRule> {
+) : Kotlinizable<ICVLRule> {
 
     override fun toString() = "Rule($id,${params.joinToString()},$description,$goodDescription)"
 
-    override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<IRule, CVLError> {
+    override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<ICVLRule, CVLError> {
         return scope.extendInCollecting(::RuleScopeItem) { subScope: CVLScope -> collectingErrors {
             val _params  = params.map { it.kotlinize(resolver, subScope) }.flatten()
             val _block   = block.kotlinize(resolver, subScope)
@@ -191,7 +195,7 @@ class Rule(
                 else { SpecType.Single.FromUser.SpecFile }
 
             CVLSingleRule(
-                RuleIdentifier.freshIdentifier(id), cvlRange, params, description.orEmpty(), goodDescription.orEmpty(), block, specFile,
+                RuleIdentifier.freshIdentifier(id), range, params, description.orEmpty(), goodDescription.orEmpty(), block, specFile,
                 subScope, filters, ruleGenerationMeta = SingleRuleGenerationMeta.Empty
             )
         }}
@@ -199,64 +203,64 @@ class Rule(
 }
 
 
-class UninterpretedSortDecl(val cvlRange: CVLRange, val id: String) : Kotlinizable<SortDeclaration> {
+class UninterpretedSortDecl(val range: Range, val id: String) : Kotlinizable<SortDeclaration> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<SortDeclaration, Nothing>
-        = SortDeclaration(PureCVLType.Sort(id), cvlRange).lift()
+        = SortDeclaration(PureCVLType.Sort(id), range).lift()
 }
 
-sealed class UseDeclaration(val cvlRange: CVLRange, val id: String) {
+sealed class UseDeclaration(val range: Range, val id: String) {
 
-    class ImportedRule(cvlRange: CVLRange, id: String, val methodParamFilters: MethodParamFiltersMap) :
-        UseDeclaration(cvlRange, id), Kotlinizable<spec.cvlast.UseDeclaration.ImportedRule> {
+    class ImportedRule(range: Range, id: String, val methodParamFilters: MethodParamFiltersMap) :
+        UseDeclaration(range, id), Kotlinizable<spec.cvlast.UseDeclaration.ImportedRule> {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope
         ): CollectingResult<spec.cvlast.UseDeclaration.ImportedRule, CVLError> =
             methodParamFilters.kotlinize(resolver, scope)
-                .map { spec.cvlast.UseDeclaration.ImportedRule(id, cvlRange, it) }
+                .map { spec.cvlast.UseDeclaration.ImportedRule(id, range, it) }
     }
 
     class ImportedInvariant(
-        cvlRange: CVLRange,
+        range: Range,
         id: String,
         val proof: InvariantProof,
         val methodParamFilters: MethodParamFiltersMap
-    ) : UseDeclaration(cvlRange, id), Kotlinizable<spec.cvlast.UseDeclaration.ImportedInvariant> {
+    ) : UseDeclaration(range, id), Kotlinizable<spec.cvlast.UseDeclaration.ImportedInvariant> {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope
         ): CollectingResult<spec.cvlast.UseDeclaration.ImportedInvariant, CVLError> = proof.kotlinize(resolver, scope)
             .bind { p ->
                 methodParamFilters.kotlinize(resolver, scope)
-                    .map { mpf -> spec.cvlast.UseDeclaration.ImportedInvariant(id, cvlRange, p, mpf) }
+                    .map { mpf -> spec.cvlast.UseDeclaration.ImportedInvariant(id, range, p, mpf) }
             }
     }
 
-    class BuiltInRule(cvlRange: CVLRange, id: String, val methodParamFilters: MethodParamFiltersMap) : UseDeclaration(cvlRange, id), Kotlinizable<spec.cvlast.UseDeclaration.BuiltInRule> {
+    class BuiltInRule(range: Range, id: String, val methodParamFilters: MethodParamFiltersMap) : UseDeclaration(range, id), Kotlinizable<spec.cvlast.UseDeclaration.BuiltInRule> {
         override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<spec.cvlast.UseDeclaration.BuiltInRule, CVLError>
             = methodParamFilters.kotlinize(resolver, scope)
-                .map { mpf -> spec.cvlast.UseDeclaration.BuiltInRule(id, cvlRange, mpf) }
+                .map { mpf -> spec.cvlast.UseDeclaration.BuiltInRule(id, range, mpf) }
     }
 }
 
 
-class MacroDefinition(val cvlRange: CVLRange, val id: String, val param: List<CVLParam>, val returnType: TypeOrLhs, val body: Exp) : Kotlinizable<CVLDefinition> {
+class MacroDefinition(val range: Range, val id: String, val param: List<CVLParam>, val returnType: TypeOrLhs, val body: Exp) : Kotlinizable<CVLDefinition> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLDefinition, CVLError> = collectingErrors {
         val _params     = param.map { it.kotlinize(resolver, scope) }.flatten()
         val _returnType = returnType.toCVLType(resolver, scope)
         val _body       = body.kotlinize(resolver,scope)
         map(_params, _body, _returnType) { params, body, returnType ->
-            CVLDefinition(cvlRange, id, params, returnType, body, scope)
+            CVLDefinition(range, id, params, returnType, body, scope)
         }
     }
 }
 
 @KSerializable
-class ImportedContract(override val alias: String, override val contractName: String, override val cvlRange: CVLRange) : Kotlinizable<CVLImportedContract>, ContractAliasDefinition {
+class ImportedContract(override val alias: String, override val contractName: String, override val range: Range) : Kotlinizable<CVLImportedContract>, ContractAliasDefinition {
     override fun toString() = "ImportedContract($alias,$contractName)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLImportedContract, CVLError>
-        = CVLImportedContract(alias, SolidityContract(resolver.resolveContractName(contractName)), cvlRange).lift()
+        = CVLImportedContract(alias, SolidityContract(resolver.resolveContractName(contractName)), range).lift()
 
     override fun hashCode() : Int = hash { it + alias + contractName }
     override fun equals(other : Any?) : Boolean = other is ImportedContract && other.alias == alias && other.contractName == contractName

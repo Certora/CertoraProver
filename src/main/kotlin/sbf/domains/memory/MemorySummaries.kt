@@ -130,15 +130,22 @@ interface SummaryVisitor {
     fun processArgument(locInst: LocatedSbfInstruction,
                         reg: SbfRegister, offset: Long, width: Byte, allocatedSpace: ULong, type: MemSummaryArgumentType)
 }
+
+/**
+ * [args] are the summarized values of the call arguments **after** the call returns.
+ * If [isAbort] is true then [args] will be ignored.
+ */
+data class MemorySummary(val args: MemSummaryArguments, val isAbort: Boolean = false)
+
 /** This class contains the user-provided memory summaries **/
-data class MemorySummaries(private val summaries: List<Pair<Regex, MemSummaryArguments>> = arrayListOf()) {
+data class MemorySummaries(private val summaries: List<Pair<Regex, MemorySummary>> = arrayListOf()) {
 
     // hit/miss caches to avoid iterate over summaries over and over
-    private val summaryCache: MutableMap<String, MemSummaryArguments> = mutableMapOf()
+    private val summaryCache: MutableMap<String, MemorySummary> = mutableMapOf()
     private val noSummaryCache: MutableSet<String> = mutableSetOf()
 
     /** Return the memory summary for fname **/
-    fun getSummary(fname: String): MemSummaryArguments? {
+    fun getSummary(fname: String): MemorySummary? {
         if (noSummaryCache.contains(fname)) {
             return null
         }
@@ -167,7 +174,7 @@ data class MemorySummaries(private val summaries: List<Pair<Regex, MemSummaryArg
         if (summary == null) {
             vis.noSummaryFound(locInst)
         } else {
-            for (sumArg in summary) {
+            for (sumArg in summary.args) {
                 if (sumArg.r == SbfRegister.R0_RETURN_VALUE) {
                     vis.processReturnArgument(locInst, sumArg.type)
                 } else {
@@ -179,13 +186,15 @@ data class MemorySummaries(private val summaries: List<Pair<Regex, MemSummaryArg
     }
 
     /** To add extra summaries once the database of summaries has been loaded by calling [readSpecFile] **/
-    fun addSummary(fname: String, args: MemSummaryArguments) {
+    fun addSummary(fname: String, summary: MemorySummary) {
         if (summaries.any { (regex,_) -> regex.containsMatchIn(fname)}) {
-            sbfLogger.warn {"There is already a PTA summary for $fname. Skipped new summary $args"}
+            sbfLogger.warn {"There is already a PTA summary for $fname. Skipped new summary $summary"}
         } else {
-            summaryCache[fname] = args
+            summaryCache[fname] = summary
         }
     }
+
+    fun isKnownAbortFn(fname: String) = getSummary(fname)?.isAbort == true
 
     companion object {
         private val grammar =
@@ -247,7 +256,7 @@ data class MemorySummaries(private val summaries: List<Pair<Regex, MemSummaryArg
             }
 
 
-            val summaries = mutableListOf<Pair<Regex, MemSummaryArguments>>()
+            val summaries = mutableListOf<Pair<Regex, MemorySummary>>()
             // it needs to be mutable because it will be reset inside the loop
             var argumentTypes = mutableListOf<MemSummaryArgument>()
             for (line in lines) {
@@ -316,7 +325,7 @@ data class MemorySummaries(private val summaries: List<Pair<Regex, MemSummaryArg
                     if (summaries.any {(x,_) -> x == regex}) {
                         throw CannotParseSummaryFile(line, filename, grammar,"Found duplicated regex $regex in $filename")
                     }
-                    summaries.add(Pair(regex, argumentTypes))
+                    summaries.add(Pair(regex, MemorySummary(argumentTypes)))
                     // reset argumentTypes for the next function
                     argumentTypes = mutableListOf()
                 }

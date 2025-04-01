@@ -29,17 +29,18 @@ import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.CollectingResult.Companion.ok
 import utils.CompilerVersion
+import utils.Range
 import utils.VoidResult
 import java.math.BigInteger
 
 class CVLHookTypeChecker(
     private val symbolTable: CVLSymbolTable,
 ) {
-    private fun checkOpcodeHookParam(paramType: VMTypeDescriptor, targetCVLType: CVLType.PureCVLType, name: String, cvlRange: CVLRange, hookPattern: CVLHookPattern.Opcode): VoidResult<CVLError> {
+    private fun checkOpcodeHookParam(paramType: VMTypeDescriptor, targetCVLType: CVLType.PureCVLType, name: String, range: Range, hookPattern: CVLHookPattern.Opcode): VoidResult<CVLError> {
         return if (!FromVMContext.HookValue.supportsConversion(from = paramType, to = targetCVLType).isResult()) {
             return CVLError.General(
-                cvlRange,
-                "${hookPattern.name} hook argument $name must be $targetCVLType, instead got $paramType at ${cvlRange}"
+                range,
+                "${hookPattern.name} hook argument $name must be $targetCVLType, instead got $paramType at ${range}"
             ).asError()
         } else {
             ok
@@ -50,18 +51,18 @@ class CVLHookTypeChecker(
 
         val hookPattern = when (hook.pattern) {
             is GeneratedOpcodeHook -> GeneratedHookHelpers.typeCheckPattern(
-                cvlRange = hook.cvlRange,
+                range = hook.range,
                 pattern = hook.pattern
             ) { declaredDesc: VMTypeDescriptor, expectedType: CVLType.PureCVLType, name: String, opcode: CVLHookPattern.Opcode ->
-                checkOpcodeHookParam(declaredDesc, expectedType, name, hook.cvlRange, opcode)
+                checkOpcodeHookParam(declaredDesc, expectedType, name, hook.range, opcode)
             }
             is CVLHookPattern.StoragePattern -> typeCheckSlotPattern(hook)
             is CVLHookPattern.Create -> {
                 val paramType = hook.pattern.value.type
                 if (!FromVMContext.HookValue.supportsConversion(from = paramType, to = CVLType.PureCVLType.Primitive.AccountIdentifier).isResult()) {
                     return CVLError.General(
-                        hook.cvlRange,
-                        "Create hook argument must be an address, instead got $paramType at ${hook.cvlRange}"
+                        hook.range,
+                        "Create hook argument must be an address, instead got $paramType at ${hook.range}"
                         ).asError()
                 } else {
                     hook.pattern.lift()
@@ -129,7 +130,7 @@ class CVLHookTypeChecker(
                             is VMArrayTypeDescriptor -> {
                                 if(pattern.index.vmType !is VMUnsignedNumericValueTypeDescriptor || pattern.index.vmType.bitwidth != Config.VMConfig.registerBitwidth) {
                                     CVLError.General(
-                                        hook.cvlRange,
+                                        hook.range,
                                         // TODO(jtoman): *awful* error
                                         "Expected index parameter to be an unsigned integer type"
                                     ).asError()
@@ -138,7 +139,7 @@ class CVLHookTypeChecker(
                                 }
                             }
                             else -> CVLError.General(
-                                hook.cvlRange,
+                                hook.range,
                                 "Expected an array-like object at ${pattern.base}, found ${tacStorageType.toErrorString()}"
                                 ).asError()
                         }
@@ -146,14 +147,14 @@ class CVLHookTypeChecker(
                 }
                 is CVLSlotPattern.FieldAccess -> {
                     if (checkCont == null) {
-                        return CVLError.General(hook.cvlRange, offsetFieldErrorMsg).asError()
+                        return CVLError.General(hook.range, offsetFieldErrorMsg).asError()
                     }
                     typeCheckPattern(pattern.base, seenDynamicType, true) { patternTypeDesc ->
                         if (patternTypeDesc is EVMTypeDescriptor.EVMStructDescriptor) {
                             patternTypeDesc.fields.find { it.fieldName == pattern.field }?.let { field ->
                                 checkCont(field.fieldType)
                             } ?: CVLError.General(
-                                hook.cvlRange,
+                                hook.range,
                                 "struct at path ${pattern.base} has no field named ${pattern.field}"
                             ).asError()
                         } else if (patternTypeDesc is EVMTypeDescriptor.PackedBytes1Array && pattern.field == "length") {
@@ -166,7 +167,7 @@ class CVLHookTypeChecker(
                             checkCont(EVMTypeDescriptor.UIntK(Config.VMConfig.registerBitwidth))
                         } else {
                             CVLError.General(
-                                hook.cvlRange,
+                                hook.range,
                                 "Expected a struct with field ${pattern.field} at path ${pattern.base}, found ${patternTypeDesc.toErrorString()}"
                             ).asError()
                         }
@@ -176,7 +177,7 @@ class CVLHookTypeChecker(
                     typeCheckPattern(pattern.base, true, seenFields, checkCont.extend { ty, nxt ->
                         if (ty !is VMMappingDescriptor) {
                             return@extend CVLError.General(
-                                hook.cvlRange,
+                                hook.range,
                                 "Expected mapping type at ${pattern.base}, found ${ty.toErrorString()}"
                             ).asError()
                         }
@@ -186,7 +187,7 @@ class CVLHookTypeChecker(
                                 declaredType = pattern.key.vmType
                         )) {
                             CVLError.General(
-                                hook.cvlRange,
+                                hook.range,
                                 "Type mismatch: keys to ${pattern.base} should have type ${ty.keyType.toErrorString()} but ${pattern.key.id} has type ${pattern.key.type}"
                             ).asError()
                         /*
@@ -202,7 +203,7 @@ class CVLHookTypeChecker(
                             ((keyType !is VMValueTypeDescriptor || !keyType.getPureCVLTypeToConvertTo(FromVMContext.HookValue).isResult()) &&
                                 (keyType !is VMArrayTypeDescriptor || !keyType.converterTo(CVLType.PureCVLType.DynamicArray.PackedBytes, FromVMContext.HookValue.getVisitor()).isResult() && !keyType.converterTo(CVLType.PureCVLType.DynamicArray.StringType, FromVMContext.HookValue.getVisitor()).isResult()))) {
                             CVLError.General(
-                                hook.cvlRange,
+                                hook.range,
                                 "Trying to use hooks on non-integral key type ${ty.keyType} at ${pattern.base}"
                             ).asError()
                         } else {
@@ -225,19 +226,19 @@ class CVLHookTypeChecker(
                         } else {
                             return@run
                         }
-                        return CVLError.General(hook.cvlRange, fullMsg).asError()
+                        return CVLError.General(hook.range, fullMsg).asError()
 
                     }
                     if (seenFields && pattern !is CVLSlotPattern.Static.Named) {
                         additionalErrors.add(
                             CVLError.General(
-                                hook.cvlRange, "Used named fields in $slot, but base slot is not named: hook patterns that use struct field names" +
+                                hook.range, "Used named fields in $slot, but base slot is not named: hook patterns that use struct field names" +
                                         " must refer to storage slots by name instead of slot number"
                             )
                         )
                     }
                     if (seenDynamicType && pattern is CVLSlotPattern.Static.Indexed && pattern.offset != BigInteger.ZERO) {
-                        additionalErrors.add(CVLError.General(hook.cvlRange, unalignedDynamicErrorMsg))
+                        additionalErrors.add(CVLError.General(hook.range, unalignedDynamicErrorMsg))
                     }
                     fun errorOr(f: () -> VoidResult<CVLError>) : VoidResult<CVLError> {
                         return if(additionalErrors.isNotEmpty()) {
@@ -266,7 +267,7 @@ class CVLHookTypeChecker(
                             }
                             additionalErrors.add(
                                 CVLError.General(
-                                    hook.cvlRange,
+                                    hook.range,
                                     "named pattern root '${pattern.name}' is not defined: did you spell something wrong?${addendum}"
                                 )
                             )
@@ -288,11 +289,11 @@ class CVLHookTypeChecker(
                 }
                 is CVLSlotPattern.StructAccess -> {
                     if (seenFields) {
-                        return CVLError.General(hook.cvlRange, offsetFieldErrorMsg).asError()
+                        return CVLError.General(hook.range, offsetFieldErrorMsg).asError()
                     }
                     if (pattern.offset.mod(EVM_WORD_SIZE) != BigInteger.ZERO && seenDynamicType) {
                         return CVLError.General(
-                            hook.cvlRange, unalignedDynamicErrorMsg
+                            hook.range, unalignedDynamicErrorMsg
                         ).asError()
                     }
                     typeCheckPattern(pattern.base, seenDynamicType, false, null)
@@ -305,7 +306,7 @@ class CVLHookTypeChecker(
         return typeCheckPattern(slot, seenDynamicType = false, seenFields = false) { finalType ->
             if (finalType !is VMValueTypeDescriptor) {
                 return@typeCheckPattern CVLError.General(
-                    hook.cvlRange,
+                    hook.range,
                     "Slot pattern $slot is not an integral type: ${finalType.toErrorString()}"
                 ).asError()
             }
@@ -316,7 +317,7 @@ class CVLHookTypeChecker(
             ) {
                 additionalErrors.add(
                     CVLError.General(
-                        hook.cvlRange,
+                        hook.range,
                         "Type mismatch: $slot is declared as type ${finalType.prettyPrint()} but ${type.id} is declared as type ${type.type.prettyPrint()}"
                     )
                 )
@@ -329,7 +330,7 @@ class CVLHookTypeChecker(
                 } == false) {
                 additionalErrors.add(
                     CVLError.General(
-                        hook.cvlRange,
+                        hook.range,
                         "Type mismatch: ${hook.pattern.slot} is declared as type ${finalType.prettyPrint()}," +
                             " but previous value ${hook.pattern.previousValue!!.id} is declared as type " +
                             hook.pattern.previousValue.type.prettyPrint()

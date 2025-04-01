@@ -45,7 +45,7 @@ data object AssertsTautology :
         SanityCheckNonErrorUIMessageFormatter(
             rawMsg = reportName,
             rawMsgFormatter = { sanityOrdinalValue, assertCmd: CVLCmd.Simple.Assert, _, rawMsg: String ->
-                "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.cvlRange}"
+                "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.range}"
             }
         )
 
@@ -54,13 +54,13 @@ data object AssertsTautology :
         _sanityCheckResults: List<SanityDPResult>
     ): SanityResultsView.FunctionDependent<RuleCheckResult.Single> =
         SanityResultsView.FunctionDependent<RuleCheckResult.Single,
-                SpecType.Single.GeneratedFromBasicRule.AssertTautologyCheck,
+                SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertTautologyCheck,
                 CVLCmd.Simple.Assert>(
             _baseResults, _sanityCheckResults, this
         )
 
     override fun checkResultToSanitySubCheckGroup(r: SanityDPResult) =
-        r.result.rule.narrowType<SpecType.Single.GeneratedFromBasicRule.AssertTautologyCheck>().ruleType.assertCVLCmd
+        r.result.rule.narrowType<SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertTautologyCheck>().ruleType.assertCVLCmd
 
     override val preds: List<SanityCheckNodeType> =
         listOf(SanityCheckNodeType.None)

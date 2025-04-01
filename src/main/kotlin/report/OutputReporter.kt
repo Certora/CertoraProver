@@ -20,10 +20,11 @@ package report
 import log.*
 import rules.RuleCheckResult
 import scene.IScene
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
-import spec.cvlast.SingleRuleGenerationMeta
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
+import spec.rules.SingleRuleGenerationMeta
 import spec.cvlast.SpecType
+import spec.rules.EcosystemAgnosticRule
 
 private val logger = Logger(LoggerTypes.COMMON)
 
@@ -32,9 +33,9 @@ interface OutputReporter {
     fun addResults(results: RuleCheckResult)
     fun toFile(scene: IScene)
     fun hotUpdate(scene: IScene) // option to update the output with a notification 'live'
-    fun signalStart(rule: IRule, parentRule: IRule?) // signal rule starting to run
+    fun signalStart(rule: IRule) // signal rule starting to run
     fun resultFilter(result: RuleCheckResult): Boolean // allow reporter to filter results
-    fun signalStartFilter(rule: IRule, parentRule: IRule?): Boolean =
+    fun signalStartFilter(rule: IRule): Boolean =
         true // allow reporter to filter signaling of rules starting to run
 
     fun feedReporter(resultsList: List<RuleCheckResult>, scene: IScene) =
@@ -59,15 +60,17 @@ interface OutputReporter {
  * parametric rules ("sub rules")
  * sub-rules of an invariant
  * sanity rules before they're merged and finalized
+ * sanity rules of Solana / Soroban
  */
 val matchResultsForSubRulesAndSanity = { result: RuleCheckResult ->
     val rule = result.rule
+    (rule is EcosystemAgnosticRule && rule.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule ||
     rule is CVLSingleRule &&
         (result.rule.ruleType is SpecType.Single.InvariantCheck ||
             rule.ruleGenerationMeta is SingleRuleGenerationMeta.WithMethodInstantiations ||
             (rule.ruleGenerationMeta is SingleRuleGenerationMeta.WithSanity &&
                 rule.ruleGenerationMeta.sanity != SingleRuleGenerationMeta.Sanity.DISABLED_SANITY_CHECK &&
-                rule.ruleGenerationMeta.sanity != SingleRuleGenerationMeta.Sanity.DONE))
+                rule.ruleGenerationMeta.sanity != SingleRuleGenerationMeta.Sanity.DONE)))
 }
 
 class ReporterContainer(private val reporters: List<OutputReporter>): OutputReporter {
@@ -75,10 +78,10 @@ class ReporterContainer(private val reporters: List<OutputReporter>): OutputRepo
         error("Reporter container can't return an output file, query each reporter independently")
     }
 
-    override fun signalStart(rule: IRule, parentRule: IRule?) {
+    override fun signalStart(rule: IRule) {
         reporters.forEach { reporter ->
-            if (reporter.signalStartFilter(rule, parentRule)) {
-                reporter.signalStart(rule, parentRule)
+            if (reporter.signalStartFilter(rule)) {
+                reporter.signalStart(rule)
             }
         }
     }

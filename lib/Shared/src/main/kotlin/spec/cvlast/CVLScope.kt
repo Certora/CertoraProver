@@ -23,6 +23,7 @@ package spec.cvlast
 import bridge.ContractInstanceInSDC
 import com.certora.collect.*
 import kotlinx.serialization.Transient
+import spec.rules.ICVLRule
 import utils.*
 import utils.CollectingResult.Companion.bind
 import utils.CollectingResult.Companion.lift
@@ -141,12 +142,12 @@ data class CVLScope(
         /** The scope of a hook */
         @KSerializable
         class HookScopeItem(override val scopeId: Int) : ASTElementScope<CVLHook>(), TopLevelScope {
-            override fun toString(): String = "Hook at ${element.cvlRange}"
+            override fun toString(): String = "Hook at ${element.range}"
         }
 
         /** The scope for a rule */
         @KSerializable
-        class RuleScopeItem(override val scopeId: Int) : ASTElementScope<IRule>(), TopLevelScope {
+        class RuleScopeItem(override val scopeId: Int) : ASTElementScope<ICVLRule>(), TopLevelScope {
             override fun toString(): String = "Rule ${element.declarationId}"
 
             fun isDerived(): Boolean = this.element.ruleType.isDerived()
@@ -197,7 +198,7 @@ data class CVLScope(
         /** The scope for a block */
         @KSerializable
         class BlockCmdScopeItem(override val scopeId: Int) : ASTElementScope<CVLCmd.Composite.Block>() {
-            override fun toString(): String = "Block at ${element.cvlRange}"
+            override fun toString(): String = "Block at ${element.range}"
         }
 
         /**
@@ -212,13 +213,13 @@ data class CVLScope(
             /** A scope corresponding to the "then" block of an `if` command */
             @KSerializable
             class IfCmdThenScopeItem(override val scopeId: Int) : BranchCmdScopeItem() {
-                override fun toString(): String = "If branch at ${element.cvlRange}"
+                override fun toString(): String = "If branch at ${element.range}"
             }
 
             /** A scope corresponding to the `else` block of an `if` command */
             @KSerializable
             class IfCmdElseScopeItem(override val scopeId: Int) : BranchCmdScopeItem() {
-                override fun toString(): String = "Else branch at ${element.cvlRange}"
+                override fun toString(): String = "Else branch at ${element.range}"
             }
         }
 

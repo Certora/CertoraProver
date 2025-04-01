@@ -9,7 +9,7 @@
             "topOfStackValue": 0,
             "freshCopy": 0
         },
-        "pos": 93
+        "pos": 96
     },
     "cmd": {
         "type": "vc.data.TACCmd.Simple.AssertCmd",
@@ -33,12 +33,20 @@
             },
             {
                 "key": {
+                    "name": "tac.assert.id",
+                    "type": "java.lang.Integer",
+                    "erasureStrategy": "Canonical"
+                },
+                "value": 1
+            },
+            {
+                "key": {
                     "name": "cvl.range",
-                    "type": "spec.cvlast.CVLRange",
+                    "type": "utils.Range",
                     "erasureStrategy": "CallTrace"
                 },
                 "value": {
-                    "type": "spec.cvlast.CVLRange.Range",
+                    "type": "utils.Range.Range",
                     "specFile": "cvlStrings.spec",
                     "start": {
                         "line": 36,
@@ -49,14 +57,6 @@
                         "charByteOffset": 17
                     }
                 }
-            },
-            {
-                "key": {
-                    "name": "tac.assert.id",
-                    "type": "java.lang.Integer",
-                    "erasureStrategy": "Canonical"
-                },
-                "value": 2
             }
         ]
     }

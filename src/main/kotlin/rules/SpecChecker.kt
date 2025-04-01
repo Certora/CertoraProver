@@ -32,10 +32,11 @@ import report.*
 import rules.dpgraph.TrivialRuleDependencies
 import scene.IScene
 import spec.CVL
-import spec.cvlast.GroupRule
-import spec.cvlast.IRule
-import spec.cvlast.SpecType
-import spec.cvlast.StaticRule
+import spec.cvlast.*
+import spec.rules.GroupRule
+import spec.rules.ICVLRule
+import spec.rules.IRule
+import spec.rules.StaticRule
 import utils.*
 import verifier.mus.UnsatCoreVisualisation
 import verifier.mus.UnsatCoresStats
@@ -74,7 +75,7 @@ class SpecChecker(
 
     private val ruleChecker = RuleChecker(scene, contractName, cvl, reporter, treeViewReporter, summaryMonitor)
 
-    suspend fun IRule.check(idx: Int, size: Int): RuleCheckResult {
+    suspend fun ICVLRule.check(idx: Int, size: Int): RuleCheckResult {
         if (idx > 0) {
             Logger.always("Checking rule $declarationId ($idx out of $size)...", respectQuiet = true)
         }

@@ -24,7 +24,6 @@ import analysis.storage.STORAGE_ANALYSIS_FAILURE
 import analysis.storage.StorageAnalysis
 import analysis.storage.StoreInfo
 import analysis.storage.WidthConstraints
-import com.certora.collect.*
 import config.Config
 import evm.EVM_BITWIDTH256
 import evm.EVM_WORD_SIZE
@@ -38,7 +37,7 @@ import spec.CVLCompiler.CallIdContext.Companion.toContext
 import spec.converters.toCRD
 import spec.cvlast.CVLHook
 import spec.cvlast.CVLHookPattern
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.VMParam
 import spec.cvlast.typedescriptors.FromVMContext
 import spec.cvlast.typedescriptors.VMValueTypeDescriptor
@@ -205,8 +204,8 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
         }
     }
 
-    private fun noMatchError(matches: List<HookMatch>, lcmd: LTACCmd, g: TACCommandGraph): Nothing {
-        val src = getSourceStringOrInternalFuncForPtr(lcmd, g)
+    private fun noMatchError(matches: List<HookMatch>, lcmd: LTACCmd): Nothing {
+        val src = getSourceStringOrInternalFuncForPtr(lcmd)
         val srcString = src?.let { " (source: $src)" }.orEmpty()
         throw CertoraException(
             // this error message is innacurate if there are no exact matches, only if there are multiple
@@ -302,7 +301,7 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
          * ([HookMatch.StorageMatch.AllPaths]), or no full matches.
          */
         val (hook, pattern, match) = matchedCommands.singleOrNull { (_, _, match) -> match is HookMatch.StorageMatch.AllPaths }
-            ?: noMatchError(matchedCommands.map { it.third }.filterIsInstance<HookMatch.StorageMatch.AllPaths>(), lcmd, ast.analysisCache.graph)
+            ?: noMatchError(matchedCommands.map { it.third }.filterIsInstance<HookMatch.StorageMatch.AllPaths>(), lcmd)
 
         val (code, allocatedTACSymbols) = cvlCompiler.compileHook(hook, lcmd.ptr.block.getCallId())
         val program = code.getAsSimple()
@@ -314,7 +313,7 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
             if (cie.type == CertoraInternalErrorType.CVL_TAC_ALLOCATION) {
                 throw CertoraException(
                     CertoraErrorType.CVL,
-                    "Error in inlining the hook specified in ${hook.cvlRange}: ${cie.internalMsg}"
+                    "Error in inlining the hook specified in ${hook.range}: ${cie.internalMsg}"
                 )
             } else {
                 throw cie
@@ -491,7 +490,7 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
                 ?: throw CertoraInternalException(CertoraInternalErrorType.HOOK_INLINING, "found an unexpected VM value ${assignVMParam.rhsName}")
 
             check(assignVMParam.rhsType.context == FromVMContext.HookValue) { throw CertoraInternalException(CertoraInternalErrorType.HOOK_INLINING,
-                "Got a non-hook VM Value inside a hook: ${VMParam.Named(assignVMParam.rhsName, assignVMParam.rhsType.descriptor, CVLRange.Empty())}")}
+                "Got a non-hook VM Value inside a hook: ${VMParam.Named(assignVMParam.rhsName, assignVMParam.rhsType.descriptor, Range.Empty())}")}
 
             assignVMParam.rhsType.descriptor.converterTo(assignVMParam.lhsType, FromVMContext.HookValue.getVisitor()).force()
                 .convertTo(hookValue, assignVMParam.lhsVar) { it }.toCRD().toProg("hook inlining", where.ptr.block.calleeIdx.toContext())
@@ -504,7 +503,6 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
      * Inlines TAC command associated with Create hooks to the respective blocks.
      */
     private fun inlineCreateHooksToBlock(
-        ast: CoreTACProgram,
         lcmd: LTACCmd
     ): HookInliningInfo? {
         val cmd = lcmd.cmd
@@ -529,7 +527,7 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
          */
 
         val (hook, pattern, match) = matchedCommands.singleOrNull { (_, _, match) -> match is HookMatch.Create }
-            ?: noMatchError(matchedCommands.map { it.third }.filterIsInstance<HookMatch.Create>(), lcmd, ast.analysisCache.graph)
+            ?: noMatchError(matchedCommands.map { it.third }.filterIsInstance<HookMatch.Create>(), lcmd)
 
         val (code, _) = cvlCompiler.compileHook(hook, lcmd.ptr.block.getCallId())
         val program = code.getAsSimple()
@@ -538,7 +536,6 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
     }
 
     private fun inlineOpcodeHooksToBlock(
-        ast: CoreTACProgram,
         lcmd: LTACCmd,
     ): HookInliningInfo? {
         val cmd = lcmd.cmd
@@ -564,7 +561,7 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
          */
 
         val (hook, pattern, match) = matchedCommands.singleOrNull { (_, _, match) -> match is HookMatch.OpcodeMatch }
-            ?: noMatchError(matchedCommands.map { it.third }.filterIsInstance<HookMatch.OpcodeMatch>(), lcmd, ast.analysisCache.graph)
+            ?: noMatchError(matchedCommands.map { it.third }.filterIsInstance<HookMatch.OpcodeMatch>(), lcmd)
 
         val (code, _) = cvlCompiler.compileHook(hook, lcmd.ptr.block.getCallId())
         val program = code.getAsSimple().prependToBlock0(setupExecutingContract(match))
@@ -621,8 +618,8 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
             block.forEach forEachBlock@{ lcmd ->
                 // Note we'll only reach here if storage analysis *was* run and there were *no errors*
                 val hookInliningInfo = inlineStorageHooksInBlock(ast, lcmd)
-                    ?: inlineCreateHooksToBlock(ast, lcmd)
-                    ?: inlineOpcodeHooksToBlock(ast, lcmd)
+                    ?: inlineCreateHooksToBlock(lcmd)
+                    ?: inlineOpcodeHooksToBlock(lcmd)
                     ?: return@forEachBlock
 
 
@@ -636,7 +633,7 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
                 )
 
                 /** XXX: I think this [CVLReportLabel.ApplyHook] is never read, because we skip it in the call trace. */
-                val reportLabel = CVLReportLabel.ApplyHook(hookInliningInfo.pattern.toString(), hookInliningInfo.cvlHook.cvlRange)
+                val reportLabel = CVLReportLabel.ApplyHook(hookInliningInfo.pattern.toString(), hookInliningInfo.cvlHook.range)
 
                 val inlinedHookProg = hookInliningInfo
                     .preCommands

@@ -1,0 +1,14 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"sanity": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"test(uint256)"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

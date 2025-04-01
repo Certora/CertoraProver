@@ -36,14 +36,14 @@ abstract class AbstractTypeResolver : TypeResolver {
 
     override fun registerContractAlias(alias: ContractAliasDefinition): VoidResult<CVLError> {
         return if (!validContract(alias.contractName)) {
-            CVLError.General(alias.cvlRange, "Tried to register ${alias.alias} as ${alias.contractName} but " +
+            CVLError.General(alias.range, "Tried to register ${alias.alias} as ${alias.contractName} but " +
                 "${alias.contractName} does not exist.").asError()
         } else if (alias.alias in contractAliases) {
-            CVLError.General(alias.cvlRange, "Registered contract alias ${alias.alias} more than once.").asError()
+            CVLError.General(alias.range, "Registered contract alias ${alias.alias} more than once.").asError()
         } else {
             if (alias.alias != alias.contractName && validContract(alias.alias)) {
                 CVLWarningLogger.syntaxWarning( "Registered the contract alias ${alias.alias} for the contract name ${alias.contractName}, another contract with the same contract name appears in the scene. " +
-                        "This may lead to inconsistent behaviour when resolving methods.", alias.cvlRange)
+                        "This may lead to inconsistent behaviour when resolving methods.", alias.range)
             }
             contractAliases[alias.alias] = alias.contractName
             ok

@@ -20,6 +20,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -29,17 +40,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -275,7 +275,8 @@
                                 "values": [
                                     "false"
                                 ],
-                                "tooltip": "value of expression"
+                                "tooltip": "value of expression",
+                                "truncatable": false
                             }
                         ]
                     },
@@ -290,7 +291,8 @@
                                         "values": [
                                             "true"
                                         ],
-                                        "tooltip": "value of expression"
+                                        "tooltip": "value of expression",
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -301,13 +303,14 @@
                                         "text": "myStruct.num ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "8",
+                                                "value": "0x8",
                                                 "values": [
-                                                    "8",
+                                                    "0x8",
                                                     "8",
                                                     "0x8"
                                                 ],
-                                                "tooltip": "value of expression"
+                                                "tooltip": "value of expression",
+                                                "truncatable": true
                                             }
                                         ]
                                     },

@@ -21,8 +21,8 @@ import config.Config
 import rules.dpgraph.DPResult
 import rules.RuleCheckResult
 import rules.sanity.sorts.SanityCheckSort
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
 import spec.cvlast.SpecType
 import utils.uncheckedAs
 
@@ -40,8 +40,8 @@ fun matchingSanityRule(baseRule: CVLSingleRule, sanityRule: CVLSingleRule) : Boo
  */
 fun enabledSanityChecksSorts(results: List<RuleCheckResult>): List<SanityCheckSort<*, *>> =
     results.mapNotNull { result ->
-        if (result.rule.ruleType is SpecType.Single.GeneratedFromBasicRule) {
-            val sort = SanityCheckSort(result.rule.ruleType as SpecType.Single.GeneratedFromBasicRule)
+        if (result.rule.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule) {
+            val sort = SanityCheckSort(result.rule.ruleType as SpecType.Single.GeneratedFromBasicRule.SanityRule)
             if (sort.mode <= Config.DoSanityChecksForRules.get()) {
                 sort
             } else {

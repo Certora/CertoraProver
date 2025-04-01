@@ -30,6 +30,7 @@ from Shared.certoraLogging import LoggingManager
 
 from CertoraProver.certoraCloudIO import CloudVerification, validate_version_and_branch
 from CertoraProver.certoraCollectRunMetadata import collect_run_metadata
+from CertoraProver.certoraCollectConfigurationLayout import collect_configuration_layout
 from CertoraProver import certoraContextValidator as Cv
 
 import CertoraProver.certoraContext as Ctx
@@ -87,6 +88,12 @@ def run_solana_prover(args: List[str]) -> Optional[CertoraRunResult]:
         raise Util.TestResultsReady(metadata)
     metadata.dump()
 
+    configuration_layout = collect_configuration_layout()
+
+    if context.test == str(Util.TestValue.CHECK_CONFIG_LAYOUT):
+        raise Util.TestResultsReady(configuration_layout)
+    configuration_layout.dump()
+
     if not context.local and not context.build_only and not context.compilation_steps_only:
         """
         The line below will raise an exception if the local version is incompatible.
@@ -101,7 +108,7 @@ def run_solana_prover(args: List[str]) -> Optional[CertoraRunResult]:
     build_end = time.perf_counter()
     timings["buildTime"] = round(build_end - build_start, 4)
     if context.test == str(Util.TestValue.AFTER_BUILD):
-        raise Util.TestResultsReady(None)
+        raise Util.TestResultsReady(True)
 
     if not context.build_only and exit_code == 0:
 

@@ -85,6 +85,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -94,17 +105,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -346,41 +346,41 @@
                                 "truncatable": true
                             },
                             {
-                                "value": "0x0",
+                                "value": "0x8",
                                 "values": [
-                                    "0x0",
-                                    "0",
-                                    "0x0"
+                                    "0x8",
+                                    "8",
+                                    "0x8"
                                 ],
                                 "tooltip": "value at x",
                                 "truncatable": true
                             },
                             {
-                                "value": "0x0",
+                                "value": "0x401",
                                 "values": [
-                                    "0x0",
-                                    "0x0",
-                                    "0x0"
+                                    "0x401",
+                                    "0x401",
+                                    "0x401"
                                 ],
                                 "tooltip": "value at y",
                                 "truncatable": true
                             },
                             {
-                                "value": "0x0",
+                                "value": "0x7",
                                 "values": [
-                                    "0x0",
-                                    "0",
-                                    "0x0"
+                                    "0x7",
+                                    "7",
+                                    "0x7"
                                 ],
                                 "tooltip": "value at z1",
                                 "truncatable": true
                             },
                             {
-                                "value": "0x0",
+                                "value": "0x6",
                                 "values": [
-                                    "0x0",
-                                    "0",
-                                    "0x0"
+                                    "0x6",
+                                    "6",
+                                    "0x6"
                                 ],
                                 "tooltip": "value at z2",
                                 "truncatable": true
@@ -394,11 +394,11 @@
                                 "truncatable": false
                             },
                             {
-                                "value": "0x0",
+                                "value": "0x5",
                                 "values": [
-                                    "0x0",
-                                    "0",
-                                    "0x0"
+                                    "0x5",
+                                    "5",
+                                    "0x5"
                                 ],
                                 "tooltip": "value at x2",
                                 "truncatable": true

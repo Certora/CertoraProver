@@ -109,12 +109,11 @@ object StoragePathAnnotation {
                             rangeWithMsgDetails.additionalUserFacingMessage
                         )
                         CVTAlertReporter.reportAlert(
-                            CVTAlertType.ANALYSIS,
-                            CVTAlertSeverity.WARNING,
-                            rangeWithMsgDetails.range,
-                            userMsg.getFullMessage(),
-                            rangeWithMsgDetails.hint,
-                            CheckedUrl.ANALYSIS_OF_STORAGE,
+                            type = CVTAlertType.STORAGE_ANALYSIS,
+                            severity = CVTAlertSeverity.WARNING,
+                            jumpToDefinition = rangeWithMsgDetails.range,
+                            message = userMsg.getFullMessage(),
+                            url = CheckedUrl.ANALYSIS_OF_STORAGE
                         )
                         code.prependToBlock0(
                             CommandWithRequiredDecls(

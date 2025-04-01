@@ -30,7 +30,7 @@ import smtlibutils.cmdprocessor.SmtFormulaCheckerResult
 import smtlibutils.data.ProcessDifficultiesResult
 import solver.SMTCounterexampleModel
 import solver.SolverResult
-import spec.cvlast.IRule
+import spec.rules.IRule
 import vc.FullProgramReachabilityResult
 import vc.data.CoreTACProgram
 import verifier.mus.UnsatCoreInputData
@@ -216,23 +216,11 @@ abstract class Verifier : AbstractTACChecker() {
             val firstExampleInfo = examplesInfo?.head
             val name = simpleSimpleSSATAC.name
             val examplesInfo = examplesInfo
+
             if (examplesInfo != null && rule != null) {
-                val codeMap = generateCodeMap(simpleSimpleSSATAC, name)
-                for ((exampleIndex, exampleInfo) in examplesInfo.withIndex()
-                    .filter { (_, exampleInfo) -> exampleInfo.solverResult == SolverResult.SAT }) {
-
-                    val withCex = addCounterexampleData(exampleInfo.model, codeMap)
-                    val fullCex = runCatching {
-                        addDifficultyInfo(withCex, this)
-                    }.onFailure { e ->
-                        Logger.alwaysWarn("Failed to enrich counter example", e)
-                    }.getOrElse { withCex }
-
-                    val reportName = RuleCheckResult.Single.RuleCheckInfo.cexDumpGraphLinkOf(rule, exampleIndex)
-                    launchMaybeBackground("report generation") {
-                        DumpGraphHTML.writeCodeToHTML(fullCex, reportName)
-                    }
-                }
+                // We produce two reports: one with, and one without internal functions.
+                writeExamplesToHtml(rule, name, examplesInfo, addInternalFunctions = false)
+                writeExamplesToHtml(rule, name, examplesInfo, addInternalFunctions = true)
             }
 
             // Rules may either contain satisfy or assert commands
@@ -277,6 +265,35 @@ abstract class Verifier : AbstractTACChecker() {
                 // smart cast feature which would aid in figuring out
                 // that this covers all cases otherwise.
                 else -> throw UnrecognizedOptionException("Internal compiler encountered unhandled final result in AbstractTACChecker.")
+            }
+        }
+
+        private fun writeExamplesToHtml(
+            rule: IRule,
+            name: String,
+            examplesInfo: NonEmptyList<ExampleInfo>,
+            addInternalFunctions: Boolean,
+        ) {
+            val codeMap = generateCodeMap(simpleSimpleSSATAC, name, addInternalFunctions)
+            for ((exampleIndex, exampleInfo) in examplesInfo.withIndex()
+                .filter { (_, exampleInfo) -> exampleInfo.solverResult == SolverResult.SAT }) {
+
+                val withCex = addCounterexampleData(exampleInfo.model, codeMap)
+                val fullCex = runCatching {
+                    addDifficultyInfo(withCex, this)
+                }.onFailure { e ->
+                    Logger.alwaysWarn("Failed to enrich counter example", e)
+                }.getOrElse { withCex }
+
+                val reportName = RuleCheckResult.Single.RuleCheckInfo.cexDumpGraphLinkOf(
+                    rule,
+                    exampleIndex,
+                    // If we have internal functions, the report will have the `_with_internal` suffix.
+                    customSuffix = if (addInternalFunctions) { "_with_internal" } else { "" }
+                )
+                launchMaybeBackground("report generation") {
+                    DumpGraphHTML.writeCodeToHTML(fullCex, reportName)
+                }
             }
         }
     }

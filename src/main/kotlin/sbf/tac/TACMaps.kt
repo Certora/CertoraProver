@@ -20,7 +20,7 @@ package sbf.tac
 import sbf.domains.PTAOffset
 import vc.data.TACCmd
 import vc.data.TACSymbol
-
+import datastructures.stdcollections.*
 
 /** Return instructions that havoc the indexes [loc] + [indexes] of the byte map [base] **/
 context(SbfCFGToTAC)
@@ -46,13 +46,13 @@ fun computeTACMapIndex(base: TACSymbol.Var, offset: Long, cmds: MutableList<TACC
 
 /**
  * Emit TAC code that writes [values] in [byteMap] starting at [base] with [offsets]
- * [offsets] are already relative to [base]
+ * [offsets] must be relative to [base]
  */
 context(SbfCFGToTAC)
 fun mapStores(byteMap: TACByteMapVariable,
               base: TACSymbol.Var,
               offsets: List<PTAOffset>,
-              values: List<TACSymbol.Var>): List<TACCmd.Simple> {
+              values: List<TACSymbol>): List<TACCmd.Simple> {
     // precondition: fields are sorted and len(fields) = len(values)
     check(offsets.size == values.size) {"Precondition of emitTACMapStores"}
 
@@ -64,6 +64,17 @@ fun mapStores(byteMap: TACByteMapVariable,
     }
     return cmds
 }
+
+/**
+ * Emit TAC code that writes [value] in [byteMap] starting at [base] with [offset]
+ * [offset] must be relative to [base]
+ */
+context(SbfCFGToTAC)
+fun mapStores(byteMap: TACByteMapVariable,
+              base: TACSymbol.Var,
+              offset: PTAOffset,
+              value: TACSymbol): List<TACCmd.Simple> =
+    mapStores(byteMap, base, listOf(offset), listOf(value))
 
 /**
  * Emit TAC code that loads each word from [byteMap] starting at [base] up to [length]

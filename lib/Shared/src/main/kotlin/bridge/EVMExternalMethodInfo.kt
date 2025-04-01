@@ -56,7 +56,7 @@ data class EVMExternalMethodInfo(
 ) : java.io.Serializable {
 
     val params: List<VMParam>
-        get() = argTypes.map { VMParam.Unnamed(it, CVLRange.Empty()) }
+        get() = argTypes.map { VMParam.Unnamed(it, Range.Empty()) }
 
     val functionName: String
         get() = name
@@ -164,9 +164,9 @@ data class EVMExternalMethodInfo(
             selector: BigInteger?,
             arity: BigInteger,
             contractInstanceId: BigInteger,
-            cvlRange: CVLRange = CVLRange.Empty()
+            range: Range = Range.Empty()
         ) =
-                withScopeAndRange(scope, cvlRange = cvlRange) {
+                withScopeAndRange(scope, range = range) {
                     CVLExp.Constant.StructLit(
                             fieldNameToEntry =
                             listOf(

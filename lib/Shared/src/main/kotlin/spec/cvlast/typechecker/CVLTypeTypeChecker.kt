@@ -24,6 +24,7 @@ import utils.CollectingResult.Companion.bind
 import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
+import utils.Range
 import utils.`impossible!`
 
 class CVLTypeTypeChecker(
@@ -31,31 +32,31 @@ class CVLTypeTypeChecker(
 ) {
     fun typeCheck(
         type: CVLType.PureCVLType,
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope
-    ) = typeCheckInternal(type, cvlRange, scope, true)
+    ) = typeCheckInternal(type, range, scope, true)
 
     /**
      * Ensuring any sorts/user defined types are indeed defined. Recursively checks compound types.
      */
     private fun typeCheckInternal(
         type: CVLType.PureCVLType,
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope,
         tuplesAllowed: Boolean
     ): CollectingResult<CVLType.PureCVLType, CVLError> {
         return when (type) {
             CVLType.PureCVLType.Primitive.AccountIdentifier -> type.lift()
-            is CVLType.PureCVLType.DynamicArray.WordAligned -> typeCheckInternal(type.elementType, cvlRange, scope, false).bind { elementType ->
-                typeCheckArrayElement(elementType, cvlRange)
+            is CVLType.PureCVLType.DynamicArray.WordAligned -> typeCheckInternal(type.elementType, range, scope, false).bind { elementType ->
+                typeCheckArrayElement(elementType, range)
             }.map { elementType ->
                 type.copy(
                     elementType = elementType
                 )
             }
             is CVLType.PureCVLType.DynamicArray.Bytes1Array -> type.lift()
-            is CVLType.PureCVLType.StaticArray -> typeCheckInternal(type.elementType, cvlRange, scope, false).bind { elementType ->
-                typeCheckArrayElement(elementType, cvlRange)
+            is CVLType.PureCVLType.StaticArray -> typeCheckInternal(type.elementType, range, scope, false).bind { elementType ->
+                typeCheckArrayElement(elementType, range)
             }.map { elementType ->
                 type.copy(
                     elementType = elementType
@@ -65,36 +66,36 @@ class CVLTypeTypeChecker(
                 .map { elementType ->
                     typeCheckInternal(
                         elementType,
-                        cvlRange,
+                        range,
                         scope,
                         tuplesAllowed = false
                     ).bind { t ->
-                        typeCheckArrayElement(t, cvlRange)
+                        typeCheckArrayElement(t, range)
                     }.map { it as CVLType.PureCVLType.Primitive }
                 }.flatten()
                 .bind(
                     typeCheckInternal(
                         type.leastUpperBoundElementType,
-                        cvlRange,
+                        range,
                         scope,
                         tuplesAllowed = false
                     )
                 ) { elementTypes, leastUpperBoundType ->
                     @Suppress("NAME_SHADOWING")
-                    typeCheckArrayElement(leastUpperBoundType, cvlRange).map { leastUpperBoundType ->
+                    typeCheckArrayElement(leastUpperBoundType, range).map { leastUpperBoundType ->
                         type.copy(elementTypes = elementTypes, leastUpperBoundElementType = leastUpperBoundType)
                     }
                 }
             CVLType.PureCVLType.Bottom -> type.lift()
             is CVLType.PureCVLType.Enum -> type.lift()
             is CVLType.PureCVLType.Ghost.Function -> {
-                type.inParams.map { typeCheckInternal(it, cvlRange, scope, tuplesAllowed = false) }.flatten()
-                    .bind(typeCheckInternal(type.outParam, cvlRange, scope, tuplesAllowed = false)) { inParams, outParam ->
+                type.inParams.map { typeCheckInternal(it, range, scope, tuplesAllowed = false) }.flatten()
+                    .bind(typeCheckInternal(type.outParam, range, scope, tuplesAllowed = false)) { inParams, outParam ->
                         type.copy(inParams = inParams, outParam = outParam).lift()
                     }
             }
             is CVLType.PureCVLType.Ghost.Mapping -> {
-                typeCheckInternal(type.key, cvlRange, scope, tuplesAllowed = false).bind(typeCheckInternal(type.value, cvlRange, scope, tuplesAllowed = false)) { key, value ->
+                typeCheckInternal(type.key, range, scope, tuplesAllowed = false).bind(typeCheckInternal(type.value, range, scope, tuplesAllowed = false)) { key, value ->
                     type.copy(key = key, value = value).lift()
                 }
             }
@@ -112,14 +113,14 @@ class CVLTypeTypeChecker(
                     ?.getCVLTypeOrNull() != type
             ) {
                 CVLError.General(
-                    cvlRange,
+                    range,
                     "Cannot resolve sort \"${type.name}\""
                 ).asError()
             } else {
                 type.lift()
             }
             is CVLType.PureCVLType.Struct -> mutableMapOf<String, CollectingResult<CVLType.PureCVLType, CVLError>>().also { map ->
-                type.fields.forEach { map[it.fieldName] = typeCheckInternal(it.cvlType, cvlRange, scope, tuplesAllowed = false) }
+                type.fields.forEach { map[it.fieldName] = typeCheckInternal(it.cvlType, range, scope, tuplesAllowed = false) }
             }.bind { map ->
                 type.copy(fields = map.map {
                     CVLType.PureCVLType.Struct.StructEntry(
@@ -137,18 +138,18 @@ class CVLTypeTypeChecker(
             is CVLType.PureCVLType.UserDefinedValueType -> type.lift()
             is CVLType.PureCVLType.TupleType -> if(!tuplesAllowed) {
                 CVLError.General(
-                    cvlRange = cvlRange,
+                    range = range,
                     message = "Tuple types cannot appear here"
                 ).asError()
             } else {
                 type.elements.map {
                     typeCheckInternal(
-                        it, cvlRange, scope, tuplesAllowed = false
+                        it, range, scope, tuplesAllowed = false
                     )
                 }.flatten().bind {
                     if(it.size < 2) {
                         CVLError.General(
-                            cvlRange = cvlRange,
+                            range = range,
                             message = "Cannot have nullary or singleton tuple types"
                         ).asError()
                     } else {
@@ -166,8 +167,8 @@ class CVLTypeTypeChecker(
 
     private fun typeCheckArrayElement(
         type: CVLType.PureCVLType,
-        cvlRangeForError: CVLRange
-    ) = typeCheckArrayElement(type) { msg -> CVLError.General(cvlRangeForError, msg) }
+        rangeForError: Range
+    ) = typeCheckArrayElement(type) { msg -> CVLError.General(rangeForError, msg) }
 
     fun typeCheckArrayLiteralElement(
         type: CVLType.PureCVLType,

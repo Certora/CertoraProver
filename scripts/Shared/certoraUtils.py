@@ -14,6 +14,7 @@
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import csv
+import fnmatch
 import json
 import os
 import subprocess
@@ -105,11 +106,13 @@ ALPHA_PACKAGE_MASTER_NAME = ALPHA_PACKAGE_NAME + '-master'
 SOLIDITY_ID_SUBSTRING_RE = r"[a-zA-Z_$][a-zA-Z0-9_$]*"  # string *contains* a valid solidity ID
 SOLIDITY_ID_STRING_RE = rf"^{SOLIDITY_ID_SUBSTRING_RE}$"  # string *is* a valid solidity ID
 CWD_FILE = '.cwd'
+PROJECT_DIR_FILE = '.project_directory'
 NEW_LINE = '\n'  # for new lines in f strings
 VY_EXT = '.vy'
 SOL_EXT = '.sol'
 YUL_EXT = '.yul'
-EVM_EXTENSIONS = ('.sol', VY_EXT, YUL_EXT, '.tac', '.json')
+EVM_SOURCE_EXTENSIONS = (SOL_EXT, VY_EXT, YUL_EXT)
+EVM_EXTENSIONS = EVM_SOURCE_EXTENSIONS + ('.tac', '.json')
 SOLANA_EXEC_EXTENSION = '.so'
 SOROBAN_EXEC_EXTENSION = '.wasm'
 VALID_FILE_EXTENSIONS = ['.conf'] + list(EVM_EXTENSIONS) + [SOLANA_EXEC_EXTENSION, SOROBAN_EXEC_EXTENSION]
@@ -169,13 +172,15 @@ def reset_certora_internal_dir(build_dir_str: Optional[str] = None) -> None:
         build_dir = Path(build_dir_str)
 
     CERTORA_BUILD_DIRECTORY = Path(build_dir)
+
+    # Always remove the "latest" symlink, if the build path changed then it might be pointing to garbage.
+    last_build = CERTORA_INTERNAL_ROOT / 'latest'
+    last_build.unlink(missing_ok=True)
     if build_dir_str is None:
         # We are using the default dir, with the BUILD_UUID. Add a symlink to the last one to run, for ease of use.
         # Note that when running concurrently 'latest' may not be well-defined, but for local usage it could be useful.
-        last_build = build_dir.parent / 'latest'
 
         try:
-            last_build.unlink(missing_ok=True)
             last_build.symlink_to(build_dir.relative_to(build_dir.parent), target_is_directory=True)
         except Exception as e:
             # This is a nice-to-have thing, so if we fail for some reason (e.g. permission error)
@@ -235,6 +240,10 @@ def get_build_cache_indicator_file() -> Path:
 
 def get_certora_metadata_file() -> Path:
     return path_in_build_directory(Path(".certora_metadata.json"))
+
+
+def get_configuration_layout_data_file() -> Path:
+    return path_in_build_directory(Path(".configuration_layout.json"))
 
 
 def get_resource_errors_file() -> Path:
@@ -1164,14 +1173,12 @@ def match_path_to_mapping_key(path: Path, m: Dict[str, str]) -> Optional[str]:
     Matches the path to the best match in the dictionary's keys.
     For example, given an absolute path `/Users/JohnDoe/Path/ToSolc/a.sol`, if the map contains
     `b/a.sol` and `ToSolc/a.sol`, it will match on `ToSolc/a.sol`.
-    It is assumed the map does not contain any ambiguities, e.g. both `a.sol` and `ToSolc/a.sol`.
     @param path: the path to match against
     @param m: the map whose keys we're searching
     @return: the value from the map that best matches the path, None if not found.
     """
-    resolved_abs_path = abs_norm_path(path)
     for k, v in m.items():
-        if abs_norm_path(Path(k)) == resolved_abs_path:
+        if fnmatch.fnmatch(str(path), k):
             return v
     return None
 
@@ -1254,6 +1261,7 @@ class TestValue(NoValEnum):
     CHECK_AUTH_DATA = auto()
     CHECK_MANUAL_COMPILATION = auto()
     CHECK_METADATA = auto()
+    CHECK_CONFIG_LAYOUT = auto()
     AFTER_COLLECT = auto()
     AFTER_BUILD_MUTANTS_DIRECTORY = auto()
     AFTER_GENERATE_COLLECT_REPORT = auto()

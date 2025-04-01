@@ -25,12 +25,15 @@ import java_cup.runtime.ComplexSymbolFactory
 import datastructures.stdcollections.*
 import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
+import spec.rules.CVLSingleRule
+import spec.rules.ICVLRule
 import utils.CollectingResult
 import utils.CollectingResult.Companion.bind
 import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.flattenToVoid
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
+import utils.Range
 import java.io.FilterInputStream
 import java.io.Reader
 
@@ -76,14 +79,14 @@ sealed class CVLInput {
 
         protected fun addUnresolvedUseDeclsError(unresolvedUseDecl: UseDeclaration): CVLError =
             CVLError.General(
-                unresolvedUseDecl.cvlRange,
+                unresolvedUseDecl.range,
                 "Cannot resolve the 'use' declaration: unknown identifier ${unresolvedUseDecl.id}"
             )
 
 
-        protected fun addRepeatingIdInUseDeclsError(repeatingId: String, cvlRange: CVLRange): CVLError =
+        protected fun addRepeatingIdInUseDeclsError(repeatingId: String, range: Range): CVLError =
             CVLError.General(
-                cvlRange,
+                range,
                 repeatingIdInDeclsErrorMsg(repeatingId, "use")
             )
 
@@ -114,14 +117,14 @@ sealed class CVLInput {
                     if (Config.BytecodeFiles.getOrNull().isNullOrEmpty()) {
                         errors.add(
                             CVLError.General(
-                                CVLRange.Empty(),
+                                Range.Empty(),
                                 "'import' declarations of .spec files are unsupported; if you're running through certora-cli, do you have the latest version installed?",
                             )
                         )
                     } else {
                         errors.add(
                             CVLError.General(
-                                CVLRange.Empty(),
+                                Range.Empty(),
                                 "'import' declarations of .spec files are unsupported in bytecode mode",
                             )
                         )
@@ -130,7 +133,7 @@ sealed class CVLInput {
                 if (rawAst.useDeclarations.importedRulesAndInvariants.isNotEmpty()) {
                     errors.add(
                         CVLError.General(
-                            rawAst.useDeclarations.importedRulesAndInvariants.first().cvlRange,
+                            rawAst.useDeclarations.importedRulesAndInvariants.first().range,
                             "'use' declarations of imported rules or invariants are unsupported; if you're running through certora-cli, do you have the latest version installed?",
                         )
                     )
@@ -139,7 +142,7 @@ sealed class CVLInput {
                 if (rawAst.overrideDeclarations.allDecls.isNotEmpty()) {
                     errors.add(
                         CVLError.General(
-                            rawAst.overrideDeclarations.allDecls.first().cvlRange,
+                            rawAst.overrideDeclarations.allDecls.first().range,
                             "'override' declarations are unsupported; if you're running through certora-cli, do you have the latest version installed?",
                         )
                     )
@@ -176,7 +179,7 @@ sealed class CVLInput {
                     val repeatingIdsToUseDeclLocs =
                         astWithoutMergedImports.useDeclarations.importedRulesAndInvariants.groupBy { it.id }
                             .filter { it.value.size > 1 }
-                            .mapValues { it.value.map { useDecl -> useDecl.cvlRange }.toSet() }
+                            .mapValues { it.value.map { useDecl -> useDecl.range }.toSet() }
                     check(repeatingIdsToUseDeclLocs.isNotEmpty())
                     errors += addRepeatingIdsInDeclsErrors(repeatingIdsToUseDeclLocs, ::addRepeatingIdInUseDeclsError)
                 }
@@ -185,7 +188,7 @@ sealed class CVLInput {
                     val repeatingIdsToOverrideDeclLocs =
                         astWithoutMergedImports.overrideDeclarations.allDecls.groupBy { it.id }
                             .filter { it.value.size > 1 }
-                            .mapValues { it.value.map { overrideDecl -> overrideDecl.cvlRange }.toSet() }
+                            .mapValues { it.value.map { overrideDecl -> overrideDecl.range }.toSet() }
                     check(repeatingIdsToOverrideDeclLocs.isNotEmpty())
                     errors += addRepeatingIdsInDeclsErrors(
                         repeatingIdsToOverrideDeclLocs,
@@ -221,7 +224,7 @@ sealed class CVLInput {
                 val impHooks: MutableList<CVLHook> = mutableListOf()
                 val impImportedContracts: MutableList<CVLImportedContract> = mutableListOf()
 
-                val impRulesInUse: MutableList<IRule> = mutableListOf()
+                val impRulesInUse: MutableList<ICVLRule> = mutableListOf()
                 val impInvsInUse: MutableList<CVLInvariant> = mutableListOf()
 
                 fun addImportedFileDecls(importedSpecFileAst: CVLAst) {
@@ -313,11 +316,11 @@ sealed class CVLInput {
                 errors += unresolvedImpUseDecls.map { unresolvedDecl -> addUnresolvedUseDeclsError(unresolvedDecl) }
 
                 errors += addOverrideDeclsErrors(overrideDefDeclsToMatchingDefs.mapValues {
-                    it.value.map { def -> def.cvlRange }.toSet()
+                    it.value.map { def -> def.range }.toSet()
                 })
 
                 errors += addOverrideDeclsErrors(overrideFuncDeclsToMatchingFuncs.mapValues {
-                    it.value.map { sub -> sub.cvlRange }.toSet()
+                    it.value.map { sub -> sub.range }.toSet()
                 })
                 // Report any unresolved or ambiguous override declarations
                 errors.flattenToVoid().map(mergedAst) { _, ast ->
@@ -367,9 +370,9 @@ sealed class CVLInput {
          * than one use declaration, its filters are not updated since that triggers a syntax error.
          */
         private fun getImpRulesWithOverriddenMethodParamFilters(
-            matchingImpRules: List<IRule>,
+            matchingImpRules: List<ICVLRule>,
             astWithoutMergedImports: CVLAst
-        ): List<IRule> =
+        ): List<ICVLRule> =
             matchingImpRules.map { matchingRule ->
                 val useDecl: UseDeclaration.ImportedRule? =
                     astWithoutMergedImports.useDeclarations.importedRules.singleOrNull { it.id == matchingRule.declarationId }
@@ -388,7 +391,7 @@ sealed class CVLInput {
                     matchingRule.copy(
                         methodParamFilters = matchingRule.methodParamFilters.copy(
                             methodParamToFilter = overriddenFilters,
-                            cvlRange = useDecl.methodParamFilters.cvlRange
+                            range = useDecl.methodParamFilters.range
                         )
                     )
                 } else { // No method param filter to override/add
@@ -440,7 +443,7 @@ sealed class CVLInput {
                     }
                     inv = inv.copy(
                         proof = inv.proof.copy(preserved = overriddenPreserved),
-                        cvlRange = useDecl.cvlRange
+                        range = useDecl.range
                     )
                 }
             }
@@ -448,7 +451,7 @@ sealed class CVLInput {
                 inv = inv.copy(
                     methodParamFilters = inv.methodParamFilters.copy(
                         methodParamToFilter = useDecl.methodParamFilters.methodParamToFilter,
-                        cvlRange = useDecl.methodParamFilters.cvlRange
+                        range = useDecl.methodParamFilters.range
                     )
                 )
             }
@@ -494,20 +497,20 @@ sealed class CVLInput {
         }
 
         private fun addRepeatingIdsInDeclsErrors(
-            repeatingIdsToDeclsLocs: Map<String, Set<CVLRange>>,
-            errorLogger: (String, CVLRange) -> CVLError
+            repeatingIdsToDeclsLocs: Map<String, Set<Range>>,
+            errorLogger: (String, Range) -> CVLError
         ): List<CVLError> {
             return repeatingIdsToDeclsLocs.flatMap { (repeatingId, declsLocs) ->
-                declsLocs.map { cvlRange ->
+                declsLocs.map { range ->
                     errorLogger(
                         repeatingId,
-                        cvlRange
+                        range
                     )
                 }
             }
         }
 
-        private fun <T> addOverrideDeclsErrors(overrideDeclsToMatchingElems: Map<OverrideDeclaration<T>, Set<CVLRange>>): List<CVLError> =
+        private fun <T> addOverrideDeclsErrors(overrideDeclsToMatchingElems: Map<OverrideDeclaration<T>, Set<Range>>): List<CVLError> =
             overrideDeclsToMatchingElems.mapNotNull { (overrideDecl, matchingElemsLocs) ->
                 if (matchingElemsLocs.isEmpty()) { // [overrideDecl] matches no imported elements
                     addUnresolvedOverrideDeclError(overrideDecl)
@@ -520,7 +523,7 @@ sealed class CVLInput {
 
         private fun addUnresolvedOverrideDeclError(unresolvedOverrideDecl: OverrideDeclaration<*>) =
             CVLError.General(
-                unresolvedOverrideDecl.cvlRange,
+                unresolvedOverrideDecl.range,
                 "Cannot resolve the 'override' declaration: '${
                     unresolvedOverrideDecl.materialize()
                 }' does not match any imported spec element",
@@ -528,10 +531,10 @@ sealed class CVLInput {
 
         private fun addAmbiguousOverrideDeclError(
             ambiguousOverrideDecl: OverrideDeclaration<*>,
-            overriddenAlternatives: Set<CVLRange>
+            overriddenAlternatives: Set<Range>
         ) =
             CVLError.General(
-                ambiguousOverrideDecl.cvlRange,
+                ambiguousOverrideDecl.range,
                 "Cannot resolve the 'override' declaration: '${
                     ambiguousOverrideDecl.materialize()
                 }' matches multiple imported spec elements ${
@@ -539,9 +542,9 @@ sealed class CVLInput {
                 }",
             )
 
-        private fun addRepeatingIdInOverrideDeclsError(repeatingId: String, cvlRange: CVLRange) =
+        private fun addRepeatingIdInOverrideDeclsError(repeatingId: String, range: Range) =
             CVLError.General(
-                cvlRange,
+                range,
                 repeatingIdInDeclsErrorMsg(repeatingId, "override"),
             )
     }

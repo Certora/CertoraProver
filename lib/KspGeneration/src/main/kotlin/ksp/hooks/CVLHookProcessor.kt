@@ -196,7 +196,7 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
                 ""
             } else {
                 val envFields = envParamsAndTypes.joinToString("\n") { (fieldName, ty) ->
-                    "val $fieldName : VMParam.Named get() = VMParam.Named(\"$fieldName\", $ty, CVLRange.Empty(\"environment variable $fieldName\"))"
+                    "val $fieldName : VMParam.Named get() = VMParam.Named(\"$fieldName\", $ty, utils.Range.Empty(\"environment variable $fieldName\"))"
                 }
                 val fieldGenerator = "override fun environmentParams() = listOf(${envParamsAndTypes.joinToString(", ") { it.first } })"
                 "$envFields \n $fieldGenerator"
@@ -249,7 +249,7 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
                 // in addition, if there are no packed variables, no reason to disallow splitting
                 if (dependentOnStorageSplitting) {
                     fieldChecks.add("""if (Config.EnableStorageSplitting.get() && !Config.IsTypeChecking.get()) {
-                            CVLError.General(cvlRange, "Must disable storage splitting to handle hook $opcodeName").asError()
+                            CVLError.General(range, "Must disable storage splitting to handle hook $opcodeName").asError()
                         } else {
                             ok
                         }"""
@@ -272,7 +272,7 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
                         if(valueParam == null) {
                            return CVLError.General(
                               message = "Opcode $opcodeName produces a value, but no output was declared",
-                              cvlRange = cvlRange
+                              range = range
                            ).asError()
                         }
                     """.trimIndent())
@@ -281,7 +281,7 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
                     if(params.size != ${opcodeParamsAndTypes.size}) {
                        return CVLError.General(
                           message = "Opcode $opcodeName expects ${opcodeParamsAndTypes.size} parameters, got " + params.size,
-                          cvlRange = cvlRange
+                          range = range
                        ).asError()
                     }
                 """.trimIndent())
@@ -345,13 +345,14 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
                 import utils.VoidResult
                 import utils.CollectingResult.Companion.asError
                 import utils.CollectingResult.Companion.ok
+                import utils.Range
 
                 object GeneratedHookHelpers {
             """.trimIndent())
 
             writer.write("""
                 fun typeCheckPattern(
-                    cvlRange: CVLRange,
+                    range: Range,
                     pattern: GeneratedOpcodeHook,
                     checkHookParam: (VMTypeDescriptor, CVLType.PureCVLType, String, CVLHookPattern.Opcode) -> VoidResult<CVLError>
                 ) : CollectingResult<CVLHookPattern.Opcode, CVLError> {
@@ -410,6 +411,7 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
                 import utils.CollectingResult.Companion.asError
                 import spec.cvlast.typechecker.CVLError
                 import utils.CollectingResult
+                import utils.Range
                 import spec.TypeResolver
                 import spec.cvlast.CVLScope
 
@@ -428,7 +430,7 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
                       hookType: com.certora.certoraprover.cvl.HookType,
                       valueParam: com.certora.certoraprover.cvl.NamedVMParam?,
                       params: List<com.certora.certoraprover.cvl.NamedVMParam>,
-                      cvlRange: CVLRange
+                      range: Range
                    ) : CollectingResult<CVLHookPattern, CVLError> {
                       return when(hookType) {
             """.trimIndent())

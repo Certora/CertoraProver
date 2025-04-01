@@ -24,9 +24,9 @@ import rules.RuleChecker
 import scene.IScene
 import scene.ITACMethod
 import scene.MethodAttribute
-import spec.cvlast.CVLRange
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
+import utils.Range
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
 import spec.genericrulegenerators.InstrumentingBuiltInRuleGenerator
 import tac.DumpTime
 import vc.data.CoreTACProgram
@@ -44,13 +44,13 @@ abstract class InstrumentingBuiltinRuleChecker<T: InstrumentingBuiltInRuleGenera
     abstract fun instrumentingTransform(
         scene: IScene,
         currentContractId: BigInteger,
-        cvlRange: CVLRange,
+        range: Range,
         m: ITACMethod
     ): CoreTACProgram
 
     private fun addCheckToContract(scene: IScene,
                                    currentContractId: BigInteger,
-                                   cvlRange: CVLRange
+                                   range: Range
     ): IScene{
         val newScene = scene.fork(scene.forkInfo)
         newScene.mapContractMethodsInPlace("${eId}_transform") { _, method ->
@@ -79,7 +79,7 @@ abstract class InstrumentingBuiltinRuleChecker<T: InstrumentingBuiltInRuleGenera
                         datastructures.stdcollections.listOf(
                             // uniquify
                             MethodToCoreTACTransformer(ReportTypes.GENERIC_RULE) { m: ITACMethod ->
-                                instrumentingTransform(scene, currentContractId, cvlRange, m)
+                                instrumentingTransform(scene, currentContractId, range, m)
                             }
                         )
                     )
@@ -110,7 +110,7 @@ abstract class InstrumentingBuiltinRuleChecker<T: InstrumentingBuiltInRuleGenera
         val newScene = addCheckToContract(
             scene,
             currentContractId,
-            rule.cvlRange
+            rule.range
         )
         logger.info { "Checking the CVLSingleRule ${rule.declarationId}" }
         // same as [ruleChecker] but with a new scene

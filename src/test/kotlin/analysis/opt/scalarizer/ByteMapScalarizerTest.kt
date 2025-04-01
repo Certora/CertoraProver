@@ -17,12 +17,21 @@
 
 package analysis.opt.scalarizer
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import tac.Tag
 import vc.data.TACBuilderAuxiliaries
+import vc.data.TACExpr
 import vc.data.TACProgramBuilder
+import vc.data.TACSymbol
 
 class ByteMapScalarizerTest : TACBuilderAuxiliaries() {
+
+    /** Checks that the [ScalarizerCalculator] detects the bases we expect it to detect */
+    private fun assertScalarizedBases(prog: TACProgramBuilder.BuiltTACProgram, vararg expectedBases: TACSymbol.Var) {
+        val bases = ScalarizerCalculator.goodBases(prog.code) { true }
+        assertEquals(expectedBases.toSet(), bases)
+    }
 
     @Test
     fun basic() {
@@ -31,7 +40,7 @@ class ByteMapScalarizerTest : TACBuilderAuxiliaries() {
             bMap2 assign bMap1
             c assign bMap2[0x12a]
         }
-        ByteMapScalarizer.go(prog.code)
+        assertScalarizedBases(prog, bMap1, bMap2)
     }
 
     @Test
@@ -42,9 +51,19 @@ class ByteMapScalarizerTest : TACBuilderAuxiliaries() {
             c assign bMap2[0]
             d assign bMap2[2]
         }
-        ByteMapScalarizer.go(prog.code)
+        assertScalarizedBases(prog, bMap1, bMap2)
     }
 
+    @Test
+    fun dontMiss() {
+        val prog = TACProgramBuilder {
+            bMap1 assign mapDef(listOf(aS), ite(Lt(aS, bS), TACExpr.Unconstrained(Tag.Bit256), Zero), Tag.ByteMap)
+            c assign bMap1[1]
+            d assign bMap1[2]
+            e assign bMap1[3]
+        }
+        assertScalarizedBases(prog, bMap1)
+    }
 
 
 }

@@ -38,7 +38,7 @@ import scene.IScene
 import spec.CVL
 import spec.CVLCompiler
 import spec.IWithSummaryInfo
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.SpecCallSummary
 import tac.DumpTime
 import utils.*
@@ -519,7 +519,7 @@ object Summarization {
             object ExtLibraryNondet : Config, AutoNondetSummary {
                 override val specCallSumm: SpecCallSummary.HavocSummary.Nondet
                     get() = SpecCallSummary.HavocSummary.Nondet(
-                        cvlRange = CVLRange.Empty(),
+                        range = Range.Empty(),
                         summarizationMode = SpecCallSummary.SummarizationMode.ALL
                     )
                 override val configFlag: ConfigType<*>
@@ -540,7 +540,7 @@ object Summarization {
 
                 override val specCallSumm: SpecCallSummary.HavocSummary.Nondet
                     get() = SpecCallSummary.HavocSummary.Nondet(
-                        cvlRange = CVLRange.Empty(),
+                        range = Range.Empty(),
                         summarizationMode = SpecCallSummary.SummarizationMode.ALL
                     )
                 override val configFlag: ConfigType<*>
@@ -554,7 +554,7 @@ object Summarization {
             object AutoDispatcher : Config {
                 override val specCallSumm: SpecCallSummary.Dispatcher
                     get() = SpecCallSummary.Dispatcher(
-                        cvlRange = CVLRange.Empty(),
+                        range = Range.Empty(),
                         optimistic = true,
                         useFallback = false,
                         summarizationMode = SpecCallSummary.SummarizationMode.ALL
@@ -567,7 +567,7 @@ object Summarization {
             object DispatchOnCreate : Config {
                 override val specCallSumm: SpecCallSummary.Dispatcher
                     get() = SpecCallSummary.Dispatcher(
-                        cvlRange = CVLRange.Empty(),
+                        range = Range.Empty(),
                         optimistic = false,
                         useFallback = false,
                         summarizationMode = SpecCallSummary.SummarizationMode.ALL
@@ -618,7 +618,7 @@ object Summarization {
             object LateInliningDispatcher : Config {
                 override val specCallSumm: SpecCallSummary.Dispatcher
                     get() = SpecCallSummary.Dispatcher(
-                        cvlRange = CVLRange.Empty(),
+                        range = Range.Empty(),
                         optimistic = false,
                         useFallback = false,
                         summarizationMode = SpecCallSummary.SummarizationMode.ALL

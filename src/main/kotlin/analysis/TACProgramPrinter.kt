@@ -19,6 +19,7 @@ package analysis
 
 import algorithms.topologicalOrderOrNull
 import analysis.TACProgramPrinter.Companion.standard
+import rules.TWOSTAGE_META_VARORIGIN
 import tac.MetaKey
 import tac.MetaMap.Companion.nothing
 import tac.NBId
@@ -116,6 +117,7 @@ class TACProgramPrinter {
             .dontShowMeta(CVL_EXP)
             .dontShowMeta(WASM_BYTECODE_ADDRESS)
             .dontShowMeta(META_INFO_KEY)
+            .dontShowMeta(TWOSTAGE_META_VARORIGIN)
             .dontShowMeta(TACMeta.CVL_RANGE)
             .dontShowMeta(MetaKey<Int>("non-canonical-meta"))
             .dontShowMeta(MetaKey<Int>("non-canonical-message"))

@@ -34,6 +34,17 @@ The instructions here are for users on Mac OS and Linux.
 
 * [`rustfilt`](https://github.com/luser/rustfilt)
 
+
+## Optional Dependencies:
+* [`Graphviz`](https://graphviz.org/download/):
+    Graphviz is an optional dependency required for rendering visual elements, `dot` in particular.
+    If not installed, some features may not work properly, such as [Tac Reports](https://docs.certora.com/en/latest/docs/prover/diagnosis/index.html#tac-reports).
+    _NOTE_ Remember to put `dot` in your system's `PATH`, by running:
+```
+    export PATH="/usr/local/bin:$PATH".
+```
+* (Replace /usr/local/bin with the actual path where dot is installed.)
+
 ## Installation
 * Create a directory anywhere to store build outputs.
 

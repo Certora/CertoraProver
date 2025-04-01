@@ -1,0 +1,18 @@
+{
+  "CALLGRAPH": {
+    "constructor()": false,
+    "readLength(bytes32)": true,
+    "badUpdate(uint256[],uint256)": true
+  },
+  "INIT": {
+    "Test-readLength(bytes32)": true,
+    "Test-badUpdate(uint256[],uint256)": true
+  },
+  "POINTSTO": {
+    "Test-readLength(bytes32)": false,
+    "Test-badUpdate(uint256[],uint256)": false,
+    "constructor()": false,
+    "readLength(bytes32)": false,
+    "badUpdate(uint256[],uint256)": false
+  }
+}

@@ -201,6 +201,7 @@ object WasmTokens {
     const val WASMICFG_CALL = "wasmicfg.call"
     const val WASMICFG_CALL_INDIRECT = "wasmicfg.call_indirect"
     const val WASMICFG_UNREACH = "wasmicfg.unreach"
+    const val WASMICFG_INTERNAL_UNREACH = "wasmicfg.internal.unreach"
     const val WASMICFG_JUMP = "wasmicfg.jmp"
     const val WASMICFG_RET = "wasmicfg.ret"
     const val WASMICFG_IF = "wasmicfg.if"

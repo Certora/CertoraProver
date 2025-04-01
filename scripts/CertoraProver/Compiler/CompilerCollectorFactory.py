@@ -39,12 +39,15 @@ def get_relevant_compiler(contract_file_path: Path, context: CertoraContext) -> 
     @return: the name of the compiler executable we want to run on this file (as a string, could be a path
              or a resolvable executable name)
     """
-    if context.solc_map:
-        match = match_path_to_mapping_key(contract_file_path, context.solc_map)
+
+    if contract_file_path.is_absolute():
+        contract_file_path = Path(os.path.relpath(contract_file_path, Path.cwd()))
+    if context.compiler_map:
+        match = match_path_to_mapping_key(contract_file_path, context.compiler_map)
         if match:
             return match
         else:
-            raise RuntimeError(f'cannot match compiler to {contract_file_path} from solc_map')
+            raise RuntimeError(f'cannot match compiler to {contract_file_path} from compiler_map')
 
     if Util.is_vyper_file(str(contract_file_path)):
         if context.vyper:

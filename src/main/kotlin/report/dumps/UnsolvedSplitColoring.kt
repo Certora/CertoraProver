@@ -60,10 +60,10 @@ fun generateUnsolvedSplitCodeMap(unsolvedSplitInfo: UnsolvedSplitInfo,
     // unsolvedSplitInfo is based on the program without the extra decomposition for internal functions
     //  we need to apply the block mapping accordingly
     val fullTimeoutBlocks =
-        fullTimeoutBlocks1.flatMap { codeMap.intFuncsCmdPtrMapping[it] }
+        codeMap.translateWithInternalFuncs(fullTimeoutBlocks1)
 
     val notYetProcessedSplitBlocks =
-        notYetProcessedSplitBlocks1.flatMap { codeMap.intFuncsCmdPtrMapping[it] }
+        codeMap.translateWithInternalFuncs(notYetProcessedSplitBlocks1)
 
     if (timeoutCoreInfo != null && codeMap.withInternalFunctions != tacProgram) {
         throw UnsupportedOperationException("timeout core in conjunction with having internal functions in the " +

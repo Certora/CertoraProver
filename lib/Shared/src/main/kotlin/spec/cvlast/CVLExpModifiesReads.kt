@@ -20,25 +20,26 @@ package spec.cvlast
 import spec.cvlast.transformer.CVLExpTransformer
 import utils.CollectingResult
 import utils.CollectingResult.Companion.lift
+import utils.Range
 
 /**
  * This class is used to calculate all the ghost functions that a [CVLExp] modifies and reads
  *
  * @param symbolTable the table of defined symbols (especially ghost functions) that the user is interested in
- * @param cvlRange the [CVLRange] that defines the scope of interest within the symbolTable
+ * @param range the [utils.Range] that defines the scope of interest within the symbolTable
  *
  * @property modifiedGhosts INVARIANT: empty at method entry and exit (except [CVLExpTransformer] methods)
  * @property readGhosts INVARIANT: empty at method entry and exit (except [CVLExpTransformer] methods)
  */
-class CVLExpModifiesReads(val symbolTable: CVLSymbolTable, val cvlRange: CVLRange, val scope: CVLScope) : CVLExpTransformer<Nothing> {
+class CVLExpModifiesReads(val symbolTable: CVLSymbolTable, val range: Range, val scope: CVLScope) : CVLExpTransformer<Nothing> {
     companion object {
         /**
          * @requires any [CVLExp.ApplyExp.Ghost] in exp must be defined as a [CVLGhostFunction] inside symbolTable
          * @return a pair where the first element is all ghosts modified inside exp, and the second element is all ghosts
          *         read inside exp
          */
-        fun getModifiedAndRead(symbolTable: CVLSymbolTable, cvlRange: CVLRange, scope: CVLScope, exp: CVLExp) =
-            CVLExpModifiesReads(symbolTable, cvlRange, scope).getModifiedAndRead(exp)
+        fun getModifiedAndRead(symbolTable: CVLSymbolTable, range: Range, scope: CVLScope, exp: CVLExp) =
+            CVLExpModifiesReads(symbolTable, range, scope).getModifiedAndRead(exp)
     }
 
     // keep these EMPTY after every non-override (i.e. [CVLExpTransformer]) function

@@ -25,7 +25,6 @@ import datastructures.stdcollections.*
 
 class InlinerError(msg: String): RuntimeException("Inliner error: $msg")
 
-private const val debugInliner = false
 /** This bound is set by the Solana runtime **/
 const val SBF_CALL_MAX_DEPTH = 64
 
@@ -39,9 +38,8 @@ const val SBF_CALL_MAX_DEPTH = 64
  * and folds each callee body into its caller by cloning callee CFG into caller.
  */
 fun inline(entry: String, newEntry: String, prog: SbfCallGraph, inlineConfig: InlinerConfig): MutableSbfCallGraph {
-    if (debugInliner) {
-        sbfLogger.info {prog.callGraphStructureToString()}
-    }
+    sbfLogger.debug {"[Inliner]\n" + prog.callGraphStructureToString()}
+
     val rootNames = prog.getCallGraphRoots().map{ it.getName()}
     check(rootNames.contains(entry)) {"Inliner: $entry is not a root of the callgraph. Known roots=$rootNames"}
     return Inliner(entry, newEntry, prog, inlineConfig).inline()
@@ -75,6 +73,17 @@ private class Inliner(val entry: String,
     val prog = InlinerSbfCallGraph(callgraph)
     // To assign a unique identifier to each pair of CVT_save_scratch_registers/CVT_restore_scratch_registers
     private var callId: ULong = 0UL
+    // For debugging only
+    private val numOfInsts = mutableMapOf<String, ULong>()
+
+    init {
+        for (cfg in callgraph.getCFGs()) {
+            val k = cfg.getBlocks().values.sumOf { b ->
+                b.getInstructions().size
+            }
+            numOfInsts[cfg.getName()] = k.toULong()
+        }
+    }
 
     private fun hasCalls(cfg: SbfCFG): Boolean {
         return cfg.getBlocks().values.any { b->
@@ -179,12 +188,17 @@ private class Inliner(val entry: String,
             callerCFG.setBlock(kv.key, kv.value)
         }
 
+        val numCalleeInsts: ULong = calleeCFG.getBlocks().values.sumOf {
+            it.getInstructions().size.toULong()
+        }
+
         // reset callee CFG
         calleeCFG.clear()
 
         val metaData = MetaData(Pair(SbfMeta.CALL_ID, callId)).plus(
-            Pair(SbfMeta.INLINED_FUNCTION_NAME, calleeCFG.getName())
-        )
+            Pair(SbfMeta.INLINED_FUNCTION_NAME, calleeCFG.getName())).plus(
+                Pair(SbfMeta.INLINED_FUNCTION_SIZE, numCalleeInsts)
+            )
 
         val saveRegistersInst = SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData)
         val restoreRegistersInst = SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name, metaData = metaData)
@@ -219,9 +233,6 @@ private class Inliner(val entry: String,
                                recursiveFunctions: Set<String>, curDepth: Int) {
 
         if (!hasCalls(cfg)) {
-            if (debugInliner) {
-                sbfLogger.info { "${cfg.getName()} does not have calls" }
-            }
             return
         }
 
@@ -258,9 +269,7 @@ private class Inliner(val entry: String,
                 // recursiveFunctions is populated from finding cycles in the callgraph which is an over-approximation.
                 // If the callee is in recursiveFunctions then we check if it's already in the current call stack.
                 if (callStack.contains(calleeCFG.getName())) {
-                    if (debugInliner) {
-                        sbfLogger.info { "${calleeCFG.getName()} is recursive" }
-                    }
+                    sbfLogger.debug { "[Inliner] ${calleeCFG.getName()} is marked as recursive" }
                     continue
                 }
             }
@@ -272,15 +281,13 @@ private class Inliner(val entry: String,
                         metaData = callSite.metaData + (SbfMeta.KNOWN_ARITY to inlineSpec.arity)
                     )
                 )
-                if (debugInliner) {
-                    sbfLogger.info { "${calleeCFG.getName()} is marked as never inline" }
-                }
                 continue
             }
             val clonedCalleeCFG = copy(calleeCFG)
             inlineFunction(clonedCalleeCFG, callStack, recursiveFunctions, nextDepth)
-            if (debugInliner) {
-                sbfLogger.info { "Inlining ${calleeCFG.getName()} into ${cfg.getName()}" }
+            sbfLogger.debug {
+                    "[Inliner] inlining ${calleeCFG.getName()} into ${cfg.getName()} " +
+                        "num of insts = ${numOfInsts[calleeCFG.getName()]}"
             }
             inlineCalleeIntoCaller(cfg, callerBB, callSite, clonedCalleeCFG)
         }

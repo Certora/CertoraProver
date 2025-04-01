@@ -31,7 +31,7 @@ import rules.RuleCheckResult.Single.RuleCheckInfo.WithExamplesData.CounterExampl
 import scene.IScene
 import solver.SolverResult
 import spec.CVLTestGenerator
-import spec.cvlast.IRule
+import spec.rules.IRule
 
 object ConsoleReporter : OutputReporter {
     var finalVerificationResult : FinalResult = FinalResult.NONE
@@ -40,7 +40,7 @@ object ConsoleReporter : OutputReporter {
         throw AssertionError("not implemented")
     }
 
-    override fun signalStart(rule: IRule, parentRule: IRule?) {
+    override fun signalStart(rule: IRule) {
         Logger.always(
             "Starting to run on rule ${rule.ruleIdentifier}", respectQuiet = true
         )

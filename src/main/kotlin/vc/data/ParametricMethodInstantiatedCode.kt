@@ -21,8 +21,8 @@ import analysis.CommandWithRequiredDecls
 import rules.CheckableTAC
 import scene.IScene
 import spec.CVLCompiler
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.SingleRuleGenerationMeta
+import spec.rules.CVLSingleRule
+import spec.rules.SingleRuleGenerationMeta
 import tac.NBId
 import vc.data.ParametricInstantiation.Companion.merge
 import vc.data.ParametricInstantiation.Companion.mergeMany
@@ -100,7 +100,7 @@ object ParametricMethodInstantiatedCode {
      * through the whole program
      */
     fun merge(toMerge: List<ParametricInstantiation<CVLTACProgram>>, name: String): ParametricInstantiation<CVLTACProgram> =
-        mergeMany<CVLTACProgram>(toMerge, id = CVLTACProgram.empty(name), combiner = ::mergeCodes)
+        mergeMany<CVLTACProgram>(toMerge, id = CVLTACProgram.empty(name), combiner = ::mergeCodes).transformCode { it.copy(name = name) }
 
     /**
      * Background: each rule in a [ParametricMethodInstantiatedCode] object has an associated [MethodParameterInstantiation] mapping,

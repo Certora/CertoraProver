@@ -33,7 +33,6 @@ import datastructures.stdcollections.*
 import evm.SighashInt
 import kotlinx.serialization.*
 import kotlinx.serialization.json.JsonClassDiscriminator
-import log.*
 import report.calltrace.CVLReportLabel
 import scene.IContractClass
 import spec.CVLKeywords
@@ -53,6 +52,8 @@ import spec.cvlast.typedescriptors.VMDynamicArrayTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.isWildcard
+import spec.rules.HasRange
+import spec.rules.ICVLRule
 import utils.*
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.bind
@@ -63,7 +64,6 @@ import utils.CollectingResult.Companion.map
 import utils.CollectingResult.Companion.safeForce
 import utils.ErrorCollector.Companion.collectingErrors
 import java.math.BigInteger
-import java.util.*
 
 sealed class NoSuchTypeException(msg: String, val contractName: String?, val id: String) : RuntimeException(msg)
 
@@ -82,7 +82,7 @@ class InvalidParameterType(msg: String) : RuntimeException(msg)
 data class CVLAst(
     val importedMethods: List<MethodBlockEntry>,
     val useDeclarations: UseDeclarations,
-    val rules: List<IRule>,
+    val rules: List<ICVLRule>,
     val subs: List<spec.cvlast.CVLFunction>,
     val invs: List<CVLInvariant>,
     val sorts: List<SortDeclaration>,
@@ -186,7 +186,7 @@ sealed interface MethodEntryTargetContract : AmbiSerializable {
 
 /** An unprocessed entry in a `methods` block. */
 sealed interface MethodBlockEntry : AmbiSerializable {
-    val cvlRange: CVLRange
+    val range: Range
     val target: MethodEntryTargetContract
     val summary: SpecCallSummary.ExpressibleInCVL?
 
@@ -199,7 +199,7 @@ sealed interface MethodBlockEntry : AmbiSerializable {
 @Serializable
 @Treapable
 data class CatchAllSummaryAnnotation(
-    override val cvlRange: CVLRange,
+    override val range: Range,
     override val target: MethodEntryTargetContract.SpecificTarget,
     override val summary: SpecCallSummary.ExpressibleInCVL,
     val annot: MethodQualifiers
@@ -214,7 +214,7 @@ data class CatchAllSummaryAnnotation(
 @Serializable
 @Treapable
 data class ConcreteMethodBlockAnnotation(
-    override val cvlRange: CVLRange,
+    override val range: Range,
     val methodParameterSignature: MethodParameterSignature,
     override val target: MethodEntryTargetContract,
     val qualifiers: MethodQualifiers,
@@ -276,7 +276,7 @@ data class ConcreteMethodBlockAnnotation(
 @Serializable
 @Treapable
 data class CatchUnresolvedSummaryAnnotation(
-    override val cvlRange: CVLRange,
+    override val range: Range,
     override val target: MethodEntryTargetContract,
     val sig: MethodParameterSignature?,
     val dispatchList: SpecCallSummary.DispatchList,
@@ -383,7 +383,7 @@ data class ContractFunction(
 data class CVLHook(
     val pattern: CVLHookPattern,
     val block: List<CVLCmd>,
-    val cvlRange: CVLRange,
+    val range: Range,
     override val scope: CVLScope,
 ) : CreatesScope, AmbiSerializable
 
@@ -645,14 +645,14 @@ sealed class CVLSlotPattern : AmbiSerializable {
 interface ContractAliasDefinition: AmbiSerializable {
     val contractName: String
     val alias: String
-    val cvlRange: CVLRange
+    val range: Range
 }
 
 @Serializable
 data class CVLImportedContract(
     val solidityContractVarId: String,
     val solidityContractName: SolidityContract,
-    override val cvlRange: CVLRange
+    override val range: Range
 ) : ContractAliasDefinition {
     override val contractName: String
         get() = solidityContractName.name
@@ -668,7 +668,7 @@ data class CVLContractNamespace(
     val solidityContractVarId: String,
     val solidityContractName: SolidityContract,
     val instanceId: BigInteger,
-    override val cvlRange: CVLRange
+    override val range: Range
 ) : ContractAliasDefinition {
     override val contractName: String
         get() = solidityContractName.name
@@ -685,7 +685,7 @@ data class CVLImportedSpecFile(val specFileName: String): AmbiSerializable
  */
 @Serializable
 @Treapable
-data class SortDeclaration(val sort: CVLType.PureCVLType.Sort, override val cvlRange: CVLRange) : HasRange,
+data class SortDeclaration(val sort: CVLType.PureCVLType.Sort, override val range: Range) : HasRange,
     AmbiSerializable
 
 @Serializable
@@ -712,19 +712,19 @@ sealed class VMParam : TypedParam<VMTypeDescriptor> {
     override val type: VMTypeDescriptor
         get() = vmType
 
-    abstract val range: CVLRange
+    abstract val range: Range
 
     /**
      * Unnamed parameters exist for convenience in method signatures, where sometimes we want to name parameters for
      * use in summaries, and sometimes we do not.
      */
     @Serializable
-    data class Unnamed(override val vmType: VMTypeDescriptor, override val range: CVLRange) : VMParam() {
+    data class Unnamed(override val vmType: VMTypeDescriptor, override val range: Range) : VMParam() {
         override fun toString() = "$vmType"
     }
 
     @Serializable
-    data class Named(val name: String, override val vmType: VMTypeDescriptor, override val range: CVLRange, val originalName: String = name) : VMParam() {
+    data class Named(val name: String, override val vmType: VMTypeDescriptor, override val range: Range, val originalName: String = name) : VMParam() {
         val id: String
             get() = name
 
@@ -737,7 +737,7 @@ data class CVLParam(
     @SerialName("Named_type")
     override val type: CVLType.PureCVLType,
     val id: String,
-    val range: CVLRange,
+    val range: Range,
     val originalId : String = id,
 ) : TypedParam<CVLType.PureCVLType> {
     override fun toString(): String = "$type $originalId"
@@ -779,14 +779,14 @@ data class OverrideDeclarations(
 @Serializable
 sealed class UseDeclaration : HasKSerializable {
 
-    abstract val cvlRange: CVLRange
+    abstract val range: Range
     abstract val id: String
 
 
     @Serializable
     data class ImportedRule(
         override val id: String,
-        override val cvlRange: CVLRange,
+        override val range: Range,
         val methodParamFilters: MethodParamFilters
     ) :
         UseDeclaration()
@@ -795,7 +795,7 @@ sealed class UseDeclaration : HasKSerializable {
     @Serializable
     data class ImportedInvariant(
         override val id: String,
-        override val cvlRange: CVLRange,
+        override val range: Range,
         val proof: CVLInvariantProof,
         val methodParamFilters: MethodParamFilters
     ) :
@@ -805,7 +805,7 @@ sealed class UseDeclaration : HasKSerializable {
     @Serializable
     data class BuiltInRule(
         override val id: String,
-        override val cvlRange: CVLRange,
+        override val range: Range,
         val methodParamFilters: MethodParamFilters
     ) : UseDeclaration() {
 
@@ -825,7 +825,7 @@ sealed class OverrideDeclaration<T> : HasKSerializable {
 
     // TODO: Naive question: why not keep an instance of T here, to avoid information loss? e.g. of scope
 
-    abstract val cvlRange: CVLRange
+    abstract val range: Range
     abstract val id: String
     abstract val params: List<CVLParam>
 
@@ -843,8 +843,8 @@ sealed class OverrideDeclaration<T> : HasKSerializable {
         val definition: spec.cvlast.CVLDefinition
     ) : OverrideDeclaration<spec.cvlast.CVLDefinition>() {
 
-        override val cvlRange: CVLRange
-            get() = definition.cvlRange
+        override val range: Range
+            get() = definition.range
         override val id: String
             get() = definition.id
         override val params: List<CVLParam>
@@ -863,8 +863,8 @@ sealed class OverrideDeclaration<T> : HasKSerializable {
     data class CVLFunction(
         val function: spec.cvlast.CVLFunction
     ) : OverrideDeclaration<spec.cvlast.CVLFunction>() {
-        override val cvlRange: CVLRange
-            get() = function.cvlRange
+        override val range: Range
+            get() = function.range
         override val id: String
             get() = function.declarationId
         override val params: List<CVLParam>
@@ -888,31 +888,31 @@ sealed class OverrideDeclaration<T> : HasKSerializable {
 data class MethodParamFilter(
     val methodParam: CVLExp.VariableExp,
     val filterExp: CVLExp,
-    val cvlRange: CVLRange,
+    val range: Range,
     val scope: CVLScope?
 ): AmbiSerializable {
     companion object {
 
         fun acceptAllMethodsFilter(
             methodParam: CVLExp.VariableExp,
-            cvlRange: CVLRange,
+            range: Range,
             scope: CVLScope
         ): MethodParamFilter =
-            withScopeAndRange(scope = scope, cvlRange = cvlRange) {
+            withScopeAndRange(scope = scope, range = range) {
                 MethodParamFilter(
                     methodParam,
                     CVLExp.Constant.BoolLit(true, tag = CVLType.PureCVLType.Primitive.Bool.asTag()),
-                    cvlRange,
+                    range,
                     scope
                 )
             }
 
         fun ignoreViewMethodsFilter(
             methodParam: CVLExp.VariableExp,
-            cvlRange: CVLRange,
+            range: Range,
             scope: CVLScope
         ): MethodParamFilter =
-            withScopeAndRange(scope = scope, cvlRange = cvlRange) {
+            withScopeAndRange(scope = scope, range = range) {
                 MethodParamFilter(
                     methodParam,
                     CVLExp.UnaryExp.LNotExp(
@@ -922,16 +922,16 @@ data class MethodParamFilter(
                             tag = CVLType.PureCVLType.Primitive.Bool.asTag()
                         ), tag = CVLType.PureCVLType.Primitive.Bool.asTag()
                     ),
-                    cvlRange,
+                    range,
                     scope
                 )
             }
 
         fun onlyPayableMethodsFilter(
             methodParam: CVLExp.VariableExp,
-            cvlRange: CVLRange,
+            range: Range,
             scope: CVLScope
-        ): MethodParamFilter = withScopeAndRange(scope = scope, cvlRange = cvlRange) {
+        ): MethodParamFilter = withScopeAndRange(scope = scope, range = range) {
             MethodParamFilter(
                 methodParam,
                 CVLExp.FieldSelectExp(
@@ -939,7 +939,7 @@ data class MethodParamFilter(
                     fieldName = "isPayable",
                     tag = CVLType.PureCVLType.Primitive.Bool.asTag()
                 ),
-                cvlRange,
+                range,
                 scope
             )
         }
@@ -949,9 +949,9 @@ data class MethodParamFilter(
          */
         fun excludeFallbackFunctionFilter(
             methodParam: CVLExp.VariableExp,
-            cvlRange: CVLRange,
+            range: Range,
             scope: CVLScope
-        ) = withScopeAndRange(scope, cvlRange) {
+        ) = withScopeAndRange(scope, range) {
             MethodParamFilter(
                 methodParam,
                 CVLExp.UnaryExp.LNotExp(
@@ -961,7 +961,7 @@ data class MethodParamFilter(
                         CVLType.PureCVLType.Primitive.Bool.asTag()
                     ), tag = CVLType.PureCVLType.Primitive.Bool.asTag()
                 ),
-                cvlRange,
+                range,
                 scope
             )
         }
@@ -970,11 +970,11 @@ data class MethodParamFilter(
         fun dontCallFilter(
             methodParam: CVLExp.VariableExp,
             dontCall: List<EVMExternalMethodInfo>,
-            cvlRange: CVLRange,
+            range: Range,
             scope: CVLScope
         ): MethodParamFilter? {
             if (dontCall.isEmpty()) { return null }
-            return withScopeAndRange(scope, cvlRange) {
+            return withScopeAndRange(scope, range) {
                 fun selectorNeSighashExp(sighash: BigInteger, host: BigInteger): CVLExp {
                     val selectorNeExp = CVLExp.RelopExp.NeExp(
                         CVLExp.FieldSelectExp(
@@ -1020,7 +1020,7 @@ data class MethodParamFilter(
                             tag = CVLType.PureCVLType.Primitive.Bool.asTag()
                         )
                     },
-                    cvlRange,
+                    range,
                     scope
                 )
             }
@@ -1032,7 +1032,7 @@ data class MethodParamFilter(
 @Serializable
 @Treapable
 data class MethodParamFilters(
-    val cvlRange: CVLRange,
+    val range: Range,
     val scope: CVLScope,
     val methodParamToFilter: Map<String, MethodParamFilter>,
 ): AmbiSerializable {
@@ -1045,10 +1045,10 @@ data class MethodParamFilters(
     fun isEmpty() = methodParamToFilter.isEmpty()
 
     companion object {
-        private fun methodParamNameToVariableExp(name: String, scope: CVLScope, cvlRange: CVLRange) =
-            CVLExp.VariableExp(name, CVLExpTag(scope, EVMBuiltinTypes.method, cvlRange))
+        private fun methodParamNameToVariableExp(name: String, scope: CVLScope, range: Range) =
+            CVLExp.VariableExp(name, CVLExpTag(scope, EVMBuiltinTypes.method, range))
 
-        fun noFilters(cvlRange: CVLRange, scope: CVLScope) = MethodParamFilters(cvlRange, scope, emptyMap())
+        fun noFilters(range: Range, scope: CVLScope) = MethodParamFilters(range, scope, emptyMap())
 
         /**
          * Given two method param filters [mpf1] and [mpf2],
@@ -1056,7 +1056,7 @@ data class MethodParamFilters(
          * If a method is in only one of [mpf1] or [mpf2], the filter is kept unchanged
          */
         fun conjunct(
-            cvlRange: CVLRange, scope: CVLScope, mpf1: MethodParamFilters, mpf2: MethodParamFilters
+            range: Range, scope: CVLScope, mpf1: MethodParamFilters, mpf2: MethodParamFilters
         ): MethodParamFilters {
             val varToFilter = mpf1.methodParamToFilter.toMutableMap()
             mpf2.methodParamToFilter.forEach { (methodParam, filter) ->
@@ -1070,13 +1070,13 @@ data class MethodParamFilters(
                         filterExp = CVLExp.BinaryExp.LandExp(
                             mpf1Filter.filterExp,
                             mpf2Filter.filterExp,
-                            tag = CVLExpTag(scope, cvlRange = cvlRange, type = CVLType.PureCVLType.Primitive.Bool)
+                            tag = CVLExpTag(scope, range = range, type = CVLType.PureCVLType.Primitive.Bool)
                         )
                     )
                 }
             }
             return MethodParamFilters(
-                cvlRange, scope, varToFilter
+                range, scope, varToFilter
             )
         }
 
@@ -1090,14 +1090,14 @@ data class MethodParamFilters(
          * @param dontCallFallback whether to also exclude the fallback() function in addition to the functions in [dontCall]
          */
         fun dontCallFilters(
-            cvlRange: CVLRange,
+            range: Range,
             scope: CVLScope,
             methodParams: Set<String>,
             dontCall: List<EVMExternalMethodInfo>,
             dontCallFallback: Boolean = false
-        ) = MethodParamFilters(cvlRange, scope, methodParams.associateWithNotNull {
+        ) = MethodParamFilters(range, scope, methodParams.associateWithNotNull {
             MethodParamFilter.dontCallFilter(
-                methodParamNameToVariableExp(it, scope, cvlRange), dontCall, cvlRange, scope
+                methodParamNameToVariableExp(it, scope, range), dontCall, range, scope
             )
         }).let { dontCallFilters ->
             when (dontCallFallback) {
@@ -1107,12 +1107,12 @@ data class MethodParamFilters(
 
                 true -> {
                     // Add a conjunct that excludes the fallback function
-                    conjunct(cvlRange,
+                    conjunct(range,
                         scope,
                         dontCallFilters,
-                        MethodParamFilters(cvlRange, scope, methodParams.associateWith {
+                        MethodParamFilters(range, scope, methodParams.associateWith {
                             MethodParamFilter.excludeFallbackFunctionFilter(
-                                methodParamNameToVariableExp(it, scope, cvlRange), cvlRange, scope
+                                methodParamNameToVariableExp(it, scope, range), range, scope
                             )
                         }))
                 }
@@ -1123,193 +1123,13 @@ data class MethodParamFilters(
     operator fun get(methodParamName: String): MethodParamFilter? = methodParamToFilter[methodParamName]
 }
 
-/**
- * The most basic rule object.
- * A rule has a [declarationId] which serves as a name.
- * [ruleType] is containing metadata about the rule.
- * [parentIdentifier] is describing the parent rule containing this rule, if exists.
- * Notably, there's no parent to a parent. A parent rule cannot be another rule's child.
- */
-
-@Serializable
-@Treapable
-sealed class IRule : CreatesScope, AmbiSerializable {
-
-    /**
-     * A unique identifier for this rule that remains stable also across copy operations.
-     * This identifier can be used to uniquely identify a rule, and is used, for instance in [TreeViewReporter].
-     *
-     * This [DisplayableIdentifier] should remain stable across [copy] operations of the [IRule] - unless one
-     * wants to explicitly create a new node for the [copy]'d rule in the [TreeViewReporter].
-     *
-     * We currently have several locations where we use [copy] on [IRule] to associate additional
-     * [SingleRuleGenerationMeta] information to the rule. In terms of the [TreeViewReporter],
-     * it's important that after the copy operation we still reference the same node.
-     * We use this identifier for this purpose.
-     *
-     * Phrased differently, for two rules rule1 and rule2 it's possible that
-     *
-     * rule1 != rule2 && rule1.ruleIdentifier == rule2.ruleIdentifier
-     *
-     * */
-    abstract val ruleIdentifier: RuleIdentifier
-    abstract val ruleType: SpecType
-    abstract val cvlRange : CVLRange
-
-    /**
-     * Specifies whether this rule expects UNSAT to pass (like an assertion)
-     * or SAT (like a satisfy).
-     */
-    abstract val isSatisfyRule: Boolean
-
-    val declarationId: String
-        get() = ruleIdentifier.displayName
-
-    val parentIdentifier get() = ruleIdentifier.parentIdentifier
-
-    abstract fun getAllSingleRules(): List<SingleRule>
-
-    companion object {
-        fun createDummyRule(ruleName: String, isSatisfyRule: Boolean = false): CVLSingleRule {
-            val rule = CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
-                CVLSingleRule(
-                    ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
-                    cvlRange = CVLRange.Empty(), //This should be filled with range information to support Jump To Source in the FE.
-                    params = listOf(),
-                    description = ruleName,
-                    goodDescription = "This is the rule with the name $ruleName in your Certora specifications.",
-                    block = listOf(),
-                    ruleType = SpecType.Single.FromUser.SpecFile,
-                    scope = scope,
-                    methodParamFilters = MethodParamFilters.noFilters(CVLRange.Empty(), scope),
-                    ruleGenerationMeta = SingleRuleGenerationMeta.Empty,
-                    isSatisfyRule = isSatisfyRule
-                )
-            }
-            return rule
-        }
-
-    }
-}
-
-@Serializable
-sealed class SingleRule : IRule() {
-    abstract override val ruleType: SpecType.Single
-    override fun getAllSingleRules(): List<SingleRule> {
-        return listOf(this)
-    }
-}
-
-
-@Serializable
-data class StaticRule(
-    override val ruleIdentifier: RuleIdentifier,
-    override val ruleType: SpecType.Single,
-    override val scope: CVLScope,
-    override val cvlRange: CVLRange,
-) : SingleRule(), HasRange {
-    override fun hashCode() = hash { it + declarationId + ruleType + scope + cvlRange }
-
-    override val isSatisfyRule: Boolean = false
-}
-
-interface HasRange {
-    val cvlRange: CVLRange
-}
-
 /** Groups certain CVL declarations (for some reason), in particular rules and
  * [CVLFunction]s */
 interface CVLDeclarationWithCode : HasRange {
-    override val cvlRange: CVLRange
+    override val range: Range
     val declarationId: String
     val params: List<CVLParam>
     val block: List<CVLCmd>
-}
-
-/**
- * Meta information about a "Single" rule as is being processed by `RuleChecker`.
- * In particular, gives information about:
- * - rule sanity checking
- * - method parameter instantiations relevant for identifying the rule
- */
-@Serializable
-@Treapable
-sealed class SingleRuleGenerationMeta : AmbiSerializable {
-
-    /**
-     * An enum describing whether this rule is:
-     * - [DISABLED_SANITY_CHECK] - currently marked as having no sanity checks - this is the default.
-     * - [PRE_SANITY_CHECK] - is the version before sanity checks - this means there's another instance of the rule
-     * that is modified to include the automatically generated sanity check, and the merging of the results is up to the
-     * compiled rule processor.
-     * - [BASIC_SANITY] - the basic sanity check version of a rule with no asserts and an assert false at the end.
-     * - [DONE] - a version of the rule reported in the results after it has already completed sanity checks.
-     */
-    enum class Sanity {
-        DISABLED_SANITY_CHECK,
-        PRE_SANITY_CHECK,
-        BASIC_SANITY,
-        DONE
-    }
-
-    abstract val sanity: Sanity
-    abstract fun updateSanity(newSanity: Sanity): SingleRuleGenerationMeta
-
-    @Serializable
-    object Empty : SingleRuleGenerationMeta() {
-        override val sanity: Sanity = Sanity.DISABLED_SANITY_CHECK
-        override fun updateSanity(newSanity: Sanity): SingleRuleGenerationMeta {
-            throw UnsupportedOperationException("Must not call updateSanity on $this")
-        }
-        private fun readResolve(): Any = Empty
-        override fun hashCode(): Int = hashObject(this)
-    }
-
-    @Serializable
-    data class WithSanity(override val sanity: Sanity) : SingleRuleGenerationMeta() {
-        init {
-            check(sanity != Sanity.DISABLED_SANITY_CHECK) { "Cannot be in WithSanity mode when sanity checks are disabled" }
-        }
-
-        override fun hashCode(): Int = hash { it + sanity }
-
-        override fun updateSanity(newSanity: Sanity): SingleRuleGenerationMeta {
-            return if (newSanity == Sanity.DISABLED_SANITY_CHECK) {
-                Empty
-            } else {
-                WithSanity(newSanity)
-            }
-        }
-    }
-
-    @Serializable
-    data class WithMethodInstantiations(override val sanity: Sanity, val cvlRange: CVLRange, val instMethodSignatures: List<String>) :
-        SingleRuleGenerationMeta() {
-        constructor(sanity: Sanity, cvlRange: CVLRange, vararg instMethodSignatures: String) : this(sanity, cvlRange, instMethodSignatures.asList())
-        override fun hashCode(): Int = hash { it + sanity + instMethodSignatures }
-
-        override fun updateSanity(newSanity: Sanity): SingleRuleGenerationMeta {
-            return this.copy(sanity = newSanity)
-        }
-    }
-}
-
-@Serializable
-data class AssertRule(
-    override val ruleIdentifier: RuleIdentifier,
-    val isFunc: Boolean,
-    val funcName: String?,
-    override val scope: CVLScope,
-    override val isSatisfyRule: Boolean = false
-) : IRule() {
-    override val cvlRange = CVLRange.Empty()
-
-    override val ruleType: SpecType
-        get() = SpecType.Single.InCodeAssertions
-
-    override fun getAllSingleRules(): List<CVLSingleRule> {
-        return listOf()
-    }
 }
 
 /**
@@ -1317,7 +1137,7 @@ data class AssertRule(
  */
 @Serializable
 data class CVLFunction(
-    override val cvlRange: CVLRange,
+    override val range: Range,
     override val declarationId: String,
     override val params: List<CVLParam>,
     override val rets: CVLType.PureCVLType,
@@ -1325,12 +1145,12 @@ data class CVLFunction(
     override val scope: CVLScope
 ) : CVLDeclarationWithCode, SpecFunction, CreatesScope {
     constructor(
-        cvlRange: CVLRange,
+        range: Range,
         declarationId: String,
         params: List<CVLParam>,
         block: List<CVLCmd>,
         scope: CVLScope
-    ) : this(cvlRange, declarationId, params, CVLType.PureCVLType.Void, block, scope)
+    ) : this(range, declarationId, params, CVLType.PureCVLType.Void, block, scope)
 
     override val functionIdentifier = SpecDeclaration(declarationId)
     override val paramTypes: List<CVLType.PureCVLType> = params.map { arg -> arg.type }
@@ -1338,107 +1158,6 @@ data class CVLFunction(
     override val typeDescription: String = "CVL function"
 }
 
-
-@Serializable
-data class CVLSingleRule(
-    override val ruleIdentifier: RuleIdentifier,
-    override val cvlRange: CVLRange,
-    override val params: List<CVLParam>,
-    val description: String,
-    val goodDescription: String,
-    override val block: List<CVLCmd>,
-    override val ruleType: SpecType.Single,
-    override val scope: CVLScope,
-    val methodParamFilters: MethodParamFilters,
-    val ruleGenerationMeta: SingleRuleGenerationMeta,
-    override val isSatisfyRule: Boolean = false,
-) : SingleRule(), CVLDeclarationWithCode {
-
-    init {
-
-        /**
-         * List of (unexpected) missing CVL locations
-         */
-        val missingCVLLocs: List<String> = mutableListOf<String>().also { _ ->
-            /**
-             * Adds appropriate exception message for each [cvlCmd] who lacks a CVL location.
-             */
-            fun checkAllLocsExist(cvlCmd: CVLCmd) {
-                when (cvlCmd) {
-                    is CVLCmd.Simple -> {}
-                    is CVLCmd.Composite.If -> {
-                        checkAllLocsExist(cvlCmd.thenCmd)
-                        checkAllLocsExist(cvlCmd.elseCmd)
-                    }
-
-                    is CVLCmd.Composite.Block -> {
-                        cvlCmd.block.forEach {
-                            checkAllLocsExist(it)
-                        }
-                    }
-                }
-            }
-
-            if (ruleType is SpecType.Single.FromUser) {
-                block.forEach {
-                    checkAllLocsExist(it)
-                }
-            }
-        }
-        if (missingCVLLocs.isNotEmpty()) {
-            throw IllegalStateException(missingCVLLocs.joinToString(separator = System.lineSeparator()))
-        }
-    }
-
-    fun isSanityCheck() = ruleGenerationMeta.sanity == SingleRuleGenerationMeta.Sanity.BASIC_SANITY
-
-    private val hashCodeCache: Int by lazy {
-        Objects.hash(declarationId, cvlRange)
-    }
-
-    override fun hashCode() = hashCodeCache
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) {
-            return true
-        }
-        if (other !is CVLSingleRule) {
-            return false
-        }
-
-        return declarationId == other.declarationId &&
-            cvlRange == other.cvlRange
-    }
-
-    fun methodInstantiationRange(): CVLRange? =
-        when (val meta = ruleGenerationMeta) {
-            is SingleRuleGenerationMeta.WithMethodInstantiations -> meta.cvlRange
-            else -> null
-        }
-}
-
-// Note that a rule group can contain other rule groups
-@Serializable
-data class GroupRule(
-    override val ruleIdentifier: RuleIdentifier,
-    override val cvlRange: CVLRange,
-    val rules: List<IRule>,
-    override val ruleType: SpecType.Group,
-    override val scope: CVLScope,
-) : IRule() {
-
-   override fun hashCode() = hash { it + declarationId + rules + ruleType }
-
-
-
-
-    override val isSatisfyRule: Boolean = false
-
-    override fun getAllSingleRules(): List<SingleRule> {
-        return rules
-            .flatMap { rule -> rule.getAllSingleRules() }
-    }
-}
 
 /**
  * A helper class that represents a more fully scoped method signature of a method
@@ -1482,7 +1201,7 @@ object WeakInvariantType: InvariantType{
 @Serializable
 @Treapable
 data class CVLInvariant(
-    val cvlRange: CVLRange,
+    val range: Range,
     val id: String,
     val ruleType: SpecType.Single,
     val params: List<CVLParam>,
@@ -1512,7 +1231,7 @@ data class CVLInvariant(
      * TODO: move to type checker CERT-2420
      */
     fun checkPreservedIsErrorFree(): VoidResult<CVLError> = collectingErrors {
-        fun checkWithParams(withParams: List<CVLParam>, type: String, range: CVLRange) = when (withParams.size) {
+        fun checkWithParams(withParams: List<CVLParam>, type: String, range: Range) = when (withParams.size) {
             0 -> Unit
             1 -> {
                 val param = withParams.single()
@@ -1530,12 +1249,12 @@ data class CVLInvariant(
         // Check for duplicate generic preserved blocks
         val generics = proof.preserved.filterIsInstance<CVLPreserved.Generic>()
         if (generics.size > 1) { collectError(DuplicatePreserved(this@CVLInvariant, generics, DuplicatePreserved.Generic())) }
-        generics.singleOrNull()?. let { checkWithParams(it.withParams, "generic", it.cvlRange) }
+        generics.singleOrNull()?. let { checkWithParams(it.withParams, "generic", it.range) }
 
         // Check for duplicate fallback preserved blocks
         val fallbacks = proof.preserved.filterIsInstance<CVLPreserved.Fallback>()
         if (fallbacks.size > 1) { collectError(DuplicatePreserved(this@CVLInvariant, fallbacks, DuplicatePreserved.Fallback())) }
-        fallbacks.singleOrNull()?. let { checkWithParams(it.withParams, "fallback", it.cvlRange) }
+        fallbacks.singleOrNull()?. let { checkWithParams(it.withParams, "fallback", it.range) }
 
         // Check for duplicate explicit preserved blocks
         val (duplicated, singles) = proof.preserved.filterIsInstance<CVLPreserved.ExplicitMethod>()
@@ -1543,7 +1262,7 @@ data class CVLInvariant(
             .partition { it.size > 1 }
 
         duplicated.forEach { collectError(DuplicatePreserved(this@CVLInvariant, it, DuplicatePreserved.Specific(it.first()))) }
-        singles.map { it.first() }.forEach { checkWithParams(it.withParams, it.methodSignature.functionName, it.cvlRange) }
+        singles.map { it.first() }.forEach { checkWithParams(it.withParams, it.methodSignature.functionName, it.range) }
     }
 }
 
@@ -1559,7 +1278,7 @@ data class CVLInvariantProof(val preserved: List<CVLPreserved>): AmbiSerializabl
 @Serializable
 @Treapable
 sealed class CVLPreserved : CreatesScope, AmbiSerializable {
-    abstract val cvlRange: CVLRange
+    abstract val range: Range
     abstract val block: List<CVLCmd>
 
     abstract val withParams: List<CVLParam>
@@ -1584,7 +1303,7 @@ sealed class CVLPreserved : CreatesScope, AmbiSerializable {
 
     @Serializable
     data class Generic(
-        override val cvlRange: CVLRange,
+        override val range: Range,
         override val block: List<CVLCmd>,
         override val withParams: List<CVLParam>,
         override val scope: CVLScope
@@ -1599,7 +1318,7 @@ sealed class CVLPreserved : CreatesScope, AmbiSerializable {
 
     @Serializable
     data class ExplicitMethod(
-        override val cvlRange: CVLRange,
+        override val range: Range,
         val methodSignature: ExternalQualifiedMethodParameterSignature,
         override val block: List<CVLCmd>,
         override val withParams: List<CVLParam>,
@@ -1608,7 +1327,7 @@ sealed class CVLPreserved : CreatesScope, AmbiSerializable {
         override val params: List<CVLParam> =
             (methodSignature.params.mapNotNull { param ->
                 check(param is VMParam.Named) {
-                    "The parser shouldn't accept unnamed params for preserved method signatures. Got $methodSignature at $cvlRange"
+                    "The parser shouldn't accept unnamed params for preserved method signatures. Got $methodSignature at $range"
                 }
                 // explicit preserved essentially declare variables to havoc, which then will be passed to a call to
                 // this method in a generated rule. Thus, we must infer a cvl type
@@ -1628,7 +1347,7 @@ sealed class CVLPreserved : CreatesScope, AmbiSerializable {
 
     @Serializable
     data class Fallback(
-        override val cvlRange: CVLRange,
+        override val range: Range,
         override val block: List<CVLCmd>,
         override val withParams: List<CVLParam>,
         override val scope: CVLScope
@@ -1643,7 +1362,7 @@ sealed class CVLPreserved : CreatesScope, AmbiSerializable {
 
     @Serializable
     data class TransactionBoundary(
-        override val cvlRange: CVLRange,
+        override val range: Range,
         override val block: List<CVLCmd>,
         override val withParams: List<CVLParam>,
         override val scope: CVLScope
@@ -1801,7 +1520,7 @@ sealed interface CVLGhostWithAxiomsAndOldCopy: AmbiSerializable {
 @Serializable
 @Treapable
 sealed class CVLGhostDeclaration : AmbiSerializable {
-    abstract val cvlRange: CVLRange
+    abstract val range: Range
     abstract val scope: CVLScope
     abstract val persistent: Boolean
     abstract val id: String
@@ -1823,7 +1542,7 @@ sealed class CVLGhostDeclaration : AmbiSerializable {
      */
     @KSerializable
     data class Function(
-        override val cvlRange: CVLRange,
+        override val range: Range,
         override val id: String,
         override val paramTypes: List<CVLType.PureCVLType>,
         val ret: CVLType.PureCVLType,
@@ -1859,7 +1578,7 @@ sealed class CVLGhostDeclaration : AmbiSerializable {
      */
     @KSerializable
     data class Variable(
-        override val cvlRange: CVLRange,
+        override val range: Range,
         val type: CVLType.PureCVLType,
         override val id: String,
         override val persistent: Boolean,
@@ -1909,7 +1628,7 @@ sealed class CVLGhostDeclaration : AmbiSerializable {
         val isUnsigned: Boolean,
         override val scope: CVLScope,
     ) : CVLGhostDeclaration() {
-        override val cvlRange: CVLRange = CVLRange.Empty()
+        override val range: Range = Range.Empty()
         override val persistent: Boolean = origGhost.persistent
 
         override val paramTypes: List<CVLType.PureCVLType>
@@ -1963,7 +1682,7 @@ sealed class CVLGhostDeclaration : AmbiSerializable {
  */
 @Serializable
 data class CVLDefinition(
-    val cvlRange: CVLRange,
+    val range: Range,
     val id: String,
     val params: List<CVLParam>,
     val ret: CVLType.PureCVLType,
@@ -1973,14 +1692,14 @@ data class CVLDefinition(
     val scope: CVLScope?
 ) : SpecFunction {
     constructor(
-        cvlRange: CVLRange,
+        range: Range,
         id: String,
         params: List<CVLParam>,
         retType: CVLType.PureCVLType,
         body: CVLExp,
         scope: CVLScope
     ) :
-            this(cvlRange, id, params, retType, body, setOf(), setOf(), scope)
+            this(range, id, params, retType, body, setOf(), setOf(), scope)
 
 
     override val rets: CVLType.PureCVLType
@@ -2006,10 +1725,10 @@ sealed class CVLLhs : HasCVLExpTag, AmbiSerializable {
     abstract fun updateTag(newTag: CVLExpTag): CVLLhs
 
     @Serializable
-    data class Id(val cvlRange: CVLRange, val id: String, override val tag: CVLExpTag) : CVLLhs() {
+    data class Id(val range: Range, val id: String, override val tag: CVLExpTag) : CVLLhs() {
         override fun getIdLhs() = this
         fun toVariable(): CVLExp.VariableExp = CVLExp.VariableExp(id, tag)
-        fun toParamPureType() = CVLParam(tag.getCVLTypeOrNull()!! as? CVLType.PureCVLType ?: error("womp"), id, cvlRange)
+        fun toParamPureType() = CVLParam(tag.getCVLTypeOrNull()!! as? CVLType.PureCVLType ?: error("womp"), id, range)
 
         override fun updateTag(newTag: CVLExpTag): Id = this.copy(tag = newTag)
 
@@ -2020,7 +1739,7 @@ sealed class CVLLhs : HasCVLExpTag, AmbiSerializable {
 
     @Serializable
     data class Array(
-        val cvlRange: CVLRange, val innerLhs: CVLLhs, val index: CVLExp,
+        val range: Range, val innerLhs: CVLLhs, val index: CVLExp,
         override val tag: CVLExpTag
     ) : CVLLhs() {
         override fun getIdLhs() = innerLhs.getIdLhs()
@@ -2069,7 +1788,7 @@ interface RuleFinalCommand
 @Treapable
 sealed class CVLCmd : AmbiSerializable {
     abstract val scope: CVLScope
-    abstract val cvlRange: CVLRange
+    abstract val range: Range
     open fun toPrintString(): String = toString()
 
     // Because Kotlin Generics (even with reification) erase the type
@@ -2098,7 +1817,7 @@ sealed class CVLCmd : AmbiSerializable {
         return ret
     }
 
-    val typeEnv get() = scope.let { scope -> CVLTypeEnvironment.empty(cvlRange, scope) }
+    val typeEnv get() = scope.let { scope -> CVLTypeEnvironment.empty(range, scope) }
 
 
     /** A command that has no subcommands. */
@@ -2117,7 +1836,7 @@ sealed class CVLCmd : AmbiSerializable {
             abstract val id: Int
             @Serializable
             data class Start(
-                override val cvlRange: CVLRange,
+                override val range: Range,
                 val content: CVLReportLabel,
                 override val scope: CVLScope,
                 override val id: Int
@@ -2126,7 +1845,7 @@ sealed class CVLCmd : AmbiSerializable {
 
             @Serializable
             data class End(
-                override val cvlRange: CVLRange,
+                override val range: Range,
                 override val scope: CVLScope,
                 override val id: Int
             ) : Label()
@@ -2136,7 +1855,7 @@ sealed class CVLCmd : AmbiSerializable {
         @Serializable
         @Treapable
         data class Assert(
-            override val cvlRange: CVLRange,
+            override val range: Range,
             val exp: CVLExp,
             val description: String,
             override val scope: CVLScope,
@@ -2149,7 +1868,7 @@ sealed class CVLCmd : AmbiSerializable {
         @Serializable
         @Treapable
         data class Satisfy(
-            override val cvlRange: CVLRange,
+            override val range: Range,
             val exp: CVLExp,
             val description: String,
             override val scope: CVLScope,
@@ -2164,7 +1883,7 @@ sealed class CVLCmd : AmbiSerializable {
         sealed class AssumeCmd : Simple() {
             @Serializable
             data class Assume(
-                override val cvlRange: CVLRange,
+                override val range: Range,
                 val exp: CVLExp,
                 override val scope: CVLScope,
                 // is this assume command used as an invariant's precondition
@@ -2177,7 +1896,7 @@ sealed class CVLCmd : AmbiSerializable {
             /** Comes from a "requireInvariant" command. */
             @Serializable
             data class AssumeInvariant(
-                override val cvlRange: CVLRange,
+                override val range: Range,
                 val id: String,
                 val params: List<CVLExp>,
                 override val scope: CVLScope
@@ -2191,7 +1910,7 @@ sealed class CVLCmd : AmbiSerializable {
          */
         @Serializable
         data class Declaration(
-            override val cvlRange: CVLRange,
+            override val range: Range,
             val cvlType: CVLType.PureCVLType,
             val id: String,
             override val scope: CVLScope
@@ -2206,7 +1925,7 @@ sealed class CVLCmd : AmbiSerializable {
 
         @Serializable
         data class Definition(
-            override val cvlRange: CVLRange,
+            override val range: Range,
             val type: CVLType.PureCVLType?,
             val idL: List<CVLLhs>,
             val exp: CVLExp,
@@ -2228,17 +1947,17 @@ sealed class CVLCmd : AmbiSerializable {
          * A standalone expression. Necessary to call functions with no return.
          */
         @Serializable
-        data class Exp(override val cvlRange: CVLRange, val exp: CVLExp, override val scope: CVLScope) : Simple()
+        data class Exp(override val range: Range, val exp: CVLExp, override val scope: CVLScope) : Simple()
 
 
         @Serializable
         data class Havoc(
-            override val cvlRange: CVLRange,
+            override val range: Range,
             val targets: List<HavocTarget>,
             val assumingExp: CVLExp?,
             override val scope: CVLScope
         ) : Simple() {
-            val assumingExpOrDefault get() = assumingExp ?: CVLExp.Constant.BoolLit.autogeneratedTrue(cvlRange, scope)
+            val assumingExpOrDefault get() = assumingExp ?: CVLExp.Constant.BoolLit.autogeneratedTrue(range, scope)
 
             override fun toPrintString(): String {
                 val formattedTargets = targets.joinToString(separator = ", ")
@@ -2253,7 +1972,7 @@ sealed class CVLCmd : AmbiSerializable {
 
         @Serializable
         data class Apply(
-            override val cvlRange: CVLRange,
+            override val range: Range,
             val exp: CVLExp.ApplicationExp,
             override val scope: CVLScope
         ) :
@@ -2262,14 +1981,14 @@ sealed class CVLCmd : AmbiSerializable {
         }
 
         @Serializable
-        data class ResetStorage(override val cvlRange: CVLRange, val exp: CVLExp, override val scope: CVLScope) :
+        data class ResetStorage(override val range: Range, val exp: CVLExp, override val scope: CVLScope) :
             Simple() {
             override fun toPrintString() = "reset storage $exp"
         }
 
 
         @Serializable
-        data class ResetTransientStorage(override val cvlRange: CVLRange, val exp: CVLExp, override val scope: CVLScope) :
+        data class ResetTransientStorage(override val range: Range, val exp: CVLExp, override val scope: CVLScope) :
                 Simple() {
             override fun toPrintString() = "reset transient storage $exp"
         }
@@ -2285,7 +2004,7 @@ sealed class CVLCmd : AmbiSerializable {
          * Used to return a value from a [CVLFunction]. Should *only* be used in a [CVLFunction].
          */
         @Serializable
-        data class Return(override val cvlRange: CVLRange, val exps: List<CVLExp>, override val scope: CVLScope) : HaltingCVLCmd, Simple() {
+        data class Return(override val range: Range, val exps: List<CVLExp>, override val scope: CVLScope) : HaltingCVLCmd, Simple() {
             private fun valueString() = if(this.exps.size == 1) {
                 exps.single().toString()
             } else {
@@ -2298,19 +2017,19 @@ sealed class CVLCmd : AmbiSerializable {
         }
 
         @Serializable
-        data class Revert(override val cvlRange: CVLRange, val reason: String?, override val scope: CVLScope) : HaltingCVLCmd, Simple() {
+        data class Revert(override val range: Range, val reason: String?, override val scope: CVLScope) : HaltingCVLCmd, Simple() {
             override fun toPrintString() = "revert(${reason.orEmpty()})"
             override val cmdName = "revert"
         }
 
         @Serializable
-        data class Nop(override val cvlRange: CVLRange, override val scope: CVLScope) : Simple() {
+        data class Nop(override val range: Range, override val scope: CVLScope) : Simple() {
             override fun toPrintString() = "nop"
         }
 
         companion object {
             fun contractFunction(
-                cvlRange: CVLRange,
+                range: Range,
                 scope: CVLScope,
                 methodIdWithCallContext: ResolvedContractCall,
                 expList: List<CVLExp>,
@@ -2321,7 +2040,7 @@ sealed class CVLCmd : AmbiSerializable {
                 @Suppress("UNUSED_PARAMETER") methodParamFilter: CVLExp?
             ) =
                 Apply(
-                    cvlRange,
+                    range,
                     if (isParametric) {
                         check(methodIdWithCallContext is SymbolicContractMethod)
                         CVLExp.ApplyExp.ContractFunction.Symbolic(
@@ -2329,7 +2048,7 @@ sealed class CVLCmd : AmbiSerializable {
                             expList,
                             noRevert,
                             storage,
-                            tag = CVLExpTag(scope, cvlRange = cvlRange, type = null)
+                            tag = CVLExpTag(scope, range = range, type = null)
                         )
                     } else {
                         check(methodIdWithCallContext is ConcreteContractMethod)
@@ -2339,7 +2058,7 @@ sealed class CVLCmd : AmbiSerializable {
                             noRevert,
                             storage,
                             isWhole,
-                            tag = CVLExpTag(scope, null, cvlRange)
+                            tag = CVLExpTag(scope, null, range)
                         )
                     },
                     scope
@@ -2354,13 +2073,13 @@ sealed class CVLCmd : AmbiSerializable {
 
         /** A sequence of commands surrounded by brackets */
         @Serializable
-        data class Block(override val cvlRange: CVLRange, val block: List<CVLCmd>, override val scope: CVLScope) :
+        data class Block(override val range: Range, val block: List<CVLCmd>, override val scope: CVLScope) :
             Composite()
 
         /** An if-then-else command */
         @Serializable
         data class If(
-            override val cvlRange: CVLRange,
+            override val range: Range,
             val cond: CVLExp,
             val thenCmd: CVLCmd,
             val elseCmd: CVLCmd,
@@ -2375,77 +2094,77 @@ sealed class CVLCmd : AmbiSerializable {
 
     }
 
-    fun transformLocation(locTransformer: (CVLRange) -> CVLRange): CVLCmd = when (this) {
+    fun transformLocation(locTransformer: (Range) -> Range): CVLCmd = when (this) {
         // Do NOT recurse, because this should be done by traverseCmd which also knows how to update the scopes properly!
         is Simple.Label.Start -> this.copy(
-            cvlRange = locTransformer(cvlRange)
+            range = locTransformer(range)
         )
 
         is Simple.Label.End -> this.copy(
-            cvlRange = locTransformer(cvlRange)
+            range = locTransformer(range)
         )
 
         is Simple.Assert -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.Satisfy -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.AssumeCmd.Assume -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.AssumeCmd.AssumeInvariant -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Composite.Block -> Composite.Block(
-            locTransformer(cvlRange),
+            locTransformer(range),
             this.block,
             this.scope
         )
 
         is Simple.Declaration -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.Definition -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.Exp -> this
         is Simple.Havoc -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Composite.If -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.Apply -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.ResetStorage -> this.copy(
-            locTransformer(this.cvlRange)
+            locTransformer(this.range)
         )
 
         is Simple.ResetTransientStorage -> this.copy(
-                locTransformer(this.cvlRange)
+                locTransformer(this.range)
         )
 
         is Simple.Return -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.Revert -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
 
         is Simple.Nop -> this.copy(
-            locTransformer(cvlRange)
+            locTransformer(range)
         )
     }
 
@@ -2457,7 +2176,7 @@ sealed class CVLCmd : AmbiSerializable {
         is Simple -> transformerSimple(this)
         is Composite.Block -> transformerBlock(
             Composite.Block(
-                this.cvlRange,
+                this.range,
                 this.block.map { it.transformCmd(transformerSimple, transformerBlock, transformerIf) },
                 this.scope
             )
@@ -2465,7 +2184,7 @@ sealed class CVLCmd : AmbiSerializable {
 
         is Composite.If -> transformerIf(
             Composite.If(
-                this.cvlRange,
+                this.range,
                 this.cond,
                 this.thenCmd.transformCmd(transformerSimple, transformerBlock, transformerIf),
                 this.elseCmd.transformCmd(transformerSimple, transformerBlock, transformerIf),
@@ -2561,7 +2280,7 @@ fun List<CVLCmd>.wrapWithLabel(label: CVLReportLabel): List<CVLCmd> {
     if (this.isEmpty()) {
         return this
     }
-    val range = this.first().cvlRange
+    val range = this.first().range
     val scope = this.first().scope
     val labelId = Allocator.getFreshId(Allocator.Id.CVL_EVENT)
     return listOf(CVLCmd.Simple.Label.Start(range, label, scope, labelId)) +
@@ -2576,19 +2295,19 @@ fun List<CVLCmd>.wrapWithLabel(label: CVLReportLabel): List<CVLCmd> {
 data class CVLExpTag(
     val scope: CVLScope,
     val type: CVLType?,
-    val cvlRange: CVLRange,
+    val range: Range,
     val hasParens: Boolean = false,
     val annotation: ExpressionAnnotation? = null
 ) : AmbiSerializable {
     constructor(
         scope: CVLScope,
-        cvlRange: CVLRange,
+        range: Range,
         hasParens: Boolean = false
-    ) : this(scope, null, cvlRange, hasParens)
+    ) : this(scope, null, range, hasParens)
 
     companion object {
         fun transient(tag: CVLType.PureCVLType) = CVLExpTag(
-            cvlRange = CVLRange.Empty(),
+            range = Range.Empty(),
             scope = CVLScope(listOf(), null), // no scope at all!,
             type = tag,
             hasParens = false
@@ -2597,23 +2316,22 @@ data class CVLExpTag(
 
     fun hasCVLType(): Boolean = getCVLTypeOrNull() != null
     fun getCVLTypeOrNull() = type
-    fun getRange() = cvlRange
     fun getCVLScope() = scope
 
     fun updateType(newType: CVLType) = this.copy(type = newType)
 
-    override fun toString(): String = "type: ${type?: "?"}, loc: $cvlRange"
+    override fun toString(): String = "type: ${type?: "?"}, loc: $range"
 }
 
 /** Convenience DSL that adds an `asTag` method to [PureCVLType]s */
-class ExpTagBuilder(val scope : CVLScope, val range : CVLRange) {
+class ExpTagBuilder(val scope : CVLScope, val range : Range) {
     /** @return a [CVLExpTag] with scope and range given by the enclosing [withScopeAndRange] */
     fun CVLType.asTag() = CVLExpTag(scope, this, range)
 }
 
 /** Store `scope` and `range` for enclosed calls to `asTag`. */
-fun <T> withScopeAndRange(scope: CVLScope, cvlRange: CVLRange, f: ExpTagBuilder.() -> T) =
-    ExpTagBuilder(scope, cvlRange).f()
+fun <T> withScopeAndRange(scope: CVLScope, range: Range, f: ExpTagBuilder.() -> T) =
+    ExpTagBuilder(scope, range).f()
 
 
 /** A transformation that updates the scope of every expression's tag to `newScope` */
@@ -2753,7 +2471,7 @@ interface HasCVLExpTag {
     fun getScope(): CVLScope =
         tag.scope
 
-    fun getRangeOrEmpty(): CVLRange = tag.cvlRange
+    fun getRangeOrEmpty(): Range = tag.range
 }
 
 @KSerializable
@@ -3056,11 +2774,11 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
             }
 
             companion object {
-                fun autogeneratedTrue(rangeOfParentExp: CVLRange, scope: CVLScope): BoolLit {
+                fun autogeneratedTrue(rangeOfParentExp: Range, scope: CVLScope): BoolLit {
                     val tag = CVLExpTag(
                         scope,
                         CVLType.PureCVLType.Primitive.Bool,
-                        CVLRange.Empty("autogenerated bool expression at $rangeOfParentExp"),
+                        Range.Empty("autogenerated bool expression at $rangeOfParentExp"),
                     )
 
                     return BoolLit(true, tag)
@@ -3861,7 +3579,7 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
                 "${methodIdWithCallContext.printQualifiedFunctionName()}(${this.args.joinToString(", ")})"
 
             fun getInvokeCmdString(): String {
-                return "${getInvokeCmdStringWithoutRange()} :" + this.tag.getRange()
+                return "${getInvokeCmdStringWithoutRange()} :" + this.tag.range
                     .toString()
             }
 
@@ -4050,12 +3768,12 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
 
     fun toLhs(): CVLLhs = when (this) {
         is VariableExp -> {
-            CVLLhs.Id(this.tag.cvlRange, this.id, this.tag)
+            CVLLhs.Id(this.tag.range, this.id, this.tag)
         }
 
         is ArrayDerefExp -> {
             CVLLhs.Array(
-                tag.cvlRange,
+                tag.range,
                 array.toLhs(),
                 index,
                 tag

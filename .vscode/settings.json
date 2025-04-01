@@ -8,5 +8,8 @@
     "java.compile.nullAnalysis.mode": "automatic",
     "githubPullRequests.ignoredPullRequestBranches": [
         "master"
+    ],
+    "python.analysis.extraPaths": [
+        "./build_out"
     ]
 }

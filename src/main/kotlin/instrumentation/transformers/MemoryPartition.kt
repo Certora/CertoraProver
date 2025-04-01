@@ -60,14 +60,14 @@ private val logger = Logger(LoggerTypes.OPTIMIZE)
 object MemoryPartition {
     fun partition(method: TACMethod) : CoreTACProgram {
         val prog = method.code as CoreTACProgram
-        fun exit(rangeWithMsgDetails: FailureInfo): CoreTACProgram {
+        fun exit(rangeWithMsgDetails: FailureInfo, hint: String? = null): CoreTACProgram {
             CVTAlertReporter.reportAlert(
-                CVTAlertType.ANALYSIS,
+                CVTAlertType.MEMORY_PARITIONING,
                 CVTAlertSeverity.WARNING,
                 rangeWithMsgDetails.range,
                 "Memory partitioning failed while analyzing contract ${method.getContainingContract().name}, " +
                     "function ${method.soliditySignature ?: method.name}. ${rangeWithMsgDetails.additionalUserFacingMessage} This can lead to longer running times. ",
-                rangeWithMsgDetails.hint
+                hint
             )
             recordSuccess(method.toString(), INSTRUMENTATION_SUCCESS_STATS_KEY, "MEMORY_PARTITION", false)
             return prog
@@ -90,15 +90,11 @@ object MemoryPartition {
                 "Memory partitioning failed while analyzing ${prog.name}\n$sourceLines"
             }
 
-            val failureInfo =
-                failureSources.singleOrNull()
-                    ?: failureSources
-                        .filterIsInstance<FailureInfo.AdditionalFailureInfo>()
-                        .find { it.range != null }
-                        ?.let{ source -> source.copy("Cause 1 of ${failureSources.size}. ${source.additionalUserFacingMessage}") }
-                    ?: FailureInfo.AdditionalFailureInfo(additionalUserFacingMessage = "No source code information given for the location.", range = null)
+            val (failureInfo, hint) =
+                failureSources.singleOrNull()?.let { source -> FailureInfo.AdditionalFailureInfo(additionalUserFacingMessage = "Cause 1 of ${failureSources.size}", range = source.second) to source.first.condense(1) }
+                    ?: (FailureInfo.AdditionalFailureInfo(additionalUserFacingMessage = "No source code information given for the location.", range = null) to null)
 
-            return exit(failureInfo)
+            return exit(failureInfo, hint)
         }
         for(ltacCmd in prog.ltacStream().iterator()) {
             val mem = ltacCmd.cmd.getFreeVarsOfRhs().mapNotNull {

@@ -561,4 +561,3 @@ class ComplexTypeRandomTests {
         )
     }
 }
-

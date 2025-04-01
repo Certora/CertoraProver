@@ -31,7 +31,7 @@ import log.*
 import report.EventEnvironmentVars
 import rules.RuleCheckResult
 import solver.SolverResult
-import spec.cvlast.IRule
+import spec.rules.IRule
 import utils.KSerializable
 
 

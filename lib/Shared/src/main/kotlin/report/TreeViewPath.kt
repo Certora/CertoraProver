@@ -22,7 +22,7 @@ import datastructures.stdcollections.*
 import event.EventAttributeWithStringRepr
 import event.ReportableAsEventAttribute
 import kotlinx.serialization.json.*
-import spec.cvlast.IRule
+import spec.rules.IRule
 import utils.hashObject
 import utils.toHexString
 import java.security.MessageDigest

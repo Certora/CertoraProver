@@ -20,7 +20,7 @@ package rules.dpgraph
 import datastructures.stdcollections.*
 import rules.*
 import rules.sanity.sorts.SanityCheckSort
-import spec.cvlast.IRule
+import spec.rules.ICVLRule
 
 /**
  * Each node in the dependency graph should have a type that determines the way the result of the node can be concluded
@@ -95,7 +95,7 @@ sealed class SanityCheckNodeType{
 /**
  * Currently used for all the rules that are checked in the [SpecChecker], no conclusion mechanism is defined.
  */
-data class RuleNode(override val payload: IRule) : DPNode<IRule, RuleCheckResult, RuleCheckResult, Nothing, RuleNode> {
+data class RuleNode(override val payload: ICVLRule) : DPNode<ICVLRule, RuleCheckResult, RuleCheckResult, Nothing, RuleNode> {
     override fun concludeResultFromPredsOrNull(
         predNodesToResults: Map<RuleNode, DPResult<RuleCheckResult, RuleCheckResult, Nothing>>
     ): RuleCheckResult? = null

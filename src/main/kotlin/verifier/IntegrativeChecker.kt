@@ -58,6 +58,8 @@ import spec.CVLKeywords
 import spec.IWithSummaryInfo
 import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
+import spec.rules.AssertRule
+import spec.rules.IRule
 import spec.toVar
 import tac.*
 import utils.*
@@ -337,6 +339,10 @@ object IntegrativeChecker {
 
         // update autosummary monitor
         AutosummarizedMonitor.reportSummarizedMethods(cvl)
+
+        if (Config.BoundedModelChecking.getOrNull() != null) {
+            return BoundedModelChecker(cvl, scene, contract, treeViewReporter, reporter).checkAllInvariants()
+        }
 
         HTMLReporter.expectedNumberOfRules = cvl.rules.flatMap { it.getAllSingleRules() }.size
         val specChecker =
@@ -810,7 +816,11 @@ object IntegrativeChecker {
     private fun setupReporters(
         query: ProverQuery
     ): ReporterContainer {
-        updateStatusReporter(query)
+        if (Config.BoundedModelChecking.getOrNull() == null) {
+            // In BMC mode all rules are created on-the-fly, so we can't call this here because it "freezes" the
+            // StatusReporter which prevents adding any new rules.
+            updateStatusReporter(query)
+        }
 
         val reporterContainer = ReporterContainer(
             listOf(

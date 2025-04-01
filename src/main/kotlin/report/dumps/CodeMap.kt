@@ -37,12 +37,18 @@ import log.*
 import report.BigIntPretty.bigIntPretty
 import report.TreeViewLocation
 import report.dumps.AddInternalFunctions.addInternalFunctionIdxsDontThrow
+import sbf.tac.SbfInlinedFuncStartAnnotation
+import sbf.tac.SbfInlinedFuncEndAnnotation
+import sbf.tac.SbfInlinedFuncNopAnnotation
+import sbf.tac.DEBUG_EXTERNAL_CALL
+import sbf.tac.DEBUG_INLINED_FUNC_START
+import sbf.tac.DEBUG_INLINED_FUNC_END
 import scene.NamedCode
 import smtlibutils.data.ProcessDifficultiesResult
 import solver.CounterexampleModel
 import solver.SMTCounterexampleModel
 import spec.CVLExpToTACExprMeta
-import spec.cvlast.CVLRange
+import utils.Range
 import statistics.data.CallIdWithName
 import tac.*
 import utils.*
@@ -72,7 +78,6 @@ val larrow = "<span style=\"color:${colorToRGBString(Color.RED)};\"><b>←</b></
  * @param subDots the [DotDigraph] for each given [CallId]; does not include [dotMain]
  * @param countDifficultOps analysis stating which commands are difficult for the solver; null if analysis
  *      was not performed (typically because there was no timeout)
- * @param timeoutCore all commands that lie in the timeout core (empty if there is no timeout core)
  * @param colorExplanation explanations for the colors we're using (currently only for the timeout case, could
  *      extend, e.g., for unsat case); will be displayed in the top-right box (currently assuming this is only non-null
  *      if we're in a Timeout/Unknown or Unsat case)
@@ -135,6 +140,12 @@ data class CodeMap(
                 .joinToString(",")
         }}"
     }
+
+    /** The actual SMT checks are run on [CodeMap.fullOriginal], but our display is based on
+     * [CodeMap.withInternalFunctions].
+     * For that reason, things that come from the model, or other aspects of the actual SMT checks need to be translated
+     * using [CodeMap.withInternalFunctions] */
+    fun translateWithInternalFuncs(blocks: Set<NBId>) = blocks.flatMap { intFuncsCmdPtrMapping[it] }
 
     private fun cmdToValue(c: TACCmd): String {
         return when (c) {
@@ -514,6 +525,12 @@ data class CodeMap(
                     is SnippetCmd.EVMSnippetCmd.LoopSnippet.EndLoopSnippet -> colorText("$larrow Loop #${metaValue.loopId}", Color.DARKBLUE)
                     is SnippetCmd.EVMSnippetCmd.LoopSnippet.StartIter -> colorText("$rarrow$rarrow Iteration ${metaValue.iteration}", Color.DARKBLUE)
                     is SnippetCmd.EVMSnippetCmd.LoopSnippet.EndIter -> colorText("$larrow$larrow Iteration ${metaValue.iteration}", Color.DARKBLUE)
+                    is SnippetCmd.SolanaSnippetCmd.ExternalCall -> colorText("SbfExt ${metaValue.symbols.joinToString(", ") { getHtmlRep(it) }} = ${metaValue.displayMessage.shortRustForHTML()} ", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is SnippetCmd.SolanaSnippetCmd.CexPrintTag -> colorText("log(${metaValue.displayMessage.sanitize()})", Color.GREEN)
+                    is SnippetCmd.SolanaSnippetCmd.CexAttachLocation -> colorText("${metaValue.filepath.sanitize()}:${metaValue.lineNumber}", Color.DARKGREY)
+                    is SnippetCmd.SolanaSnippetCmd.CexPrintLocation -> colorText("${metaValue.filepath.sanitize()}:${metaValue.lineNumber}", Color.DARKGREY)
+                    is SnippetCmd.SolanaSnippetCmd.CexPrintValues -> colorText("${metaValue.displayMessage.sanitize()}: ${metaValue.symbols.joinToString(", ") { getHtmlRep(it) }}", Color.ORANGE)
+                    is SnippetCmd.SolanaSnippetCmd.CexPrintU64AsFixed -> colorText("${metaValue.displayMessage.sanitize()}: ${getHtmlRep(metaValue.unscaledVal)}/2^${getHtmlRep(metaValue.scale)}", Color.ORANGE)
                     is InternalFuncStartAnnotation -> colorText("$rarrow Method call ${wrapInternalFunStart(metaValue.id)} to ${
                         if (metaValue.args.isNotEmpty() && metaValue.args.size == metaValue.methodSignature.params.size) {
                             metaValue.methodSignature.let { sig ->
@@ -536,6 +553,8 @@ data class CodeMap(
                     is SummaryStack.SummaryStart.External ->colorText("$rarrow Applying summary ${metaValue.summary} " +
                         "to:<br/>&nbsp;&nbsp;${metaValue.callNode}" +
                         "<br/>&nbsp;&nbsp;Call resolution: ${metaValue.callResolutionTableInfo}", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is SbfInlinedFuncStartAnnotation -> colorText("$rarrow SbfCall ${metaValue.name.shortRustForHTML()}${metaValue.args.joinToString(", ", "(", ")") { getHtmlRep(it.first) }} (id: ${metaValue.id})", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is SbfInlinedFuncEndAnnotation -> colorText("$larrow SbfRet ${getHtmlRep(metaValue.retVal)} = ${metaValue.name.shortRustForHTML()}(..) (id: ${metaValue.id})", Color.DARKBLUE).withTitle(metaValue.toString())
                     else -> {
                         val (k, v) = c.annot.let { it.k to it.v.toString().sanitize() }
                         val eventId = c.eventId()
@@ -545,6 +564,9 @@ data class CodeMap(
                             k == REVERT_PATH -> colorText("From here we definitely revert", Color.DARKPINK)
                             k == SCOPE_SNIPPET_END -> colorText("$larrow", Color.DARKBLUE)
                             k == END_EXTERNAL_SUMMARY -> colorText("$larrow", Color.DARKBLUE)
+                            k == DEBUG_EXTERNAL_CALL -> colorText("SbfDbgExtCall ${v.sanitize()}", Color.DARKBLUE)
+                            k == DEBUG_INLINED_FUNC_START -> colorText("$rarrow SbfDbgCall ${v.sanitize()}", Color.DARKBLUE)
+                            k == DEBUG_INLINED_FUNC_END -> colorText("$larrow SbfDbgRet ${v.sanitize()}", Color.DARKBLUE)
                             else -> colorText("TRANSIENT::${k}=${v}::", Color.DARKGREY)
                         }
                     }
@@ -1143,6 +1165,15 @@ data class CodeMap(
                 }
                 else -> true
             }
+        }.filter {
+            when (it.cmd) {
+                is TACCmd.Simple.AnnotationCmd -> when (it.cmd.annot.v) {
+                    is SbfInlinedFuncNopAnnotation -> false
+                    is SnippetCmd.SolanaSnippetCmd.Assert -> false
+                    else -> true
+                }
+                else -> true
+            }
         }
 
         val posWidth = cmds.map { it.ptr.pos }.max().toString().length
@@ -1256,7 +1287,7 @@ data class CodeMap(
             }
 
             fun tooltipTemplate(contents: String, tooltipTextId: Int): String {
-                return "<span class=\"tooltip\">${contents.sanitize()} <span class=\"tooltiptext\" tooltipatt=\"$tooltipTextId\"></span></span>"
+                return "<span class=\"tooltip\">${contents} <span class=\"tooltiptext\" tooltipatt=\"$tooltipTextId\"></span></span>"
             }
 
             val r = cmd.metaSrcInfo
@@ -1534,9 +1565,9 @@ data class CallGraphInfo(
 fun callNodeLabel(callId: CallId, baseLabel: String) = "$callId: $baseLabel"
 
 
-fun decomposeCodeToCalls(code1: CoreTACProgram): DecomposedCode {
+fun decomposeCodeToCalls(code1: CoreTACProgram, addInternalFunctions: Boolean): DecomposedCode {
     val (code, internalFunctionsBlockMapping) =
-        runIf(Config.InternalFunctionsInTACReports.get()) { addInternalFunctionIdxsDontThrow(code1) }
+        runIf(Config.InternalFunctionsInTACReports.get() && addInternalFunctions) { addInternalFunctionIdxsDontThrow(code1) }
             ?: AddInternalFunctions.TACProgWithIntFuncs.unchanged(code1)
 
     val callIdsToBlocks = code.code.keys.groupBy { it.calleeIdx }
@@ -1589,24 +1620,23 @@ fun decomposeCodeToCalls(code1: CoreTACProgram): DecomposedCode {
 
             val returnTargets = returnEdges.mapToTreapSet { it.trg }
 
-            val lastLabelInSrc = code.code[callEdge.src]?.filter { cmd -> cmd is TACCmd.Simple.LabelCmd }
-                ?.lastOrNull() as TACCmd.Simple.LabelCmd?
+            val lastLabelInSrc = code.code[callEdge.src]?.filterIsInstance<TACCmd.Simple.LabelCmd>()?.lastOrNull()
 
 
             // if lastLabelInSrc was alone in the block in which it was found, then it came from CVL and can be skipped
             if (lastLabelInSrc != null && code.code[callEdge.src]!!.size == 1) {
-                callIdNames.put(nbid.calleeIdx, replaceInLabel(lastLabelInSrc._msg))
+                callIdNames[nbid.calleeIdx] = replaceInLabel(lastLabelInSrc._msg)
                 subGraph.put(callEdge.src, subGraph[callEdge.src]!!.plus(returnTargets))
             } else {
                 val label = code.procedures.find { it.callId == nbid.calleeIdx }?.procedureId?.toString()
                     ?: "Call ${nbid.calleeIdx}"
-                callIdNames.put(nbid.calleeIdx, label)
+                callIdNames[nbid.calleeIdx] = label
                 val newNode = TACCmd.Simple.LabelCmd(
                     callNodeLabel(nbid.calleeIdx, label)
                 )
 
-                subBlocks.put(nbid, listOf(newNode))
-                subGraph.put(callEdge.src, subGraph[callEdge.src]!!.plus(callEdge.trg))
+                subBlocks[nbid] = listOf(newNode)
+                subGraph[callEdge.src] = subGraph[callEdge.src]!!.plus(callEdge.trg)
 
                 subGraph.put(nbid, returnTargets)
             }
@@ -1693,7 +1723,7 @@ private fun computeProcedureToSourceLocation(
             // NB: if anybody has a good idea on how to get the source pointer for a sol/cvl function, I'd be glad to
             // hear it --> this here is just looking for the first command in the entry block that has a source pointer
             // and takes it .. (if it exists..)
-            val srcMeta: TreeViewLocation? = cmd.meta[TACMeta.CVL_RANGE] as? CVLRange.Range ?: cmd.metaSrcInfo?.getSourceDetails()
+            val srcMeta: TreeViewLocation? = cmd.meta[TACMeta.CVL_RANGE] as? Range.Range ?: cmd.metaSrcInfo?.getSourceDetails()
             if (srcMeta != null) {
                 procedureToSourceLocation[procId] = srcMeta
             }
@@ -1722,9 +1752,10 @@ fun generateSVGWithId(dotDigraph: DotDigraph, id: CallId): String =
 fun generateCodeMap(
     ast: TACProgram<*>,
     name: String,
-    edges: Map<Edge, List<TACExpr>> = mapOf()
+    edges: Map<Edge, List<TACExpr>> = mapOf(),
+    addInternalFunctions: Boolean = true
 ): CodeMap = when (ast) {
-    is CoreTACProgram -> generateCodeMap(ast, name, edges)
+    is CoreTACProgram -> generateCodeMap(ast, name, addInternalFunctions, edges)
     is EVMTACProgram, is CanonicalTACProgram<*, *>, is CVLTACProgram -> degenerateCodeMap(ast, name, edges)
     else -> throw Exception("Unexpected code $ast")
 }
@@ -1737,8 +1768,8 @@ const val MAIN_GRAPH_ID = NBId.ROOT_CALL_ID
  * @param name the name to give the resulting [CodeMap]
  * @param edges allows to give additional edges that are not in the program ([ast])
  */
-fun generateCodeMap(ast: CoreTACProgram, name: String, edges: Map<Edge, List<TACExpr>> = mapOf()): CodeMap {
-    val (sub, callGraphInfo, withInternalFunctions, internalFunctionsBlockMapping) = decomposeCodeToCalls(ast) // xxx name of "full original" maybe move the internal functions transformation or so
+fun generateCodeMap(ast: CoreTACProgram, name: String, addInternalFunctions: Boolean, edges: Map<Edge, List<TACExpr>> = mapOf()): CodeMap {
+    val (sub, callGraphInfo, withInternalFunctions, internalFunctionsBlockMapping) = decomposeCodeToCalls(ast, addInternalFunctions) // xxx name of "full original" maybe move the internal functions transformation or so
     val (callIdNames, _) = callGraphInfo
 
     if (MAIN_GRAPH_ID !in sub) {
@@ -2101,8 +2132,8 @@ fun addCounterexampleData(cexModel: SMTCounterexampleModel, codeMap: CodeMap): C
     // first extend. Take the original graph without decomposition
     val extendedCexModel = extendModel(cexModel, codeMap.withInternalFunctions, emptySet())
 
-    val reachableBlocks = extendedCexModel.reachableNBIds
-    val badBlocks = extendedCexModel.badNBIds
+    val reachableBlocks = codeMap.translateWithInternalFuncs(extendedCexModel.reachableNBIds)
+    val badBlocks = codeMap.translateWithInternalFuncs(extendedCexModel.badNBIds)
     val reachableBadBlocks =
         (badBlocks intersect reachableBlocks)
     val reachableBadBlocksAndMessages = reachableBadBlocks
@@ -2137,7 +2168,8 @@ fun addCounterexampleData(cexModel: SMTCounterexampleModel, codeMap: CodeMap): C
         subDots = subDotsMarked,
         cexModel = extendedCexModel
     )
-    codemap.showSubsetInCodeText.addAll(extendedCexModel.reachableNBIds)
+    codemap.showSubsetInCodeText.addAll(codeMap.translateWithInternalFuncs(extendedCexModel.reachableNBIds))
+
     return codemap
 
 }
@@ -2173,9 +2205,9 @@ fun addDifficultyInfo(codeMap: CodeMap, results: Verifier.JoinedResult): CodeMap
             DotColor.white
         } else {
             val normalized = ((difficulty - minDifficulty)/deltaScale).toInt()
-            DotColor.values().find { it.ordinal == lightest.ordinal + normalized }
+            DotColor.entries.find { it.ordinal == lightest.ordinal + normalized }
                 ?: throw IllegalStateException("Given $difficulty in range [${minDifficulty},${maxDifficulty}] and scale ${deltaScale}, " +
-                        "normalized value should have been ${normalized} and be between ${lightest.ordinal} and ${darkest.ordinal}")
+                        "normalized value should have been $normalized and be between ${lightest.ordinal} and ${darkest.ordinal}")
         }
     }
     fun updateDifficulty(dot: DotDigraph): DotDigraph {
@@ -2199,3 +2231,8 @@ private fun TACCmd.Simple.AnnotationCmd.eventId(): Int? {
         else -> null
     }
 }
+
+fun String.shortRustName(): String =
+    if (this.length <= 80) { this } else { this.substringAfterLast("::") }
+
+fun String.shortRustForHTML(): String = this.shortRustName().escapeHTML()

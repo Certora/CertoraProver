@@ -11,345 +11,418 @@ TACSymbolTable {
 	UninterpretedFunctions {
 	}
 	tacCodesizeCANON0:bv256:0
-	tacExtcodesize!!1:wordmap:1
-	CANON60!!2:wordmap:2
-	CANON76!!3:wordmap:3
-	tacExtcodesize:wordmap:1
+	tacNonce:wordmap:1
+	tacContractsCreated!!16:wordmap:2
+	lastStorageCANON:wordmap:3
+	CANON10!!5:wordmap:4
+	CANON11!!6:wordmap:5
+	CANON12!!7:wordmap:6
+	CANON13!!8:wordmap:7
+	CANON14!!9:wordmap:8
+	tacExtcodesize!!3:wordmap:9
+	CANON3!!17:wordmap:10
+	CANON4!!18:wordmap:11
+	CANON4!!68:wordmap:11
+	tacSCANON0!!25:wordmap:12
+	CANON5!!19:wordmap:13
+	CANON6!!20:wordmap:14
+	CANON7!!21:wordmap:15
+	CANON8!!22:wordmap:16
+	CANON9!!23:wordmap:17
+	tacTCANON0:wordmap:18
+	tacExtcodesize:wordmap:9
+	CANON100:bool:19
+	CANON101:bool
+	CANON102:bool
+	tacBalance:wordmap:20
+	tacBalance!!4:wordmap:20
+	lastStorageCANON1:wordmap:3
+	lastStorageCANON2:wordmap:21
+	lastStorageCANON3:wordmap:22
+	lastStorageCANON4:wordmap:23
+	lastStorageCANON5:wordmap:24
+	lastStorageCANON6:wordmap:25
+	lastStorageCANON7:wordmap:26
+	lastStorageCANON8:wordmap:26
+	lastStorageCANON9:wordmap:26
 	R0:bv256:0
-	R4:bv256:4
-	R5:bv256:5
-	R6:bv256:6
-	R7:bv256:7
-	R8:bv256:8
-	R9:bv256:8
-	B10:bool:8
-	B11:bool:8
-	B14:bool
-	B20:bool
-	B22:bool
-	B27:bool
-	B29:bool
-	B30:bool:9
-	B34:bool:8
+	W2:wordmap:18
+	B27:bool:27
+	B28:bool:27
+	B31:bool
 	B37:bool
-	B42:bool
-	B45:bool
-	B49:bool:8
-	B52:bool
-	B57:bool
-	B60:bool
-	B61:bool:9
+	B39:bool
+	B44:bool
+	B46:bool
+	B47:bool:28
+	B51:bool:27
+	B54:bool
+	B59:bool
 	B62:bool
-	I12:int
-	I13:int
-	I15:int
-	I16:int
-	I17:int
-	I18:int
-	I19:int
-	I21:int
-	I23:int
-	I24:int
-	I25:int
-	I26:int
-	I28:int
-	I31:int
+	B66:bool:27
+	B69:bool
+	B74:bool
+	B77:bool
+	B78:bool:28
+	B79:bool
+	I29:int
+	I30:int
+	I32:int
+	I33:int
+	I34:int
+	I35:int
+	I36:int
 	I38:int
+	I40:int
+	I41:int
+	I42:int
 	I43:int
-	I44:int
-	I46:int
-	I53:int
-	I58:int
-	I59:int
-	R32:(uninterp) skey:8
-	R33:(uninterp) skey:8
-	R35:bv256:8
-	R39:(uninterp) skey:8
-	R40:(uninterp) skey:8
-	R41:bv256:8
-	R47:(uninterp) skey:8
-	R48:(uninterp) skey:8
-	R50:bv256:8
-	R54:(uninterp) skey:8
-	R55:(uninterp) skey:8
-	R56:bv256:8
-	CANON60!!36:wordmap:2
-	CANON10:int:10
-	CANON11:int:11
-	CANON12:int:12
-	CANON13:int:13
-	CANON14:int:14
-	CANON15:int:15
-	CANON16:int:16
-	CANON17:int:17
-	CANON18:bool:18
-	CANON19:bool:19
-	CANON20:bool:20
-	CANON21:bool:21
-	CANON22:bool:22
-	CANON23:int
-	CANON24:int:23
-	CANON25:int
-	CANON26:int
-	CANON27:int
-	CANON28:int
-	CANON29:bool
-	CANON30:int
-	CANON31:bool
-	CANON32:int
-	CANON33:int
-	CANON34:int
-	CANON35:int
-	CANON36:bool
-	CANON37:int
-	CANON38:bool
-	CANON39:bool
-	CANON40:int:24
-	CANON41:int:25
-	CANON42:int:26
-	CANON43:int:27
-	CANON44:bool:28
-	CANON45:int:29
-	CANON46:bool:30
-	CANON47:int:31
-	CANON48:int:32
-	CANON49:int:33
-	CANON50:int:34
-	CANON51:bool:35
-	CANON52:int:36
-	CANON53:bool:37
-	CANON54:bool:38
-	CANON55:int
-	CANON56:bv256:8
-	CANON57:bv256:39
-	CANON58:bool:8
-	CANON59:bv256:8
-	CANON60:wordmap:2
-	CANON61:bool
-	CANON62:int
-	CANON63:bv256:8
-	CANON64:bv256:40
-	CANON65:bv256:8
-	CANON66:bool
-	CANON67:int
-	CANON68:int
-	CANON69:bool
-	CANON70:bool:41
+	I45:int
+	I48:int
+	I55:int
+	I60:int
+	I61:int
+	I63:int
+	I70:int
+	I75:int
+	I76:int
+	R13:bv256:29
+	R14:bv256:30
+	R15:bv256:31
+	R24:bv256:32
+	R26:bv256:27
+	R49:(uninterp) skey:27
+	R50:(uninterp) skey:27
+	R52:bv256:27
+	R56:(uninterp) skey:27
+	R57:(uninterp) skey:27
+	R58:bv256:27
+	R64:(uninterp) skey:27
+	R65:(uninterp) skey:27
+	R67:bv256:27
+	R71:(uninterp) skey:27
+	R72:(uninterp) skey:27
+	R73:bv256:27
+	tacNonce!!1:wordmap:1
+	CANON15!!10:wordmap:33
+	CANON16!!11:wordmap:34
+	CANON16!!53:wordmap:34
+	CANON17!!12:wordmap:35
+	CANON10:wordmap:4
+	CANON11:wordmap:5
+	CANON12:wordmap:6
+	CANON13:wordmap:7
+	CANON14:wordmap:8
+	CANON15:wordmap:33
+	CANON16:wordmap:34
+	CANON17:wordmap:35
+	CANON18:bv256:27
+	CANON19:bool:27
+	CANON20:bool:27
+	CANON21:int
+	CANON22:int
+	CANON23:bool
+	CANON24:int:36
+	CANON25:int:37
+	CANON26:int:38
+	CANON27:int:39
+	CANON28:int:40
+	CANON29:int:41
+	CANON30:int:42
+	CANON31:int:43
+	CANON32:int:44
+	CANON33:int:45
+	CANON34:bool:46
+	CANON35:bool:47
+	CANON36:bool:48
+	CANON37:bool:49
+	CANON38:bool:50
+	CANON39:int
+	CANON40:int:51
+	CANON41:int
+	CANON42:int
+	CANON43:int
+	CANON44:int
+	CANON45:bool
+	CANON46:int
+	CANON47:bool
+	CANON48:int
+	CANON49:int
+	CANON50:int
+	CANON51:int
+	CANON52:bool
+	CANON53:int
+	CANON54:bool
+	CANON55:bool
+	CANON56:int:52
+	CANON57:int:53
+	CANON58:int:54
+	CANON59:int:55
+	CANON60:bool:56
+	CANON61:int:57
+	CANON62:bool:58
+	CANON63:int:59
+	CANON64:int:60
+	CANON65:int:61
+	CANON66:int:62
+	CANON67:bool:63
+	CANON68:int:64
+	CANON69:bool:65
+	CANON70:bool:66
 	CANON71:int
-	CANON72:bv256:8
-	CANON73:bv256:42
-	CANON74:bool:8
-	CANON75:bv256:8
-	CANON76:wordmap:3
-	CANON77:bool
-	CANON78:int
-	CANON79:bv256:8
-	CANON80:bv256:43
-	CANON81:bv256:8
-	CANON82:bool
+	CANON72:bv256:27
+	CANON73:bv256:67
+	CANON74:bool:27
+	CANON75:bv256:27
+	CANON76:bool
+	CANON77:int
+	CANON78:bv256:27
+	CANON79:bv256:68
+	CANON80:bv256:27
+	CANON81:bool
+	CANON82:int
 	CANON83:int
-	CANON84:int
-	CANON85:bool
-	CANON86:bool:41
-	CANON87:bool
-	CANON88:bool
-	tacContractAtCANON1:bv256:4
-	tacContractAtCANON2:bv256:5
-	tacContractAtCANON3:bv256:6
-	CANON1:bv256:8
-	CANON2:bv256:8
-	CANON3:bool:8
-	CANON4:bool:8
-	CANON5:int
-	CANON6:int
-	CANON7:bool
-	CANON8:int:44
-	CANON9:int:45
-	tacContractAtCANON:bv256:7
-	CANON76!!51:wordmap:3
-	CANON:int:46
+	CANON84:bool
+	CANON85:bool:19
+	CANON86:int
+	CANON87:bv256:27
+	CANON88:bv256:69
+	CANON89:bool:27
+	CANON90:bv256:27
+	CANON91:bool
+	CANON92:int
+	CANON93:bv256:27
+	CANON94:bv256:70
+	CANON95:bv256:27
+	CANON96:bool
+	CANON97:int
+	CANON98:int
+	CANON99:bool
+	tacContractAtCANON1:bv256:29
+	tacContractAtCANON2:bv256:30
+	tacContractAtCANON3:bv256:31
+	tacContractsCreated:wordmap:2
+	CANON1:int:71
+	CANON2:int:72
+	CANON3:wordmap:10
+	CANON4:wordmap:11
+	CANON5:wordmap:13
+	CANON6:wordmap:14
+	CANON7:wordmap:15
+	CANON8:wordmap:16
+	CANON9:wordmap:17
+	tacContractAtCANON:bv256:32
+	tacSCANON0:wordmap:12
+	lastStorageCANON10:wordmap:26
+	lastStorageCANON11:wordmap:24
+	lastStorageCANON12:wordmap:3
+	lastStorageCANON13:wordmap:21
+	lastStorageCANON14:wordmap:22
+	lastStorageCANON15:wordmap:23
+	lastStorageCANON16:wordmap:25
+	lastStorageCANON17:wordmap:73
+	lastStorageCANON18:wordmap:73
+	lastStorageCANON19:wordmap:73
+	lastStorageCANON20:wordmap:73
+	CANON:int:74
 }
 Program {
 	Block 0_0_0_0_0_0 Succ [1_0_0_1_0_1] {
 		AssignHavocCmd R0:0
-		AssignHavocCmd tacExtcodesize!!1:1
-		AssignHavocCmd CANON10:10
-		AssumeExpCmd LAnd(Ge(CANON10:10 0x0(int) ) Le(CANON10:10 0xff(int) ) )
-		AssignHavocCmd CANON11:11
-		AssumeExpCmd LAnd(Ge(CANON11:11 0x0(int) ) Le(CANON11:11 0xff(int) ) )
-		AssignHavocCmd CANON12:12
-		AssumeExpCmd LAnd(Ge(CANON12:12 0x0(int) ) Le(CANON12:12 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) ) )
-		AssignHavocCmd CANON13:13
-		AssumeExpCmd LAnd(Ge(CANON13:13 0x0(int) ) Le(CANON13:13 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) ) )
-		AssignHavocCmd CANON14:14
-		AssumeExpCmd LAnd(Ge(CANON14:14 0x0(int) ) Le(CANON14:14 0xffffffffffffffffffffffffffffffffffffffff(int) ) )
-		AssignHavocCmd CANON15:15
-		AssumeExpCmd LAnd(Ge(CANON15:15 0x0(int) ) Le(CANON15:15 0xff(int) ) )
-		AssignHavocCmd CANON16:16
-		AssumeExpCmd LAnd(Ge(CANON16:16 0x0(int) ) Le(CANON16:16 0xff(int) ) )
-		AssignHavocCmd CANON17:17
-		AssumeExpCmd LAnd(Ge(CANON17:17 0x0(int) ) Le(CANON17:17 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) ) )
-		AssignHavocCmd CANON18:18
-		AssignHavocCmd CANON19:19
-		AssignHavocCmd CANON20:20
-		AssignHavocCmd CANON21:21
-		AssignHavocCmd CANON22:22
-		AssignHavocCmd CANON60!!2:2
-		AssignHavocCmd CANON76!!3:3
-		AssignHavocCmd R4:4
-		AssumeExpCmd Eq(R4:4 0x1 )
-		AssignHavocCmd R5:5
-		AssumeExpCmd Eq(R5:5 0x2 )
-		AssignHavocCmd R6:6
-		AssumeExpCmd Eq(R6:6 0x4 )
-		AssignHavocCmd CANON8:44
-		AssumeExpCmd LAnd(Ge(CANON8:44 0x0(int) ) Le(CANON8:44 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) ) )
-		AssignHavocCmd CANON9:45
-		AssumeExpCmd LAnd(Ge(CANON9:45 0x0(int) ) Le(CANON9:45 0xffffffffffffffffffffffffffffffffffffffff(int) ) )
-		AssignHavocCmd R7:7
-		AssumeExpCmd LAnd(Ge(R7:7 0x1 ) Le(R7:7 0xffffffffffffffffffffffffffffffffffffffff ) )
+		AssumeExpCmd Ge(R0:0 0x1 )
+		AssignHavocCmd tacExtcodesize!!3:9
+		AssignHavocCmd CANON10!!5:4
+		AssignHavocCmd CANON11!!6:5
+		AssignHavocCmd CANON12!!7:6
+		AssignHavocCmd CANON13!!8:7
+		AssignHavocCmd CANON14!!9:8
+		AssignHavocCmd CANON15!!10:33
+		AssignHavocCmd CANON16!!11:34
+		AssignHavocCmd CANON17!!12:35
+		AssignHavocCmd CANON24:36
+		AssumeExpCmd LAnd(Ge(CANON24:36 0x0(int) ) Le(CANON24:36 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) ) )
+		AssignHavocCmd CANON25:37
+		AssumeExpCmd LAnd(Ge(CANON25:37 0x0(int) ) Le(CANON25:37 0xffffffffffffffffffffffffffffffffffffffff(int) ) )
+		AssignHavocCmd CANON26:38
+		AssumeExpCmd LAnd(Ge(CANON26:38 0x0(int) ) Le(CANON26:38 0xff(int) ) )
+		AssignHavocCmd CANON27:39
+		AssumeExpCmd LAnd(Ge(CANON27:39 0x0(int) ) Le(CANON27:39 0xff(int) ) )
+		AssignHavocCmd CANON28:40
+		AssumeExpCmd LAnd(Ge(CANON28:40 0x0(int) ) Le(CANON28:40 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) ) )
+		AssignHavocCmd CANON29:41
+		AssumeExpCmd LAnd(Ge(CANON29:41 0x0(int) ) Le(CANON29:41 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) ) )
+		AssignHavocCmd CANON30:42
+		AssumeExpCmd LAnd(Ge(CANON30:42 0x0(int) ) Le(CANON30:42 0xffffffffffffffffffffffffffffffffffffffff(int) ) )
+		AssignHavocCmd CANON31:43
+		AssumeExpCmd LAnd(Ge(CANON31:43 0x0(int) ) Le(CANON31:43 0xff(int) ) )
+		AssignHavocCmd CANON32:44
+		AssumeExpCmd LAnd(Ge(CANON32:44 0x0(int) ) Le(CANON32:44 0xff(int) ) )
+		AssignHavocCmd CANON33:45
+		AssumeExpCmd LAnd(Ge(CANON33:45 0x0(int) ) Le(CANON33:45 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) ) )
+		AssignHavocCmd CANON34:46
+		AssignHavocCmd CANON35:47
+		AssignHavocCmd CANON36:48
+		AssignHavocCmd CANON37:49
+		AssignHavocCmd CANON38:50
+		AssignHavocCmd R13:29
+		AssumeExpCmd Eq(R13:29 0x1 )
+		AssignHavocCmd R14:30
+		AssumeExpCmd Eq(R14:30 0x2 )
+		AssignHavocCmd R15:31
+		AssumeExpCmd Eq(R15:31 0x4 )
+		AssignHavocCmd CANON3!!17:10
+		AssignHavocCmd CANON4!!18:11
+		AssignHavocCmd CANON5!!19:13
+		AssignHavocCmd CANON6!!20:14
+		AssignHavocCmd CANON7!!21:15
+		AssignHavocCmd CANON8!!22:16
+		AssignHavocCmd CANON9!!23:17
+		AssignHavocCmd R24:32
+		AssumeExpCmd LAnd(Ge(R24:32 0x1 ) Le(R24:32 0xffffffffffffffffffffffffffffffffffffffff ) )
+		AssignHavocCmd tacSCANON0!!25:12
 		AnnotationCmd JSON{"key":{"name":"tac.state.extension","type":"analysis.icfg.Inliner$ExtendedStateVars","erasureStrategy":"Canonical"},"value":"rO0ABXNyACdhbmFseXNpcy5pY2ZnLklubGluZXIkRXh0ZW5kZWRTdGF0ZVZhcnOvh/MjxNFkQAIAAUwAFmluc3RhbmNlVG9FeHRlbmRlZFZhcnN0AA9MamF2YS91dGlsL01hcDt4cHNyACFkYXRhc3RydWN0dXJlcy5MaW5rZWRBcnJheUhhc2hNYXAAAAAAAAAAAQMAAkYACmxvYWRGYWN0b3JMAAloYXNoVGFibGV0AC5MZGF0YXN0cnVjdHVyZXMvYXJyYXloYXNodGFibGUvQXJyYXlIYXNoVGFibGU7eHB3CAAAAAFAAAAAc3IAFGphdmEubWF0aC5CaWdJbnRlZ2VyjPyfH6k7+x0DAAZJAAhiaXRDb3VudEkACWJpdExlbmd0aEkAE2ZpcnN0Tm9uemVyb0J5dGVOdW1JAAxsb3dlc3RTZXRCaXRJAAZzaWdudW1bAAltYWduaXR1ZGV0AAJbQnhyABBqYXZhLmxhbmcuTnVtYmVyhqyVHQuU4IsCAAB4cP///////////////v////4AAAABdXIAAltCrPMX+AYIVOACAAB4cAAAABDORgSgAAAAAAAAAAAAAAABeHNxAH4AA3cIAAAAAEAAAAB4eA=="}
-		AnnotationCmd:47 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"Setup"}}
-		AnnotationCmd:48 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"multi contract setup"}}
-		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":1}
-		AnnotationCmd:49 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"rule parameters setup"}}
-		AssignHavocCmd CANON:46
-		AssumeExpCmd LAnd(Ge(CANON:46 0x0(int) ) Le(CANON:46 0x2(int) ) )
-		AnnotationCmd JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLArg.PrimitiveArg","callIndex":0,"index":0,"sym":{"namePrefix":"CANON","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":68,"charByteOffset":22},"end":{"line":68,"charByteOffset":28}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"x"}]},"param":{"Named_type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"id":"x","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":68,"charByteOffset":22},"end":{"line":68,"charByteOffset":28}}}}}
-		AnnotationCmd JSON{"key":{"name":"cvl.trace.declaration","type":"spec.CVLCompiler$Companion$TraceMeta$VariableDeclaration","erasureStrategy":"Erased"},"value":{"v":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar","t":{"namePrefix":"CANON","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":68,"charByteOffset":22},"end":{"line":68,"charByteOffset":28}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"x"}]}},"t":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"type":{"#class":"spec.CVLCompiler.Companion.TraceMeta.DeclarationType.Parameter","sourceName":"x"},"fields":null}}
+		AnnotationCmd:75 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"rule parameters setup"}}
+		AssignHavocCmd CANON:74
+		AssumeExpCmd LAnd(Ge(CANON:74 0x0(int) ) Le(CANON:74 0x2(int) ) )
+		AnnotationCmd JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLArg.PrimitiveArg","callIndex":0,"index":0,"sym":{"namePrefix":"CANON","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":68,"charByteOffset":22},"end":{"line":68,"charByteOffset":28}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"x"}]},"param":{"Named_type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"id":"x","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":68,"charByteOffset":22},"end":{"line":68,"charByteOffset":28}}}}}
+		AnnotationCmd JSON{"key":{"name":"cvl.trace.declaration","type":"spec.CVLCompiler$Companion$TraceMeta$VariableDeclaration","erasureStrategy":"Erased"},"value":{"v":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar","t":{"namePrefix":"CANON","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":68,"charByteOffset":22},"end":{"line":68,"charByteOffset":28}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"x"}]}},"t":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"type":{"#class":"spec.CVLCompiler.Companion.TraceMeta.DeclarationType.Parameter","sourceName":"x"},"fields":null}}
+		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":0}
+		AnnotationCmd:76 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"Setup"}}
+		AnnotationCmd:77 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"multi contract setup"}}
+		AssignExpCmd CANON1:71 R24:78
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":2}
-		AnnotationCmd:50 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"contract address vars initialized"}}
+		AnnotationCmd:79 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"contract address vars initialized"}}
+		AssignExpCmd CANON2:72 R24:78
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":3}
-		AnnotationCmd:51 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"setup read tracking instrumentation"}}
+		AnnotationCmd:80 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"setup read tracking instrumentation"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":4}
-		AnnotationCmd:52 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"last storage initialize"}}
+		AnnotationCmd:81 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"last storage initialize"}}
 		AnnotationCmd JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageGlobalChangeSnippet.StorageTakeSnapshot","lhs":{"namePrefix":"lastStorage","tag":{"#class":"tac.Tag.BlockchainState"},"callIndex":0,"meta":[{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule"}},{"key":{"name":"Tac.symbol.keyword","type":"vc.data.TACSymbol$Var$KeywordEntry","erasureStrategy":"Canonical"},"value":{"#class":"vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry","name":"lastStorage"}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.VMInternal.BlockchainState"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"lastStorage"}]}}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":5}
-		AnnotationCmd:53 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assuming contracts in scene with non-empty bytecode have EXTCODESIZE larger than zero"}}
-		AssignExpCmd R8:8 Select(tacExtcodesize!!1:1 Apply(to_skey:bif R7:7) )
-		AssumeExpCmd Ge(R8:8 0x1 )
-		AssignExpCmd R9:8 Select(tacExtcodesize!!1:1 Apply(to_skey:bif R7:7) )
-		AssumeExpCmd Eq(R9:8 R0:0 )
+		AnnotationCmd:82 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assuming contracts in scene with non-empty bytecode have EXTCODESIZE larger than zero"}}
+		AssignExpCmd R26:27 Select(tacExtcodesize!!3:9 Apply(to_skey:bif R24:78) )
+		AssumeExpCmd Ge(R26:27 0x1 )
+		AssumeExpCmd Eq(R26:83 R0:84 )
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":6}
-		AnnotationCmd:54 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assuming address(0).code has no code deployed"}}
-		AssignExpCmd B11:8 Eq(Select(tacExtcodesize!!1:1 Apply(skey_basic:bif 0x0) ) 0x0 )
-		AssumeCmd B11:8
+		AnnotationCmd:85 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assuming address(0).code has no code deployed"}}
+		AssignExpCmd B28:27 Eq(Select(tacExtcodesize!!3:9 Apply(skey_basic:bif 0x0) ) 0x0 )
+		AssumeCmd B28:27
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":7}
-		AnnotationCmd:55 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assumptions about contracts' addresses"}}
+		AnnotationCmd:86 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assumptions about contracts' addresses"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":8}
-		AnnotationCmd:56 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assumptions about static addresses"}}
+		AnnotationCmd:87 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assumptions about static addresses"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":9}
-		AnnotationCmd:57 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"establish addresses of precompiled contracts"}}
+		AnnotationCmd:88 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"establish addresses of precompiled contracts"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":10}
-		AnnotationCmd:58 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assumptions about uniqueness of contracts' addresses"}}
+		AnnotationCmd:89 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"assumptions about uniqueness of contracts' addresses"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":11}
-		AnnotationCmd:59 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"static links"}}
+		AnnotationCmd:90 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"static links"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":12}
-		AnnotationCmd:60 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"record starting nonces"}}
+		AnnotationCmd:91 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"record starting nonces"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":13}
-		AnnotationCmd:61 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"cloned contracts have no balances"}}
+		AnnotationCmd:92 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"cloned contracts have no balances"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":14}
-		AnnotationCmd:62 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"Linked immutable setup"}}
+		AnnotationCmd:93 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"Linked immutable setup"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":15}
-		AnnotationCmd:63 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"Constrain immutables"}}
+		AnnotationCmd:94 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"Constrain immutables"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":16}
-		AnnotationCmd:64 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"establish equivalence of extension and base contract immutables"}}
+		AnnotationCmd:95 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"establish equivalence of extension and base contract immutables"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":17}
-		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":0}
-		AnnotationCmd:65 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume","cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":69,"charByteOffset":4},"end":{"line":69,"charByteOffset":18}},"exp":{"#class":"spec.cvlast.CVLExp.RelopExp.ArithRelopExp.LtExp","l":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"x","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":69,"charByteOffset":12},"end":{"line":69,"charByteOffset":13}}},"twoStateIndex":"NEITHER"},"r":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"3"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":69,"charByteOffset":16},"end":{"line":69,"charByteOffset":17}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":69,"charByteOffset":12},"end":{"line":69,"charByteOffset":17}}}},"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
-		AssignExpCmd:66 I12 CANON:46
-		AssignExpCmd:67 I13 0x3
-		AssignExpCmd:68 B14 true
-		AnnotationCmd:69 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":18}
-		AnnotationCmd:70 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Declaration","cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}},"cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"id":"s","scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
-		AnnotationCmd JSON{"key":{"name":"cvl.trace.declaration","type":"spec.CVLCompiler$Companion$TraceMeta$VariableDeclaration","erasureStrategy":"Erased"},"value":{"v":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.CVLVar","id":"s933"},"t":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"type":{"#class":"spec.CVLCompiler.Companion.TraceMeta.DeclarationType.Variable"},"fields":[[{"#class":"tac.DataField.StructField","field":"b3"}],{"namePrefix":"CANON18","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.b3"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"x"}],{"namePrefix":"CANON8","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.x"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"y"}],{"namePrefix":"CANON9","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.y"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"x"}],{"namePrefix":"CANON13","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.x"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"y"}],{"namePrefix":"CANON14","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.y"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"b1"}],{"namePrefix":"CANON19","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.b1"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"b2"}],{"namePrefix":"CANON20","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.b2"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"b1"}],{"namePrefix":"CANON21","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.b1"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"b2"}],{"namePrefix":"CANON22","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.b2"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"x2"}],{"namePrefix":"CANON12","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.x2"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"x2"}],{"namePrefix":"CANON17","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.x2"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"z1"}],{"namePrefix":"CANON10","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.z1"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"z2"}],{"namePrefix":"CANON11","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.z2"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"z1"}],{"namePrefix":"CANON15","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.z1"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"z2"}],{"namePrefix":"CANON16","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.z2"}]}]}}
-		AnnotationCmd:71 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":19}
-		AnnotationCmd:72 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Apply","cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":4},"end":{"line":71,"charByteOffset":28}},"exp":{"#class":"spec.cvlast.CVLExp.ApplyExp.CVLFunction","id":"workOnSComplexCVL","args":[{"#class":"spec.cvlast.CVLExp.VariableExp","id":"x","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":22},"end":{"line":71,"charByteOffset":23}}},"twoStateIndex":"NEITHER"},{"#class":"spec.cvlast.CVLExp.VariableExp","id":"s","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":25},"end":{"line":71,"charByteOffset":26}}},"twoStateIndex":"NEITHER"}],"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Void"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":4},"end":{"line":71,"charByteOffset":27}}},"noRevert":true},"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":1}
+		AnnotationCmd:96 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":69,"charByteOffset":4},"end":{"line":69,"charByteOffset":18}},"exp":{"#class":"spec.cvlast.CVLExp.RelopExp.ArithRelopExp.LtExp","l":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"x","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":69,"charByteOffset":12},"end":{"line":69,"charByteOffset":13}}},"twoStateIndex":"NEITHER"},"r":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"3"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":69,"charByteOffset":16},"end":{"line":69,"charByteOffset":17}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":69,"charByteOffset":12},"end":{"line":69,"charByteOffset":17}}}},"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AssignExpCmd:97 I29 CANON:74
+		AssignExpCmd:98 I30 0x3
+		AssignExpCmd:99 B31 true
+		AnnotationCmd:100 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":18}
+		AnnotationCmd:101 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Declaration","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}},"cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"id":"s","scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AnnotationCmd JSON{"key":{"name":"cvl.trace.declaration","type":"spec.CVLCompiler$Companion$TraceMeta$VariableDeclaration","erasureStrategy":"Erased"},"value":{"v":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.CVLVar","id":"s878"},"t":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"type":{"#class":"spec.CVLCompiler.Companion.TraceMeta.DeclarationType.Variable"},"fields":[[{"#class":"tac.DataField.StructField","field":"b3"}],{"namePrefix":"CANON34","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.b3"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"x"}],{"namePrefix":"CANON24","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.x"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"y"}],{"namePrefix":"CANON25","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.y"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"x"}],{"namePrefix":"CANON29","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.x"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"y"}],{"namePrefix":"CANON30","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.y"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"b1"}],{"namePrefix":"CANON35","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.b1"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"b2"}],{"namePrefix":"CANON36","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.b2"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"b1"}],{"namePrefix":"CANON37","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.b1"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"b2"}],{"namePrefix":"CANON38","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.b2"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"x2"}],{"namePrefix":"CANON28","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.x2"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"x2"}],{"namePrefix":"CANON33","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.x2"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"z1"}],{"namePrefix":"CANON26","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.z1"}]},[{"#class":"tac.DataField.StructField","field":"s1"},{"#class":"tac.DataField.StructField","field":"z2"}],{"namePrefix":"CANON27","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.z2"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"z1"}],{"namePrefix":"CANON31","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.z1"}]},[{"#class":"tac.DataField.StructField","field":"s2"},{"#class":"tac.DataField.StructField","field":"z2"}],{"namePrefix":"CANON32","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":70,"charByteOffset":4},"end":{"line":70,"charByteOffset":27}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.z2"}]}]}}
+		AnnotationCmd:102 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":19}
+		AnnotationCmd:103 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Apply","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":4},"end":{"line":71,"charByteOffset":28}},"exp":{"#class":"spec.cvlast.CVLExp.ApplyExp.CVLFunction","id":"workOnSComplexCVL","args":[{"#class":"spec.cvlast.CVLExp.VariableExp","id":"x","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":22},"end":{"line":71,"charByteOffset":23}}},"twoStateIndex":"NEITHER"},{"#class":"spec.cvlast.CVLExp.VariableExp","id":"s","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":25},"end":{"line":71,"charByteOffset":26}}},"twoStateIndex":"NEITHER"}],"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Void"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":4},"end":{"line":71,"charByteOffset":27}}},"noRevert":true},"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
 	}
 	Block 1_0_0_1_0_1 Succ [2_0_0_0_0_0] {
-		AnnotationCmd:73 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLFunctionStart","callIndex":1,"name":"workOnSComplexCVL","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":4},"end":{"line":71,"charByteOffset":27}},"isNoRevert":true}}
-		AssignExpCmd:74 I15 CANON:46
-		AssignExpCmd:73 CANON24:23 I15
-		AnnotationCmd JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLArg.PrimitiveArg","callIndex":1,"index":0,"sym":{"namePrefix":"CANON24","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":27},"end":{"line":7,"charByteOffset":33}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"x"}]},"param":{"Named_type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"id":"x","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":27},"end":{"line":7,"charByteOffset":33}}}}}
-		AnnotationCmd JSON{"key":{"name":"cvl.trace.data.movement","type":"spec.CVLCompiler$Companion$TraceMeta$CVLMovement","erasureStrategy":"Erased"},"value":{"dst":{"id":"s963966"},"src":{"id":"s933"}}}
-		AnnotationCmd JSON{"key":{"name":"cvl.trace.data.movement","type":"spec.CVLCompiler$Companion$TraceMeta$CVLMovement","erasureStrategy":"Erased"},"value":{"dst":{"id":"s940"},"src":{"id":"s963966"}}}
-		AssignExpCmd CANON40:24 CANON8:44
-		AssignExpCmd CANON41:25 CANON9:45
-		AssignExpCmd CANON42:26 CANON10:10
-		AssignExpCmd CANON43:27 CANON11:11
-		AssignExpCmd CANON44:28 CANON19:19
-		AssignExpCmd CANON45:29 CANON12:12
-		AssignExpCmd CANON46:30 CANON20:20
-		AssignExpCmd CANON47:31 CANON13:13
-		AssignExpCmd CANON48:32 CANON14:14
-		AssignExpCmd CANON49:33 CANON15:15
-		AssignExpCmd CANON50:34 CANON16:16
-		AssignExpCmd CANON51:35 CANON21:21
-		AssignExpCmd CANON52:36 CANON17:17
-		AssignExpCmd CANON53:37 CANON22:22
-		AssignExpCmd CANON54:38 CANON18:18
-		AnnotationCmd JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLArg.StructArg","callIndex":1,"index":1,"symbols":[{"namePrefix":"CANON40","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.x"}]},{"namePrefix":"CANON41","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.y"}]},{"namePrefix":"CANON42","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.z1"}]},{"namePrefix":"CANON43","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.z2"}]},{"namePrefix":"CANON44","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.b1"}]},{"namePrefix":"CANON45","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.x2"}]},{"namePrefix":"CANON46","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.b2"}]},{"namePrefix":"CANON47","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.x"}]},{"namePrefix":"CANON48","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.y"}]},{"namePrefix":"CANON49","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.z1"}]},{"namePrefix":"CANON50","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.z2"}]},{"namePrefix":"CANON51","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.b1"}]},{"namePrefix":"CANON52","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.x2"}]},{"namePrefix":"CANON53","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.b2"}]},{"namePrefix":"CANON54","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.b3"}]}],"param":{"Named_type":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"id":"s","range":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}}}
-		AnnotationCmd:75 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Havoc","cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":4},"end":{"line":8,"charByteOffset":34}},"targets":[{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.ArrayDerefExp","array":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"testContract","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract","name":{"name":"TestContract"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":22}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.CVLExp$VariableExp$ContractInstanceId","instanceId":"ce4604a0000000000000000000000001"}},"twoStateIndex":"NEITHER"},"fieldName":"m","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMMappingDescriptor","keyType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256},"valueType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"location":null},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":24}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"index":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":25},"end":{"line":8,"charByteOffset":26}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":27}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"s1","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":30}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"b1","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$bool"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":33}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}}],"assumingExp":null,"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
-		AssignExpCmd:76 I31 0x0
-		AssertCmd:77 true "sanity bounds check on cvl to vm encoding (unsigned int elements of a user array) of %1$s failed"
-		AssignExpCmd:78 R32:8 Apply(hash_3_keccak:bif Apply(skey_basic:bif 0x40) Apply(skey_basic:bif 0x0) Apply(skey_basic:bif 0x0))
-		AssignExpCmd:78 R33:8 Apply(skey_add:bif R32:8 0x1)
-		AssignHavocCmd:78 B34:8
-		AssignExpCmd:78 R35:8 Ite(B34:8 0x1 0x0 )
-		AssignExpCmd:79 CANON60!!36:2 AnnotationExp(Store(CANON60!!2:2 R33:80 R35:8 ) JSON{"key":{"name":"tac.storage.access-paths","type":"analysis.storage.StorageAnalysisResult$AccessPaths","erasureStrategy":"Canonical"},"value":{"paths":[{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.StructAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.MapAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.Root","slot":"0"},"key":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"I31","tag":{"#class":"tac.Tag.Int"},"callIndex":0},"baseSlot":{"#class":"vc.data.TACSymbol.Const","value":"0"},"hashResult":{"#class":"vc.data.TACSymbol.Const","value":"0"}},"offset":{"#class":"analysis.storage.StorageAnalysis.Offset.Bytes","numBytes":"36"}}]}})
-		AnnotationCmd:78 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet.DirectStorageHavoc","value":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"R35","tag":{"#class":"tac.Tag.Bit256"},"callIndex":0,"meta":[{"key":{"name":"tac.is-temp-var","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}]},"displayPath":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"b1","base":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"s1","base":{"#class":"analysis.storage.DisplayPath.MapAccess","key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"keyTyp":{"#class":"tac.TACStorageType.IntegralType","typeLabel":"uint256","numBytes":"20","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$UIntK","bitwidth":256},"lowerBound":null,"upperBound":null},"base":{"#class":"analysis.storage.DisplayPath.Root","name":"m"}}}},"storageType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"},"contractInstance":"ce4604a0000000000000000000000001","range":{"specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":33}}}}
-		AssignExpCmd:81 B37 true
-		AnnotationCmd:78 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":21}
-		AnnotationCmd:82 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume","cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":4},"end":{"line":9,"charByteOffset":47}},"exp":{"#class":"spec.cvlast.CVLExp.RelopExp.EqExp","l":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.ArrayDerefExp","array":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"testContract","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract","name":{"name":"TestContract"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":24}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.CVLExp$VariableExp$ContractInstanceId","instanceId":"ce4604a0000000000000000000000001"}},"twoStateIndex":"NEITHER"},"fieldName":"m","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMMappingDescriptor","keyType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256},"valueType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"location":null},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":26}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"index":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":27},"end":{"line":9,"charByteOffset":28}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":29}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"s1","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":32}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"b1","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$bool"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":35}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"r":{"#class":"spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GtExp","l":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"x","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":40},"end":{"line":9,"charByteOffset":41}}},"twoStateIndex":"NEITHER"},"r":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"3"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":44},"end":{"line":9,"charByteOffset":45}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":40},"end":{"line":9,"charByteOffset":45}},"hasParens":true}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":46}}}},"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
-		AssignExpCmd:83 I38 0x0
-		AssertCmd:84 true "sanity bounds check on cvl to vm encoding (unsigned int elements of a user array) of %1$s failed"
-		AssignExpCmd:85 R39:8 Apply(hash_3_keccak:bif Apply(skey_basic:bif 0x40) Apply(skey_basic:bif 0x0) Apply(skey_basic:bif 0x0))
-		AssignExpCmd:85 R40:8 Apply(skey_add:bif R39:8 0x1)
-		AssignExpCmd:86 R41:8 AnnotationExp(Select(CANON60!!36:87 R40:88 ) JSON{"key":{"name":"tac.storage.access-paths","type":"analysis.storage.StorageAnalysisResult$AccessPaths","erasureStrategy":"Canonical"},"value":{"paths":[{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.StructAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.MapAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.Root","slot":"0"},"key":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"I38","tag":{"#class":"tac.Tag.Int"},"callIndex":0},"baseSlot":{"#class":"vc.data.TACSymbol.Const","value":"0"},"hashResult":{"#class":"vc.data.TACSymbol.Const","value":"0"}},"offset":{"#class":"analysis.storage.StorageAnalysis.Offset.Bytes","numBytes":"36"}}]}})
-		AssumeExpCmd Eq(R41:8 0x0 )
-		AssignExpCmd:85 B42 false
-		AnnotationCmd:85 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet.DirectStorageLoad","value":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"B42","tag":{"#class":"tac.Tag.Bool"},"callIndex":0},"displayPath":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"b1","base":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"s1","base":{"#class":"analysis.storage.DisplayPath.MapAccess","key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"keyTyp":{"#class":"tac.TACStorageType.IntegralType","typeLabel":"uint256","numBytes":"20","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$UIntK","bitwidth":256},"lowerBound":null,"upperBound":null},"base":{"#class":"analysis.storage.DisplayPath.Root","name":"m"}}}},"storageType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"},"contractInstance":"ce4604a0000000000000000000000001","range":{"specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":35}}}}
-		AssignExpCmd:89 I43 CANON24:23
-		AssignExpCmd:90 I44 0x3
-		AssignExpCmd:91 B45 false
-		AssignExpCmd:92 CANON70:41 true
-		AnnotationCmd:85 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":22}
-		AnnotationCmd:93 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Havoc","cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":4},"end":{"line":10,"charByteOffset":31}},"targets":[{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.ArrayDerefExp","array":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"testContract","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract","name":{"name":"TestContract"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":22}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.CVLExp$VariableExp$ContractInstanceId","instanceId":"ce4604a0000000000000000000000001"}},"twoStateIndex":"NEITHER"},"fieldName":"m","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMMappingDescriptor","keyType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256},"valueType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"location":null},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":24}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"index":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":25},"end":{"line":10,"charByteOffset":26}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":27}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"b3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$bool"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":30}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}}],"assumingExp":null,"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
-		AssignExpCmd:94 I46 0x0
-		AssertCmd:95 true "sanity bounds check on cvl to vm encoding (unsigned int elements of a user array) of %1$s failed"
-		AssignExpCmd:96 R47:8 Apply(hash_3_keccak:bif Apply(skey_basic:bif 0x40) Apply(skey_basic:bif 0x0) Apply(skey_basic:bif 0x0))
-		AssignExpCmd:96 R48:8 Apply(skey_add:bif R47:8 0x8)
-		AssignHavocCmd:96 B49:8
-		AssignExpCmd:96 R50:8 Ite(B49:8 0x1 0x0 )
-		AssignExpCmd:97 CANON76!!51:3 AnnotationExp(Store(CANON76!!3:3 R48:98 R50:8 ) JSON{"key":{"name":"tac.storage.access-paths","type":"analysis.storage.StorageAnalysisResult$AccessPaths","erasureStrategy":"Canonical"},"value":{"paths":[{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.StructAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.MapAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.Root","slot":"0"},"key":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"I46","tag":{"#class":"tac.Tag.Int"},"callIndex":0},"baseSlot":{"#class":"vc.data.TACSymbol.Const","value":"0"},"hashResult":{"#class":"vc.data.TACSymbol.Const","value":"0"}},"offset":{"#class":"analysis.storage.StorageAnalysis.Offset.Bytes","numBytes":"100"}}]}})
-		AnnotationCmd:96 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet.DirectStorageHavoc","value":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"R50","tag":{"#class":"tac.Tag.Bit256"},"callIndex":0,"meta":[{"key":{"name":"tac.is-temp-var","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}]},"displayPath":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"b3","base":{"#class":"analysis.storage.DisplayPath.MapAccess","key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"keyTyp":{"#class":"tac.TACStorageType.IntegralType","typeLabel":"uint256","numBytes":"20","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$UIntK","bitwidth":256},"lowerBound":null,"upperBound":null},"base":{"#class":"analysis.storage.DisplayPath.Root","name":"m"}}},"storageType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"},"contractInstance":"ce4604a0000000000000000000000001","range":{"specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":30}}}}
-		AssignExpCmd:99 B52 true
-		AnnotationCmd:96 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":23}
-		AnnotationCmd:100 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume","cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":4},"end":{"line":11,"charByteOffset":44}},"exp":{"#class":"spec.cvlast.CVLExp.RelopExp.EqExp","l":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.ArrayDerefExp","array":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"testContract","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract","name":{"name":"TestContract"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":24}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.CVLExp$VariableExp$ContractInstanceId","instanceId":"ce4604a0000000000000000000000001"}},"twoStateIndex":"NEITHER"},"fieldName":"m","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMMappingDescriptor","keyType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256},"valueType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"location":null},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":26}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"index":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":27},"end":{"line":11,"charByteOffset":28}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":29}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"b3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$bool"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":32}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"r":{"#class":"spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GtExp","l":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"x","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":37},"end":{"line":11,"charByteOffset":38}}},"twoStateIndex":"NEITHER"},"r":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"5","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"5"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":41},"end":{"line":11,"charByteOffset":42}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":37},"end":{"line":11,"charByteOffset":42}},"hasParens":true}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":43}}}},"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
-		AssignExpCmd:101 I53 0x0
-		AssertCmd:102 true "sanity bounds check on cvl to vm encoding (unsigned int elements of a user array) of %1$s failed"
-		AssignExpCmd:103 R54:8 Apply(hash_3_keccak:bif Apply(skey_basic:bif 0x40) Apply(skey_basic:bif 0x0) Apply(skey_basic:bif 0x0))
-		AssignExpCmd:103 R55:8 Apply(skey_add:bif R54:8 0x8)
-		AssignExpCmd:104 R56:8 AnnotationExp(Select(CANON76!!51:105 R55:106 ) JSON{"key":{"name":"tac.storage.access-paths","type":"analysis.storage.StorageAnalysisResult$AccessPaths","erasureStrategy":"Canonical"},"value":{"paths":[{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.StructAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.MapAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.Root","slot":"0"},"key":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"I53","tag":{"#class":"tac.Tag.Int"},"callIndex":0},"baseSlot":{"#class":"vc.data.TACSymbol.Const","value":"0"},"hashResult":{"#class":"vc.data.TACSymbol.Const","value":"0"}},"offset":{"#class":"analysis.storage.StorageAnalysis.Offset.Bytes","numBytes":"100"}}]}})
-		AssumeExpCmd Eq(R56:8 0x0 )
-		AssignExpCmd:103 B57 false
-		AnnotationCmd:103 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet.DirectStorageLoad","value":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"B57","tag":{"#class":"tac.Tag.Bool"},"callIndex":0},"displayPath":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"b3","base":{"#class":"analysis.storage.DisplayPath.MapAccess","key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"keyTyp":{"#class":"tac.TACStorageType.IntegralType","typeLabel":"uint256","numBytes":"20","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$UIntK","bitwidth":256},"lowerBound":null,"upperBound":null},"base":{"#class":"analysis.storage.DisplayPath.Root","name":"m"}}},"storageType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"},"contractInstance":"ce4604a0000000000000000000000001","range":{"specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":32}}}}
-		AssignExpCmd:107 I58 CANON24:23
-		AssignExpCmd:108 I59 0x5
-		AssignExpCmd:109 B60 false
-		AssignExpCmd:110 CANON86:41 true
-		AnnotationCmd:103 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":24}
-		AnnotationCmd:73 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLFunctionEnd","callIndex":1,"name":"workOnSComplexCVL"}}
-		AnnotationCmd:73 JSON{"key":{"name":"revert.confluence","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}
-		LabelCmd:73 "join point of revert handling"
+		AnnotationCmd:104 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLFunctionStart","callIndex":1,"name":"workOnSComplexCVL","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":71,"charByteOffset":4},"end":{"line":71,"charByteOffset":27}},"isNoRevert":true}}
+		AssignExpCmd:105 I32 CANON:74
+		AssignExpCmd:104 CANON40:51 I32
+		AnnotationCmd JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLArg.PrimitiveArg","callIndex":1,"index":0,"sym":{"namePrefix":"CANON40","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":27},"end":{"line":7,"charByteOffset":33}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"x"}]},"param":{"Named_type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"id":"x","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":27},"end":{"line":7,"charByteOffset":33}}}}}
+		AnnotationCmd JSON{"key":{"name":"cvl.trace.data.movement","type":"spec.CVLCompiler$Companion$TraceMeta$CVLMovement","erasureStrategy":"Erased"},"value":{"dst":{"id":"s905906"},"src":{"id":"s878"}}}
+		AnnotationCmd JSON{"key":{"name":"cvl.trace.data.movement","type":"spec.CVLCompiler$Companion$TraceMeta$CVLMovement","erasureStrategy":"Erased"},"value":{"dst":{"id":"s900"},"src":{"id":"s905906"}}}
+		AssignExpCmd CANON56:52 CANON24:36
+		AssignExpCmd CANON57:53 CANON25:37
+		AssignExpCmd CANON58:54 CANON26:38
+		AssignExpCmd CANON59:55 CANON27:39
+		AssignExpCmd CANON60:56 CANON35:47
+		AssignExpCmd CANON61:57 CANON28:40
+		AssignExpCmd CANON62:58 CANON36:48
+		AssignExpCmd CANON63:59 CANON29:41
+		AssignExpCmd CANON64:60 CANON30:42
+		AssignExpCmd CANON65:61 CANON31:43
+		AssignExpCmd CANON66:62 CANON32:44
+		AssignExpCmd CANON67:63 CANON37:49
+		AssignExpCmd CANON68:64 CANON33:45
+		AssignExpCmd CANON69:65 CANON38:50
+		AssignExpCmd CANON70:66 CANON34:46
+		AnnotationCmd JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLArg.StructArg","callIndex":1,"index":1,"symbols":[{"namePrefix":"CANON56","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.x"}]},{"namePrefix":"CANON57","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.y"}]},{"namePrefix":"CANON58","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.z1"}]},{"namePrefix":"CANON59","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.z2"}]},{"namePrefix":"CANON60","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.b1"}]},{"namePrefix":"CANON61","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.x2"}]},{"namePrefix":"CANON62","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s1.b2"}]},{"namePrefix":"CANON63","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.x"}]},{"namePrefix":"CANON64","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.y"}]},{"namePrefix":"CANON65","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.z1"}]},{"namePrefix":"CANON66","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.z2"}]},{"namePrefix":"CANON67","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.b1"}]},{"namePrefix":"CANON68","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.x2"}]},{"namePrefix":"CANON69","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.s2.b2"}]},{"namePrefix":"CANON70","tag":{"#class":"tac.Tag.Bool"},"callIndex":0,"meta":[{"key":{"name":"cvl.struct.path","type":"spec.cvlast.CVLStructPathNode","erasureStrategy":"CallTrace"},"value":{"rootStructType":{"name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"fields":[{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Function","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"s.b3"}]}],"param":{"Named_type":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"id":"s","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":7,"charByteOffset":35},"end":{"line":7,"charByteOffset":57}}}}}
+		AnnotationCmd:106 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Havoc","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":4},"end":{"line":8,"charByteOffset":34}},"targets":[{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.ArrayDerefExp","array":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"testContract","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract","name":{"name":"TestContract"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":22}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.CVLExp$VariableExp$ContractInstanceId","instanceId":"ce4604a0000000000000000000000001"}},"twoStateIndex":"NEITHER"},"fieldName":"m","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMMappingDescriptor","keyType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256},"valueType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"location":null},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":24}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"index":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":25},"end":{"line":8,"charByteOffset":26}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":27}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"s1","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":30}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"b1","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$bool"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":33}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}}],"assumingExp":null,"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AssignExpCmd:107 I48 0x0
+		AssertCmd:108 true "sanity bounds check on cvl to vm encoding (unsigned int elements of a user array) of %1$s failed"
+		AssignExpCmd:109 R49:27 Apply(hash_3_keccak:bif Apply(skey_basic:bif 0x40) Apply(skey_basic:bif 0x0) Apply(skey_basic:bif 0x0))
+		AssignExpCmd:109 R50:27 Apply(skey_add:bif R49:27 0x1)
+		AssignHavocCmd:109 B51:27
+		AssignExpCmd:109 R52:27 Ite(B51:27 0x1 0x0 )
+		AssignExpCmd:110 CANON16!!53:34 AnnotationExp(Store(CANON16!!11:34 R50:111 R52:27 ) JSON{"key":{"name":"tac.storage.access-paths","type":"analysis.storage.StorageAnalysisResult$AccessPaths","erasureStrategy":"Canonical"},"value":{"paths":[{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.StructAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.MapAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.Root","slot":"0"},"key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"baseSlot":{"#class":"vc.data.TACSymbol.Const","value":"0"},"hashResult":{"#class":"vc.data.TACSymbol.Const","value":"0"}},"offset":{"#class":"analysis.storage.StorageAnalysis.Offset.Bytes","numBytes":"36"}}]}})
+		AnnotationCmd:109 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet.DirectStorageHavoc","value":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"R52","tag":{"#class":"tac.Tag.Bit256"},"callIndex":0,"meta":[{"key":{"name":"tac.is-temp-var","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}]},"displayPath":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"b1","base":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"s1","base":{"#class":"analysis.storage.DisplayPath.MapAccess","key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"keyTyp":{"#class":"tac.TACStorageType.IntegralType","typeLabel":"uint256","numBytes":"20","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$UIntK","bitwidth":256},"lowerBound":null,"upperBound":null},"base":{"#class":"analysis.storage.DisplayPath.Root","name":"m"}}}},"storageType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"},"contractInstance":"ce4604a0000000000000000000000001","range":{"specFile":"test.spec","start":{"line":8,"charByteOffset":10},"end":{"line":8,"charByteOffset":33}}}}
+		AssignExpCmd:112 B54 true
+		AnnotationCmd:109 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":21}
+		AnnotationCmd:113 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":4},"end":{"line":9,"charByteOffset":47}},"exp":{"#class":"spec.cvlast.CVLExp.RelopExp.EqExp","l":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.ArrayDerefExp","array":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"testContract","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract","name":{"name":"TestContract"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":24}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.CVLExp$VariableExp$ContractInstanceId","instanceId":"ce4604a0000000000000000000000001"}},"twoStateIndex":"NEITHER"},"fieldName":"m","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMMappingDescriptor","keyType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256},"valueType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"location":null},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":26}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"index":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":27},"end":{"line":9,"charByteOffset":28}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":29}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"s1","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":32}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"b1","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$bool"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":35}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"r":{"#class":"spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GtExp","l":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"x","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":40},"end":{"line":9,"charByteOffset":41}}},"twoStateIndex":"NEITHER"},"r":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"3"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":44},"end":{"line":9,"charByteOffset":45}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":40},"end":{"line":9,"charByteOffset":45}},"hasParens":true}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":46}}}},"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AssignExpCmd:114 I55 0x0
+		AssertCmd:115 true "sanity bounds check on cvl to vm encoding (unsigned int elements of a user array) of %1$s failed"
+		AssignExpCmd:116 R56:27 Apply(hash_3_keccak:bif Apply(skey_basic:bif 0x40) Apply(skey_basic:bif 0x0) Apply(skey_basic:bif 0x0))
+		AssignExpCmd:116 R57:27 Apply(skey_add:bif R56:27 0x1)
+		AssignExpCmd:117 R58:27 AnnotationExp(Select(CANON16!!53:118 R57:119 ) JSON{"key":{"name":"tac.storage.access-paths","type":"analysis.storage.StorageAnalysisResult$AccessPaths","erasureStrategy":"Canonical"},"value":{"paths":[{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.StructAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.MapAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.Root","slot":"0"},"key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"baseSlot":{"#class":"vc.data.TACSymbol.Const","value":"0"},"hashResult":{"#class":"vc.data.TACSymbol.Const","value":"0"}},"offset":{"#class":"analysis.storage.StorageAnalysis.Offset.Bytes","numBytes":"36"}}]}})
+		AssumeExpCmd Eq(R58:27 0x0 )
+		AssignExpCmd:116 B59 false
+		AnnotationCmd:116 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet.DirectStorageLoad","value":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"B59","tag":{"#class":"tac.Tag.Bool"},"callIndex":0},"displayPath":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"b1","base":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"s1","base":{"#class":"analysis.storage.DisplayPath.MapAccess","key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"keyTyp":{"#class":"tac.TACStorageType.IntegralType","typeLabel":"uint256","numBytes":"20","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$UIntK","bitwidth":256},"lowerBound":null,"upperBound":null},"base":{"#class":"analysis.storage.DisplayPath.Root","name":"m"}}}},"storageType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"},"contractInstance":"ce4604a0000000000000000000000001","range":{"specFile":"test.spec","start":{"line":9,"charByteOffset":12},"end":{"line":9,"charByteOffset":35}}}}
+		AssignExpCmd:120 I60 CANON40:51
+		AssignExpCmd:121 I61 0x3
+		AssignExpCmd:122 B62 false
+		AssignExpCmd:123 CANON85:19 true
+		AnnotationCmd:116 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":22}
+		AnnotationCmd:124 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Havoc","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":4},"end":{"line":10,"charByteOffset":31}},"targets":[{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.ArrayDerefExp","array":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"testContract","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract","name":{"name":"TestContract"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":22}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.CVLExp$VariableExp$ContractInstanceId","instanceId":"ce4604a0000000000000000000000001"}},"twoStateIndex":"NEITHER"},"fieldName":"m","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMMappingDescriptor","keyType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256},"valueType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"location":null},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":24}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"index":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":25},"end":{"line":10,"charByteOffset":26}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":27}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"b3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$bool"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":30}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}}],"assumingExp":null,"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AssignExpCmd:125 I63 0x0
+		AssertCmd:126 true "sanity bounds check on cvl to vm encoding (unsigned int elements of a user array) of %1$s failed"
+		AssignExpCmd:127 R64:27 Apply(hash_3_keccak:bif Apply(skey_basic:bif 0x40) Apply(skey_basic:bif 0x0) Apply(skey_basic:bif 0x0))
+		AssignExpCmd:127 R65:27 Apply(skey_add:bif R64:27 0x8)
+		AssignHavocCmd:127 B66:27
+		AssignExpCmd:127 R67:27 Ite(B66:27 0x1 0x0 )
+		AssignExpCmd:128 CANON4!!68:11 AnnotationExp(Store(CANON4!!18:11 R65:129 R67:27 ) JSON{"key":{"name":"tac.storage.access-paths","type":"analysis.storage.StorageAnalysisResult$AccessPaths","erasureStrategy":"Canonical"},"value":{"paths":[{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.StructAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.MapAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.Root","slot":"0"},"key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"baseSlot":{"#class":"vc.data.TACSymbol.Const","value":"0"},"hashResult":{"#class":"vc.data.TACSymbol.Const","value":"0"}},"offset":{"#class":"analysis.storage.StorageAnalysis.Offset.Bytes","numBytes":"100"}}]}})
+		AnnotationCmd:127 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet.DirectStorageHavoc","value":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"R67","tag":{"#class":"tac.Tag.Bit256"},"callIndex":0,"meta":[{"key":{"name":"tac.is-temp-var","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}]},"displayPath":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"b3","base":{"#class":"analysis.storage.DisplayPath.MapAccess","key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"keyTyp":{"#class":"tac.TACStorageType.IntegralType","typeLabel":"uint256","numBytes":"20","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$UIntK","bitwidth":256},"lowerBound":null,"upperBound":null},"base":{"#class":"analysis.storage.DisplayPath.Root","name":"m"}}},"storageType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"},"contractInstance":"ce4604a0000000000000000000000001","range":{"specFile":"test.spec","start":{"line":10,"charByteOffset":10},"end":{"line":10,"charByteOffset":30}}}}
+		AssignExpCmd:130 B69 true
+		AnnotationCmd:127 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":23}
+		AnnotationCmd:131 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":4},"end":{"line":11,"charByteOffset":44}},"exp":{"#class":"spec.cvlast.CVLExp.RelopExp.EqExp","l":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.ArrayDerefExp","array":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"testContract","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract","name":{"name":"TestContract"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":24}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.CVLExp$VariableExp$ContractInstanceId","instanceId":"ce4604a0000000000000000000000001"}},"twoStateIndex":"NEITHER"},"fieldName":"m","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMMappingDescriptor","keyType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256},"valueType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"location":null},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":26}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"index":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":27},"end":{"line":11,"charByteOffset":28}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Complex","location":null,"fields":[{"fieldName":"s1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"s2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.EVMStructDescriptor","canonicalId":"TestContract.sol|TestContract.Simple","location":null,"fields":[{"fieldName":"x","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"y","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.address"}},{"fieldName":"z1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"z2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":8}},{"fieldName":"b1","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}},{"fieldName":"x2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK","bitwidth":256}},{"fieldName":"b2","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Simple"}},{"fieldName":"b3","fieldType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"}}],"name":"TestContract.Complex"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":29}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"fieldName":"b3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.VM","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$bool"},"context":{"#class":"spec.cvlast.typedescriptors.FromVMContext.StateValue"}},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":32}},"annotation":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.StorageAccessMarker"}}},"r":{"#class":"spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GtExp","l":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"x","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":37},"end":{"line":11,"charByteOffset":38}}},"twoStateIndex":"NEITHER"},"r":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"5","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"5"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":41},"end":{"line":11,"charByteOffset":42}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":37},"end":{"line":11,"charByteOffset":42}},"hasParens":true}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":43}}}},"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.CVLFunctionScopeItem","scopeId":9}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AssignExpCmd:132 I70 0x0
+		AssertCmd:133 true "sanity bounds check on cvl to vm encoding (unsigned int elements of a user array) of %1$s failed"
+		AssignExpCmd:134 R71:27 Apply(hash_3_keccak:bif Apply(skey_basic:bif 0x40) Apply(skey_basic:bif 0x0) Apply(skey_basic:bif 0x0))
+		AssignExpCmd:134 R72:27 Apply(skey_add:bif R71:27 0x8)
+		AssignExpCmd:135 R73:27 AnnotationExp(Select(CANON4!!68:136 R72:137 ) JSON{"key":{"name":"tac.storage.access-paths","type":"analysis.storage.StorageAnalysisResult$AccessPaths","erasureStrategy":"Canonical"},"value":{"paths":[{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.StructAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.MapAccess","base":{"#class":"analysis.storage.StorageAnalysis.AnalysisPath.Root","slot":"0"},"key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"baseSlot":{"#class":"vc.data.TACSymbol.Const","value":"0"},"hashResult":{"#class":"vc.data.TACSymbol.Const","value":"0"}},"offset":{"#class":"analysis.storage.StorageAnalysis.Offset.Bytes","numBytes":"100"}}]}})
+		AssumeExpCmd Eq(R73:27 0x0 )
+		AssignExpCmd:134 B74 false
+		AnnotationCmd:134 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.EVMSnippetCmd.StorageSnippet.DirectStorageLoad","value":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"B74","tag":{"#class":"tac.Tag.Bool"},"callIndex":0},"displayPath":{"#class":"analysis.storage.DisplayPath.FieldAccess","field":"b3","base":{"#class":"analysis.storage.DisplayPath.MapAccess","key":{"#class":"vc.data.TACSymbol.Const","value":"0"},"keyTyp":{"#class":"tac.TACStorageType.IntegralType","typeLabel":"uint256","numBytes":"20","descriptor":{"#class":"ReflectivePolymorphicSerializer::spec.cvlast.typedescriptors.EVMTypeDescriptor$UIntK","bitwidth":256},"lowerBound":null,"upperBound":null},"base":{"#class":"analysis.storage.DisplayPath.Root","name":"m"}}},"storageType":{"#class":"spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"},"contractInstance":"ce4604a0000000000000000000000001","range":{"specFile":"test.spec","start":{"line":11,"charByteOffset":12},"end":{"line":11,"charByteOffset":32}}}}
+		AssignExpCmd:138 I75 CANON40:51
+		AssignExpCmd:139 I76 0x5
+		AssignExpCmd:140 B77 false
+		AssignExpCmd:141 CANON100:19 true
+		AnnotationCmd:134 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":24}
+		AnnotationCmd:104 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.CVLFunctionEnd","callIndex":1,"name":"workOnSComplexCVL"}}
+		AnnotationCmd:104 JSON{"key":{"name":"revert.confluence","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}
+		LabelCmd:104 "join point of revert handling"
 	}
 	Block 2_0_0_0_0_0 Succ [] {
-		AnnotationCmd:73 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":20}
-		AnnotationCmd:111 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Assert","cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":72,"charByteOffset":4},"end":{"line":72,"charByteOffset":16}},"exp":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"s","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":72,"charByteOffset":11},"end":{"line":72,"charByteOffset":12}}},"twoStateIndex":"NEITHER"},"fieldName":"b3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"cvlRange":{"#class":"spec.cvlast.CVLRange.Range","specFile":"test.spec","start":{"line":72,"charByteOffset":11},"end":{"line":72,"charByteOffset":15}}}},"description":"s.b3","scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
-		AnnotationCmd JSON{"key":{"name":"cvl.trace.data.movement","type":"spec.CVLCompiler$Companion$TraceMeta$CVLMovement","erasureStrategy":"Erased"},"value":{"dst":{"id":"tmp10921093"},"src":{"id":"s933"}}}
-		AssignExpCmd:112 B62 CANON18:18
-		AnnotationCmd JSON{"key":{"name":"cvl.trace.traversal","type":"spec.CVLCompiler$Companion$TraceMeta$ValueTraversal","erasureStrategy":"Erased"},"value":{"lhs":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar","t":{"namePrefix":"B62","tag":{"#class":"tac.Tag.Bool"},"callIndex":0}},"ap":[{"#class":"ReflectivePolymorphicSerializer::spec.CVLCompiler$Companion$TraceMeta$CVLAccessPathStep$Field","f":"b3"}],"base":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.CVLVar","id":"tmp10921093"}}}
-		AssertCmd:113 B62 "s.b3"
+		AnnotationCmd:104 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":20}
+		AnnotationCmd:142 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Assert","range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":72,"charByteOffset":4},"end":{"line":72,"charByteOffset":16}},"exp":{"#class":"spec.cvlast.CVLExp.FieldSelectExp","structExp":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"s","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Complex","fields":[{"fieldName":"s1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"s2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Struct","name":"TestContract.Simple","fields":[{"fieldName":"x","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"y","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"}},{"fieldName":"z1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"z2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":8}},{"fieldName":"b1","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}},{"fieldName":"x2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"fieldName":"b2","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]}},{"fieldName":"b3","cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"}}]},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":72,"charByteOffset":11},"end":{"line":72,"charByteOffset":12}}},"twoStateIndex":"NEITHER"},"fieldName":"b3","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"range":{"#class":"utils.Range.Range","specFile":"test.spec","start":{"line":72,"charByteOffset":11},"end":{"line":72,"charByteOffset":15}}}},"description":"s.b3","scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":8}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AnnotationCmd JSON{"key":{"name":"cvl.trace.data.movement","type":"spec.CVLCompiler$Companion$TraceMeta$CVLMovement","erasureStrategy":"Erased"},"value":{"dst":{"id":"tmp10301032"},"src":{"id":"s878"}}}
+		AssignExpCmd:143 B79 CANON34:46
+		AnnotationCmd JSON{"key":{"name":"cvl.trace.traversal","type":"spec.CVLCompiler$Companion$TraceMeta$ValueTraversal","erasureStrategy":"Erased"},"value":{"lhs":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar","t":{"namePrefix":"B79","tag":{"#class":"tac.Tag.Bool"},"callIndex":0}},"ap":[{"#class":"ReflectivePolymorphicSerializer::spec.CVLCompiler$Companion$TraceMeta$CVLAccessPathStep$Field","f":"b3"}],"base":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.CVLVar","id":"tmp10301032"}}}
+		AssertCmd:144 B79 "s.b3"
 	}
 }
 Axioms {
@@ -395,8 +468,8 @@ Metas {
       },
       "value": {
         "#class": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
-        "name": "tacExtcodesize",
-        "maybeTACKeywordOrdinal": 25
+        "name": "tacNonce",
+        "maybeTACKeywordOrdinal": 44
       }
     },
     {
@@ -407,10 +480,24 @@ Metas {
       },
       "value": {
       }
+    }
+  ],
+  "2": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+        "name": "tacContractsCreated",
+        "maybeTACKeywordOrdinal": 46
+      }
     },
     {
       "key": {
-        "name": "tac.is.extcodesize",
+        "name": "tac.no.callindex",
         "type": "tac.MetaMap$Companion$NothingValue",
         "erasureStrategy": "Canonical"
       },
@@ -418,7 +505,52 @@ Metas {
       }
     }
   ],
-  "2": [
+  "3": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "lastStorage"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 0
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"
+      }
+    }
+  ],
+  "4": [
     {
       "key": {
         "name": "tac.storage.non-indexed-path.family",
@@ -436,7 +568,244 @@ Metas {
                 "slot": "0"
               }
             },
-            "offset": "1"
+            "offset": "4"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 256
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 256
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "4"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "5": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "2"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 256
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 256
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "2"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "6": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "0"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 256
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 256
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "0"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "7": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "7"
           }
         ]
       }
@@ -452,7 +821,7 @@ Metas {
         "packedStart": {
           "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
         },
-        "start": 176
+        "start": 0
       }
     },
     {
@@ -488,6 +857,89 @@ Metas {
             "slot": "0"
           }
         },
+        "offset": "7"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "8": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "1"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 160
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 8
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
         "offset": "1"
       }
     },
@@ -500,7 +952,121 @@ Metas {
       "value": "ce4604a0000000000000000000000001"
     }
   ],
-  "3": [
+  "9": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+        "name": "tacExtcodesize",
+        "maybeTACKeywordOrdinal": 25
+      }
+    },
+    {
+      "key": {
+        "name": "tac.no.callindex",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "tac.is.extcodesize",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    }
+  ],
+  "10": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "3"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 0
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "3"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "11": [
     {
       "key": {
         "name": "tac.storage.non-indexed-path.family",
@@ -582,7 +1148,781 @@ Metas {
       "value": "ce4604a0000000000000000000000001"
     }
   ],
-  "4": [
+  "12": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+        "name": "tacS",
+        "maybeTACKeywordOrdinal": 2
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "13": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "5"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 160
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 8
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "5"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "14": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "5"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 168
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 8
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "5"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "15": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "5"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 176
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "5"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "16": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "1"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 0
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 160
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.address"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "1"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "17": [
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
+              }
+            },
+            "offset": "6"
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 256
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 256
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
+          }
+        },
+        "offset": "6"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    }
+  ],
+  "18": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+        "name": "tacT",
+        "maybeTACKeywordOrdinal": 5
+      }
+    },
+    {
+      "key": {
+        "name": "tac.transient_storage",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+      }
+    }
+  ],
+  "19": [
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    }
+  ],
+  "20": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+        "name": "tacBalance",
+        "maybeTACKeywordOrdinal": 23
+      }
+    },
+    {
+      "key": {
+        "name": "tac.no.callindex",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    }
+  ],
+  "21": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "lastStorage"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 160
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 8
+      }
+    }
+  ],
+  "22": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "lastStorage"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 168
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 8
+      }
+    }
+  ],
+  "23": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "lastStorage"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 176
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"
+      }
+    }
+  ],
+  "24": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "lastStorage"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+      }
+    }
+  ],
+  "25": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "lastStorage"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 0
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 160
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.address"
+      }
+    }
+  ],
+  "26": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "lastStorage"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 256
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 256
+      }
+    }
+  ],
+  "27": [
+    {
+      "key": {
+        "name": "tac.is-temp-var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    }
+  ],
+  "28": [
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s"
+    }
+  ],
+  "29": [
     {
       "key": {
         "name": "Tac.symbol.keyword",
@@ -611,7 +1951,7 @@ Metas {
       "value": "1"
     }
   ],
-  "5": [
+  "30": [
     {
       "key": {
         "name": "Tac.symbol.keyword",
@@ -640,7 +1980,7 @@ Metas {
       "value": "2"
     }
   ],
-  "6": [
+  "31": [
     {
       "key": {
         "name": "Tac.symbol.keyword",
@@ -669,7 +2009,7 @@ Metas {
       "value": "4"
     }
   ],
-  "7": [
+  "32": [
     {
       "key": {
         "name": "Tac.symbol.keyword",
@@ -698,6124 +2038,251 @@ Metas {
       "value": "ce4604a0000000000000000000000001"
     }
   ],
-  "8": [
-    {
-      "key": {
-        "name": "tac.is-temp-var",
-        "type": "tac.MetaMap$Companion$NothingValue",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-      }
-    }
-  ],
-  "9": [
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s"
-    }
-  ],
-  "10": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "z1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 8
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 8
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.z1"
-    }
-  ],
-  "11": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "z2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 8
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 8
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.z2"
-    }
-  ],
-  "12": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "x2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 256
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 256
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.x2"
-    }
-  ],
-  "13": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "x",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 256
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 256
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.x"
-    }
-  ],
-  "14": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "y",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.y"
-    }
-  ],
-  "15": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "z1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 8
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 8
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.z1"
-    }
-  ],
-  "16": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "z2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 8
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 8
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.z2"
-    }
-  ],
-  "17": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "x2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 256
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 256
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.x2"
-    }
-  ],
-  "18": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "b3",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.b3"
-    }
-  ],
-  "19": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "b1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.b1"
-    }
-  ],
-  "20": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "b2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.b2"
-    }
-  ],
-  "21": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "b1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.b1"
-    }
-  ],
-  "22": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "b2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Rule",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 70,
-            "charByteOffset": 4
-          },
-          "end": {
-            "line": 70,
-            "charByteOffset": 27
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.b2"
-    }
-  ],
-  "23": [
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 27
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 33
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 256
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "x"
-    }
-  ],
-  "24": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "x",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 256
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 256
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.x"
-    }
-  ],
-  "25": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "y",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.y"
-    }
-  ],
-  "26": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "z1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 8
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 8
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.z1"
-    }
-  ],
-  "27": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "z2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 8
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 8
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.z2"
-    }
-  ],
-  "28": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "b1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.b1"
-    }
-  ],
-  "29": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "x2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 256
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 256
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.x2"
-    }
-  ],
-  "30": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "b2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s1.b2"
-    }
-  ],
-  "31": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "x",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 256
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 256
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.x"
-    }
-  ],
-  "32": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "y",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.y"
-    }
-  ],
   "33": [
     {
       "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
       },
       "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
               }
             },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "z1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 8
-            }
+            "offset": "1"
           }
         ]
       }
     },
     {
       "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
         "erasureStrategy": "Canonical"
       },
       "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 168
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.UIntK",
+        "bitwidth": 8
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
           }
-        }
+        },
+        "offset": "1"
       }
     },
     {
       "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 8
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
         "erasureStrategy": "Canonical"
       },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.z1"
+      "value": "ce4604a0000000000000000000000001"
     }
   ],
   "34": [
     {
       "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
       },
       "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
               }
             },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "z2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 8
-            }
+            "offset": "1"
           }
         ]
       }
     },
     {
       "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
         "erasureStrategy": "Canonical"
       },
       "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 176
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 8
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.bool"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
           }
-        }
+        },
+        "offset": "1"
       }
     },
     {
       "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 8
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
         "erasureStrategy": "Canonical"
       },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.z2"
+      "value": "ce4604a0000000000000000000000001"
     }
   ],
   "35": [
     {
       "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
+        "name": "tac.storage.non-indexed-path.family",
+        "type": "analysis.storage.StorageAnalysisResult$StoragePaths",
+        "erasureStrategy": "Canonical"
       },
       "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
+        "storagePaths": [
+          {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+                "slot": "0"
               }
             },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "b1",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
+            "offset": "5"
           }
         ]
       }
     },
     {
       "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
+        "name": "tac.scalarization.sort",
+        "type": "vc.data.ScalarizationSort",
         "erasureStrategy": "Canonical"
       },
       "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
+        "#class": "vc.data.ScalarizationSort.Packed",
+        "packedStart": {
+          "#class": "vc.data.ScalarizationSort.UnscalarizedBuffer"
+        },
+        "start": 0
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.bit-width",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 160
+    },
+    {
+      "key": {
+        "name": "tac.slot.type",
+        "type": "spec.cvlast.typedescriptors.EVMTypeDescriptor$EVMValueType",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.cvlast.typedescriptors.EVMTypeDescriptor.address"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.non-indexed-path",
+        "type": "analysis.storage.StorageAnalysisResult$NonIndexedPath",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.StructAccess",
+        "base": {
+          "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.MapAccess",
+          "base": {
+            "#class": "analysis.storage.StorageAnalysisResult.NonIndexedPath.Root",
+            "slot": "0"
           }
-        }
+        },
+        "offset": "5"
       }
     },
     {
       "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
+        "name": "tac.storage",
+        "type": "java.math.BigInteger",
         "erasureStrategy": "Canonical"
       },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.b1"
+      "value": "ce4604a0000000000000000000000001"
     }
   ],
   "36": [
@@ -6949,900 +2416,6 @@ Metas {
         },
         "fields": [
           {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "x2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-              "k": 256
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-        "k": 256
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.x2"
-    }
-  ],
-  "37": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "s2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-              "name": "TestContract.Simple",
-              "fields": [
-                {
-                  "fieldName": "x",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "y",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                  }
-                },
-                {
-                  "fieldName": "z1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "z2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 8
-                  }
-                },
-                {
-                  "fieldName": "b1",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                },
-                {
-                  "fieldName": "x2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                    "k": 256
-                  }
-                },
-                {
-                  "fieldName": "b2",
-                  "cvlType": {
-                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "fieldName": "b2",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.s2.b2"
-    }
-  ],
-  "38": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
-            "fieldName": "b3",
-            "cvlType": {
-              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.def.site",
-        "type": "spec.CVLDefinitionSite",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "#class": "spec.CVLDefinitionSite.Function",
-        "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
-          "specFile": "test.spec",
-          "start": {
-            "line": 7,
-            "charByteOffset": 35
-          },
-          "end": {
-            "line": 7,
-            "charByteOffset": 57
-          }
-        }
-      }
-    },
-    {
-      "key": {
-        "name": "cvl.type",
-        "type": "spec.cvlast.CVLType$PureCVLType",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-      }
-    },
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    },
-    {
-      "key": {
-        "name": "cvl.display",
-        "type": "java.lang.String",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": "s.b3"
-    }
-  ],
-  "39": [
-    {
-      "key": {
-        "name": "tac.is-temp-var",
-        "type": "tac.MetaMap$Companion$NothingValue",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-      }
-    },
-    {
-      "key": {
-        "name": "tac.storage.access-paths",
-        "type": "analysis.storage.StorageAnalysisResult$AccessPaths",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "paths": [
-          {
-            "#class": "analysis.storage.StorageAnalysis.AnalysisPath.StructAccess",
-            "base": {
-              "#class": "analysis.storage.StorageAnalysis.AnalysisPath.MapAccess",
-              "base": {
-                "#class": "analysis.storage.StorageAnalysis.AnalysisPath.Root",
-                "slot": "0"
-              },
-              "key": {
-                "#class": "vc.data.TACSymbol.Var.Full",
-                "namePrefix": "CANON55",
-                "tag": {
-                  "#class": "tac.Tag.Int"
-                },
-                "callIndex": 0
-              },
-              "baseSlot": {
-                "#class": "vc.data.TACSymbol.Const",
-                "value": "0"
-              },
-              "hashResult": {
-                "#class": "vc.data.TACSymbol.Const",
-                "value": "0"
-              }
-            },
-            "offset": {
-              "#class": "analysis.storage.StorageAnalysis.Offset.Bytes",
-              "numBytes": "36"
-            }
-          }
-        ]
-      }
-    }
-  ],
-  "40": [
-    {
-      "key": {
-        "name": "tac.is-temp-var",
-        "type": "tac.MetaMap$Companion$NothingValue",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-      }
-    },
-    {
-      "key": {
-        "name": "tac.storage.access-paths",
-        "type": "analysis.storage.StorageAnalysisResult$AccessPaths",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "paths": [
-          {
-            "#class": "analysis.storage.StorageAnalysis.AnalysisPath.StructAccess",
-            "base": {
-              "#class": "analysis.storage.StorageAnalysis.AnalysisPath.MapAccess",
-              "base": {
-                "#class": "analysis.storage.StorageAnalysis.AnalysisPath.Root",
-                "slot": "0"
-              },
-              "key": {
-                "#class": "vc.data.TACSymbol.Var.Full",
-                "namePrefix": "CANON62",
-                "tag": {
-                  "#class": "tac.Tag.Int"
-                },
-                "callIndex": 0
-              },
-              "baseSlot": {
-                "#class": "vc.data.TACSymbol.Const",
-                "value": "0"
-              },
-              "hashResult": {
-                "#class": "vc.data.TACSymbol.Const",
-                "value": "0"
-              }
-            },
-            "offset": {
-              "#class": "analysis.storage.StorageAnalysis.Offset.Bytes",
-              "numBytes": "36"
-            }
-          }
-        ]
-      }
-    }
-  ],
-  "41": [
-    {
-      "key": {
-        "name": "cvl",
-        "type": "java.lang.Boolean",
-        "erasureStrategy": "Canonical"
-      },
-      "value": true
-    }
-  ],
-  "42": [
-    {
-      "key": {
-        "name": "tac.is-temp-var",
-        "type": "tac.MetaMap$Companion$NothingValue",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-      }
-    },
-    {
-      "key": {
-        "name": "tac.storage.access-paths",
-        "type": "analysis.storage.StorageAnalysisResult$AccessPaths",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "paths": [
-          {
-            "#class": "analysis.storage.StorageAnalysis.AnalysisPath.StructAccess",
-            "base": {
-              "#class": "analysis.storage.StorageAnalysis.AnalysisPath.MapAccess",
-              "base": {
-                "#class": "analysis.storage.StorageAnalysis.AnalysisPath.Root",
-                "slot": "0"
-              },
-              "key": {
-                "#class": "vc.data.TACSymbol.Var.Full",
-                "namePrefix": "CANON71",
-                "tag": {
-                  "#class": "tac.Tag.Int"
-                },
-                "callIndex": 0
-              },
-              "baseSlot": {
-                "#class": "vc.data.TACSymbol.Const",
-                "value": "0"
-              },
-              "hashResult": {
-                "#class": "vc.data.TACSymbol.Const",
-                "value": "0"
-              }
-            },
-            "offset": {
-              "#class": "analysis.storage.StorageAnalysis.Offset.Bytes",
-              "numBytes": "100"
-            }
-          }
-        ]
-      }
-    }
-  ],
-  "43": [
-    {
-      "key": {
-        "name": "tac.is-temp-var",
-        "type": "tac.MetaMap$Companion$NothingValue",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-      }
-    },
-    {
-      "key": {
-        "name": "tac.storage.access-paths",
-        "type": "analysis.storage.StorageAnalysisResult$AccessPaths",
-        "erasureStrategy": "Canonical"
-      },
-      "value": {
-        "paths": [
-          {
-            "#class": "analysis.storage.StorageAnalysis.AnalysisPath.StructAccess",
-            "base": {
-              "#class": "analysis.storage.StorageAnalysis.AnalysisPath.MapAccess",
-              "base": {
-                "#class": "analysis.storage.StorageAnalysis.AnalysisPath.Root",
-                "slot": "0"
-              },
-              "key": {
-                "#class": "vc.data.TACSymbol.Var.Full",
-                "namePrefix": "CANON78",
-                "tag": {
-                  "#class": "tac.Tag.Int"
-                },
-                "callIndex": 0
-              },
-              "baseSlot": {
-                "#class": "vc.data.TACSymbol.Const",
-                "value": "0"
-              },
-              "hashResult": {
-                "#class": "vc.data.TACSymbol.Const",
-                "value": "0"
-              }
-            },
-            "offset": {
-              "#class": "analysis.storage.StorageAnalysis.Offset.Bytes",
-              "numBytes": "100"
-            }
-          }
-        ]
-      }
-    }
-  ],
-  "44": [
-    {
-      "key": {
-        "name": "cvl.struct.path",
-        "type": "spec.cvlast.CVLStructPathNode",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "rootStructType": {
-          "name": "TestContract.Complex",
-          "fields": [
-            {
-              "fieldName": "s1",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "s2",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
-                "name": "TestContract.Simple",
-                "fields": [
-                  {
-                    "fieldName": "x",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "y",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
-                    }
-                  },
-                  {
-                    "fieldName": "z1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "z2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 8
-                    }
-                  },
-                  {
-                    "fieldName": "b1",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  },
-                  {
-                    "fieldName": "x2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                      "k": 256
-                    }
-                  },
-                  {
-                    "fieldName": "b2",
-                    "cvlType": {
-                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "fieldName": "b3",
-              "cvlType": {
-                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-              }
-            }
-          ]
-        },
-        "fields": [
-          {
             "fieldName": "s1",
             "cvlType": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
@@ -7916,7 +2489,7 @@ Metas {
       "value": {
         "#class": "spec.CVLDefinitionSite.Rule",
         "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
+          "#class": "utils.Range.Range",
           "specFile": "test.spec",
           "start": {
             "line": 70,
@@ -7957,7 +2530,7 @@ Metas {
       "value": "s.s1.x"
     }
   ],
-  "45": [
+  "37": [
     {
       "key": {
         "name": "cvl.struct.path",
@@ -8160,7 +2733,7 @@ Metas {
       "value": {
         "#class": "spec.CVLDefinitionSite.Rule",
         "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
+          "#class": "utils.Range.Range",
           "specFile": "test.spec",
           "start": {
             "line": 70,
@@ -8200,7 +2773,201 @@ Metas {
       "value": "s.s1.y"
     }
   ],
-  "46": [
+  "38": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "z1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 8
+            }
+          }
+        ]
+      }
+    },
     {
       "key": {
         "name": "cvl.def.site",
@@ -8210,7 +2977,6889 @@ Metas {
       "value": {
         "#class": "spec.CVLDefinitionSite.Rule",
         "range": {
-          "#class": "spec.cvlast.CVLRange.Range",
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 8
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.z1"
+    }
+  ],
+  "39": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "z2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 8
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 8
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.z2"
+    }
+  ],
+  "40": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "x2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 256
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 256
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.x2"
+    }
+  ],
+  "41": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "x",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 256
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 256
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.x"
+    }
+  ],
+  "42": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "y",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.y"
+    }
+  ],
+  "43": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "z1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 8
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 8
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.z1"
+    }
+  ],
+  "44": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "z2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 8
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 8
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.z2"
+    }
+  ],
+  "45": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "x2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 256
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 256
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.x2"
+    }
+  ],
+  "46": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "b3",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.b3"
+    }
+  ],
+  "47": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "b1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.b1"
+    }
+  ],
+  "48": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "b2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.b2"
+    }
+  ],
+  "49": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "b1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.b1"
+    }
+  ],
+  "50": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "b2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 70,
+            "charByteOffset": 4
+          },
+          "end": {
+            "line": 70,
+            "charByteOffset": 27
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.b2"
+    }
+  ],
+  "51": [
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 27
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 33
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 256
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "x"
+    }
+  ],
+  "52": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "x",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 256
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 256
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.x"
+    }
+  ],
+  "53": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "y",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.y"
+    }
+  ],
+  "54": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "z1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 8
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 8
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.z1"
+    }
+  ],
+  "55": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "z2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 8
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 8
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.z2"
+    }
+  ],
+  "56": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "b1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.b1"
+    }
+  ],
+  "57": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "x2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 256
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 256
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.x2"
+    }
+  ],
+  "58": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "b2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s1.b2"
+    }
+  ],
+  "59": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "x",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 256
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 256
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.x"
+    }
+  ],
+  "60": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "y",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.y"
+    }
+  ],
+  "61": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "z1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 8
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 8
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.z1"
+    }
+  ],
+  "62": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "z2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 8
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 8
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.z2"
+    }
+  ],
+  "63": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "b1",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.b1"
+    }
+  ],
+  "64": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "x2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+              "k": 256
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+        "k": 256
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.x2"
+    }
+  ],
+  "65": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "s2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+              "name": "TestContract.Simple",
+              "fields": [
+                {
+                  "fieldName": "x",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "y",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                  }
+                },
+                {
+                  "fieldName": "z1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "z2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 8
+                  }
+                },
+                {
+                  "fieldName": "b1",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                },
+                {
+                  "fieldName": "x2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                    "k": 256
+                  }
+                },
+                {
+                  "fieldName": "b2",
+                  "cvlType": {
+                    "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fieldName": "b2",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.s2.b2"
+    }
+  ],
+  "66": [
+    {
+      "key": {
+        "name": "cvl.struct.path",
+        "type": "spec.cvlast.CVLStructPathNode",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "rootStructType": {
+          "name": "TestContract.Complex",
+          "fields": [
+            {
+              "fieldName": "s1",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "s2",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Struct",
+                "name": "TestContract.Simple",
+                "fields": [
+                  {
+                    "fieldName": "x",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "y",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
+                    }
+                  },
+                  {
+                    "fieldName": "z1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "z2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 8
+                    }
+                  },
+                  {
+                    "fieldName": "b1",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  },
+                  {
+                    "fieldName": "x2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                      "k": 256
+                    }
+                  },
+                  {
+                    "fieldName": "b2",
+                    "cvlType": {
+                      "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "b3",
+              "cvlType": {
+                "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+              }
+            }
+          ]
+        },
+        "fields": [
+          {
+            "fieldName": "b3",
+            "cvlType": {
+              "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Function",
+        "range": {
+          "#class": "utils.Range.Range",
+          "specFile": "test.spec",
+          "start": {
+            "line": 7,
+            "charByteOffset": 35
+          },
+          "end": {
+            "line": 7,
+            "charByteOffset": 57
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "s.b3"
+    }
+  ],
+  "67": [
+    {
+      "key": {
+        "name": "tac.is-temp-var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.access-paths",
+        "type": "analysis.storage.StorageAnalysisResult$AccessPaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "paths": [
+          {
+            "#class": "analysis.storage.StorageAnalysis.AnalysisPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysis.AnalysisPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysis.AnalysisPath.Root",
+                "slot": "0"
+              },
+              "key": {
+                "#class": "vc.data.TACSymbol.Var.Full",
+                "namePrefix": "CANON71",
+                "tag": {
+                  "#class": "tac.Tag.Int"
+                },
+                "callIndex": 0
+              },
+              "baseSlot": {
+                "#class": "vc.data.TACSymbol.Const",
+                "value": "0"
+              },
+              "hashResult": {
+                "#class": "vc.data.TACSymbol.Const",
+                "value": "0"
+              }
+            },
+            "offset": {
+              "#class": "analysis.storage.StorageAnalysis.Offset.Bytes",
+              "numBytes": "36"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "68": [
+    {
+      "key": {
+        "name": "tac.is-temp-var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.access-paths",
+        "type": "analysis.storage.StorageAnalysisResult$AccessPaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "paths": [
+          {
+            "#class": "analysis.storage.StorageAnalysis.AnalysisPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysis.AnalysisPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysis.AnalysisPath.Root",
+                "slot": "0"
+              },
+              "key": {
+                "#class": "vc.data.TACSymbol.Var.Full",
+                "namePrefix": "CANON77",
+                "tag": {
+                  "#class": "tac.Tag.Int"
+                },
+                "callIndex": 0
+              },
+              "baseSlot": {
+                "#class": "vc.data.TACSymbol.Const",
+                "value": "0"
+              },
+              "hashResult": {
+                "#class": "vc.data.TACSymbol.Const",
+                "value": "0"
+              }
+            },
+            "offset": {
+              "#class": "analysis.storage.StorageAnalysis.Offset.Bytes",
+              "numBytes": "36"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "69": [
+    {
+      "key": {
+        "name": "tac.is-temp-var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.access-paths",
+        "type": "analysis.storage.StorageAnalysisResult$AccessPaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "paths": [
+          {
+            "#class": "analysis.storage.StorageAnalysis.AnalysisPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysis.AnalysisPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysis.AnalysisPath.Root",
+                "slot": "0"
+              },
+              "key": {
+                "#class": "vc.data.TACSymbol.Var.Full",
+                "namePrefix": "CANON86",
+                "tag": {
+                  "#class": "tac.Tag.Int"
+                },
+                "callIndex": 0
+              },
+              "baseSlot": {
+                "#class": "vc.data.TACSymbol.Const",
+                "value": "0"
+              },
+              "hashResult": {
+                "#class": "vc.data.TACSymbol.Const",
+                "value": "0"
+              }
+            },
+            "offset": {
+              "#class": "analysis.storage.StorageAnalysis.Offset.Bytes",
+              "numBytes": "100"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "70": [
+    {
+      "key": {
+        "name": "tac.is-temp-var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "tac.storage.access-paths",
+        "type": "analysis.storage.StorageAnalysisResult$AccessPaths",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "paths": [
+          {
+            "#class": "analysis.storage.StorageAnalysis.AnalysisPath.StructAccess",
+            "base": {
+              "#class": "analysis.storage.StorageAnalysis.AnalysisPath.MapAccess",
+              "base": {
+                "#class": "analysis.storage.StorageAnalysis.AnalysisPath.Root",
+                "slot": "0"
+              },
+              "key": {
+                "#class": "vc.data.TACSymbol.Var.Full",
+                "namePrefix": "CANON92",
+                "tag": {
+                  "#class": "tac.Tag.Int"
+                },
+                "callIndex": 0
+              },
+              "baseSlot": {
+                "#class": "vc.data.TACSymbol.Const",
+                "value": "0"
+              },
+              "hashResult": {
+                "#class": "vc.data.TACSymbol.Const",
+                "value": "0"
+              }
+            },
+            "offset": {
+              "#class": "analysis.storage.StorageAnalysis.Offset.Bytes",
+              "numBytes": "100"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "71": [
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract",
+        "name": {
+          "name": "TestContract"
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "tac.no.callindex",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "testContract"
+    }
+  ],
+  "72": [
+    {
+      "key": {
+        "name": "cvl.type",
+        "type": "spec.cvlast.CVLType$PureCVLType",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.CodeContract",
+        "name": {
+          "name": "TestContract"
+        }
+      }
+    },
+    {
+      "key": {
+        "name": "cvl",
+        "type": "java.lang.Boolean",
+        "erasureStrategy": "Canonical"
+      },
+      "value": true
+    },
+    {
+      "key": {
+        "name": "tac.no.callindex",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "cvl.display",
+        "type": "java.lang.String",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": "currentContract"
+    }
+  ],
+  "73": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "lastStorage"
+      }
+    }
+  ],
+  "74": [
+    {
+      "key": {
+        "name": "cvl.def.site",
+        "type": "spec.CVLDefinitionSite",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "spec.CVLDefinitionSite.Rule",
+        "range": {
+          "#class": "utils.Range.Range",
           "specFile": "test.spec",
           "start": {
             "line": 68,
@@ -8251,7 +9900,7 @@ Metas {
       "value": "x"
     }
   ],
-  "47": [
+  "75": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8261,7 +9910,7 @@ Metas {
       "value": 0
     }
   ],
-  "48": [
+  "76": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8271,7 +9920,7 @@ Metas {
       "value": 1
     }
   ],
-  "49": [
+  "77": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8281,7 +9930,45 @@ Metas {
       "value": 2
     }
   ],
-  "50": [
+  "78": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+        "name": "tacContractAt"
+      }
+    },
+    {
+      "key": {
+        "name": "tac.contract.sym.addr.name",
+        "type": "java.lang.String",
+        "erasureStrategy": "Erased"
+      },
+      "value": "TestContract"
+    },
+    {
+      "key": {
+        "name": "tac.contract.sym.addr",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Erased"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    },
+    {
+      "key": {
+        "name": "tac.non.zero.var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    }
+  ],
+  "79": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8291,7 +9978,7 @@ Metas {
       "value": 3
     }
   ],
-  "51": [
+  "80": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8301,7 +9988,7 @@ Metas {
       "value": 4
     }
   ],
-  "52": [
+  "81": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8311,7 +9998,7 @@ Metas {
       "value": 5
     }
   ],
-  "53": [
+  "82": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8321,7 +10008,67 @@ Metas {
       "value": 6
     }
   ],
-  "54": [
+  "83": [
+    {
+      "key": {
+        "name": "tac.is-temp-var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "tac.non.zero.var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    }
+  ],
+  "84": [
+    {
+      "key": {
+        "name": "Tac.symbol.keyword",
+        "type": "vc.data.TACSymbol$Var$KeywordEntry",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+        "#class": "vc.data.TACSymbol.Var.KeywordEntry.TACKeywordEntry",
+        "name": "tacCodesize",
+        "maybeTACKeywordOrdinal": 7
+      }
+    },
+    {
+      "key": {
+        "name": "tac.codesize",
+        "type": "java.math.BigInteger",
+        "erasureStrategy": "Canonical"
+      },
+      "value": "ce4604a0000000000000000000000001"
+    },
+    {
+      "key": {
+        "name": "tac.no.callindex",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    },
+    {
+      "key": {
+        "name": "tac.non.zero.var",
+        "type": "tac.MetaMap$Companion$NothingValue",
+        "erasureStrategy": "Canonical"
+      },
+      "value": {
+      }
+    }
+  ],
+  "85": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8331,7 +10078,7 @@ Metas {
       "value": 7
     }
   ],
-  "55": [
+  "86": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8341,7 +10088,7 @@ Metas {
       "value": 8
     }
   ],
-  "56": [
+  "87": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8351,7 +10098,7 @@ Metas {
       "value": 9
     }
   ],
-  "57": [
+  "88": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8361,7 +10108,7 @@ Metas {
       "value": 10
     }
   ],
-  "58": [
+  "89": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8371,7 +10118,7 @@ Metas {
       "value": 11
     }
   ],
-  "59": [
+  "90": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8381,7 +10128,7 @@ Metas {
       "value": 12
     }
   ],
-  "60": [
+  "91": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8391,7 +10138,7 @@ Metas {
       "value": 13
     }
   ],
-  "61": [
+  "92": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8401,7 +10148,7 @@ Metas {
       "value": 14
     }
   ],
-  "62": [
+  "93": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8411,7 +10158,7 @@ Metas {
       "value": 15
     }
   ],
-  "63": [
+  "94": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8421,7 +10168,7 @@ Metas {
       "value": 16
     }
   ],
-  "64": [
+  "95": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8431,15 +10178,23 @@ Metas {
       "value": 17
     }
   ],
-  "65": [
+  "96": [
+    {
+      "key": {
+        "name": "cvl.label.start.id",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 18
+    },
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 69,
@@ -8450,17 +10205,9 @@ Metas {
           "charByteOffset": 18
         }
       }
-    },
-    {
-      "key": {
-        "name": "cvl.label.start.id",
-        "type": "java.lang.Integer",
-        "erasureStrategy": "Canonical"
-      },
-      "value": 18
     }
   ],
-  "66": [
+  "97": [
     {
       "key": {
         "name": "cvl.exp",
@@ -8500,8 +10247,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
               "k": 256
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 69,
@@ -8520,11 +10267,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 69,
@@ -8537,7 +10284,7 @@ Metas {
       }
     }
   ],
-  "67": [
+  "98": [
     {
       "key": {
         "name": "cvl.exp",
@@ -8577,8 +10324,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
               "n": "3"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 69,
@@ -8596,11 +10343,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 69,
@@ -8613,7 +10360,7 @@ Metas {
       }
     }
   ],
-  "68": [
+  "99": [
     {
       "key": {
         "name": "cvl.exp",
@@ -8655,8 +10402,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                 "k": 256
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 69,
@@ -8701,8 +10448,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                 "n": "3"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 69,
@@ -8742,8 +10489,8 @@ Metas {
             "type": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 69,
@@ -8759,7 +10506,7 @@ Metas {
         "o1": {
           "out": {
             "#class": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "I12",
+            "namePrefix": "I29",
             "tag": {
               "#class": "tac.Tag.Int"
             },
@@ -8796,8 +10543,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                 "k": 256
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 69,
@@ -8848,8 +10595,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                 "n": "3"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 69,
@@ -8868,11 +10615,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 69,
@@ -8885,15 +10632,15 @@ Metas {
       }
     }
   ],
-  "69": [
+  "100": [
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 69,
@@ -8906,26 +10653,7 @@ Metas {
       }
     }
   ],
-  "70": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 70,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 70,
-          "charByteOffset": 27
-        }
-      }
-    },
+  "101": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8933,17 +10661,15 @@ Metas {
         "erasureStrategy": "Canonical"
       },
       "value": 19
-    }
-  ],
-  "71": [
+    },
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 70,
@@ -8956,26 +10682,28 @@ Metas {
       }
     }
   ],
-  "72": [
+  "102": [
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
-          "line": 71,
+          "line": 70,
           "charByteOffset": 4
         },
         "end": {
-          "line": 71,
-          "charByteOffset": 28
+          "line": 70,
+          "charByteOffset": 27
         }
       }
-    },
+    }
+  ],
+  "103": [
     {
       "key": {
         "name": "cvl.label.start.id",
@@ -8983,17 +10711,15 @@ Metas {
         "erasureStrategy": "Canonical"
       },
       "value": 20
-    }
-  ],
-  "73": [
+    },
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 71,
@@ -9006,7 +10732,28 @@ Metas {
       }
     }
   ],
-  "74": [
+  "104": [
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 71,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 71,
+          "charByteOffset": 28
+        }
+      }
+    }
+  ],
+  "105": [
     {
       "key": {
         "name": "cvl.exp",
@@ -9046,8 +10793,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
               "k": 256
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 71,
@@ -9066,11 +10813,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 71,
@@ -9083,15 +10830,23 @@ Metas {
       }
     }
   ],
-  "75": [
+  "106": [
+    {
+      "key": {
+        "name": "cvl.label.start.id",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 21
+    },
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 8,
@@ -9102,17 +10857,9 @@ Metas {
           "charByteOffset": 34
         }
       }
-    },
-    {
-      "key": {
-        "name": "cvl.label.start.id",
-        "type": "java.lang.Integer",
-        "erasureStrategy": "Canonical"
-      },
-      "value": 21
     }
   ],
-  "76": [
+  "107": [
     {
       "key": {
         "name": "cvl.exp",
@@ -9152,8 +10899,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
               "n": "0"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 8,
@@ -9171,11 +10918,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 8,
@@ -9188,26 +10935,7 @@ Metas {
       }
     }
   ],
-  "77": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 8,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 8,
-          "charByteOffset": 34
-        }
-      }
-    },
+  "108": [
     {
       "key": {
         "name": "assert.format.arg.1",
@@ -9218,49 +10946,49 @@ Metas {
         "#class": "vc.data.TACSymbol.Const",
         "value": "0"
       }
-    }
-  ],
-  "78": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 8,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 8,
-          "charByteOffset": 34
-        }
-      }
-    }
-  ],
-  "79": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 8,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 8,
-          "charByteOffset": 34
-        }
-      }
     },
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 8,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 8,
+          "charByteOffset": 34
+        }
+      }
+    }
+  ],
+  "109": [
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 8,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 8,
+          "charByteOffset": 34
+        }
+      }
+    }
+  ],
+  "110": [
     {
       "key": {
         "name": "tac.direct.storage.access",
@@ -9269,9 +10997,28 @@ Metas {
       },
       "value": {
       }
+    },
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 8,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 8,
+          "charByteOffset": 34
+        }
+      }
     }
   ],
-  "80": [
+  "111": [
     {
       "key": {
         "name": "tac.is-temp-var",
@@ -9299,7 +11046,7 @@ Metas {
               },
               "key": {
                 "#class": "vc.data.TACSymbol.Var.Full",
-                "namePrefix": "I31",
+                "namePrefix": "I48",
                 "tag": {
                   "#class": "tac.Tag.Int"
                 },
@@ -9323,7 +11070,7 @@ Metas {
       }
     }
   ],
-  "81": [
+  "112": [
     {
       "key": {
         "name": "cvl.exp",
@@ -9362,8 +11109,8 @@ Metas {
             "type": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Empty",
+            "range": {
+              "#class": "utils.Range.Empty",
               "comment": "autogenerated bool expression at test.spec:9:5"
             }
           }
@@ -9373,11 +11120,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 8,
@@ -9390,15 +11137,23 @@ Metas {
       }
     }
   ],
-  "82": [
+  "113": [
+    {
+      "key": {
+        "name": "cvl.label.start.id",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 22
+    },
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 9,
@@ -9409,17 +11164,9 @@ Metas {
           "charByteOffset": 47
         }
       }
-    },
-    {
-      "key": {
-        "name": "cvl.label.start.id",
-        "type": "java.lang.Integer",
-        "erasureStrategy": "Canonical"
-      },
-      "value": 22
     }
   ],
-  "83": [
+  "114": [
     {
       "key": {
         "name": "cvl.exp",
@@ -9459,8 +11206,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
               "n": "0"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 9,
@@ -9478,11 +11225,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 9,
@@ -9495,26 +11242,7 @@ Metas {
       }
     }
   ],
-  "84": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 9,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 9,
-          "charByteOffset": 47
-        }
-      }
-    },
+  "115": [
     {
       "key": {
         "name": "assert.format.arg.1",
@@ -9525,49 +11253,49 @@ Metas {
         "#class": "vc.data.TACSymbol.Const",
         "value": "0"
       }
-    }
-  ],
-  "85": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 9,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 9,
-          "charByteOffset": 47
-        }
-      }
-    }
-  ],
-  "86": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 9,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 9,
-          "charByteOffset": 47
-        }
-      }
     },
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 9,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 9,
+          "charByteOffset": 47
+        }
+      }
+    }
+  ],
+  "116": [
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 9,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 9,
+          "charByteOffset": 47
+        }
+      }
+    }
+  ],
+  "117": [
     {
       "key": {
         "name": "tac.direct.storage.access",
@@ -9576,9 +11304,28 @@ Metas {
       },
       "value": {
       }
+    },
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 9,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 9,
+          "charByteOffset": 47
+        }
+      }
     }
   ],
-  "87": [
+  "118": [
     {
       "key": {
         "name": "tac.storage.non-indexed-path.family",
@@ -9670,7 +11417,7 @@ Metas {
       "value": "ce4604a0000000000000000000000001"
     }
   ],
-  "88": [
+  "119": [
     {
       "key": {
         "name": "tac.is-temp-var",
@@ -9698,7 +11445,7 @@ Metas {
               },
               "key": {
                 "#class": "vc.data.TACSymbol.Var.Full",
-                "namePrefix": "I38",
+                "namePrefix": "I55",
                 "tag": {
                   "#class": "tac.Tag.Int"
                 },
@@ -9722,7 +11469,7 @@ Metas {
       }
     }
   ],
-  "89": [
+  "120": [
     {
       "key": {
         "name": "cvl.exp",
@@ -9762,8 +11509,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
               "k": 256
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 9,
@@ -9782,11 +11529,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 9,
@@ -9799,7 +11546,7 @@ Metas {
       }
     }
   ],
-  "90": [
+  "121": [
     {
       "key": {
         "name": "cvl.exp",
@@ -9839,8 +11586,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
               "n": "3"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 9,
@@ -9858,11 +11605,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 9,
@@ -9875,7 +11622,7 @@ Metas {
       }
     }
   ],
-  "91": [
+  "122": [
     {
       "key": {
         "name": "cvl.exp",
@@ -9917,8 +11664,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                 "k": 256
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 9,
@@ -9963,8 +11710,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                 "n": "3"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 9,
@@ -10004,8 +11751,8 @@ Metas {
             "type": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 9,
@@ -10022,7 +11769,7 @@ Metas {
         "o1": {
           "out": {
             "#class": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "I43",
+            "namePrefix": "I60",
             "tag": {
               "#class": "tac.Tag.Int"
             },
@@ -10059,8 +11806,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                 "k": 256
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 9,
@@ -10111,8 +11858,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                 "n": "3"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 9,
@@ -10131,11 +11878,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 9,
@@ -10148,7 +11895,7 @@ Metas {
       }
     }
   ],
-  "92": [
+  "123": [
     {
       "key": {
         "name": "cvl.exp",
@@ -10200,8 +11947,8 @@ Metas {
                           "name": "TestContract"
                         }
                       },
-                      "cvlRange": {
-                        "#class": "spec.cvlast.CVLRange.Range",
+                      "range": {
+                        "#class": "utils.Range.Range",
                         "specFile": "test.spec",
                         "start": {
                           "line": 9,
@@ -10386,8 +12133,8 @@ Metas {
                         "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                       }
                     },
-                    "cvlRange": {
-                      "#class": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                      "#class": "utils.Range.Range",
                       "specFile": "test.spec",
                       "start": {
                         "line": 9,
@@ -10434,8 +12181,8 @@ Metas {
                       "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                       "n": "0"
                     },
-                    "cvlRange": {
-                      "#class": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                      "#class": "utils.Range.Range",
                       "specFile": "test.spec",
                       "start": {
                         "line": 9,
@@ -10606,8 +12353,8 @@ Metas {
                       "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                     }
                   },
-                  "cvlRange": {
-                    "#class": "spec.cvlast.CVLRange.Range",
+                  "range": {
+                    "#class": "utils.Range.Range",
                     "specFile": "test.spec",
                     "start": {
                       "line": 9,
@@ -10708,8 +12455,8 @@ Metas {
                     "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                   }
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 9,
@@ -10759,8 +12506,8 @@ Metas {
                   "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                 }
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 9,
@@ -10809,8 +12556,8 @@ Metas {
                   "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                   "k": 256
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 9,
@@ -10855,8 +12602,8 @@ Metas {
                   "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                   "n": "3"
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 9,
@@ -10896,8 +12643,8 @@ Metas {
               "type": {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 9,
@@ -10938,8 +12685,8 @@ Metas {
             "type": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 9,
@@ -10954,12 +12701,11 @@ Metas {
         },
         "o1": {
           "out": {
-            "#class": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "B42",
+            "#class": "vc.data.TACSymbol.Const",
+            "value": "0",
             "tag": {
               "#class": "tac.Tag.Bool"
-            },
-            "callIndex": 0
+            }
           },
           "exp": {
             "#class": "spec.cvlast.CVLExp.FieldSelectExp",
@@ -11002,8 +12748,8 @@ Metas {
                           "name": "TestContract"
                         }
                       },
-                      "cvlRange": {
-                        "#class": "spec.cvlast.CVLRange.Range",
+                      "range": {
+                        "#class": "utils.Range.Range",
                         "specFile": "test.spec",
                         "start": {
                           "line": 9,
@@ -11188,8 +12934,8 @@ Metas {
                         "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                       }
                     },
-                    "cvlRange": {
-                      "#class": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                      "#class": "utils.Range.Range",
                       "specFile": "test.spec",
                       "start": {
                         "line": 9,
@@ -11236,8 +12982,8 @@ Metas {
                       "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                       "n": "0"
                     },
-                    "cvlRange": {
-                      "#class": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                      "#class": "utils.Range.Range",
                       "specFile": "test.spec",
                       "start": {
                         "line": 9,
@@ -11408,8 +13154,8 @@ Metas {
                       "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                     }
                   },
-                  "cvlRange": {
-                    "#class": "spec.cvlast.CVLRange.Range",
+                  "range": {
+                    "#class": "utils.Range.Range",
                     "specFile": "test.spec",
                     "start": {
                       "line": 9,
@@ -11510,8 +13256,8 @@ Metas {
                     "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                   }
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 9,
@@ -11561,8 +13307,8 @@ Metas {
                   "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                 }
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 9,
@@ -11581,12 +13327,11 @@ Metas {
         },
         "o2": {
           "out": {
-            "#class": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "B45",
+            "#class": "vc.data.TACSymbol.Const",
+            "value": "0",
             "tag": {
               "#class": "tac.Tag.Bool"
-            },
-            "callIndex": 0
+            }
           },
           "exp": {
             "#class": "spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GtExp",
@@ -11621,8 +13366,8 @@ Metas {
                   "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                   "k": 256
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 9,
@@ -11667,8 +13412,8 @@ Metas {
                   "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                   "n": "3"
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 9,
@@ -11708,8 +13453,8 @@ Metas {
               "type": {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 9,
@@ -11729,11 +13474,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 9,
@@ -11746,15 +13491,23 @@ Metas {
       }
     }
   ],
-  "93": [
+  "124": [
+    {
+      "key": {
+        "name": "cvl.label.start.id",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 23
+    },
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 10,
@@ -11765,17 +13518,9 @@ Metas {
           "charByteOffset": 31
         }
       }
-    },
-    {
-      "key": {
-        "name": "cvl.label.start.id",
-        "type": "java.lang.Integer",
-        "erasureStrategy": "Canonical"
-      },
-      "value": 23
     }
   ],
-  "94": [
+  "125": [
     {
       "key": {
         "name": "cvl.exp",
@@ -11815,8 +13560,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
               "n": "0"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 10,
@@ -11834,11 +13579,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 10,
@@ -11851,26 +13596,7 @@ Metas {
       }
     }
   ],
-  "95": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 10,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 10,
-          "charByteOffset": 31
-        }
-      }
-    },
+  "126": [
     {
       "key": {
         "name": "assert.format.arg.1",
@@ -11881,49 +13607,49 @@ Metas {
         "#class": "vc.data.TACSymbol.Const",
         "value": "0"
       }
-    }
-  ],
-  "96": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 10,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 10,
-          "charByteOffset": 31
-        }
-      }
-    }
-  ],
-  "97": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 10,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 10,
-          "charByteOffset": 31
-        }
-      }
     },
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 10,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 10,
+          "charByteOffset": 31
+        }
+      }
+    }
+  ],
+  "127": [
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 10,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 10,
+          "charByteOffset": 31
+        }
+      }
+    }
+  ],
+  "128": [
     {
       "key": {
         "name": "tac.direct.storage.access",
@@ -11932,9 +13658,28 @@ Metas {
       },
       "value": {
       }
+    },
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 10,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 10,
+          "charByteOffset": 31
+        }
+      }
     }
   ],
-  "98": [
+  "129": [
     {
       "key": {
         "name": "tac.is-temp-var",
@@ -11962,7 +13707,7 @@ Metas {
               },
               "key": {
                 "#class": "vc.data.TACSymbol.Var.Full",
-                "namePrefix": "I46",
+                "namePrefix": "I63",
                 "tag": {
                   "#class": "tac.Tag.Int"
                 },
@@ -11986,7 +13731,7 @@ Metas {
       }
     }
   ],
-  "99": [
+  "130": [
     {
       "key": {
         "name": "cvl.exp",
@@ -12025,8 +13770,8 @@ Metas {
             "type": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Empty",
+            "range": {
+              "#class": "utils.Range.Empty",
               "comment": "autogenerated bool expression at test.spec:11:5"
             }
           }
@@ -12036,11 +13781,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 10,
@@ -12053,15 +13798,23 @@ Metas {
       }
     }
   ],
-  "100": [
+  "131": [
+    {
+      "key": {
+        "name": "cvl.label.start.id",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 24
+    },
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 11,
@@ -12072,17 +13825,9 @@ Metas {
           "charByteOffset": 44
         }
       }
-    },
-    {
-      "key": {
-        "name": "cvl.label.start.id",
-        "type": "java.lang.Integer",
-        "erasureStrategy": "Canonical"
-      },
-      "value": 24
     }
   ],
-  "101": [
+  "132": [
     {
       "key": {
         "name": "cvl.exp",
@@ -12122,8 +13867,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
               "n": "0"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 11,
@@ -12141,11 +13886,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 11,
@@ -12158,26 +13903,7 @@ Metas {
       }
     }
   ],
-  "102": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 11,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 11,
-          "charByteOffset": 44
-        }
-      }
-    },
+  "133": [
     {
       "key": {
         "name": "assert.format.arg.1",
@@ -12188,49 +13914,49 @@ Metas {
         "#class": "vc.data.TACSymbol.Const",
         "value": "0"
       }
-    }
-  ],
-  "103": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 11,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 11,
-          "charByteOffset": 44
-        }
-      }
-    }
-  ],
-  "104": [
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
-        "specFile": "test.spec",
-        "start": {
-          "line": 11,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 11,
-          "charByteOffset": 44
-        }
-      }
     },
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 11,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 11,
+          "charByteOffset": 44
+        }
+      }
+    }
+  ],
+  "134": [
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 11,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 11,
+          "charByteOffset": 44
+        }
+      }
+    }
+  ],
+  "135": [
     {
       "key": {
         "name": "tac.direct.storage.access",
@@ -12239,9 +13965,28 @@ Metas {
       },
       "value": {
       }
+    },
+    {
+      "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "test.spec",
+        "start": {
+          "line": 11,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 11,
+          "charByteOffset": 44
+        }
+      }
     }
   ],
-  "105": [
+  "136": [
     {
       "key": {
         "name": "tac.storage.non-indexed-path.family",
@@ -12333,7 +14078,7 @@ Metas {
       "value": "ce4604a0000000000000000000000001"
     }
   ],
-  "106": [
+  "137": [
     {
       "key": {
         "name": "tac.is-temp-var",
@@ -12361,7 +14106,7 @@ Metas {
               },
               "key": {
                 "#class": "vc.data.TACSymbol.Var.Full",
-                "namePrefix": "I53",
+                "namePrefix": "I70",
                 "tag": {
                   "#class": "tac.Tag.Int"
                 },
@@ -12385,7 +14130,7 @@ Metas {
       }
     }
   ],
-  "107": [
+  "138": [
     {
       "key": {
         "name": "cvl.exp",
@@ -12425,8 +14170,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
               "k": 256
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 11,
@@ -12445,11 +14190,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 11,
@@ -12462,7 +14207,7 @@ Metas {
       }
     }
   ],
-  "108": [
+  "139": [
     {
       "key": {
         "name": "cvl.exp",
@@ -12502,8 +14247,8 @@ Metas {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
               "n": "5"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 11,
@@ -12521,11 +14266,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 11,
@@ -12538,7 +14283,7 @@ Metas {
       }
     }
   ],
-  "109": [
+  "140": [
     {
       "key": {
         "name": "cvl.exp",
@@ -12580,8 +14325,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                 "k": 256
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 11,
@@ -12626,8 +14371,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                 "n": "5"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 11,
@@ -12667,8 +14412,8 @@ Metas {
             "type": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 11,
@@ -12685,7 +14430,7 @@ Metas {
         "o1": {
           "out": {
             "#class": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "I58",
+            "namePrefix": "I75",
             "tag": {
               "#class": "tac.Tag.Int"
             },
@@ -12722,8 +14467,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                 "k": 256
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 11,
@@ -12774,8 +14519,8 @@ Metas {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                 "n": "5"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 11,
@@ -12794,11 +14539,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 11,
@@ -12811,7 +14556,7 @@ Metas {
       }
     }
   ],
-  "110": [
+  "141": [
     {
       "key": {
         "name": "cvl.exp",
@@ -12861,8 +14606,8 @@ Metas {
                         "name": "TestContract"
                       }
                     },
-                    "cvlRange": {
-                      "#class": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                      "#class": "utils.Range.Range",
                       "specFile": "test.spec",
                       "start": {
                         "line": 11,
@@ -13047,8 +14792,8 @@ Metas {
                       "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                     }
                   },
-                  "cvlRange": {
-                    "#class": "spec.cvlast.CVLRange.Range",
+                  "range": {
+                    "#class": "utils.Range.Range",
                     "specFile": "test.spec",
                     "start": {
                       "line": 11,
@@ -13095,8 +14840,8 @@ Metas {
                     "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                     "n": "0"
                   },
-                  "cvlRange": {
-                    "#class": "spec.cvlast.CVLRange.Range",
+                  "range": {
+                    "#class": "utils.Range.Range",
                     "specFile": "test.spec",
                     "start": {
                       "line": 11,
@@ -13267,8 +15012,8 @@ Metas {
                     "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                   }
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 11,
@@ -13318,8 +15063,8 @@ Metas {
                   "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                 }
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 11,
@@ -13368,8 +15113,8 @@ Metas {
                   "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                   "k": 256
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 11,
@@ -13414,8 +15159,8 @@ Metas {
                   "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                   "n": "5"
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 11,
@@ -13455,8 +15200,8 @@ Metas {
               "type": {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 11,
@@ -13497,8 +15242,8 @@ Metas {
             "type": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 11,
@@ -13513,12 +15258,11 @@ Metas {
         },
         "o1": {
           "out": {
-            "#class": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "B57",
+            "#class": "vc.data.TACSymbol.Const",
+            "value": "0",
             "tag": {
               "#class": "tac.Tag.Bool"
-            },
-            "callIndex": 0
+            }
           },
           "exp": {
             "#class": "spec.cvlast.CVLExp.FieldSelectExp",
@@ -13559,8 +15303,8 @@ Metas {
                         "name": "TestContract"
                       }
                     },
-                    "cvlRange": {
-                      "#class": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                      "#class": "utils.Range.Range",
                       "specFile": "test.spec",
                       "start": {
                         "line": 11,
@@ -13745,8 +15489,8 @@ Metas {
                       "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                     }
                   },
-                  "cvlRange": {
-                    "#class": "spec.cvlast.CVLRange.Range",
+                  "range": {
+                    "#class": "utils.Range.Range",
                     "specFile": "test.spec",
                     "start": {
                       "line": 11,
@@ -13793,8 +15537,8 @@ Metas {
                     "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                     "n": "0"
                   },
-                  "cvlRange": {
-                    "#class": "spec.cvlast.CVLRange.Range",
+                  "range": {
+                    "#class": "utils.Range.Range",
                     "specFile": "test.spec",
                     "start": {
                       "line": 11,
@@ -13965,8 +15709,8 @@ Metas {
                     "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                   }
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 11,
@@ -14016,8 +15760,8 @@ Metas {
                   "#class": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                 }
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 11,
@@ -14036,12 +15780,11 @@ Metas {
         },
         "o2": {
           "out": {
-            "#class": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "B60",
+            "#class": "vc.data.TACSymbol.Const",
+            "value": "0",
             "tag": {
               "#class": "tac.Tag.Bool"
-            },
-            "callIndex": 0
+            }
           },
           "exp": {
             "#class": "spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GtExp",
@@ -14076,8 +15819,8 @@ Metas {
                   "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                   "k": 256
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 11,
@@ -14122,8 +15865,8 @@ Metas {
                   "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                   "n": "5"
                 },
-                "cvlRange": {
-                  "#class": "spec.cvlast.CVLRange.Range",
+                "range": {
+                  "#class": "utils.Range.Range",
                   "specFile": "test.spec",
                   "start": {
                     "line": 11,
@@ -14163,8 +15906,8 @@ Metas {
               "type": {
                 "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 11,
@@ -14184,11 +15927,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 11,
@@ -14201,15 +15944,23 @@ Metas {
       }
     }
   ],
-  "111": [
+  "142": [
+    {
+      "key": {
+        "name": "cvl.label.start.id",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 25
+    },
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 72,
@@ -14220,17 +15971,9 @@ Metas {
           "charByteOffset": 16
         }
       }
-    },
-    {
-      "key": {
-        "name": "cvl.label.start.id",
-        "type": "java.lang.Integer",
-        "erasureStrategy": "Canonical"
-      },
-      "value": 25
     }
   ],
-  "112": [
+  "143": [
     {
       "key": {
         "name": "cvl.exp",
@@ -14390,8 +16133,8 @@ Metas {
                   }
                 ]
               },
-              "cvlRange": {
-                "#class": "spec.cvlast.CVLRange.Range",
+              "range": {
+                "#class": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                   "line": 72,
@@ -14433,8 +16176,8 @@ Metas {
             "type": {
               "#class": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
             },
-            "cvlRange": {
-              "#class": "spec.cvlast.CVLRange.Range",
+            "range": {
+              "#class": "utils.Range.Range",
               "specFile": "test.spec",
               "start": {
                 "line": 72,
@@ -14452,11 +16195,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 72,
@@ -14469,7 +16212,7 @@ Metas {
       }
     }
   ],
-  "113": [
+  "144": [
     {
       "key": {
         "name": "cvl.user.defined.assert",
@@ -14482,11 +16225,11 @@ Metas {
     {
       "key": {
         "name": "cvl.range",
-        "type": "spec.cvlast.CVLRange",
+        "type": "utils.Range",
         "erasureStrategy": "CallTrace"
       },
       "value": {
-        "#class": "spec.cvlast.CVLRange.Range",
+        "#class": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
           "line": 72,

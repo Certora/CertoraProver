@@ -59,12 +59,12 @@ object TrivialInvariant :
     override fun toSanityResultsView(_sanityCheckResults: List<SanityDPResult>):
         SanityResultsView.FunctionIndependent<RuleCheckResult.Single> =
         SanityResultsView.FunctionIndependent<RuleCheckResult.Single,
-            SpecType.Single.GeneratedFromBasicRule.TrivialInvariantCheck,
+            SpecType.Single.GeneratedFromBasicRule.SanityRule.TrivialInvariantCheck,
             CVLCmd.Simple.Assert>(_sanityCheckResults, this)
 
 
     override fun checkResultToSanitySubCheckGroup(r: SanityDPResult) =
-        r.result.rule.narrowType<SpecType.Single.GeneratedFromBasicRule.TrivialInvariantCheck>()
+        r.result.rule.narrowType<SpecType.Single.GeneratedFromBasicRule.SanityRule.TrivialInvariantCheck>()
             .ruleType.assertCVLCmd
 
     override val preds: List<SanityCheckNodeType> =

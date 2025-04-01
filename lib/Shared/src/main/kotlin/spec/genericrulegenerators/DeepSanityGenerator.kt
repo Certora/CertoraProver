@@ -18,7 +18,7 @@
 package spec.genericrulegenerators
 
 import config.Config
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLScope
 import spec.cvlast.MethodParamFilters
 import spec.cvlast.SpecType
@@ -34,16 +34,16 @@ class DeepSanityGenerator(private val methodParamFilters: MethodParamFilters) : 
 
     // update the scope of each method param filter, so we could bind to `f`
     override fun getMethodParamFilters(
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope,
         symbolicFunctionName: String
     ): MethodParamFilters =
         methodParamFilters.copy(
-            cvlRange = cvlRange,
+            range = range,
             scope = scope,
             methodParamToFilter = methodParamFilters.methodParamToFilter.mapValues { it.value.copy(scope = scope) })
 
-    override fun checkIfCanGenerate(cvlRange: CVLRange): VoidResult<CVLError> {
+    override fun checkIfCanGenerate(range: Range): VoidResult<CVLError> {
         // skip if we run from typechecker, because we do not yet pass jar arguments to typechecker in local mode
         if (!Config.MainJarRun.get()) {
             return ok
@@ -52,7 +52,7 @@ class DeepSanityGenerator(private val methodParamFilters: MethodParamFilters) : 
         // if multiAssertCheck is not enabled, this rule cannot be effectively run
         return if (!Config.MultiAssertCheck.get()) {
             CVLError.General(
-                cvlRange,
+                range,
                 "Cannot run $eId when --multi_assert_check is not enabled"
             ).asError()
         } else {

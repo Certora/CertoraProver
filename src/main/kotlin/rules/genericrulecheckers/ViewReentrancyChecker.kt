@@ -20,8 +20,8 @@ package rules.genericrulecheckers
 import config.ReportTypes
 import log.*
 import report.StatusReporter
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.genericrulegenerators.ViewReentrancyGenerator
 import tac.DumpTime

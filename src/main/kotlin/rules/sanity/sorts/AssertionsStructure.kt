@@ -47,7 +47,7 @@ sealed interface AssertionsStructure : SanityCheckSort.FunctionDependent<RuleChe
         s.result.firstData.details
 
     override fun checkResultToSanitySubCheckGroup(r: SanityDPResult): CVLCmd.Simple.Assert =
-        r.result.rule.narrowType<SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck>().ruleType.assertCVLCmd
+        r.result.rule.narrowType<SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck>().ruleType.assertCVLCmd
 
     override fun concludeResultFromPredsOrNull(
         predsResults: Map<SanityCheckNode, SanityDPResult>
@@ -96,14 +96,14 @@ value class AssertionsStructureLeftOperand(override val assertExp: CVLExp.Binary
         _sanityCheckResults: List<SanityDPResult>
     ): SanityResultsView.FunctionDependent<RuleCheckResult.Single> =
         SanityResultsView.FunctionDependent<RuleCheckResult.Single,
-                SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.LeftOperand,
+                SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.LeftOperand,
                 CVLCmd.Simple.Assert>(
             _baseResults, _sanityCheckResults, this
         )
 
     override val rawMsgFormatter
         get() = { sanityOrdinalValue: SanityCheckResultOrdinal, assertCmd: CVLCmd.Simple.Assert, _: String, rawMsg: String ->
-            "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.cvlRange}" +
+            "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.range}" +
                 if (sanityOrdinalValue == SanityCheckResultOrdinal.FAILED) {
                     assertCmd.description
                 } else {
@@ -122,14 +122,14 @@ value class AssertionsStructureRightOperand(override val assertExp: CVLExp.Binar
         _sanityCheckResults: List<SanityDPResult>
     ): SanityResultsView.FunctionDependent<RuleCheckResult.Single> =
         SanityResultsView.FunctionDependent<RuleCheckResult.Single,
-                SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.RightOperand,
+                SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.RightOperand,
                 CVLCmd.Simple.Assert>(
             _baseResults, _sanityCheckResults, this
         )
 
     override val rawMsgFormatter: (SanityCheckResultOrdinal, CVLCmd.Simple.Assert, String, String) -> String
         get() = { sanityOrdinalValue: SanityCheckResultOrdinal, assertCmd: CVLCmd.Simple.Assert, _, rawMsg: String ->
-            "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.cvlRange}" +
+            "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.range}" +
                 if (sanityOrdinalValue == SanityCheckResultOrdinal.FAILED) {
                     assertCmd.description
                 } else {
@@ -148,14 +148,14 @@ value class AssertionsStructureIFFBothFalse(override val assertExp: CVLExp.Binar
         _sanityCheckResults: List<SanityDPResult>
     ): SanityResultsView.FunctionDependent<RuleCheckResult.Single> =
         SanityResultsView.FunctionDependent<RuleCheckResult.Single,
-                SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.IFFBothFalse,
+                SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.IFFBothFalse,
                 CVLCmd.Simple.Assert>(
             _baseResults, _sanityCheckResults, this
         )
 
     override val rawMsgFormatter: (SanityCheckResultOrdinal, CVLCmd.Simple.Assert, String, String) -> String
         get() = { sanityOrdinalValue: SanityCheckResultOrdinal, assertCmd: CVLCmd.Simple.Assert, _, rawMsg: String ->
-            "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.cvlRange}" +
+            "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.range}" +
                 if (sanityOrdinalValue == SanityCheckResultOrdinal.FAILED) {
                     assertCmd.description
                 } else {
@@ -212,14 +212,14 @@ value class AssertionsStructureIFFBothTrue(override val assertExp: CVLExp.Binary
         _sanityCheckResults: List<SanityDPResult>
     ): SanityResultsView.FunctionDependent<RuleCheckResult.Single> =
         SanityResultsView.FunctionDependent<RuleCheckResult.Single,
-                SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.IFFBothTrue,
+                SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.IFFBothTrue,
                 CVLCmd.Simple.Assert>(
             _baseResults, _sanityCheckResults, this
         )
 
     override val rawMsgFormatter: (SanityCheckResultOrdinal, CVLCmd.Simple.Assert, String, String) -> String
         get() = { sanityOrdinalValue: SanityCheckResultOrdinal, assertCmd: CVLCmd.Simple.Assert, _, rawMsg: String ->
-            "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.cvlRange}" +
+            "$rawMsg ${sanityOrdinalValue.reportString()}: ${assertCmd.range}" +
                 if (sanityOrdinalValue == SanityCheckResultOrdinal.FAILED) {
                     assertCmd.description
                 } else {

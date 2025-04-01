@@ -27,6 +27,7 @@ import cli.SanityValues
 import config.*
 import config.Config.BytecodeFiles
 import config.Config.CustomBuildScript
+import config.Config.DoSanityChecksForRules
 import config.Config.SpecFile
 import config.Config.getSourcesSubdirInInternal
 import config.component.EventConfig
@@ -56,9 +57,9 @@ import smt.CoverageInfoEnum
 import smt.PrettifyCEXEnum
 import smt.UseLIAEnum
 import spec.converters.EVMMoveSemantics
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule.Companion.createDummyRule
+import spec.cvlast.*
 import spec.cvlast.typedescriptors.theSemantics
+import spec.rules.EcosystemAgnosticRule
 import statistics.RunIDFactory
 import statistics.SDCollectorFactory
 import statistics.startResourceUsageCollector
@@ -76,8 +77,11 @@ import java.io.IOException
 import java.nio.file.Paths
 import java.util.*
 import java.util.concurrent.ExecutionException
+import kotlin.collections.listOf
+import kotlin.collections.toList
 import kotlin.io.path.Path
 import kotlin.io.path.isDirectory
+import kotlin.sequences.toSet
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.seconds
 
@@ -245,10 +249,12 @@ fun main(args: Array<String>) {
             */
             when {
                 fileName == null && BytecodeFiles.getOrNull() != null &&
-                        SpecFile.getOrNull() != null -> handleBytecodeFlow(BytecodeFiles.get(), SpecFile.get())
+                    SpecFile.getOrNull() != null -> handleBytecodeFlow(BytecodeFiles.get(), SpecFile.get())
+
                 fileName == null && isCertoraScriptFlow(buildFileName, verificationFileName) -> {
                     val cfgFileNames = File(getSourcesSubdirInInternal()).walk().filter {
-                        it.isFile}.map {
+                        it.isFile
+                    }.map {
                         getRelativeFileName(it.toString(), SOURCES_SUBDIR)
                     }.toSet()
                     val ruleCheckResults = handleCertoraScriptFlow(
@@ -262,6 +268,7 @@ fun main(args: Array<String>) {
                         finalResult = FinalResult.DIAGNOSTIC_ERROR
                     }
                 }
+
                 fileName != null -> when {
                     ArtifactFileUtils.isTAC(fileName) -> handleTACFlow(fileName)
                     ArtifactFileUtils.isSolana(fileName) -> handleSolanaFlow(fileName)
@@ -269,6 +276,7 @@ fun main(args: Array<String>) {
                     SpecFile.getOrNull() != null -> handleCVLFlow(fileName, SpecFile.get())
                     else -> handleSolidityOrHexFlow(fileName)
                 }
+
                 else -> {
                     if (BytecodeFiles.getOrNull() != null && BytecodeFiles.get().isNotEmpty()) {
                         Logger.alwaysError("In bytecode mode, must specify a spec file with ${SpecFile.name}")
@@ -295,9 +303,7 @@ fun main(args: Array<String>) {
         finalResult = FinalResult.ERROR
     } catch (t: CertoraException) {
         t.message?.let { Logger.regression { it } } // allow to check regression on cvt-killing exceptions
-        Logger.alwaysError(t.message ?: t.toString()) // a certora exception should not have null message
-        CVTAlertReporter.reportAlert(CVTAlertType.GENERAL, CVTAlertSeverity.ERROR, null, t.msg, null)
-        Logger.devError(t)
+        CVTAlertReporter.reportAlert(CVTAlertType.GENERAL, CVTAlertSeverity.ERROR, null, t.msg, null, throwable = t)
         finalResult = FinalResult.ERROR
     } catch (t: ExceptionInInitializerError) {
         t.message?.let { Logger.regression { it } } // allow to check regression on cvt-killing exceptions
@@ -447,7 +453,6 @@ private fun dumpArgs(args: Array<String>) {
 }
 
 
-
 fun reportCacheDirStats(isStart: Boolean) {
     Paths.get(Config.CacheDirName.get()).also {
         if (!it.isDirectory()) {
@@ -502,6 +507,7 @@ private fun dumpVersionFile() {
     dumpInLocation(StaticArtifactLocation.Input)
     dumpInLocation(StaticArtifactLocation.Reports)
 }
+
 /**
  * Returns true if CVT's input should be taken from the certoraRun generated files
  */
@@ -534,7 +540,7 @@ suspend fun handleTACFlow(fileName: String) {
 
     // Create a fake rule for the whole program although the program can have more than one assertion.
     // since `satisfy` is not a TAC statement, we handle it as an assert rule
-    val rule = createDummyRule(fileName)
+    val rule = EcosystemAgnosticRule(ruleIdentifier = RuleIdentifier.freshIdentifier(fileName), ruleType = SpecType.Single.FromUser.SpecFile)
 
     when (val reportType = Config.TacEntryPoint.get()) {
         ReportTypes.PRESOLVER_RULE -> TACVerifier.verifyPresolver(scene, fileName, rule)
@@ -544,6 +550,7 @@ suspend fun handleTACFlow(fileName: String) {
             }
             handleGenericFlow(scene, reporter, treeView, listOf(rule to parsedTACCode))
         }
+
         ReportTypes.PRESIMPLIFIED_RULE -> TACVerifier.verify(scene, fileName, rule)
         else -> {
             logger.error("Report type \"$reportType\" is not supported as a tac entry point.")
@@ -575,14 +582,12 @@ suspend fun handleGenericFlow(
     scene: IScene,
     reporterContainer: ReporterContainer,
     treeView: TreeViewReporter,
-    rules: Iterable<Pair<CVLSingleRule, CoreTACProgram>>
+    rules: Iterable<Pair<EcosystemAgnosticRule, CoreTACProgram>>
 ): List<RuleCheckResult.Single> {
-    for ((rule, _) in rules) {
-        treeView.addTopLevelRule(rule)
-    }
+
+    treeView.buildRuleTree(rules.map { it.first })
 
     return rules.parallelMapOrdered { _, (rule, coretac) ->
-
         ArtifactManagerFactory().dumpCodeArtifacts(
             coretac,
             ReportTypes.GENERIC_FLOW,
@@ -596,7 +601,13 @@ suspend fun handleGenericFlow(
         val vRes = TACVerifier.verify(scene, coretac, treeView.liveStatsReporter, rule)
         val endTime = System.currentTimeMillis()
 
-        if(Config.DoSanityChecksForRules.get() != SanityValues.NONE){
+
+        if (DoSanityChecksForRules.get() != SanityValues.NONE &&
+            /* For Solana there are two types of sanity checks: Sanity rules that are created earlier in the pipeline
+               and TAC sanity checks that are performed here. We explicitly don't want to run TAC sanity on the sanity rules
+               created earlies.
+             */
+            rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
             TACSanityChecks.analyse(scene, rule, coretac, vRes, treeView)
         }
 
@@ -628,7 +639,6 @@ suspend fun handleGenericFlow(
     }
 }
 
-
 suspend fun handleSorobanFlow(fileName: String) {
     val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName)
     val wasmRules = WasmEntryPoint.webAssemblyToTAC(
@@ -641,26 +651,22 @@ suspend fun handleSorobanFlow(fileName: String) {
         scene,
         reporterContainer,
         treeView,
-        wasmRules.map {
-            createDummyRule(it.code.name, it.isSatisfyRule) to it.code
-        }
+        wasmRules.map { it.rule to it.code }
     )
     reporterContainer.toFile(scene)
 }
 
-suspend fun handleSolanaFlow(fileName: String): List<RuleCheckResult.Single> {
+suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Single>> {
     val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName)
     val solanaRules = sbf.solanaSbfToTAC(fileName)
     val result = handleGenericFlow(
         scene,
         reporterContainer,
         treeView,
-        solanaRules.map {
-            createDummyRule(it.code.name, it.isSatisfyRule) to it.code
-        }
+        solanaRules.map { it.rule to it.code }
     )
     reporterContainer.toFile(scene)
-    return result
+    return treeView to result
 }
 
 fun getContractFile(fileName: String): IContractSource =
@@ -752,6 +758,7 @@ private fun setActiveFlow() {
                 ArtifactFileUtils.isTAC(fileName) && Config.ActiveEcosystem.getOrNull() == null ->
                     // We set it only if this is not set, otherwise we use what was provided with the command line option.
                     Config.ActiveEcosystem.set(Ecosystem.EVM)
+
                 ArtifactFileUtils.isSolana(fileName) -> Config.ActiveEcosystem.set(Ecosystem.SOLANA)
                 ArtifactFileUtils.isWasm(fileName) -> Config.ActiveEcosystem.set(Ecosystem.SOROBAN)
                 SpecFile.getOrNull() != null -> Config.ActiveEcosystem.set(Ecosystem.EVM)

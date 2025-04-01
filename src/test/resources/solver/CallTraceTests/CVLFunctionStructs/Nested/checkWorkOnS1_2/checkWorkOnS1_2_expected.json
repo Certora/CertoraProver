@@ -683,7 +683,7 @@
                     "childrenList": [
                         {
                             "message": {
-                                "text": "0x2546.balance: '{0}'",
+                                "text": "0x2710.balance: '{0}'",
                                 "arguments": [
                                     {
                                         "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",
@@ -733,6 +733,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -742,17 +753,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -1002,11 +1002,11 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0x2546",
+                                        "value": "0x2710",
                                         "values": [
-                                            "0x2546",
-                                            "0x2546",
-                                            "0x2546"
+                                            "0x2710",
+                                            "0x2710",
+                                            "0x2710"
                                         ],
                                         "tooltip": "address of sender",
                                         "truncatable": true
@@ -1016,10 +1016,10 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x2710"
+                                            "0x2546"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",
@@ -1131,17 +1131,17 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x2710"
+                                            "0x2546"
                                         ],
                                         "tooltip": "address",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
-                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c",
+                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe13",
                                         "values": [
-                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c",
-                                            "115792089237316195423570985008687907853269984665640564039457584007913129635964",
-                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c"
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe13",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129639443",
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe13"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": true
@@ -1809,17 +1809,17 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x2710"
+                                            "0x2546"
                                         ],
                                         "tooltip": "address",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
-                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c",
+                                        "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe13",
                                         "values": [
-                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c",
-                                            "115792089237316195423570985008687907853269984665640564039457584007913129635964",
-                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff07c"
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe13",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129639443",
+                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe13"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": true
@@ -3086,7 +3086,7 @@
                             "childrenList": [
                                 {
                                     "message": {
-                                        "text": "0x2546.balance: '{0}'",
+                                        "text": "0x2710.balance: '{0}'",
                                         "arguments": [
                                             {
                                                 "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffef89",

@@ -17,18 +17,18 @@
 
 package analysis.opt.scalarizer
 
+import analysis.CmdPointer
 import analysis.LTACCmd
 import analysis.worklist.volatileDagDataFlow
 import com.certora.collect.*
 import config.Config
-import datastructures.Memoized2
-import datastructures.TreapMultiMap
-import datastructures.add
+import datastructures.*
 import datastructures.stdcollections.*
-import datastructures.treapMultiMapUnion
+import instrumentation.transformers.FilteringFunctions
 import log.*
 import tac.NBId
 import tac.Tag
+import utils.runIf
 import vc.data.*
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.tacexprutil.*
@@ -70,6 +70,15 @@ class ByteMapScalarizer private constructor(code: CoreTACProgram, private val go
         g.blockCmdsBackwardSeq(nbid).forEach { lcmd ->
             newQueries = processCmd(lcmd, newQueries)
         }
+        // add a havoc statement for any query that still remains at the root block.
+        if (nbid in g.rootBlockIds && newQueries.isNotEmpty()) {
+            patcher.insertBefore(
+                CmdPointer(nbid, 0),
+                newQueries.pairs.map { (v, loc) ->
+                    TACCmd.Simple.AssigningCmd.AssignHavocCmd(scalarized(v, loc))
+                }
+            )
+        }
         return newQueries
     }
 
@@ -80,7 +89,12 @@ class ByteMapScalarizer private constructor(code: CoreTACProgram, private val go
             patcher.replace(ptr, newCmd.withMeta(cmd.meta))
 
         fun replace(newCmds: List<TACCmd.Simple>) =
-            patcher.replace(ptr, newCmds.map { it.withMeta(cmd.meta)})
+            patcher.replace(ptr, newCmds.map { it.withMeta(cmd.meta) })
+
+        fun assign(lhsV : TACSymbol.Var, lhsLoc : BigInteger, rhsV : TACSymbol.Var, rhsLoc : BigInteger) =
+            runIf(lhsV != rhsV || lhsLoc != rhsLoc) {
+                AssignExpCmd(scalarized(lhsV, lhsLoc), scalarized(rhsV, rhsLoc))
+            }
 
         var newQueries = queries
 
@@ -92,11 +106,11 @@ class ByteMapScalarizer private constructor(code: CoreTACProgram, private val go
         fun store(lhsBase: TACSymbol.Var, rhsBase: TACSymbol.Var, loc: BigInteger, value: TACExpr) {
             val newLocs = queries[lhsBase].orEmpty()
             replace(
-                newLocs.map { l ->
+                newLocs.mapNotNull { l ->
                     if (l == loc) {
                         AssignExpCmd(scalarized(lhsBase, l), value)
                     } else {
-                        AssignExpCmd(scalarized(lhsBase, l), scalarized(rhsBase, l))
+                        assign(lhsBase, l, rhsBase, l)
                     }
                 }
             )
@@ -123,11 +137,11 @@ class ByteMapScalarizer private constructor(code: CoreTACProgram, private val go
                 }
             }
             replace(
-                locs.map { l ->
+                locs.mapNotNull { l ->
                     if (l in dstOffset..<dstOffset + len) {
-                        AssignExpCmd(scalarized(lhs, l), scalarized(srcBase, l - dstOffset + srcOffset))
+                        assign(lhs, l, srcBase, l - dstOffset + srcOffset)
                     } else {
-                        AssignExpCmd(scalarized(lhs, l), scalarized(dstBase, l))
+                        assign(lhs, l, dstBase, l)
                     }
                 }
             )
@@ -172,8 +186,8 @@ class ByteMapScalarizer private constructor(code: CoreTACProgram, private val go
                 is TACExpr.Sym.Var -> if (cmd.lhs in goodBases) {
                     queries[cmd.lhs]?.let { locs ->
                         replace(
-                            locs.map {
-                                AssignExpCmd(scalarized(cmd.lhs, it), scalarized(e.s, it))
+                            locs.mapNotNull {
+                                assign(cmd.lhs, it, e.s, it)
                             }
                         )
                         newQueries = queries
@@ -264,11 +278,14 @@ class ByteMapScalarizer private constructor(code: CoreTACProgram, private val go
     }
 
     companion object {
-        fun go(code: CoreTACProgram): CoreTACProgram {
+        fun go(
+            code: CoreTACProgram,
+            isInlineable: (TACSymbol.Var) -> Boolean = FilteringFunctions.default(code)::isInlineable
+        ): CoreTACProgram {
             if (Config.exactByteMaps.get()) {
                 return code
             }
-            val goodBases = ScalarizerCalculator.goodBases(code)
+            val goodBases = ScalarizerCalculator.goodBases(code, isInlineable)
             if (goodBases.isEmpty()) {
                 return code
             }

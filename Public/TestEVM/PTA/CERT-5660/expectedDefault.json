@@ -1,0 +1,17 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"badUpdate_fine": "SUCCESS",
+		"trivial": {
+			"FAIL": [
+				"badUpdate(uint256[],uint256)"
+			],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"readLength(bytes32)"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

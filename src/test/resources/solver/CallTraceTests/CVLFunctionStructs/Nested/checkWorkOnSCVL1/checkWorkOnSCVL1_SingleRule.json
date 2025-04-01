@@ -1,12 +1,12 @@
 {
-    "type": "spec.cvlast.CVLSingleRule",
+    "type": "spec.rules.CVLSingleRule",
     "ruleIdentifier": {
         "parentIdentifier": null,
         "displayName": "checkWorkOnSCVL1",
         "counter": 5
     },
-    "cvlRange": {
-        "type": "spec.cvlast.CVLRange.Range",
+    "range": {
+        "type": "utils.Range.Range",
         "specFile": "test.spec",
         "start": {
             "line": 54,
@@ -25,7 +25,7 @@
             },
             "id": "x",
             "range": {
-                "type": "spec.cvlast.CVLRange.Range",
+                "type": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                     "line": 54,
@@ -43,8 +43,8 @@
     "block": [
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                     "line": 55,
@@ -88,8 +88,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                             "k": 256
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "test.spec",
                             "start": {
                                 "line": 55,
@@ -134,8 +134,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                             "n": "3"
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "test.spec",
                             "start": {
                                 "line": 55,
@@ -175,8 +175,8 @@
                     "type": {
                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "test.spec",
                         "start": {
                             "line": 55,
@@ -215,8 +215,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Declaration",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                     "line": 56,
@@ -376,8 +376,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Apply",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                     "line": 57,
@@ -423,8 +423,8 @@
                                 "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                                 "k": 256
                             },
-                            "cvlRange": {
-                                "type": "spec.cvlast.CVLRange.Range",
+                            "range": {
+                                "type": "utils.Range.Range",
                                 "specFile": "test.spec",
                                 "start": {
                                     "line": 57,
@@ -589,8 +589,8 @@
                                         }
                                     ]
                                 },
-                                "cvlRange": {
-                                    "type": "spec.cvlast.CVLRange.Range",
+                                "range": {
+                                    "type": "utils.Range.Range",
                                     "specFile": "test.spec",
                                     "start": {
                                         "line": 57,
@@ -681,8 +681,8 @@
                                     }
                                 ]
                             },
-                            "cvlRange": {
-                                "type": "spec.cvlast.CVLRange.Range",
+                            "range": {
+                                "type": "utils.Range.Range",
                                 "specFile": "test.spec",
                                 "start": {
                                     "line": 57,
@@ -723,8 +723,8 @@
                     "type": {
                         "type": "spec.cvlast.CVLType.PureCVLType.Void"
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "test.spec",
                         "start": {
                             "line": 57,
@@ -764,8 +764,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Assert",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "test.spec",
                 "start": {
                     "line": 58,
@@ -929,8 +929,8 @@
                                     }
                                 ]
                             },
-                            "cvlRange": {
-                                "type": "spec.cvlast.CVLRange.Range",
+                            "range": {
+                                "type": "utils.Range.Range",
                                 "specFile": "test.spec",
                                 "start": {
                                     "line": 58,
@@ -1021,8 +1021,8 @@
                                 }
                             ]
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "test.spec",
                             "start": {
                                 "line": 58,
@@ -1063,8 +1063,8 @@
                     "type": {
                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "test.spec",
                         "start": {
                             "line": 58,
@@ -1130,8 +1130,8 @@
         }
     },
     "methodParamFilters": {
-        "cvlRange": {
-            "type": "spec.cvlast.CVLRange.Range",
+        "range": {
+            "type": "utils.Range.Range",
             "specFile": "test.spec",
             "start": {
                 "line": 54,
@@ -1169,6 +1169,6 @@
         }
     },
     "ruleGenerationMeta": {
-        "type": "spec.cvlast.SingleRuleGenerationMeta.Empty"
+        "type": "spec.rules.SingleRuleGenerationMeta.Empty"
     }
 }

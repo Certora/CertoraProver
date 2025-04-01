@@ -21,6 +21,7 @@ import allocator.Allocator
 import analysis.*
 import com.certora.collect.*
 import config.Config
+import config.ReportTypes
 import datastructures.stdcollections.*
 import evm.EVM_WORD_SIZE_INT
 import instrumentation.transformers.GhostSaveRestoreInstrumenter
@@ -35,6 +36,7 @@ import spec.cvlast.ComparisonBasis
 import spec.cvlast.SolidityContract
 import spec.cvlast.StorageBasis
 import tac.*
+import testing.TacPipelineDebuggers.oneStateInvariant
 import utils.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
 import vc.data.compilation.storage.InternalCVLCompilationAPI
@@ -49,6 +51,12 @@ import java.math.BigInteger
 
 class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
     fun compile(c: CVLTACProgram) : CoreTACProgram {
+        ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
+            c,
+            ReportTypes.PRECOMPILE_TO_SIMPLE,
+            StaticArtifactLocation.Outputs,
+            DumpTime.AGNOSTIC
+        )
         val blockGraph = c.blockgraph
         val code = mutableMapOf<NBId, List<TACCmd.Simple>>()
         val symbolTable = c.symbolTable
@@ -62,7 +70,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
             newVars += res.varDecls
             code[blk] = res.cmds
         }
-        return CoreTACProgram(
+        val compiled = CoreTACProgram(
             blockgraph = blockGraph,
             code = code,
             symbolTable = symbolTable.copy(
@@ -80,6 +88,14 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
             name = c.name,
             check = true
         )
+        ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
+            compiled,
+            ReportTypes.POSTCOMPILE_TO_SIMPLE,
+            StaticArtifactLocation.Outputs,
+            DumpTime.AGNOSTIC
+        )
+        oneStateInvariant(compiled, ReportTypes.POSTCOMPILE_TO_SIMPLE)
+        return compiled
     }
 
     fun compile(cmds: CommandWithRequiredDecls<TACCmd.Spec>, symbolTable: TACSymbolTable) : CommandWithRequiredDecls<TACCmd.Simple> =
@@ -473,10 +489,11 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
         }
     }
 
-    private fun blockchainFamily(baseName: String) : Map<TACSymbol.Var, TACSymbol.Var> {
+    private fun blockchainFamily(base: TACSymbol.Var) : Map<TACSymbol.Var, TACSymbol.Var> {
         // current design is that transient storage is havoc'd at the beginning of a rule and there's a single transaction throughout.
         // so it will require special handling once the design changes to allow for multiple transactions.
         // for now, "at" syntax should roll it back https://www.notion.so/certora/Transient-storage-support-1e95707fb68f46ba8781908550256cce?pvs=4 (16 March 2024)
+        val baseName = base.namePrefix
         val ret = scene.getUnifiedStorageInfoViewWithReadTrackers().flatMap { (_, s) ->
             (s as StorageInfoWithReadTracker).storageVariables.flatMap { (stateVar, readTracker) ->
                 listOfNotNull(
@@ -491,7 +508,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
             val (k, v) = stateVarToFamily(baseName, g)
             ret[k] = v
         }
-        return ret
+        return ret.mapValues { (_, v) -> base.meta[TACSymbol.Var.KEYWORD_ENTRY]?.let { v.withMeta(TACSymbol.Var.KEYWORD_ENTRY, it) } ?: v }
     }
 
     private fun translateDataMovement(cmd: TACCmd.Simple, vars: MutableSet<TACSymbol.Var>, toReturn: MutableList<TACCmd.Simple>) {
@@ -503,8 +520,8 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
             Tag.BlockchainState -> {
                 // Hold on to your butts
                 val rhs = narrowCmdRhs(cmd)
-                val srcState = blockchainFamily(rhs.s.namePrefix)
-                val lhsState = blockchainFamily(cmd.lhs.namePrefix)
+                val srcState = blockchainFamily(rhs.s)
+                val lhsState = blockchainFamily(cmd.lhs)
                 vars.addAll(srcState.values)
                 vars.addAll(lhsState.values)
                 for((key, lhs) in lhsState) {
@@ -655,7 +672,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
                                             snippetCmd.toArray((repr - ArrayReprKey.Length).values.toSet(), repr[ArrayReprKey.Length]!!).toAnnotation()
                                         }
                                         is CVLType.PureCVLType.VMInternal.BlockchainState -> {
-                                            snippetCmd.toBlockchainState(blockchainFamily(snippetCmd.sym.namePrefix).values.toSet()).toAnnotation()
+                                            snippetCmd.toBlockchainState(blockchainFamily(snippetCmd.sym).values.toSet()).toAnnotation()
                                         }
                                         else -> {
                                             snippetCmd.toPrimitive().toAnnotation()
@@ -861,7 +878,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
                     vars.add(arrLengthVar)
                 }
                 is TACCmd.CVL.CopyBlockchainState -> {
-                    val storageFamily = blockchainFamily(c.lhs.namePrefix)
+                    val storageFamily = blockchainFamily(c.lhs)
                     for((k, v) in storageFamily) {
                         toReturn.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
                             lhs = v,
@@ -876,7 +893,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
                     toReturn.add(TACCmd.Simple.AnnotationCmd(TACMeta.CVL_STATE_RESIDUAL, StorageMovement.CopyCurrent(c.lhs.namePrefix)))
                 }
                 is TACCmd.CVL.SetBlockchainState -> {
-                    val storageFamily = blockchainFamily(c.stateVar.namePrefix)
+                    val storageFamily = blockchainFamily(c.stateVar)
                     for((k, v) in storageFamily) {
                         toReturn.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
                             lhs =  k,

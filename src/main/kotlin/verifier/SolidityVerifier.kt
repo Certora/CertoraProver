@@ -40,9 +40,9 @@ import scene.IScene
 import scene.ITACMethod
 import solver.SolverResult
 import spec.CVLKeywords
-import spec.cvlast.AssertRule
+import spec.rules.AssertRule
 import spec.cvlast.CVLScope
-import spec.cvlast.IRule
+import spec.rules.IRule
 import spec.cvlast.RuleIdentifier
 import spec.toVar
 import tac.DumpTime

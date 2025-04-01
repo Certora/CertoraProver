@@ -246,7 +246,7 @@ sealed class SnippetCmd: AmbiSerializable {
             /** Address of the contract whose storage is being accessed. */
             val contractInstance: BigInteger
 
-            val range: CVLRange.Range?
+            val range: Range.Range?
         }
 
         /**
@@ -275,7 +275,7 @@ sealed class SnippetCmd: AmbiSerializable {
                 override val displayPath: DisplayPath,
                 override val storageType: EVMTypeDescriptor.EVMValueType?,
                 override val contractInstance: BigInteger,
-                override val range: CVLRange.Range?,
+                override val range: Range.Range?,
                 val linkableStorageReadId: LinkableStorageReadId
             ) : StorageSnippet(), RemapperEntity<LoadSnippet> {
                 constructor(
@@ -283,7 +283,7 @@ sealed class SnippetCmd: AmbiSerializable {
                     displayPath: DisplayPath,
                     storageType: EVMTypeDescriptor.EVMValueType?,
                     contractInstance: BigInteger,
-                    range: CVLRange.Range?,
+                    range: Range.Range?,
                     storageLoadCmd: TACCmd.Simple.AssigningCmd
                 ) : this(
                     value,
@@ -351,7 +351,7 @@ sealed class SnippetCmd: AmbiSerializable {
                 override val displayPath: DisplayPath,
                 override val storageType: EVMTypeDescriptor.EVMValueType?,
                 override val contractInstance: BigInteger,
-                override val range: CVLRange.Range?,
+                override val range: Range.Range?,
             ) : StorageSnippet() {
                 override fun copy(v: TACSymbol, disPath: DisplayPath): StorageSnippet {
                     return copy(value = v, displayPath = disPath)
@@ -365,7 +365,7 @@ sealed class SnippetCmd: AmbiSerializable {
                 override val displayPath: DisplayPath,
                 override val storageType: EVMTypeDescriptor.EVMValueType?,
                 override val contractInstance: BigInteger,
-                override val range: CVLRange.Range?,
+                override val range: Range.Range?,
             ) : StorageSnippet() {
                 override fun copy(v: TACSymbol, disPath: DisplayPath) = copy(value = v, displayPath = disPath)
             }
@@ -377,7 +377,7 @@ sealed class SnippetCmd: AmbiSerializable {
                 override val displayPath: DisplayPath,
                 override val storageType: EVMTypeDescriptor.EVMValueType?,
                 override val contractInstance: BigInteger,
-                override val range: CVLRange.Range?,
+                override val range: Range.Range?,
             ) : StorageSnippet() {
                 override fun copy(v: TACSymbol, disPath: DisplayPath) = copy(value = v, displayPath = disPath)
             }
@@ -603,7 +603,7 @@ sealed class SnippetCmd: AmbiSerializable {
         @KSerializable
         sealed class SourceFinderSnippet : EVMSnippetCmd(), TransformableSymEntityWithRlxSupport<SourceFinderSnippet>  {
             @KSerializable
-            data class LocalAssignmentSnippet(val lhs: String, val finderType: Int, val range: CVLRange.Range?, val value: TACSymbol) : SourceFinderSnippet() {
+            data class LocalAssignmentSnippet(val lhs: String, val finderType: Int, val range: Range.Range?, val value: TACSymbol) : SourceFinderSnippet() {
                 override fun transformSymbols(f: (TACSymbol) -> TACSymbol): LocalAssignmentSnippet = LocalAssignmentSnippet(
                     lhs=lhs,
                     finderType=finderType,
@@ -615,13 +615,13 @@ sealed class SnippetCmd: AmbiSerializable {
 
         @KSerializable
         sealed class HaltSnippet : EVMSnippetCmd() {
-            abstract val range: CVLRange.Range?
+            abstract val range: Range.Range?
 
             @KSerializable
-            data class Return(override val range: CVLRange.Range?) : HaltSnippet()
+            data class Return(override val range: Range.Range?) : HaltSnippet()
 
             @KSerializable
-            data class Revert(override val range: CVLRange.Range?) : HaltSnippet()
+            data class Revert(override val range: Range.Range?) : HaltSnippet()
         }
 
         /**
@@ -645,7 +645,7 @@ sealed class SnippetCmd: AmbiSerializable {
                 override val contractInstance: BigInteger,
                 override val value: TACSymbol?,
                 override val storageType: EVMTypeDescriptor.EVMValueType?,
-                override val range: CVLRange.Range?
+                override val range: Range.Range?
             ) : RawStorageAccess() {
                 override fun transformSymbols(f: (TACSymbol) -> TACSymbol): RawStorageAccess =
                     copy(value = value?.let { f(it) })
@@ -658,7 +658,7 @@ sealed class SnippetCmd: AmbiSerializable {
                 override val contractInstance: BigInteger,
                 override val value: TACSymbol?,
                 override val storageType: EVMTypeDescriptor.EVMValueType?,
-                override val range: CVLRange.Range?
+                override val range: Range.Range?
             ) : RawStorageAccess() {
                 override fun transformSymbols(f: (TACSymbol) -> TACSymbol): RawStorageAccess =
                     copy(loc = f(loc), value = value?.let { f(it) })
@@ -912,7 +912,7 @@ sealed class SnippetCmd: AmbiSerializable {
         data class CVLFunctionStart(
             @GeneratedBy(Allocator.Id.CALL_ID) val callIndex: CallId,
             val name: String,
-            val range: CVLRange,
+            val range: Range,
             val isNoRevert: Boolean
         ): CVLSnippetCmd(), RemapperEntity<CVLFunctionStart>
 
@@ -933,7 +933,7 @@ sealed class SnippetCmd: AmbiSerializable {
         data class DivZero(
             override val cvlExpOutSym: TACSymbol.Var,
             override val assertCond: TACSymbol,
-            val range: CVLRange,
+            val range: Range,
             val assertCmdLabel: String
         ) : CVLSnippetCmd(), TransformableSymAndVarEntityWithSupport<DivZero>, AssertSnippet<DivZero>, WithParseTree {
 
@@ -963,7 +963,7 @@ sealed class SnippetCmd: AmbiSerializable {
         data class AssertCast(
             override val cvlExpOutSym: TACSymbol.Var,
             override val assertCond: TACSymbol,
-            val range: CVLRange,
+            val range: Range,
         ) : CVLSnippetCmd(), TransformableSymAndVarEntityWithSupport<AssertCast>, AssertSnippet<AssertCast>, WithParseTree {
 
             override val strictSupport: Set<TACSymbol.Var> = setOf(cvlExpOutSym)
@@ -989,7 +989,7 @@ sealed class SnippetCmd: AmbiSerializable {
             val condVar: TACSymbol.Var,
             val cond: CVLExp,
             @GeneratedBy(Allocator.Id.CVL_EVENT, source = true) override val id: Int,
-            val range: CVLRange,
+            val range: Range,
         ) : CVLSnippetCmd(), TransformableVarEntityWithSupport<IfStart>, EventID, UniqueIdEntity<IfStart> {
             override val support get() = setOf(condVar)
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(condVar = f(condVar))
@@ -1012,7 +1012,7 @@ sealed class SnippetCmd: AmbiSerializable {
             val kind: Kind,
             @GeneratedBy(Allocator.Id.CVL_EVENT, source = true) override val id: Int,
             @GeneratedBy(Allocator.Id.CVL_EVENT, source = false) val ifStartId: Int,
-            val range: CVLRange,
+            val range: Range,
         ) : CVLSnippetCmd(), EventID, UniqueIdEntity<BranchStart> {
 
             enum class Kind { THEN, ELSE }
@@ -1046,7 +1046,7 @@ sealed class SnippetCmd: AmbiSerializable {
             val name: String
             val sort: GhostSort
             val persistent: Boolean
-            val range: CVLRange
+            val range: Range
         }
 
         /**
@@ -1062,7 +1062,7 @@ sealed class SnippetCmd: AmbiSerializable {
             override val name: String,
             override val sort: GhostSort,
             override val persistent: Boolean,
-            override val range: CVLRange,
+            override val range: Range,
             val readExpr: String,
         ) : CVLSnippetCmd(), TransformableVarEntityWithSupport<GhostRead>, GhostAccess {
             override val accessed: TACSymbol.Var get() = readValue
@@ -1107,7 +1107,7 @@ sealed class SnippetCmd: AmbiSerializable {
             override val name: String,
             override val sort: GhostSort,
             override val persistent: Boolean,
-            override val range: CVLRange,
+            override val range: Range,
             val assignmentExpr: String,
         ): CVLSnippetCmd(), TransformableVarEntityWithSupport<GhostAssignment>, GhostAccess {
             override val accessed: TACSymbol.Var get() = lhs
@@ -1178,8 +1178,8 @@ sealed class SnippetCmd: AmbiSerializable {
             // and that is always a mapping
             override val sort: GhostSort = GhostSort.Mapping
 
-            override val range: CVLRange
-                get() = CVLRange.Empty()
+            override val range: Range
+                get() = Range.Empty()
 
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): SumGhostRead =
                 copy(lhs = f(lhs), indices = indices.map { it?.let(f) })
@@ -1209,8 +1209,8 @@ sealed class SnippetCmd: AmbiSerializable {
             // and that is always a mapping
             override val sort: GhostSort = GhostSort.Mapping
 
-            override val range: CVLRange
-                get() = CVLRange.Empty()
+            override val range: Range
+                get() = Range.Empty()
         }
 
         /**
@@ -1401,7 +1401,7 @@ sealed class SnippetCmd: AmbiSerializable {
         data class ViewReentrancyAssert(
             override val assertCond: TACSymbol,
             val functions: List<String>?,
-            val range: CVLRange.Range?,
+            val range: Range.Range?,
         ): CVLSnippetCmd(), TransformableSymEntity<ViewReentrancyAssert>, AssertSnippet<ViewReentrancyAssert> {
             override fun transformSymbols(f: (TACSymbol) -> TACSymbol): ViewReentrancyAssert = copy(
                 assertCond = f(assertCond)
@@ -1465,6 +1465,17 @@ sealed class SnippetCmd: AmbiSerializable {
             override val support: Set<TACSymbol.Var> get() = symbols.toSet()
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
                 CexPrintValues(displayMessage = displayMessage, symbols = symbols.map{f(it)})
+        }
+
+        /**
+         * [low] is the lower 64-bits, [high] is the higher 64-bits.
+         * Those two are separate because a 128 bits number is represented as a pair of two 64-bits registers.
+         */
+        @KSerializable
+        data class CexPrint128BitsValue(val displayMessage: String, val low: TACSymbol.Var, val high: TACSymbol.Var, val signed: Boolean) : SolanaSnippetCmd(), TransformableVarEntityWithSupport<CexPrint128BitsValue> {
+            override val support: Set<TACSymbol.Var> get() = setOf(low, high)
+            override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
+                CexPrint128BitsValue(displayMessage = displayMessage, low = f(low), high = f(high), signed = signed)
         }
 
         @KSerializable

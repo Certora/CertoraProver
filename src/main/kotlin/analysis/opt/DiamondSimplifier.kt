@@ -27,6 +27,8 @@ import log.*
 import tac.*
 import utils.*
 import vc.data.*
+import vc.data.TACMeta.CVL_LABEL_END
+import vc.data.TACMeta.CVL_LABEL_START
 import vc.data.TACExprFactUntyped as txf
 import verifier.BlockMerger
 
@@ -144,6 +146,8 @@ private fun computeDiamondSimplifications(code: CoreTACProgram, allowAssumes: Bo
                     annot.v is SnippetCmd -> false
                     annot.v is SummaryStack.SummaryStart -> false
                     annot.v is SummaryStack.SummaryEnd -> false
+                    annot.k == CVL_LABEL_END -> false
+                    annot.k == CVL_LABEL_START -> false
                     else -> true
                 }
                 is TACCmd.Simple.NopCmd -> true

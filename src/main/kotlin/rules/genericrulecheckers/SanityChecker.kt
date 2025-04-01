@@ -21,8 +21,8 @@ import log.Logger
 import log.LoggerTypes
 import rules.RuleCheckResult
 import rules.RuleChecker
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.genericrulegenerators.SanityGenerator
 

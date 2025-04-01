@@ -30,10 +30,15 @@ import com.certora.collect.*
 import datastructures.*
 import datastructures.stdcollections.*
 import log.*
+import sbf.tac.SBF_INLINED_FUNCTION_END
+import sbf.tac.SBF_INLINED_FUNCTION_START
+import sbf.tac.SbfInlinedFuncEndAnnotation
+import sbf.tac.SbfInlinedFuncStartAnnotation
 import tac.CallId
 import tac.NBId
 import utils.*
 import vc.data.*
+import vc.data.ProcedureId.*
 import verifier.CodeAnalysis
 
 
@@ -42,6 +47,8 @@ private val logger = Logger(LoggerTypes.UI) // giving logger type UI since (so f
 /**
  * Transforms a given [CoreTACProgram] such that internal calls are made explicit via graph structure, i.e., the
  * [NBId.calleeIdx] field has separate ids for internal calls, in addition to the external ones.
+ * While for EVM it is clear what internal and external calls are, for Solana each call is considered an internal
+ * call. The algorithm assumes that the outermost call is an external call for both flows.
  *
  * Practical considerations:
  *  - The external calls (summary applications also count as such) are already made explicit in our tac programs through
@@ -50,9 +57,8 @@ private val logger = Logger(LoggerTypes.UI) // giving logger type UI since (so f
  *  - This means we need to break up blocks, since before this transformation internal calls could happen within one
  *    block, but since `calleeIdx` is part of the [BlockIdentifier], we can only be in one context per block.
  *
- *  - Tn the presence of summaries, and in contrast to "plain solidity" afaiu, internal and external calls can alternate
+ *  - In the presence of summaries, and in contrast to "plain solidity" afaiu, internal and external calls can alternate
  *    arbitrarily, i.e., there can be an external call inside an internal one, etc.
-
  */
 object AddInternalFunctions {
 
@@ -62,6 +68,9 @@ object AddInternalFunctions {
                 TACProgWithIntFuncs(prog, CmdPtrMapping(prog.code))
         }
     }
+
+    /** In Solana there is only one external artificial procedure, which is this one. */
+    val solanaEntryPoint = Solana("main")
 
     fun CoreTACProgram.alreadyHasInternalFunctions() =
         this.procedures.any { it.procedureId is ProcedureId.Internal }
@@ -99,8 +108,8 @@ object AddInternalFunctions {
      * Main transformation.
      *
      * Takes a [CoreTACProgram] and returns a [CoreTACProgram] along with a [CmdPtrMapping] that relates the original
-     * program and the new one's code locations. (This mapping is useful for [UnsolvedSplitInfo], which is computed on
-     * [inputProg]; it is also important for the second step of our algorithm however.
+     * program and the new one's code locations. This mapping is useful for [UnsolvedSplitInfo], which is computed on
+     * the input program; it is also important for the second step of our algorithm.
      *
      * The transformation proceeds in two steps:
      *  1. Iterate over the program and build sub graphs that should be replaced.
@@ -132,8 +141,8 @@ object AddInternalFunctions {
             // handle incoming edges
             var callStack =
                 if (predResults.isEmpty()) {
-                    // root
-                    listOf(block.calleeIdx.wrapCse())
+                    // root: it is assumed to be an external function call both for EVM and Solana.
+                    listOf(CallStackEntry.ExtFunc(block.calleeIdx))
                 } else if (currSubGraphBuilder == null) {
                     // edge from external to external -- we're leaving this part of the CFG unchanged -- doing nothing
 
@@ -145,7 +154,7 @@ object AddInternalFunctions {
                     // in the call case:
                     //   push the current function on top
                     // (we know that we're not inside an internal function)
-                    predResults.first().callStack.popUntilExtOrPush(block.calleeIdx.wrapCse()).also {
+                    predResults.first().callStack.popUntilExtOrPush(CallStackEntry.ExtFunc(block.calleeIdx)).also {
                         check(!it.hasInternal()) { "internal functions on call stack, but not currently building a sub graph" }
                     }
                 } else {
@@ -158,27 +167,33 @@ object AddInternalFunctions {
             inputProg.code[block]?.forEachIndexed { idx, cmd ->
                 val cmdPointer = CmdPointer(block, idx)
                 val insideInternalCall = callStack.hasInternal()
-                if (cmd is TACCmd.Simple.AnnotationCmd && cmd.annot.k == INTERNAL_FUNC_START) {
-                    val func = cmd.annot.v as InternalFuncStartAnnotation
+                if (cmd is TACCmd.Simple.AnnotationCmd && cmd.isIntFuncStart()) {
+                    val func = cmd.toIntFuncStart()
 
                     if (!insideInternalCall) {
+                        val externalProcedure = when (func) {
+                            is CallStackEntry.IntFuncStart.EVM ->
+                                inputProg.procedures.find { it.callId == block.calleeIdx } // XXX nicer way of lookup?
+                                    ?: error("failed to find procedure id for index ${block.calleeIdx} in current program (but it should be there)")
+                            is CallStackEntry.IntFuncStart.Solana ->
+                                // As a convention, in Solana there is only one external artificial procedure.
+                                Procedure(callId = 0, procedureId = solanaEntryPoint)
+                        }
                         // calling from an externally called function invocation to an internal one start a "big" new subgraph
                         currSubGraphBuilder =
                             InternalFuncSubgraph.Builder(
                                 internalCallStart = cmdPointer,
                                 startCmd = cmd,
-                                externalProcedure =
-                                    inputProg.procedures.find { it.callId == block.calleeIdx } // XXX nicer way of lookup?
-                                        ?: error("failed to find procedure id for index ${block.calleeIdx} in current program (but it should be there)")
+                                externalProcedure = externalProcedure
                             )
                     } else {
                         // calling from an internally called function invocation to an internal one
-                        currSubGraphBuilder!!.enterInternalCall(cmdPointer, func)
+                        currSubGraphBuilder!!.enterInternalCall(cmdPointer, func, cmd)
                     }
 
-                    callStack = callStack + func.wrapCse()
-                } else if (cmd is TACCmd.Simple.AnnotationCmd && cmd.annot.k == INTERNAL_FUNC_EXIT) {
-                    val func = cmd.annot.v as InternalFuncExitAnnotation
+                    callStack = callStack + func
+                } else if (cmd is TACCmd.Simple.AnnotationCmd && cmd.isIntFuncEnd()) {
+                    val func = cmd.toIntFuncEnd()
 
                     callStack = callStack.popInternal(func)
 
@@ -193,7 +208,7 @@ object AddInternalFunctions {
                             throw UnsupportedOperationException("internal return is the last command in a block, " +
                                 "we're not yet supporting this case for AddInternalFunctions")
                         }
-                        currSubGraphBuilder!!.exitInternalCall(callStack, cmdPointer, func)
+                        currSubGraphBuilder!!.exitInternalCall(callStack, cmdPointer, cmd)
                     }
                 } else {
                     if (!insideInternalCall) {
@@ -266,7 +281,7 @@ data class CmdPtrLongCpy(
         return CmdPointer(newBlock, old.pos - oldStartPos + newStartPos)
     }
 
-    /** aka this's copy domain is a superset of other's copy domain */
+    /** aka this' copy domain is a superset of other's copy domain */
     fun containsAll(other: CmdPtrLongCpy): Boolean =
         oldBlock == other.oldBlock &&
             oldStartPos <= other.oldStartPos &&
@@ -301,13 +316,6 @@ class CmdPtrMapping(private val backing: MutableMap<CmdPointer, CmdPointer>) {
         get() = backing.keys
     val range: Collection<CmdPointer>
         get() = backing.values
-
-    val backingSorted get() = backing.toSortedMap()
-
-    /** May not hold during construction, but must hold once finished. */
-    fun finalInvariant() {
-        check(domain.size == range.size)
-    }
 
     fun add(item: CmdPtrLongCpy) {
         for (i in 0 until item.len) {
@@ -428,15 +436,15 @@ internal data class InternalFuncSubgraph(
         private val debug = true
 
         private val startFunc = run {
-            require(startCmd.annot.v is InternalFuncStartAnnotation) {
-                "expecting an InternalFuncStartAnnotation in the given AnnotationCmd, got $startCmd"
+            require(startCmd.isIntFuncStart()) {
+                "expecting an InternalFuncStartAnnotation or SbfInlinedFuncStartAnnotation in the given AnnotationCmd, got $startCmd"
             }
-            startCmd.annot.v
+            startCmd.toIntFuncStart()
         }
 
         private val blockGraph = MutableBlockGraph()
 
-        private val newProcedures = mutableMapOf<InternalFuncStartAnnotation, Procedure>()
+        private val newProcedures = mutableSetOf<Procedure>()
 
         fun MutableBlockGraph.addEdge(src: NBId, trg: NBId) {
             blockGraph[src] = getOrPut(src) { treapSetOf() }.add(trg)
@@ -452,18 +460,20 @@ internal data class InternalFuncSubgraph(
 
         /**
          * NBId as K1 for faster lookup
-         * */
+         */
         private val oldPosToNewBlock = mutableNestedMapOf<NBId, CmdPointer, NewBlock>()
 
         /**
          * Retrieve the topologically last of the new blocks that will replace [oldBlock].
          * This works as is, but we might also consider managing these latest new blocks by adding them to
-         * [BlockAndCallStack]. */
+         * [BlockAndCallStack].
+         */
         private fun currBlock(oldBlock: NBId) =
             oldPosToNewBlock[oldBlock]?.maxBy { it.key.pos }?.value
                 ?: error("failed to look up new block for $oldBlock")
 
         private val newCalleeIdxs = mutableMapOf<CallStackEntry, CallId>()
+
         /** callStack-top -> CallId of fresh nodes we're creating */
         private fun getNewCalleeIdx(func: CallStackEntry): CallId =
             newCalleeIdxs.getOrPut(func) {
@@ -497,9 +507,9 @@ internal data class InternalFuncSubgraph(
          * start with a stack consisting of [startFunc], and an empty new block
          */
         val entry = NewBlock(
-            startFunc.wrapCse(),
+            startFunc,
             internalCallStart,
-            getNewNBId(internalCallStart, startFunc.wrapCse())
+            getNewNBId(internalCallStart, startFunc)
         ).also { it.cmds.add(startCmd) }
 
 
@@ -511,18 +521,15 @@ internal data class InternalFuncSubgraph(
         ) {
             init {
                 if (func is CallStackEntry.IntFuncStart) {
-                    newProcedures.putIfAbsent(
-                        func.intFuncStart,
-                        Procedure(
-                            newNBId.calleeIdx,
-                            ProcedureId.Internal(
-                                func.intFuncStart.methodSignature.functionName,
-                                externalProcedure,
-                            )
-                        )
-                    )
+                    val procedureId = when (func) {
+                        is CallStackEntry.IntFuncStart.EVM ->
+                            Internal(func.annot.methodSignature.functionName, externalProcedure)
+                        is CallStackEntry.IntFuncStart.Solana ->
+                            Solana(func.annot.name)
+                    }
+                    newProcedures.add(Procedure(newNBId.calleeIdx, procedureId))
                 }
-                check(oldPosToNewBlock.get(oldBlockStart.block, oldBlockStart) == null) {
+                check(oldPosToNewBlock[oldBlockStart.block, oldBlockStart] == null) {
                     "double creation of a new block: $this"
                 }
                 oldPosToNewBlock.put(oldBlockStart.block, oldBlockStart, this)
@@ -557,11 +564,11 @@ internal data class InternalFuncSubgraph(
                 newBlock.cmds.forEachIndexed { i, cmd ->
                     if (i != 0 &&
                         cmd is TACCmd.Simple.AnnotationCmd &&
-                        cmd.annot.k == INTERNAL_FUNC_START) {
+                        cmd.isIntFuncStart()) {
                         logger.warn { "new block with a func start in the middle, at index $i, newBlock: $newBlock cmd: $cmd " }
                     } else if (i != newBlock.cmds.size - 1 &&
                         cmd is TACCmd.Simple.AnnotationCmd &&
-                        cmd.annot.k == INTERNAL_FUNC_EXIT) {
+                        cmd.isIntFuncEnd()) {
                         logger.warn { "new block with a func end in the middle, at index $i, newBlock: $newBlock cmd: $cmd " }
                     }
                 }
@@ -572,33 +579,33 @@ internal data class InternalFuncSubgraph(
                 internalCallEnd = internalCallEnd,
                 newBlockGraph = blockGraph,
                 newCodeBlocks = allNewBlocks.associate { it.newNBId to it.cmds },
-                // we keep the start and end blocks of the original graph (altough we update their code), so we
-                //  don't include them here
+                // we keep the start and end blocks of the original graph (although we update their code), so we
+                // don't include them here
                 blocksToRemove = (newNBIds.keys.mapToSet { it.block } - internalCallStart.block) - currBlock.oldBlockStart.block,
                 newGraphEntry = newGraphEntry,
                 newGraphExit = newGraphExit,
-                newProcedures = newProcedures.values,
+                newProcedures = newProcedures,
                 cmdPtrMapping = blockMapping
             )
         }
 
-        fun enterInternalCall(cmdPointer: CmdPointer, func: InternalFuncStartAnnotation) {
+        fun enterInternalCall(cmdPointer: CmdPointer, func: CallStackEntry.IntFuncStart, startAnnot: TACCmd.Simple.AnnotationCmd) {
             val oldBlock = currBlock(cmdPointer.block)
 
-            val newBlock = NewBlock(func.wrapCse(), cmdPointer, getNewNBId(cmdPointer, func.wrapCse()))
+            val newBlock = NewBlock(func, cmdPointer, getNewNBId(cmdPointer, func))
 
             // we add the entry command at the start of the entered block
-            newBlock.cmds.add(TACCmd.Simple.AnnotationCmd(INTERNAL_FUNC_START, func))
+            newBlock.cmds.add(startAnnot)
             blockGraph.addEdge(oldBlock.newNBId, newBlock.newNBId)
         }
 
 
         /** Exit from an internal call, not exiting the outermost, thus closing this sub-graph, yet. */
-        fun exitInternalCall(callStackPopped: CallStack, exitCmdPtr: CmdPointer, func: InternalFuncExitAnnotation) {
+        fun exitInternalCall(callStackPopped: CallStack, exitCmdPtr: CmdPointer, endAnnot: TACCmd.Simple.AnnotationCmd) {
             val currBlock = currBlock(exitCmdPtr.block)
             val srcNBId = currBlock.newNBId
             // we add the exit command at the end of the exited block
-            currBlock.cmds.add(TACCmd.Simple.AnnotationCmd(INTERNAL_FUNC_EXIT, func))
+            currBlock.cmds.add(endAnnot)
 
             val callerFunc = (callStackPopped.lastOrNull() ?: error("call stack should not become empty at this point"))
             val firstCmdInNewBlockPtr = exitCmdPtr + 1
@@ -617,26 +624,28 @@ internal data class InternalFuncSubgraph(
             currBlock(cmdPointer.block).cmds.add(cmd)
         }
 
-        /** Register control flow edges inside the sub graph we're building.
-         * These edges might keep the same calleeIdx, or they might constitute an external call. */
+        /**
+         * Register control flow edges inside the sub graph we're building.
+         * These edges might keep the same calleeIdx, or they might constitute an external call.
+         */
         fun addEdges(predBlocksAndCallStacks: List<BlockAndCallStack>, succBlock: NBId): CallStack {
             val predBlocks = predBlocksAndCallStacks.map { it.block }
             val callStacks = predBlocksAndCallStacks.map { it.callStack }
 
             val externalCall =
-                predBlocks.size == 1 && succBlock.calleeIdx.wrapCse() !in callStacks.first()
+                predBlocks.size == 1 && CallStackEntry.ExtFunc(succBlock.calleeIdx) !in callStacks.first()
 
             val externalReturn =
                 predBlocksAndCallStacks.any {
-                    it.block.calleeIdx != succBlock.calleeIdx && succBlock.calleeIdx.wrapCse() in it.callStack
+                    it.block.calleeIdx != succBlock.calleeIdx && CallStackEntry.ExtFunc(succBlock.calleeIdx) in it.callStack
                 }
 
             val newCallStack: CallStack = when {
                 externalCall -> {
-                    callStacks.first() + succBlock.calleeIdx.wrapCse()
+                    callStacks.first() + CallStackEntry.ExtFunc(succBlock.calleeIdx)
                 }
                 externalReturn -> {
-                    callStacks.greatestCommonSubStack().popExtRetainInt(succBlock.calleeIdx.wrapCse())
+                    callStacks.greatestCommonSubStack().popExtRetainInt(CallStackEntry.ExtFunc(succBlock.calleeIdx))
                 }
                 else -> {
                     // no change in external function
@@ -695,8 +704,8 @@ private typealias CallStack = List<CallStackEntry>
 private fun CallStack.hasInternal() = this.any { it is CallStackEntry.IntFuncStart }
 private fun CallStack.pop() = this.subList(0, this.size - 1)
 
-private fun CallStack.popInternal(exit: InternalFuncExitAnnotation): List<CallStackEntry> {
-    if ((lastOrNull() as? CallStackEntry.IntFuncStart)?.intFuncStart?.id != exit.id) {
+private fun CallStack.popInternal(exitAnnot: ExitAnnotation): List<CallStackEntry> {
+    if ((lastOrNull() as? CallStackEntry.IntFuncStart)?.id() != exitAnnot.id()) {
         logger.warn { "internal function calls/returns not well-nested when exiting outermost internal call" }
         return this
     }
@@ -774,10 +783,64 @@ private fun CallStack.popExtRetainInt(extToRetain: CallStackEntry.ExtFunc): Call
 }
 
 internal sealed interface CallStackEntry {
-    @JvmInline
-    value class IntFuncStart(val intFuncStart: InternalFuncStartAnnotation) : CallStackEntry
+    /** Internal functions start. */
+    sealed interface IntFuncStart : CallStackEntry {
+        @JvmInline
+        value class EVM(val annot: InternalFuncStartAnnotation) : IntFuncStart
+
+        @JvmInline
+        value class Solana(val annot: SbfInlinedFuncStartAnnotation) : IntFuncStart
+
+        fun id() = when (this) {
+            is EVM -> this.annot.id
+            is Solana -> this.annot.id
+        }
+    }
+
+    /** External functions. */
     @JvmInline
     value class ExtFunc(val calleeIdx: CallId) : CallStackEntry
 }
-internal fun InternalFuncStartAnnotation.wrapCse() = CallStackEntry.IntFuncStart(this)
-internal fun CallId.wrapCse() = CallStackEntry.ExtFunc(this)
+
+internal sealed interface ExitAnnotation {
+    @JvmInline
+    value class EVM(val annot: InternalFuncExitAnnotation) : ExitAnnotation
+
+    @JvmInline
+    value class Solana(val annot: SbfInlinedFuncEndAnnotation) : ExitAnnotation
+
+    fun id() = when (this) {
+        is EVM -> this.annot.id
+        is Solana -> this.annot.id
+    }
+}
+
+internal fun TACCmd.Simple.AnnotationCmd.isIntFuncStart() =
+    this.annot.k == INTERNAL_FUNC_START || this.annot.k == SBF_INLINED_FUNCTION_START
+
+/**
+ * Returns the [CallStackEntry.IntFuncStart] for the [TACCmd.Simple.AnnotationCmd].
+ * Assumes that it is either [InternalFuncStartAnnotation] or [SbfInlinedFuncStartAnnotation], and throws an exception
+ * otherwise.
+ */
+internal fun TACCmd.Simple.AnnotationCmd.toIntFuncStart() =
+    when (this.annot.v) {
+        is InternalFuncStartAnnotation -> CallStackEntry.IntFuncStart.EVM(this.annot.v)
+        is SbfInlinedFuncStartAnnotation -> CallStackEntry.IntFuncStart.Solana(this.annot.v)
+        else -> throw IllegalStateException("Expected InternalFuncStartAnnotation or SbfInlinedFuncStartAnnotation")
+    }
+
+internal fun TACCmd.Simple.AnnotationCmd.isIntFuncEnd() =
+    this.annot.k == INTERNAL_FUNC_EXIT || this.annot.k == SBF_INLINED_FUNCTION_END
+
+/**
+ * Returns the [ExitAnnotation] for the [TACCmd.Simple.AnnotationCmd].
+ * Assumes that it is either [InternalFuncExitAnnotation] or [SbfInlinedFuncEndAnnotation], and throws an exception
+ * otherwise.
+ */
+internal fun TACCmd.Simple.AnnotationCmd.toIntFuncEnd() =
+    when (this.annot.v) {
+        is InternalFuncExitAnnotation -> ExitAnnotation.EVM(this.annot.v)
+        is SbfInlinedFuncEndAnnotation -> ExitAnnotation.Solana(this.annot.v)
+        else -> throw IllegalStateException("Expected InternalFuncExitAnnotation or SbfInlinedFuncEndAnnotation")
+    }

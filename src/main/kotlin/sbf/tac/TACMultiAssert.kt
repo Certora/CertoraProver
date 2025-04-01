@@ -18,26 +18,27 @@
 package sbf.tac
 
 import analysis.maybeNarrow
-import sbf.sanitySuffix
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.RuleIdentifier
 import utils.*
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACMeta
 import datastructures.stdcollections.*
+import sbf.CompiledSolanaRule
+import utils.Range
+import spec.rules.EcosystemAgnosticRule
+import spec.cvlast.SpecType
 
 object TACMultiAssert {
 
     /** Return all user assertions from [code] **/
-    private fun getAssertions(code: CoreTACProgram): Set<Int> {
-        val assertions = mutableSetOf<Int>()
+    private fun getAssertions(code: CoreTACProgram): Set<Pair<Int, String>> {
+        val assertions = mutableSetOf<Pair<Int, String>>()
         code.parallelLtacStream().forEach {
             it.maybeNarrow<TACCmd.Simple.AssertCmd>()?.let {
                 val assertId = it.cmd.meta[TACMeta.ASSERT_ID]
                 if (assertId != null) {
                     // We only care about asserts that were added by the user
-                    assertions.add(assertId)
+                    assertions.add(assertId to it.cmd.msg)
                 }
             }
         }
@@ -65,28 +66,24 @@ object TACMultiAssert {
         }
     }
 
-    @Suppress("ForbiddenMethodCall")
-    fun shouldExecute(baseRule: CVLSingleRule) =
-            !baseRule.isSatisfyRule &&
-            !baseRule.isSanityCheck() &&
-            !baseRule.ruleIdentifier.displayName.endsWith(sanitySuffix)
+    fun shouldExecute(baseRule: CompiledSolanaRule) =
+            !baseRule.rule.isSatisfyRule &&
+            baseRule.rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
 
     /**
      * For a given rule [baseRuleTac] with N assert commands, it returns N new rules where each rule has
      * exactly one assert.
      **/
-    fun transformTac(baseRuleTac: CoreTACProgram, baseRule: CVLSingleRule): List<Pair<CoreTACProgram, CVLSingleRule>> {
+    fun transformTac(baseRule: EcosystemAgnosticRule, baseRuleTac: CoreTACProgram): List<Pair<EcosystemAgnosticRule,CoreTACProgram>> {
         val assertions = getAssertions(baseRuleTac)
-        return if (assertions.size <= 1) {
-            listOf(baseRuleTac to baseRule)
-        } else {
-            assertions.map { assertId ->
-                val suffix = "#assert_$assertId"
+        return assertions.map { (assertId, msg) ->
+                val suffix = "#assert_${assertId - RESERVED_NUM_OF_ASSERTS}"
                 val newBaseRuleTac = replaceAssertWithAssumeExcept(baseRuleTac, assertId)
-                val newRuleId = RuleIdentifier.freshIdentifier(baseRule.ruleIdentifier.displayName + suffix)
-                val newBaseRule = baseRule.copy(ruleIdentifier = newRuleId)
-                newBaseRuleTac.copy(name = baseRuleTac.name + suffix) to newBaseRule
+                val newRule = baseRule.copy(
+                    ruleIdentifier = baseRule.ruleIdentifier.freshDerivedIdentifier(suffix),
+                    ruleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertSpecFile(baseRule, assertId, msg, Range.Empty())
+                )
+                newRule to newBaseRuleTac.copy(name = newRule.ruleIdentifier.toString())
             }
-        }
     }
 }

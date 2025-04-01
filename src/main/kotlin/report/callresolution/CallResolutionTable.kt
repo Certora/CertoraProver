@@ -29,7 +29,7 @@ import vc.data.CoreTACProgram
 import datastructures.stdcollections.*
 import report.RuleAlertReport
 import report.calltrace.CallInstance
-import spec.cvlast.IRule
+import spec.rules.IRule
 import vc.data.MethodRef
 
 private val logger = Logger(LoggerTypes.UI)

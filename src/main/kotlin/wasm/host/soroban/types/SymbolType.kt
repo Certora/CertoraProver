@@ -21,11 +21,13 @@ import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import com.certora.collect.*
 import datastructures.stdcollections.*
+import tac.Tag
 import utils.*
 import vc.data.*
 import wasm.analysis.memory.StaticMemoryAnalysis
 import wasm.host.soroban.*
 import wasm.tacutils.*
+import wasm.traps.Trap
 
 /** Soroban symbol objects are buffers holding at most 32 characters in [a-zA-Z0-9_] */
 @KSerializable
@@ -123,6 +125,87 @@ object SymbolType : BufferType() {
         return Val(Val.Tag.SymbolSmall, accum).s
     }
 
+    fun symbolIndexInLinearMemory(
+        retIndex: TACSymbol.Var,
+        sym: TACSymbol,
+        slicesPos: TACSymbol,
+        len: TACSymbol
+    ): CommandWithRequiredDecls<TACCmd.Simple> =
+        SymbolIndexInMemory(retIndex, sym, slicesPos, len).toCmd()
+
+    @KSerializable
+    data class SymbolIndexInMemory(
+        val retIndex: TACSymbol.Var,
+        val sym: TACSymbol,
+        val slicesPos: TACSymbol,
+        val len: TACSymbol
+    ): PostUnrollAssignmentSummary() {
+        override val inputs
+            get() = listOf(sym, slicesPos, len)
+
+        override val mustWriteVars: List<TACSymbol.Var>
+            get() = listOf(retIndex)
+
+        override fun transformSymbols(f: Transformer): AssignmentSummary =
+            SymbolIndexInMemory(
+                retIndex = f(retIndex),
+                sym = f(sym),
+                slicesPos = f(slicesPos),
+                len = f(len)
+            )
+
+        override val annotationDesc: String
+            get() = "$retIndex := symbol_index_in_linear_memory($sym, $slicesPos, $len)"
+
+        override val mayWriteVars: List<TACSymbol.Var>
+            get() = mustWriteVars
+
+        override fun gen(
+            simplifiedInputs: List<TACExpr>,
+            staticData: StaticMemoryAnalysis
+        ): CommandWithRequiredDecls<TACCmd.Simple> = simplifiedInputs.let { (sym, slices, len) ->
+            val havoc by lazy {
+                assign(retIndex) { Unconstrained(Tag.Bit256) }
+            }
+            val symbolBytes = TACKeyword.TMP(Tag.ByteMap)
+            val lenConst = len.evalAsConst() ?: return havoc
+            val slicesConst = slices.evalAsConst() ?: return havoc
+            val isSymbolSmall = TACKeyword.TMP(Tag.Bool)
+            val comparisons = (0 ..< lenConst.safeAsInt()).monadicMap {
+                staticData.derefString((slicesConst + (8*it)).asTACExpr)
+            }?.map { string ->
+                TACExprFactUntyped {
+                    val symSmallComparison = bytesAsSymbolSmall(string)?.let { symSmall ->
+                        sym eq symSmall
+                    } ?: false.asTACExpr
+
+                    val strcmp = string.withIndex().map { (i, b) ->
+                        b.toInt().asTACExpr eq select(symbolBytes.asSym(), i.asTACExpr)
+                    }.foldFirst { e1, e2 -> e1 and e2 }
+
+                    ite(i = isSymbolSmall.asSym(), t = symSmallComparison, e = strcmp)
+                }
+            } ?: return havoc
+
+           return mergeMany(
+               // Is symbol small?
+               assign(isSymbolSmall) {Val.hasTag(sym, Val.Tag.SymbolSmall) },
+
+               // Read the symbol
+               defineMap(symbolBytes) {(index) -> select(mappings.asSym(), sym, index) },
+
+               Trap.assert("symbol_index_in_linear_memory symbol not found") {
+                   comparisons.foldFirstOrNull { here, there -> here or there } ?: false.asTACExpr
+               },
+
+               assign(retIndex) {
+                   comparisons.foldRightIndexed(Unconstrained(Tag.Bit256)) { idx, cmp, acc: TACExpr ->
+                        ite(i = cmp, t = idx.asTACExpr, e = acc)
+                   }
+               }
+           )
+        }
+    }
 
     @KSerializable
     data class NewSymbolFromStrSummary(

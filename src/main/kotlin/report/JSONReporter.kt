@@ -23,7 +23,7 @@ import rules.RuleCheckResult
 import scene.IScene
 import solver.SolverResult
 import spec.CVLTestGenerator
-import spec.cvlast.IRule
+import spec.rules.IRule
 import spec.cvlast.SpecType
 import utils.ArtifactFileUtils
 
@@ -45,7 +45,7 @@ open class JSONReporter(private val conf: ConfigType<String>) : OutputReporter {
         }
     }
 
-    override fun signalStart(rule: IRule, parentRule: IRule?) {}
+    override fun signalStart(rule: IRule) {}
 
     private val TAB: String = "\t"
 
@@ -92,7 +92,11 @@ open class JSONReporter(private val conf: ConfigType<String>) : OutputReporter {
 
         return when (result) {
             is RuleCheckResult.Single -> {
-                val key = result.rule.declarationId
+                val key = if (result.rule.ruleType != SpecType.Single.BMC) {
+                    result.rule.declarationId
+                } else {
+                    result.rule.ruleIdentifier.toString()
+                }
                 val value = result.result.toJSONRepresentation(
                     result.rule.isSatisfyRule)
                 getKeyvalueExp(key, value, tabString)
@@ -189,7 +193,11 @@ open class JSONReporter(private val conf: ConfigType<String>) : OutputReporter {
 
         // will add only for single rules
         return if (result is RuleCheckResult.Single) {
-            val key = result.rule.declarationId
+            val key = if (result.rule.ruleType != SpecType.Single.BMC) {
+                result.rule.declarationId
+            } else {
+                result.rule.ruleIdentifier.toString()
+            }
             val assertMessage = CVLTestGenerator.getAssertionMessage(result.firstData.failureResultMeta, result.isSatisfyResult())
             val removeQuotesMessage =
                 assertMessage.replace(Regex("(?<!\\\\)\""), "") // match all quotes '"' without backslash

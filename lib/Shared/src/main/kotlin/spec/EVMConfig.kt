@@ -22,7 +22,7 @@ import com.certora.certoraprover.cvl.LocatedToken
 import evm.*
 import scene.ICVLScene
 import spec.cvlast.MethodQualifiers
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.EVMTypeResolver
 import spec.cvlast.Visibility
 import spec.cvlast.typechecker.CVLError
@@ -62,13 +62,13 @@ object EVMConfig: VMConfig {
     override fun getTypeResolver(s: ICVLScene, mainContract: String): TypeResolver =
         EVMTypeResolver.getResolver(s, mainContract)
 
-    override fun getMethodQualifierAnnotations(preReturnAnnotations: List<LocatedToken>, postReturnAnnotations: List<LocatedToken>, cvlRange: CVLRange): CollectingResult<MethodQualifiers, CVLError> =
+    override fun getMethodQualifierAnnotations(preReturnAnnotations: List<LocatedToken>, postReturnAnnotations: List<LocatedToken>, range: Range): CollectingResult<MethodQualifiers, CVLError> =
         listOf(
             // yes internal and external are the only pre return annotations but that may not always be the case so
             // unless no one objects, I will leave this filter here
             preReturnAnnotations.filter { annot -> annot.value == INTERNAL || annot.value == EXTERNAL }.let { visibilityAnnotations ->
                 if (visibilityAnnotations.isEmpty()) {
-                    CVLError.General(cvlRange, "method must contain visibility annotation").asError()
+                    CVLError.General(range, "method must contain visibility annotation").asError()
                 } else if (visibilityAnnotations.size > 1) {
                     CVLError.General(
                         visibilityAnnotations.last().range,

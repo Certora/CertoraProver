@@ -222,8 +222,8 @@ object ProverInputPreprocessor {
                 ok
             }
             result.resultOrExitProcess(1) { errors ->
-                val groupedByFile = errors.filter { it.location is CVLRange.Range }.groupBy { (it.location as CVLRange.Range).specFile }
-                val nonRangeErrors = errors.filter { it.location !is CVLRange.Range }
+                val groupedByFile = errors.filter { it.location is Range.Range }.groupBy { (it.location as Range.Range).specFile }
+                val nonRangeErrors = errors.filter { it.location !is Range.Range }
 
                 groupedByFile.forEachEntry { (specFile, errorsForSpecFile) ->
                     CVLError.printErrors(errorsForSpecFile, "Found errors in ${specFile}:")

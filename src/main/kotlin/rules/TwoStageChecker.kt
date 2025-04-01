@@ -70,7 +70,7 @@ private fun sendAlert(rule: CompiledRule, msg: String) {
     CVTAlertReporter.reportAlert(
         CVTAlertType.GENERAL,
         CVTAlertSeverity.WARNING,
-        rule.rule.cvlRange as? TreeViewLocation,
+        rule.rule.range as? TreeViewLocation,
         msg,
         null
     )

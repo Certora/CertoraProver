@@ -42,7 +42,7 @@ import scene.ISceneIdentifiers
 import solver.CounterexampleModel
 import spec.CVLDefinitionSite
 import spec.CVLKeywords
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLType
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import tac.Tag
@@ -73,7 +73,7 @@ fun TACCmd.Simple.AssertCmd.hasFailedInModel(model: CounterexampleModel, ptr: Cm
 data class LocalAssignment(
     val state: LocalAssignmentState,
     val formatter: CallTraceValueFormatter,
-    val range: CVLRange?
+    val range: Range?
 ) {
     val formattedValue: String get() = state.toSarif(formatter).flatten()
 
@@ -301,7 +301,7 @@ fun localAssignments(
 
     fun TACSymbol.Var.name() = this.meta[TACMeta.CVL_DISPLAY_NAME] ?: this.namePrefix
 
-    fun addLocal(name: String, state: LocalAssignmentState, range: CVLRange?) {
+    fun addLocal(name: String, state: LocalAssignmentState, range: Range?) {
         locals[name] = LocalAssignment(state, formatter, range)
     }
 

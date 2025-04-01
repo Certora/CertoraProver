@@ -9,7 +9,7 @@
             "topOfStackValue": 0,
             "freshCopy": 0
         },
-        "pos": 63
+        "pos": 66
     },
     "cmd": {
         "type": "vc.data.TACCmd.Simple.AssertCmd",
@@ -33,25 +33,6 @@
             },
             {
                 "key": {
-                    "name": "cvl.range",
-                    "type": "spec.cvlast.CVLRange",
-                    "erasureStrategy": "CallTrace"
-                },
-                "value": {
-                    "type": "spec.cvlast.CVLRange.Range",
-                    "specFile": "satisfyTest.spec",
-                    "start": {
-                        "line": 6,
-                        "charByteOffset": 4
-                    },
-                    "end": {
-                        "line": 6,
-                        "charByteOffset": 18
-                    }
-                }
-            },
-            {
-                "key": {
                     "name": "satisfy.id",
                     "type": "java.lang.Integer",
                     "erasureStrategy": "Canonical"
@@ -65,6 +46,25 @@
                     "erasureStrategy": "Canonical"
                 },
                 "value": 1
+            },
+            {
+                "key": {
+                    "name": "cvl.range",
+                    "type": "utils.Range",
+                    "erasureStrategy": "CallTrace"
+                },
+                "value": {
+                    "type": "utils.Range.Range",
+                    "specFile": "satisfyTest.spec",
+                    "start": {
+                        "line": 6,
+                        "charByteOffset": 4
+                    },
+                    "end": {
+                        "line": 6,
+                        "charByteOffset": 18
+                    }
+                }
             }
         ]
     }

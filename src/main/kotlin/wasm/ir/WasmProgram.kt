@@ -78,9 +78,13 @@ data class WasmProgram(val fields: List<WasmModuleField>, val wasmDebugSymbols: 
         fields.filterIsInstance<WasmElem>().singleOrNull()
     }
 
+    val typeTable by lazy {
+        fields.filterIsInstance<WasmType>().associateBy { it.name }
+    }
+
     private fun lookupTypeByTypeUseName(name: WasmName): WasmType {
-        return fields.find { it is WasmType && it.name == name }?.let { it as WasmType } ?:
-            throw IdNotFoundException("$name does not correspond to any type definition.")
+        return typeTable[name]
+            ?: throw IdNotFoundException("$name does not correspond to any type definition.")
     }
 
     /**

@@ -170,10 +170,10 @@ interface TACExprFact {
 
     // logical operator shorthands
 
-    infix fun TACExpr.and(other: TACExpr) = this@TACExprFact.LAnd(this, other)
+    infix fun ToTACExpr.and(other: ToTACExpr) = this@TACExprFact.LAnd(this.toTACExpr(), other.toTACExpr())
     fun and(vararg args: TACExpr) = LAnd(args.toList())
 
-    infix fun TACExpr.or(other: TACExpr) = this@TACExprFact.LOr(this, other)
+    infix fun ToTACExpr.or(other: ToTACExpr) = this@TACExprFact.LOr(this.toTACExpr(), other.toTACExpr())
     fun or(vararg args: TACExpr) = LOr(args.toList())
 
     fun not(exp: TACExpr) = this@TACExprFact.LNot(exp)
@@ -182,50 +182,52 @@ interface TACExprFact {
 
     // relational operator shorthands
 
-    infix fun TACExpr.lt(other: TACExpr) = this@TACExprFact.Lt(this, other)
-    infix fun TACExpr.gt(other: TACExpr) = this@TACExprFact.Gt(this, other)
-    infix fun TACExpr.le(other: TACExpr) = this@TACExprFact.Le(this, other)
-    infix fun TACExpr.ge(other: TACExpr) = this@TACExprFact.Ge(this, other)
-    infix fun TACExpr.sLt(other: TACExpr) = this@TACExprFact.Slt(this, other)
-    infix fun TACExpr.sGt(other: TACExpr) = this@TACExprFact.Sgt(this, other)
-    infix fun TACExpr.sLe(other: TACExpr) = this@TACExprFact.Sle(this, other)
-    infix fun TACExpr.sGe(other: TACExpr) = this@TACExprFact.Sge(this, other)
-    infix fun TACExpr.eq(other: TACExpr) = this@TACExprFact.Eq(this, other)
+    infix fun ToTACExpr.lt(other: ToTACExpr) = this@TACExprFact.Lt(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.gt(other: ToTACExpr) = this@TACExprFact.Gt(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.le(other: ToTACExpr) = this@TACExprFact.Le(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.ge(other: ToTACExpr) = this@TACExprFact.Ge(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.sLt(other: ToTACExpr) = this@TACExprFact.Slt(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.sGt(other: ToTACExpr) = this@TACExprFact.Sgt(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.sLe(other: ToTACExpr) = this@TACExprFact.Sle(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.sGe(other: ToTACExpr) = this@TACExprFact.Sge(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.eq(other: ToTACExpr) = this@TACExprFact.Eq(this.toTACExpr(), other.toTACExpr())
 
-    infix fun TACExpr.neq(other: TACExpr) =
-        this@TACExprFact.LNot(this@TACExprFact.Eq(this, other))
+    infix fun ToTACExpr.neq(other: ToTACExpr) =
+        this@TACExprFact.LNot(this@TACExprFact.Eq(this.toTACExpr(), other.toTACExpr()))
 
     // math operator shorthands
 
-    infix fun TACExpr.mul(other:TACExpr) = this@TACExprFact.Mul(this, other)
-    infix fun TACExpr.intMul(other:TACExpr) = this@TACExprFact.IntMul(this, other)
-    infix fun TACExpr.div(other:TACExpr) = this@TACExprFact.Div(this, other)
-    infix fun TACExpr.sDiv(other:TACExpr) = this@TACExprFact.SDiv(this, other)
-    infix fun TACExpr.intDiv(other:TACExpr) = this@TACExprFact.IntDiv(this, other)
-    infix fun TACExpr.add(other:TACExpr) = this@TACExprFact.Add(this, other)
-    infix fun TACExpr.intAdd(other:TACExpr) = this@TACExprFact.IntAdd(this, other)
-    infix fun TACExpr.sub(other:TACExpr) = this@TACExprFact.Sub(this, other)
-    infix fun TACExpr.intSub(other:TACExpr) = this@TACExprFact.IntSub(this, other)
-    infix fun TACExpr.mod(other:TACExpr) = this@TACExprFact.Mod(this, other)
-    infix fun TACExpr.sMod(other:TACExpr) = this@TACExprFact.SMod(this, other)
-    infix fun TACExpr.intMod(other:TACExpr) = this@TACExprFact.IntMod(this, other)
-    infix fun TACExpr.pow(other:TACExpr) = this@TACExprFact.Exponent(this, other)
-    infix fun TACExpr.intPow(other:TACExpr) = this@TACExprFact.IntExponent(this, other)
+    infix fun ToTACExpr.mul(other: ToTACExpr) = this@TACExprFact.Mul(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.intMul(other: ToTACExpr) = this@TACExprFact.IntMul(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.div(other: ToTACExpr) = this@TACExprFact.Div(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.sDiv(other: ToTACExpr) = this@TACExprFact.SDiv(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.intDiv(other: ToTACExpr) = this@TACExprFact.IntDiv(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.add(other: ToTACExpr) = this@TACExprFact.Add(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.intAdd(other: ToTACExpr) = this@TACExprFact.IntAdd(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.sub(other: ToTACExpr) = this@TACExprFact.Sub(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.intSub(other: ToTACExpr) = this@TACExprFact.IntSub(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.mod(other: ToTACExpr) = this@TACExprFact.Mod(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.sMod(other: ToTACExpr) = this@TACExprFact.SMod(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.intMod(other: ToTACExpr) = this@TACExprFact.IntMod(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.pow(other: ToTACExpr) = this@TACExprFact.Exponent(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.intPow(other: ToTACExpr) = this@TACExprFact.IntExponent(this.toTACExpr(), other.toTACExpr())
 
     // bitwise operator shorthands
 
-    infix fun TACExpr.bwAnd(other:TACExpr) = this@TACExprFact.BWAnd(this, other)
-    infix fun TACExpr.bwOr(other:TACExpr) = this@TACExprFact.BWOr(this, other)
-    infix fun TACExpr.bwXor(other:TACExpr) = this@TACExprFact.BWXOr(this, other)
+    infix fun ToTACExpr.bwAnd(other:TACExpr) = this@TACExprFact.BWAnd(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.bwOr(other:TACExpr) = this@TACExprFact.BWOr(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.bwXor(other:TACExpr) = this@TACExprFact.BWXOr(this.toTACExpr(), other.toTACExpr())
     fun bwNot(exp:TACExpr) = this@TACExprFact.BWNot(exp)
-    infix fun TACExpr.shiftRLog(other:TACExpr) = this@TACExprFact.ShiftRightLogical(this, other)
-    infix fun TACExpr.shiftRArith(other:TACExpr) = this@TACExprFact.ShiftRightArithmetical(this, other)
-    infix fun TACExpr.shiftL(other:TACExpr) = this@TACExprFact.ShiftLeft(this, other)
+    infix fun ToTACExpr.shiftRLog(other:TACExpr) = this@TACExprFact.ShiftRightLogical(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.shiftRArith(other:TACExpr) = this@TACExprFact.ShiftRightArithmetical(this.toTACExpr(), other.toTACExpr())
+    infix fun ToTACExpr.shiftL(other:TACExpr) = this@TACExprFact.ShiftLeft(this.toTACExpr(), other.toTACExpr())
 
     // other shorthands
     fun unconstrained(tag: Tag) = Unconstrained(tag)
 
     fun select(base: TACExpr, vararg loc: TACExpr) = Select(base, *loc)
+
+    operator fun ToTACExpr.get(other: ToTACExpr) = Select(this.toTACExpr(), other.toTACExpr())
 
 
     @Suppress("Unused")
@@ -582,7 +584,6 @@ class TACExprFactTypeChecked(
         typeCheck(baseFactory.StructConstant(fieldNameToValue))
 
     override fun SignExtend(o1: TACExpr, o2: TACExpr): TACExpr = typeCheck(baseFactory.SignExtend(o1, o2))
-
 }
 
 val TACExprFactTypeCheckedOnlyPrimitives: TACExprFactTypeChecked by lazy { TACExprFactTypeChecked(TACSymbolTable.empty()) }

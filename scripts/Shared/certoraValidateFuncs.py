@@ -512,6 +512,20 @@ def validate_prototype_attr(string: str) -> str:
     return string
 
 
+def validate_storage_extension_harness_attr(link: str) -> str:
+    contracts = link.split("=", 2)
+    if len(contracts) != 2:
+        raise Util.CertoraUserInputError(f"Invalid storage extension harness format: '{link}'. Expected 'ContractA=ContractB'."
+                                         "specified as ContractA=ContractB")
+    validate_contract_name(contracts[0])
+    validate_contract_name(contracts[1])
+    if contracts[0] == contracts[1]:
+        raise Util.CertoraUserInputError(f"Invalid storage extension harness format: '{link}'."
+                                         "Expected 'ContractA=ContractB' with distinct "
+                                         "ContractA and ContractB.")
+    return link
+
+
 def validate_struct_link(link: str) -> str:
     search_res = re.search(fr"^{Util.SOLIDITY_ID_SUBSTRING_RE}:([^:=]+)={Util.SOLIDITY_ID_SUBSTRING_RE}$", link)
     # We do not require firm form of slot number so we can give more informative warnings
@@ -699,19 +713,23 @@ def validate_solc_optimize_map(args: Dict[str, str]) -> None:
                                   f" --solc_optimize {first} can be used instead")
 
 
-def validate_solc_map(args: Dict[str, str]) -> None:
+def validate_compiler_map(args: Dict[str, str]) -> None:
     """
     Checks that the argument is a dictionary of the form <sol_file_1>=<solc_1>,<sol_file_2>=<solc_2>,..
     and if all solc files are valid: they were found, and we have execution permissions for them.
 
-    :param args: argument of --solc_map
+    :param args: argument of --solc_map or --compiler_map
     :raises CertoraUserInputError if the format is wrong
     """
     if not isinstance(args, dict):
-        raise Util.CertoraUserInputError(f"'solc_map' should be stored as a map (type was {type(args).__name__})")
+        raise Util.CertoraUserInputError(f"compiler map should be stored as a map (type was {type(args).__name__})")
 
     for source_file, solc_file in args.items():
         is_solc_file_valid(solc_file)  # raises an exception if file is bad
+        source_file_path = Path(source_file)
+
+        if source_file_path.suffix and source_file_path.suffix not in Util.EVM_SOURCE_EXTENSIONS:
+            raise Util.CertoraUserInputError(f"{source_file} does not end with {Util.EVM_SOURCE_EXTENSIONS}")
 
     values = args.values()
     first = list(values)[0]

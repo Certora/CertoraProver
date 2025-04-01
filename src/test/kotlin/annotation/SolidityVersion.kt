@@ -53,7 +53,8 @@ enum class SolidityVersion(val pointSuffix: String, val majorVersion: Int) {
     V8_18("8.18", 8),
     V8_19("8.19", 8),
     V8_27("8.27", 8),
-    V8_28("8.28", 8)
+    V8_28("8.28", 8),
+    V8_29("8.29", 8)
     ;
 
     fun compilerName() = "solc${this.pointSuffix}"

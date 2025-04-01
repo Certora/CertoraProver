@@ -17,8 +17,6 @@
 
 package sbf
 
-import com.certora.collect.*
-import datastructures.stdcollections.*
 import sbf.cfg.*
 import sbf.testing.SbfTestDSL
 import log.*
@@ -68,7 +66,7 @@ class TACSanityTest {
 
     @Test
     fun test1() {
-        val cfg = SbfTestDSL.makeCFG("test1$sanitySuffix") {
+        val cfg = SbfTestDSL.makeCFG("test1$vacuitySuffix") {
             bb(0) {
                 r2 = r10[-200]
                 BinOp.ADD(r2, 1)

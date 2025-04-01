@@ -19,6 +19,7 @@ package infra
 
 import bridge.CertoraConf
 import bridge.NamedContractIdentifier
+import cli.Ecosystem
 import config.*
 import datastructures.stdcollections.*
 import kotlinx.serialization.json.*
@@ -145,7 +146,7 @@ class CertoraBuild internal constructor(
 
             is CertoraBuildKind.SolanaBuild -> {
                 // solana-based verification tasks needs the Solana entrypoint to be specified
-                configScope.extend(Config.SolanaEntrypoint, buildKind.solanaEntrypoint)
+                configScope.extend(Config.SolanaEntrypoint, buildKind.solanaEntrypoint).extend(Config.ActiveEcosystem, Ecosystem.SOLANA)
             }
         }
     }

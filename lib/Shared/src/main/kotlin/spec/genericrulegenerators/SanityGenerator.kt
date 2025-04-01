@@ -22,6 +22,7 @@ import spec.cvlast.typechecker.CVLError
 import utils.CollectingResult.Companion.ok
 import utils.VoidResult
 import datastructures.stdcollections.*
+import utils.Range
 
 class SanityGenerator(private val methodParamFilters: MethodParamFilters) : InstrumentingBuiltInRuleGenerator() {
     override val eId: BuiltInRuleId = BuiltInRuleId.sanity
@@ -30,16 +31,16 @@ class SanityGenerator(private val methodParamFilters: MethodParamFilters) : Inst
 
     // update the scope of each method param filter, so we could bind to `f`
     override fun getMethodParamFilters(
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope,
         symbolicFunctionName: String
     ): MethodParamFilters =
         methodParamFilters.copy(
-            cvlRange = cvlRange,
+            range = range,
             scope = scope,
             methodParamToFilter = methodParamFilters.methodParamToFilter.mapValues { it.value.copy(scope = scope) })
 
-    override fun checkIfCanGenerate(cvlRange: CVLRange): VoidResult<CVLError> {
+    override fun checkIfCanGenerate(range: Range): VoidResult<CVLError> {
         return ok
     }
 

@@ -18,9 +18,13 @@
 package analysis.opt.scalarizer
 
 import algorithms.UnionFind
-import datastructures.stdcollections.*
+import datastructures.stdcollections.minus
+import datastructures.stdcollections.mutableSetOf
+import datastructures.stdcollections.plus
+import datastructures.stdcollections.setOf
 import tac.Tag
-import utils.*
+import utils.flatMapToSet
+import utils.mapToSet
 import vc.data.*
 import vc.data.tacexprutil.getFreeVars
 import vc.data.tacexprutil.isConst
@@ -28,7 +32,7 @@ import vc.data.tacexprutil.isConst
 /**
  * Detects bytemaps that are accessed only at constant locations.
  */
-class ScalarizerCalculator private constructor(code: CoreTACProgram) {
+class ScalarizerCalculator private constructor(val code: CoreTACProgram, val isInlineable: (TACSymbol.Var) -> Boolean) {
 
     private val g = code.analysisCache.graph
 
@@ -160,6 +164,11 @@ class ScalarizerCalculator private constructor(code: CoreTACProgram) {
             is TACCmd.Simple.AssigningCmd.AssignHavocCmd ->
                 Unit
 
+            is TACCmd.Simple.AnnotationCmd ->
+                if (!code.destructiveOptimizations) {
+                    badBases += cmd.freeVars().filter { it.tag is Tag.ByteMap }
+                }
+
             else ->
                 badBases += cmd.freeVars().filter { it.tag is Tag.ByteMap }
         }
@@ -167,6 +176,14 @@ class ScalarizerCalculator private constructor(code: CoreTACProgram) {
 
     private fun process(): MutableSet<TACSymbol.Var> {
         g.commands.forEach {
+            it.cmd.freeVars()
+                .filter { it.tag is Tag.ByteMap }
+                .forEach { v ->
+                    uf.register(v)
+                    if (!isInlineable(v)) {
+                        badBases += v
+                    }
+                }
             processCmd(it.cmd)
         }
         val badReps = badBases.mapToSet { uf.find(it) }
@@ -175,7 +192,7 @@ class ScalarizerCalculator private constructor(code: CoreTACProgram) {
     }
 
     companion object {
-        fun goodBases(code: CoreTACProgram) =
-            ScalarizerCalculator(code).process()
+        fun goodBases(code: CoreTACProgram, isInlineable: (TACSymbol.Var) -> Boolean) =
+            ScalarizerCalculator(code, isInlineable).process()
     }
 }

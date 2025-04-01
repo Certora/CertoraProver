@@ -48,7 +48,7 @@ data object RedundantRequires :
                 if (assumeCmd is CVLCmd.Simple.AssumeCmd.Assume && assumeCmd.invariantPreCond) {
                     "$rawMsg ${sanityOrdinalValue.reportString()}: precondition check"
                 } else {
-                    "$rawMsg ${sanityOrdinalValue.reportString()}: ${assumeCmd.cvlRange}"
+                    "$rawMsg ${sanityOrdinalValue.reportString()}: ${assumeCmd.range}"
                 }
             }
         )
@@ -58,7 +58,7 @@ data object RedundantRequires :
         _sanityCheckResults: List<SanityDPResult>
     ): SanityResultsView.FunctionDependent<RuleCheckResult.Single> =
         SanityResultsView.FunctionDependent<RuleCheckResult.Single,
-                SpecType.Single.GeneratedFromBasicRule.RedundantRequireCheck,
+                SpecType.Single.GeneratedFromBasicRule.SanityRule.RedundantRequireCheck,
                 CVLCmd.Simple.AssumeCmd>(
             _baseResults,
             _sanityCheckResults,
@@ -67,7 +67,7 @@ data object RedundantRequires :
 
     override fun checkResultToSanitySubCheckGroup(r: SanityDPResult): CVLCmd.Simple.AssumeCmd =
         r.result.rule
-            .narrowType<SpecType.Single.GeneratedFromBasicRule.RedundantRequireCheck>().ruleType.assumeCVLCmd
+            .narrowType<SpecType.Single.GeneratedFromBasicRule.SanityRule.RedundantRequireCheck>().ruleType.assumeCVLCmd
 
     override val preds: List<SanityCheckNodeType> =
         listOf(

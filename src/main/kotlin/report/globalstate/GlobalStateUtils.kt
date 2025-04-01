@@ -24,11 +24,10 @@ import report.calltrace.formatter.FormatterType
 import report.calltrace.sarif.Sarif
 import report.hasFailedInModel
 import solver.CounterexampleModel
-import spec.cvlast.CVLRange
+import utils.Range
 import tac.NBId
 import tac.StartBlock
 import vc.data.SnippetCmd
-import vc.data.SnippetCmd.CVLSnippetCmd.*
 import vc.data.TACCmd
 import vc.data.TACExpr
 import vc.data.state.TACValue
@@ -52,7 +51,7 @@ data class DisplaySymbolWrapper(
     val value: TACValue?,
     val computationalType: ComputationalTypes,
     val formatterType: FormatterType<*>?,
-    val range: CVLRange.Range?
+    val range: Range.Range?
 )
 
 internal class SequenceGenerator(

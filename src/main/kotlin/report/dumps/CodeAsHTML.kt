@@ -720,3 +720,8 @@ fun String.sanitize(): String {
     val policy: PolicyFactory = Sanitizers.FORMATTING
     return policy.sanitize(this)
 }
+
+fun String.escapeHTML(): String {
+    @Suppress("deprecation")
+    return org.apache.commons.lang3.StringEscapeUtils.escapeHtml4(this)
+}

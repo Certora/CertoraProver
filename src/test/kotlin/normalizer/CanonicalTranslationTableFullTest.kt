@@ -58,7 +58,7 @@ class CanonicalTranslationTableFullTest : CanonicalTranslationTableTest() {
     @SolidityVersions(
         [SolidityVersion.V6_10, SolidityVersion.V7_0,
             SolidityVersion.V6_8, SolidityVersion.V8_2, SolidityVersion.V7_6, SolidityVersion.V8_11,
-            SolidityVersion.V8_9, SolidityVersion.V8_13, SolidityVersion.V8_28]
+            SolidityVersion.V8_9, SolidityVersion.V8_13, SolidityVersion.V8_29]
     )
     @WithOptimizedFlag
     override fun testABIV2EncodingDigests(solc: String, optimize: Boolean) =
@@ -72,7 +72,7 @@ class CanonicalTranslationTableFullTest : CanonicalTranslationTableTest() {
     @SolidityVersions(
         [SolidityVersion.V6_10, SolidityVersion.V7_0,
             SolidityVersion.V6_8, SolidityVersion.V8_2, SolidityVersion.V7_6, SolidityVersion.V8_11,
-            SolidityVersion.V8_9, SolidityVersion.V8_13, SolidityVersion.V8_28]
+            SolidityVersion.V8_9, SolidityVersion.V8_13, SolidityVersion.V8_29]
     )
     @WithOptimizedFlag
     override fun testDigestChangeOnReplaceDivWithSub(solc: String, optimize: Boolean) =
@@ -82,7 +82,7 @@ class CanonicalTranslationTableFullTest : CanonicalTranslationTableTest() {
     @SolidityVersions(
         [SolidityVersion.V6_10, SolidityVersion.V7_0,
             SolidityVersion.V6_8, SolidityVersion.V8_2, SolidityVersion.V7_6, SolidityVersion.V8_11,
-            SolidityVersion.V8_9, SolidityVersion.V8_13, SolidityVersion.V8_28]
+            SolidityVersion.V8_9, SolidityVersion.V8_13, SolidityVersion.V8_29]
     )
     @WithOptimizedFlag
     override fun testDigestChangeOnBinOpReplacement(solc: String, optimize: Boolean) =

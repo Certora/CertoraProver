@@ -19,7 +19,7 @@ package vc.data.state
 
 import analysis.CmdPointer
 import scene.IScene
-import spec.cvlast.CVLSingleRule
+import spec.rules.CVLSingleRule
 import vc.data.CoreTACProgram
 import vc.data.TACSymbol
 

@@ -1,0 +1,74 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "invariantDoesntHoldWithoutPreserved": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "invariantDoesHoldAfterBasicCall(address,uint256)",
+            "invariantDoesHoldAfterHavocing(address,uint256)",
+            "invariantDoesntHoldAfterHavocing(address,uint256)",
+            "invariantMayHold(uint256)",
+            "mustFailForAll(address,uint256)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "summarizedValue(uint256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "storageValueIsConstantWithExplicitPreserved": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "invariantMayHold(uint256)",
+            "mustFailForAll(address,uint256)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "summarizedValue(uint256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        },
+        "Using specific requirements": {
+          "FAIL": [
+            "invariantDoesntHoldAfterHavocing(address,uint256)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "invariantDoesHoldAfterBasicCall(address,uint256)",
+            "invariantDoesHoldAfterHavocing(address,uint256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "storageValueIsConstantWithGenericPreserved": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "invariantDoesntHoldAfterHavocing(address,uint256)",
+            "mustFailForAll(address,uint256)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "invariantDoesHoldAfterBasicCall(address,uint256)",
+            "invariantDoesHoldAfterHavocing(address,uint256)",
+            "invariantMayHold(uint256)",
+            "summarizedValue(uint256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    }
+  }
+}

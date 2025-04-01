@@ -41,30 +41,30 @@ sealed interface SanityCheckSort<in S : RuleCheckResult.Single, G> {
         /**
          * Maps rule type to its corresponding sanity check sort.
          */
-        operator fun invoke(type: SpecType.Single.GeneratedFromBasicRule) =
+        operator fun invoke(type: SpecType.Single.GeneratedFromBasicRule.SanityRule) =
             when (type) {
-                is SpecType.Single.GeneratedFromBasicRule.RedundantRequireCheck -> {
+                is SpecType.Single.GeneratedFromBasicRule.SanityRule.RedundantRequireCheck -> {
                     RedundantRequires
                 }
-                is SpecType.Single.GeneratedFromBasicRule.AssertTautologyCheck -> {
+                is SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertTautologyCheck -> {
                     AssertsTautology
                 }
-                is SpecType.Single.GeneratedFromBasicRule.TrivialInvariantCheck -> {
+                is SpecType.Single.GeneratedFromBasicRule.SanityRule.TrivialInvariantCheck -> {
                     TrivialInvariant
                 }
-                is SpecType.Single.GeneratedFromBasicRule.VacuityCheck -> {
+                is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck -> {
                     Vacuity
                 }
-                is SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.LeftOperand-> {
+                is SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.LeftOperand-> {
                     AssertionsStructureLeftOperand(type.expr)
                 }
-                is SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.RightOperand -> {
+                is SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.RightOperand -> {
                     AssertionsStructureRightOperand(type.expr)
                 }
-                is SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.IFFBothTrue -> {
+                is SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.IFFBothTrue -> {
                     AssertionsStructureIFFBothTrue(type.expr)
                 }
-                is SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.IFFBothFalse -> {
+                is SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.IFFBothFalse -> {
                     AssertionsStructureIFFBothFalse(type.expr)
                 }
             }

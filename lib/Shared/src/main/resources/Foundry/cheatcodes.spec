@@ -236,12 +236,14 @@ methods {
     function _.clearMockedCalls() external => __certora_foundry_clearMockedCalls() expect void;
     function _.deal(address to, uint256 give) external => cvlDeal(to, give) expect void;
     function _.deal(address token, address to, uint256 give, bool adjust) internal with (env e) => cvlDealERC20(e, token, to, give, adjust) expect void;
+    function _.addr(uint256 privateKey) external => addrSumm(privateKey) expect address;
+    function _.makeAddr(string memory name) internal => makeAddrSumm(name) expect address;
     function _.makeAddrAndKey(string memory name) internal => makeAddrAndKeySumm(name) expect (address, uint256);
+    function _.sign(uint256 privateKey, bytes32 digest) external => signSumm(privateKey, digest) expect (uint8, bytes32, bytes32);
     function _.assume(bool condition) external => assumeSumm(condition) expect void;
     function _.expectRevert() external => expectRevertSumm() expect void;
     function _.expectRevert(bytes4 revertData) external => expectRevertSumm() expect void;
     function _.expectRevert(bytes revertData) external => expectRevertSumm() expect void;
-    function _.addr(uint256 privateKey) external => g_addr[privateKey] expect address;
 }
 
 function cvlDeal(address to, uint256 give) {
@@ -254,14 +256,32 @@ function cvlDealERC20(env e, address token, address to, uint256 give, bool adjus
     assert !adjust, "deal cheatcode's 'adjust' not implemented yet";
 }
 
-persistent ghost mapping(uint256 => address) g_addr {
-    axiom forall uint256 u. g_addr[u] != 0;
+persistent ghost mapping(string => uint256) g_name_to_pk;
+persistent ghost mapping(uint256 => address) g_pk_to_addr {
+    axiom forall uint256 u. g_pk_to_addr[u] != 0;
 }
 
-persistent ghost mapping(string => address) g_makeAddrAndKey_addr;
-persistent ghost mapping(string => uint256) g_makeAddrAndKey_privateKey;
+function addrSumm(uint256 privateKey) returns address {
+    return g_pk_to_addr[privateKey];
+}
+
+function makeAddrSumm(string name) returns address {
+    uint256 pk = g_name_to_pk[name];
+    return g_pk_to_addr[pk];
+}
+
 function makeAddrAndKeySumm(string name) returns (address, uint256) {
-  return (g_makeAddrAndKey_addr[name], g_makeAddrAndKey_privateKey[name]);
+    uint256 pk = g_name_to_pk[name];
+    address addr = g_pk_to_addr[pk];
+    return (addr, pk);
+}
+
+function signSumm(uint256 privateKey, bytes32 digest) returns (uint8, bytes32, bytes32) {
+    uint8 v; bytes32 r; bytes32 s;
+
+    require ecrecover(digest, v, r, s) == g_pk_to_addr[privateKey];
+
+    return (v, r, s);
 }
 
 persistent ghost bool g_expectRevertAllowed;
@@ -276,7 +296,6 @@ function expectRevertSumm() {
 function assumeSumm(bool condition) {
     require condition;
 }
-
 
 methods {
     // unimplemented cheatcodes that we can ignore for now

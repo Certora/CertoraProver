@@ -20,6 +20,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -29,17 +40,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -250,13 +250,14 @@
                         "text": "cvlStrings.short() ↪ string (length='{0}')",
                         "arguments": [
                             {
-                                "value": "5",
+                                "value": "0x5",
                                 "values": [
-                                    "5",
+                                    "0x5",
                                     "5",
                                     "0x5"
                                 ],
-                                "tooltip": "value"
+                                "tooltip": "value",
+                                "truncatable": true
                             }
                         ]
                     },

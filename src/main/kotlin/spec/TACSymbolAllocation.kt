@@ -23,6 +23,7 @@ import spec.cvlast.*
 import tac.MetaMap
 import tac.Tag
 import utils.*
+import vc.data.TACMeta
 import vc.data.TACSymbol
 import vc.data.TransformableVarEntity
 
@@ -102,7 +103,7 @@ class TACSymbolAllocation private constructor(
         if (isAllocated(name)) {
             return variable
         }
-        return extend(name, variable, globalScope)
+        return extend(name, variable.withMeta(TACMeta.NO_CALLINDEX), globalScope)
     }
 
     /**
@@ -191,7 +192,7 @@ class TACSymbolAllocation private constructor(
         type: CVLType.PureCVLType,
         metaMap: MetaMap = MetaMap(),
     ): Pair<CVLParam, TACSymbol.Var> {
-        val param = CVLParam(type, id, CVLRange.Empty())
+        val param = CVLParam(type, id, Range.Empty())
         return generateTransientUniqueCVLParam(symbolTable, param, metaMap)
     }
 

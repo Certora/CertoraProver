@@ -1,12 +1,12 @@
 {
-    "type": "spec.cvlast.CVLSingleRule",
+    "type": "spec.rules.CVLSingleRule",
     "ruleIdentifier": {
         "parentIdentifier": null,
         "displayName": "havoc_of_storage_path_is_recognized",
         "counter": 1
     },
-    "cvlRange": {
-        "type": "spec.cvlast.CVLRange.Range",
+    "range": {
+        "type": "utils.Range.Range",
         "specFile": "HavocStorage.spec",
         "start": {
             "line": 2,
@@ -24,8 +24,8 @@
     "block": [
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Declaration",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "HavocStorage.spec",
                 "start": {
                     "line": 3,
@@ -163,8 +163,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Declaration",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "HavocStorage.spec",
                 "start": {
                     "line": 4,
@@ -205,8 +205,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Declaration",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "HavocStorage.spec",
                 "start": {
                     "line": 5,
@@ -248,8 +248,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "HavocStorage.spec",
                 "start": {
                     "line": 7,
@@ -303,8 +303,8 @@
                                                 "name": "HavocStorage"
                                             }
                                         },
-                                        "cvlRange": {
-                                            "type": "spec.cvlast.CVLRange.Range",
+                                        "range": {
+                                            "type": "utils.Range.Range",
                                             "specFile": "HavocStorage.spec",
                                             "start": {
                                                 "line": 7,
@@ -402,8 +402,8 @@
                                             "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                         }
                                     },
-                                    "cvlRange": {
-                                        "type": "spec.cvlast.CVLRange.Range",
+                                    "range": {
+                                        "type": "utils.Range.Range",
                                         "specFile": "HavocStorage.spec",
                                         "start": {
                                             "line": 7,
@@ -449,8 +449,8 @@
                                     "type": {
                                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
                                     },
-                                    "cvlRange": {
-                                        "type": "spec.cvlast.CVLRange.Range",
+                                    "range": {
+                                        "type": "utils.Range.Range",
                                         "specFile": "HavocStorage.spec",
                                         "start": {
                                             "line": 7,
@@ -536,8 +536,8 @@
                                         "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                     }
                                 },
-                                "cvlRange": {
-                                    "type": "spec.cvlast.CVLRange.Range",
+                                "range": {
+                                    "type": "utils.Range.Range",
                                     "specFile": "HavocStorage.spec",
                                     "start": {
                                         "line": 7,
@@ -584,8 +584,8 @@
                                     "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                                     "k": 256
                                 },
-                                "cvlRange": {
-                                    "type": "spec.cvlast.CVLRange.Range",
+                                "range": {
+                                    "type": "utils.Range.Range",
                                     "specFile": "HavocStorage.spec",
                                     "start": {
                                         "line": 7,
@@ -666,8 +666,8 @@
                                     "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                 }
                             },
-                            "cvlRange": {
-                                "type": "spec.cvlast.CVLRange.Range",
+                            "range": {
+                                "type": "utils.Range.Range",
                                 "specFile": "HavocStorage.spec",
                                 "start": {
                                     "line": 7,
@@ -721,8 +721,8 @@
                                 "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                             }
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "HavocStorage.spec",
                             "start": {
                                 "line": 7,
@@ -769,8 +769,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                             "k": 256
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "HavocStorage.spec",
                             "start": {
                                 "line": 7,
@@ -817,8 +817,8 @@
                             "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                         }
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "HavocStorage.spec",
                         "start": {
                             "line": 7,
@@ -860,8 +860,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Definition",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "HavocStorage.spec",
                 "start": {
                     "line": 8,
@@ -878,8 +878,8 @@
             "idL": [
                 {
                     "type": "spec.cvlast.CVLLhs.Id",
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "HavocStorage.spec",
                         "start": {
                             "line": 8,
@@ -918,8 +918,8 @@
                         "type": {
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "HavocStorage.spec",
                             "start": {
                                 "line": 8,
@@ -976,8 +976,8 @@
                                                 "name": "HavocStorage"
                                             }
                                         },
-                                        "cvlRange": {
-                                            "type": "spec.cvlast.CVLRange.Range",
+                                        "range": {
+                                            "type": "utils.Range.Range",
                                             "specFile": "HavocStorage.spec",
                                             "start": {
                                                 "line": 8,
@@ -1075,8 +1075,8 @@
                                             "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                         }
                                     },
-                                    "cvlRange": {
-                                        "type": "spec.cvlast.CVLRange.Range",
+                                    "range": {
+                                        "type": "utils.Range.Range",
                                         "specFile": "HavocStorage.spec",
                                         "start": {
                                             "line": 8,
@@ -1122,8 +1122,8 @@
                                     "type": {
                                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
                                     },
-                                    "cvlRange": {
-                                        "type": "spec.cvlast.CVLRange.Range",
+                                    "range": {
+                                        "type": "utils.Range.Range",
                                         "specFile": "HavocStorage.spec",
                                         "start": {
                                             "line": 8,
@@ -1209,8 +1209,8 @@
                                         "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                     }
                                 },
-                                "cvlRange": {
-                                    "type": "spec.cvlast.CVLRange.Range",
+                                "range": {
+                                    "type": "utils.Range.Range",
                                     "specFile": "HavocStorage.spec",
                                     "start": {
                                         "line": 8,
@@ -1257,8 +1257,8 @@
                                     "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                                     "k": 256
                                 },
-                                "cvlRange": {
-                                    "type": "spec.cvlast.CVLRange.Range",
+                                "range": {
+                                    "type": "utils.Range.Range",
                                     "specFile": "HavocStorage.spec",
                                     "start": {
                                         "line": 8,
@@ -1339,8 +1339,8 @@
                                     "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                 }
                             },
-                            "cvlRange": {
-                                "type": "spec.cvlast.CVLRange.Range",
+                            "range": {
+                                "type": "utils.Range.Range",
                                 "specFile": "HavocStorage.spec",
                                 "start": {
                                     "line": 8,
@@ -1394,8 +1394,8 @@
                                 "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                             }
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "HavocStorage.spec",
                             "start": {
                                 "line": 8,
@@ -1442,8 +1442,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                             "k": 256
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "HavocStorage.spec",
                             "start": {
                                 "line": 8,
@@ -1490,8 +1490,8 @@
                             "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                         }
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "HavocStorage.spec",
                         "start": {
                             "line": 8,
@@ -1533,8 +1533,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Havoc",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "HavocStorage.spec",
                 "start": {
                     "line": 10,
@@ -1589,8 +1589,8 @@
                                                     "name": "HavocStorage"
                                                 }
                                             },
-                                            "cvlRange": {
-                                                "type": "spec.cvlast.CVLRange.Range",
+                                            "range": {
+                                                "type": "utils.Range.Range",
                                                 "specFile": "HavocStorage.spec",
                                                 "start": {
                                                     "line": 10,
@@ -1688,8 +1688,8 @@
                                                 "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                             }
                                         },
-                                        "cvlRange": {
-                                            "type": "spec.cvlast.CVLRange.Range",
+                                        "range": {
+                                            "type": "utils.Range.Range",
                                             "specFile": "HavocStorage.spec",
                                             "start": {
                                                 "line": 10,
@@ -1735,8 +1735,8 @@
                                         "type": {
                                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
                                         },
-                                        "cvlRange": {
-                                            "type": "spec.cvlast.CVLRange.Range",
+                                        "range": {
+                                            "type": "utils.Range.Range",
                                             "specFile": "HavocStorage.spec",
                                             "start": {
                                                 "line": 10,
@@ -1822,8 +1822,8 @@
                                             "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                         }
                                     },
-                                    "cvlRange": {
-                                        "type": "spec.cvlast.CVLRange.Range",
+                                    "range": {
+                                        "type": "utils.Range.Range",
                                         "specFile": "HavocStorage.spec",
                                         "start": {
                                             "line": 10,
@@ -1870,8 +1870,8 @@
                                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                                         "k": 256
                                     },
-                                    "cvlRange": {
-                                        "type": "spec.cvlast.CVLRange.Range",
+                                    "range": {
+                                        "type": "utils.Range.Range",
                                         "specFile": "HavocStorage.spec",
                                         "start": {
                                             "line": 10,
@@ -1952,8 +1952,8 @@
                                         "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                     }
                                 },
-                                "cvlRange": {
-                                    "type": "spec.cvlast.CVLRange.Range",
+                                "range": {
+                                    "type": "utils.Range.Range",
                                     "specFile": "HavocStorage.spec",
                                     "start": {
                                         "line": 10,
@@ -2007,8 +2007,8 @@
                                     "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                 }
                             },
-                            "cvlRange": {
-                                "type": "spec.cvlast.CVLRange.Range",
+                            "range": {
+                                "type": "utils.Range.Range",
                                 "specFile": "HavocStorage.spec",
                                 "start": {
                                     "line": 10,
@@ -2055,8 +2055,8 @@
                                 "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                                 "k": 256
                             },
-                            "cvlRange": {
-                                "type": "spec.cvlast.CVLRange.Range",
+                            "range": {
+                                "type": "utils.Range.Range",
                                 "specFile": "HavocStorage.spec",
                                 "start": {
                                     "line": 10,
@@ -2103,8 +2103,8 @@
                                 "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                             }
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "HavocStorage.spec",
                             "start": {
                                 "line": 10,
@@ -2148,8 +2148,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Assert",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "HavocStorage.spec",
                 "start": {
                     "line": 12,
@@ -2203,8 +2203,8 @@
                                                 "name": "HavocStorage"
                                             }
                                         },
-                                        "cvlRange": {
-                                            "type": "spec.cvlast.CVLRange.Range",
+                                        "range": {
+                                            "type": "utils.Range.Range",
                                             "specFile": "HavocStorage.spec",
                                             "start": {
                                                 "line": 12,
@@ -2302,8 +2302,8 @@
                                             "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                         }
                                     },
-                                    "cvlRange": {
-                                        "type": "spec.cvlast.CVLRange.Range",
+                                    "range": {
+                                        "type": "utils.Range.Range",
                                         "specFile": "HavocStorage.spec",
                                         "start": {
                                             "line": 12,
@@ -2349,8 +2349,8 @@
                                     "type": {
                                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.AccountIdentifier"
                                     },
-                                    "cvlRange": {
-                                        "type": "spec.cvlast.CVLRange.Range",
+                                    "range": {
+                                        "type": "utils.Range.Range",
                                         "specFile": "HavocStorage.spec",
                                         "start": {
                                             "line": 12,
@@ -2436,8 +2436,8 @@
                                         "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                     }
                                 },
-                                "cvlRange": {
-                                    "type": "spec.cvlast.CVLRange.Range",
+                                "range": {
+                                    "type": "utils.Range.Range",
                                     "specFile": "HavocStorage.spec",
                                     "start": {
                                         "line": 12,
@@ -2484,8 +2484,8 @@
                                     "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                                     "k": 256
                                 },
-                                "cvlRange": {
-                                    "type": "spec.cvlast.CVLRange.Range",
+                                "range": {
+                                    "type": "utils.Range.Range",
                                     "specFile": "HavocStorage.spec",
                                     "start": {
                                         "line": 12,
@@ -2566,8 +2566,8 @@
                                     "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                                 }
                             },
-                            "cvlRange": {
-                                "type": "spec.cvlast.CVLRange.Range",
+                            "range": {
+                                "type": "utils.Range.Range",
                                 "specFile": "HavocStorage.spec",
                                 "start": {
                                     "line": 12,
@@ -2621,8 +2621,8 @@
                                 "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                             }
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "HavocStorage.spec",
                             "start": {
                                 "line": 12,
@@ -2669,8 +2669,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                             "k": 256
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "HavocStorage.spec",
                             "start": {
                                 "line": 12,
@@ -2717,8 +2717,8 @@
                             "type": "spec.cvlast.typedescriptors.FromVMContext.StateValue"
                         }
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "HavocStorage.spec",
                         "start": {
                             "line": 12,
@@ -2787,8 +2787,8 @@
         }
     },
     "methodParamFilters": {
-        "cvlRange": {
-            "type": "spec.cvlast.CVLRange.Range",
+        "range": {
+            "type": "utils.Range.Range",
             "specFile": "HavocStorage.spec",
             "start": {
                 "line": 2,
@@ -2826,6 +2826,6 @@
         }
     },
     "ruleGenerationMeta": {
-        "type": "spec.cvlast.SingleRuleGenerationMeta.Empty"
+        "type": "spec.rules.SingleRuleGenerationMeta.Empty"
     }
 }

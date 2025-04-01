@@ -50,8 +50,12 @@ internal val CoreTACProgram.rootBlock: TACBlock
  * and that the command is unique. Returns null if no such command exists.
  */
 internal fun <T: Serializable> CoreTACProgram.getMetaCommand(k: MetaKey<T>) =
-    rootBlock.commands
-        .singleOrNull { it.cmd is TACCmd.Simple.AnnotationCmd && it.cmd.annot.k == k }
+    if(!isEmptyCode()) {
+        rootBlock.commands
+            .singleOrNull { it.cmd is TACCmd.Simple.AnnotationCmd && it.cmd.annot.k == k }
+    } else {
+        null
+    }
 
 /**
  * Retrieves the meta value set for [k] on a [CoreTACProgram] based on [getMetaCommand]. Returns null if the info is
@@ -100,3 +104,12 @@ val CoreTACProgram.stateExtensions: Inliner.ExtendedStateVars by LazyDefaultDele
     Inliner.ExtendedStateVars(mapOf())
 }
 fun CoreTACProgram.withStateExtensions(value: Inliner.ExtendedStateVars) = withMetaValue(Inliner.ExtendedStateVars.META_KEY, value)
+
+/**
+ * Marks whether a [CoreTACProgram] should be optimized using cone of influence optimizations or not.
+ *
+ * Useful to set to `false` if the progem being optimized is only a partial program (so may not end with an assert yet).
+ */
+val DYNSET_COI_OPTIMIZATIONS = MetaKey<Boolean>("dynamicsettings.coi.optimizations")
+val CoreTACProgram.coiOptimizations: Boolean by LazyDefaultDelegate(DYNSET_COI_OPTIMIZATIONS) { true }
+fun CoreTACProgram.withCoiOptimizations(value: Boolean) = withMetaValue(DYNSET_COI_OPTIMIZATIONS, value)

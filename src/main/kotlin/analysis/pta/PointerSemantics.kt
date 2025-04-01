@@ -1910,9 +1910,10 @@ class PointerSemantics(
     val numericAnalysis: NumericAnalysis,
     graph: TACCommandGraph,
     val relaxedAddition: Boolean,
-    val initialFreePointerValue: BigInteger?
+    val initialFreePointerValue: BigInteger?,
+    val allowLengthUpdates: Boolean
 ) : MemoryStepper<PointsToDomain, PointsToGraph>(scratchSite, allocSites), IPointerInformation, SymInterpreter<PointsToGraph, VPointsToValue> {
-
+    val needBoundProof = mutableSetOf<CmdPointer>()
 
     fun BigInteger.asSpillLocation(): SpillLocation? =
         initialFreePointerValue?.let { fp ->
@@ -2131,7 +2132,29 @@ class PointerSemantics(
         }
     }
 
-    fun getKillSideEffects(ltacCmd: LTACCmd, pState: PointsToDomain) : TreapSet<TACSymbol.Var> {
+    /**
+     * Variables in [killValue] are known to have their values overwritten, and all information about them should be killed.
+     * In contrast, the variables in [killArrayLengthFacts] are array pointers and array elem start pointers for which
+     * array length facts should be killed (but not the pointer values themselves).
+     *
+     * Effectively, this clears relational information about the lengths of the arrays whose length has been updated.
+     */
+    data class WriteSideEffect(
+        val killValue: TreapSet<TACSymbol.Var>,
+        val killArrayLengthFacts: TreapSet<TACSymbol.Var>
+    ) {
+        fun isEmpty(): Boolean {
+            return this === empty || (killValue.isEmpty() && killArrayLengthFacts.isEmpty())
+        }
+
+        companion object {
+            fun killValues(s: TreapSet<TACSymbol.Var>) = WriteSideEffect(s, treapSetOf())
+
+            val empty = WriteSideEffect(treapSetOf(), treapSetOf())
+        }
+    }
+
+    fun getKillSideEffects(ltacCmd: LTACCmd, pState: PointsToDomain) : WriteSideEffect {
         return when(ltacCmd.cmd) {
             is TACCmd.Simple.ByteLongCopy -> {
                 checkByteCopy(
@@ -2143,7 +2166,7 @@ class PointerSemantics(
                     heapAction = {_ ->
                         this
                     },
-                    cont = { _, vs -> vs }
+                    cont = { _, vs -> WriteSideEffect(vs, treapSetOf()) }
                 )
             }
             is TACCmd.Simple.CallCore -> {
@@ -2154,10 +2177,42 @@ class PointerSemantics(
                     target = pState.pointsToState,
                     pState = pState,
                     length = ltacCmd.cmd.outSize,
-                    cont = { _, vs -> vs}
+                    cont = { _, vs -> WriteSideEffect(vs, treapSetOf()) }
                 )
             }
-            else -> treapSetOf()
+            is TACCmd.Simple.AssigningCmd.ByteStore -> {
+                val loc = ltacCmd.cmd.loc as? TACSymbol.Var ?: return WriteSideEffect.empty
+                val base = pState.pointsToState.store[loc]?.let {
+                    it as? Pointer.ArrayPointer
+                }?.v ?: return WriteSideEffect.empty
+                // kill any facts
+                val killValues = treapSetBuilderOf<TACSymbol.Var>()
+                val killRelational = treapSetBuilderOf<TACSymbol.Var>()
+                for((k, p) in pState.pointsToState.store) {
+                    when(p) {
+                        is Pointer.ArrayPointer -> {
+                            if(p.v.containsAny(base)) {
+                                killRelational.add(k)
+                            }
+
+                        }
+                        is Pointer.ArrayElemStart -> {
+                            if(p.v.containsAny(base)) {
+                                killRelational.add(k)
+                            }
+                        }
+                        // we don't know if element pointers are still element pointers anymore, kill that information
+                        is Pointer.ArrayElemPointer -> {
+                            if(base.containsAny(p.v)) {
+                                killValues.add(k)
+                            }
+                        }
+                        else -> continue
+                    }
+                }
+                WriteSideEffect(killValue = killValues.build(), killArrayLengthFacts = killRelational.build())
+            }
+            else -> WriteSideEffect.empty
         }
     }
 
@@ -2454,6 +2509,16 @@ class PointerSemantics(
                         }
                         throw AnalysisFailureException("Write to non-constant base pointer while in constant mode: $base ($loc)")
                     }
+                    if(base is Pointer.ArrayPointer) {
+                        // no questions asked, someone else says this is fine
+                        if(TACMeta.VALIDATED_LENGTH_UPDATE in ltacCmd.cmd.meta) {
+                            return@updateHeap heap
+                        }
+                        if(allowLengthUpdates) {
+                            needBoundProof.add(ltacCmd.ptr)
+                            return@updateHeap heap
+                        }
+                    }
                     val baseWithSaturation = if(base !is MaybeWritablePointer) {
                         findWriteSafetyProof(loc, pState) ?: run {
                             logger.warn {
@@ -2467,9 +2532,9 @@ class PointerSemantics(
                     val writableBase = baseWithSaturation.writableIfSafe(loc as TACSymbol.Var, pState, where = ltacCmd)
                     if(writableBase == null) {
                         logger.warn {
-                            "$writableBase ($loc) could not be proven to be a safe write at $ltacCmd"
+                            "$baseWithSaturation ($loc) could not be proven to be a safe write at $ltacCmd"
                         }
-                        throw AnalysisFailureException("Unsafe write to invalid base pointer $writableBase ($loc)")
+                        throw AnalysisFailureException("Unsafe write to invalid base pointer $baseWithSaturation ($loc)")
                     }
                     if(toWrite !is HeapValue) {
                         logger.warn {
@@ -3600,10 +3665,10 @@ class PointerSemantics(
         }
     }
 
-    fun kill(p: PointsToGraph, toKill: Set<TACSymbol.Var>): PointsToGraph {
+    fun kill(p: PointsToGraph, toKill: WriteSideEffect): PointsToGraph {
         return PointsToGraph(
             p.store.updateValues { k, aVal ->
-                if(k in toKill) {
+                if(k in toKill.killValue) {
                     INT
                 } else {
                     aVal

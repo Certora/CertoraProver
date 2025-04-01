@@ -102,7 +102,6 @@ GAMBIT_NO_OVERWRITE = 'no_overwrite'
 SOURCEROOT = 'sourceroot'
 RULENAME = "ruleName"
 SOLC_OPTIMIZE = 'solc_optimize'
-SOLC_MAP = 'solc_map'
 SOLC_OPTIMIZE_MAP = 'solc_optimize_map'
 SOLC_EVM_VERSION = 'solc_evm_version'
 SOLC_VIA_IR = 'solc_via_ir'

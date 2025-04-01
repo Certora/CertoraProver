@@ -21,6 +21,7 @@ import analysis.storage.SimpleTransientStorageAnalysis
 import scene.IScene
 import spec.CVL
 import spec.cvlast.*
+import spec.rules.*
 
 class RuleFilterWithScene(val scene: IScene) {
 
@@ -34,20 +35,21 @@ class RuleFilterWithScene(val scene: IScene) {
         return cvl.copy(rules = cvl.rules.mapNotNull { copyFiltered(it) })
     }
 
-    private fun includeRule(rule: IRule): Boolean{
-        if((rule as? SingleRule)?.ruleType is SpecType.Single.InvariantCheck.TransientStorageStep){
+    private fun includeRule(rule: ICVLRule): Boolean{
+        if((rule as? CVLSingleRule)?.ruleType is SpecType.Single.InvariantCheck.TransientStorageStep){
             //The induction step for an invariant will only be executed if there is a usage of transient storage in the scene.
             return SimpleTransientStorageAnalysis.usesTransientStorage(scene)
         }
         return true
     }
 
-    private fun copyFiltered(rule: IRule): IRule? {
+    private fun copyFiltered(rule: ICVLRule): ICVLRule? {
         if(!includeRule(rule)) {return null}
-        when(rule){
-            is GroupRule -> return rule.copy(rules = rule.rules.mapNotNull { copyFiltered(it) })
-            is SingleRule,
-            is AssertRule -> return rule
+        return when(rule){
+            is GroupRule -> rule.copy(rules = rule.rules.mapNotNull { copyFiltered(it) })
+            is CVLSingleRule,
+            is AssertRule,
+            is StaticRule -> rule
         }
     }
 }

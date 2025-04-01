@@ -24,7 +24,7 @@ import log.*
 import report.CVTAlertReporter
 import report.CVTAlertSeverity
 import report.CVTAlertType
-import spec.cvlast.CVLRange
+import utils.Range
 import utils.*
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -55,7 +55,7 @@ object InlinedFramesInfo {
      * the Certora sources directory.
      * Requires that the [init] method has been called on this object, otherwise throws an exception.
      */
-    fun findInnermostInlinedFrameInProjectRootDirectory(address: ULong): CVLRange.Range? {
+    fun findInnermostInlinedFrameInProjectRootDirectory(address: ULong): Range.Range? {
         val inlinedFramesMap = getInlinedFrames(listOf(address))
         return inlinedFramesMap[address]?.let {
             it.firstOrNull { range ->
@@ -75,7 +75,7 @@ object InlinedFramesInfo {
      * Returns the inlined frames for each address, but only the ones that exist in project files.
      */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-    fun getInlinedFramesInProjectFiles(addresses: List<ULong>): Map<ULong, List<CVLRange.Range>> {
+    fun getInlinedFramesInProjectFiles(addresses: List<ULong>): Map<ULong, List<Range.Range>> {
         return getInlinedFrames(addresses).mapValues{ (_, inlinedFrames) ->
             inlinedFrames.filter { range ->
                 val file = File(Config.prependSourcesDir(range.file))
@@ -101,7 +101,7 @@ object InlinedFramesInfo {
      * Requires that the [init] method has been called on this object, otherwise throws an exception.
      */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-    fun getInlinedFrames(addresses: List<ULong>): Map<ULong, List<CVLRange.Range>> {
+    fun getInlinedFrames(addresses: List<ULong>): Map<ULong, List<Range.Range>> {
         assert(elfFile != null, { "called getInlinedFrames before initializing the ELF file path" })
 
         // Prepare the command.
@@ -148,9 +148,9 @@ object InlinedFramesInfo {
             )
 
         // Extract the inlined frames from the output.
-        val inlinedFrames: MutableMap<ULong, List<CVLRange.Range>> = mutableMapOf()
+        val inlinedFrames: MutableMap<ULong, List<Range.Range>> = mutableMapOf()
         llvmSymbolizerOutputList.forEach { llvmSymbolizerOutput ->
-            val resultEntry = llvmSymbolizerOutputToCvlRange(llvmSymbolizerOutput)
+            val resultEntry = llvmSymbolizerOutputToRange(llvmSymbolizerOutput)
             if (resultEntry != null) {
                 inlinedFrames[resultEntry.first] = resultEntry.second
             }
@@ -163,7 +163,7 @@ object InlinedFramesInfo {
      * Maps the output to a pair (address, range), if the output represents a valid range.
      */
     @Suppress("ForbiddenMethodCall")
-    private fun llvmSymbolizerOutputToCvlRange(llvmSymbolizerOutput: LlvmSymbolizerOutput): Pair<ULong, List<CVLRange.Range>>? {
+    private fun llvmSymbolizerOutputToRange(llvmSymbolizerOutput: LlvmSymbolizerOutput): Pair<ULong, List<Range.Range>>? {
         if (llvmSymbolizerOutput.address == null || llvmSymbolizerOutput.symbol == null) {
             // llvm-symbolizer does not have inlined frames information.
             return null
@@ -179,7 +179,7 @@ object InlinedFramesInfo {
             if (uLongAddress == null) {
                 return null
             } else {
-                val inlinedFrames = llvmSymbolizerOutput.symbol.mapNotNull { symbol -> symbolToCVLRange(symbol) }
+                val inlinedFrames = llvmSymbolizerOutput.symbol.mapNotNull { symbol -> symbolToRange(symbol) }
                 return if (inlinedFrames.isEmpty()) {
                     // It is possible that no symbol can be converted to a CVL range: in this case we did not resolve
                     // the inlined frames information for the address.
@@ -192,21 +192,21 @@ object InlinedFramesInfo {
     }
 
     /**
-     * Return the corresponding [CVLRange.Range].
+     * Return the corresponding [Range.Range].
      * [Symbol] can represent an unknown location in case the line or the column are zero.
      * In case the symbol is an unknown location, returns [null].
      */
-    private fun symbolToCVLRange(symbol: Symbol): CVLRange.Range? {
+    private fun symbolToRange(symbol: Symbol): Range.Range? {
         if (symbol.line == 0.toUInt() || symbol.column == 0.toUInt()) {
             return null
         } else {
-            val cvlRangeLineNumber = symbol.line - 1.toUInt()
-            val cvlRangeColNumber = symbol.column - 1.toUInt()
-            val sourcePositionStart = SourcePosition(cvlRangeLineNumber, cvlRangeColNumber)
+            val rangeLineNumber = symbol.line - 1.toUInt()
+            val rangeColNumber = symbol.column - 1.toUInt()
+            val sourcePositionStart = SourcePosition(rangeLineNumber, rangeColNumber)
             // Since llvm-symbolizer does not have the end information, we assume that the end is the first character in
             // the next line.
-            val sourcePositionEnd = SourcePosition(cvlRangeLineNumber + 1.toUInt(), 0.toUInt())
-            return CVLRange.Range(symbol.fileName, sourcePositionStart, sourcePositionEnd)
+            val sourcePositionEnd = SourcePosition(rangeLineNumber + 1.toUInt(), 0.toUInt())
+            return Range.Range(symbol.fileName, sourcePositionStart, sourcePositionEnd)
         }
     }
 

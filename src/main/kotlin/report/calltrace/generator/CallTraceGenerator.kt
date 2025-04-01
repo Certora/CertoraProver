@@ -43,7 +43,7 @@ import scene.MethodAttribute
 import solver.CounterexampleModel
 import spec.CVLReservedVariables
 import spec.cvlast.CVLHookPattern
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLType
 import spec.cvlast.PatternWithValue
 import tac.NBId
@@ -164,7 +164,7 @@ internal sealed class CallTraceGenerator(
     fun materializeCVLBoolCondExpInfoWithParent(cond: TACSymbol, namePrefix: String) {
         val label = evaldCVLExpBuilder.labelForSymbol(cond)
         val parentInstance = if (currCallInstance !is CallInstance.LabelInstance && label != null) {
-            val rewrapped = CVLReportLabel.Message("$namePrefix $label", label.cvlRange)
+            val rewrapped = CVLReportLabel.Message("$namePrefix $label", label.range)
             CallInstance.LabelInstance(rewrapped).also { callTraceAppend(it) }
         } else {
             currCallInstance
@@ -641,14 +641,14 @@ internal sealed class CallTraceGenerator(
             is SnippetCmd.CVLSnippetCmd.DivZero -> {
                 CallInstance.DivZeroInstance(
                     snippetCmd.assertCmdLabel,
-                    snippetCmd.range as? CVLRange.Range,
+                    snippetCmd.range as? Range.Range,
                 ) to "Check division by zero for ${snippetCmd.assertCmdLabel}: $assertViolationOrErrorMsg"
             }
 
             is SnippetCmd.CVLSnippetCmd.AssertCast -> {
                 CallInstance.CastCheckInstance(
                     "assert-cast check $assertViolationOrErrorMsg",
-                    snippetCmd.range as? CVLRange.Range,
+                    snippetCmd.range as? Range.Range,
                 ) to "assert-cast check: $assertViolationOrErrorMsg"
             }
 

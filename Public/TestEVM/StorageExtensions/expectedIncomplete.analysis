@@ -1,0 +1,41 @@
+{
+  "AddInternalFunctions": {
+    "Test-doThing(uint256,bool)": [
+      true,
+      true
+    ],
+    "Test-doOtherThing(uint256,bool)": [
+      true,
+      true
+    ],
+    "constructor_Test": [
+      true,
+      true
+    ]
+  },
+  "CALLGRAPH": {
+    "constructor()": false,
+    "doThing(uint256,bool)": true,
+    "doOtherThing(uint256,bool)": true
+  },
+  "INIT": {
+    "Test-doThing(uint256,bool)": true,
+    "Test-doOtherThing(uint256,bool)": true
+  },
+  "POINTSTO": {
+    "Test-doThing(uint256,bool)": true,
+    "Test-doOtherThing(uint256,bool)": true,
+    "constructor()": false,
+    "doOtherThing(uint256,bool)": true,
+    "doThing(uint256,bool)": true
+  },
+  "SKeyDetection": {
+    "Test-doThing(uint256,bool)": true,
+    "Test-doOtherThing(uint256,bool)": true,
+    "constructor_Test": true
+  },
+  "STORAGE": {
+    "Test-doThing(uint256,bool)": false,
+    "Test-doOtherThing(uint256,bool)": false
+  }
+}

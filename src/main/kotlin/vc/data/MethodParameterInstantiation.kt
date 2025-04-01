@@ -19,7 +19,7 @@ package vc.data
 
 import bridge.EVMExternalMethodInfo
 import log.*
-import spec.cvlast.CVLRange
+import utils.Range
 import utils.sameValueOrNull
 
 private val logger = Logger(LoggerTypes.COMMON)
@@ -48,7 +48,7 @@ class MethodParameterInstantiation(private val paramNameToEVMMethodInstance: Map
      * we only try outputting a range here if all method parameters instantiated to the same method
      * (so in particular, we always try if exactly one method was instantiated)
      */
-    fun range(): CVLRange {
+    fun range(): Range {
         val instances = this.values
         val sameSourceSegment = instances.sameValueOrNull()?.sourceSegment
 
@@ -59,7 +59,7 @@ class MethodParameterInstantiation(private val paramNameToEVMMethodInstance: Map
                 val names = instances.map { it.name }
                 logger.info { "Not outputting range for instantiation - not all method parameters agree (got methods: $names)" }
             }
-            CVLRange.Empty()
+            Range.Empty()
         }
     }
 }

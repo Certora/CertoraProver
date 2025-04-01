@@ -1,0 +1,30 @@
+[package]
+name = "tac_optimizer"
+version = "0.1.0"
+edition = "2018"
+authors = [ "Chandrakana Nandi" ]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+egg = "0.7.1"
+etcommon-bigint = "0.2.10"
+clap = { version = "3.0.7", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+env_logger = { version = "0.7", default-features = false }
+once_cell = "1.8.0"
+primitive-types = { version = "0.10", default-features = false, features = ["rlp"] }
+rand = "0.8.4"
+rust-evm = { git = "ssh://git@github.com/Certora/rust-evm", rev = "720cbe0c6cb43fef92be4a2c37ef7cc524ff4c08" }
+symbolic_expressions = "5.0.3"
+num = "0.3"
+num-bigint = { version = "0.3", features = ["rand"] }
+
+
+
+[[bin]]
+name = "tac_optimizer"
+test = false
+bench = false

@@ -37,7 +37,6 @@ import report.LocalAssignmentState
 import report.calltrace.CallEndStatus
 import report.calltrace.CallInstance
 import report.calltrace.CallTrace
-import report.calltrace.formatter.AlternativeRepresentations
 import report.calltrace.formatter.AlternativeRepresentations.Representations
 import report.calltrace.formatter.FormatterType
 import report.calltrace.sarif.Sarif
@@ -48,14 +47,13 @@ import solver.StructuralInvariants.verifyAssertChildren
 import solver.StructuralInvariants.verifyExpectedJson
 import solver.StructuralInvariants.verifyHasGlobalState
 import solver.StructuralInvariants.verifyViolateAssert
-import spec.cvlast.CVLRange
-import spec.cvlast.CVLSingleRule
+import utils.Range
+import spec.rules.CVLSingleRule
 import spec.cvlast.CVLType
-import spec.cvlast.SingleRuleGenerationMeta
+import spec.rules.SingleRuleGenerationMeta
 import utils.*
 import vc.data.*
 import vc.data.state.TACValue
-import java.io.File
 import java.nio.file.Path
 import java.util.*
 import java.util.function.Predicate
@@ -911,7 +909,7 @@ class CallTraceTest {
         val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
         val expectedCallInstance = CallInstance.CVLExpInstance.withStringExpAndValue(
             exp = "myStruct.num",
-            range = CVLRange.Range(
+            range = Range.Range(
                 specFile = "Basic.spec",
                 start = SourcePosition(8u, 11u),
                 end = SourcePosition(8u, 23u),
@@ -934,7 +932,7 @@ class CallTraceTest {
         val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
         val expectedCallInstance = CallInstance.CVLExpInstance.withStringExpAndValue(
             exp = "myStruct.num",
-            range = CVLRange.Range(
+            range = Range.Range(
                 specFile = "Basic.spec",
                 start = SourcePosition(7u, 11u),
                 end = SourcePosition(7u, 23u),
@@ -962,10 +960,10 @@ class CallTraceTest {
         ).map(baseDir::resolve)
 
         val plusOneSig = "plus_one()"
-        val plusOneRange = CVLRange.Range("MultipleCandidates.sol", SourcePosition(5u, 4u), SourcePosition(7u, 5u))
+        val plusOneRange = Range.Range("MultipleCandidates.sol", SourcePosition(5u, 4u), SourcePosition(7u, 5u))
 
         val minusOneSig = "minus_one()"
-        val minusOneRange = CVLRange.Range("MultipleCandidates.sol", SourcePosition(9u, 4u), SourcePosition(11u, 5u))
+        val minusOneRange = Range.Range("MultipleCandidates.sol", SourcePosition(9u, 4u), SourcePosition(11u, 5u))
 
         for (dir in artifactDirs) {
             val counterExample = CallTraceInfra.getCounterExampleFromSerialized(confPath, dir)
@@ -976,7 +974,7 @@ class CallTraceTest {
                 ?: fail("rule is parametric")
 
             val signatures = methodInstantiations.instMethodSignatures
-            val instantiationRange = methodInstantiations.cvlRange
+            val instantiationRange = methodInstantiations.range
 
             val (firstMethodSig, secondMethodSig) = signatures.assertSize(2)
 
@@ -984,7 +982,7 @@ class CallTraceTest {
             val expectedRange = when {
                 firstMethodSig == plusOneSig  && secondMethodSig == plusOneSig  -> plusOneRange
                 firstMethodSig == minusOneSig && secondMethodSig == minusOneSig -> minusOneRange
-                else -> CVLRange.Empty()
+                else -> Range.Empty()
             }
 
             assertTrue(instantiationRange == expectedRange)
@@ -1296,8 +1294,8 @@ internal object StructuralInvariants {
 
 // some local helper functions
 
-private fun assertRangeMatches(actual: CVLRange?, expectedStart: SourcePosition, expectedEnd: SourcePosition) {
-    check(actual is CVLRange.Range) { "expected CVLRange.Range but got $actual" }
+private fun assertRangeMatches(actual: Range?, expectedStart: SourcePosition, expectedEnd: SourcePosition) {
+    check(actual is Range.Range) { "expected range.Range but got $actual" }
 
     assertTrue(actual.start == expectedStart && actual.end == expectedEnd) {
         "ranges don't match. expected ($expectedStart, $expectedEnd) but got (${actual.start}, ${actual.end})"

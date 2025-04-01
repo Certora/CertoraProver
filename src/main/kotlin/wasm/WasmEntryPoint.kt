@@ -32,6 +32,9 @@ import instrumentation.transformers.*
 import log.*
 import optimizer.*
 import rules.RuleSplitter.fixupAssertSnippetAnnotations
+import spec.cvlast.RuleIdentifier
+import spec.rules.EcosystemAgnosticRule
+import spec.cvlast.SpecType
 import tac.DumpTime
 import utils.*
 import vc.data.*
@@ -75,7 +78,7 @@ private val wasmLogger = Logger(LoggerTypes.WASM)
 
 data class CompiledWasmRule(
     val code: CoreTACProgram,
-    val isSatisfyRule: Boolean,
+    val rule: EcosystemAgnosticRule,
 )
 
 object WasmEntryPoint {
@@ -192,7 +195,7 @@ object WasmEntryPoint {
             // Translate havoc expressions  to havoc instructions
             val havocifiedWasmTac = havocify(mergedWasmTac)
             // Convert call_indirect to call with condition checking
-            val callIndirectFreeWtac = callIndirectToCall(havocifiedWasmTac)
+            val callIndirectFreeWtac = callIndirectToCall(havocifiedWasmTac, wasmAST.allFuncTypes, wasmAST.typeTable)
             wasmTacs[funcId] = callIndirectFreeWtac
             wasmLogger.info { "WasmImpCfg program for $funcId" }
             wasmLogger.info { wasmTacs[funcId]!!.dumpWasmImpCfg() }
@@ -248,7 +251,8 @@ object WasmEntryPoint {
             val preprocessed = CoreTACProgram.Linear(coreTac)
                 .let { env.applyPreUnrollTransforms(it, wasmAST) }
                 .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
-                .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW, BitopsRewriter::rewriteSignedOverflowCheck))
+                .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_WASM_BITOPS, BitopsRewriter::rewriteXorEquality))
+                .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_WASM_BITOPS, BitopsRewriter::rewriteSignedOverflowCheck))
                 .map(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE, IntervalBasedExprSimplifier::analyze))
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.WASM_INIT_LOOP_SUMMARIZATION, ConstantArrayInitializationSummarizer::annotateLoops))
@@ -317,7 +321,11 @@ object WasmEntryPoint {
 
             CompiledWasmRule(
                 code = maybeOptimized?.ref ?: preprocessed.ref,
-                isSatisfyRule = isSatisfyRule,
+                rule = EcosystemAgnosticRule(
+                    ruleIdentifier = RuleIdentifier.freshIdentifier(ruleExportName),
+                    ruleType = SpecType.Single.FromUser.SpecFile,
+                    isSatisfyRule = isSatisfyRule
+                )
             )
         }.collect(Collectors.toList())
         Logger.always("Completed initial transformations", respectQuiet = true)

@@ -119,7 +119,7 @@ object TypeRewriter {
                 }
             // maybe-s - const assignments
             g.commands.mapNotNull {
-                it.maybeExpr<TACExpr.Sym.Const>()?.takeIf { it.exp.s.value.let { n -> n == BigInteger.ZERO || n == BigInteger.ONE } }
+                it.maybeExpr<TACExpr.Sym.Const>()?.takeIf { it.lhs.tag !is Tag.Bool && it.exp.s.value.let { n -> n == BigInteger.ZERO || n == BigInteger.ONE } }
             }.forEach { maybeBoolExp ->
                 addBoolAlternative(patch, maybeBoolExp, (maybeBoolExp.exp.s.value > BigInteger.ZERO).asTACExpr)
             }

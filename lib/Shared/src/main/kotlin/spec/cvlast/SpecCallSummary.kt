@@ -64,9 +64,9 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
      */
     @Serializable
     sealed class ExpressibleInCVL : SpecCallSummary() {
-        abstract val cvlRange: CVLRange
+        abstract val range: Range
 
-        override fun toString(): String = super.toString() + " @ $cvlRange"
+        override fun toString(): String = super.toString() + " @ $range"
     }
 
     /**
@@ -100,7 +100,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
 
 
     @Serializable
-    data class Always(val exp: CVLExp, override val summarizationMode: SummarizationMode, override val cvlRange: CVLRange) :
+    data class Always(val exp: CVLExp, override val summarizationMode: SummarizationMode, override val range: Range) :
         ExpressibleInCVL(), SummaryNameIsCanonical, InternalSummary {
 
         override val summaryName: String
@@ -110,12 +110,12 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         override fun toString(): String = super.toString()
 
         override fun hashCode(): Int = hash {
-            it + summarizationMode + cvlRange + exp
+            it + summarizationMode + range + exp
         }
     }
 
     @Serializable
-    data class Constant(override val summarizationMode: SummarizationMode, override val cvlRange: CVLRange) : ExpressibleInCVL(), SummaryNameIsCanonical, InternalSummary {
+    data class Constant(override val summarizationMode: SummarizationMode, override val range: Range) : ExpressibleInCVL(), SummaryNameIsCanonical, InternalSummary {
         override val summaryName: String
             get() = "CONSTANT"
 
@@ -123,12 +123,12 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         override fun toString(): String = super.toString()
 
         override fun hashCode(): Int = hash {
-            it + summarizationMode + cvlRange
+            it + summarizationMode + range
         }
     }
 
     @Serializable
-    data class PerCalleeConstant(override val summarizationMode: SummarizationMode, override val cvlRange: CVLRange) :
+    data class PerCalleeConstant(override val summarizationMode: SummarizationMode, override val range: Range) :
         ExpressibleInCVL(), SummaryNameIsCanonical {
         override val summaryName: String
             get() = "PER_CALLEE_CONSTANT"
@@ -137,7 +137,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         override fun toString(): String = super.toString()
 
         override fun hashCode(): Int = hash {
-            it + summarizationMode + cvlRange
+            it + summarizationMode + range
         }
     }
 
@@ -146,7 +146,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         override val summarizationMode: SummarizationMode,
         val optimistic: Boolean,
         val useFallback: Boolean,
-        override val cvlRange: CVLRange) :
+        override val range: Range) :
         ExpressibleInCVL(), SummaryNameIsCanonical {
 
         override val summaryName: String
@@ -156,13 +156,13 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         override fun toString(): String = super.toString()
 
         override fun hashCode(): Int = hash {
-            it + summarizationMode + cvlRange + optimistic
+            it + summarizationMode + range + optimistic
         }
     }
 
     @Serializable
     data class DispatchList(
-        override val cvlRange: CVLRange,
+        override val range: Range,
         val dispatcherList: List<Pattern>,
         val default: HavocSummary,
         val useFallback: Boolean,
@@ -171,7 +171,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         @Treapable
         sealed class Pattern: AmbiSerializable {
 
-            abstract val cvlRange: CVLRange
+            abstract val range: Range
 
             abstract fun getMethods(scene: IScene, sigResolution: Set<BigInteger?>, calleeResolution: BigInteger?): Collection<ITACMethod>
 
@@ -187,7 +187,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
              * Represents a pattern entry of a specific function from a specific contract
              */
             @Serializable
-            data class QualifiedMethod(override val cvlRange: CVLRange, val sig: ExternalQualifiedMethodParameterSignature) : Pattern() {
+            data class QualifiedMethod(override val range: Range, val sig: ExternalQualifiedMethodParameterSignature) : Pattern() {
                 init {
                     check(!sig.qualifiedMethodName.host.isWildcardContract()) { "Expecting a specific contract, got a wildcard." }
                     logger.debug { "Added qualified method pattern ${toUIString()} to dispatch list" }
@@ -223,7 +223,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
              * Represents a pattern entry for all methods from a given contract
              */
             @Serializable
-            data class WildcardMethod(override val cvlRange: CVLRange, val contract: MethodEntryTargetContract.SpecificTarget) : Pattern() {
+            data class WildcardMethod(override val range: Range, val contract: MethodEntryTargetContract.SpecificTarget) : Pattern() {
                 init {
                     logger.debug { "Added wildcard method pattern ${toUIString()} to dispatch list" }
                 }
@@ -280,7 +280,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
              * Represents a pattern entry for all methods matching signature from any contract
              */
             @Serializable
-            data class WildcardContract(override val cvlRange: CVLRange, val sig: ExternalQualifiedMethodParameterSignature) : Pattern() {
+            data class WildcardContract(override val range: Range, val sig: ExternalQualifiedMethodParameterSignature) : Pattern() {
                 init {
                     logger.debug { "Added wildcard contract pattern ${toUIString()} to dispatch list" }
                 }
@@ -325,19 +325,19 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         override fun toUIString(): String = "$summaryName havoc"
 
         @Serializable
-        data class HavocECF(override val summarizationMode: SummarizationMode, override val cvlRange: CVLRange) : HavocSummary() {
+        data class HavocECF(override val summarizationMode: SummarizationMode, override val range: Range) : HavocSummary() {
             override val summaryName: String
                 get() = "HAVOC_ECF"
             override fun isRevertable() = true
             override fun toString(): String = super.toString()
 
             override fun hashCode(): Int = hash {
-                it + summarizationMode + cvlRange
+                it + summarizationMode + range
             }
         }
 
         @Serializable
-        data class HavocAll(override val summarizationMode: SummarizationMode, override val cvlRange: CVLRange) : HavocSummary() {
+        data class HavocAll(override val summarizationMode: SummarizationMode, override val range: Range) : HavocSummary() {
             override val summaryName: String
                 get() = "HAVOC_ALL"
 
@@ -345,12 +345,12 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
             override fun toString(): String = super.toString()
 
             override fun hashCode(): Int = hash {
-                it + summarizationMode + cvlRange
+                it + summarizationMode + range
             }
         }
 
         @Serializable
-        data class AssertFalse(override val summarizationMode: SummarizationMode, override val cvlRange: CVLRange) : HavocSummary() {
+        data class AssertFalse(override val summarizationMode: SummarizationMode, override val range: Range) : HavocSummary() {
             override val summaryName: String
                 get() = "ASSERT_FALSE"
 
@@ -358,24 +358,24 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
             override fun toString(): String = super.toString()
 
             override fun hashCode(): Int = hash {
-                it + summarizationMode + cvlRange
+                it + summarizationMode + range
             }
         }
 
         @Serializable
-        data class Nondet(override val summarizationMode: SummarizationMode, override val cvlRange: CVLRange) : HavocSummary(), InternalSummary {
+        data class Nondet(override val summarizationMode: SummarizationMode, override val range: Range) : HavocSummary(), InternalSummary {
             override val summaryName: String
                 get() = "NONDET"
             override fun toUIString(): String = "$summaryName view function"
             override fun toString(): String = super.toString()
 
             override fun hashCode(): Int = hash {
-                it + summarizationMode + cvlRange
+                it + summarizationMode + range
             }
         }
 
         @Serializable
-        data class Auto(override val summarizationMode: SummarizationMode, override val cvlRange: CVLRange = CVLRange.Empty()) :
+        data class Auto(override val summarizationMode: SummarizationMode, override val range: Range = Range.Empty()) :
             HavocSummary() {
             override val summaryName: String
                 get() = "AUTO"
@@ -383,7 +383,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
             override fun toString(): String = super.toString()
 
             override fun hashCode(): Int = hash {
-                it + summarizationMode + cvlRange
+                it + summarizationMode + range
             }
         }
     }
@@ -405,7 +405,7 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         val exp: CVLExp,
         val funParams: List<VMParam>,
         val withClause: WithClause?,
-        override val cvlRange: CVLRange,
+        override val range: Range,
         override val scope: CVLScope,
         // null -> no type provided, empty -> void
         val expectedType: List<VMTypeDescriptor>?
@@ -419,10 +419,10 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
         /** The parameter to a `with` clause.  Wrapped so we can carry around the [range] for error messages. */
         @Serializable
         @Treapable
-        data class WithClause(val param: CVLParam, val range : CVLRange) : AmbiSerializable
+        data class WithClause(val param: CVLParam, val range : Range) : AmbiSerializable
 
         override fun hashCode(): Int = hash {
-            it + summarizationMode + exp + funParams + withClause + cvlRange + scope + expectedType
+            it + summarizationMode + exp + funParams + withClause + range + scope + expectedType
         }
 
         override fun isNoArgSummary(): Boolean {

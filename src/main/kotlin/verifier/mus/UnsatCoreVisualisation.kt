@@ -24,7 +24,7 @@ import datastructures.mutableMultiMapOf
 import datastructures.stdcollections.*
 import log.*
 import report.dumps.sanitize
-import spec.cvlast.IRule
+import spec.rules.IRule
 import utils.ArtifactFileUtils
 import utils.add
 import utils.mapToSet

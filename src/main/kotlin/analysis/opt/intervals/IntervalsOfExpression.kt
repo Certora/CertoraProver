@@ -135,8 +135,7 @@ fun intervalsOfExpression(exp: TACExpr, varValues: Map<TACSymbol.Var, Intervals>
                 val negVal = !baseVal
                 val ops = e.getOperands().filter { h[it] == SFullBool }
                 when (ops.size) {
-                    0 -> listOf(h)
-                    1 -> error("Propagation should have ruled out this case : $e")
+                    0,1  -> listOf(h)
                     2 -> listOf(
                         h.limit(ops[0] to baseVal, ops[1] to negVal),
                         h.limit(ops[1] to baseVal, ops[0] to negVal),

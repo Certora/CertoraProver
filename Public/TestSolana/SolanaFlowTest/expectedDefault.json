@@ -1,0 +1,8 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"rule_vacuity_test_expect_sanity_failure": "SUCCESS",
+		"rule_vacuity_test_expect_sanity_success": "SUCCESS",
+		"rule_vacuity_test_rule_violated_no_sanity_run": "FAIL"
+	}
+}

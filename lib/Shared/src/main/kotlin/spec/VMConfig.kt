@@ -19,7 +19,7 @@ package spec
 
 import com.certora.certoraprover.cvl.LocatedToken
 import scene.ICVLScene
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.MethodQualifiers
 import spec.cvlast.typechecker.CVLError
 import tac.Tag
@@ -43,5 +43,5 @@ interface VMConfig {
 
     // TODO CERT-2962: there's not a clean separation between VM- and non-VM-specific features (e.g., this
     // returns an AnnotationQualifiers that contains an `envfree` flag, which is VM-specific)
-    fun getMethodQualifierAnnotations(preReturnAnnotations: List<LocatedToken>, postReturnAnnotations: List<LocatedToken>, cvlRange: CVLRange): CollectingResult<MethodQualifiers, CVLError>
+    fun getMethodQualifierAnnotations(preReturnAnnotations: List<LocatedToken>, postReturnAnnotations: List<LocatedToken>, range: Range): CollectingResult<MethodQualifiers, CVLError>
 }

@@ -25,9 +25,9 @@ import report.CoinbaseFeaturesReporter.FuncKey.BinaryFeature.SecondComponent
 import rules.RuleCheckResult
 import scene.IScene
 import solver.SolverResult
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
-import spec.cvlast.SingleRuleGenerationMeta
+import spec.rules.CVLSingleRule
+import spec.rules.IRule
+import spec.rules.SingleRuleGenerationMeta
 import utils.ArtifactFileUtils
 import utils.keysMatching
 
@@ -343,7 +343,7 @@ class CoinbaseFeaturesReporter(private val conf: ConfigType<String>) : OutputRep
         }\n$tabString}"
     }
 
-    override fun signalStart(rule: IRule, parentRule: IRule?) {}
+    override fun signalStart(rule: IRule) {}
 
     override fun resultFilter(result: RuleCheckResult): Boolean = !matchResultsForSubRulesAndSanity(result)
 

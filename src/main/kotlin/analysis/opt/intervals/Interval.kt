@@ -19,7 +19,6 @@ package analysis.opt.intervals
 
 import analysis.opt.intervals.ExtBig.*
 import analysis.opt.intervals.ExtBig.Companion.MaxUInt
-import analysis.opt.intervals.ExtBig.Companion.MaxUInt512
 import analysis.opt.intervals.ExtBig.Companion.One
 import analysis.opt.intervals.ExtBig.Companion.TwoTo512
 import analysis.opt.intervals.ExtBig.Companion.Zero
@@ -51,12 +50,9 @@ sealed class Interval {
     /** inclusive */
     @Treapable
     data class NonEmpty(val low: ExtBig, val high: ExtBig) : I() {
-        init {
-            check(low <= high)
-            check(low != Inf)
-            check(high != MInf)
-        }
-
+        // we don't check that `low` and `high` are valid, that is:
+        // low <= high, low can't be Inf, and high can't be MInf.
+        // We count on the different constructor calls to make sure this is true for efficiency.
         override fun toString() = if (low == high) {
             "$low"
         } else {
@@ -67,21 +63,33 @@ sealed class Interval {
     companion object {
         operator fun invoke(low: ExtBig, high: ExtBig) =
             when {
-                low <= high -> NonEmpty(low, high)
+                low <= high -> {
+                    check(low !is Inf)
+                    NonEmpty(low, high)
+                }
                 else -> Empty
             }
 
         operator fun invoke(low: BigInteger, high: BigInteger) =
-            invoke(low.asExtBig, high.asExtBig)
+            when {
+                low <= high -> NonEmpty(low.asExtBig, high.asExtBig)
+                else -> Empty
+            }
 
         operator fun invoke(low: Int, high: Int) =
-            invoke(low.asExtBig, high.asExtBig)
+            when {
+                low <= high -> NonEmpty(low.asExtBig, high.asExtBig)
+                else -> Empty
+            }
+
+        operator fun invoke(single: ExtBig) =
+            NonEmpty(single, single)
 
         operator fun invoke(single: BigInteger) =
-            invoke(single, single)
+            NonEmpty(single.asExtBig, single.asExtBig)
 
         operator fun invoke(single: Int) =
-            invoke(single, single)
+            NonEmpty(single.asExtBig, single.asExtBig)
 
         val ITrue = I(1)
         val IFalse = I(0)
@@ -89,7 +97,6 @@ sealed class Interval {
         val IFullBool = I(0, 1)
         val IFull = I(MInf, Inf)
         val IFull256 = I(Zero, MaxUInt)
-        val IFull512 = I(Zero, MaxUInt512)
 
         fun boolInterval(surelyTrue: Boolean, surelyFalse: Boolean) =
             when {
@@ -102,10 +109,16 @@ sealed class Interval {
         fun ite(i: I, t: I, e: I): S =
             when (i) {
                 Empty -> SEmpty
-                ITrue -> S(t)
-                IFalse -> S(e)
-                IFullBool -> t union e
-                else -> error("ite condition is not a bool : $i")
+                is NonEmpty -> when {
+                    i.isConst -> when (i.low.n) {
+                        BigInteger.ZERO -> S(e)
+                        BigInteger.ONE -> S(t)
+                        else -> error("ite condition is not a bool : $i")
+                    }
+
+                    i.low == BigInteger.ZERO && i.high == BigInteger.ONE -> t union e
+                    else -> error("ite condition is not a bool : $i")
+                }
             }
     }
 
@@ -124,7 +137,9 @@ sealed class Interval {
         get() = asConstOrNull!!
 
     val isBool
-        get() = this == ITrue || this == IFalse || this == IFullBool
+        get() = this is NonEmpty &&
+            low is Num && low.n >= BigInteger.ZERO &&
+            high is Num && high.n <= BigInteger.ONE
 
     val ends
         get() =
@@ -249,42 +264,57 @@ sealed class Interval {
 
     operator fun minus(other: I): I = this + (-other)
 
+    operator fun times(other: ExtBig): I =
+        ifNonEmpty {
+            val oneEnd = low * other
+            val otherEnd = high * other
+            return if (oneEnd <= otherEnd) {
+                I(oneEnd, otherEnd)
+            } else {
+                I(otherEnd, oneEnd)
+            }
+        }
 
-    /**
-     * runs [f] on all combinations (without repetition): `f(i.low, j.low), f(i.low, j.high), ..`, and
-     * returns the list of results.
-     * If null is ever returned then the whole result is null.
-     */
-    private inline fun <T : Any> corners(i: NonEmpty, j: NonEmpty, f: (ExtBig, ExtBig) -> T?): List<T>? {
-        return buildList {
-            i.ends.forEach { a ->
-                j.ends.forEach { b ->
-                    f(a, b)
-                        ?.let(::add)
-                        ?: return null
+    private fun NonEmpty.pointwise(other : ExtBig) =
+        I(low * other, high * other)
+
+    private fun NonEmpty.reversePointwise(other : ExtBig) =
+        I(high * other, low * other)
+
+    operator fun times(other: I): I =
+        ifNonEmpty(this, other) { x, y ->
+            val xC = x.isConst
+            val yC = y.isConst
+            when {
+                xC && yC -> I(x.low * y.low)
+                xC -> y * x.low
+                yC -> x * y.low
+                else -> when {
+                    // x is all positive
+                    x.low >= Zero -> when {
+                        y.low >= Zero -> I(x.low * y.low, x.high * y.high)
+                        y.high <= Zero -> I(x.high * y.low, x.low * y.high)
+                        else -> y.pointwise(x.high)
+                    }
+
+                    // x is all negative
+                    x.high <= Zero -> when {
+                        y.high <= Zero -> I(x.high * y.high, x.low * y.low)
+                        y.low >= Zero -> I(x.low * y.high, x.high * y.low)
+                        else -> y.reversePointwise(x.low)
+                    }
+
+                    // y is all positive
+                    y.low >= Zero -> x.pointwise(y.high)
+
+                    // y is all negative
+                    y.high <= Zero -> x.reversePointwise(y.low)
+
+                    else -> I(minOf(x.high * y.low, x.low * y.high), maxOf(x.low * y.low, x.high * y.high))
                 }
             }
         }
-    }
 
-    /**
-     * Runs [f] on all [corners] of [i] and [j], and returns the interval ranging from the minimum result
-     * to the maximal one. Returns null if any of [f]'s results were null.
-     */
-    private inline fun continuous(i: I, j: I, f: (ExtBig, ExtBig) -> ExtBig?): I? {
-        return ifNonEmpty(i, j) { x, y ->
-            corners(x, y, f)
-                ?.let { I(it.min(), it.max()) }
-                ?: return null
-        }
-    }
-
-    /**
-     * Will take the corner results and span the interval that contains all of them, e.g.:
-     *     `[-20, 10] * [-5, 5] = [-100, 100]`
-     */
-    operator fun times(other: I): I =
-        continuous(this, other, ExtBig::times)!!
 
     /**
      * If anything is negative, then pow is undefined, and we return [IFull]. When results can go above 2^512,

@@ -22,8 +22,7 @@ import analysis.split.Ternary.Companion.isPowOf2
 import analysis.split.Ternary.Companion.isPowOf2Minus1
 import com.certora.collect.*
 import evm.*
-import utils.ModZm
-import utils.isInt
+import utils.*
 import java.math.BigInteger
 
 /**
@@ -37,19 +36,19 @@ sealed interface ExtBig : Comparable<ExtBig> {
     object Inf : ExtBig {
         override val n get() = error("cannot access concrete value in Infinity")
         override fun toString() = "Inf"
-        override fun hashCode(): Int = utils.hashObject(this)
+        override fun hashCode(): Int = hashObject(this)
     }
 
     @Treapable
     object MInf : ExtBig {
         override val n get() = error("cannot access concrete value in -Infinity")
         override fun toString() = "MInf"
-        override fun hashCode(): Int = utils.hashObject(this)
+        override fun hashCode(): Int = hashObject(this)
     }
 
     @Treapable
     @JvmInline
-    value class Number(override val n: BigInteger) : ExtBig {
+    value class Num(override val n: BigInteger) : ExtBig {
         override fun toString(): String = when {
             n in (-256).toBigInteger()..256.toBigInteger() -> n.toString()
             n < BigInteger.ZERO -> "-${(-n)}"
@@ -59,24 +58,20 @@ sealed interface ExtBig : Comparable<ExtBig> {
         }
     }
 
-    fun nOrNull() = when (this) {
-        Inf -> null
-        MInf -> null
-        is Number -> n
-    }
+    fun nOrNull() = (this as? Num)?.n
 
     override fun compareTo(other: ExtBig) =
         when {
             this == other -> 0
-            this == Inf || other == MInf -> 1
-            this == MInf || other == Inf -> -1
+            this is Inf || other is MInf -> 1
+            this is MInf || other is Inf -> -1
             else -> this.n.compareTo(other.n)
         }
 
 
     companion object {
-        operator fun invoke(n: BigInteger) = Number(n)
-        operator fun invoke(n: Int) = Number(n.toBigInteger())
+        operator fun invoke(n: BigInteger) = Num(n)
+        operator fun invoke(n: Int) = Num(n.toBigInteger())
 
         /** [positive] ? Inf : -Inf */
         fun inf(positive: Boolean) = when (positive) {
@@ -94,50 +89,46 @@ sealed interface ExtBig : Comparable<ExtBig> {
         val One = 1.asExtBig
         val TwoTo256 = EVM_MOD_GROUP256.asExtBig
         val TwoTo512 = TWO_TO_512.asExtBig
-        val MaxUInt512 = MAX_EVM_UINT256.asExtBig
         val MaxUInt = MAX_UINT.asExtBig
-        val Int256min2s = MIN_EVM_INT256_2S_COMPLEMENT.asExtBig
         val Int256minMath = MIN_EVM_INT256_AS_MATH_INT.asExtBig
         val Int256max = MAX_EVM_INT256.asExtBig
     }
 
     operator fun unaryMinus(): ExtBig =
         when (this) {
-            Inf -> MInf
-            MInf -> Inf
-            is Number -> Number(-n)
-        }
-
-    /** runs [f] on `this` and [other], smaller one first */
-    private inline fun <T> order(other: ExtBig, f: (ExtBig, ExtBig) -> T) =
-        if (this <= other) {
-            f(this, other)
-        } else {
-            f(other, this)
+            is Num -> Num(-n)
+            is Inf -> MInf
+            is MInf -> Inf
         }
 
     /** null means the result can be any value (happens for [Inf] + [MInf]) */
     operator fun plus(other: ExtBig): ExtBig? =
-        order(other) { i, j ->
-            when {
-                i == Inf && j == Inf -> Inf
-                i == MInf && j == MInf -> MInf
-                i == MInf && j == Inf -> null
-                i == MInf -> MInf
-                j == Inf -> Inf
-                else -> ExtBig(i.n + j.n)
+        when (this) {
+            is Num -> when (other) {
+                is Num -> ExtBig(this.n + other.n)
+                else -> other
+            }
+
+            is Inf -> when (other) {
+                is MInf -> null
+                else -> Inf
+            }
+
+            is MInf -> when (other) {
+                is Inf -> null
+                else -> MInf
             }
         }
 
     // just a trick to get rid of the null in `Number` cases.
-    operator fun plus(other: Number): ExtBig =
+    operator fun plus(other: Num): ExtBig =
         (this + (other as ExtBig))!!
 
     operator fun plus(other: BigInteger) = this + other.asExtBig
 
     operator fun minus(other: ExtBig) = this + (-other)
 
-    operator fun minus(other: Number) = (this + (-other))!!
+    operator fun minus(other: Num) = (this + (-other))!!
 
     operator fun minus(other: BigInteger) = this + (-other)
 
@@ -146,17 +137,19 @@ sealed interface ExtBig : Comparable<ExtBig> {
     operator fun minus(other: Int) = this - ExtBig(other)
 
 
-    operator fun times(other: ExtBig) =
-        order(other) { i, j ->
-            when {
-                i == Zero || j == Zero -> Zero
-                i == Inf && j == Inf -> Inf
-                i == MInf && j == MInf -> Inf
-                i == MInf && j == Inf -> MInf
-                i == MInf -> inf(j.n < BigInteger.ZERO)
-                j == Inf -> inf(i.n > BigInteger.ZERO)
-                else -> ExtBig(i.n * j.n)
+    operator fun times(other: ExtBig) : ExtBig =
+        when {
+            this is Num -> when {
+                other is Num -> ExtBig(this.n * other.n)
+                this.n == BigInteger.ZERO -> Zero
+                other is Inf -> inf(this.n > BigInteger.ZERO)
+                else -> inf(this.n < BigInteger.ZERO)
             }
+
+            other.nOrNull() == BigInteger.ZERO -> Zero
+
+            // this is either Inf or MInf, So the answer must be Inf or Minf.
+            else -> inf(this is Inf == other > Zero)
         }
 
     /** The result of dividing two [ExtBig]s */
@@ -181,20 +174,19 @@ sealed interface ExtBig : Comparable<ExtBig> {
     operator fun div(other: ExtBig): DivResult =
         when {
             other == Zero -> DivResult.DivByZero
-            this == Inf && other == Inf -> DivResult.Positive
-            this == MInf && other == MInf -> DivResult.Positive
-            this == Inf && other == MInf -> DivResult.Negative
-            this == MInf && other == Inf -> DivResult.Negative
-            this == Inf -> DivResult.Value(inf(other.n > BigInteger.ZERO))
-            this == MInf -> DivResult.Value(inf(other.n < BigInteger.ZERO))
-            other == Inf || other == MInf -> DivResult.Value(Zero)
+            this is Inf && other is Inf -> DivResult.Positive
+            this is MInf && other is MInf -> DivResult.Positive
+            this is Inf && other is MInf -> DivResult.Negative
+            this is MInf && other is Inf -> DivResult.Negative
+            this is Inf -> DivResult.Value(inf(other.n > BigInteger.ZERO))
+            this is MInf -> DivResult.Value(inf(other.n < BigInteger.ZERO))
+            other is Inf || other is MInf -> DivResult.Value(Zero)
             else -> DivResult.Value(ExtBig(this.n / other.n))
         }
 
     fun abs(): ExtBig = when (this) {
-        is Inf -> Inf
-        is MInf -> Inf
-        is Number -> n.abs().asExtBig
+        is Num -> n.abs().asExtBig
+        else -> Inf
     }
 
     sealed class PowResult {

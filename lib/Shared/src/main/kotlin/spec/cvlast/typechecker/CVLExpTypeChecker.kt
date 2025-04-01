@@ -1274,7 +1274,7 @@ class CVLExpTypeCheckerWithContext(
 
     override fun variable(exp: CVLExp.VariableExp): CollectingResult<CVLExp.VariableExp, CVLError> {
         return if (exp.isWildCard()) {
-            exp.copy(tag = CVLExpTag(typeEnv.scope, CVLType.PureCVLType.Bottom, typeEnv.cvlRange)).lift()
+            exp.copy(tag = CVLExpTag(typeEnv.scope, CVLType.PureCVLType.Bottom, typeEnv.range)).lift()
         } else {
             val symbolInfo = symbolTable.lookUpNonFunctionLikeSymbol(exp.id, typeEnv)
             variableExp(symbolInfo, exp, typeEnv)
@@ -1903,10 +1903,10 @@ class CVLExpTypeCheckerWithContext(
         return (exp.updateTag(exp.tag.copy(type = expected)) as T).lift()
     }
 
-    private fun emitUnnecessaryEnvWarn(cvlRange: CVLRange, callee: ContractFunction) {
+    private fun emitUnnecessaryEnvWarn(range: Range, callee: ContractFunction) {
         val message = "Passed `env` argument to an `envfree` method ${callee.methodSignature.qualifiedMethodName.printQualifiedFunctionName()}"
         Logger.regression { message }
-        CVLWarningLogger.syntaxWarning(message, cvlRange)
+        CVLWarningLogger.syntaxWarning(message, range)
     }
 
     private fun <T : CVLExp.ApplicationExp> resolveContractApplication(
@@ -2332,7 +2332,7 @@ class CVLExpTypeCheckerWithContext(
             when (mappingType) {
                 is CVLType.PureCVLType.Ghost.Mapping -> {
                     if(index.getCVLType() isConvertibleTo CVLType.PureCVLType.DynamicArray.PackedBytes && mappingType.key is CVLType.PureCVLType.Primitive.HashBlob){
-                        arrayLhs.copy(innerLhs = lhsInner, index = wrapInCastExpression(index), tag = CVLExpTag(scope = arrayLhs.getScope(), mappingType.value, arrayLhs.cvlRange)).lift()
+                        arrayLhs.copy(innerLhs = lhsInner, index = wrapInCastExpression(index), tag = CVLExpTag(scope = arrayLhs.getScope(), mappingType.value, arrayLhs.range)).lift()
                     } else if (index.getCVLType() isNotConvertibleTo (mappingType.key)) {
                         CVLError.Lhs(
                             lhsInner,
@@ -2340,7 +2340,7 @@ class CVLExpTypeCheckerWithContext(
                                 "${lhsInner.getCVLType()}"
                         ).asError()
                     } else {
-                        arrayLhs.copy(innerLhs = lhsInner, index = index, tag = CVLExpTag(scope = arrayLhs.getScope(), mappingType.value, arrayLhs.cvlRange)).lift()
+                        arrayLhs.copy(innerLhs = lhsInner, index = index, tag = CVLExpTag(scope = arrayLhs.getScope(), mappingType.value, arrayLhs.range)).lift()
                     }
                 }
                 is CVLType.PureCVLType.CVLArrayType -> {

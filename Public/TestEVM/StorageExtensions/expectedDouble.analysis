@@ -1,0 +1,74 @@
+{
+  "AddInternalFunctions": {
+    "Test-doThing(uint256,bool)": [
+      true,
+      true
+    ],
+    "Test-doOtherThing(uint256,bool)": [
+      true,
+      true
+    ],
+    "constructor_Test": [
+      true,
+      true
+    ],
+    "Test2-doThing(uint256,bool)": [
+      true,
+      true
+    ],
+    "Test2-doOtherThing(uint256,bool)": [
+      true,
+      true
+    ],
+    "constructor_Test2": [
+      true,
+      true
+    ]
+  },
+  "CALLGRAPH": {
+    "constructor()": [
+      false,
+      false
+    ],
+    "doThing(uint256,bool)": [
+      true,
+      true
+    ],
+    "doOtherThing(uint256,bool)": [
+      true,
+      true
+    ]
+  },
+  "INIT": {
+    "Test2-doOtherThing(uint256,bool)": true,
+    "Test-doThing(uint256,bool)": true,
+    "Test2-doThing(uint256,bool)": true,
+    "Test-doOtherThing(uint256,bool)": true
+  },
+  "POINTSTO": {
+    "Test2-doThing(uint256,bool)": true,
+    "Test-doThing(uint256,bool)": true,
+    "Test-doOtherThing(uint256,bool)": true,
+    "Test2-doOtherThing(uint256,bool)": true,
+    "constructor()": [
+      false,
+      false
+    ],
+    "doThing(uint256,bool)": [
+      true,
+      true
+    ],
+    "doOtherThing(uint256,bool)": [
+      true,
+      true
+    ]
+  },
+  "SKeyDetection": {
+    "Test-doThing(uint256,bool)": true,
+    "Test-doOtherThing(uint256,bool)": true,
+    "constructor_Test": true,
+    "Test2-doThing(uint256,bool)": true,
+    "Test2-doOtherThing(uint256,bool)": true,
+    "constructor_Test2": true
+  }
+}

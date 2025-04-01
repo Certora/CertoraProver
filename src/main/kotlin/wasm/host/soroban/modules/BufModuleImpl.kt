@@ -51,7 +51,7 @@ internal object BufModuleImpl : ModuleImpl() {
             "symbol_len" -> SymbolType.getSize(retVar!!, args[0])
             "serialize_to_bytes" -> serializeToBytes(retVar!!, args[0])
             "deserialize_from_bytes" -> deserializeFromBytes(retVar!!, args[0])
-            // TODO CERT-6559: symbol_index_in_linear_memory
+            "symbol_index_in_linear_memory" -> SymbolType.symbolIndexInLinearMemory(retVar!!, args[0], args[1], args[2])
             else -> null
         }
 

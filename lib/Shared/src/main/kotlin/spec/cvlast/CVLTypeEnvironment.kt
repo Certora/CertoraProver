@@ -17,16 +17,18 @@
 
 package spec.cvlast
 
+import utils.Range
+
 /**
- * @param cvlRange right now it seems ok, to have one location for the type env, since it is only used for expressions, if we
+ * @param range right now it seems ok, to have one location for the type env, since it is only used for expressions, if we
  *    need more detail, we might extend the [CVLTypeEnvironment.Entry] class.
  */
-data class CVLTypeEnvironment(val cvlRange: CVLRange, val scope: CVLScope, val env: List<Entry>) {
+data class CVLTypeEnvironment(val range: Range, val scope: CVLScope, val env: List<Entry>) {
 
     class Entry(val name: String, val type: CVLSymbolTable.SymbolInfo)
 
     companion object {
-        fun empty(cvlRange: CVLRange, scope: CVLScope): CVLTypeEnvironment = CVLTypeEnvironment(cvlRange, scope, listOf())
+        fun empty(range: Range, scope: CVLScope): CVLTypeEnvironment = CVLTypeEnvironment(range, scope, listOf())
     }
 
     fun pushParam(param: CVLParam) = push(param.id, CVLSymbolTable.SymbolInfo(param, param.range))
@@ -38,25 +40,25 @@ data class CVLTypeEnvironment(val cvlRange: CVLRange, val scope: CVLScope, val e
             is CVLGhostDeclaration.Function -> {
                 push(
                     ghost.functionReference.methodId,  // TODO: just using methodId here should be reconsidered (CERT-8094)
-                    CVLSymbolTable.SymbolInfo.invoke(ghost, ghost.cvlRange, isTwoState = true)
+                    CVLSymbolTable.SymbolInfo.invoke(ghost, ghost.range, isTwoState = true)
                 )
             }
             is CVLGhostDeclaration.Variable -> {
                 push(
                     ghost.id,
-                    CVLSymbolTable.SymbolInfo(ghost, ghost.cvlRange, isTwoState = true)
+                    CVLSymbolTable.SymbolInfo(ghost, ghost.range, isTwoState = true)
                 )
             }
         }
 
     fun pushTwoStateVariable(variable: CVLExp.VariableExp) =
-        push(variable.id, CVLSymbolTable.SymbolInfo(variable, variable.tag.cvlRange, isTwoState = true))
+        push(variable.id, CVLSymbolTable.SymbolInfo(variable, variable.tag.range, isTwoState = true))
 
     private fun push(name: String, info: CVLSymbolTable.SymbolInfo) =
-        CVLTypeEnvironment(cvlRange, scope, env + Entry(name, info))
+        CVLTypeEnvironment(range, scope, env + Entry(name, info))
 
     private fun push(entryInfo: List<Pair<String, CVLSymbolTable.SymbolInfo>>) =
-        CVLTypeEnvironment(cvlRange, scope, env + entryInfo.map { Entry(it.first, it.second) })
+        CVLTypeEnvironment(range, scope, env + entryInfo.map { Entry(it.first, it.second) })
 
     fun lookUp(id: String): CVLSymbolTable.SymbolInfo? {
         val matchingEntry = env.findLast { it.name == id }

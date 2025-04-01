@@ -234,7 +234,7 @@ class StorageAccessCompiler(
         out: TACSymbol.Var,
         outType: CVLType.PureCVLType,
         contractInstanceId: BigInteger,
-        range: CVLRange.Range?,
+        range: Range.Range?,
     ): ParametricInstantiation<CVLTACProgram> {
         /**
          * Temp variable to hold the raw value being read out of storage.
@@ -333,7 +333,7 @@ class StorageAccessCompiler(
         storageVar: TACSymbol.Var,
         valueType: CVLType.PureCVLType,
         contractInstanceId: BigInteger,
-        range: CVLRange.Range?,
+        range: Range.Range?,
     ): ParametricInstantiation<CVLTACProgram> {
         val havocedCVLVar = TACKeyword.TMP(valueType.toTag(), "!havoced").toUnique("!").at(callId)
         val havocOfCVLVar = CommandWithRequiredDecls(
@@ -452,7 +452,7 @@ class StorageAccessCompiler(
                         "This is likely caused by failures elsewhere in the tool; please check the Global Problems view and contact Certora for help."
                 )
 
-            readCurrentValue(acc, storageVar, out, outType, invariants.contractInstanceId, expression.getRangeOrEmpty() as? CVLRange.Range)
+            readCurrentValue(acc, storageVar, out, outType, invariants.contractInstanceId, expression.getRangeOrEmpty() as? Range.Range)
         }
     }
 
@@ -489,7 +489,7 @@ class StorageAccessCompiler(
                         "This is likely caused by failures elsewhere in the tool; please check the Global Problems view and contact Certora for help."
                 )
 
-            havocAccessPath(acc, storageVar, type, invariants.contractInstanceId, expression.getRangeOrEmpty() as? CVLRange.Range)
+            havocAccessPath(acc, storageVar, type, invariants.contractInstanceId, expression.getRangeOrEmpty() as? Range.Range)
         }
     }
 
@@ -1027,7 +1027,7 @@ class StorageAccessCompiler(
         currentValue: TACSymbol.Var,
         acc: Accumulator,
         contractInstanceId: BigInteger,
-        range: CVLRange.Range?,
+        range: Range.Range?,
     ): CommandWithRequiredDecls<TACCmd.Simple.AnnotationCmd> {
         val storageType = acc.vmType as? EVMTypeDescriptor.EVMValueType
 

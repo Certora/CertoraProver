@@ -21,7 +21,7 @@ import re
 import shutil
 import sys
 import typing
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -1389,7 +1389,7 @@ class CertoraBuildGenerator:
             if not self.context.strict_solc_optimizer and self.context.solc_via_ir:
                 # The default optimizer steps (taken from libsolidity/interface/OptimiserSettings.h) but with the
                 # full inliner step removed
-                solc0_8_26_to_0_8_28 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLCTUca[r]LSsTFOtfDnca[r]" +
+                solc0_8_26_to_0_8_29 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLCTUca[r]LSsTFOtfDnca[r]" +
                                         "IulcscCTUtx[scCTUt]TOntnfDIuljmul[jul]VcTOculjmul")
                 solc0_8_13_to_0_8_25 = "dhfoDgvulfnTUtnIf[xa[r]EscLMcCTUtTOntnfDIulLculVcul[j]T" + \
                                        "peulxa[rul]xa[r]cLgvifCTUca[r]LSsTFOtfDnca[r]Iulc]jmul[jul]VcTOculjmul"
@@ -1433,8 +1433,8 @@ class CertoraBuildGenerator:
                     yul_optimizer_steps = solc0_8_12
                 elif minor == 8 and 13 <= patch <= 25:
                     yul_optimizer_steps = solc0_8_13_to_0_8_25
-                elif minor == 8 and 26 <= patch <= 28:
-                    yul_optimizer_steps = solc0_8_26_to_0_8_28
+                elif minor == 8 and 26 <= patch <= 29:
+                    yul_optimizer_steps = solc0_8_26_to_0_8_29
                 assert yul_optimizer_steps is not None, \
                     'Yul Optimizer steps missing for requested Solidity version. Please contact Certora team.'
 
@@ -2652,6 +2652,158 @@ class CertoraBuildGenerator:
         self.handle_links()
         self.handle_struct_links()
         self.handle_contract_extensions()
+        self.handle_storage_extension_harnesses()
+
+    def handle_storage_extension_harnesses(self) -> None:
+        def new_field_of_node(ext_instance: Any, node: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+            """
+            If this node is a storage variable declaration like the following:
+
+            /** @custom:certoralink 0x12345 */
+            T x;
+
+            and if so, return a storage field matching the type of x but using 0x12345 as the slot
+            """
+
+            if node.get("nodeType") != "VariableDeclaration":
+                return None
+            if not node.get("stateVariable"):
+                return None
+            if "documentation" not in node:
+                return None
+            if node["documentation"].get("nodeType") != "StructuredDocumentation":
+                return None
+            annot_link = node["documentation"].get("text")
+            var_name = node.get("name")
+            if var_name is None or not isinstance(annot_link, str):
+                return None
+
+            link_regex = r'@custom:certoralink\s+(0x[0-9a-fA-F]+)\s*'
+            link_match = re.search(link_regex, annot_link)
+
+            if link_match is None:
+                raise Util.CertoraUserInputError(f"Couldn't parse annotation in on "
+                                                 f"{ext_instance.original_file_name}.{var_name}: {annot_link}")
+            try:
+                link_slot = int(link_match.group(1), 16)
+            except ValueError:
+                raise Util.CertoraUserInputError(f"Invalid certoralink slot value in annotation on"
+                                                 f"{ext_instance.original_file_name}.{var_name}: {annot_link}")
+            storage_field_info = None
+            for field in ext_instance.storage_layout["storage"]:
+                if field["label"] == var_name:
+                    storage_field_info = field
+                    break
+            if storage_field_info is None:
+                return None
+            cloned_field = storage_field_info.copy()
+            cloned_field["slot"] = str(link_slot)
+            # Try to uniquify the name
+            cloned_field["label"] = f"certoralink_{ext_instance.name}_{var_name}"
+            return cloned_field
+
+        def handle_one_extension(storage_ext: str) -> tuple[Any, str, List[Dict[str, Any]]] :
+            """
+            Get the extension contract plus the new fields
+            """
+            extension_sdc_cands = self.get_matching_sdc_names_from_SDCs(storage_ext)
+            assert len(extension_sdc_cands) == 1, f"Zero or multiple possible contracts for {storage_ext}"
+            extension_sdc_name = extension_sdc_cands[0]
+            extension_sdc = self.SDCs.get(extension_sdc_name)
+            assert extension_sdc and extension_sdc.primary_contract == storage_ext, f"Could not find SDC for {extension_sdc_name}"
+            ext_instance = extension_sdc.find_contract(storage_ext)
+            assert ext_instance is not None, f"Could not find extension contract {storage_ext}"
+
+            # let's try to find the AST now
+            build_file_ast = None
+            for (k, v) in self.asts.items():
+                if ext_instance.original_file in v:
+                    build_file_ast = k
+                    break
+            if build_file_ast is None:
+                raise RuntimeError(f"Couldn't find file for storage extension file {storage_ext}")
+
+            contract_def_node = self.get_contract_def_node_ref(
+                build_file_ast,
+                ext_instance.original_file,
+                storage_ext
+            )
+            def_node = self.asts[build_file_ast][ext_instance.original_file][contract_def_node]
+            nodes = def_node.get("nodes")
+            if not isinstance(nodes, list):
+                raise RuntimeError(f"Couldn't find nodes for body of {storage_ext}")
+
+            new_fields = []
+            for node in nodes:
+                new_field = new_field_of_node(ext_instance, node)
+                if new_field is not None:
+                    new_fields.append(new_field)
+
+            return (ext_instance, extension_sdc_name, new_fields)
+
+        def apply_extensions(target_contract: Any, extensions: Set[str], to_add: Dict[str, Tuple[List[Dict[str, Any]], Dict[str, Any]]]) -> None:
+            """
+            Apply the fields from each extension to the target contract,
+            """
+            if target_contract.storage_layout.get("storage") is None:
+                target_contract.storage_layout["storage"] = []
+            if target_contract.storage_layout.get("types") is None:
+                target_contract.storage_layout["types"] = {}
+            target_slots = {storage["slot"] for storage in target_contract.storage_layout["storage"]}
+            # Keep track of slots we've added, and error if we
+            # find two extensions extending the same slot
+            added_slots: Dict[str, str] = {}
+            for ext in extensions:
+                (new_fields, new_types) = to_add[ext]
+
+                for f in new_fields:
+                    # See if any of the new fields is a slot we've already added
+                    slot = f["slot"]
+                    if slot in added_slots:
+                        seen = added_slots[slot]
+                        raise Util.CertoraUserInputError(f"Slot {slot} added to {target_contract.name} by {ext} already added by {seen}")
+
+                    if slot in target_slots:
+                        raise Util.CertoraUserInputError(f"Slot {slot} added to {target_contract.name} by {ext} already mapped by {target_contract.name}")
+
+                    added_slots[slot] = ext
+
+                target_contract.storage_layout["storage"].extend(new_fields)
+
+                for (new_id, new_ty) in new_types.items():
+                    if new_id in target_contract.storage_layout["types"]:
+                        continue
+                    target_contract.storage_layout["types"][new_id] = new_ty
+
+        extension_contracts: Set[str] = set()
+        storage_extensions: Dict[str, Set[str]] = defaultdict(set)
+        storage_ext = self.context.storage_extension_harnesses
+
+        if storage_ext is None:
+            return
+
+        for i in storage_ext:
+            target_contract, extension_contract = i.split("=")
+            extension_contracts.add(extension_contract)
+            storage_extensions[target_contract].add(extension_contract)
+
+        # These are the new fields to add for each contract
+        extension_to_fields_and_types: Dict[str, Tuple[List[Dict[str, Any]], Dict[str, Any]]] = {}
+
+        for storage_ext in extension_contracts:
+            (ext_instance, extension_sdc_name, new_fields) = handle_one_extension(storage_ext)
+            new_types = ext_instance.storage_layout["types"]
+            extension_to_fields_and_types[storage_ext] = (new_fields, {} if new_types is None else new_types)
+            del self.SDCs[extension_sdc_name]
+
+        for (target, extensions) in storage_extensions.items():
+            target_sdc_names = self.get_matching_sdc_names_from_SDCs(target)
+            assert len(target_sdc_names) == 1, f"no matching sdc for {target}"
+            target_sdc = target_sdc_names[0]
+            sdc = self.SDCs[target_sdc]
+            target_contract = sdc.find_contract(target)
+            assert target_contract is not None, f"could not find contract for {target}"
+            apply_extensions(target_contract, extensions, extension_to_fields_and_types)
 
     def finders_compilation_round(self,
                                   build_arg_contract_file: str,
@@ -3337,28 +3489,19 @@ def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bo
             raise
 
     #  the empty file .cwd is written in the source tree to denote the current working directory
-    if cwd_rel_in_sources != '.':
-        file_path = Util.get_certora_sources_dir() / cwd_rel_in_sources / Util.CWD_FILE
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.touch()
+    cwd_file_path = Util.get_certora_sources_dir() / cwd_rel_in_sources / Util.CWD_FILE
+    cwd_file_path.parent.mkdir(parents=True, exist_ok=True)
+    cwd_file_path.touch()
 
-    """
-    Once the resource files are copied to the source tree, the paths in the value of the 'prover_resource_files'
-    attribute are replaced with the relative path of the resource file from the source tree root.
-    This way The server can easily find the resource files in the source tree. The path from the source tree is the
-    relative path of cwd from source tree root (most cases '.') concatenated with the relative path of the resource
-    file from cwd
-    """
-    if context.prover_resource_files:
-        new_value = []
-        len_orig = len(context.prover_resource_files)
-        for value in context.prover_resource_files:
-            label, file_path = value.split(':')
-            rel_path = Path(os.path.relpath(file_path, '.'))
-            new_value.append(':'.join([label, os.path.normpath(rel_path)]))
-        if len_orig != len(new_value):
-            raise RuntimeError(f"fail to process prover_resource_files {len_orig} out of {len(new_value)}")
-        context.prover_resource_files = new_value
+    #  the empty file .project_directory is written in the source tree to denote the projecct directory
+    rust_proj_dir = getattr(context, 'rust_project_directory', None)
+    if rust_proj_dir:
+        proj_dir_parent_relative = os.path.relpath(rust_proj_dir, os.getcwd())
+        assert Path(rust_proj_dir).is_dir(), f"build_source_tree: not a directory {rust_proj_dir}"
+        proj_dir_parent_file = (Util.get_certora_sources_dir() / cwd_rel_in_sources / proj_dir_parent_relative /
+                                Util.PROJECT_DIR_FILE)
+        proj_dir_parent_file.parent.mkdir(parents=True, exist_ok=True)
+        proj_dir_parent_file.touch()
 
     # Copy the repro conf file to the sources as the overall way to reproduce this run easily.
     # The file is being copied in here and not added through collect_sources, because we want

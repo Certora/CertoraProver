@@ -99,6 +99,8 @@ class MutableCommandWithRequiredDecls<T: TACCmd> {
         decls.forEach(varDecls::add)
     }
 
+    fun extend(v: Iterable<TACSymbol>) = v.filterIsInstanceTo(varDecls)
+
     fun extend(v: List<T>, vararg decls: TACSymbol) {
         this.cmds.addAll(v)
         decls.filterIsInstanceTo(varDecls)

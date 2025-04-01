@@ -37,6 +37,7 @@ interface SbfFunctionManager {
     fun getFunction(id: FunctionId): SbfFunction?
     fun getFunction(entryPoint: ElfAddress): SbfFunction?
     fun warnDuplicateSymbols()
+    fun getAllFunctions(): Set<SbfFunction>
 }
 
 /***
@@ -138,6 +139,9 @@ class MutableSbfFunctionManager(private val start: ElfAddress, private val names
             sbfLogger.warn {strBuilder.toString()}
         }
     }
+
+    override fun getAllFunctions(): Set<SbfFunction> =
+        names.map { SbfFunction(it.value, it.key) }.toSet()
 }
 
 data class BytecodeProgram(val entriesMap: Map<String, ElfAddress>,

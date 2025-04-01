@@ -21,13 +21,18 @@ import os
 from CertoraProver.certoraContextClass import CertoraContext
 from Shared import certoraUtils as Util
 from CertoraProver.certoraCollectRunMetadata import RunMetaData
-
+from CertoraProver.certoraCollectConfigurationLayout import collect_configuration_layout
 
 build_script_logger = logging.getLogger("build_script")
+
+
 def update_metadata(context: CertoraContext, attr_name: str) -> None:
     metadata = RunMetaData.load_file()
-    metadata[attr_name] = getattr(context, attr_name)
+    metadata['conf'][attr_name] = getattr(context, attr_name)
     RunMetaData.dump_file(metadata)
+
+    configuration_layout = collect_configuration_layout()
+    configuration_layout.dump()
 
 
 def add_solana_files_to_context(context: CertoraContext, json_obj: dict) -> None:
@@ -49,6 +54,7 @@ def add_solana_files_to_context(context: CertoraContext, json_obj: dict) -> None
                     new_value.append(os.path.relpath(abs_path, cwd))
                 setattr(context, solana_files_attr, new_value)
                 update_metadata(context, solana_files_attr)
+
 
 def run_script_and_parse_json(context: CertoraContext) -> None:
     if not context.build_script:

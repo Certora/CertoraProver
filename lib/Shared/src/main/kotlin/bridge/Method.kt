@@ -28,6 +28,7 @@ import spec.cvlast.*
 import spec.cvlast.typedescriptors.PrintingContext
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import utils.CertoraFileCache
+import utils.Range
 import utils.hash
 import utils.prependSpaceIfNotBlank
 
@@ -76,7 +77,7 @@ data class Method(
      * with respect to [contract].
      */
     fun toMethodSignature(contract: SolidityContract, visibility: Visibility): QualifiedMethodSignature {
-        val returnTypesAsParams = returns.map { VMParam.Unnamed(it.toVMTypeDescriptor(), CVLRange.Empty()) }
+        val returnTypesAsParams = returns.map { VMParam.Unnamed(it.toVMTypeDescriptor(), Range.Empty()) }
 
 
         val ins = fullArgs.map { arg ->
@@ -105,10 +106,10 @@ data class Method(
                 )
             }
             paramTypes.zip(paramNames) { pTyp, pNm ->
-                VMParam.Named(pNm, pTyp, CVLRange.Empty())
+                VMParam.Named(pNm, pTyp, Range.Empty())
             }
         } else {
-            paramTypes.map { VMParam.Unnamed(it, CVLRange.Empty()) }
+            paramTypes.map { VMParam.Unnamed(it, Range.Empty()) }
         }
 
         val inst = QualifiedMethodSignature(QualifiedFunction(contract, this@Method.name), params, returnTypes)

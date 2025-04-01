@@ -40,6 +40,7 @@ interface SbfCallGraph {
     fun getCFG(name: String): SbfCFG?
     fun getRecursiveFunctions(): Set<String>
     fun callGraphStructureToString(): String
+    fun callGraphStructureToDot(prefix: File)
     fun toDot(prefix: File, onlyEntryPoint: Boolean = false)
     fun getStats(): CFGStats
 }
@@ -83,6 +84,14 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
     ): this(cfgs.map { it.clone(it.getName()) }.toMutableList(), rootNames, globals, check)
 
     private fun buildCallGraph() {
+        // `buildCallGraph` is called twice: one at the constructor and another one after `simplify`
+        // For the second call, we make sure that all internal datastructures are cleared.
+        cfgMap.clear()
+        callGraph.clear()
+        recursiveSet.clear()
+        sccVector.clear()
+        sccMap.clear()
+
         // Initially, we map each function name to an empty set of callees.
         cfgs.forEach { cfg ->
             cfgMap[cfg.getName()] = cfg
@@ -106,7 +115,6 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
                     }
                 }
             }
-
         }
     }
 
@@ -287,14 +295,28 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
 
     override fun callGraphStructureToString(): String {
         var str = "=== Callgraph ===\n"
-        for (kv in callGraph) {
-            str += "${kv.key} calls\n"
-            for (callee in kv.value) {
+        for ((node, edges) in callGraph) {
+            str += "$node calls\n"
+            for (callee in edges) {
                 str += "\t${callee}\n"
             }
             str += "\n"
         }
         return str
+    }
+
+    override fun callGraphStructureToDot(prefix: File) {
+        val rootsStr = roots.map { it.getName() }.joinToString(separator = "-")
+        val sb = StringBuilder()
+        sb.append("digraph \"Callgraph for roots $rootsStr\" {\n")
+        sb.append("\tlabel=\"Callgraph for roots $rootsStr\";\n")
+        for ((node, edges) in callGraph) {
+            for (edge in edges) {
+                sb.append("\"$node\" -> \"$edge\"\n")
+            }
+        }
+        sb.append("}\n")
+        printToFile("$prefix${File.separator}callgraph-$rootsStr.sbf.dot", sb.toString())
     }
 
     override fun toDot(prefix:File, onlyEntryPoint: Boolean) {

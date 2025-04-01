@@ -21,7 +21,6 @@ import analysis.CommandWithRequiredDecls
 import analysis.maybeNarrow
 import cli.SanityValues
 import config.Config.DoSanityChecksForRules
-import config.realOpt
 import datastructures.stdcollections.*
 import parallel.coroutines.parallelMapOrdered
 import report.ConsoleReporter
@@ -32,10 +31,9 @@ import rules.IsFromCache
 import rules.VerifyTime
 import scene.IScene
 import solver.SolverResult
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
-import spec.cvlast.SingleRuleGenerationMeta
-import spec.cvlast.SpecType
+import spec.cvlast.*
+import spec.rules.IRule
+import spec.rules.EcosystemAgnosticRule
 import utils.*
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
@@ -51,10 +49,10 @@ import verifier.Verifier
  */
 object TACSanityChecks {
 
-    private val registeredChecks = listOf(VacuityCheck).filter { DoSanityChecksForRules.get() >= it.sanityLevel }
+    private val registeredChecks = listOf(VacuityCheck)
 
-    suspend fun analyse(scene: IScene, baseRule: CVLSingleRule, baseRuleTac: CoreTACProgram, baseRuleResult: Verifier.VerifierResult, treeViewReporter: TreeViewReporter) {
-        registeredChecks.parallelMapOrdered { _, sanityCheck ->
+    suspend fun analyse(scene: IScene, baseRule: EcosystemAgnosticRule, baseRuleTac: CoreTACProgram, baseRuleResult: Verifier.VerifierResult, treeViewReporter: TreeViewReporter) {
+        registeredChecks.filter { DoSanityChecksForRules.get() >= it.sanityLevel }.parallelMapOrdered { _, sanityCheck ->
             sanityCheck.analyse(scene, baseRule, baseRuleTac, baseRuleResult, treeViewReporter)
         }
     }
@@ -75,7 +73,7 @@ object TACSanityChecks {
          *
          * See [VacuityCheck] as an example.
          */
-        abstract fun transformTac(baseRuleTac: CoreTACProgram, baseRule: CVLSingleRule): CoreTACProgram
+        abstract fun transformTac(baseRuleTac: CoreTACProgram, baseRule: EcosystemAgnosticRule): CoreTACProgram
 
         /**
          * Each sanity check must derive a copy from the base rule and add meta information
@@ -85,7 +83,7 @@ object TACSanityChecks {
          *
          * See [VacuityCheck] as an example.
          */
-        abstract fun deriveRule(baseRule: CVLSingleRule): IRule
+        abstract fun deriveRule(baseRule: EcosystemAgnosticRule): IRule
 
         /**
          * A pre-condition if this sanity check should actually be executed or not.
@@ -95,7 +93,7 @@ object TACSanityChecks {
          * be executed or not based on the verification result of the base rule. For instance,
          * the vacuity check is only execute if the original base rule has been proven.
          */
-        abstract fun shouldExecute(baseRule: CVLSingleRule, baseRuleResult: Verifier.VerifierResult): Boolean
+        abstract fun shouldExecute(baseRule: EcosystemAgnosticRule, baseRuleResult: Verifier.VerifierResult): Boolean
 
         /**
          * This method registers the rule in our different reporters, computes the TAC for the sanity check by
@@ -110,7 +108,7 @@ object TACSanityChecks {
          *
          * Once this process has been completed, all reporters are updated.
          */
-        suspend fun analyse(scene: IScene, baseRule: CVLSingleRule, baseRuleTac: CoreTACProgram, baseRuleResult: Verifier.VerifierResult, treeViewReporter: TreeViewReporter) {
+        suspend fun analyse(scene: IScene, baseRule: EcosystemAgnosticRule, baseRuleTac: CoreTACProgram, baseRuleResult: Verifier.VerifierResult, treeViewReporter: TreeViewReporter) {
             if (!shouldExecute(baseRule, baseRuleResult)) {
                 return
             }
@@ -154,9 +152,9 @@ object TACSanityChecks {
          * The name in the web UI for the child node in the rule report tree. The name is the same as with the CVL based
          * vacuity check [spec.cvlast.SpecType.Single.GeneratedFromBasicRule.VacuityCheck]
          */
-        override val sanityRuleName: String = "rule_not_vacuous"
+        override val sanityRuleName: String = "rule_not_vacuous_tac"
 
-        override val sanityLevel: SanityValues = SanityValues.BASIC
+        override val sanityLevel: SanityValues = SanityValues.ADVANCED
 
         /**
          * The sanity rules will only be executed if the original results of the base rule did not find a counter example.
@@ -164,8 +162,8 @@ object TACSanityChecks {
          * For a non-satisfy rules, sanity is executed when the original results was UNSAT.
          * For a satisfy rule, sanity is executed when the original result was SAT.
          */
-        override fun shouldExecute(baseRule: CVLSingleRule, baseRuleResult: Verifier.VerifierResult) = !baseRule.isSatisfyRule && baseRuleResult.finalResult == SolverResult.UNSAT || baseRule.isSatisfyRule && baseRuleResult.finalResult == SolverResult.SAT
-        override fun transformTac(baseRuleTac: CoreTACProgram, baseRule: CVLSingleRule): CoreTACProgram {
+        override fun shouldExecute(baseRule: EcosystemAgnosticRule, baseRuleResult: Verifier.VerifierResult) = !baseRule.isSatisfyRule && baseRuleResult.finalResult == SolverResult.UNSAT || baseRule.isSatisfyRule && baseRuleResult.finalResult == SolverResult.SAT
+        override fun transformTac(baseRuleTac: CoreTACProgram, baseRule: EcosystemAgnosticRule): CoreTACProgram {
             return baseRuleTac.patching { p ->
                 // Replace all assert commands
                 this.parallelLtacStream()
@@ -175,7 +173,8 @@ object TACSanityChecks {
                         // either a SATISfY_ID or an ASSERT_ID.
                         // We explicitly don't want to remove asserts that have been internally added
                         // by the Prover, for instance as part of an [vc.data.SnippetCmd.EVMSnippetCmd.LoopSnippet.AssertUnwindCond].
-                        it.cmd.meta.containsKey(TACMeta.ASSERT_ID) || it.cmd.meta.containsKey(TACMeta.SATISFY_ID) }
+                        it.cmd.meta.containsKey(TACMeta.ASSERT_ID) || it.cmd.meta.containsKey(TACMeta.SATISFY_ID)
+                    }
                     .forEach {
                         p.replace(it.ptr) { _ -> listOf() }
                     }
@@ -190,14 +189,10 @@ object TACSanityChecks {
                 ))
         }
 
-        override fun deriveRule(baseRule: CVLSingleRule) =
+        override fun deriveRule(baseRule: EcosystemAgnosticRule) =
             baseRule.copy(
                 ruleIdentifier = baseRule.ruleIdentifier.freshDerivedIdentifier(sanityRuleName),
-                description = "sanity check (vacuity of rule) for rule ${baseRule.declarationId}",
-                goodDescription = "sanity check (vacuity of rule) for rule ${baseRule.declarationId}, this rule was added " +
-                    "because the ${DoSanityChecksForRules.option.realOpt()} flag was set",
-                ruleType = SpecType.Single.GeneratedFromBasicRule.VacuityCheck(baseRule),
-                ruleGenerationMeta = SingleRuleGenerationMeta.WithSanity(SingleRuleGenerationMeta.Sanity.BASIC_SANITY)
+                ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(baseRule),
             )
     }
 }

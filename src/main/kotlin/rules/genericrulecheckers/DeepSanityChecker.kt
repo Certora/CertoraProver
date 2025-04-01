@@ -26,7 +26,7 @@ import log.LoggerTypes
 import rules.genericrulecheckers.msgvalueinloop.ErrorCmdGenerator
 import scene.IScene
 import scene.ITACMethod
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.genericrulegenerators.DeepSanityGenerator
 import tac.MetaMap
@@ -72,7 +72,7 @@ object DeepSanityChecker : InstrumentingBuiltinRuleChecker<DeepSanityGenerator>(
     // worker class
     private class Worker(
         private val prog: CoreTACProgram,
-        private val cvlRange: CVLRange
+        private val range: Range
     ) {
         data class ParentAndPrecedingCommand(val parent: NBId, val lastCmd: LTACCmd)
 
@@ -220,7 +220,7 @@ object DeepSanityChecker : InstrumentingBuiltinRuleChecker<DeepSanityGenerator>(
         private fun instrumentSanityCheck(
             prog: CoreTACProgram,
             nodesToReach: List<ShouldBeReachablePoint>,
-            cvlRange: CVLRange
+            range: Range
         ): SimplePatchingProgram {
             val patching = prog.toPatchingProgram()
             fun createReachIndicatorVar(ptr: CmdPointer) =
@@ -274,7 +274,7 @@ object DeepSanityChecker : InstrumentingBuiltinRuleChecker<DeepSanityGenerator>(
                                 "Reachability check in ${
                                     b.computeAssertMsg(sink.ptr)
                                 }",
-                                meta = MetaMap(TACMeta.CVL_RANGE to cvlRange)
+                                meta = MetaMap(TACMeta.CVL_RANGE to range)
                                     .plus(TACMeta.CVL_USER_DEFINED_ASSERT)
                                     .plus(TACMeta.ISOLATED_ASSERT) // to ensure other asserts are nop'd
                             ).also { assertCmd ->
@@ -298,18 +298,18 @@ object DeepSanityChecker : InstrumentingBuiltinRuleChecker<DeepSanityGenerator>(
 
         fun doWork(): SimplePatchingProgram {
             val nodesToReach = findNodesToReach(prog)
-            return instrumentSanityCheck(prog, nodesToReach, cvlRange)
+            return instrumentSanityCheck(prog, nodesToReach, range)
         }
     }
 
     override fun instrumentingTransform(
         scene: IScene,
         currentContractId: BigInteger,
-        cvlRange: CVLRange,
+        range: Range,
         m: ITACMethod
     ): CoreTACProgram {
         val prog = m.code as CoreTACProgram
-        val newProg = Worker(prog, cvlRange).doWork()
+        val newProg = Worker(prog, range).doWork()
         m.updateCode(newProg)
         return m.code as CoreTACProgram
     }

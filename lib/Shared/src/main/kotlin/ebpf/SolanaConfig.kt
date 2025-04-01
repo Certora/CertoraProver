@@ -291,6 +291,28 @@ object SolanaConfig {
         )
     ) {}
 
+    val TACMinSizeForCalltrace = object : ConfigType.IntCmdLine(
+        300,
+        Option(
+            "solanaMinSizeForCalltrace", true,
+            "Minimum size of an inlined function to be mentioned in the calltrace. " +
+                       "This size is estimated by the number of SBF instructions before any frontend optimization. " +
+                       "Thus, the actual size after all TAC optimizations will be usually smaller than this size. " +
+                       "[default: 300]"
+        )
+    ) {
+        override fun check(newValue: Int) = newValue >= 0
+    }
+
+    val TACMaxUnfoldedMemset = object : ConfigType.IntCmdLine(
+        256,
+        Option(
+            "solanaTACMaxUnfoldedMemset",
+            true,
+            "If length of memset is less or equal than this number then memset is translated as multiple byte map stores. [default: 256]"
+        )
+    ) {}
+
     // Printing options
 
     val PrintResultsToStdOut = object : ConfigType.BooleanCmdLine(

@@ -98,7 +98,7 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
             )
         }
 
-        fun unfoldTo(expr: TACExpr, resultVar: TACSymbol.Var) : CommandWithRequiredDecls<TACCmd.Simple> {
+        fun unfoldTo(expr: TACExpr, resultVar: TACSymbol.Var): CommandWithRequiredDecls<TACCmd.Simple> {
             val unfoldRes = unfold("t", expr)
             return CommandWithRequiredDecls(
                 unfoldRes.cmds + TACCmd.Simple.AssigningCmd.AssignExpCmd(resultVar, unfoldRes.e),
@@ -140,23 +140,35 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
         // Don't flatten multi-dimensional selects
         is TACExpr.Select -> e.rebuild(
             listOf(
-                if (e.base is TACExpr.Select) { unfold(e.base) } else { flat(e.base) },
+                if (e.base is TACExpr.Select) {
+                    unfold(e.base)
+                } else {
+                    flat(e.base)
+                },
                 flat(e.loc)
             )
         )
+
         is TACExpr.Unconstrained -> {
             val v = varGenerator(e.tagAssumeChecked)
             list += TACCmd.Simple.AssigningCmd.AssignHavocCmd(v)
             v.asSym()
         }
+
         else -> e.rebuild(e.getOperands().map(::flat))
     }
+
+
+    private val flatCache = mutableMapOf<TACExpr, TACSymbol.Var>()
 
     /**
      * Creates a new variable and adds a command to [list] that assigns it the expression [e] after
      * recursively flattening it.
      */
     private fun flat(e: TACExpr): TACExpr.Sym {
+        flatCache[e]?.let {
+            return it.asSym()
+        }
         val r = unfold(e)
         if (r is TACExpr.Sym) {
             return r
@@ -164,6 +176,7 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
         val tag = r.tagAssumeChecked
         val v = varGenerator(tag)
         list += TACCmd.Simple.AssigningCmd.AssignExpCmd(v, r)
+        flatCache[e] = v
         return v.asSym()
     }
 

@@ -107,6 +107,8 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
         fun generateCode(callee: ITACMethod): ParametricInstantiation<CVLTACProgram>
 
         fun generateCode(callee: ITACMethod, k: TACSymbol.Var): ParametricInstantiation<CVLTACProgram>
+
+        fun getCallId(): CallId
     }
 
 
@@ -120,10 +122,11 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
         private val payableHandler: PayableHandler,
         private val pipeline: CodeInstrumentation,
         private val returnInstrumentation: CodeInstrumentation,
-        val callId: CallId,
+        private val callId: CallId,
         val args: ParametricInstantiation<CVLTACProgram>,
         private val allocation: TACSymbolAllocation
     ) : CodeGenerator {
+        override fun getCallId(): CallId = callId
 
         override fun generateCode(callee: ITACMethod): ParametricInstantiation<CVLTACProgram> {
             return generateCode(callee) { meth, callId, returnInstrumentation ->
@@ -583,7 +586,7 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
                 ),
                 setOfNotNull(
                     EthereumVariables.address.at(callIndex = calleeId),
-                    calleeAddress.takeIf { it is TACSymbol.Var } as TACSymbol.Var
+                    calleeAddress.takeIf { it is TACSymbol.Var } as? TACSymbol.Var
                 )
             )
 

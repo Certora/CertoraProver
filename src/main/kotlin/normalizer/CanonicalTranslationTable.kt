@@ -129,7 +129,7 @@ fun<T: TACCmd.Spec, TAC> TAC.canonicalDump(suffix: String, dump: (DebuggableProg
 
 /**
  * please note the sorting by [CVLTACProgram.name] performed in this function doesn't guarantee any real ordering
- * between runs since they contain [spec.cvlast.CVLRange]:
+ * between runs since they contain [Range]:
  *
  * The name is built in [spec.CVLExpressionCompiler.compileExp]
  * ```
@@ -137,7 +137,7 @@ fun<T: TACCmd.Spec, TAC> TAC.canonicalDump(suffix: String, dump: (DebuggableProg
  * ```
  * where
  * ```
- *  fun getDisplayName(exp: CVLExp) = "${exp.tag.cvlRange}: ${exp}"
+ *  fun getDisplayName(exp: CVLExp) = "${exp.tag.range}: ${exp}"
  * ```
  **/
 fun <C : Comparable<C>> InstrumentedTAC.forEachAxiom(

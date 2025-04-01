@@ -24,6 +24,7 @@ import report.calltrace.CVLCmdFactory.requireCmd
 import spec.allCastFunctions
 import spec.cvlast.*
 import spec.cvlast.CVLScope.Companion.AstScope
+import utils.Range
 
 /**
  * Test things about [CVLReportLabel].
@@ -135,7 +136,7 @@ class CVLReportLabelTest {
     }
 }
 
-private val emptyRange = CVLRange.Empty()
+private val emptyRange = Range.Empty()
 private val emptyExpTag = CVLExpTag(AstScope, emptyRange)
 
 /**

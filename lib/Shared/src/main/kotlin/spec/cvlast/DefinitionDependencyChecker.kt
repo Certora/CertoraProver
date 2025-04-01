@@ -28,6 +28,7 @@ import utils.CollectingResult
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
+import utils.Range
 
 class DefinitionDependencyChecker(val symbolTable: CVLSymbolTable): CVLAstTransformer<CVLError>(CVLCmdTransformer(CVLExpTransformer.copyTransformer())) {
     override fun defs(defs: List<CVLDefinition>): CollectingResult<List<CVLDefinition>, CVLError> {
@@ -65,7 +66,7 @@ class DefinitionDependencyChecker(val symbolTable: CVLSymbolTable): CVLAstTransf
                     .map { defInSymbolTable ->
                         val definition = astDefinitionVersion[defInSymbolTable]!!
                         val (modified, read) =
-                                CVLExpModifiesReads.getModifiedAndRead(symbolTable, definition.cvlRange, definition.scope!!, definition.body)
+                                CVLExpModifiesReads.getModifiedAndRead(symbolTable, definition.range, definition.scope!!, definition.body)
                         val (depsModified, depsRead) = (definitionDependencies[defInSymbolTable]!!)
                                 .fold(setOf<CVLGhostDeclaration.Function>() to setOf<CVLGhostDeclaration.Function>())
                                 { (modifiedAcc, readAcc), el ->
@@ -83,7 +84,7 @@ class DefinitionDependencyChecker(val symbolTable: CVLSymbolTable): CVLAstTransf
         } catch (e: TopologicalOrderException) {
             // TODO: would a different topo sort allow us to infer where the cycle is?
             CVLError.General(
-                CVLRange.Empty(),
+                Range.Empty(),
                 "A circular dependency was found in a definition: this is not allowed. Topo sort error: ${e.msg}"
             ).asError()
         }

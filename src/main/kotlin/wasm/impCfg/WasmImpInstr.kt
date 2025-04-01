@@ -21,7 +21,7 @@ import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import datastructures.stdcollections.*
-import spec.cvlast.CVLRange
+import utils.Range
 import tac.MetaKey
 import tac.MetaMap
 import tac.Tag
@@ -34,7 +34,10 @@ import wasm.impCfg.WasmNumericExpr.reconstructExpr
 import wasm.impCfg.WasmNumericExpr.transformTmps
 import wasm.ir.*
 import wasm.summarization.WasmCallSummarizer
-import wasm.tacutils.*
+import wasm.tacutils.assign
+import wasm.tacutils.assignHavoc
+import wasm.tacutils.assume
+import wasm.tacutils.withDecls
 import wasm.tokens.WasmTokens.GLOBAL
 import wasm.tokens.WasmTokens.HAVOC
 import wasm.tokens.WasmTokens.HAVOC_VAR_NM
@@ -44,6 +47,7 @@ import wasm.tokens.WasmTokens.WASMICFG
 import wasm.tokens.WasmTokens.WASMICFG_CALL
 import wasm.tokens.WasmTokens.WASMICFG_CALL_INDIRECT
 import wasm.tokens.WasmTokens.WASMICFG_IF
+import wasm.tokens.WasmTokens.WASMICFG_INTERNAL_UNREACH
 import wasm.tokens.WasmTokens.WASMICFG_JUMP
 import wasm.tokens.WasmTokens.WASMICFG_RET
 import wasm.tokens.WasmTokens.WASMICFG_SWITCH
@@ -52,10 +56,10 @@ import wasm.traps.Trap
 import java.math.BigInteger
 
 
-class CannotHaveHavocException(msg: String): Exception(msg)
-class AlphaRenamingControlCmdFailed(msg: String): Exception(msg)
-class UnexpectedBrTab(msg: String): Exception(msg)
-class UnexpectedCallIndirect(msg: String): Exception(msg)
+class CannotHaveHavocException(msg: String) : Exception(msg)
+class AlphaRenamingControlCmdFailed(msg: String) : Exception(msg)
+class UnexpectedBrTab(msg: String) : Exception(msg)
+class UnexpectedCallIndirect(msg: String) : Exception(msg)
 
 
 typealias WasmToTacInfo = CommandWithRequiredDecls<TACCmd.Simple>
@@ -70,10 +74,13 @@ val WASM_USER_ASSUME = MetaKey<String>("wasm.user.assume")
 val WASM_USER_ASSERT = MetaKey<String>("wasm.user.assert")
 val WASM_CALLTRACE_PRINT = MetaKey<StraightLine.CexPrintValues>("wasm.calltrace.print")
 val WASM_MEMORY_OP_WIDTH = MetaKey<Int>("wasm.memory.op.width")
+
 //meta that contains information about the original address of the bytecode instruction in the .wasm file
 val WASM_BYTECODE_ADDRESS = MetaKey<WASMAddress>("wasm.bytecode.address")
+
 //the actual local idx in the original .wasm bytecode
 val WASM_LOCAL_IDX = MetaKey<WASMLocalIdx>("wasm.bytecode.local.idx")
+
 //for memory store instructions, the offset into the memory
 val WASM_MEMORY_OFFSET = MetaKey<WASMMemoryOffset>("wasm.bytecode.memory.offset")
 
@@ -83,7 +90,7 @@ private fun assignHavocPrimitive(sym: TACSymbol.Var, type: WasmPrimitiveType) =
     mergeMany(
         assignHavoc(sym),
         assume {
-            sym.asSym() lt when(type) {
+            sym.asSym() lt when (type) {
                 WasmPrimitiveType.I32, WasmPrimitiveType.F32 -> BigInteger.TWO.pow(32)
                 WasmPrimitiveType.I64, WasmPrimitiveType.F64 -> BigInteger.TWO.pow(64)
             }.asTACExpr
@@ -114,19 +121,20 @@ sealed class WasmImpCfgCmd(open val addr: WASMAddress? = null) {
      * Returns a list of TAC.Simple commands for each Wasm TAC command, a set
      * of all defined tac symbols in the command, and updates a fresh variable id counter.
      * The set of symbols is needed for the CoreTacProgram's symbol table.
-    * */
+     * */
     context(WasmImpCfgContext)
     fun wasmImpcfgToTacSimple() = wasmImpcfgToTacSimpleInternal().let {
-            it.copy(cmds = it.cmds.map { c -> addr?.let {c.plusMeta(WASM_BYTECODE_ADDRESS, it)} ?: c})
+        it.copy(cmds = it.cmds.map { c -> addr?.let { c.plusMeta(WASM_BYTECODE_ADDRESS, it) } ?: c })
     }
+
     context(WasmImpCfgContext)
     abstract fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo
 }
 
-sealed class Control(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
+sealed class Control(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
     abstract fun succs(): List<PC>
 
-    data class Jump(val pc: PC, override val addr: WASMAddress? = null): Control(addr) {
+    data class Jump(val pc: PC, override val addr: WASMAddress? = null) : Control(addr) {
         override fun succs(): List<PC> {
             return listOf(pc)
         }
@@ -141,7 +149,8 @@ sealed class Control(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
             return WasmToTacInfo(listOf(TACCmd.Simple.JumpCmd(dest)), setOf())
         }
     }
-    data class Brif(val arg: Arg, val ifpc: PC, val elpc: PC, override val addr: WASMAddress? = null): Control(addr) {
+
+    data class Brif(val arg: Arg, val ifpc: PC, val elpc: PC, override val addr: WASMAddress? = null) : Control(addr) {
         override fun succs(): List<PC> {
             return listOf(ifpc, elpc)
         }
@@ -166,7 +175,8 @@ sealed class Control(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         }
     }
 
-    data class BrTable(val arg: Arg, val dests: List<PC>, val fallBack: PC, override val addr: WASMAddress? = null): Control(addr) {
+    data class BrTable(val arg: Arg, val dests: List<PC>, val fallBack: PC, override val addr: WASMAddress? = null) :
+        Control(addr) {
         override fun succs(): List<PC> {
             return dests + fallBack
         }
@@ -181,7 +191,7 @@ sealed class Control(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         }
     }
 
-    data class Ret(val arg: Arg?, override val addr: WASMAddress? = null): Control(addr) {
+    data class Ret(val arg: Arg?, override val addr: WASMAddress? = null) : Control(addr) {
         override fun succs(): List<PC> {
             return listOf()
         }
@@ -193,6 +203,7 @@ sealed class Control(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
                 "$WASMICFG_RET $arg"
             }
         }
+
         context(WasmImpCfgContext)
         override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
             if (arg != null) {
@@ -204,13 +215,37 @@ sealed class Control(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         }
     }
 
-    /**
-     * Unreachable is the same as Assert(False)
-     */
-    data class Unreach(override val addr: WASMAddress? = null): Control(addr) {
+    data class CertoraUnreachable(
+        override val addr: WASMAddress? = null,
+        val isAssert: Boolean = true,
+        val message: String = ""
+    ) : Control(addr) {
         override fun succs(): List<PC> {
             return listOf()
         }
+
+        override fun toString(): String {
+            return WASMICFG_INTERNAL_UNREACH
+        }
+
+        context(WasmImpCfgContext)
+        override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
+            if (isAssert) {
+                return listOf(TACCmd.Simple.AssertCmd(false.asTACSymbol(), message)).withDecls()
+            } else {
+                return listOf(TACCmd.Simple.AssumeCmd(false.asTACSymbol())).withDecls()
+            }
+        }
+    }
+
+    /**
+     * Unreachable is the same as Assert(False)
+     */
+    data class Unreach(override val addr: WASMAddress? = null, val isTrap: Boolean = true) : Control(addr) {
+        override fun succs(): List<PC> {
+            return listOf()
+        }
+
         override fun toString(): String {
             return WASMICFG_UNREACH
         }
@@ -225,7 +260,7 @@ sealed class Control(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
 
 }
 
-sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
+sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
     /**
      * Checks if the rhs can be a "havoc" or "top".
      * This is used for converting these havoc expressions to a straight line instruction
@@ -247,7 +282,8 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
     /**
      * Assign to the lhs (a register) the WasmIcfgExpr `expr`.
      * */
-    data class SetTmp(val lhs: Tmp, val expr: WasmIcfgExpr, override val addr: WASMAddress? = null) : StraightLine(addr) {
+    data class SetTmp(val lhs: Tmp, val expr: WasmIcfgExpr, override val addr: WASMAddress? = null) :
+        StraightLine(addr) {
         override fun hasHavoc(): Boolean {
             return this.expr.hasHavoc()
         }
@@ -322,6 +358,7 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         override fun toString(): String {
             return "$lhs := $local"
         }
+
         context(WasmImpCfgContext)
         override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
             val lhsSym = TACSymbol.Var(lhs.toString(), Tag.Bit256)
@@ -335,6 +372,7 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         override fun hasHavoc(): Boolean {
             return false
         }
+
         override fun getVarsForHavoc(allocFresh: () -> Int): List<Arg> {
             return emptyList()
         }
@@ -346,6 +384,7 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         override fun toString(): String {
             return "$GLOBAL$UNDERSCORE$nm := $arg"
         }
+
         context(WasmImpCfgContext)
         override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
             val lhsName = createVarNameHelper(GLOBAL, nm)
@@ -397,7 +436,14 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         override val tempIdxs = setOf(lhs.pc)
     }
 
-    data class Store(val at: Arg, val op: StoreMemoryOp, val offset: WASMMemoryOffset, val value: Arg, val numBytes: Int? = 0, override val addr: WASMAddress? = null): StraightLine(addr) {
+    data class Store(
+        val at: Arg,
+        val op: StoreMemoryOp,
+        val offset: WASMMemoryOffset,
+        val value: Arg,
+        val numBytes: Int? = 0,
+        override val addr: WASMAddress? = null
+    ) : StraightLine(addr) {
         override fun toString(): String {
             return if (numBytes == 0) {
                 "$WASMICFG$op[$at] := $value"
@@ -405,6 +451,7 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
                 "$WASMICFG$op[$at]{$numBytes} := $value"
             }
         }
+
         context(WasmImpCfgContext)
         override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
             val loc = at.toTacSymbol()
@@ -447,7 +494,14 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
     }
 
     // Need to also support alignment, but not sure if it makes any difference.
-    data class Load(val type: WasmPrimitiveType, val to: Tmp, val op: LoadMemoryOp, val from: Arg, val num: Int? = 0, override val addr: WASMAddress? = null): StraightLine(addr) {
+    data class Load(
+        val type: WasmPrimitiveType,
+        val to: Tmp,
+        val op: LoadMemoryOp,
+        val from: Arg,
+        val num: Int? = 0,
+        override val addr: WASMAddress? = null
+    ) : StraightLine(addr) {
         override fun toString(): String {
             return if (num == 0) {
                 "$to := $WASMICFG$op $from"
@@ -455,6 +509,7 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
                 "$to := $WASMICFG$op ($from) {$num}"
             }
         }
+
         context(WasmImpCfgContext)
         override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
             val lhs = TACSymbol.Var(to.toString(), Tag.Bit256)
@@ -500,14 +555,21 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         override val tempIdxs = setOf(to.pc)
     }
 
-    data class CallIndirect(val maybeRet: Tmp?, val elemIndex: Arg, val elemTable: WasmElem, val args: List<Arg>, val typeUse: WasmTypeUse, override val addr: WASMAddress? = null): StraightLine(addr) {
+    data class CallIndirect(
+        val maybeRet: Tmp?,
+        val elemIndex: Arg,
+        val elemTable: WasmElem,
+        val args: List<Arg>,
+        val typeUse: WasmTypeUse,
+        override val addr: WASMAddress? = null
+    ) : StraightLine(addr) {
         override fun hasHavoc(): Boolean {
             return this.args.any { it.isHavoc() } || this.elemIndex.isHavoc()
         }
 
         override fun getVarsForHavoc(allocFresh: () -> Int): List<Arg> {
             val havocVarsForArgs = args.mapIndexed { i, a ->
-                if(a.isHavoc()) {
+                if (a.isHavoc()) {
                     val name = listOf(HAVOC_VAR_NM, i).joinToString(UNDERSCORE)
                     ArgRegister(Tmp(a.type, allocFresh(), name, 0))
                 } else {
@@ -537,7 +599,8 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         }
     }
 
-    data class Call(val maybeRet: Tmp?, val id: WasmName, val args: List<Arg>, override val addr: WASMAddress? = null): StraightLine(addr) {
+    data class Call(val maybeRet: Tmp?, val id: WasmName, val args: List<Arg>, override val addr: WASMAddress? = null) :
+        StraightLine(addr) {
         override fun toString(): String {
             return if (maybeRet != null) {
                 "$maybeRet = $WASMICFG_CALL $id (${args.joinToString(",") { it.toString() }})"
@@ -561,7 +624,8 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
                 // Otherwise, leave an annotation in the TAC, and havoc the return value
                 mergeMany(
                     listOfNotNull(
-                        TACCmd.Simple.AnnotationCmd(TACCmd.Simple.AnnotationCmd.Annotation(WASM_UNRESOLVED_CALL, id)).withDecls(),
+                        TACCmd.Simple.AnnotationCmd(TACCmd.Simple.AnnotationCmd.Annotation(WASM_UNRESOLVED_CALL, id))
+                            .withDecls(),
                         maybeRet?.let {
                             assignHavocPrimitive(
                                 TACSymbol.Var(maybeRet.toString(), Tag.Bit256),
@@ -580,7 +644,7 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
         /* This also returns the non-havoced arguments for helping with reconstruction. */
         override fun getVarsForHavoc(allocFresh: () -> Int): List<Arg> {
             return args.mapIndexed { i, a ->
-                if(a.isHavoc()) {
+                if (a.isHavoc()) {
                     val name = listOf(HAVOC_VAR_NM, i).joinToString(UNDERSCORE)
                     ArgRegister(Tmp(a.type, allocFresh(), name, 0))
                 } else {
@@ -595,7 +659,7 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
     /**
      * Make a straight-line instruction for Havoc, so it's easier to get to our TAC `AssignHavocCmd` from this.
      * */
-    data class Havoc(val type: WasmPrimitiveType, val lhs: Tmp): StraightLine() {
+    data class Havoc(val type: WasmPrimitiveType, val lhs: Tmp) : StraightLine() {
         override fun toString(): String {
             return "$HAVOC($lhs)"
         }
@@ -620,13 +684,13 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
     /**
      * Annotate the start of a function (useful for detecting where a function starts after inlining).
      * This is used for generating call trace.
-    * */
+     * */
     data class InlinedFuncStartAnnotation(
         val funcId: String,
         val funcArgs: List<Arg>,
         val callIdx: Int,
-        val range: CVLRange.Range? = null
-        ): StraightLine() {
+        val range: Range.Range? = null
+    ) : StraightLine() {
         override fun hasHavoc(): Boolean {
             return false
         }
@@ -640,10 +704,10 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
 
         @KSerializable
         @com.certora.collect.Treapable
-        data class TAC(val funcName: String, val funcArgs: List<TACSymbol>, val range: CVLRange.Range?):
+        data class TAC(val funcName: String, val funcArgs: List<TACSymbol>, val range: Range.Range?) :
             TransformableVarEntityWithSupport<TAC>, HasKSerializable, AmbiSerializable {
 
-            constructor(fromWasm: InlinedFuncStartAnnotation):
+            constructor(fromWasm: InlinedFuncStartAnnotation) :
                 this(fromWasm.funcId, fromWasm.funcArgs.map { it.toTacSymbol() }, fromWasm.range)
 
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): TAC =
@@ -672,7 +736,7 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
     data class InlinedFuncEndAnnotation(
         val funcId: String,
         val callIdx: Int,
-        ): StraightLine() {
+    ) : StraightLine() {
         override fun hasHavoc(): Boolean {
             return false
         }
@@ -686,8 +750,8 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
 
         @KSerializable
         @com.certora.collect.Treapable
-        data class TAC(val funcName: String): HasKSerializable, AmbiSerializable {
-            constructor(fromWasm: InlinedFuncEndAnnotation):
+        data class TAC(val funcName: String) : HasKSerializable, AmbiSerializable {
+            constructor(fromWasm: InlinedFuncEndAnnotation) :
                 this(fromWasm.funcId)
 
             override fun toString(): String =
@@ -704,10 +768,11 @@ sealed class StraightLine(addr: WASMAddress? = null): WasmImpCfgCmd(addr) {
     }
 
     @KSerializable
-    data class CexPrintValues(val tag: String, val symbols: List<TACSymbol.Var>): TransformableVarEntityWithSupport<CexPrintValues> {
+    data class CexPrintValues(val tag: String, val symbols: List<TACSymbol.Var>) :
+        TransformableVarEntityWithSupport<CexPrintValues> {
         override val support: Set<TACSymbol.Var> get() = symbols.toSet()
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
-            CexPrintValues(tag = tag, symbols = symbols.map{f(it)})
+            CexPrintValues(tag = tag, symbols = symbols.map { f(it) })
     }
 }
 
@@ -785,8 +850,9 @@ object WasmImpInstr {
             }
 
             is StraightLine.InlinedFuncStartAnnotation -> {
-                st.copy(funcArgs = st.funcArgs.map { it.transformTmps(transformTmp)})
+                st.copy(funcArgs = st.funcArgs.map { it.transformTmps(transformTmp) })
             }
+
             is StraightLine.InlinedFuncEndAnnotation -> {
                 st
             }
@@ -818,7 +884,13 @@ object WasmImpInstr {
                 }
             }
 
-            is Control.Unreach -> {
+            is
+            Control.CertoraUnreachable -> {
+                ctrl
+            }
+
+            is
+            Control.Unreach -> {
                 ctrl
             }
 
@@ -880,6 +952,7 @@ object WasmImpInstr {
             is StraightLine.CallIndirect -> {
                 throw UnexpectedCallIndirect("All call_indirects should have been translated to calls by now.")
             }
+
             is StraightLine.Havoc -> {
                 throw CannotHaveHavocException("This is already a havoc statement.")
             }

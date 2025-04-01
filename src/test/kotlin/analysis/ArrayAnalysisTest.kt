@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Tag as TestTag
     SolidityVersion.ANY_5, SolidityVersion.V5_11,
     SolidityVersion.V6_1,  SolidityVersion.V6_6, SolidityVersion.V6_8, SolidityVersion.V6_10,
     SolidityVersion.V7_0, SolidityVersion.V7_6,
-    SolidityVersion.V8_2, SolidityVersion.V8_9, SolidityVersion.V8_13, SolidityVersion.V8_16, SolidityVersion.V8_28
+    SolidityVersion.V8_2, SolidityVersion.V8_9, SolidityVersion.V8_13, SolidityVersion.V8_16, SolidityVersion.V8_29
 ])
 @TestTag(EXPENSIVE)
 class ArrayAnalysisTest : SolidityContractTest {

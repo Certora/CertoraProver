@@ -32,6 +32,7 @@ import scene.IContractWithSource
 import scene.IScene
 import solver.SolverResult
 import spec.cvlast.*
+import spec.rules.*
 import statistics.data.LiveStatsProgressInfo
 import tac.TACStorageLayout
 import tac.TACStorageType
@@ -76,7 +77,7 @@ object SolverResultStatusToTreeViewStatusMapper{
 
     fun computeFinalStatus(solverResult: SolverResult, rule: IRule): TreeViewReporter.TreeViewStatusEnum {
         return when (rule) {
-            is CVLSingleRule->
+            is CVLSingleRule ->
                 if (rule.isSanityCheck()) { //What if we have a sanity check and a satisfy rule?
                     getStatusForSanityRule(solverResult)
                 } else if (rule.isSatisfyRule) {
@@ -91,6 +92,14 @@ object SolverResultStatusToTreeViewStatusMapper{
                 getStatusForRegularRule(solverResult)
             }
             is GroupRule -> error("Unexpected Behaviour: Tried to map the status for the rule ${rule}")
+            is EcosystemAgnosticRule ->
+                if (rule.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
+                    getStatusForSanityRule(solverResult)
+                } else if (rule.isSatisfyRule) {
+                    getStatusForSatisfyRule(solverResult)
+                } else {
+                    getStatusForRegularRule(solverResult)
+                }
         }
     }
 }
@@ -363,6 +372,11 @@ class TreeViewReporter(
         private fun getTopLevelNodes(): List<DisplayableIdentifier> =
             parentToChild[ROOT_NODE_IDENTIFIER]?.toList() ?: listOf()
 
+        @TestOnly
+        fun treeViewNodeResults(): Collection<TreeViewNodeResult> {
+            return identifierToNode.values
+        }
+
         fun addChildNode(child: DisplayableIdentifier, parent: DisplayableIdentifier, nodeType: NodeType, rule: IRule?) {
             synchronized(this) {
                 identifierToNode[child] = TreeViewNodeResult(
@@ -472,7 +486,7 @@ class TreeViewReporter(
             }
         }
 
-        private fun getAllNodes(): Set<DisplayableIdentifier> {
+        fun getAllNodes(): Set<DisplayableIdentifier> {
             synchronized(this) {
                 return identifierToNode.keys.toSet() + ROOT_NODE_IDENTIFIER
             }
@@ -646,6 +660,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         return when(child.ruleType){
             //All these rules are top-level elements in the tree.
             SpecType.Group.StaticEnvFree,
+            SpecType.Single.BMC,
             is SpecType.Group.InvariantCheck.Root,
             is SpecType.Single.BuiltIn,
             is SpecType.Single.FromUser,
@@ -666,11 +681,10 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
             //Logic related to Parametric Contracts
             is SpecType.Group.ContractRuleType -> NodeType.CONTRACT
 
-            is SpecType.Single.GeneratedFromBasicRule -> NodeType.SANITY
-
             //Logic related to Asserts
             SpecType.Single.InCodeAssertions,
-            is SpecType.Single.MultiAssertSubRule -> NodeType.ASSERT_SUBRULE_AUTO_GEN
+            is SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule -> NodeType.ASSERT_SUBRULE_AUTO_GEN
+            is SpecType.Single.GeneratedFromBasicRule.SanityRule -> NodeType.SANITY
         }
     }
 
@@ -680,6 +694,11 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         }
     }
 
+    fun addChildNode(childRuleIdentifier: DisplayableIdentifier, parentRuleIdentifier: DisplayableIdentifier, nodeType: NodeType) {
+        synchronized(this) {
+            tree.addChildNode(childRuleIdentifier, parentRuleIdentifier, nodeType, null)
+        }
+    }
     fun signalStart(rule: IRule) {
         synchronized(this) {
             logger.info { "Signaled start of rule ${rule.ruleIdentifier.displayName}" }
@@ -855,7 +874,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                                             rule = null,
                                             status = computeFinalStatus(results.result, results.rule),
                                             outputFiles = listOf(outputFileName),
-                                            location = assertMeta.cvlRange as? TreeViewLocation,
+                                            location = assertMeta.range as? TreeViewLocation,
                                             verifyTime = results.verifyTime
                                         )
                                     }
@@ -892,6 +911,39 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         }
     }
 
+
+    /**
+     * IMPORTANT: Please be aware that this is only used in the Solana / Soroban / TAC flow.
+     * The CVL/Solidity flow builds the rule tree manually by calling [registerSubruleOf] and [addTopLevelRule] explicitly
+     * (see [RuleChecker]).
+     *
+     * This function takes as input all [rules] that are to be processed and builds the rule
+     * tree based on the ruleType ([SpecType]).
+     *
+     * If the ruleType of a rule someRule is a [GeneratedFromBasicRule], the rule tree will be
+     *  parentRule
+     *  -> someRule
+     * where parentRule is the original rule that someRule was derived from.
+     *
+     * Examples for the Solana Flow: The list [rules] contains all split rules when running in mode [Config.MultiAssertCheck],
+     * alternatively, the list contains vacuity checks when [Config.DoSanityChecksForRules] is set to [SanityValues.BASIC].
+     * All these rules are derived from the original rule.
+     *
+     * Note: This function currently only supports one level of [GeneratedFromBasicRule] and doesn't build the tree recursively,
+     * in the case the parentRule is of ruleType [GeneratedFromBasicRule] again.
+     */
+    fun buildRuleTree(rules: Iterable<IRule>) {
+        rules.forEach { rule ->
+            when (rule.ruleType) {
+                is SpecType.Single.GeneratedFromBasicRule -> {
+                    val parentRule = rule.ruleType.getOriginatingRule()!!
+                    addTopLevelRule(parentRule)
+                    registerSubruleOf(rule, parentRule)
+                }
+                else -> addTopLevelRule(rule)
+            }
+        }
+    }
     /**
      * Returns a list of pairs consisting of the rule identifier, and a string (multiline) for detailed error-printing.
      */
@@ -917,7 +969,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
 
     /** Collect all paths in the given tree. Each path goes from root to leaf. */
     @TestOnly
-    fun paths(): Set<List<DisplayableIdentifier>> {
+    fun pathsToLeaves(): Set<List<DisplayableIdentifier>> {
         val paths = mutableSetOf<List<DisplayableIdentifier>>()
         fun rec(node: DisplayableIdentifier, prefix: List<DisplayableIdentifier>) {
             when (val children = tree.getChildren(node)) {
@@ -930,7 +982,10 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         rec(ROOT_NODE_IDENTIFIER, emptyList())
         return paths
     }
-
+    @TestOnly
+    fun nodes(): Set<DisplayableIdentifier> {
+        return tree.getAllNodes().filterToSet { it != ROOT_NODE_IDENTIFIER }
+    }
     /**
      * This invariant is violated if there is any adjacent pair `(parent, child)` on any path in the tree, going from
      * root to leaf, such that `parent.status < child.status` or `!parent.isRunning && child.isRunning`.
@@ -939,7 +994,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
     fun findNotMonotonicallyDescendingPath(): List<DisplayableIdentifier>? {
         fun <T : Comparable<T>> Iterable<T>.isNotDescending(lt: (T, T) -> Boolean) =
             this.zipWithNext().any { (l, r) -> lt(l, r) }
-        return paths().find { path ->
+        return pathsToLeaves().find { path ->
             val suffix = path.drop(1) // can't get result node for the root
             val statuses = suffix.map { di -> tree.getResultForNode(di).status }
             val isRunnings = suffix.map { di -> tree.getResultForNode(di).isRunning }
@@ -983,7 +1038,7 @@ class OutputReportView(
 
 private fun IRule.treeViewLocation(): TreeViewLocation? {
     /** for parametric rules, we instead use the range of the instantiated method(s) - even if it's empty */
-    val range = (this as? CVLSingleRule)?.methodInstantiationRange() ?: this.cvlRange
+    val range = (this as? CVLSingleRule)?.methodInstantiationRange() ?: this.range
 
     return range as? TreeViewLocation
 }

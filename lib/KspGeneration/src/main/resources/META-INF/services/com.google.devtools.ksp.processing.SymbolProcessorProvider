@@ -7,3 +7,4 @@ ksp.parser.TACCmdPrinterGeneratorProvider
 ksp.serialization.SerializersModuleProvider
 ksp.hooks.OpcodeHooksProvider
 ksp.hooks.CVLHookProvider
+ksp.typeextender.TACTypeExtenderProvider

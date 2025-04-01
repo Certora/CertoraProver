@@ -20,7 +20,7 @@ package rules.sanity
 import rules.RuleCheckResult
 import rules.sanity.SanityCheckResult.Companion.join
 import rules.sanity.sorts.SanityCheckSort
-import spec.cvlast.CVLSingleRule
+import spec.rules.CVLSingleRule
 import spec.cvlast.SpecType
 
 /**

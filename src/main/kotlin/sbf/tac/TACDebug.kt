@@ -20,10 +20,12 @@ package sbf.tac
 import sbf.cfg.SbfInstruction
 import vc.data.TACCmd
 
-private val DEBUG_INLINED_FUNC_START = tac.MetaKey<String>("debug.sbf.function.start")
-private val DEBUG_INLINED_FUNC_END = tac.MetaKey<String>("debug.sbf.function.end")
-private val DEBUG_UNREACHABLE_CODE = tac.MetaKey<String>("debug.unreachable_code")
-private val DEBUG_EXTERNAL_CALL = tac.MetaKey<String>("debug.external_call")
+private val DEBUG_INLINED_FUNC_START_FROM_ANNOT = tac.MetaKey<SbfInlinedFuncStartAnnotation>("debug.sbf.function_start")
+private val DEBUG_INLINED_FUNC_END_FROM_ANNOT = tac.MetaKey<SbfInlinedFuncEndAnnotation>("debug.sbf.function_end")
+public val DEBUG_INLINED_FUNC_START = tac.MetaKey<String>("debug.sbf.function_start")
+public val DEBUG_INLINED_FUNC_END = tac.MetaKey<String>("debug.sbf.function_end")
+public val DEBUG_UNREACHABLE_CODE = tac.MetaKey<String>("debug.sbf.unreachable")
+public val DEBUG_EXTERNAL_CALL = tac.MetaKey<String>("debug.sbf.external_call")
 
 /** This class annotates TAC to make easier debugging (only for devs) **/
 object Debug {
@@ -37,21 +39,19 @@ object Debug {
 
     fun satisfy(inst: SbfInstruction.Call): TACCmd.Simple = externalCall(inst)
 
-    fun startFunction(name: String, msg: String = ""): TACCmd.Simple {
-        return TACCmd.Simple.AnnotationCmd(
-            TACCmd.Simple.AnnotationCmd.Annotation(
-                DEBUG_INLINED_FUNC_START,
-                "$name$msg"
-            )
-        )
-    }
+    fun startFunction(name: String, msg: String = ""): TACCmd.Simple =
+        TACCmd.Simple.AnnotationCmd(
+            TACCmd.Simple.AnnotationCmd.Annotation(DEBUG_INLINED_FUNC_START, "$name$msg"))
 
-    fun endFunction(name: String, msg: String = ""): TACCmd.Simple {
-        return TACCmd.Simple.AnnotationCmd(
-            TACCmd.Simple.AnnotationCmd.Annotation(
-                DEBUG_INLINED_FUNC_END,
-                "$name$msg"
-            )
-        )
-    }
+    fun startFunction(annot: SbfInlinedFuncStartAnnotation): TACCmd.Simple =
+        TACCmd.Simple.AnnotationCmd(
+            TACCmd.Simple.AnnotationCmd.Annotation(DEBUG_INLINED_FUNC_START_FROM_ANNOT, annot))
+
+    fun endFunction(name: String, msg: String = ""): TACCmd.Simple =
+        TACCmd.Simple.AnnotationCmd(
+            TACCmd.Simple.AnnotationCmd.Annotation(DEBUG_INLINED_FUNC_END, "$name$msg"))
+
+    fun endFunction(annot: SbfInlinedFuncEndAnnotation): TACCmd.Simple =
+        TACCmd.Simple.AnnotationCmd(
+            TACCmd.Simple.AnnotationCmd.Annotation(DEBUG_INLINED_FUNC_END_FROM_ANNOT, annot))
 }

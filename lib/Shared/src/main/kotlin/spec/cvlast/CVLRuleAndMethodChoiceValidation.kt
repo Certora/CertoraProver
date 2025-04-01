@@ -91,13 +91,13 @@ fun validateRuleChoices(cvlAst: CVLAst) : VoidResult<CVLError> {
             errStr += " Did you mean rule ${allSuggestions[0]} or ${allSuggestions[1]}?"
         }
 
-        return CVLError.General(CVLRange.Empty(), errStr).asError()
+        return CVLError.General(Range.Empty(), errStr).asError()
     }
 
     // Now, check if the rule patterns actually match anything at all.
     val ruleChoices = Config.getRuleChoices(allRules)
     if (allRules.isNotEmpty() && ruleChoices.isEmpty()) {
-        return CVLError.General(CVLRange.Empty(), "the '--rule' and '--exclude_rule' patterns filtered out all rules").asError()
+        return CVLError.General(Range.Empty(), "the '--rule' and '--exclude_rule' patterns filtered out all rules").asError()
     }
 
     return ok

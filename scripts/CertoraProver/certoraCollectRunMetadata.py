@@ -27,8 +27,16 @@ scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 
 from CertoraProver.certoraContextClass import CertoraContext
+import CertoraProver.certoraContextAttributes as Attrs
 
 metadata_logger = logging.getLogger("metadata")
+
+def collect_args_with_jar_flags() -> List[str]:
+    return_array = []
+    for attr in Attrs.get_attribute_class().attribute_list():
+        if attr.jar_flag:
+            return_array.append(f"{attr.jar_flag},{attr.name.lower()},{str(attr.arg_type)}")
+    return return_array
 
 
 def get_main_spec(context: CertoraContext) -> Optional[str]:
@@ -78,6 +86,7 @@ class RunMetaData:
         self.certora_ci_client = Utils.get_certora_ci_name()
         self.timestamp = str(datetime.now(timezone.utc).timestamp())
         _, self.CLI_package_name, self.CLI_version = Utils.get_package_and_version()
+        self.jar_flag_info = collect_args_with_jar_flags()
 
     def __repr__(self) -> str:
         return (
@@ -95,6 +104,7 @@ class RunMetaData:
             f" group_id: {self.group_id}\n"
             f" python_version: {self.python_version}\n"
             f" CertoraCI client: {self.certora_ci_client}\n"
+            f" jar_flag_info: {self.jar_flag_info}\n"
         )
 
     @classmethod

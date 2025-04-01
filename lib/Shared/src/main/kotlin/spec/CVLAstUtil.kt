@@ -32,6 +32,7 @@ import spec.cvlast.typechecker.DuplicatePreserved
 import spec.cvlast.typechecker.ExplicitPreservedOnExtensionContract
 import spec.cvlast.typedescriptors.FromVMContext
 import spec.cvlast.typedescriptors.PrintingContext
+import spec.rules.*
 import utils.*
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.flatten
@@ -55,7 +56,7 @@ data class CVL(
     val name: String,
     val primaryContract: SolidityContract,
     val importedFuncs: Map<ContractInstanceInSDC, List<ContractFunction>>, // only funcs from "methods" section, usually one needs to use "availableMethods"
-    val rules: List<IRule>,
+    val rules: List<ICVLRule>,
     val subs: List<CVLFunction>,
     val invariants: List<CVLInvariant>,
     val sorts: List<SortDeclaration>,
@@ -313,10 +314,10 @@ class GenerateRulesForInvariantsAndEnvFree(
 
 
     companion object {
-        fun assumeInvariant(inv: CVLInvariant, ruleScope: CVLScope, msg: String = "assume ${inv.invariantType.getShortName().lowercase()} invariant in pre-state", /*The range that should be associated with this assume for JTS information*/ range: CVLRange = inv.cvlRange) =
+        fun assumeInvariant(inv: CVLInvariant, ruleScope: CVLScope, msg: String = "assume ${inv.invariantType.getShortName().lowercase()} invariant in pre-state", /*The range that should be associated with this assume for JTS information*/ range: Range = inv.range) =
             CVLCmd.Simple.AssumeCmd.Assume(range, ExpScopeRelocator(ruleScope).expr(inv.exp).safeForce(), invariantPreCond = true, scope = ruleScope).wrapWithMessageLabel(msg)
 
-        fun assertInvariant(inv: CVLInvariant, ruleScope: CVLScope, msg: String = "assert ${inv.invariantType.getShortName().lowercase()} invariant in post-state", /*The range that should be associated with this assert for JTS information*/ range: CVLRange = inv.cvlRange) =
+        fun assertInvariant(inv: CVLInvariant, ruleScope: CVLScope, msg: String = "assert ${inv.invariantType.getShortName().lowercase()} invariant in post-state", /*The range that should be associated with this assert for JTS information*/ range: Range = inv.range) =
             CVLCmd.Simple.Assert(range, ExpScopeRelocator(ruleScope).expr(inv.exp).safeForce(), msg, ruleScope, invariantPostCond=true).wrapWithMessageLabel(msg)
 
         fun getInstrumentedPreservedBlock(preserved: CVLPreserved, ruleScope: CVLScope): List<CVLCmd> =
@@ -348,7 +349,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                 }
                 if (funcsThatMatch.isEmpty()) {
                     return CVLError.General(
-                        preserved.cvlRange,
+                        preserved.range,
                         "Could not find an imported function with a matching signature for this preserved block: \"$preserved\"."
                     ).asError()
                 }
@@ -357,7 +358,7 @@ class GenerateRulesForInvariantsAndEnvFree(
 
 
         if (inv.methodParamFilters.methodParamToFilter.keys.size > 1) {
-            return CVLError.General(inv.methodParamFilters.cvlRange,
+            return CVLError.General(inv.methodParamFilters.range,
                 "filtered expression for invariants must take a single input variable, got ${inv.methodParamFilters.methodParamToFilter.keys} for ${inv.id}"
             ).asError()
         }
@@ -368,9 +369,9 @@ class GenerateRulesForInvariantsAndEnvFree(
             } else {
                 null
             }
-            withScopeAndRange(ruleScope, inv.cvlRange) {
+            withScopeAndRange(ruleScope, inv.range) {
                 val methodsFilter = MethodParamFilters.dontCallFilters(
-                    inv.cvlRange,
+                    inv.range,
                     ruleScope,
                     setOf(inv.methodParamId),
                     dontCall = explicitFunctions + getNonStateModifyingFuncsInDeployedContracts(),
@@ -381,7 +382,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                 ).let { dontCallMethodsFilter ->
                     // take the conjunct with the usual don't call filter
                     MethodParamFilters.conjunct(
-                        inv.methodParamFilters.cvlRange, ruleScope, dontCallMethodsFilter, inv.methodParamFilters
+                        inv.methodParamFilters.range, ruleScope, dontCallMethodsFilter, inv.methodParamFilters
                     )
                 }
 
@@ -398,14 +399,14 @@ class GenerateRulesForInvariantsAndEnvFree(
                 )
 
                 val newParams: List<CVLParam> = inv.params + listOf(
-                    CVLParam(EVMBuiltinTypes.method, inv.methodParamId, CVLRange.Empty()),
-                    CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, "invariantCalldata", CVLRange.Empty()),
-                    CVLParam(EVMBuiltinTypes.env, instrumentedEnv.id, CVLRange.Empty())
+                    CVLParam(EVMBuiltinTypes.method, inv.methodParamId, Range.Empty()),
+                    CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, "invariantCalldata", Range.Empty()),
+                    CVLParam(EVMBuiltinTypes.env, instrumentedEnv.id, Range.Empty())
                 )
                 val declId =  "Using general requirements"
                 CVLSingleRule(
                     inv.uniqueRuleIdentifier.freshDerivedIdentifier(declId),
-                    inv.cvlRange,
+                    inv.range,
                     newParams,
                     "Invariant breached",
                     "Invariant preserved",
@@ -523,7 +524,7 @@ class GenerateRulesForInvariantsAndEnvFree(
 
                     val lastStorage = CVLExp.VariableExp(
                         CVLKeywords.lastStorage.keyword, CVLExpTag(
-                            cvlRange = inv.cvlRange,
+                            range = inv.range,
                             scope = ruleScope,
                             type = CVLType.PureCVLType.VMInternal.BlockchainState
                         )
@@ -533,23 +534,23 @@ class GenerateRulesForInvariantsAndEnvFree(
                     val args = cvlParams.map {
                         CVLExp.VariableExp(
                             it.id, tag = CVLExpTag(
-                                scope = ruleScope, type = it.type, cvlRange = inv.cvlRange
+                                scope = ruleScope, type = it.type, range = inv.range
                             )
                         )
                     }
                     val env = preserved.withParams.singleOrNull {
                         it.type isSubtypeOf EVMBuiltinTypes.env
                     }?.let(::listOf) ?: listOf()
-                    invoke = CVLCmd.Simple.Apply(cvlRange = preserved.cvlRange,
+                    invoke = CVLCmd.Simple.Apply(range = preserved.range,
                         exp = CVLExp.ApplyExp.ContractFunction.Concrete(
                             args = env.map {
                                 CVLExp.VariableExp(
-                                    it.id, CVLExpTag(cvlRange = preserved.cvlRange, scope = ruleScope, type = it.type)
+                                    it.id, CVLExpTag(range = preserved.range, scope = ruleScope, type = it.type)
                                 )
                             } + args,
                             tag = CVLExpTag(
                                 type = CVLType.PureCVLType.Void,
-                                cvlRange = preserved.cvlRange,
+                                range = preserved.range,
                                 scope = ruleScope
                             ),
                             noRevert = true,
@@ -583,14 +584,14 @@ class GenerateRulesForInvariantsAndEnvFree(
 
                     CVLSingleRule(
                         inv.uniqueRuleIdentifier.freshDerivedIdentifier(ruleName),
-                        inv.cvlRange,
+                        inv.range,
                         newParams, //TODO: unique name per function or merge to single rule
                         "Invariant breached when calling ${preserved.methodSignature}",
                         "Invariant preserved",
                         block,
                         SpecType.Single.InvariantCheck.ExplicitPreservedInductionStep(inv, preserved.methodSignature),
                         ruleScope,
-                        MethodParamFilters.noFilters(inv.cvlRange, ruleScope),
+                        MethodParamFilters.noFilters(inv.range, ruleScope),
                         SingleRuleGenerationMeta.Empty,
                     )
                 }
@@ -631,7 +632,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                         "invariantCalldata",
                         tag = CVLExpTag(
                             scope = ruleScope,
-                            cvlRange = inv.cvlRange,
+                            range = inv.range,
                             type = CVLType.PureCVLType.VMInternal.RawArgs
                         )
                     )
@@ -639,20 +640,20 @@ class GenerateRulesForInvariantsAndEnvFree(
             )
 
             val newParams: List<CVLParam> = inv.params + listOf(
-                CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, "invariantCalldata", CVLRange.Empty()),
-                CVLParam(EVMBuiltinTypes.env, instrumentedEnv.id, CVLRange.Empty())
+                CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, "invariantCalldata", Range.Empty()),
+                CVLParam(EVMBuiltinTypes.env, instrumentedEnv.id, Range.Empty())
             )
 
             CVLSingleRule(
                 inv.uniqueRuleIdentifier.freshDerivedIdentifier(CVLReservedVariables.certorafallback_0.name),
-                inv.cvlRange,
+                inv.range,
                 newParams,
                 "Invariant breached when calling the fallback function",
                 "Invariant preserved",
                 fallbackPreservedBlock + block,
                 SpecType.Single.InvariantCheck.GenericPreservedInductionStep(inv),
                 ruleScope,
-                MethodParamFilters.noFilters(inv.cvlRange, ruleScope),
+                MethodParamFilters.noFilters(inv.range, ruleScope),
                 SingleRuleGenerationMeta.Empty
             )
         }
@@ -666,7 +667,7 @@ class GenerateRulesForInvariantsAndEnvFree(
         }
 
         return inv.scope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
-            withScopeAndRange(scope, cvlRange = inv.cvlRange) {
+            withScopeAndRange(scope, range = inv.range) {
                 val initParams = listOf(
                     CVLExp.VariableExp("initEnv", tag = EVMBuiltinTypes.env.asTag()),
                     CVLExp.VariableExp("initCalldata", tag = CVLType.PureCVLType.VMInternal.RawArgs.asTag())
@@ -678,13 +679,13 @@ class GenerateRulesForInvariantsAndEnvFree(
                 val block =
                     // technically should be only the current contract? or let the user choose?
                     CVLCmd.Simple.ResetStorage(
-                        inv.cvlRange,
+                        inv.range,
                         CVLExp.VariableExp(CVLKeywords.allContracts.name, tag = CVLType.PureCVLType.Primitive.AccountIdentifier.asTag()),
                         scope
                     ).wrapWithMessageLabel("Reset storages to 0") +
                     assumes.wrapWithMessageLabel("Init state axioms") +
                     CVLCmd.Simple.contractFunction(
-                        inv.cvlRange,
+                        inv.range,
                         scope,
                         UniqueMethod(
                            SolidityContract(mainContract.name),
@@ -698,20 +699,20 @@ class GenerateRulesForInvariantsAndEnvFree(
                     ) +
                     assertInvariant(inv, scope)
                 val newParams: List<CVLParam> = inv.params + listOf(
-                    CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, "initCalldata", CVLRange.Empty()),
-                    CVLParam(EVMBuiltinTypes.env, "initEnv", CVLRange.Empty())
+                    CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, "initCalldata", Range.Empty()),
+                    CVLParam(EVMBuiltinTypes.env, "initEnv", Range.Empty())
                 )
                 val declId = "Induction base: After the constructor"
                 CVLSingleRule(
                     inv.uniqueRuleIdentifier.freshDerivedIdentifier(declId),
-                    inv.cvlRange,
+                    inv.range,
                     newParams,
                     "Initial state does not instate invariant",
                     "Initial state instates invariant",
                     block,
                     SpecType.Single.InvariantCheck.InductionBase(inv),
                     scope,
-                    MethodParamFilters.noFilters(inv.cvlRange, scope),
+                    MethodParamFilters.noFilters(inv.range, scope),
                     SingleRuleGenerationMeta.Empty
                 )
             }
@@ -725,10 +726,10 @@ class GenerateRulesForInvariantsAndEnvFree(
             return null
         }
         return inv.scope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
-            withScopeAndRange(scope, cvlRange = inv.cvlRange) {
+            withScopeAndRange(scope, range = inv.range) {
                 val block = assumeInvariant(inv,scope) +
                     listOf(CVLCmd.Simple.ResetTransientStorage(
-                        inv.cvlRange,
+                        inv.range,
                         // xxx think of which variable need to be reset and when.
                         CVLExp.VariableExp(CVLKeywords.allContracts.name, tag = CVLType.PureCVLType.Primitive.AccountIdentifier.asTag()),
                         scope
@@ -742,18 +743,18 @@ class GenerateRulesForInvariantsAndEnvFree(
                     } else {
                         null
                     }
-                    withScopeAndRange(ruleScope, inv.cvlRange) {
+                    withScopeAndRange(ruleScope, inv.range) {
 
                         //Adding the parameters of a generic preserved block.
                         val instrumentedEnv = preservedInstrumentedEnv(preservedOnTransactionBoundary, ruleScope)
 
                         val newParams: List<CVLParam> = inv.params + listOf(
-                            CVLParam(EVMBuiltinTypes.env, instrumentedEnv.id, CVLRange.Empty())
+                            CVLParam(EVMBuiltinTypes.env, instrumentedEnv.id, Range.Empty())
                         )
                         val declId = "Induction step: Reset transient storage"
                         CVLSingleRule(
                             inv.uniqueRuleIdentifier.freshDerivedIdentifier(declId),
-                            inv.cvlRange,
+                            inv.range,
                             newParams,
                             "Invariant does not hold when transient storage is reset.",
                             "Verification of the following steps failed: Assuming the invariant, resetting transient storage and asserting the invariant.",
@@ -764,7 +765,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                             },
                             SpecType.Single.InvariantCheck.TransientStorageStep(inv),
                             ruleScope,
-                            MethodParamFilters.noFilters(inv.cvlRange, ruleScope),
+                            MethodParamFilters.noFilters(inv.range, ruleScope),
                             SingleRuleGenerationMeta.Empty
                         )
                     }
@@ -785,7 +786,7 @@ class GenerateRulesForInvariantsAndEnvFree(
      */
     private fun preservedInstrumentedEnv(preservedBlock: CVLPreserved?, scope: CVLScope): CVLExp.VariableExp {
         val envTag = CVLExpTag(scope = scope,
-            cvlRange = preservedBlock?.cvlRange ?: CVLRange.Empty(),
+            range = preservedBlock?.range ?: Range.Empty(),
             type = EVMBuiltinTypes.env)
         val defaultEnv: CVLExp.VariableExp = CVLExp.VariableExp("invariantEnv", tag = envTag)
         return if (preservedBlock != null) {
@@ -814,7 +815,7 @@ class GenerateRulesForInvariantsAndEnvFree(
     ): List<CVLCmd> =
         assumeInvariant(inv, ruleScope) +
         CVLCmd.Simple.contractFunction(
-            inv.cvlRange,
+            inv.range,
             ruleScope,
             if (isFallback) {
                 UniqueMethod(
@@ -827,7 +828,7 @@ class GenerateRulesForInvariantsAndEnvFree(
             },
             instrumentedParams,
             true,
-            CVLExp.VariableExp(CVLKeywords.lastStorage.keyword, tag = CVLExpTag(scope = ruleScope, type = CVLKeywords.lastStorage.type, cvlRange = inv.cvlRange)),
+            CVLExp.VariableExp(CVLKeywords.lastStorage.keyword, tag = CVLExpTag(scope = ruleScope, type = CVLKeywords.lastStorage.type, range = inv.range)),
             isParametric = !isFallback,
             methodParamFilter = null
         ).wrapWithMessageLabel("check effects of step taken by one of the functions") +
@@ -839,7 +840,7 @@ class GenerateRulesForInvariantsAndEnvFree(
             val invariantIdentifier = RuleIdentifier.freshIdentifier(inv.id)
             CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { invScope ->
                 GroupRule(
-                    invariantIdentifier, inv.cvlRange,
+                    invariantIdentifier, inv.range,
                     listOfNotNull(initstateInvariantScenario(inv), resetTransientStorageRule(inv)) +
                         invScope.extendIn(CVLScope.Item::RuleScopeItem) { inductionStepScope ->
                             val inductionStepDisplayName = if(inv.invariantType == StrongInvariantType) {
@@ -850,7 +851,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                             val inductionStepId = invariantIdentifier.freshDerivedIdentifier(inductionStepDisplayName)
                             GroupRule(
                                 inductionStepId,
-                                inv.cvlRange,
+                                inv.range,
                                 listOfNotNull(
                                     invPreserve,
                                     preserveFallbackScenario(inv),
@@ -860,7 +861,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                                             val explicitPreservedIdentifier = inductionStepId.freshDerivedIdentifier(specificDeclId)
                                             GroupRule(
                                                 explicitPreservedIdentifier,
-                                                inv.cvlRange,
+                                                inv.range,
                                                 explicitPreservedRules,
                                                 SpecType.Group.InvariantCheck.CustomInductionSteps(inv),
                                                 explicitPreservedScope,
@@ -881,7 +882,7 @@ class GenerateRulesForInvariantsAndEnvFree(
         }
     }
 
-    private fun ruleEnvfreeFuncsStatic(): IRule? {
+    private fun ruleEnvfreeFuncsStatic(): ICVLRule? {
         val envfreeFuncsToCheck = importedFuncs.filter { func ->
             func.annotation.envFree &&
                 // A func marked as virtual that has no evmExternalMethodInfo has no known implementation so
@@ -896,7 +897,7 @@ class GenerateRulesForInvariantsAndEnvFree(
         return CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { groupRuleScope ->
             GroupRule(
                 envGroupIdentifier,
-                CVLRange.Empty(),
+                Range.Empty(),
                 envfreeFuncsToCheck.map { envfreeFunc ->
                     val ruleId = if (envfreeFunc.methodSignature.qualifiedMethodName.host.name == mainContract.name) {
                         ""
@@ -911,7 +912,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                             (cvlAst.importedMethods.find {
                                 it is ConcreteMethodBlockAnnotation &&
                                     it.name == envfreeFunc.methodSignature.functionName
-                            } as ConcreteMethodBlockAnnotation).cvlRange,
+                            } as ConcreteMethodBlockAnnotation).range,
                         )
                     }
                 },
@@ -921,7 +922,7 @@ class GenerateRulesForInvariantsAndEnvFree(
         }
     }
 
-    fun generatedRules(): CollectingResult<List<IRule>, CVLError> {
+    fun generatedRules(): CollectingResult<List<ICVLRule>, CVLError> {
         return cvlAst.invs.filter { it.needsVerification }.map { rulesOfInvariant(it) }.flatten().map { invRules ->
             invRules + listOfNotNull(ruleEnvfreeFuncsStatic())
         }

@@ -27,7 +27,15 @@ import vc.data.TACCmd
 import vc.data.TACMeta
 import vc.data.find
 
-data class CVLLabelStackPushRecord(val ptr: CmdPointer, val annot: TACCmd.Simple.AnnotationCmd.Annotation<*>, val id: Int)
+data class CVLLabelStackPushRecord(val ptr: CmdPointer, val annot: TACCmd.Simple.AnnotationCmd.Annotation<*>, val id: Int) {
+    override fun toString(): String = when (annot.v) {
+        is Inliner.CallStack.PushRecord -> "STACK_PUSH of $id at $ptr"
+        is SnippetCmd.CVLSnippetCmd.CVLFunctionStart -> "CVLFunctionStart of $id ${annot.v.name} at $ptr"
+        is SnippetCmd.CVLSnippetCmd.EventID -> "EventID $id at $ptr"
+        is CVLReportLabel -> "CVLReportLabel $id ${annot.v} at $ptr"
+        else -> "CVLLabelStackPushRecord(ptr=$ptr, annot=$annot, id=$id)"
+    }
+}
 
 /**
  * A stack of annotations such labels, function starts, etc. that should always have a matching end annotation
@@ -49,7 +57,7 @@ class CVLLabelStack(graph: TACCommandGraph, check: Boolean = true):
                             val top = stack.top.annot.v
                             val curr = cmd.cmd.annot.v as Inliner.CallStack.PopRecord
                             check(top is Inliner.CallStack.PushRecord && top.calleeId == curr.calleeId) {
-                                "Expected matching stack top for pop of STACK_POP ${curr.calleeId}, got $top"
+                                "Expected matching stack top for pop of STACK_POP ${curr.calleeId} at ${cmd.ptr}, got ${stack.top}"
                             }
                         }
                         return PopAction()
@@ -64,7 +72,7 @@ class CVLLabelStack(graph: TACCommandGraph, check: Boolean = true):
                                     val top = stack.top.annot.v
                                     val curr = cmd.cmd.annot.v
                                     check(top is SnippetCmd.CVLSnippetCmd.CVLFunctionStart && top.callIndex == curr.callIndex) {
-                                        "Expected matching stack top for pop of CVLFunctionEnd ${curr.callIndex}, got $top"
+                                        "Expected matching stack top for pop of CVLFunctionEnd ${curr.callIndex} at ${cmd.ptr}, got ${stack.top}"
                                     }
                                 }
                                 return PopAction()
@@ -82,7 +90,7 @@ class CVLLabelStack(graph: TACCommandGraph, check: Boolean = true):
                             val top = stack.top
                             val curr = cmd.cmd.annot.v as Int
                             check(top.annot.v is CVLReportLabel || top.annot.v is SnippetCmd.CVLSnippetCmd.EventID && top.id == curr) {
-                                "Expected matching stack top for pop of CVL_LABEL_END ${curr}, got ${top.annot.v} with id ${top.id} and $stack"
+                                "Expected matching stack top for pop of CVL_LABEL_END $curr at ${cmd.ptr}, got ${stack.top}"
                             }
                         }
                         return PopAction()

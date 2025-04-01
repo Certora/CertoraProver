@@ -1,0 +1,16 @@
+The function pair (C.addN1(), C.setM1(address a)) is commutative
+The function pair (C.addN1(), C.addM1(address a)) is commutative
+The function pair (C.addN1(), C.subM2(address a)) is commutative
+The function pair (C.setM1(address a), C.subN2()) is commutative
+The function pair (C.setM1(address a), C.setN1()) is commutative
+The function pair (C.subN2(), C.addM1(address a)) is commutative
+The function pair (C.subN2(), C.subM2(address a)) is commutative
+The function pair (C.addM1(address a), C.setN1()) is commutative
+The function pair (C.setN1(), C.subM2(address a)) is commutative
+The function C.subM2(address a) doesn't modify the storage accessed by the condition of nNonNegative
+The function C.addM1(address a) doesn't modify the storage accessed by the condition of nNonNegative
+The function C.setM1(address a) doesn't modify the storage accessed by the condition of nNonNegative
+The function C.setN1() doesn't modify the storage accessed by the condition of mCurrentContractNonNegative
+The function C.addN1() doesn't modify the storage accessed by the condition of mCurrentContractNonNegative
+The function C.subN2() doesn't modify the storage accessed by the condition of mCurrentContractNonNegative
+The function C.setN1() is idempotent

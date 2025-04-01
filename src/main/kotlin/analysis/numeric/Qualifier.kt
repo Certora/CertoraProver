@@ -46,6 +46,8 @@ interface Qualifier<out Self> {
      */
     fun relates(v: TACSymbol.Var): Boolean
 
+    fun relatesAny(vars: Collection<TACSymbol.Var>) = vars.any { relates(it) }
+
     /**
      * Saturate the information represented by this qualifier with the equalities represented by
      * [equivClasses]

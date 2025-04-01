@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Tag
 @SolidityVersions(
     [
 
-        SolidityVersion.V8_2, SolidityVersion.V8_9, SolidityVersion.V8_11, SolidityVersion.V8_13, SolidityVersion.V8_16, SolidityVersion.V8_28
+        SolidityVersion.V8_2, SolidityVersion.V8_9, SolidityVersion.V8_11, SolidityVersion.V8_13, SolidityVersion.V8_16, SolidityVersion.V8_29
     ]
 )
 @Tag(EXPENSIVE)

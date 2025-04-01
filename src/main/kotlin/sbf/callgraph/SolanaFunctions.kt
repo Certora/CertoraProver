@@ -25,6 +25,7 @@ import sbf.cfg.MetaData
 import sbf.domains.MemSummaryArgument
 import sbf.domains.MemSummaryArgumentType
 import sbf.domains.MemorySummaries
+import sbf.domains.MemorySummary
 
 /**
  *  Solana syscalls
@@ -176,7 +177,7 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 16, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 24, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 32, width = 8, type = MemSummaryArgumentType.NUM))
-                        memSummaries.addSummary(f.syscall.name, summaryArgs)
+                        memSummaries.addSummary(f.syscall.name, MemorySummary(summaryArgs))
                     }
 
                 }

@@ -22,7 +22,7 @@ import analysis.split.SplitRewriter
 import analysis.storage.DisplayPath
 import analysis.storage.singleDisplayPathOrNull
 import datastructures.stdcollections.*
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import utils.updateInPlace
 import vc.data.*
@@ -71,7 +71,7 @@ class StorageAnalysisSuccess(patcher: SimplePatchingProgram, contId: BigInteger,
         loc: TACSymbol?,
         value: TACSymbol?,
         storageType: EVMTypeDescriptor.EVMValueType?,
-        range: CVLRange.Range?,
+        range: Range.Range?,
     ) {
         if (loc !is TACSymbol.Var) {
             // we have no display path since there is no meta in this case --> make a raw snippet

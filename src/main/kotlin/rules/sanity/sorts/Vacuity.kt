@@ -26,7 +26,7 @@ import rules.sanity.*
 import rules.sanity.SanityCheckResultOrdinal.Companion.toDefaultSanityCheckResultOrdinal
 import solver.SolverResult
 import spec.cvlast.SpecType
-import spec.cvlast.IRule
+import spec.rules.IRule
 import datastructures.stdcollections.*
 
 data object Vacuity : SanityCheckSort.FunctionDependent<RuleCheckResult.Single, IRule> {
@@ -69,7 +69,7 @@ data object Vacuity : SanityCheckSort.FunctionDependent<RuleCheckResult.Single, 
         _sanityCheckResults: List<SanityDPResult>
     ): SanityResultsView.FunctionDependent<RuleCheckResult.Single> =
         SanityResultsView.FunctionDependent<RuleCheckResult.Single,
-                SpecType.Single.GeneratedFromBasicRule.VacuityCheck, IRule>(
+                SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck, IRule>(
             _baseResults,
             _sanityCheckResults,
             this

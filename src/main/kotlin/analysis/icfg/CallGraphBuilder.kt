@@ -4313,12 +4313,11 @@ object CallGraphBuilder {
                 val graph = (m.code as? CoreTACProgram)?.analysisCache?.graph
                 val rangeWithMsgDetails = getSourceHintWithRange(e.where, graph, m)
                 CVTAlertReporter.reportAlert(
-                    CVTAlertType.ANALYSIS,
+                    CVTAlertType.CALL_GRAPH,
                     CVTAlertSeverity.WARNING,
                     rangeWithMsgDetails.range,
                     "Call graph construction failed in contract ${m.getContainingContract().name}, " +
-                        "function ${m.soliditySignature ?: m.name}. ${rangeWithMsgDetails.additionalUserFacingMessage}",
-                    rangeWithMsgDetails.hint
+                        "function ${m.soliditySignature ?: m.name}. ${rangeWithMsgDetails.additionalUserFacingMessage}"
                 )
                 null to null
             } catch (e: Exception) {
@@ -4326,7 +4325,7 @@ object CallGraphBuilder {
                 Logger.alwaysError("Severe error occurred trying to build callgraph from points-to information in $m", e)
                 recordSuccess("$m", ANALYSIS_SUCCESS_STATS_KEY, ANALYSIS_CALLGRAPH_SUBKEY,false)
                 CVTAlertReporter.reportAlert(
-                    CVTAlertType.ANALYSIS,
+                    CVTAlertType.CALL_GRAPH,
                     CVTAlertSeverity.WARNING,
                     null,
                     "Call graph construction failed in contract ${m.getContainingContract().name}, " +

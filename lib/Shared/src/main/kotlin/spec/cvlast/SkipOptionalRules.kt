@@ -17,6 +17,9 @@
 
 package spec.cvlast
 
+import spec.rules.CVLSingleRule
+import spec.rules.GroupRule
+import spec.rules.ICVLRule
 import utils.CollectingResult
 import utils.CollectingResult.Companion.lift
 
@@ -67,14 +70,14 @@ class SkipOptionalRules(val symbolTable: CVLSymbolTable) {
     private val virtualFuncInvocationFinder = VirtualFuncInvocationFinder()
 
 
-    private fun skipMissingOptionalMethod(rule: CVLSingleRule): IRule =
+    private fun skipMissingOptionalMethod(rule: CVLSingleRule): ICVLRule =
         // One missing function is enough for us to skip the rule, hence the `firstNotNull`
         rule.block.firstNotNullOfOrNull { virtualFuncInvocationFinder.cmd(null, it) }?.let {
             // OK, this rule invokes a non-existent function, so let's mark it by changing the rule type.
             rule.copy(ruleType = it)
         } ?: rule
 
-    private fun skipMissingOptionalMethod(rule: IRule) : IRule {
+    private fun skipMissingOptionalMethod(rule: ICVLRule) : ICVLRule {
         return when (rule) {
             is CVLSingleRule -> skipMissingOptionalMethod(rule)
             is GroupRule -> rule.copy(rules = rule.rules.map { skipMissingOptionalMethod(it) })

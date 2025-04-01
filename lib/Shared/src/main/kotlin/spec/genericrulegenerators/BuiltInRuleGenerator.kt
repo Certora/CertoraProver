@@ -23,6 +23,7 @@ import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
 import spec.cvlast.typechecker.FuzzTestBirWithoutFoundryFlag
 import spec.cvlast.typechecker.InvalidMethodParamFiltersOnBuiltinRule
+import spec.rules.ICVLRule
 import utils.*
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.lift
@@ -39,11 +40,11 @@ sealed class BuiltInRuleGenerator {
 
     fun generate(
         scope: CVLScope,
-        cvlRange: CVLRange,
+        range: Range,
         mainContract: String,
         functionsFromSpecFileAndContracts: Map<ContractInstanceInSDC, List<ContractFunction>>
-    ): CollectingResult<IRule, CVLError> =
-        doGenerate(scope, cvlRange, mainContract, functionsFromSpecFileAndContracts).map {
+    ): CollectingResult<ICVLRule, CVLError> =
+        doGenerate(scope, range, mainContract, functionsFromSpecFileAndContracts).map {
             check (it.declarationId == eId.name) {
                 "Could not generate builtin rule $eId - got instead rule ${it.declarationId}"
             }
@@ -54,17 +55,17 @@ sealed class BuiltInRuleGenerator {
      * When we generate a BIR instance, it's useful to have a proper CVL Range.
      * This helps determine a range based on the range of its use declaration range
      * @param ast for the CVL object
-     * @return cvlRange of use site in the given AST, or Empty if not used
+     * @return range of use site in the given AST, or Empty if not used
      */
-    fun getCVLRange(ast: CVLAst) = ast.useDeclarations.builtInRulesInUse.find { it.id == eId.name }?.cvlRange
-        ?: CVLRange.Empty()
+    fun getRange(ast: CVLAst) = ast.useDeclarations.builtInRulesInUse.find { it.id == eId.name }?.range
+        ?: Range.Empty()
 
     protected abstract fun doGenerate(
         scope: CVLScope,
-        cvlRange: CVLRange,
+        range: Range,
         mainContract: String,
         functionsFromSpecFileAndContracts: Map<ContractInstanceInSDC, List<ContractFunction>>
-    ): CollectingResult<IRule,CVLError>
+    ): CollectingResult<ICVLRule,CVLError>
 
     data class BirsMetadata(val birUseDecl: UseDeclaration.BuiltInRule, val birId: BuiltInRuleId, val methodParamFilters: MethodParamFilters)
 
@@ -78,7 +79,7 @@ sealed class BuiltInRuleGenerator {
                 BuiltInRuleId.trustedMethods -> TrustedMethods(methodParamFilters).lift()
                 BuiltInRuleId.msgValueInLoopRule -> if (!methodParamFilters.isEmpty()) {
                     InvalidMethodParamFiltersOnBuiltinRule(
-                        birMetadata.birUseDecl.cvlRange,
+                        birMetadata.birUseDecl.range,
                         birId
                     ).asError()
                 } else {
@@ -86,7 +87,7 @@ sealed class BuiltInRuleGenerator {
                 }
                 BuiltInRuleId.viewReentrancy -> if (!methodParamFilters.isEmpty()) {
                     InvalidMethodParamFiltersOnBuiltinRule(
-                        birMetadata.birUseDecl.cvlRange,
+                        birMetadata.birUseDecl.range,
                         birId
                     ).asError()
                 } else {
@@ -97,10 +98,10 @@ sealed class BuiltInRuleGenerator {
                 BuiltInRuleId.verifyFoundryFuzzTests,
                 BuiltInRuleId.verifyFoundryFuzzTestsNoRevert -> {
                     if (!Config.Foundry.get()) {
-                        FuzzTestBirWithoutFoundryFlag(birMetadata.birUseDecl.cvlRange, birId).asError()
+                        FuzzTestBirWithoutFoundryFlag(birMetadata.birUseDecl.range, birId).asError()
                     } else if (!methodParamFilters.isEmpty()) {
                         InvalidMethodParamFiltersOnBuiltinRule(
-                            birMetadata.birUseDecl.cvlRange,
+                            birMetadata.birUseDecl.range,
                             birId
                         ).asError()
                     } else {

@@ -21,11 +21,11 @@ import com.certora.collect.*
 import rules.sanity.sorts.SanityCheckSort
 import rules.sanity.matchingSanityRule
 import spec.cvlast.SpecType
-import spec.cvlast.CVLSingleRule
-import spec.cvlast.IRule
+import spec.rules.CVLSingleRule
 import algorithms.TopologicalOrderException
 import algorithms.topologicalOrder
 import rules.*
+import spec.rules.ICVLRule
 
 /**
  * Generates a [DPGraph] from list of vertices. The generated graph has to be a DAG
@@ -53,9 +53,9 @@ interface DependenciesGenerator<T, R, S: R, E: R, @Treapable N : DPNode<T, R, S,
 /**
  * Totally disconnected graph of rules, currently used to compute the result of all the rules in [SpecChecker]
  */
-object TrivialRuleDependencies : DependenciesGenerator<IRule, RuleCheckResult, RuleCheckResult, Nothing, RuleNode> {
-    override fun DependenciesGenerator<IRule, RuleCheckResult, RuleCheckResult, Nothing, RuleNode>
-        .doGenerate(payloads: List<IRule>): DPGraph<IRule, RuleCheckResult, RuleCheckResult, Nothing, RuleNode> =
+object TrivialRuleDependencies : DependenciesGenerator<ICVLRule, RuleCheckResult, RuleCheckResult, Nothing, RuleNode> {
+    override fun DependenciesGenerator<ICVLRule, RuleCheckResult, RuleCheckResult, Nothing, RuleNode>
+        .doGenerate(payloads: List<ICVLRule>): DPGraph<ICVLRule, RuleCheckResult, RuleCheckResult, Nothing, RuleNode> =
         DPGraph(
             payloads.map { RuleNode(it) }.associateWith { emptySet() }
         ) { result, computationalTyp -> DPResult.Success(result, computationalTyp) }
@@ -84,7 +84,7 @@ object SanityRulesDependencies :
             val nodeType = if (compiledCVLRule.rule.ruleType is SpecType.Single.GeneratedFromBasicRule) {
                 SanityCheckNodeType.SanityCheck(
                     SanityCheckSort(
-                        compiledCVLRule.rule.ruleType as SpecType.Single.GeneratedFromBasicRule
+                        compiledCVLRule.rule.ruleType as SpecType.Single.GeneratedFromBasicRule.SanityRule
                     )
                 )
             } else {

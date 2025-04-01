@@ -25,6 +25,7 @@ import spec.CVLKeywords
 import spec.cvlast.*
 import spec.cvlast.transformer.CVLCmdTransformer
 import spec.cvlast.transformer.CVLExpTransformer
+import spec.rules.CVLSingleRule
 import utils.*
 import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
@@ -62,7 +63,7 @@ interface SanityRuleGenerator : ISanityRule {
 
 /**
  * Returns suffix declaration id for the assume command [this], based on its
- * [CVLRange] and whether it serves as a precondition of an invariant.
+ * [Range] and whether it serves as a precondition of an invariant.
  */
 fun CVLCmd.Simple.AssumeCmd.getAssumeSuffixDecId(): String =
     if (this is CVLCmd.Simple.AssumeCmd.Assume && this.invariantPreCond) {
@@ -72,12 +73,12 @@ fun CVLCmd.Simple.AssumeCmd.getAssumeSuffixDecId(): String =
     }
 
 /**
- * Returns suffix declaration id, based on the CVLRange of [this].
+ * Returns suffix declaration id, based on the range of [this].
  */
 fun CVLCmd.Simple.getSuffixDecId(): String {
-    return when (val range = this.cvlRange) {
-        is CVLRange.Empty -> range.toString()
-        is CVLRange.Range ->
+    return when (val range = this.range) {
+        is Range.Empty -> range.toString()
+        is Range.Range ->
             // for rules from the spec, all the CVL Ranges are supposed to exist. adding an offset + 1 to report the correct line number.
             "_${range.start.line.toInt() + 1}_${range.start.charByteOffset}"
     }
@@ -110,16 +111,16 @@ object GenerateRulesForVacuityCheck : SanityRuleGenerator {
             object : CVLCmdTransformer<Nothing>(expTransformer = CVLExpTransformer.copyTransformer()) {
                 override fun assertCmd(cmd: CVLCmd.Simple.Assert): CollectingResult<CVLCmd, Nothing> {
                     return CVLCmd.Simple.Definition(
-                        cvlRange = cmd.cvlRange,
+                        range = cmd.range,
                         type = null,
                         idL = listOf(
                             CVLLhs.Id(
-                                cvlRange = cmd.cvlRange,
+                                range = cmd.range,
                                 id = CVLKeywords.wildCardExp.keyword,
                                 tag = CVLExpTag(
                                     type = CVLKeywords.wildCardExp.type,
                                     scope = cmd.scope,
-                                    cvlRange = cmd.cvlRange
+                                    range = cmd.range
                                 )
                             )
                         ),
@@ -134,13 +135,13 @@ object GenerateRulesForVacuityCheck : SanityRuleGenerator {
         }
         val ret = assertToDefinition.cmdList(rule.block).flatten().safeForce() +
             CVLCmd.Simple.Assert(
-                cvlRange = rule.cvlRange,
+                range = rule.range,
                 description = "sanity check for rule ${rule.declarationId} succeeded",
                 exp = CVLExp.Constant.BoolLit(
                     false,
                     tag = CVLExpTag(
                         scope = rule.scope,
-                        cvlRange = CVLRange.Empty(),
+                        range = Range.Empty(),
                         type = CVLType.PureCVLType.Primitive.Bool
                     )
                 ),
@@ -156,7 +157,7 @@ object GenerateRulesForVacuityCheck : SanityRuleGenerator {
                 description = "sanity check (vacuity of rule) for rule ${rule.declarationId}",
                 goodDescription = "sanity check (vacuity of rule) for rule ${rule.declarationId}, this rule was added " +
                     "because the ${DoSanityChecksForRules.option.realOpt()} flag was set",
-                ruleType = SpecType.Single.GeneratedFromBasicRule.VacuityCheck(rule),
+                ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(rule),
             )
         )
     }
@@ -241,7 +242,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                         }
 
                         is CVLCmd.Composite.If -> {
-                            val matchBranch = branchScopes.filter { it.cmd.cvlRange == cmd.cvlRange }
+                            val matchBranch = branchScopes.filter { it.cmd.range == cmd.range }
                             // [assertCmd] is not nested in the current if command
 
                             if (matchBranch.isEmpty()) {
@@ -250,12 +251,12 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                                 blockOfNewCmds.add(
                                     cmd.copy(
                                         thenCmd = CVLCmd.Composite.Block(
-                                            cmd.thenCmd.cvlRange,
+                                            cmd.thenCmd.range,
                                             commandsFromThen,
                                             cmd.thenCmd.scope
                                         ),
                                         elseCmd = CVLCmd.Composite.Block(
-                                            cmd.elseCmd.cvlRange,
+                                            cmd.elseCmd.range,
                                             commandsFromElse,
                                             cmd.elseCmd.scope
                                         )
@@ -275,7 +276,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                                       } */
                                     is CVLScope.Item.BranchCmdScopeItem.IfCmdThenScopeItem -> {
                                         val requireIfCondition = CVLCmd.Simple.AssumeCmd.Assume(
-                                            cvlRange = cmd.cvlRange,
+                                            range = cmd.range,
                                             exp = cmd.cond,
                                             scope = cmd.scope
                                         )
@@ -297,7 +298,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                                                     )
                                                 ),
                                                 thenCmd = CVLCmd.Composite.Block(
-                                                    cvlRange = cmd.thenCmd.cvlRange,
+                                                    range = cmd.thenCmd.range,
                                                     scope = cmd.thenCmd.scope,
                                                     block = mutableListOf<CVLCmd>().also { thenBlock ->
                                                         curator(requireIfCondition).also { thenBlock.add(it) }
@@ -305,16 +306,16 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                                                     }
                                                 ),
                                                 elseCmd = CVLCmd.Composite.Block(
-                                                    cmd.elseCmd.cvlRange,
+                                                    cmd.elseCmd.range,
                                                     listOf(
                                                         CVLCmd.Simple.AssumeCmd.Assume(
-                                                            CVLRange.Empty("autogenerated for sanity check"),
+                                                            Range.Empty("autogenerated for sanity check"),
                                                             CVLExp.Constant.BoolLit(
                                                                 true,
                                                                 CVLExpTag(
                                                                     cmd.elseCmd.scope,
                                                                     CVLType.PureCVLType.Primitive.Bool,
-                                                                    CVLRange.Empty(
+                                                                    Range.Empty(
                                                                         "autogenerated for sanity check"
                                                                     )
                                                                 )
@@ -336,7 +337,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                                       } */
                                     is CVLScope.Item.BranchCmdScopeItem.IfCmdElseScopeItem -> {
                                         val requireNotIfCondition = CVLCmd.Simple.AssumeCmd.Assume(
-                                            cvlRange = cmd.cvlRange,
+                                            range = cmd.range,
                                             exp = CVLExp.UnaryExp.LNotExp(
                                                 cmd.cond,
                                                 cmd.cond.tag
@@ -361,16 +362,16 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                                                     )
                                                 ),
                                                 thenCmd = CVLCmd.Composite.Block(
-                                                    cmd.elseCmd.cvlRange,
+                                                    cmd.elseCmd.range,
                                                     listOf(
                                                         CVLCmd.Simple.AssumeCmd.Assume(
-                                                            CVLRange.Empty("autogenerated for sanity check"),
+                                                            Range.Empty("autogenerated for sanity check"),
                                                             CVLExp.Constant.BoolLit(
                                                                 true,
                                                                 CVLExpTag(
                                                                     cmd.elseCmd.scope,
                                                                     CVLType.PureCVLType.Primitive.Bool,
-                                                                    CVLRange.Empty(
+                                                                    Range.Empty(
                                                                         "autogenerated for sanity check"
                                                                     )
                                                                 )
@@ -381,7 +382,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                                                     cmd.elseCmd.scope
                                                 ),
                                                 elseCmd = CVLCmd.Composite.Block(
-                                                    cvlRange = cmd.thenCmd.cvlRange,
+                                                    range = cmd.thenCmd.range,
                                                     scope = cmd.thenCmd.scope,
                                                     block = mutableListOf<CVLCmd>().also { thenBlock ->
                                                         curator(requireNotIfCondition).also { thenBlock.add(it) }
@@ -407,11 +408,11 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
             // to make sure the rule's last command is an assertion as required by our specification
             it.add(
                 CVLCmd.Simple.Assert(
-                        cvlRange = rule.cvlRange,
+                        range = rule.range,
                     description = "sanity check for rule ${rule.declarationId} for assert $assertCmd succeeded",
                         exp = CVLExp.Constant.BoolLit(
                             true,
-                            CVLExpTag(cvlRange = rule.cvlRange, scope = rule.scope, type = CVLType.PureCVLType.Primitive.Bool)
+                            CVLExpTag(range = rule.range, scope = rule.scope, type = CVLType.PureCVLType.Primitive.Bool)
                         ),
                     scope = rule.scope
                 )
@@ -433,7 +434,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
             rule: CVLSingleRule,
             cmds: List<CVLCmd>,
             ruleType: SpecType.Single.GeneratedFromBasicRule,
-            cvlRange: CVLRange
+            range: Range
         ): CVLSingleRule {
             return rule.copy(
                 block = cmds,
@@ -441,7 +442,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                 goodDescription = " sanity check (assertion structure) for rule ${rule.declarationId}, " +
                     "this rule was added because the ${DoSanityChecksForRules.option.opt} flag was set",
                 ruleType = ruleType,
-                cvlRange = cvlRange,
+                range = range,
             )
         }
 
@@ -484,7 +485,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
             }
 
             // Creating assert commands based on the sub-expressions requires a CVLExprTag.
-            val boolTag = CVLExpTag(cmd.scope, CVLType.PureCVLType.Primitive.Bool, cmd.cvlRange)
+            val boolTag = CVLExpTag(cmd.scope, CVLType.PureCVLType.Primitive.Bool, cmd.range)
 
             fun replaceAssertCurator(newAssert: CVLCmd.Simple.Assert) : (CVLCmd.Simple) -> CVLCmd = {
                 if (it is CVLCmd.Simple.Assert) {
@@ -498,7 +499,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                          * a concrete example.
                          */
                         CVLCmd.Simple.AssumeCmd.Assume(
-                            cvlRange = it.cvlRange,
+                            range = it.range,
                             exp = it.exp,
                             scope = it.scope
                         )
@@ -513,7 +514,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                 is CVLExp.BinaryExp.ImpliesExp -> {
                     // For an implication a => b, create assert(!a,...)
                     val hypothesisAssert = CVLCmd.Simple.Assert(
-                        cvlRange = cmd.cvlRange,
+                        range = cmd.range,
                         description = "'$expr' is a vacuous implication. It could be rewritten to ${
                             CVLExp.UnaryExp.LNotExp(
                                 expr.l,
@@ -530,7 +531,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
 
                     // For an implication a => b, create assert(b,...)
                     val conclusionAssert = CVLCmd.Simple.Assert(
-                        cvlRange = cmd.cvlRange,
+                        range = cmd.range,
                         description = "conclusion `${expr.r}` is always true regardless of the hypothesis",
                         exp = expr.r,
                         scope = cmd.scope
@@ -562,7 +563,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                 is CVLExp.BinaryExp.IffExp -> {
                     // For double implication a <=> b, create assert(!a && !b)
                     val firstAssertion = CVLCmd.Simple.Assert(
-                        cvlRange = cmd.cvlRange,
+                        range = cmd.range,
                         description = "'$expr' could be rewritten to ${
                             CVLExp.BinaryExp.LandExp(
                                 CVLExp.UnaryExp.LNotExp(expr.l, expr.tag),
@@ -581,7 +582,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
 
                     // For double implication a <=> b, create assert(a && b)
                     val secondAssertion = CVLCmd.Simple.Assert(
-                        cvlRange = cmd.cvlRange,
+                        range = cmd.range,
                         description = "'$expr' could be rewritten to ${
                             CVLExp.BinaryExp.LandExp(
                                 expr.l,
@@ -609,7 +610,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                 is CVLExp.BinaryExp.LorExp -> {
                     // For disjunction a || b, create assert(a)
                     val leftAssertion = CVLCmd.Simple.Assert(
-                        cvlRange = cmd.cvlRange,
+                        range = cmd.range,
                         description = "the expression `${expr.l}` is always true",
                         exp = expr.l,
                         scope = cmd.scope
@@ -618,7 +619,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
 
                     // For disjunction a || b, create assert(b)
                     val rightAssertion = CVLCmd.Simple.Assert(
-                        cvlRange = cmd.cvlRange,
+                        range = cmd.range,
                         description = "the expression `${expr.r}` is always true",
                         exp = expr.r,
                         scope = cmd.scope
@@ -659,28 +660,28 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                         newBlocks.forEach{ blockForRule ->
                             val generatedRuleType = when(blockForRule.blockType) {
                                 BlockType.LEFT_OPERAND_CHECK -> {
-                                    SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.LeftOperand(
+                                    SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.LeftOperand(
                                         rule,
                                         blockForRule.assertCmd,
                                         blockForRule.expr
                                     )
                                 }
                                 BlockType.RIGHT_OPERAND_CHECK -> {
-                                    SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.RightOperand(
+                                    SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.RightOperand(
                                         rule,
                                         blockForRule.assertCmd,
                                         blockForRule.expr
                                     )
                                 }
                                 BlockType.IFF_BOTH_FALSE -> {
-                                    SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.IFFBothFalse(
+                                    SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.IFFBothFalse(
                                         rule,
                                         blockForRule.assertCmd,
                                         blockForRule.expr
                                     )
                                 }
                                 BlockType.IFF_BOTH_TRUE -> {
-                                    SpecType.Single.GeneratedFromBasicRule.AssertionStructureCheck.IFFBothTrue(
+                                    SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertionStructureCheck.IFFBothTrue(
                                         rule,
                                         blockForRule.assertCmd,
                                         blockForRule.expr
@@ -692,7 +693,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                                     rule,
                                     blockForRule.block,
                                     generatedRuleType,
-                                    assertCmd.cvlRange,
+                                    assertCmd.range,
                                 )
                             )
                         }
@@ -719,8 +720,8 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
             // the generated rule for invariant is just an assert command with the original expression as expression inside.
             val invariantPostCond = assertCmds.singleOrNull { it.invariantPostCond } ?: throw IllegalStateException(
                 "Expected to have exactly one assert command for the preserved block (i.e., post-check) of the invariant: " +
-                    "$rule, but got others marked as the post condition in: ${assertCmds.filter { it.invariantPostCond }.map { it.cvlRange }}. " +
-                    "(Other asserts that are not the post condition: ${assertCmds.filter { !it.invariantPostCond }.map { it.cvlRange }}.)"
+                    "$rule, but got others marked as the post condition in: ${assertCmds.filter { it.invariantPostCond }.map { it.range }}. " +
+                    "(Other asserts that are not the post condition: ${assertCmds.filter { !it.invariantPostCond }.map { it.range }}.)"
             )
 
             return listOf(
@@ -729,7 +730,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                     description = " sanity check (trivial invariant) for rule ${rule.declarationId}",
                     goodDescription = " sanity check (trivial invariant) for rule ${rule.declarationId}, " +
                         "this rule was added because the ${DoSanityChecksForRules.option.opt} flag was set",
-                    ruleType = SpecType.Single.GeneratedFromBasicRule.TrivialInvariantCheck(
+                    ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.TrivialInvariantCheck(
                         rule,
                         invariantPostCond
                     ),
@@ -760,7 +761,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                 goodDescription = " sanity check (assert tautology) for rule ${rule.declarationId}, this rule was added " +
                         "because the ${DoSanityChecksForRules.option.opt} flag was set",
                 ruleType = ruleType,
-                cvlRange = assertCmd.cvlRange,
+                range = assertCmd.range,
             )
         }
 
@@ -771,13 +772,13 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
             return curateCommands(rule, assertCmd) {
                 when (it) {
                     is CVLCmd.Simple.AssumeCmd -> {
-                        CVLCmd.Simple.Nop(it.cvlRange, it.scope)
+                        CVLCmd.Simple.Nop(it.range, it.scope)
                     }
                     is CVLCmd.Simple.Assert -> {
                         if (it === assertCmd) {
                             assertCmd
                         } else {
-                            CVLCmd.Simple.Nop(it.cvlRange, it.scope)
+                            CVLCmd.Simple.Nop(it.range, it.scope)
                         }
                     }
                     else -> {
@@ -806,7 +807,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                 fun CVLScope.isInScope(other: CVLScope): Boolean =
                     this == other || this.innerScope?.isInScope(other) ?: false
 
-                return this.scope.isInScope(other.scope) && other.cvlRange <= this.cvlRange
+                return this.scope.isInScope(other.scope) && other.range <= this.range
             }
 
 
@@ -828,7 +829,7 @@ sealed class GenerateRulesForAssertions : SanityRuleGenerator {
                             baseToTautologyRule(
                                 rule,
                                 newBlock,
-                                SpecType.Single.GeneratedFromBasicRule.AssertTautologyCheck(
+                                SpecType.Single.GeneratedFromBasicRule.SanityRule.AssertTautologyCheck(
                                     rule,
                                     assertCmd
                                 ),
@@ -858,10 +859,10 @@ object GenerateRulesForRedundantRequiresCheck : SanityRuleGenerator {
     override fun generate(rule: CVLSingleRule): List<CVLSingleRule> {
 
         val requireTrue = CVLCmd.Simple.AssumeCmd.Assume(
-            cvlRange = rule.cvlRange,
+            range = rule.range,
             exp = CVLExp.Constant.BoolLit(
                 true,
-                CVLExpTag(cvlRange = rule.cvlRange, scope = rule.scope, type = CVLType.PureCVLType.Primitive.Bool)
+                CVLExpTag(range = rule.range, scope = rule.scope, type = CVLType.PureCVLType.Primitive.Bool)
             ),
             scope = rule.scope
         )
@@ -929,11 +930,11 @@ object GenerateRulesForRedundantRequiresCheck : SanityRuleGenerator {
                         rule.copy(
                             block = newBlock,
                             description = "require redundancy check for ${cmd.toPrintString()}",
-                            ruleType = SpecType.Single.GeneratedFromBasicRule.RedundantRequireCheck(
+                            ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.RedundantRequireCheck(
                                 rule,
                                 assumeRemoved
                             ),
-                            cvlRange = assumeRemoved.cvlRange,
+                            range = assumeRemoved.range,
                         )
                     )
                 }

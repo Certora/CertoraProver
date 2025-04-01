@@ -287,7 +287,7 @@ class LogTest {
             }
         }
         assertEquals("Not quiet\nError: error\nWarning: warn", out)
-        assertEquals("", err)
+        assertEquals("ERROR ALWAYS - error", err)
     }
 
     @Test

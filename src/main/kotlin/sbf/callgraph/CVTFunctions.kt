@@ -23,6 +23,7 @@ import datastructures.stdcollections.*
 import sbf.domains.MemSummaryArgument
 import sbf.domains.MemSummaryArgumentType
 import sbf.domains.MemorySummaries
+import sbf.domains.MemorySummary
 
 private const val CVT_nondet_u8 = "CVT_nondet_u8"
 private const val CVT_nondet_u16 = "CVT_nondet_u16"
@@ -38,16 +39,19 @@ private const val CVT_assume = "CVT_assume"
 private const val CVT_assert = "CVT_assert"
 private const val CVT_satisfy = "CVT_satisfy"
 private const val CVT_sanity = "CVT_sanity"
+private const val CVT_rule_location = "CVT_rule_location"
 private const val CVT_save_scratch_registers = "CVT_save_scratch_registers"
 private const val CVT_restore_scratch_registers = "CVT_restore_scratch_registers"
 private const val CVT_nondet_account_info = "CVT_nondet_account_info"
 private const val CVT_calltrace_print_u64_1 = "CVT_calltrace_print_u64_1"
 private const val CVT_calltrace_print_u64_2 = "CVT_calltrace_print_u64_2"
 private const val CVT_calltrace_print_u64_3 = "CVT_calltrace_print_u64_3"
+private const val CVT_calltrace_print_u128 = "CVT_calltrace_print_u128"
 private const val CVT_calltrace_print_u64_as_fixed = "CVT_calltrace_print_u64_as_fixed"
 private const val CVT_calltrace_print_i64_1 = "CVT_calltrace_print_i64_1"
 private const val CVT_calltrace_print_i64_2 = "CVT_calltrace_print_i64_2"
 private const val CVT_calltrace_print_i64_3 = "CVT_calltrace_print_i64_3"
+private const val CVT_calltrace_print_i128 = "CVT_calltrace_print_i128"
 private const val CVT_calltrace_print_string = "CVT_calltrace_print_string"
 private const val CVT_calltrace_print_tag = "CVT_calltrace_print_tag"
 private const val CVT_calltrace_print_location = "CVT_calltrace_print_location"
@@ -144,13 +148,13 @@ enum class CVTCore(val function: ExternalFunction) {
                     // Summaries
                     NONDET_SOLANA_ACCOUNT_SPACE -> {
                         val summaryArgs = listOf(MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.PTR_INPUT))
-                        memSummaries.addSummary(f.function.name, summaryArgs)
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }
                     ALLOC_SLICE -> {
                         // This summary is sound, but it will case PTA errors (because of the type `ANY`). Thus, it should NOT be used by the pointer domain.
                         // The reason why the argument type is `ANY` is that the memory region is not fixed.
                         val summaryArgs = listOf(MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.ANY))
-                        memSummaries.addSummary(f.function.name, summaryArgs)
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }
                     // Summary currently provided by configuration file
                     NONDET_ACCOUNT_INFO -> {}
@@ -163,31 +167,29 @@ enum class CVTCore(val function: ExternalFunction) {
 enum class CVTCalltrace(val function: ExternalFunction,
                         // From all registers (r1-r5), which registers contain the string or strings passed to the function
                         val strings: Set<CalltraceStr>) {
-    CEX_PRINT_u64_1(CexPrintValue(CVT_calltrace_print_u64_1, 3),
+    PRINT_U64_1(CexPrintValue(CVT_calltrace_print_u64_1, 3), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_U64_2(CexPrintValue(CVT_calltrace_print_u64_2, 4), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_U64_3(CexPrintValue(CVT_calltrace_print_u64_3, 5), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_U128(CexPrintValue(CVT_calltrace_print_u128, 4), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_I64_1(CexPrintValue(CVT_calltrace_print_i64_1, 3), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_I64_2(CexPrintValue(CVT_calltrace_print_i64_2, 4), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_I64_3(CexPrintValue(CVT_calltrace_print_i64_3, 5), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_I128(CexPrintValue(CVT_calltrace_print_i128, 4), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_U64_AS_FIXED(CexPrintValue(CVT_calltrace_print_u64_as_fixed, 4), setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_TAG(ExternalFunction(CVT_calltrace_print_tag, setOf(),
+              listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet()),
+              setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    PRINT_LOCATION(ExternalFunction(CVT_calltrace_print_location, setOf(),
+                   listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet()),
+                   setOf(CalltraceStr(SbfRegister.R1_ARG))),
+    ATTACH_LOCATION(ExternalFunction(CVT_calltrace_attach_location, setOf(),
+                    listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet()),
                     setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_u64_2(CexPrintValue(CVT_calltrace_print_u64_2, 4),
-                    setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_u64_3(CexPrintValue(CVT_calltrace_print_u64_3, 5),
-                    setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_i64_1(CexPrintValue(CVT_calltrace_print_i64_1, 3),
-                    setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_i64_2(CexPrintValue(CVT_calltrace_print_i64_2, 4),
-                    setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_i64_3(CexPrintValue(CVT_calltrace_print_i64_3, 5),
-                    setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_u64_AS_FIXED(CexPrintValue(CVT_calltrace_print_u64_as_fixed, 4),
-                    setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_TAG(ExternalFunction(CVT_calltrace_print_tag, setOf(),
-                                    listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet()),
-                    setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_LOCATION(ExternalFunction(CVT_calltrace_print_location, setOf(),
-                                        listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet()),
-                        setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_ATTACH_LOCATION(ExternalFunction(CVT_calltrace_attach_location, setOf(),
-                                         listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet()),
-                        setOf(CalltraceStr(SbfRegister.R1_ARG))),
-    CEX_PRINT_STRING(CexPrintValue(CVT_calltrace_print_string, 4),
-                    setOf(CalltraceStr(SbfRegister.R1_ARG), CalltraceStr(SbfRegister.R3_ARG)));
+    PRINT_STRING(CexPrintValue(CVT_calltrace_print_string, 4),
+                 setOf(CalltraceStr(SbfRegister.R1_ARG), CalltraceStr(SbfRegister.R3_ARG))),
+    RULE_LOCATION(ExternalFunction(CVT_rule_location, setOf(),
+                  listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet()),
+                  setOf(CalltraceStr(SbfRegister.R1_ARG)));
 
     companion object: ExternalLibrary<CVTCalltrace>  {
         private val nameMap = values().associateBy { it.function.name }
@@ -238,12 +240,12 @@ enum class CVTU128Intrinsics(val function: ExternalFunction) {
                 when (f) {
                     U128_LEQ, U128_GT0 -> {
                         val summaryArgs = listOf(MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.NUM))
-                        memSummaries.addSummary(f.function.name, summaryArgs)
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }
                     U128_CEIL_DIV, U128_NONDET  -> {
                         val summaryArgs = listOf(MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0 , width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8 , width = 8, type = MemSummaryArgumentType.NUM))
-                        memSummaries.addSummary(f.function.name, summaryArgs)
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }
                 }
             }
@@ -296,23 +298,23 @@ enum class CVTNativeInt(val function: ExternalFunction) {
         setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
-    NATIVEINT_FROM_u128(ExternalFunction(CVT_nativeint_u64_from_u128,
+    NATIVEINT_FROM_U128(ExternalFunction(CVT_nativeint_u64_from_u128,
         setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
-    NATIVEINT_FROM_u256(ExternalFunction(CVT_nativeint_u64_from_u256,
+    NATIVEINT_FROM_U256(ExternalFunction(CVT_nativeint_u64_from_u256,
         setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG, SbfRegister.R4_ARG).map{ Value.Reg(it)}.toSet())
     ),
-    NATIVEINT_u64_MAX(ExternalFunction(CVT_nativeint_u64_u64_max,
+    NATIVEINT_U64_MAX(ExternalFunction(CVT_nativeint_u64_u64_max,
         setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         setOf())
     ),
-    NATIVEINT_u128_MAX(ExternalFunction(CVT_nativeint_u64_u128_max,
+    NATIVEINT_U128_MAX(ExternalFunction(CVT_nativeint_u64_u128_max,
         setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         setOf())
     ),
-    NATIVEINT_u256_MAX(ExternalFunction(CVT_nativeint_u64_u256_max,
+    NATIVEINT_U256_MAX(ExternalFunction(CVT_nativeint_u64_u256_max,
         setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         setOf())
     );
@@ -325,22 +327,22 @@ enum class CVTNativeInt(val function: ExternalFunction) {
         override fun addSummaries(memSummaries: MemorySummaries) {
             for (f in nameMap.values) {
                 val summaryArgs = listOf(MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.NUM))
-                memSummaries.addSummary(f.function.name, summaryArgs)
+                memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
             }
         }
     }
 }
 
 enum class CVTNondet(val function: ExternalFunction) {
-    NONDET_u8(ExternalFunction(CVT_nondet_u8,setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
-    NONDET_u16(ExternalFunction(CVT_nondet_u16, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
-    NONDET_u32(ExternalFunction(CVT_nondet_u32, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
-    NONDET_u64(ExternalFunction(CVT_nondet_u64, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
-    NONDET_usize(ExternalFunction(CVT_nondet_usize, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
-    NONDET_i8(ExternalFunction(CVT_nondet_i8, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
-    NONDET_i16(ExternalFunction(CVT_nondet_i16, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
-    NONDET_i32(ExternalFunction(CVT_nondet_i32, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
-    NONDET_i64(ExternalFunction(CVT_nondet_i64, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf()));
+    NONDET_U8(ExternalFunction(CVT_nondet_u8,setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
+    NONDET_U16(ExternalFunction(CVT_nondet_u16, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
+    NONDET_U32(ExternalFunction(CVT_nondet_u32, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
+    NONDET_U64(ExternalFunction(CVT_nondet_u64, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
+    NONDET_USIZE(ExternalFunction(CVT_nondet_usize, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
+    NONDET_I8(ExternalFunction(CVT_nondet_i8, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
+    NONDET_I16(ExternalFunction(CVT_nondet_i16, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
+    NONDET_I32(ExternalFunction(CVT_nondet_i32, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf())),
+    NONDET_I64(ExternalFunction(CVT_nondet_i64, setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)), setOf()));
 
     companion object: ExternalLibrary<CVTNondet>  {
         private val nameMap = values().associateBy { it.function.name }
@@ -349,7 +351,7 @@ enum class CVTNondet(val function: ExternalFunction) {
         override fun addSummaries(memSummaries: MemorySummaries) {
             for (f in nameMap.values) {
                 val summaryArgs = listOf(MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.NUM))
-                memSummaries.addSummary(f.function.name, summaryArgs)
+                memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
             }
         }
     }

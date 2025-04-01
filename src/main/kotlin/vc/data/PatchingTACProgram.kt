@@ -1073,7 +1073,7 @@ open class PatchingTACProgram<T : TACCmd> protected constructor(
 
             if (startPoint.pos == 0) {
                 throw UnsupportedOperationException("internal function call at the very beginning of a block; need " +
-                    "to implement (in AddInternalfunctions)")
+                    "to implement (in AddInternalFunctions)")
             }
 
             // remove the commands from the new block that we've already mirrored in the new CFG

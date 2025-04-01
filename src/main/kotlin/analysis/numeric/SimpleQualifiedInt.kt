@@ -25,6 +25,8 @@ import java.math.BigInteger
 data class SimpleQualifiedInt(override val x: IntValue, override val qual: Set<SimpleIntQualifier>):
     BoundedQualifiedInt<SimpleQualifiedInt, SimpleIntQualifier, IntValue>, WithUIntApproximation<IntValue> {
 
+    constructor(x: IntValue): this(x, setOf())
+
     fun meet(): SimpleQualifiedInt {
         return meet(x, qual)
     }

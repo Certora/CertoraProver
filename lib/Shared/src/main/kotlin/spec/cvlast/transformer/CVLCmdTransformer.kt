@@ -89,39 +89,39 @@ open class CVLCmdTransformer<E>(
 
     open fun assertCmd(cmd: CVLCmd.Simple.Assert): CollectingResult<CVLCmd, E> =
             expTransformer.expr(cmd.exp).bind { exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, exp = exp, description = cmd.description).lift()
+                cmd.copy(range = cmd.range, exp = exp, description = cmd.description).lift()
             }
 
     open fun satisfyCmd(cmd: CVLCmd.Simple.Satisfy): CollectingResult<CVLCmd, E> =
             expTransformer.expr(cmd.exp).bind { exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, exp = exp, description = cmd.description).lift()
+                cmd.copy(range = cmd.range, exp = exp, description = cmd.description).lift()
             }
 
     open fun assumeCmd(cmd: CVLCmd.Simple.AssumeCmd.Assume): CollectingResult<CVLCmd, E> =
             expTransformer.expr(cmd.exp).bind { exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, exp = exp).lift()
+                cmd.copy(range = cmd.range, exp = exp).lift()
             }
 
     open fun assumeInv(cmd: CVLCmd.Simple.AssumeCmd.AssumeInvariant): CollectingResult<CVLCmd, E> =
             cmd.params.map { param -> expTransformer.expr(param) }.flatten().bind { params ->
-                cmd.copy(cvlRange = cmd.cvlRange, id = cmd.id, params = params).lift()
+                cmd.copy(range = cmd.range, id = cmd.id, params = params).lift()
             }
 
     open fun decl(cmd: CVLCmd.Simple.Declaration): CollectingResult<CVLCmd, E> = cmd.lift()
 
     open fun def(cmd: CVLCmd.Simple.Definition): CollectingResult<CVLCmd, E> =
             cmd.idL.map { lhs -> expTransformer.lhs(lhs) }.flatten().bind(expTransformer.expr(cmd.exp)) { idL, exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, type = cmd.type, idL = idL, exp = exp).lift()
+                cmd.copy(range = cmd.range, type = cmd.type, idL = idL, exp = exp).lift()
             }
 
     open fun expCmd(cmd: CVLCmd.Simple.Exp): CollectingResult<CVLCmd, E> =
             expTransformer.expr(cmd.exp).bind { exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, exp = exp).lift()
+                cmd.copy(range = cmd.range, exp = exp).lift()
             }
 
     open fun applyCmd(cmd: CVLCmd.Simple.Apply): CollectingResult<CVLCmd, E> =
             expTransformer.expr(cmd.exp).bind { exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, exp = exp as? CVLExp.ApplicationExp
+                cmd.copy(range = cmd.range, exp = exp as? CVLExp.ApplicationExp
                         ?: error("transformer must transform an ApplyExp to an ApplyExp (got $exp)") ).lift()
             }
 
@@ -140,28 +140,28 @@ open class CVLCmdTransformer<E>(
 
     open fun resetStorage(cmd: CVLCmd.Simple.ResetStorage): CollectingResult<CVLCmd, E> =
             expTransformer.expr(cmd.exp).bind { exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, exp = exp).lift()
+                cmd.copy(range = cmd.range, exp = exp).lift()
             }
 
     open fun resetTransientStorage(cmd: CVLCmd.Simple.ResetTransientStorage): CollectingResult<CVLCmd, E> =
             expTransformer.expr(cmd.exp).bind { exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, exp = exp).lift()
+                cmd.copy(range = cmd.range, exp = exp).lift()
             }
 
     open fun returnCmd(cmd: CVLCmd.Simple.Return): CollectingResult<CVLCmd, E> =
             (cmd.exps.map { exp -> expTransformer.expr(exp) }.flatten() ).bind { exp ->
-                cmd.copy(cvlRange = cmd.cvlRange, exps = exp).lift()
+                cmd.copy(range = cmd.range, exps = exp).lift()
             }
 
     @Suppress("NAME_SHADOWING")
     open fun blockCmd(cmd: CVLCmd.Composite.Block): CollectingResult<CVLCmd, E> =
             cmd.block.map { cmd -> cmd(cmd) }.flatten().bind { block ->
-                cmd.copy(cvlRange = cmd.cvlRange, block = block).lift()
+                cmd.copy(range = cmd.range, block = block).lift()
             }
 
     open fun ifCmd(cmd: CVLCmd.Composite.If): CollectingResult<CVLCmd, E> =
             expTransformer.expr(cmd.cond).bind(cmd(cmd.thenCmd), cmd(cmd.elseCmd)) { cond, thenCmd, elseCmd ->
-                cmd.copy(cvlRange = cmd.cvlRange, cond = cond, thenCmd = thenCmd, elseCmd = elseCmd).lift()
+                cmd.copy(range = cmd.range, cond = cond, thenCmd = thenCmd, elseCmd = elseCmd).lift()
             }
 
     open fun nop(cmd: CVLCmd.Simple.Nop): CollectingResult<CVLCmd, E> = cmd.lift()

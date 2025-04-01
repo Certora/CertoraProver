@@ -26,7 +26,7 @@ import kotlinx.serialization.json.Json
 import log.ArtifactManagerFactory.WithArtifactMode.WithArtifacts
 import log.ArtifactManagerFactory.WithArtifactMode.WithoutArtifacts
 import org.apache.commons.lang3.SystemUtils
-import spec.cvlast.IRule
+import spec.rules.IRule
 import spec.cvlast.RuleIdentifier
 import tac.DebuggableProgram
 import tac.DumpTime

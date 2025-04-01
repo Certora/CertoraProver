@@ -47,11 +47,7 @@ internal class EventReporterTest {
         timestamp = Instant.now(),
         cliVersion = "",
         cliPackageName = "",
-        mainSpec = null,
-        confPath = null,
-        groupID = null,
         pythonVersion = "",
-        certoraCIClient = null
     )
 
     class TestStringFormatter : FormatterBase<String> {

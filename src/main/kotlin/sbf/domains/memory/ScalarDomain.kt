@@ -1162,11 +1162,13 @@ class ScalarDomain(// Model stack's contents
     }
 
     /** Set the value of [reg] to [newVal] only if its old value is top **/
-    fun refineValue(reg: Value.Reg, newVal: ScalarValue) {
+    fun refineValue(reg: Value.Reg, newVal: ScalarValue): Boolean {
         val oldVal = getRegister(reg)
         if (oldVal.isTop() && !newVal.isTop()) {
             setRegister(reg, newVal)
+            return true
         }
+        return false
     }
 
     fun analyze(locInst: LocatedSbfInstruction,

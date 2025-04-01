@@ -33,8 +33,8 @@ object CleanEmptyHooks: CVLAstTransformer<CVLError>(CVLCmdTransformer(CVLExpTran
     override fun hooks(hooks: List<CVLHook>): CollectingResult<List<CVLHook>, CVLError> {
         val (filteredHooks, emptyHooks) = hooks.partition { it.block.isNotEmpty() }
         emptyHooks.forEach {
-            Logger.regression { "Ignoring empty hook @ ${it.cvlRange}" }
-            CVLWarningLogger.syntaxWarning("Ignoring empty hook", it.cvlRange)
+            Logger.regression { "Ignoring empty hook @ ${it.range}" }
+            CVLWarningLogger.syntaxWarning("Ignoring empty hook", it.range)
         }
         return super.hooks(filteredHooks)
     }

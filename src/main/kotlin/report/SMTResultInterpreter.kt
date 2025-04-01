@@ -18,7 +18,7 @@
 package report
 
 import solver.SolverResult
-import spec.cvlast.*
+import spec.rules.IRule
 
 object SMTResultInterpreter {
     fun getResultString(res: SolverResult?, rule: IRule): String {

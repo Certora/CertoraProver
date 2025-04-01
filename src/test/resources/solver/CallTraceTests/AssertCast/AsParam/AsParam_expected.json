@@ -24,17 +24,17 @@
                     "childrenList": [
                         {
                             "message": {
-                                "text": "0x8200.balance: '{0}'",
+                                "text": "0x2712.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "2^255",
+                                        "value": "0x0",
                                         "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0x0",
+                                            "0",
+                                            "0x0"
                                         ],
                                         "tooltip": "balance",
-                                        "truncatable": false
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -48,14 +48,14 @@
                                 "text": "Cast.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "2^255",
+                                        "value": "0x0",
                                         "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0x0",
+                                            "0",
+                                            "0x0"
                                         ],
                                         "tooltip": "balance",
-                                        "truncatable": false
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -74,6 +74,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -83,17 +94,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -354,11 +354,11 @@
                                 "text": "toCast * 2 ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+                                        "value": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae",
                                         "values": [
-                                            "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
-                                            "86844066927987146567678238756515930889952488499230423029593188005934847229950",
-                                            "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae",
+                                            "77194726158210796949047323339125271902179989777093709359638389338608753093294",
+                                            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae"
                                         ],
                                         "tooltip": "value of expression",
                                         "truncatable": true
@@ -372,11 +372,11 @@
                                         "text": "toCast ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                                                "value": "0x5555555555555555555555555555555555555555555555555555555555555557",
                                                 "values": [
-                                                    "0x5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                                                    "43422033463993573283839119378257965444976244249615211514796594002967423614975",
-                                                    "0x5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                    "0x5555555555555555555555555555555555555555555555555555555555555557",
+                                                    "38597363079105398474523661669562635951089994888546854679819194669304376546647",
+                                                    "0x5555555555555555555555555555555555555555555555555555555555555557"
                                                 ],
                                                 "tooltip": "value of expression",
                                                 "truncatable": true
@@ -450,11 +450,11 @@
                         "text": "Cast.f(a='{0}') ↪ '{1}'",
                         "arguments": [
                             {
-                                "value": "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+                                "value": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae",
                                 "values": [
-                                    "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
-                                    "86844066927987146567678238756515930889952488499230423029593188005934847229950",
-                                    "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae",
+                                    "77194726158210796949047323339125271902179989777093709359638389338608753093294",
+                                    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae"
                                 ],
                                 "tooltip": "value",
                                 "truncatable": true
@@ -478,11 +478,11 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0x8200",
+                                        "value": "0x2712",
                                         "values": [
-                                            "0x8200",
-                                            "0x8200",
-                                            "0x8200"
+                                            "0x2712",
+                                            "0x2712",
+                                            "0x2712"
                                         ],
                                         "tooltip": "address of sender",
                                         "truncatable": true
@@ -492,10 +492,10 @@
                                         "values": [
                                             "Cast",
                                             "Cast",
-                                            "0x8000000000000000000000000000000000000000"
+                                            "0xf"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",
@@ -516,14 +516,14 @@
                                         "text": "Load from: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -537,14 +537,14 @@
                                         "text": "Store at: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -558,14 +558,14 @@
                                         "text": "Load from: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -579,14 +579,14 @@
                                         "text": "Store at: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -645,11 +645,11 @@
                                 "text": "Cast.f(a='{0}') ↪ '{1}'",
                                 "arguments": [
                                     {
-                                        "value": "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+                                        "value": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae",
                                         "values": [
-                                            "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
-                                            "86844066927987146567678238756515930889952488499230423029593188005934847229950",
-                                            "0xbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae",
+                                            "77194726158210796949047323339125271902179989777093709359638389338608753093294",
+                                            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaae"
                                         ],
                                         "tooltip": "parameter",
                                         "truncatable": true
@@ -699,17 +699,17 @@
                                     "childrenList": [
                                         {
                                             "message": {
-                                                "text": "0x8200.balance: '{0}'",
+                                                "text": "0x2712.balance: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "2^255",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "2^255",
-                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                            "0x0",
+                                                            "0",
+                                                            "0x0"
                                                         ],
                                                         "tooltip": "balance",
-                                                        "truncatable": false
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -723,14 +723,14 @@
                                                 "text": "Cast.balance: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "2^255",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "2^255",
-                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                            "0x0",
+                                                            "0",
+                                                            "0x0"
                                                         ],
                                                         "tooltip": "balance",
-                                                        "truncatable": false
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -815,14 +815,14 @@
                                 "text": "toCast * 3 ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x11ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd",
+                                        "value": "2^256 + 5",
                                         "values": [
-                                            "0x11ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd",
-                                            "130266100391980719851517358134773896334928732748845634544389782008902270844925",
-                                            "0x11ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd"
+                                            "2^256 + 5",
+                                            "115792089237316195423570985008687907853269984665640564039457584007913129639941",
+                                            "0x10000000000000000000000000000000000000000000000000000000000000005"
                                         ],
                                         "tooltip": "value of expression",
-                                        "truncatable": true
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -833,11 +833,11 @@
                                         "text": "toCast ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                                                "value": "0x5555555555555555555555555555555555555555555555555555555555555557",
                                                 "values": [
-                                                    "0x5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-                                                    "43422033463993573283839119378257965444976244249615211514796594002967423614975",
-                                                    "0x5fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                    "0x5555555555555555555555555555555555555555555555555555555555555557",
+                                                    "38597363079105398474523661669562635951089994888546854679819194669304376546647",
+                                                    "0x5555555555555555555555555555555555555555555555555555555555555557"
                                                 ],
                                                 "tooltip": "value of expression",
                                                 "truncatable": true

@@ -17,8 +17,6 @@
 
 package cvl
 
-import com.certora.certoraprover.cvl.MethodReferenceExp
-import com.certora.certoraprover.cvl.MethodSig
 import infra.CVLFlow
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -27,7 +25,6 @@ import org.junit.jupiter.params.provider.MethodSource
 import scene.ProverQuery
 import scene.TEST_SPEC_FILE_NAME
 import spec.CVL
-import spec.cvlast.CVLRange
 import spec.cvlast.SpecCallSummary
 import spec.cvlast.typechecker.*
 import utils.*

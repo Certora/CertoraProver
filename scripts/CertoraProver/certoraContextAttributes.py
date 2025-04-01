@@ -25,6 +25,7 @@ sys.path.insert(0, str(scripts_dir_path))
 from Shared import certoraUtils as Util
 from Shared import certoraAttrUtil as AttrUtil
 from Shared import certoraValidateFuncs as Vf
+from CertoraProver.certoraCollectConfigurationLayout import AttributeJobConfigData, MainSection
 
 
 attributes_logger = logging.getLogger("attributes")
@@ -290,7 +291,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.UniqueStore
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER,
+        )
     )
 
     VYPER = AttrUtil.AttributeDefinition(
@@ -312,7 +316,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.STORE_TRUE
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_VIA_IR_MAP = AttrUtil.AttributeDefinition(
@@ -325,7 +332,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'type': lambda value: Vf.parse_dict('solc_via_ir_map', value, bool)
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_EXPERIMENTAL_VIA_IR = AttrUtil.AttributeDefinition(
@@ -336,7 +346,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.STORE_TRUE
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_EVM_VERSION = AttrUtil.AttributeDefinition(
@@ -346,7 +359,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.UniqueStore
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_EVM_VERSION_MAP = AttrUtil.AttributeDefinition(
@@ -359,11 +375,14 @@ class EvmAttributes(AttrUtil.Attributes):
             'type': lambda value: Vf.parse_dict('solc_evm_version_map', value)
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_MAP = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_solc_map,
+        attr_validation_func=Vf.validate_compiler_map,
         arg_type=AttrUtil.AttrArgType.MAP,
         help_msg='Map contracts to the appropriate Solidity compiler in case not all contract files are compiled '
                  'with the same Solidity compiler version. \n\nCLI Example: '
@@ -379,11 +398,14 @@ class EvmAttributes(AttrUtil.Attributes):
             'type': lambda value: Vf.parse_dict('solc_map', value)
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     COMPILER_MAP = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_solc_map,
+        attr_validation_func=Vf.validate_compiler_map,
         arg_type=AttrUtil.AttrArgType.MAP,
         help_msg='Map contracts to the appropriate compiler in case not all contract files are compiled '
                  'with the same compiler version. \n\nCLI Example: '
@@ -399,7 +421,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'type': lambda value: Vf.parse_dict('compiler_map', value)
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_ALLOW_PATH = AttrUtil.AttributeDefinition(
@@ -410,7 +435,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.UniqueStore
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_OPTIMIZE = AttrUtil.AttributeDefinition(
@@ -423,7 +451,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'const': '-1'
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_OPTIMIZE_MAP = AttrUtil.AttributeDefinition(
@@ -443,7 +474,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'type': lambda value: Vf.parse_dict('solc_optimize_map', value)
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     SOLC_ARGS = AttrUtil.AttributeDefinition(
@@ -452,7 +486,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.UniqueStore
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     PACKAGES_PATH = AttrUtil.AttributeDefinition(
@@ -477,7 +514,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.APPEND
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.PACKAGES
+        )
     )
 
     NO_MEMORY_SAFE_AUTOFINDERS = AttrUtil.AttributeDefinition(
@@ -501,7 +541,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.STORE_TRUE
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     DISABLE_SOLC_OPTIMIZERS = AttrUtil.AttributeDefinition(
@@ -511,7 +554,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.APPEND
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
     )
 
     YUL_ABI = AttrUtil.AttributeDefinition(
@@ -545,7 +591,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.APPEND
         },
         affects_build_cache_key=True,  # not sure, better be careful
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.LINKS
+        )
     )
 
     ADDRESS = AttrUtil.AttributeDefinition(
@@ -576,6 +625,20 @@ class EvmAttributes(AttrUtil.Attributes):
         },
         affects_build_cache_key=True,  # carefulness
         disables_build_cache=False
+    )
+
+    STORAGE_EXTENSION_HARNESSES = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_storage_extension_harness_attr,
+        help_msg="List of ContractA=ContractB where ContractB is the name of a 'storage extension prototype`. "
+                 "See the documentation for details",
+        default_desc="",
+        disables_build_cache=False,
+        affects_build_cache_key=True,
+        arg_type=AttrUtil.AttrArgType.LIST,
+        argparse_args={
+            'nargs': AttrUtil.MULTIPLE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        }
     )
 
     CONTRACT_EXTENSIONS = AttrUtil.AttributeDefinition(
@@ -855,7 +918,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.STORE_TRUE
         },
         affects_build_cache_key=False,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            unsound=True
+        )
     )
 
     HASHING_LENGTH_BOUND = AttrUtil.AttributeDefinition(
@@ -907,7 +973,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.STORE_TRUE
         },
         affects_build_cache_key=False,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            unsound=True
+        )
     )
 
     OPTIMISTIC_SUMMARY_RECURSION = AttrUtil.AttributeDefinition(
@@ -919,7 +988,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.STORE_TRUE
         },
         affects_build_cache_key=False,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            unsound=True
+        )
     )
 
     NONDET_DIFFICULT_FUNCS = AttrUtil.AttributeDefinition(
@@ -980,7 +1052,10 @@ class EvmAttributes(AttrUtil.Attributes):
             'action': AttrUtil.STORE_TRUE
         },
         affects_build_cache_key=False,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            unsound=True
+        )
     )
 
     SUMMARY_RECURSION_LIMIT = AttrUtil.AttributeDefinition(
@@ -1016,6 +1091,26 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False,
         help_msg="Verify all foundry fuzz test in the current project",
         default_desc="",
+    )
+
+    BMC = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_non_negative_integer,
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        jar_flag="-boundedModelChecking",
+        affects_build_cache_key=False,
+        disables_build_cache=False,
+    )
+
+    BMC_FAILURE_LIMIT = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_non_negative_integer,
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        jar_flag="-boundedModelCheckingFailureLimit",
+        affects_build_cache_key=False,
+        disables_build_cache=False,
     )
 
 
@@ -1246,7 +1341,10 @@ class BackendAttributes(AttrUtil.Attributes):
             'action': AttrUtil.STORE_TRUE
         },
         affects_build_cache_key=False,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            unsound=True
+        )
     )
 
     JAR = AttrUtil.AttributeDefinition(
@@ -1318,7 +1416,9 @@ class BackendAttributes(AttrUtil.Attributes):
             'default': 'emv'
         },
         affects_build_cache_key=False,
-        disables_build_cache=False
+        disables_build_cache=False,
+        # Avoiding presentation of this attribute in Config Tab
+        config_data=None
     )
 
     PROVER_ARGS = AttrUtil.AttributeDefinition(
@@ -1536,7 +1636,10 @@ class EvmProverAttributes(CommonAttributes, DeprecatedAttributes, EvmAttributes,
             'nargs': AttrUtil.MULTIPLE_OCCURRENCES
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.FILES
+        )
     )
 
 
@@ -1550,7 +1653,10 @@ class SorobanProverAttributes(CommonAttributes, InternalUseAttributes, BackendAt
             'nargs': AttrUtil.MULTIPLE_OCCURRENCES
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.FILES
+        )
     )
 
 
@@ -1565,7 +1671,10 @@ class SolanaProverAttributes(CommonAttributes, InternalUseAttributes, BackendAtt
             'nargs': AttrUtil.MULTIPLE_OCCURRENCES
         },
         affects_build_cache_key=True,
-        disables_build_cache=False
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.FILES
+        )
     )
 
     SOLANA_INLINING = AttrUtil.AttributeDefinition(

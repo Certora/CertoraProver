@@ -25,6 +25,7 @@ import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.map
 import utils.ErrorCollector.Companion.collectingErrors
 import datastructures.stdcollections.*
+import utils.Range
 
 // This file contains the "Java" AST nodes for ghosts and their axioms.  See "README.md" for information about the Java AST.
 
@@ -34,7 +35,7 @@ sealed class GhostDecl : Kotlinizable<CVLGhostDeclaration> {
 
 
 class GhostFunDecl @JvmOverloads constructor(
-    val cvlRange: CVLRange,
+    val range: Range,
     val id: String,
     val paramTypes: List<TypeOrLhs>,
     val returnType: TypeOrLhs,
@@ -42,14 +43,14 @@ class GhostFunDecl @JvmOverloads constructor(
     val axioms: List<GhostAxiom> = emptyList()
 ) : GhostDecl() {
     override fun withAxioms(axioms: List<GhostAxiom>): GhostFunDecl
-        = GhostFunDecl(cvlRange, id, paramTypes, returnType, persistent, this.axioms + axioms)
+        = GhostFunDecl(range, id, paramTypes, returnType, persistent, this.axioms + axioms)
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLGhostDeclaration.Function, CVLError> = collectingErrors {
         val _paramTypes = paramTypes.map { it.toCVLType(resolver, scope) }.flatten()
         val _returnType = returnType.toCVLType(resolver, scope)
         val _axioms     = axioms.map { it.kotlinize(resolver, scope) }.flatten()
         map(_paramTypes, _returnType, _axioms) { paramTypes, returnType, axioms ->
-            CVLGhostDeclaration.Function(cvlRange, id, paramTypes, returnType, persistent, axioms, scope, false)
+            CVLGhostDeclaration.Function(range, id, paramTypes, returnType, persistent, axioms, scope, false)
         }
     }
 }
@@ -62,19 +63,19 @@ class GhostFunDecl @JvmOverloads constructor(
  * .
  */
 class GhostMapDecl @JvmOverloads constructor(
-    val cvlRange: CVLRange,
+    val range: Range,
     val type: TypeOrLhs,
     val id: String,
     val persistent: Boolean,
     val axioms: List<GhostAxiom> = emptyList()
 ) : GhostDecl() {
     override fun withAxioms(axioms: List<GhostAxiom>): GhostMapDecl
-        = GhostMapDecl(cvlRange, type, id, persistent, this.axioms + axioms)
+        = GhostMapDecl(range, type, id, persistent, this.axioms + axioms)
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLGhostDeclaration.Variable, CVLError> = collectingErrors {
         val _type = type.toCVLType(resolver, scope)
         val _axioms = axioms.map { it.kotlinize(resolver, scope) }.flatten()
-        map(_type, _axioms) { type, axioms -> CVLGhostDeclaration.Variable(cvlRange, type, id, persistent, axioms, scope, oldCopy = false) }
+        map(_type, _axioms) { type, axioms -> CVLGhostDeclaration.Variable(range, type, id, persistent, axioms, scope, oldCopy = false) }
     }
 }
 

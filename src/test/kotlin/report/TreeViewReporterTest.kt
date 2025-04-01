@@ -17,7 +17,6 @@
 
 package report
 
-import config.Config
 import datastructures.stdcollections.*
 import io.mockk.every
 import io.mockk.mockk
@@ -29,6 +28,8 @@ import rules.VerifyTime
 import scene.*
 import solver.SolverResult
 import spec.cvlast.*
+import spec.rules.*
+import utils.Range
 
 class TreeViewReporterTest {
     val json = Json { prettyPrint = true }
@@ -38,7 +39,7 @@ class TreeViewReporterTest {
         DummyContractSourceAndLoader,
     )
 
-    private val mockRange = CVLRange.Empty("no comment")
+    private val mockRange = Range.Empty("no comment")
 
     private fun mkTreeViewReporter() = TreeViewReporter(
         contract = null,
@@ -52,7 +53,7 @@ class TreeViewReporterTest {
         ruleType: SpecType.Single = SpecType.Single.FromUser.SpecFile
     ) = CVLSingleRule(
         ruleIdentifier = RuleIdentifier.freshIdentifier(name),
-        cvlRange = mockRange,
+        range = mockRange,
         params = emptyList(),
         description = "test rule named $name",
         goodDescription = "test rule named $name (good)",
@@ -66,11 +67,11 @@ class TreeViewReporterTest {
 
     private fun mkGroupRule(
         name: String,
-        children: List<IRule>,
+        children: List<ICVLRule>,
         ruleType: SpecType.Group = mockk<SpecType.Group>()
     ) = GroupRule(
         ruleIdentifier = RuleIdentifier.freshIdentifier(name),
-        cvlRange = CVLRange.Empty("no comment"),
+        range = Range.Empty("no comment"),
         rules = children,
         ruleType = ruleType,
         scope = CVLScope.AstScope,
@@ -234,8 +235,8 @@ class TreeViewReporterTest {
         val tvr = mkTreeViewReporter()
         val cvlInvariant = mockk<CVLInvariant>()
 
-        val leaf1 = mkSingleRule("leaf1", ruleType = SpecType.Single.GeneratedFromBasicRule.VacuityCheck(mockk()))
-        val leaf2 = mkSingleRule("leaf2", ruleType = SpecType.Single.GeneratedFromBasicRule.VacuityCheck(mockk()))
+        val leaf1 = mkSingleRule("leaf1", ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(mockk()))
+        val leaf2 = mkSingleRule("leaf2", ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(mockk()))
         val group1 = mkSingleRule(
             "group1",
         )

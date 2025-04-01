@@ -35,6 +35,7 @@ import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import tac.MetaKey
 import tac.NBId
+import utils.Range
 import vc.data.TACCmd.Simple.AssigningCmd
 import java.math.BigInteger
 
@@ -100,6 +101,13 @@ object TACMeta {
 
     // For LoopSummarization
     val MEM_INCARN = MetaKey<Int>("loop.summarization.mem.incarn")
+
+    /**
+     * Marker for an mstore command which updates the length of an array for which we've generated
+     * a runtime proof obligation.
+     */
+    val VALIDATED_LENGTH_UPDATE = MetaKey.Nothing("pta.length.write.validated")
+
 
     /**
      * instanceId of a contract that a storage variable represents. If the storage variable is map,
@@ -254,7 +262,7 @@ object TACMeta {
     // For symbols: mark local variables to be presented under "locals"
     val CVL_DEF_SITE = MetaKey<CVLDefinitionSite>("cvl.def.site")
     // For cmds: location of the corresponding CVL cmd
-    val CVL_RANGE = MetaKey<CVLRange>("cvl.range", restore = true)
+    val CVL_RANGE = MetaKey<Range>("cvl.range", restore = true)
     // for symbols: mark variables that are the predicate of an `if` command
     val CVL_IF_PREDICATE = MetaKey.Nothing("cvl.if.predicate")
     // For cmds: unique identifier (index) for an assert TACCmd
@@ -288,7 +296,7 @@ object TACMeta {
     val CONTRACT_ADDR_KEY_NAME =
             MetaKey<String>("tac.contract.sym.addr.name", erased = true)
     // Marks assert commands that come directly from a CVL `assert` command written in the spec file
-    // Note that the presence of a CVLRange meta entry is no longer (but was previously) an indicator for a user
+    // Note that the presence of a range meta entry is no longer (but was previously) an indicator for a user
     // defined assert.
     val CVL_USER_DEFINED_ASSERT = MetaKey.Nothing("cvl.user.defined.assert")
 

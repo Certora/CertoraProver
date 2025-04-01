@@ -18,7 +18,7 @@
 package analysis.icfg
 
 import com.certora.collect.*
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.SpecCallSummary
 import utils.AmbiSerializable
 import utils.KSerializable
@@ -45,10 +45,10 @@ sealed class SummaryApplicationReason : AmbiSerializable {
          * The method's signature as appears in the methods block.
          */
         abstract val methodSignature: String?
-        abstract val loc: CVLRange
+        abstract val loc: Range
         protected val locMsg: String
-            get() = if (loc is CVLRange.Empty) {
-                val comment = (loc as CVLRange.Empty).comment
+            get() = if (loc is Range.Empty) {
+                val comment = (loc as Range.Empty).comment
                 comment.ifBlank {
                     "in the specification"
                 }
@@ -60,27 +60,27 @@ sealed class SummaryApplicationReason : AmbiSerializable {
 
             fun reasonFor(summ: SpecCallSummary.ExpressibleInCVL, methodSignature: String?): Spec =
                 when (summ.summarizationMode) {
-                    SpecCallSummary.SummarizationMode.UNRESOLVED_ONLY -> Unresolved(summ.cvlRange, methodSignature)
-                    SpecCallSummary.SummarizationMode.ALL -> All(summ.cvlRange, methodSignature)
-                    SpecCallSummary.SummarizationMode.DELETE -> Delete(summ.cvlRange, methodSignature)
+                    SpecCallSummary.SummarizationMode.UNRESOLVED_ONLY -> Unresolved(summ.range, methodSignature)
+                    SpecCallSummary.SummarizationMode.ALL -> All(summ.range, methodSignature)
+                    SpecCallSummary.SummarizationMode.DELETE -> Delete(summ.range, methodSignature)
                 }
         }
 
         @KSerializable
-        data class Delete(override val loc: CVLRange, override val methodSignature: String?) : Spec() {
+        data class Delete(override val loc: Range, override val methodSignature: String?) : Spec() {
             override val reasonMsg: String
                 get() = "declared $loc to apply to calls to the callee and to remove the method from the scene"
         }
 
 
         @KSerializable
-        data class Unresolved(override val loc: CVLRange, override val methodSignature: String?) : Spec() {
+        data class Unresolved(override val loc: Range, override val methodSignature: String?) : Spec() {
             override val reasonMsg: String
                 get() = "declared $locMsg; applied to calls where no callee could be resolved"
         }
 
         @KSerializable
-        data class All(override val loc: CVLRange, override val methodSignature: String?) : Spec() {
+        data class All(override val loc: Range, override val methodSignature: String?) : Spec() {
             override val reasonMsg: String
                 get() = "declared $locMsg to apply to all calls to the callee"
         }

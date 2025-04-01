@@ -63,6 +63,10 @@ import java.math.BigInteger
 // TAC annotations for TAC debugging
 val SBF_ADDRESS  = tac.MetaKey<Long>("sbf.bytecode.address")
 
+// This number should be bigger than the number of Assert commands inserted by any TAC optimization (e.g., loop unroller),
+// by all rules executed in the same run.
+const val RESERVED_NUM_OF_ASSERTS = 100_000
+
 class TACTranslationError(msg: String): SolanaInternalError("TAC translation error: $msg")
 
 /** If globalAnalysisResults == null then no memory splitting will be done **/
@@ -80,7 +84,7 @@ fun sbfCFGsToTAC(program: SbfCallGraph,
         globalAnalysisResults[cfg.getName()]
             ?: throw TACTranslationError("Not analysis results found for ${cfg.getName()}")
     }
-    val marshaller = SbfCFGToTAC(cfg, program.getGlobals(), memSummaries, analysis, true)
+    val marshaller = SbfCFGToTAC(cfg, program.getGlobals(), memSummaries, analysis)
     return marshaller.encode()
 }
 
@@ -89,8 +93,7 @@ fun sbfCFGsToTAC(program: SbfCallGraph,
 internal class SbfCFGToTAC(private val cfg: SbfCFG,
                            globals: GlobalVariableMap,
                            memSummaries: MemorySummaries,
-                           private val memoryAnalysis: MemoryAnalysis?,
-                           private val isEntryPoint: Boolean) {
+                           private val memoryAnalysis: MemoryAnalysis?) {
     private val blockMap: MutableMap<Label, NBId> = mutableMapOf()
     private val blockGraph = MutableBlockGraph()
     private val code: MutableMap<NBId, List<TACCmd.Simple>> = mutableMapOf()
@@ -110,11 +113,12 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
     // The memory analysis guarantees that all pointers that might alias will be mapped to same
     // symbolic variable.
     val mem: TACMemSplitter
-    // To generate TAC identifiers for variables, basic blocks, and satisfy statements
+    // To generate TAC identifiers for variables, basic blocks, and assert/satisfy statements
     private var varId: Int = 0
-    private var blockId: Int = 0
+    private var blockId: Int = 1
     private var satisfyId: Int = 0
-    private var assertId: Int = 0
+    // Start from a large number to avoid clashes with satisfy inserted by TAC optimizations
+    private var assertId: Int = RESERVED_NUM_OF_ASSERTS
     // Only for printing user warnings
     // Unsupported calls. We just keep track of them to reduce the number of user warnings
     private val unsupportedCalls: MutableSet<String> = mutableSetOf()
@@ -142,8 +146,14 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
         }
     }
 
-    private fun mkBlockIdentifier(SbfBB: SbfBasicBlock): NBId {
-        val tacBB = BlockIdentifier(blockId++, 0, 0, 0, 0, 0)
+    private fun mkBlockIdentifier(SbfBB: SbfBasicBlock, isStart: Boolean): NBId {
+        // The entry block of the CFG must be `StartBlock`
+        val tacBB = if (isStart) {
+            StartBlock
+        } else {
+            // We use `stkTop = 1` to avoid classes with Allocator.getNBId()
+            BlockIdentifier(blockId++, stkTop = 1, 0, 0, 0, 0)
+        }
         blockGraph[tacBB] = treapSetOf()
         code[tacBB] = mutableListOf()
         blockMap[SbfBB.getLabel()] = tacBB
@@ -375,7 +385,7 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
         return assign(tacLhs, tacRhs)
     }
 
-    /** Return true if [locInst] is the assume instruction and its condition is evaluated semantically to true **/
+    /** Return true if [locInst] is an Assume instruction and its condition is evaluated semantically to true **/
     private fun isTautology(locInst: LocatedSbfInstruction): Boolean {
         val inst = locInst.inst
         check(inst is SbfInstruction.Assume) {"isTautology expects an assume instruction instead of $inst"}
@@ -511,7 +521,8 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
 
     @Suppress("ForbiddenMethodCall")
     private fun translateSanity(inst: SbfInstruction.Call): List<TACCmd.Simple> {
-        return if (cfg.getName().endsWith(sanitySuffix)) {
+        val name = cfg.getName()
+        return if (name.endsWith(vacuitySuffix) || name.endsWith(devVacuitySuffix)) {
             translateSatisfy(inst)
         } else {
             listOf()
@@ -662,7 +673,7 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
         for (i in 0 until len) {
             val srcOffset = srcRange.first + i
             val srcBV = vFac.getByteStackVar(srcOffset)
-            cmds.addAll(mapStores(info.byteMap, exprBuilder.mkVar(SbfRegister.R1_ARG), listOf(i), listOf(srcBV.tacVar)))
+            cmds.addAll(mapStores(info.byteMap, exprBuilder.mkVar(SbfRegister.R1_ARG), i, srcBV.tacVar))
         }
         cmds.add(Debug.endFunction("memcpy"))
         return cmds
@@ -783,7 +794,58 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
         }
     }
 
-   /**
+    /**
+     * Emit TAC code for a memset of non-stack memory.
+     *
+     * If [value] != 0 then we create a map that always returns a non-deterministic value.
+     * We could have also returned value instead but that would be potentially unsound since for memset we need to
+     * know how the stored value is going to be read (i.e., word size).
+     *
+     * The byte map scalarizer optimization does not support map definitions.
+     */
+    private fun memsetNonStackWithMapDef(mapV: TACByteMapVariable, len: Long, value: Long): List<TACCmd.Simple> {
+        val initMap = vFac.getByteMapVar("memset")
+        return listOf(
+            TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                lhs = initMap.tacVar,
+                rhs = TACExpr.MapDefinition(
+                defParams = listOf(TACKeyword.TMP(Tag.Bit256, "!idx").toUnique("!").asSym()),
+                tag = Tag.ByteMap,
+                definition = if (value == 0L) {
+                        exprBuilder.mkConst(value).asSym()
+                    } else {
+                        TACExpr.Unconstrained(Tag.Bit256)
+                    }
+                )
+            ),
+            TACCmd.Simple.ByteLongCopy(
+                srcBase = initMap.tacVar,
+                srcOffset = TACSymbol.Zero,
+                dstBase = mapV.tacVar,
+                dstOffset = exprBuilder.mkVar(SbfRegister.R1_ARG),
+                length = exprBuilder.mkConst(len),
+            )
+        )
+    }
+
+    /**
+     * Same semantics than `memsetNonStackWithMapDef` but this version does not use a map definition.
+     */
+    private fun memsetNonStack(mapV: TACByteMapVariable, len: Long, value: Long): List<TACCmd.Simple> {
+        val valueS = if (value == 0L) {
+                exprBuilder.mkConst(value)
+            } else {
+                // this is an over-approximation. See comment in `memsetNonStackWithMapDef` for details.
+                mkFreshIntVar()
+            }
+        val cmds = mutableListOf<TACCmd.Simple>()
+        for (i in 0 until len) {
+            cmds.addAll(mapStores(mapV, exprBuilder.mkVar(SbfRegister.R1_ARG), i, valueS))
+        }
+        return cmds
+    }
+
+    /**
     *  Translate a `memset` instruction to TAC
     *
     *  @param locInst is a memset(x,val,len) instruction
@@ -819,33 +881,17 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
                 is TACMemSplitter.NonStackMemsetInfo -> {
                     val len = info.length
                     val value = info.value
-                    val initMap = vFac.getByteMapVar("memset")
+                    val byteMapV = info.byteMap
 
-                    val cmds = mutableListOf(Debug.startFunction("memset", "(NonStack, $value, $len)"))
-                    // If value != 0 then we create a map that always returns a non-determistic value.
-                    // We could have also returned value instead but that would be unsound since for memset we need to
-                    // know how the stored value is going to be read (i.e., word size).
-                    cmds.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                        lhs = initMap.tacVar,
-                        rhs = TACExpr.MapDefinition(
-                            defParams = listOf(TACKeyword.TMP(Tag.Bit256, "!idx").toUnique("!").asSym()),
-                            tag = Tag.ByteMap,
-                            definition = if (value == 0L) {
-                                            exprBuilder.mkConst(value).asSym()
-                                         } else {
-                                            TACExpr.Unconstrained(Tag.Bit256)
-                                         }
-                        )
-                    ))
-                    cmds.add(TACCmd.Simple.ByteLongCopy(
-                        srcBase = initMap.tacVar,
-                        srcOffset = TACSymbol.Zero,
-                        dstBase = info.byteMap.tacVar,
-                        dstOffset = exprBuilder.mkVar(SbfRegister.R1_ARG),
-                        length = exprBuilder.mkConst(len),
-                    ))
-                    cmds.add(Debug.endFunction("memset"))
-                    return cmds
+                    val cmds = if (len <= SolanaConfig.TACMaxUnfoldedMemset.get()) {
+                        memsetNonStack(byteMapV, len, value)
+                    } else {
+                        memsetNonStackWithMapDef(byteMapV, len, value)
+                    }
+
+                    return  listOf(Debug.startFunction("memset", "(NonStack, $value, $len)")) +
+                            cmds +
+                            listOf(Debug.endFunction("memset"))
                 }
             }
         }
@@ -1052,6 +1098,9 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
         val inst = locInst.inst
         check(inst is SbfInstruction.Call) {"translateSaveScratchRegisters expects a call instead of $inst"}
 
+        // If the call doesn't have this metadata then by assuming 0 the call won't appear in the calltrace.
+        val calleeSize = inst.metaData.getVal(SbfMeta.INLINED_FUNCTION_SIZE)?: 0UL
+
         val v6 = mkFreshIntVar(prefix = "saved_r6")
         val v7 = mkFreshIntVar(prefix = "saved_r7")
         val v8 = mkFreshIntVar(prefix = "saved_r8")
@@ -1061,9 +1110,21 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
         scratchRegVars.add(v8)
         scratchRegVars.add(v9)
         val startInlineAnnot = inst.toStartInlinedAnnotation(locInst)?.let {
-            listOf(TACCmd.Simple.AnnotationCmd(
-                TACCmd.Simple.AnnotationCmd.Annotation(SBF_INLINED_FUNCTION_START, it))
-            )
+                if (calleeSize >= SolanaConfig.TACMinSizeForCalltrace.get().toULong()) {
+                    listOf(
+                        // Before each function start annotation, we insert a function no-op annotation.
+                        // This is because with the current implementation of [report.dumps.AddInternalFunctions], if
+                        // there is a function end annotation immediately followed by a function start annotation, the
+                        // functions are not correctly inlined, and the whole procedure fails.
+                        // Fixing the behaviour in [report.dumps.AddInternalFunctions] is not trivial, and it is, at
+                        // least for the moment, easier to insert a no-op annotation to fix the problem.
+                        TACCmd.Simple.AnnotationCmd(
+                            TACCmd.Simple.AnnotationCmd.Annotation(SBF_INLINED_FUNCTION_NOP, SbfInlinedFuncNopAnnotation)),
+                        TACCmd.Simple.AnnotationCmd(
+                            TACCmd.Simple.AnnotationCmd.Annotation(SBF_INLINED_FUNCTION_START, it)))
+                }  else {
+                    listOf(Debug.startFunction(it))
+                }
         } ?: listOf()
         return startInlineAnnot + listOf(
             assign(v6, TACExpr.Sym.Var(exprBuilder.mkVar(SbfRegister.R6))),
@@ -1076,13 +1137,22 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
         if (scratchRegVars.size < 4) {
             throw TACTranslationError("number of save/restore does not match")
         }
+
+        // If the call doesn't have this metadata then by assuming 0 the call won't appear in the calltrace.
+        val calleeSize = inst.metaData.getVal(SbfMeta.INLINED_FUNCTION_SIZE)?: 0UL
+
         val v9 = scratchRegVars.removeLast()
         val v8 = scratchRegVars.removeLast()
         val v7 = scratchRegVars.removeLast()
         val v6 = scratchRegVars.removeLast()
         val endInlineAnnot = inst.toEndInlineAnnotation()?.let {
-            listOf(TACCmd.Simple.AnnotationCmd(
-                TACCmd.Simple.AnnotationCmd.Annotation(SBF_INLINED_FUNCTION_END, it))
+            listOf(
+                if (calleeSize >= SolanaConfig.TACMinSizeForCalltrace.get().toULong()) {
+                    TACCmd.Simple.AnnotationCmd(
+                        TACCmd.Simple.AnnotationCmd.Annotation(SBF_INLINED_FUNCTION_END, it))
+                } else {
+                    Debug.endFunction(it)
+                }
             )
         } ?: listOf()
         return endInlineAnnot + listOf(
@@ -1094,13 +1164,13 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
 
     private fun summarizeNondet(nondetFn: CVTNondet, inst: SbfInstruction.Call): List<TACCmd.Simple> {
         when (nondetFn) {
-            CVTNondet.NONDET_i8, CVTNondet.NONDET_i16, CVTNondet.NONDET_i32, CVTNondet.NONDET_i64 -> {
+            CVTNondet.NONDET_I8, CVTNondet.NONDET_I16, CVTNondet.NONDET_I32, CVTNondet.NONDET_I64 -> {
                 val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
                 val n = when (nondetFn) {
-                    CVTNondet.NONDET_i8  -> BigInteger.TWO.pow(8-1)
-                    CVTNondet.NONDET_i16 -> BigInteger.TWO.pow(16-1)
-                    CVTNondet.NONDET_i32 -> BigInteger.TWO.pow(32-1)
-                    CVTNondet.NONDET_i64 -> BigInteger.TWO.pow(64-1)
+                    CVTNondet.NONDET_I8  -> BigInteger.TWO.pow(8-1)
+                    CVTNondet.NONDET_I16 -> BigInteger.TWO.pow(16-1)
+                    CVTNondet.NONDET_I32 -> BigInteger.TWO.pow(32-1)
+                    CVTNondet.NONDET_I64 -> BigInteger.TWO.pow(64-1)
                     else -> {
                         // compiler is not smart enough
                         throw TACTranslationError("Unexpected CVT_nondet signed integer function ${inst.name}")
@@ -1110,13 +1180,13 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
                     inRange(r0, -n, n, false) +
                     listOf(Calltrace.externalCall(inst, listOf(r0)))
             }
-            CVTNondet.NONDET_u8, CVTNondet.NONDET_u16, CVTNondet.NONDET_u32, CVTNondet.NONDET_u64, CVTNondet.NONDET_usize -> {
+            CVTNondet.NONDET_U8, CVTNondet.NONDET_U16, CVTNondet.NONDET_U32, CVTNondet.NONDET_U64, CVTNondet.NONDET_USIZE -> {
                 val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
                 val n = when (nondetFn) {
-                    CVTNondet.NONDET_u8  -> BigInteger.TWO.pow(8)
-                    CVTNondet.NONDET_u16 -> BigInteger.TWO.pow(16)
-                    CVTNondet.NONDET_u32 -> BigInteger.TWO.pow(32)
-                    CVTNondet.NONDET_u64, CVTNondet.NONDET_usize -> {
+                    CVTNondet.NONDET_U8  -> BigInteger.TWO.pow(8)
+                    CVTNondet.NONDET_U16 -> BigInteger.TWO.pow(16)
+                    CVTNondet.NONDET_U32 -> BigInteger.TWO.pow(32)
+                    CVTNondet.NONDET_U64, CVTNondet.NONDET_USIZE -> {
                         /// usize is the size of a pointer
                         BigInteger.TWO.pow(64)
                     }
@@ -1203,22 +1273,31 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
                     }
                     is CVTFunction.Calltrace -> {
                         when (cvtFunction.value) {
-                            CVTCalltrace.CEX_PRINT_i64_1, CVTCalltrace.CEX_PRINT_i64_2, CVTCalltrace.CEX_PRINT_i64_3,
-                            CVTCalltrace.CEX_PRINT_TAG,
-                            CVTCalltrace.CEX_PRINT_u64_1, CVTCalltrace.CEX_PRINT_u64_2, CVTCalltrace.CEX_PRINT_u64_3 -> {
+                            CVTCalltrace.PRINT_I64_1, CVTCalltrace.PRINT_I64_2, CVTCalltrace.PRINT_I64_3,
+                            CVTCalltrace.PRINT_TAG,
+                            CVTCalltrace.PRINT_U64_1, CVTCalltrace.PRINT_U64_2, CVTCalltrace.PRINT_U64_3 -> {
                                 listOf(Calltrace.printValueOrTag(locInst, cvtFunction))
                             }
-                            CVTCalltrace.CEX_PRINT_u64_AS_FIXED -> {
+                            CVTCalltrace.PRINT_U128 -> {
+                                listOf(Calltrace.print128BitsValue(locInst, signed = false))
+                            }
+                            CVTCalltrace.PRINT_I128 -> {
+                                listOf(Calltrace.print128BitsValue(locInst, signed = true))
+                            }
+                            CVTCalltrace.PRINT_U64_AS_FIXED -> {
                                 listOf(Calltrace.printU64AsFixed(locInst))
                             }
-                            CVTCalltrace.CEX_PRINT_LOCATION -> {
+                            CVTCalltrace.PRINT_LOCATION -> {
                                 listOf(Calltrace.printLocation(locInst))
                             }
-                            CVTCalltrace.CEX_ATTACH_LOCATION -> {
+                            CVTCalltrace.ATTACH_LOCATION -> {
                                 listOf(Calltrace.attachLocation(locInst))
                             }
-                            CVTCalltrace.CEX_PRINT_STRING -> {
+                            CVTCalltrace.PRINT_STRING -> {
                                 listOf(Calltrace.printString(locInst))
+                            }
+                            CVTCalltrace.RULE_LOCATION -> {
+                                listOf(Calltrace.ruleLocation(locInst))
                             }
                         }
                     }
@@ -1398,11 +1477,10 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
     // Convert a CFG to a TACProgram
     fun encode(): CoreTACProgram {
         val entry = cfg.getEntry()
-        // It is important for the rest of the pipeline that the entry block is assigned 0
-        mkBlockIdentifier(entry)
+        mkBlockIdentifier(entry, isStart = true)
         cfg.getBlocks().values.forEach {
             if (it != entry) {
-                mkBlockIdentifier(it)
+                mkBlockIdentifier(it, isStart = false)
             }
         }
 
@@ -1414,7 +1492,7 @@ internal class SbfCFGToTAC(private val cfg: SbfCFG,
         while (worklist.isNotEmpty()) {
             val block = worklist.removeLast()
             val tacBB = getBlockIdentifier(block)
-            if (isEntryPoint && entry.getLabel() == block.getLabel()) {
+            if (entry.getLabel() == block.getLabel()) {
                 val cmds = ArrayList<TACCmd.Simple>()
                 cmds.addAll(addInitialPreconditions())
                 cmds.addAll(translate(block))

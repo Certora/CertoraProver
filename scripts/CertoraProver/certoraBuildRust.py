@@ -21,6 +21,7 @@ from typing import Set
 from CertoraProver.certoraBuild import build_source_tree
 from CertoraProver.certoraContextClass import CertoraContext
 from CertoraProver.certoraParseBuildScript import run_script_and_parse_json
+import CertoraProver.certoraContextAttributes as Attrs
 from Shared import certoraUtils as Util
 
 
@@ -31,8 +32,7 @@ def build_rust_app(context: CertoraContext) -> None:
             raise Util.CertoraUserInputError("failed to get target executable")
 
         sources: Set[Path] = set()
-        root_directory = Path(context.rust_project_directory)
-        collect_files_from_rust_sources(context, sources, root_directory)
+        collect_files_from_rust_sources(context, sources)
 
         try:
             # Create generators
@@ -47,25 +47,42 @@ def build_rust_app(context: CertoraContext) -> None:
             raise Util.CertoraUserInputError("'files' or 'build_script' must be set for Rust projects")
         if len(context.files) > 1:
             raise Util.CertoraUserInputError("Rust projects must specify exactly one executable in 'files'.")
+
+        try:
+            Util.get_certora_sources_dir().mkdir(parents=True, exist_ok=True)
+            shutil.copy(Util.get_last_conf_file(), Util.get_certora_sources_dir() / Util.LAST_CONF_FILE)
+        except Exception as e:
+            raise Util.CertoraUserInputError(f"Collecting build files failed with the exception: {e}")
+
         context.rust_executables = context.files[0]
 
-def add_solana_files(context: CertoraContext, sources: Set[Path], attr_name: str) -> None:
-    attr_value = getattr(context, attr_name, None)
-    if not attr_value or not isinstance(attr_value, list):
-        return
-    file_paths = [Path(s) for s in attr_value]
-    for file_path in file_paths:
-        if not file_path.exists():
-            raise Util.CertoraUserInputError(f"in {attr_name} file {file_path} does not exist")
-        sources.add(file_path.absolute())
+
+def add_solana_files(context: CertoraContext, sources: Set[Path]) -> None:
+    for attr in [Attrs.SolanaProverAttributes.SOLANA_INLINING, Attrs.SolanaProverAttributes.SOLANA_SUMMARIES]:
+        attr_name = attr.get_conf_key()
+        attr_value = getattr(context, attr_name, None)
+        if not attr_value:
+            continue
+        if isinstance(attr_value, str):
+            attr_value = [str]
+        if not isinstance(attr_value, list):
+            raise Util.CertoraUserInputError(f"{attr_value} is not a valid value for {attr_name} {attr_value}. Value "
+                                             f"must be a string or a llist ")
+        file_paths = [Path(s) for s in attr_value]
+        for file_path in file_paths:
+            if not file_path.exists():
+                raise Util.CertoraUserInputError(f"in {attr_name} file {file_path} does not exist")
+            sources.add(file_path.absolute())
 
 
-def collect_files_from_rust_sources(context: CertoraContext, sources: Set[Path], root_directory: Path) -> None:
+def collect_files_from_rust_sources(context: CertoraContext, sources: Set[Path]) -> None:
     patterns = ["*.rs", "*.so", "*.wasm", "Cargo.toml", "Cargo.lock", "justfile"]
     exclude_dirs = [".certora_internal"]
 
+    root_directory = Path(context.rust_project_directory)
+
     if not root_directory.is_dir():
-        raise ValueError(f"The given directory {root_directory} is not valid.")
+        raise ValueError(f"The given directory '{root_directory}' is not valid.")
 
     for source in context.rust_sources:
         for file in glob.glob(f'{root_directory.joinpath(source)}', recursive=True):
@@ -75,12 +92,13 @@ def collect_files_from_rust_sources(context: CertoraContext, sources: Set[Path],
             if file_path.is_file() and any(file_path.match(pattern) for pattern in patterns):
                 sources.add(file_path)
 
+    sources.add(Path(context.rust_project_directory).absolute())
     if Path(context.build_script).exists():
         sources.add(Path(context.build_script).resolve())
     if getattr(context, 'conf_file', None) and Path(context.conf_file).exists():
         sources.add(Path(context.conf_file).absolute())
-    add_solana_files(context, sources, 'solana_inlining')
-    add_solana_files(context, sources, 'solana_summaries')
+    add_solana_files(context, sources)
+
 
 def copy_files_to_build_dir(context: CertoraContext) -> None:
     rust_executable = Path(context.rust_project_directory) / context.rust_executables

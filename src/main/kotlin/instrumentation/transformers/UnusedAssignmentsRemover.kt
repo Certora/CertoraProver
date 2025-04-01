@@ -236,7 +236,7 @@ fun removeUnusedAssignments(
     expensive: Boolean,
     isTypeChecked: Boolean = true
 ) =
-    AssignmentRemover(code, expensive, FilteringFunctions.default(code)::isErasable, isTypeChecked).go()
+    AssignmentRemover(code, expensive, FilteringFunctions.default(code, bmcAware = true)::isErasable, isTypeChecked).go()
 
 
 /** transforms via [inlineAssignments] and then via [removeUnusedAssignments] */
@@ -247,4 +247,3 @@ fun optimizeAssignments(
     removeUnusedAssignments(code, expensive = false, filtering::isErasable, isTypechecked = true)
         .let { inlineAssignments(it, filtering::isInlineable) }
         .let { removeUnusedAssignments(it, expensive = true, filtering::isErasable, isTypechecked = true) }
-

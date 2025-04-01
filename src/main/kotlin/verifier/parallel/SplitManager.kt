@@ -35,7 +35,7 @@ import smtlibutils.cmdprocessor.SmtFormulaCheckerResultWithChecker
 import smtlibutils.data.ProcessDifficulties
 import smtlibutils.data.SatResult
 import solver.SolverResult
-import spec.cvlast.IRule
+import spec.rules.IRule
 import statistics.SDCollectorFactory
 import statistics.ScalarKeyValueStats
 import statistics.data.TACProgramMetadata

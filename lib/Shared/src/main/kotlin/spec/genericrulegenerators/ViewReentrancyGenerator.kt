@@ -21,6 +21,7 @@ import spec.cvlast.*
 import datastructures.stdcollections.*
 import spec.cvlast.typechecker.CVLError
 import utils.CollectingResult
+import utils.Range
 import utils.VoidResult
 
 /**
@@ -37,21 +38,21 @@ object ViewReentrancyGenerator : InstrumentingBuiltInRuleGenerator() {
     override val allSceneFunctions = false
 
     override fun getMethodParamFilters(
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope,
         symbolicFunctionName: String
     ): MethodParamFilters {
         val cvlVarExpF = CVLExp.VariableExp(
             symbolicFunctionName,
-            CVLExpTag(scope, EVMBuiltinTypes.method, cvlRange)
+            CVLExpTag(scope, EVMBuiltinTypes.method, range)
         )
         return MethodParamFilters(
-            cvlRange, scope, mapOf(
+            range, scope, mapOf(
                 symbolicFunctionName to MethodParamFilter.ignoreViewMethodsFilter(
-                    cvlVarExpF,  cvlRange = cvlRange, scope = scope ) ) )
+                    cvlVarExpF,  range = range, scope = scope ) ) )
     }
 
-    override fun checkIfCanGenerate(cvlRange: CVLRange): VoidResult<CVLError> = CollectingResult.ok
+    override fun checkIfCanGenerate(range: Range): VoidResult<CVLError> = CollectingResult.ok
 
     override val sinkType = BuiltInRuleSinkType.NOP
 }

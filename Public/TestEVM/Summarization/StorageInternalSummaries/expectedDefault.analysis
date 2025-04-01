@@ -1,0 +1,41 @@
+{
+  "AddInternalFunctions": {
+    "sanity-test(uint256)-Assertions": [
+      true,
+      true
+    ],
+    "sanity-test(uint256)-Satisfy_Reaching_end_of_methods_code_(BadInternal_spec_10_1)": [
+      true,
+      true,
+      true
+    ]
+  },
+  "CALLGRAPH": {
+    "constructor()": false,
+    "test(uint256)": true
+  },
+  "INIT": {
+    "BadInternal-test(uint256)": true
+  },
+  "NonLinearStats": {
+    "sanity-test(uint256)-Satisfy_Reaching_end_of_methods_code_(BadInternal_spec_10_1)": [
+      true,
+      true
+    ]
+  },
+  "POINTSTO": {
+    "BadInternal-test(uint256)": true,
+    "constructor()": false,
+    "test(uint256)": true
+  },
+  "PathCountStats": {
+    "sanity-test(uint256)-Satisfy_Reaching_end_of_methods_code_(BadInternal_spec_10_1)": [
+      true,
+      true
+    ]
+  },
+  "SKeyDetection": {
+    "sanity-test(uint256)-Assertions": true,
+    "sanity-test(uint256)-Satisfy_Reaching_end_of_methods_code_(BadInternal_spec_10_1)": true
+  }
+}

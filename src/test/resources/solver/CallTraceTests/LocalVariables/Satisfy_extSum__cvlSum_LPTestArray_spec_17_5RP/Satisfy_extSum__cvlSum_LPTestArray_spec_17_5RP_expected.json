@@ -74,6 +74,17 @@
         },
         {
             "message": {
+                "text": "rule parameters setup",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
+            ],
+            "jumpToDefinition": null
+        },
+        {
+            "message": {
                 "text": "Setup",
                 "arguments": [
                 ]
@@ -83,17 +94,6 @@
                 {
                     "message": {
                         "text": "multi contract setup",
-                        "arguments": [
-                        ]
-                    },
-                    "status": "",
-                    "childrenList": [
-                    ],
-                    "jumpToDefinition": null
-                },
-                {
-                    "message": {
-                        "text": "rule parameters setup",
                         "arguments": [
                         ]
                     },
@@ -325,21 +325,21 @@
                         "text": "TestArray.uint256StaticArray(arr=[0='{0}', 1='{1}', 2='{2}']) ↪ '{3}'",
                         "arguments": [
                             {
-                                "value": "0x3",
+                                "value": "0x5",
                                 "values": [
-                                    "0x3",
-                                    "3",
-                                    "0x3"
+                                    "0x5",
+                                    "5",
+                                    "0x5"
                                 ],
                                 "tooltip": "value",
                                 "truncatable": true
                             },
                             {
-                                "value": "0x2",
+                                "value": "0x0",
                                 "values": [
-                                    "0x2",
-                                    "2",
-                                    "0x2"
+                                    "0x0",
+                                    "0",
+                                    "0x0"
                                 ],
                                 "tooltip": "value",
                                 "truncatable": true
@@ -387,10 +387,10 @@
                                         "values": [
                                             "TestArray",
                                             "TestArray",
-                                            "0x8000000000000000000000000000000000000000"
+                                            "0x7"
                                         ],
                                         "tooltip": "address of receiver",
-                                        "truncatable": true
+                                        "truncatable": false
                                     },
                                     {
                                         "value": "0x0",

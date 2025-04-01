@@ -44,6 +44,7 @@ import tac.Tag
 import tac.isSubtypeOf
 import utils.CollectingResult
 import utils.CollectingResult.Companion.bind
+import utils.Range
 import utils.uncheckedAs
 import vc.data.*
 import java.math.BigInteger
@@ -90,8 +91,8 @@ abstract class ConverterTests {
     ) {
         val typeChecker = CVLTypeTypeChecker(CVLSymbolTable())
         Assume.that(t != CVLType.PureCVLType.Void) // Void doesn't have a tag
-        Assume.that(typeChecker.typeCheck(t, CVLRange.Empty(), CVLScope.AstScope) is CollectingResult.Result)
-        Assume.that(typeChecker.typeCheck(u, CVLRange.Empty(), CVLScope.AstScope) is CollectingResult.Result)
+        Assume.that(typeChecker.typeCheck(t, Range.Empty(), CVLScope.AstScope) is CollectingResult.Result)
+        Assume.that(typeChecker.typeCheck(u, Range.Empty(), CVLScope.AstScope) is CollectingResult.Result)
         Assume.that(t isSubtypeOf u)
         Assertions.assertTrue(t.toTag().isSubtypeOf(u.toTag()))
     }
@@ -180,8 +181,8 @@ abstract class ConverterTests {
         { (t, u, v, ctxt) ->
             val typeChecker = CVLTypeTypeChecker(CVLSymbolTable())
             t isSubtypeOf u &&
-                typeChecker.typeCheck(t, CVLRange.Empty(), CVLScope.AstScope) is CollectingResult.Result &&
-                typeChecker.typeCheck(u, CVLRange.Empty(), CVLScope.AstScope) is CollectingResult.Result &&
+                typeChecker.typeCheck(t, Range.Empty(), CVLScope.AstScope) is CollectingResult.Result &&
+                typeChecker.typeCheck(u, Range.Empty(), CVLScope.AstScope) is CollectingResult.Result &&
                 ctxt.supportsConversion(u, v).isResult()
         },
         { (t, _, v, ctxt) ->
@@ -218,8 +219,8 @@ abstract class ConverterTests {
     ) {
         val typeChecker = CVLTypeTypeChecker(CVLSymbolTable())
         Assume.that(t isSubtypeOf u &&
-            typeChecker.typeCheck(t, CVLRange.Empty(), CVLScope.AstScope) is CollectingResult.Result &&
-            typeChecker.typeCheck(u, CVLRange.Empty(), CVLScope.AstScope) is CollectingResult.Result &&
+            typeChecker.typeCheck(t, Range.Empty(), CVLScope.AstScope) is CollectingResult.Result &&
+            typeChecker.typeCheck(u, Range.Empty(), CVLScope.AstScope) is CollectingResult.Result &&
             ctxt.supportsConversion(v, t).isResult())
         Assertions.assertTrue(ctxt.supportsConversion(v, u).isResult())
     }
@@ -258,7 +259,7 @@ abstract class ConverterTests {
     ) {
         val typeChecker = CVLTypeTypeChecker(CVLSymbolTable())
         Assume.that(
-            typeChecker.typeCheck(cvlType, scope = CVLScope.AstScope, cvlRange = CVLRange.Empty()) is CollectingResult.Result
+            typeChecker.typeCheck(cvlType, scope = CVLScope.AstScope, range = Range.Empty()) is CollectingResult.Result
         )
         fun <T, SRC, DST> open(c: ConversionSpec<T, SRC, DST>) {
             val conv = c.conversionCheck(
@@ -289,7 +290,7 @@ abstract class ConverterTests {
         cvlType: CVLType.PureCVLType
     ) {
         val typeChecker = CVLTypeTypeChecker(CVLSymbolTable())
-        Assume.that(typeChecker.typeCheck(cvlType, CVLRange.Empty(), CVLScope.AstScope) is CollectingResult.Result && cvlType != CVLType.PureCVLType.Void)
+        Assume.that(typeChecker.typeCheck(cvlType, Range.Empty(), CVLScope.AstScope) is CollectingResult.Result && cvlType != CVLType.PureCVLType.Void)
         Assertions.assertDoesNotThrow(cvlType::toTag)
     }
 

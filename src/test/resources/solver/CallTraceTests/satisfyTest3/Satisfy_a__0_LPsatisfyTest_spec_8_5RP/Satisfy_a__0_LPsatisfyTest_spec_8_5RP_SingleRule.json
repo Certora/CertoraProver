@@ -1,5 +1,5 @@
 {
-    "type": "spec.cvlast.CVLSingleRule",
+    "type": "spec.rules.CVLSingleRule",
     "ruleIdentifier": {
         "parentIdentifier": {
             "type": "spec.cvlast.RuleIdentifier",
@@ -10,8 +10,8 @@
         "displayName": "Satisfy_a__0_(satisfyTest_spec_8_5)",
         "counter": 5
     },
-    "cvlRange": {
-        "type": "spec.cvlast.CVLRange.Range",
+    "range": {
+        "type": "utils.Range.Range",
         "specFile": "satisfyTest.spec",
         "start": {
             "line": 7,
@@ -29,8 +29,8 @@
     "block": [
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Declaration",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "satisfyTest.spec",
                 "start": {
                     "line": 5,
@@ -72,8 +72,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Satisfy",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "satisfyTest.spec",
                 "start": {
                     "line": 7,
@@ -117,8 +117,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                             "k": 256
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "satisfyTest.spec",
                             "start": {
                                 "line": 7,
@@ -163,8 +163,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                             "n": "0"
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "satisfyTest.spec",
                             "start": {
                                 "line": 7,
@@ -204,8 +204,8 @@
                     "type": {
                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "satisfyTest.spec",
                         "start": {
                             "line": 7,
@@ -245,8 +245,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Satisfy",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "satisfyTest.spec",
                 "start": {
                     "line": 8,
@@ -290,8 +290,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                             "k": 256
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "satisfyTest.spec",
                             "start": {
                                 "line": 8,
@@ -336,8 +336,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                             "n": "0"
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "satisfyTest.spec",
                             "start": {
                                 "line": 8,
@@ -377,8 +377,8 @@
                     "type": {
                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "satisfyTest.spec",
                         "start": {
                             "line": 8,
@@ -418,8 +418,8 @@
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Satisfy",
-            "cvlRange": {
-                "type": "spec.cvlast.CVLRange.Range",
+            "range": {
+                "type": "utils.Range.Range",
                 "specFile": "satisfyTest.spec",
                 "start": {
                     "line": 9,
@@ -463,8 +463,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
                             "k": 256
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "satisfyTest.spec",
                             "start": {
                                 "line": 9,
@@ -509,8 +509,8 @@
                             "type": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
                             "n": "0"
                         },
-                        "cvlRange": {
-                            "type": "spec.cvlast.CVLRange.Range",
+                        "range": {
+                            "type": "utils.Range.Range",
                             "specFile": "satisfyTest.spec",
                             "start": {
                                 "line": 9,
@@ -550,8 +550,8 @@
                     "type": {
                         "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
                     },
-                    "cvlRange": {
-                        "type": "spec.cvlast.CVLRange.Range",
+                    "range": {
+                        "type": "utils.Range.Range",
                         "specFile": "satisfyTest.spec",
                         "start": {
                             "line": 9,
@@ -591,11 +591,667 @@
         }
     ],
     "ruleType": {
-        "type": "spec.cvlast.SpecType.Single.MultiAssertSubRule.SatisfySpecFile",
+        "type": "spec.cvlast.SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.SatisfySpecFile",
+        "originalRule": {
+            "type": "spec.rules.CVLSingleRule",
+            "ruleIdentifier": {
+                "parentIdentifier": null,
+                "displayName": "foo",
+                "counter": 1
+            },
+            "range": {
+                "type": "utils.Range.Range",
+                "specFile": "satisfyTest.spec",
+                "start": {
+                    "line": 4,
+                    "charByteOffset": 0
+                },
+                "end": {
+                    "line": 10,
+                    "charByteOffset": 1
+                }
+            },
+            "params": [
+            ],
+            "description": "",
+            "goodDescription": "",
+            "block": [
+                {
+                    "cmd_type": "spec.cvlast.CVLCmd.Simple.Declaration",
+                    "range": {
+                        "type": "utils.Range.Range",
+                        "specFile": "satisfyTest.spec",
+                        "start": {
+                            "line": 5,
+                            "charByteOffset": 4
+                        },
+                        "end": {
+                            "line": 5,
+                            "charByteOffset": 11
+                        }
+                    },
+                    "cvlType": {
+                        "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                        "k": 256
+                    },
+                    "id": "a",
+                    "scope": {
+                        "scopeStack": [
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                            },
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                "scopeId": 0
+                            }
+                        ],
+                        "innerScope": {
+                            "scopeStack": [
+                                {
+                                    "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                }
+                            ],
+                            "innerScope": {
+                                "scopeStack": [
+                                ],
+                                "innerScope": null
+                            }
+                        }
+                    }
+                },
+                {
+                    "cmd_type": "spec.cvlast.CVLCmd.Simple.Satisfy",
+                    "range": {
+                        "type": "utils.Range.Range",
+                        "specFile": "satisfyTest.spec",
+                        "start": {
+                            "line": 7,
+                            "charByteOffset": 4
+                        },
+                        "end": {
+                            "line": 7,
+                            "charByteOffset": 18
+                        }
+                    },
+                    "exp": {
+                        "type": "spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GtExp",
+                        "l": {
+                            "type": "spec.cvlast.CVLExp.VariableExp",
+                            "id": "a",
+                            "tag": {
+                                "scope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        },
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                            "scopeId": 0
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                            {
+                                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                            }
+                                        ],
+                                        "innerScope": {
+                                            "scopeStack": [
+                                            ],
+                                            "innerScope": null
+                                        }
+                                    }
+                                },
+                                "type": {
+                                    "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                    "k": 256
+                                },
+                                "range": {
+                                    "type": "utils.Range.Range",
+                                    "specFile": "satisfyTest.spec",
+                                    "start": {
+                                        "line": 7,
+                                        "charByteOffset": 12
+                                    },
+                                    "end": {
+                                        "line": 7,
+                                        "charByteOffset": 13
+                                    }
+                                }
+                            },
+                            "twoStateIndex": "NEITHER"
+                        },
+                        "r": {
+                            "type": "spec.cvlast.CVLExp.Constant.NumberLit",
+                            "n": "0",
+                            "tag": {
+                                "scope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        },
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                            "scopeId": 0
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                            {
+                                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                            }
+                                        ],
+                                        "innerScope": {
+                                            "scopeStack": [
+                                            ],
+                                            "innerScope": null
+                                        }
+                                    }
+                                },
+                                "type": {
+                                    "type": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
+                                    "n": "0"
+                                },
+                                "range": {
+                                    "type": "utils.Range.Range",
+                                    "specFile": "satisfyTest.spec",
+                                    "start": {
+                                        "line": 7,
+                                        "charByteOffset": 16
+                                    },
+                                    "end": {
+                                        "line": 7,
+                                        "charByteOffset": 17
+                                    }
+                                }
+                            }
+                        },
+                        "tag": {
+                            "scope": {
+                                "scopeStack": [
+                                    {
+                                        "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                    },
+                                    {
+                                        "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                        "scopeId": 0
+                                    }
+                                ],
+                                "innerScope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                        ],
+                                        "innerScope": null
+                                    }
+                                }
+                            },
+                            "type": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                            },
+                            "range": {
+                                "type": "utils.Range.Range",
+                                "specFile": "satisfyTest.spec",
+                                "start": {
+                                    "line": 7,
+                                    "charByteOffset": 12
+                                },
+                                "end": {
+                                    "line": 7,
+                                    "charByteOffset": 17
+                                }
+                            }
+                        }
+                    },
+                    "description": "a > 0",
+                    "scope": {
+                        "scopeStack": [
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                            },
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                "scopeId": 0
+                            }
+                        ],
+                        "innerScope": {
+                            "scopeStack": [
+                                {
+                                    "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                }
+                            ],
+                            "innerScope": {
+                                "scopeStack": [
+                                ],
+                                "innerScope": null
+                            }
+                        }
+                    }
+                },
+                {
+                    "cmd_type": "spec.cvlast.CVLCmd.Simple.Satisfy",
+                    "range": {
+                        "type": "utils.Range.Range",
+                        "specFile": "satisfyTest.spec",
+                        "start": {
+                            "line": 8,
+                            "charByteOffset": 4
+                        },
+                        "end": {
+                            "line": 8,
+                            "charByteOffset": 19
+                        }
+                    },
+                    "exp": {
+                        "type": "spec.cvlast.CVLExp.RelopExp.EqExp",
+                        "l": {
+                            "type": "spec.cvlast.CVLExp.VariableExp",
+                            "id": "a",
+                            "tag": {
+                                "scope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        },
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                            "scopeId": 0
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                            {
+                                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                            }
+                                        ],
+                                        "innerScope": {
+                                            "scopeStack": [
+                                            ],
+                                            "innerScope": null
+                                        }
+                                    }
+                                },
+                                "type": {
+                                    "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                    "k": 256
+                                },
+                                "range": {
+                                    "type": "utils.Range.Range",
+                                    "specFile": "satisfyTest.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 12
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 13
+                                    }
+                                }
+                            },
+                            "twoStateIndex": "NEITHER"
+                        },
+                        "r": {
+                            "type": "spec.cvlast.CVLExp.Constant.NumberLit",
+                            "n": "0",
+                            "tag": {
+                                "scope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        },
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                            "scopeId": 0
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                            {
+                                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                            }
+                                        ],
+                                        "innerScope": {
+                                            "scopeStack": [
+                                            ],
+                                            "innerScope": null
+                                        }
+                                    }
+                                },
+                                "type": {
+                                    "type": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
+                                    "n": "0"
+                                },
+                                "range": {
+                                    "type": "utils.Range.Range",
+                                    "specFile": "satisfyTest.spec",
+                                    "start": {
+                                        "line": 8,
+                                        "charByteOffset": 17
+                                    },
+                                    "end": {
+                                        "line": 8,
+                                        "charByteOffset": 18
+                                    }
+                                }
+                            }
+                        },
+                        "tag": {
+                            "scope": {
+                                "scopeStack": [
+                                    {
+                                        "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                    },
+                                    {
+                                        "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                        "scopeId": 0
+                                    }
+                                ],
+                                "innerScope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                        ],
+                                        "innerScope": null
+                                    }
+                                }
+                            },
+                            "type": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                            },
+                            "range": {
+                                "type": "utils.Range.Range",
+                                "specFile": "satisfyTest.spec",
+                                "start": {
+                                    "line": 8,
+                                    "charByteOffset": 12
+                                },
+                                "end": {
+                                    "line": 8,
+                                    "charByteOffset": 18
+                                }
+                            }
+                        }
+                    },
+                    "description": "a == 0",
+                    "scope": {
+                        "scopeStack": [
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                            },
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                "scopeId": 0
+                            }
+                        ],
+                        "innerScope": {
+                            "scopeStack": [
+                                {
+                                    "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                }
+                            ],
+                            "innerScope": {
+                                "scopeStack": [
+                                ],
+                                "innerScope": null
+                            }
+                        }
+                    }
+                },
+                {
+                    "cmd_type": "spec.cvlast.CVLCmd.Simple.Satisfy",
+                    "range": {
+                        "type": "utils.Range.Range",
+                        "specFile": "satisfyTest.spec",
+                        "start": {
+                            "line": 9,
+                            "charByteOffset": 4
+                        },
+                        "end": {
+                            "line": 9,
+                            "charByteOffset": 18
+                        }
+                    },
+                    "exp": {
+                        "type": "spec.cvlast.CVLExp.RelopExp.ArithRelopExp.LtExp",
+                        "l": {
+                            "type": "spec.cvlast.CVLExp.VariableExp",
+                            "id": "a",
+                            "tag": {
+                                "scope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        },
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                            "scopeId": 0
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                            {
+                                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                            }
+                                        ],
+                                        "innerScope": {
+                                            "scopeStack": [
+                                            ],
+                                            "innerScope": null
+                                        }
+                                    }
+                                },
+                                "type": {
+                                    "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                    "k": 256
+                                },
+                                "range": {
+                                    "type": "utils.Range.Range",
+                                    "specFile": "satisfyTest.spec",
+                                    "start": {
+                                        "line": 9,
+                                        "charByteOffset": 12
+                                    },
+                                    "end": {
+                                        "line": 9,
+                                        "charByteOffset": 13
+                                    }
+                                }
+                            },
+                            "twoStateIndex": "NEITHER"
+                        },
+                        "r": {
+                            "type": "spec.cvlast.CVLExp.Constant.NumberLit",
+                            "n": "0",
+                            "tag": {
+                                "scope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        },
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                            "scopeId": 0
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                            {
+                                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                            }
+                                        ],
+                                        "innerScope": {
+                                            "scopeStack": [
+                                            ],
+                                            "innerScope": null
+                                        }
+                                    }
+                                },
+                                "type": {
+                                    "type": "spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral",
+                                    "n": "0"
+                                },
+                                "range": {
+                                    "type": "utils.Range.Range",
+                                    "specFile": "satisfyTest.spec",
+                                    "start": {
+                                        "line": 9,
+                                        "charByteOffset": 16
+                                    },
+                                    "end": {
+                                        "line": 9,
+                                        "charByteOffset": 17
+                                    }
+                                }
+                            }
+                        },
+                        "tag": {
+                            "scope": {
+                                "scopeStack": [
+                                    {
+                                        "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                    },
+                                    {
+                                        "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                        "scopeId": 0
+                                    }
+                                ],
+                                "innerScope": {
+                                    "scopeStack": [
+                                        {
+                                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                        }
+                                    ],
+                                    "innerScope": {
+                                        "scopeStack": [
+                                        ],
+                                        "innerScope": null
+                                    }
+                                }
+                            },
+                            "type": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
+                            },
+                            "range": {
+                                "type": "utils.Range.Range",
+                                "specFile": "satisfyTest.spec",
+                                "start": {
+                                    "line": 9,
+                                    "charByteOffset": 12
+                                },
+                                "end": {
+                                    "line": 9,
+                                    "charByteOffset": 17
+                                }
+                            }
+                        }
+                    },
+                    "description": "a < 0",
+                    "scope": {
+                        "scopeStack": [
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                            },
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                                "scopeId": 0
+                            }
+                        ],
+                        "innerScope": {
+                            "scopeStack": [
+                                {
+                                    "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                                }
+                            ],
+                            "innerScope": {
+                                "scopeStack": [
+                                ],
+                                "innerScope": null
+                            }
+                        }
+                    }
+                }
+            ],
+            "ruleType": {
+                "type": "spec.cvlast.SpecType.Single.FromUser.SpecFile"
+            },
+            "scope": {
+                "scopeStack": [
+                    {
+                        "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                    },
+                    {
+                        "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                        "scopeId": 0
+                    }
+                ],
+                "innerScope": {
+                    "scopeStack": [
+                        {
+                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                        }
+                    ],
+                    "innerScope": {
+                        "scopeStack": [
+                        ],
+                        "innerScope": null
+                    }
+                }
+            },
+            "methodParamFilters": {
+                "range": {
+                    "type": "utils.Range.Range",
+                    "specFile": "satisfyTest.spec",
+                    "start": {
+                        "line": 4,
+                        "charByteOffset": 0
+                    },
+                    "end": {
+                        "line": 10,
+                        "charByteOffset": 1
+                    }
+                },
+                "scope": {
+                    "scopeStack": [
+                        {
+                            "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                        },
+                        {
+                            "type": "spec.cvlast.CVLScope.Item.RuleScopeItem",
+                            "scopeId": 0
+                        }
+                    ],
+                    "innerScope": {
+                        "scopeStack": [
+                            {
+                                "type": "spec.cvlast.CVLScope.Item.AstScopeItem"
+                            }
+                        ],
+                        "innerScope": {
+                            "scopeStack": [
+                            ],
+                            "innerScope": null
+                        }
+                    }
+                },
+                "methodParamToFilter": {
+                }
+            },
+            "ruleGenerationMeta": {
+                "type": "spec.rules.SingleRuleGenerationMeta.Empty"
+            }
+        },
         "assertId": 1,
         "assertMessage": "a > 0",
         "cvlCmdLoc": {
-            "type": "spec.cvlast.CVLRange.Range",
+            "type": "utils.Range.Range",
             "specFile": "satisfyTest.spec",
             "start": {
                 "line": 7,
@@ -631,8 +1287,8 @@
         }
     },
     "methodParamFilters": {
-        "cvlRange": {
-            "type": "spec.cvlast.CVLRange.Range",
+        "range": {
+            "type": "utils.Range.Range",
             "specFile": "satisfyTest.spec",
             "start": {
                 "line": 4,
@@ -670,7 +1326,7 @@
         }
     },
     "ruleGenerationMeta": {
-        "type": "spec.cvlast.SingleRuleGenerationMeta.Empty"
+        "type": "spec.rules.SingleRuleGenerationMeta.Empty"
     },
     "isSatisfyRule": true
 }

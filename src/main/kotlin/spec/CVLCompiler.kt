@@ -53,6 +53,8 @@ import spec.cvlast.typechecker.CVLTypeTypeChecker
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.cvlast.typedescriptors.VMValueTypeDescriptor
+import spec.rules.CVLSingleRule
+import spec.rules.ICVLRule
 import statistics.ElapsedTimeStats
 import statistics.toTimeTag
 import tac.*
@@ -159,20 +161,26 @@ class CVLCompiler(
             allocatedTACSymbols.extendGlobal(name, sym)
         }
 
-        // Add  "currentContract" as a global symbol
-        allocatedTACSymbols.extendGlobal(
-            CVLKeywords.CURRENT_CONTRACT,
-            symbolTable.lookUpNonFunctionLikeSymbol(CVLKeywords.CURRENT_CONTRACT, cvl.astScope)
+        fun addContract(name: String) {
+            val ty = symbolTable.lookUpNonFunctionLikeSymbol(name, cvl.astScope)
                 ?.getCVLTypeOrNull()!!
-                .typeToTag()
-        )
+            val v = TACSymbol.Var(
+                name,
+                ty.typeToTag()
+            ).toUnique()
+                .withMeta(CVL_VAR, true)
+                .withMeta(CVL_DISPLAY_NAME, name)
+                .withMeta(CVL_TYPE, ty as CVLType.PureCVLType)
+            allocatedTACSymbols.extendGlobal(name, v)
+        }
+
+        // Add  "currentContract" as a global symbol
+        addContract(CVLKeywords.CURRENT_CONTRACT)
         cvl.importedContracts.forEach { c ->
             // each imported contract binds a global variable which is an address
-            allocatedTACSymbols.extendGlobal(c.solidityContractVarId,
-                symbolTable.lookUpNonFunctionLikeSymbol(c.solidityContractVarId, cvl.astScope)
-                    ?.getCVLTypeOrNull()!!
-                    .typeToTag())
+            addContract(c.solidityContractVarId)
         }
+
         allGhosts.forEach { ghost ->
             when (ghost) {
                 is CVLGhostDeclaration.Variable -> {
@@ -235,7 +243,7 @@ class CVLCompiler(
                 structs.filter { struct ->
                     // Filter out any struct types that we don't actually
                     // support (e.g. structs containing a dynamic array)
-                    CVLTypeTypeChecker(symbolTable).typeCheck(struct, CVLRange.Empty(), AstScope).resultOrNull() != null
+                    CVLTypeTypeChecker(symbolTable).typeCheck(struct, Range.Empty(), AstScope).resultOrNull() != null
                 }.map { structType -> structType.toTag() }
                 ).toSet(),
             // CERT-5663 we pass in here "allGhosts" even when they're not needed for the program.
@@ -377,7 +385,7 @@ class CVLCompiler(
         }
 
         val l = compileConcreteApplication(exp, allocatedTACSymbols, out, compilationEnv = env)
-        return l
+        return l.first
     }
 
     fun compileAddressFunctionApplication(
@@ -436,7 +444,7 @@ class CVLCompiler(
                 out,
                 env,
                 contract
-            )
+            ).first
 
             val condVar = TACKeyword.TMP(Tag.Bool, "!is_contract_${contract.name}")
             val condCode = CommandWithRequiredDecls(listOf(
@@ -458,6 +466,52 @@ class CVLCompiler(
         }
 
         return ParametricMethodInstantiatedCode.mergeProgs(compiledBaseExp, dispatching)
+    }
+
+    /**
+     * Compiles a call to the provided [func] with the given [params]. Its output (if any) is ignored.
+     *
+     * Note that the call uses `lastStorage` i.e. it compiles as `func(params) at lastStorage;`.
+     */
+    fun compileStandaloneContractFunctionCall(
+        func: ContractFunction,
+        params: List<CVLParam>,
+        noRevert: Boolean
+    ): Pair<ParametricInstantiation<CVLTACProgram>, CallId> {
+        val env = CompilationEnvironment()
+        val methodSig = func.methodSignature
+        check(methodSig is ExternalQualifiedMethodSignature) {
+            "Expected an ExternalQualifiedMethodSignature, got ${methodSig.javaClass}"
+        }
+        val emptyRange = Range.Empty()
+        val hasEnv = params.isNotEmpty() && params[0].type == EVMBuiltinTypes.env
+        val firstParamIdx = if (hasEnv) { 1 } else { 0 }
+        val annotation = if (params.size > firstParamIdx && params[firstParamIdx].type == CVLType.PureCVLType.VMInternal.RawArgs) {
+            CallResolution.CalldataPassing(func, hasEnv)
+        } else {
+            CallResolution.DirectPassing(func, hasEnv)
+        }
+
+        val concreteExp = CVLExp.ApplyExp.ContractFunction.Concrete(
+            ConcreteMethod(methodSig),
+            params.map { CVLExp.VariableExp(it.id, CVLExpTag(AstScope, it.type, emptyRange)) },
+            noRevert,
+            CVLExp.VariableExp(CVLKeywords.lastStorage.keyword, CVLExpTag(AstScope, CVLKeywords.lastStorage.type, emptyRange)),
+            false,
+            CVLExpTag(AstScope, null, emptyRange, annotation = annotation)
+        )
+        return compileConcreteApplication(concreteExp, allocatedTACSymbols, null, env)
+    }
+
+    fun compileCommands(
+        cmds: List<CVLCmd>,
+        name: String
+    ): ParametricInstantiation<CVLTACProgram> {
+        val env = CompilationEnvironment()
+        return ParametricMethodInstantiatedCode.merge(
+            cmds.flatMap { this.wrapCmdWithLabels(it) }.map { compileCommand(it, allocatedTACSymbols, env) },
+            name
+        )
     }
 
     /*
@@ -484,7 +538,7 @@ class CVLCompiler(
                             if (TACMeta.CVL_RANGE in tacCmd.meta) {
                                 tacCmd
                             } else {
-                                tacCmd.plusMeta(TACMeta.CVL_RANGE, cmd.cvlRange)
+                                tacCmd.plusMeta(TACMeta.CVL_RANGE, cmd.range)
                             }
                         }
                     }
@@ -597,7 +651,7 @@ class CVLCompiler(
         out: List<CVLParam>?,
         compilationEnv: CompilationEnvironment,
         contract: IContractClass = exp.methodIdWithCallContext.host.toName().let { scene.getContractOrNull(it) ?: error("contract $it not found") }
-    ): ParametricInstantiation<CVLTACProgram> {
+    ): Pair<ParametricInstantiation<CVLTACProgram>, CallId> {
         val invocationCompiler = CVLInvocationCompiler(this, compilationEnv)
         return when (val ctxt = exp.methodIdWithCallContext) {
             is ConcreteMethod -> {
@@ -619,15 +673,16 @@ class CVLCompiler(
                         exp, allocation = allocatedTACSymbols, expectEnv = tgt.hasEnv, outputList = out, env = compilationEnv
                     )
                 }
-                compiler.generateCode(callee = methodBySigHash)
+                compiler.generateCode(callee = methodBySigHash) to compiler.getCallId()
             }
 
             is UniqueMethod -> {
-                invocationCompiler.getCalldataInvocationCompiler(
+                val compiler = invocationCompiler.getCalldataInvocationCompiler(
                     exp, allocation = allocatedTACSymbols, outputList = out, env = compilationEnv, expectEnv = true
-                ).generateCode(contract.getMethodByUniqueAttribute(ctxt.attribute)
-                    ?: error("unique function ${ctxt.methodId} not found")
                 )
+                compiler.generateCode(contract.getMethodByUniqueAttribute(ctxt.attribute)
+                    ?: error("unique function ${ctxt.methodId} not found")
+                ) to compiler.getCallId()
             }
         }
     }
@@ -645,7 +700,7 @@ class CVLCompiler(
                     allocatedTACSymbols,
                     out = null,
                     compilationEnv = compilationEnvironment
-                )
+                ).first
             }
 
             is CVLExp.ApplyExp.ContractFunction.Symbolic -> {
@@ -717,7 +772,7 @@ class CVLCompiler(
         }?.map { t ->
             summaryScope.generateTransientUniqueCVLParam(
                 this.symbolTable,
-                CVLParam(t, "tmp", CVLRange.Empty())
+                CVLParam(t, "tmp", Range.Empty())
             ).first
         }
 
@@ -737,7 +792,7 @@ class CVLCompiler(
                     allocatedTACSymbols = summaryScope,
                     out = null,
                     compilationEnv = compilationEnvironment
-                )
+                ).first
 
                 is CVLExp.ApplyExp.CVLBuiltIn -> {
                     CVLExpressionCompiler(this, summaryScope.calleeScope(), compilationEnvironment)
@@ -749,7 +804,7 @@ class CVLCompiler(
         } else {
             this.compileAssignment(
                 rets.map { retV ->
-                    CVLLhs.Id(CVLRange.Empty(), retV.id, CVLExpTag.transient(retV.type))
+                    CVLLhs.Id(Range.Empty(), retV.id, CVLExpTag.transient(retV.type))
                 },
                 summaryScope,
                 summary.exp,
@@ -884,7 +939,7 @@ class CVLCompiler(
              * but at that point CVL function calls are just [CVLCmd.Simple.Apply]s with no body.
              * thus we do it here.
              */
-            val asCompositeBlock = CVLCmd.Composite.Block(sub.cvlRange, body, sub.scope)
+            val asCompositeBlock = CVLCmd.Composite.Block(sub.range, body, sub.scope)
             wrapCmdWithLabels(asCompositeBlock).map {
                 val commandToCompile = assertModifier.cmd(it).safeForce()
                 compileCommand(commandToCompile, newAllocatedTACSymbols, compilationEnvironment)
@@ -1423,7 +1478,7 @@ class CVLCompiler(
                     condVarTac,
                     cmd.cond,
                     ifStartId,
-                    cmd.cvlRange,
+                    cmd.range,
                 ).toAnnotation()
             )
 
@@ -1444,7 +1499,7 @@ class CVLCompiler(
                         SnippetCmd.CVLSnippetCmd.BranchStart.Kind.THEN,
                         id,
                         ifStartId,
-                        cmd.thenCmd.cvlRange,
+                        cmd.thenCmd.range,
                     ).toAnnotation()
 
                     val end = TACCmd.Simple.AnnotationCmd(CVL_LABEL_END, id)
@@ -1467,7 +1522,7 @@ class CVLCompiler(
                         SnippetCmd.CVLSnippetCmd.BranchStart.Kind.ELSE,
                         id,
                         ifStartId,
-                        cmd.elseCmd.cvlRange,
+                        cmd.elseCmd.range,
                     ).toAnnotation()
 
                     val end = TACCmd.Simple.AnnotationCmd(CVL_LABEL_END, id)
@@ -1481,7 +1536,7 @@ class CVLCompiler(
             elseCodeCompiled.getHead(),
             condVarTac,
             //TODO remove this when a better source mapping solution is implemented
-            meta = MetaMap(TACMeta.CVL_RANGE to cmd.cvlRange)
+            meta = MetaMap(TACMeta.CVL_RANGE to cmd.range)
         )
 
         return ParametricMethodInstantiatedCode.mergeIf(
@@ -1518,7 +1573,7 @@ class CVLCompiler(
         val convertedExp = SubstitutorExp(replacements).expr(inv.exp).safeForce()
         return compileCommand(
             CVLCmd.Simple.AssumeCmd.Assume(
-                cmd.cvlRange,
+                cmd.range,
                 convertedExp,
                 cmd.scope
             ),
@@ -1577,7 +1632,7 @@ class CVLCompiler(
         // must add assertion *after* evaluating the expression (since the evaluation of the expression may trigger other assertions such as division by zero)
 
         var assertMeta = MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
-        if (cmd.cvlRange !is CVLRange.Empty) assertMeta += MetaMap(TACMeta.CVL_RANGE to cmd.cvlRange)
+        if (cmd.range !is Range.Empty) assertMeta += MetaMap(TACMeta.CVL_RANGE to cmd.range)
         // If this is an assert generated by a Satisfy, which always acts
         // like the multi-assert mode for normal Assertions. As a result,
         // we need to delete all the preceeding satisfy-generated
@@ -1620,10 +1675,10 @@ class CVLCompiler(
         val requireCmd = compileAssumeCmd(cmd.exp, allocatedTACSymbols, env, satisfyUUID)
 
         val boolType = CVLType.PureCVLType.Primitive.Bool
-        val falseLit = CVLExp.Constant.BoolLit(false, CVLExpTag(cmd.scope, boolType, cmd.cvlRange))
+        val falseLit = CVLExp.Constant.BoolLit(false, CVLExpTag(cmd.scope, boolType, cmd.range))
 
         val assertCmd = CVLCmd.Simple.Assert(
-            cvlRange = cmd.cvlRange,
+            range = cmd.range,
             exp = falseLit,
             description = cmd.description,
             scope = cmd.scope,
@@ -1641,7 +1696,7 @@ class CVLCompiler(
     /**
      * @param allocatedTACSymbols is imperatively extended with additional symbols
      */
-    fun compileAssignment(
+    private fun compileAssignment(
         l: List<CVLLhs>,
         allocatedTACSymbols: TACSymbolAllocation,
         exp: CVLExp,
@@ -1817,7 +1872,7 @@ class CVLCompiler(
             "Storage variables must be explicitly initialized at declaration"
         }
 
-        val v = allocatedTACSymbols.extendWithCVLVariable(declCmd.id, type, CVLDefinitionSite.fromScope(declCmd.scope, declCmd.cvlRange))
+        val v = allocatedTACSymbols.extendWithCVLVariable(declCmd.id, type, CVLDefinitionSite.fromScope(declCmd.scope, declCmd.range))
 
         check(declCmd.cvlType != EVMBuiltinTypes.method) { "all method variable declarations should have been promoted to parameters" }
 
@@ -1836,7 +1891,7 @@ class CVLCompiler(
         )
     }
 
-    private fun multiContractSetup(allocatedTACSymbols: TACSymbolAllocation): CommandWithRequiredDecls<TACCmd.Spec> {
+    private fun multiContractSetup(): CommandWithRequiredDecls<TACCmd.Spec> {
         return cvl.getContractVarIdToAddressAssociation()
             .map { (contract, instanceId) ->
                 allocatedTACSymbols.get(contract) to scene.getContract(instanceId).addressSym as TACSymbol
@@ -1861,12 +1916,13 @@ class CVLCompiler(
     }
 
     private fun ensurePositiveExtcodesizes(): CommandWithRequiredDecls<TACCmd.Spec> {
-
         val addressesWithPositiveCodesizes = scene.getContracts()
             .filter { it.bytecode?.bytes?.isEmpty() == false }
 
-        val clonedContracts = scene.getContracts().filterIsInstance<IClonedContract>()
-        fun mkSelect(it: IContractClass, cb: TACExprFact.(TACExpr) -> TACExpr) : CommandWithRequiredDecls<TACCmd.Simple>? {
+        val addressesWithZeroCodeSize = scene.getContracts()
+            .filterIsInstance<IClonedContract>()
+
+        fun mkSelect(it: IContractClass, cb: TACExprFact.(TACExpr) -> TACExpr) : CommandWithRequiredDecls<TACCmd.Simple> {
             val addressSym = it.addressSym as TACSymbol
             return ExprUnfolder.unfoldPlusOneCmd("extCodesizeCheck${it.name}",
                 with(TACExprFactTypeCheckedOnlyPrimitives) {
@@ -1876,11 +1932,11 @@ class CVLCompiler(
                 TACCmd.Simple.AssumeCmd(it.s)
             }.merge(extcodesize, addressSym, EthereumVariables.getCodeDataSize(it.instanceId))
         }
-        return (clonedContracts.mapNotNull {
+        return (addressesWithZeroCodeSize.map {
             mkSelect(it) { sel ->
                 Eq(sel, TACExpr.zeroExpr)
             }
-        } + addressesWithPositiveCodesizes.mapNotNull { klass ->
+        } + addressesWithPositiveCodesizes.map { klass ->
             mkSelect(klass) { sel ->
                 Gt(sel, TACExpr.zeroExpr).letIf(Config.PreciseCodedataSemantics.get()) { exp ->
                     LAnd(exp, Eq(sel, EthereumVariables.getCodeDataSize(klass.instanceId).asSym()))
@@ -2069,7 +2125,7 @@ class CVLCompiler(
         fun wrapBranch(cmd: CVLCmd): CVLCmd =
             when (cmd) {
                 is CVLCmd.Composite.Block -> wrapCmdWithLabels(cmd).single()
-                else -> CVLCmd.Composite.Block(cmd.cvlRange, wrapCmdWithLabels(cmd), cmd.scope)
+                else -> CVLCmd.Composite.Block(cmd.range, wrapCmdWithLabels(cmd), cmd.scope)
             }
 
         return listOf(
@@ -2229,6 +2285,64 @@ class CVLCompiler(
             }
     }
 
+    fun generateRuleSetupCode(): CVLTACProgram {
+        logger.info { "Rule $ruleName setup header: params and last storage initialization" }
+
+        val startBlockEnvSetup = wrapWithCVL(multiContractSetup(), "multi contract setup")
+            .merge(
+                wrapWithCVL(declareContractsAddressVars(), "contract address vars initialized")
+            ).merge(
+                wrapWithCVL(initializeReadTracking(), "setup read tracking instrumentation")
+            ).merge(
+                // process storage for all contracts and balance
+                wrapWithCVL(
+                    ruleLastStorageInitialize(), "last storage initialize"
+                ) // will also set up storageVarFamilies
+            ).merge(
+                wrapWithCVL(
+                    ensurePositiveExtcodesizes(),
+                    "assuming contracts in scene with non-empty bytecode have EXTCODESIZE larger than zero"
+                )
+            ).merge(
+                if (Config.assumeAddressZeroHasNoCode.get()) {
+                    wrapWithCVL(assumeExtcodesizesOfAddressZero(), "assuming address(0).code has no code deployed")
+                } else {
+                    wrapWithCVL(CommandWithRequiredDecls(TACCmd.Simple.NopCmd), "making no assumptions on code deployed at address(0)")
+                }
+            ).merge(
+                wrapWithCVL(ensureValidContractAddress(), "assumptions about contracts' addresses")
+            ).merge(
+                wrapWithCVL(assumeStaticAddresses(
+                    scene.getNonPrecompiledContracts()
+                        .filter { it.instanceIdIsStaticAddress && it.addressSym is TACSymbol.Var }
+                ), "assumptions about static addresses")
+            ).merge(
+                wrapWithCVL(assumePrecompiledAddressesAreStatic(),
+                    "establish addresses of precompiled contracts")
+            ).merge(
+                if (Config.AssumeContractsAreUnique.get()) {
+                    wrapWithCVL(ensureUniqueContractAddresses(), "assumptions about uniqueness of contracts' addresses")
+                } else {
+                    wrapWithCVL(CommandWithRequiredDecls(TACCmd.Simple.NopCmd), "making no assumptions about uniqueness of contracts' addresses")
+                }
+            ).merge(
+                // Add linking connections
+                wrapWithCVL(resolveLinks(), "static links")
+            ).merge(
+                wrapWithCVL(countSetup(), "record starting nonces")
+            ).merge(
+                wrapWithCVL(ensureZeroBalancesForClones(), "cloned contracts have no balances")
+            ).merge(
+                wrapWithCVL(initializeConstantImmutables(), "Linked immutable setup")
+            ).merge(
+                wrapWithCVL(constrainNonConstImmutables(), "Constrain immutables")
+            ).merge(
+                wrapWithCVL(establishEquivalenceOfExtensionContractImmutables(), "establish equivalence of extension and base contract immutables")
+            )
+
+        return codeFromCommandVarWithDecls(StartBlock, wrapWithCVL(startBlockEnvSetup, "Setup"), ruleName)
+    }
+
     /** Generates TAC code for the requirement.
      * Associates each statement with the matching TAC code.
      * Call expressions are converted to empty code block but with function pointer indication.
@@ -2264,68 +2378,15 @@ class CVLCompiler(
 
         val env = CompilationEnvironment(methodInstantiations = inst) // TODO(jtoman): maybe stuff the allocated tac in here?
 
-        logger.info { "Rule $ruleName setup header: params and last storage initialization" }
-
-        val linksSetupCmds: CommandWithRequiredDecls<TACCmd.Spec> = resolveLinks()
-
-        val startBlockEnvSetup = wrapWithCVL(multiContractSetup(allocatedTACSymbols), "multi contract setup").merge(
+        val startBlockNormalizedTACCode = generateRuleSetupCode().prependToBlock0(
             // assume types for rule parameters and havoc them
             wrapWithCVL(ruleParamSetup(rule.params, allocatedTACSymbols), "rule parameters setup")
-        ).merge(
-            wrapWithCVL(declareContractsAddressVars(), "contract address vars initialized")
-        ).merge(
-            wrapWithCVL(initializeReadTracking(), "setup read tracking instrumentation")
-        ).merge(
-            // process storage for all contracts and balance
-            wrapWithCVL(
-                ruleLastStorageInitialize(), "last storage initialize"
-            ) // will also set up storageVarFamilies
-        ).merge(
-            wrapWithCVL(ensurePositiveExtcodesizes(), "assuming contracts in scene with non-empty bytecode have EXTCODESIZE larger than zero")
-        ).merge(
-            if (Config.assumeAddressZeroHasNoCode.get()) {
-                wrapWithCVL(assumeExtcodesizesOfAddressZero(), "assuming address(0).code has no code deployed")
-            } else {
-                wrapWithCVL(CommandWithRequiredDecls(TACCmd.Simple.NopCmd), "making no assumptions on code deployed at address(0)")
-            }
-        ).merge(
-            wrapWithCVL(ensureValidContractAddress(), "assumptions about contracts' addresses")
-        ).merge(
-            wrapWithCVL(assumeStaticAddresses(
-                scene.getNonPrecompiledContracts()
-                    .filter { it.instanceIdIsStaticAddress && it.addressSym is TACSymbol.Var }
-            ), "assumptions about static addresses")
-        ).merge(
-            wrapWithCVL(assumePrecompiledAddressesAreStatic(),
-                "establish addresses of precompiled contracts")
-        ).merge(
-            if (Config.AssumeContractsAreUnique.get()) {
-                wrapWithCVL(ensureUniqueContractAddresses(), "assumptions about uniqueness of contracts' addresses")
-            } else {
-                wrapWithCVL(CommandWithRequiredDecls(TACCmd.Simple.NopCmd), "making no assumptions about uniqueness of contracts' addresses")
-            }
-        ).merge(
-            // Add linking connections
-            wrapWithCVL(linksSetupCmds, "static links")
-        ).merge(
-            wrapWithCVL(countSetup(), "record starting nonces")
-        ).merge(
-            wrapWithCVL(ensureZeroBalancesForClones(), "cloned contracts have no balances")
-        ).merge(
-            wrapWithCVL(initializeConstantImmutables(), "Linked immutable setup")
-        ).merge(
-            wrapWithCVL(constrainNonConstImmutables(), "Constrain immutables")
-        ).merge(
-            wrapWithCVL(establishEquivalenceOfExtensionContractImmutables(), "establish equivalence of extension and base contract immutables")
         )
-
-        val startBlockNormalizedTACCode = codeFromCommandVarWithDecls(StartBlock, wrapWithCVL(startBlockEnvSetup, "Setup"), ruleName)
-
         val startBlockNormalizedTACCodeWithOpts =
             ParametricInstantiation.getSimple(startBlockNormalizedTACCode)
 
         // wrap each command
-        val ruleCommands = wrapCmdWithLabels(CVLCmd.Composite.Block(rule.cvlRange, rule.block, rule.scope))
+        val ruleCommands = wrapCmdWithLabels(CVLCmd.Composite.Block(rule.range, rule.block, rule.scope))
 
         logger.info { "Rule $ruleName compile commands" }
         // compile rule body
@@ -3143,7 +3204,7 @@ class CVLCompiler(
          * report (e.g. when rules are verified).
          * This function is also used in [RuleCheckResult] to get the report filename.
          */
-        fun getParentsNames(rule: IRule, directParentName: String) =
+        fun getParentsNames(rule: ICVLRule, directParentName: String) =
             rule.scope.scopeStack.mapNotNull { scopeItem ->
                 (scopeItem as? CVLScope.Item.InvariantScopeItem)?.invariantId
                     ?: (scopeItem as? CVLScope.Item.RuleScopeItem)?.ruleId

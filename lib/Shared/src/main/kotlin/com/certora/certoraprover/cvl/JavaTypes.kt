@@ -20,7 +20,7 @@ package com.certora.certoraprover.cvl
 import spec.TypeResolver
 import spec.cvlast.CVLExpTag
 import spec.cvlast.CVLLhs
-import spec.cvlast.CVLRange
+import utils.Range
 import spec.cvlast.CVLScope
 import spec.cvlast.CVLType.PureCVLType
 import spec.cvlast.CVLType.PureCVLType.DynamicArray.WordAligned
@@ -37,7 +37,7 @@ import java.math.BigInteger
 
 // This file contains the "Java" AST nodes for types.  See README.md for information about the Java AST.
 
-sealed class TypeOrLhs(val range: CVLRange) : Kotlinizable<CVLLhs> {
+sealed class TypeOrLhs(val range: Range) : Kotlinizable<CVLLhs> {
     /** Interpret this ambiguous expression as a left-hand side  */
     abstract override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLLhs, CVLError>
 
@@ -48,7 +48,7 @@ sealed class TypeOrLhs(val range: CVLRange) : Kotlinizable<CVLLhs> {
     abstract fun toVMType(resolver: TypeResolver, location: String?, scope: CVLScope): CollectingResult<VMTypeDescriptor, CVLError>
 }
 
-class IdLhs(range: CVLRange, val id: String) : TypeOrLhs(range) {
+class IdLhs(range: Range, val id: String) : TypeOrLhs(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLLhs, CVLError>
         = CVLLhs.Id(range, id, CVLExpTag(scope, range, false)).lift()
 
@@ -60,7 +60,7 @@ class IdLhs(range: CVLRange, val id: String) : TypeOrLhs(range) {
 }
 
 
-class ArrayLhs(range: CVLRange, val baseType: TypeOrLhs, val index: Exp) : TypeOrLhs(range) {
+class ArrayLhs(range: Range, val baseType: TypeOrLhs, val index: Exp) : TypeOrLhs(range) {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLLhs, CVLError> = collectingErrors {
         val _baseType = baseType.kotlinize(resolver, scope)
         val _index    = index.kotlinize(resolver, scope)
@@ -88,7 +88,7 @@ class ArrayLhs(range: CVLRange, val baseType: TypeOrLhs, val index: Exp) : TypeO
     }
 }
 
-class TupleType(private val types: List<TypeOrLhs>, range: CVLRange) : TypeOrLhs(range) {
+class TupleType(private val types: List<TypeOrLhs>, range: Range) : TypeOrLhs(range) {
     override fun toCVLType(resolver: TypeResolver, scope: CVLScope): CollectingResult<PureCVLType, CVLError>
         = types.map { it.toCVLType(resolver, scope) }.flatten().map { PureCVLType.TupleType(it) }
 
@@ -98,7 +98,7 @@ class TupleType(private val types: List<TypeOrLhs>, range: CVLRange) : TypeOrLhs
 }
 
 // is this needed?
-class DynamicArrayType(val baseType: TypeOrLhs, cvlRange: CVLRange) : TypeOrLhs(cvlRange) {
+class DynamicArrayType(val baseType: TypeOrLhs, range: Range) : TypeOrLhs(range) {
     override fun toCVLType(resolver: TypeResolver, scope: CVLScope): CollectingResult<PureCVLType, CVLError>
         = baseType.toCVLType(resolver, scope).map { WordAligned(it) }
 
@@ -109,7 +109,7 @@ class DynamicArrayType(val baseType: TypeOrLhs, cvlRange: CVLRange) : TypeOrLhs(
 }
 
 
-class MappingType(val keyType: TypeOrLhs, val valueType: TypeOrLhs, cvlRange: CVLRange) : TypeOrLhs(cvlRange) {
+class MappingType(val keyType: TypeOrLhs, val valueType: TypeOrLhs, range: Range) : TypeOrLhs(range) {
     override fun toCVLType(resolver: TypeResolver, scope: CVLScope): CollectingResult<PureCVLType, CVLError> = collectingErrors {
         val _keyType   = keyType.toCVLType(resolver, scope)
         val _valueType = valueType.toCVLType(resolver, scope)
@@ -126,7 +126,7 @@ class MappingType(val keyType: TypeOrLhs, val valueType: TypeOrLhs, cvlRange: CV
 }
 
 @Suppress("Deprecation") // TODO CERT-3752
-class QualifiedTypeReference(val contract: String?, val id: String, range: CVLRange) : TypeOrLhs(range) {
+class QualifiedTypeReference(val contract: String?, val id: String, range: Range) : TypeOrLhs(range) {
     override fun toCVLType(resolver: TypeResolver, scope: CVLScope): CollectingResult<PureCVLType, CVLError>
         = resolver.resolveCVLType(contract, id).mapErrors { ToCVLTypeError(range, it) }
 

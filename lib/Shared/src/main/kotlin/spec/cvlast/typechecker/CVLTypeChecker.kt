@@ -24,6 +24,7 @@ import com.certora.collect.*
 import datastructures.stdcollections.*
 import spec.cvlast.*
 import spec.cvlast.EVMBuiltinTypes.method
+import spec.rules.*
 import utils.*
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.bind
@@ -64,7 +65,7 @@ class CVLAstTypeChecker(
                 CVLError.General(
                     message = "$which cannot be compiled: it contains a recursive cycle which is not allowed for " +
                         if (which in subs.map { it.declarationId }) { "pure CVL functions" } else { "invariants" },
-                    cvlRange = CVLRange.Empty()
+                    range = Range.Empty()
                 )
             )
         }
@@ -110,7 +111,7 @@ class CVLAstTypeChecker(
                     val resetStorageCmds = cvlFunc.block.fold(treapSetOf(), resetStorageExtractor::cmd)
                     if (resetStorageCmds.isNotEmpty()) {
                         collectErrors(resetStorageCmds.map {
-                            CVLError.General(it.cvlRange, "Cannot use `reset_storage` within a summary cvl function")
+                            CVLError.General(it.range, "Cannot use `reset_storage` within a summary cvl function")
                         })
                     }
 
@@ -187,10 +188,10 @@ class CVLAstTypeChecker(
         sub: CVLFunction
     ): CollectingResult<CVLFunction, CVLError> {
 
-        val params = paramTypeChecker.typeCheckCVLParams(sub.params, sub.cvlRange, sub.scope)
+        val params = paramTypeChecker.typeCheckCVLParams(sub.params, sub.range, sub.scope)
 
         val blocks = CVLCmdTypeChecker(symbolTable).typeCheckCmds(sub.block)
-        val rets   = typeTypeChecker.typeCheck(sub.rets, sub.cvlRange, sub.scope)
+        val rets   = typeTypeChecker.typeCheck(sub.rets, sub.range, sub.scope)
 
         return params.bind(blocks, rets) { params, block, rets ->
             val endsWithReturn = if (rets != CVLType.PureCVLType.Void) {
@@ -252,8 +253,8 @@ class CVLAstTypeChecker(
             if (duplicate != null) {
                 val dupPattern = (duplicate as CollectingResult.Result).result
                 seen.add(CVLError.General(
-                    hook.cvlRange, "The declared hook pattern `${hook.pattern}` " +
-                        "duplicates the hook pattern `${dupPattern.pattern}` at ${dupPattern.cvlRange}. " +
+                    hook.range, "The declared hook pattern `${hook.pattern}` " +
+                        "duplicates the hook pattern `${dupPattern.pattern}` at ${dupPattern.range}. " +
                         "A hook pattern may only be used once."
                 ).asError())
             } else {
@@ -276,12 +277,12 @@ class CVLAstTypeChecker(
      */
     private fun typeCheckGhostArgumentType(
         type: CVLType.PureCVLType,
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope, where: String
     ) : CollectingResult<CVLType.PureCVLType,CVLError> = collectingErrors {
-        val type = bind(typeTypeChecker.typeCheck(type, cvlRange, scope))
+        val type = bind(typeTypeChecker.typeCheck(type, range, scope))
         if (type !is CVLType.PureCVLType.GhostMappingKeyType) {
-            returnError(CVLError.General(cvlRange, "The type $type is not allowed $where"))
+            returnError(CVLError.General(range, "The type $type is not allowed $where"))
         }
         return@collectingErrors type
     }
@@ -292,29 +293,29 @@ class CVLAstTypeChecker(
      */
     private fun typeCheckGhostType(
         type: CVLType.PureCVLType,
-        cvlRange: CVLRange,
+        range: Range,
         scope: CVLScope,
         whereDescription: String
     ) : CollectingResult<CVLType.PureCVLType, CVLError> {
         return if(type is CVLType.PureCVLType.Ghost.Mapping) {
-            typeCheckGhostType(type.value, cvlRange, scope, whereDescription).map(
-                typeCheckGhostArgumentType(type.key, cvlRange, scope, "as a key in a ghost mapping")
+            typeCheckGhostType(type.value, range, scope, whereDescription).map(
+                typeCheckGhostArgumentType(type.key, range, scope, "as a key in a ghost mapping")
             ) { vType, kType ->
                 CVLType.PureCVLType.Ghost.Mapping(key = kType, value = vType)
             }
         } else {
-            typeCheckGhostArgumentType(type, cvlRange, scope, whereDescription)
+            typeCheckGhostArgumentType(type, range, scope, whereDescription)
         }
     }
 
     /** @return type-checked [ghost] declaration */
     private fun typeCheckGhostDecl(ghost: CVLGhostDeclaration): CollectingResult<CVLGhostDeclaration, CVLError> {
-        val typeEnv = CVLTypeEnvironment(ghost.cvlRange, ghost.scope, emptyList())
+        val typeEnv = CVLTypeEnvironment(ghost.range, ghost.scope, emptyList())
 
          return when (ghost) {
             is CVLGhostDeclaration.Function -> {
-                typeCheckGhostArgumentType(ghost.resultType, ghost.cvlRange, ghost.scope, "in a return position of a ghost function").map(
-                    ghost.paramTypes.map { type -> typeCheckGhostArgumentType(type, ghost.cvlRange, ghost.scope, "an argument of a ghost function") }.flatten(),
+                typeCheckGhostArgumentType(ghost.resultType, ghost.range, ghost.scope, "in a return position of a ghost function").map(
+                    ghost.paramTypes.map { type -> typeCheckGhostArgumentType(type, ghost.range, ghost.scope, "an argument of a ghost function") }.flatten(),
                     ghost.axioms.map { axiom -> typeCheckGhostAxiom(axiom, typeEnv)}.flatten()
                 ) { ret, paramTypes, axioms ->
                     ghost.copy(ret = ret, paramTypes = paramTypes, axioms = axioms)
@@ -327,7 +328,7 @@ class CVLAstTypeChecker(
                 } else {
                     "as a ghost variable"
                 }
-                typeCheckGhostType(ghost.type, ghost.cvlRange, ghost.scope, context).map(
+                typeCheckGhostType(ghost.type, ghost.range, ghost.scope, context).map(
                     ghost.axioms.map { typeCheckGhostAxiom(it, typeEnv) }.flatten()
                 ) { type, axioms ->
                     ghost.copy(
@@ -362,14 +363,14 @@ class CVLAstTypeChecker(
     }
 
     private fun typeCheckInv(inv: CVLInvariant): CollectingResult<CVLInvariant, CVLError> {
-        val emptyEnv = CVLTypeEnvironment.empty(inv.cvlRange, inv.scope)
+        val emptyEnv = CVLTypeEnvironment.empty(inv.range, inv.scope)
 
-        val params = paramTypeChecker.typeCheckCVLParams(inv.params, inv.cvlRange, inv.scope)
+        val params = paramTypeChecker.typeCheckCVLParams(inv.params, inv.range, inv.scope)
         val exp = expTypeChecker.typeCheck(inv.exp, emptyEnv)
         val preservedCheck = inv.checkPreservedIsErrorFree()
         val methodParamFilters = typeCheckMethodParamFilters(inv.methodParamFilters, emptyEnv)
         val preserved = inv.proof.preserved.map { preserved ->
-            val withParams = paramTypeChecker.typeCheckCVLParams(preserved.withParams, preserved.cvlRange, preserved.scope)
+            val withParams = paramTypeChecker.typeCheckCVLParams(preserved.withParams, preserved.range, preserved.scope)
             val block = CVLCmdTypeChecker(symbolTable).typeCheckCmds(preserved.block)
             withParams.map(block) { withParams, block ->
                 when (preserved) {
@@ -410,24 +411,24 @@ class CVLAstTypeChecker(
         return typeCheckCVLFunction(sub)
     }
 
-    private fun typeCheckRules(rules: List<IRule>): List<CollectingResult<IRule, CVLError>> {
+    private fun typeCheckRules(rules: List<ICVLRule>): List<CollectingResult<ICVLRule, CVLError>> {
         return rules.map { rule ->
             typeCheckRule(rule)
         }
     }
 
-    private fun typeCheckRule(rule: IRule): CollectingResult<IRule, CVLError> {
+    private fun typeCheckRule(rule: ICVLRule): CollectingResult<ICVLRule, CVLError> {
         return when (rule) {
             is CVLSingleRule -> {
                 val scope = rule.scope
 
                 paramTypeChecker.typeCheckCVLParams(
-                    rule.params, rule.cvlRange, scope,
+                    rule.params, rule.range, scope,
                     rule.parentIdentifier == null
                 ).bind(
                     if (rule.block.isEmpty()) {
                         CVLError.General(
-                            rule.cvlRange,
+                            rule.range,
                             "Encountered an empty rule: ${rule.declarationId}"
                         ).asError()
                     } else {
@@ -436,7 +437,7 @@ class CVLAstTypeChecker(
                 ) { typeCheckedParams, _ ->
                     val ruleTypeEnv = typeCheckedParams.fold(
                         CVLTypeEnvironment.empty(
-                            rule.cvlRange,
+                            rule.range,
                             scope
                         )
                     ) { env, param -> env.pushParam(param) }
@@ -444,7 +445,7 @@ class CVLAstTypeChecker(
                         typeCheckMethodParamFilters(rule.methodParamFilters, ruleTypeEnv)
                     val blocks = CVLCmdTypeChecker(symbolTable).typeCheckCmds(rule.block)
                     blocks.bind(typeCheckedMethodParamFilters) { block, mpf ->
-                        checkLastStatementIsAssert(block, rule, rule.cvlRange).map {
+                        checkLastStatementIsAssert(block, rule, rule.range).map {
                             rule.copy(
                                 params = typeCheckedParams, block = block, methodParamFilters = mpf
                             )
@@ -478,7 +479,7 @@ class CVLAstTypeChecker(
                 }
                 if (last !is RuleFinalCommand) {
                     return CVLError.General(
-                        last.cvlRange, "last statement of the rule ${rule.declarationId} is not an assert or satisfy command (but must be)"
+                        last.range, "last statement of the rule ${rule.declarationId} is not an assert or satisfy command (but must be)"
                     ).asError()
                 } else {
                     ok
@@ -492,17 +493,17 @@ class CVLAstTypeChecker(
                 }
 
                 is CVLCmd.Composite.Block -> checkLastStatementIsAssert(
-                    last.block, rule, last.cvlRange
+                    last.block, rule, last.range
                 )
             }
         }
     }
 
-    private fun checkLastStatementIsAssert(block: List<CVLCmd>, rule: IRule, cvlRange: CVLRange) : VoidResult<CVLError> {
+    private fun checkLastStatementIsAssert(block: List<CVLCmd>, rule: IRule, range: Range) : VoidResult<CVLError> {
         return block.lastOrNull {
             it !is CVLCmd.Simple.Label
         }?.let { last -> checkLastStatementIsAssert(last, rule)}
-            ?: CVLError.General(cvlRange, "Empty blocks are not allowed").asError()
+            ?: CVLError.General(range, "Empty blocks are not allowed").asError()
     }
 
     private fun typeCheckMethodParamFilters(
@@ -524,7 +525,7 @@ class CVLAstTypeChecker(
                     check(symbolInfo == null && ruleTypeEnv.lookUp(methodParamName) == null) {
                         "The methodParamName $methodParamName should not have been in the type-env in case of an invariant filter"
                     }
-                    ruleTypeEnv.pushParam(CVLParam(method, methodParamName, CVLRange.Empty()))
+                    ruleTypeEnv.pushParam(CVLParam(method, methodParamName, Range.Empty()))
                 } else {
                     ruleTypeEnv
                 }
@@ -560,7 +561,7 @@ class CVLAstTypeChecker(
         definition: CVLDefinition
     ): CollectingResult<CVLDefinition, CVLError> {
         return typeCheckDefinition(
-            cvlRange = definition.cvlRange,
+            range = definition.range,
             id = definition.id,
             params = definition.params,
             rets = definition.rets,
@@ -576,7 +577,7 @@ class CVLAstTypeChecker(
      * @param modifies any ghost function which is used in [TwoStateIndex.NEW] or [TwoStateIndex.OLD]
      */
     private fun typeCheckDefinition(
-        cvlRange: CVLRange,
+        range: Range,
         id: String,
         params: List<CVLParam>,
         rets: CVLType.PureCVLType,
@@ -595,7 +596,7 @@ class CVLAstTypeChecker(
             // reads and modifies mutually exclusive, add all modified ghosts to two state context
             modifies.fold(
                 CVLTypeEnvironment.empty(
-                    cvlRange,
+                    range,
                     scope!!
                 )
             ) { accEnv, elModified ->
@@ -604,7 +605,7 @@ class CVLAstTypeChecker(
         } else {
             // don't continue typechecking the definition
             CVLError.General(
-                cvlRange,
+                range,
                 "Definition $id both reads and modifies the ghost function(s) " +
                         "${readsAndModifies.joinToString(", ") { it.callSignature }}. This is not allowed."
             ).asError()
@@ -617,26 +618,26 @@ class CVLAstTypeChecker(
                 .distinctBy { param -> param.id }.size == params.size
             val allParamsUniqueResult = if (!allParamsUnique) {
                 CVLError.General(
-                    cvlRange,
+                    range,
                     "all parameters of definition $id must have a unique name"
                 ).asError()
             } else {
                 ok
             }
 
-            val type = typeTypeChecker.typeCheck(rets, typeEnv.cvlRange, scope!!)
+            val type = typeTypeChecker.typeCheck(rets, typeEnv.range, scope!!)
             val body = expTypeChecker.typeCheck(body, typeEnv)
-            val params = CVLParamTypeChecker(symbolTable).typeCheckCVLParams(params, cvlRange, scope)
+            val params = CVLParamTypeChecker(symbolTable).typeCheckCVLParams(params, range, scope)
 
             body.bind(type, params, allParamsUniqueResult) { body, type, params, _ ->
                 if (body.getCVLType() isNotConvertibleTo type /* check body is convertible to type - failing case */) {
                     CVLError.General(
-                        cvlRange, "definition $id return type declared to be $rets but " +
+                        range, "definition $id return type declared to be $rets but " +
                                 "body type inferred to be ${body.getCVLType()}"
                     ).asError()
                 } else {
                     CVLDefinition(
-                        cvlRange = cvlRange,
+                        range = range,
                         id = id,
                         params = params,
                         body = body,

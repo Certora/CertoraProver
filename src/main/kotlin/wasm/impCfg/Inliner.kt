@@ -17,6 +17,7 @@
 
 package wasm.impCfg
 
+import config.Config
 import datastructures.stdcollections.*
 import sbf.support.runCommand
 import log.*
@@ -31,7 +32,6 @@ import wasm.ir.WasmName
 private val wasmLogger = Logger(LoggerTypes.WASM)
 
 class CalleeReturnsValueUnexpectedly : Exception()
-data class RecursionDetected(val id: WasmName, val stack: List<WasmName>) : Exception()
 
 class WasmInliner {
     fun inline(
@@ -74,16 +74,30 @@ class WasmInliner {
         val candidates = inlineCandidates(ret, wasmFunctions.keys, shouldInline)
         var idx = 0
         for ((pc, callee) in candidates) {
-            if (callee in stack) {
-                throw RecursionDetected(callee, stack)
+            if (numUnfoldings(callee, stack) > Config.RecursionEntryLimit.get()) {
+                val newBlock = BlockMaker.mkBlockFromInternalUnreach(
+                    funcId = ret.funcId,
+                    addr = null,
+                    isAssert = Config.RecursionErrorAsAssertInAllCases.get(),
+                    message = "recursion limit"
+                )
+                ret.updateNode(pc, newBlock)
+            } else {
+                // First inline all calls recursively in callee
+                val (newIdx, calleeInlined) = inlineWasmCalls(
+                    wasmFunctions,
+                    wasmFunctions[callee]!!,
+                    shouldInline,
+                    listOf(callee) + stack
+                )
+                idx = newIdx + 1
+                ret = inlineIntoCaller(ret, pc, calleeInlined, idx)
             }
-            // First inline all calls recursively in callee
-            val (newIdx, calleeInlined) = inlineWasmCalls(wasmFunctions, wasmFunctions[callee]!!, shouldInline,  listOf(callee) + stack)
-            idx = newIdx + 1
-            ret = inlineIntoCaller(ret, pc, calleeInlined, idx)
         }
         return idx to ret
     }
+
+    private fun numUnfoldings(callee: WasmName, stack: List<WasmName>): Int = stack.count { callee == it }
 
     /**
      * Core functionality for function inlining. Given a split [WasmImpCfgProgram] program (using `mksplitWtac`)

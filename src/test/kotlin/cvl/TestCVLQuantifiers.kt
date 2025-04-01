@@ -20,8 +20,6 @@ package cvl
 import infra.CVLFlow
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import spec.cvlast.CVLRange
-import utils.SourcePosition
 import spec.cvlast.typechecker.DisallowedTypeUsedInQuantifier
 import kotlin.io.path.Path
 
