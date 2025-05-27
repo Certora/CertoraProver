@@ -42,7 +42,7 @@ class TreeViewReporterTest {
     private val mockRange = Range.Empty("no comment")
 
     private fun mkTreeViewReporter() = TreeViewReporter(
-        contract = null,
+        contractName = null,
         specFile = "testSpecFileName",
         scene = mockScene,
     )

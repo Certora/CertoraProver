@@ -537,7 +537,7 @@ suspend fun handleBytecodeFlow(bytecodeFiles: Set<String>, specFilename: String)
 }
 
 suspend fun handleTACFlow(fileName: String) {
-    val (scene, reporter, treeView) = createSceneReporterAndTreeview(fileName)
+    val (scene, reporter, treeView) = createSceneReporterAndTreeview(fileName, "TACMainProgram")
 
     // Create a fake rule for the whole program although the program can have more than one assertion.
     // since `satisfy` is not a TAC statement, we handle it as an assert rule
@@ -562,7 +562,7 @@ suspend fun handleTACFlow(fileName: String) {
 }
 
 
-fun createSceneReporterAndTreeview(fileName: String): Triple<IScene, ReporterContainer, TreeViewReporter> {
+fun createSceneReporterAndTreeview(fileName: String, contractName: String): Triple<IScene, ReporterContainer, TreeViewReporter> {
     val scene = SceneFactory.getScene(DegenerateContractSource(fileName))
     val reporterContainer = ReporterContainer(
         listOf(
@@ -572,7 +572,7 @@ fun createSceneReporterAndTreeview(fileName: String): Triple<IScene, ReporterCon
     )
 
     val treeView = TreeViewReporter(
-        null,
+        contractName,
         "",
         scene,
     )
@@ -641,7 +641,7 @@ suspend fun handleGenericFlow(
 }
 
 suspend fun handleSorobanFlow(fileName: String) {
-    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName)
+    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName, "SorobanMainProgram")
     val wasmRules = WasmEntryPoint.webAssemblyToTAC(
         inputFile = File(fileName),
         selectedRules = Config.WasmEntrypoint.getOrNull().orEmpty(),
@@ -659,7 +659,7 @@ suspend fun handleSorobanFlow(fileName: String) {
 }
 
 suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Single>> {
-    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName)
+    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName, "SolanaMainProgram")
     val solanaRules = sbf.solanaSbfToTAC(fileName)
     val result = handleGenericFlow(
         scene,

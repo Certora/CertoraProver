@@ -142,11 +142,13 @@ enum class NodeType {
  * Each rule should be registered when its check begins via [TreeViewReporter.signalStart], and once its results ([RuleCheckResult])
  * are available they should be added using [TreeViewReporter.addResults].
  *
- * The reporter is linked to a single verification query of ([contract], [specFile]).
+ * The reporter is linked to a single verification query of ([contractName], [specFile]).
+ * [contractName] is the optional string representing the name of the main contract, and it is used in the Certora
+ * Prover web interface.
  *
  */
 class TreeViewReporter(
-    contract: SolidityContract?,
+    contractName: String?,
     specFile: String,
     scene: IScene,
 ) {
@@ -391,9 +393,11 @@ class TreeViewReporter(
      * The underlying forest of trees that is built and maintained by this [TreeViewReporter].
      * In this forest, each tree consists of [TreeViewNode]s. The root of each tree is a [TreeViewNode.Rule], whereas
      * the leaves may be either [TreeViewNode.Rule] or [TreeViewNode.Assert].
+     *
+     * [contractName] is used to build [treeViewRepBuilder].
      */
     class TreeViewTree(
-        val contract: SolidityContract?,
+        val contractName: String?,
         val specFile: String,
         val contractsTable: ContractsTable,
         val globalCallResolutionBuilder: GlobalCallResolutionReportView.Builder,
@@ -632,7 +636,7 @@ class TreeViewReporter(
                 getTopLevelNodes().sortedBy { it.displayName }.map { toJson(it) }
             )
             put(key = TreeViewReportAttribute.TIMESTAMP(), value = timestamp())
-            put(key = TreeViewReportAttribute.CONTRACT(), value = contract?.name)
+            put(key = TreeViewReportAttribute.CONTRACT(), value = contractName)
             put(key = TreeViewReportAttribute.SPEC(), value = specFile)
             put(key = TreeViewReportAttribute.AVAILABLE_CONTRACTS(), value = contractsTable)
             put(
@@ -715,7 +719,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
     }
 
     private val tree: TreeViewTree =
-        TreeViewTree(contract, specFile, ContractsTable(scene), GlobalCallResolutionReportView.Builder())
+        TreeViewTree(contractName, specFile, ContractsTable(scene), GlobalCallResolutionReportView.Builder())
 
 
     private fun mapRuleToNodeType(child: IRule): NodeType {

@@ -161,9 +161,8 @@ object IntegrativeChecker {
                             )
                         },
                         CoreToCoreTransformer(
-                            ReportTypes.PATH_OPTIMIZE_FOR_ASSERTIONS_PASS,
-                            { c: CoreTACProgram -> Pruner(c).prune() }
-                        ).lift()
+                            ReportTypes.PATH_OPTIMIZE_FOR_ASSERTIONS_PASS
+                        ) { c: CoreTACProgram -> Pruner(c).prune() }.lift()
                     )
                 )
                 ContractUtils.transformMethodInPlace(_method, transformers)
@@ -174,9 +173,9 @@ object IntegrativeChecker {
         val assertionChecks = mutableListOf<AssertionCheck>()
         assertions.contractsToCheckAssert.forEach { contract ->
             Logger.always("Checking assertions for ${contract}...", respectQuiet = false)
-                if (contract.name !in contractNames) {
-                    throw Exception("No contract $contract in ${contractNames}")
-                }
+            if (contract.name !in contractNames) {
+                throw IllegalStateException("No contract $contract in $contractNames")
+            }
 
             val inlinedCodes = scene.getContract(contract)
             inlinedCodes.getDeclaredMethods().forEach { inlinedCode ->
@@ -203,7 +202,7 @@ object IntegrativeChecker {
             val contract = inlinedCode.getContainingContract().name
             val funcName = inlinedCode.soliditySignature
 
-            //  Add check AssertNot lastHasThrown as sink - added during inlinization
+            //  Add check AssertNot lastHasThrown as sink - added during inlining
 
             // adding state links? TODO
 
@@ -326,7 +325,7 @@ object IntegrativeChecker {
         if (contract.name !in scene.getContracts().map { it.name }) {
             throw Exception(
                 "Did not process contract $contract out of ${scene.getContracts().map { it.name }}"
-            ) // baa
+            )
         }
 
         Logger.always("Checking CVL ${cvl.name} for contract $contract", respectQuiet = false)
@@ -782,7 +781,7 @@ object IntegrativeChecker {
                 )
             is ProverQuery.CVLQuery.Single -> query.cvl.let {
                 TreeViewReporter(
-                    it.getContractNameFromContractId(SolidityContract.Current),
+                    it.getContractNameFromContractId(SolidityContract.Current)?.name,
                     it.name,
                     scene,
                 )
