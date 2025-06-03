@@ -53,6 +53,8 @@ import java.math.BigInteger
 private val wasmLogger = Logger(LoggerTypes.WASM)
 typealias MessageTag = String
 
+class SummarizeCallTraceException(msg: String) : Exception(msg)
+
 class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgram.WasmFuncDesc>, private val dataSegments: List<WasmData>): WasmCallSummarizer {
 
     private val I32_MOD = BigInteger.TWO.pow(32).asTACExpr
@@ -637,18 +639,103 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
     }
 
     context (WasmImpCfgContext)
-    private fun summarizeCalltrace(stringStartPointer: Arg, numBytes: Arg, value: Arg, dataSegments: List<WasmData>): CommandWithRequiredDecls<TACCmd.Simple> {
+    private fun summarizeCalltrace(
+        stringStartPointer: Arg,
+        numBytes: Arg,
+        value: Arg,
+        dataSegments: List<WasmData>
+    ): CommandWithRequiredDecls<TACCmd.Simple> {
         val tag = createTag(stringStartPointer, numBytes, dataSegments)
-        val argSymTac = TACSymbol.Var(value.toString(), Tag.Bit256)
-        return CommandWithRequiredDecls(listOf(SnippetCmd.CvlrSnippetCmd.CexPrintValues(tag, listOf(argSymTac)).toAnnotation()), setOf())
+        when (value) {
+            is ArgConst32, is ArgConst64 -> {
+                // tag can be something like `x as u64` in rust with spaces
+                val vnm = TACSymbol.Var(
+                    tag.replace(" ", WasmTokens.UNDERSCORE) + WasmTokens.UNDERSCORE + allocFresh(),
+                    Tag.Bit256
+                )
+                return CommandWithRequiredDecls(
+                    listOf(
+                        TACCmd.Simple.AssigningCmd.AssignExpCmd(vnm, value.toTacSymbol()),
+                        SnippetCmd.CvlrSnippetCmd.CexPrintValues(tag, listOf(vnm)).toAnnotation()
+                    ), setOf(vnm)
+                )
+            }
+
+            is ArgRegister -> {
+                val argSymTac = TACSymbol.Var(value.toString(), Tag.Bit256)
+                return CommandWithRequiredDecls(
+                    listOf(
+                        SnippetCmd.CvlrSnippetCmd.CexPrintValues(tag, listOf(argSymTac)).toAnnotation()
+                    ), setOf()
+                )
+            }
+
+            is Havoc -> throw SummarizeCallTraceException("summarizeCalltrace failed: impossible to see `Havoc args` at this stage.")
+        }
     }
 
     context (WasmImpCfgContext)
-    private fun summarize128BitCalltrace(stringStartPointer: Arg, numBytes: Arg, low: Arg, high: Arg, dataSegments: List<WasmData>, signed: Boolean): CommandWithRequiredDecls<TACCmd.Simple> {
+    private fun summarize128BitCalltrace(
+        stringStartPointer: Arg,
+        numBytes: Arg,
+        low: Arg,
+        high: Arg,
+        dataSegments: List<WasmData>,
+        signed: Boolean
+    ): CommandWithRequiredDecls<TACCmd.Simple> {
+        // tag can be something like `x as i128` in rust with spaces
         val tag = createTag(stringStartPointer, numBytes, dataSegments)
-        val highArgSymTac = TACSymbol.Var(high.toString(), Tag.Bit256)
-        val lowArgSymTac = TACSymbol.Var(low.toString(), Tag.Bit256)
-        return CommandWithRequiredDecls(listOf(SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue(tag, lowArgSymTac, highArgSymTac, signed).toAnnotation()), setOf())
+        when (high) {
+            is ArgConst32, is ArgConst64 -> {
+                when (low) {
+                    is ArgConst32, is ArgConst64 -> {
+                        val highNm = TACSymbol.Var(
+                            tag.replace(" ", WasmTokens.UNDERSCORE) + WasmTokens.UPPER + allocFresh(),
+                            Tag.Bit256
+                        )
+                        val lowNm = TACSymbol.Var(
+                            tag.replace(" ", WasmTokens.UNDERSCORE) + WasmTokens.LOWER + allocFresh(),
+                            Tag.Bit256
+                        )
+                        return CommandWithRequiredDecls(
+                            listOf(
+                                TACCmd.Simple.AssigningCmd.AssignExpCmd(highNm, high.toTacSymbol()),
+                                TACCmd.Simple.AssigningCmd.AssignExpCmd(lowNm, low.toTacSymbol()),
+                                SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue(
+                                    tag,
+                                    highNm,
+                                    lowNm,
+                                    signed
+                                ).toAnnotation()
+                            ), setOf(highNm, lowNm)
+                        )
+                    }
+                    is ArgRegister, is Havoc -> throw SummarizeCallTraceException("summarize128BitCalltrace failed: different ArgRegister types should not be possible.")
+                }
+            }
+
+            is ArgRegister -> {
+                when (low) {
+                    is ArgRegister -> {
+                        val highArgSymTac = TACSymbol.Var(high.toString(), Tag.Bit256)
+                        val lowArgSymTac = TACSymbol.Var(low.toString(), Tag.Bit256)
+                        return CommandWithRequiredDecls(
+                            listOf(
+                                SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue(
+                                    tag,
+                                    lowArgSymTac,
+                                    highArgSymTac,
+                                    signed
+                                ).toAnnotation()
+                            ), setOf()
+                        )
+                    }
+
+                    is ArgConst32, is ArgConst64, is Havoc -> throw SummarizeCallTraceException("summarize128BitCalltrace failed: different ArgRegister types should not be possible.")
+                }
+            }
+            is Havoc -> throw SummarizeCallTraceException("summarize128BitCalltrace failed: impossible to see `Havoc args` at this stage.")
+        }
     }
 
     context (WasmImpCfgContext)
