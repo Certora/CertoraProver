@@ -692,6 +692,16 @@ object MergeableSignature {
     }
 
     fun mergeReturns(m1: MethodSignature, m2: MethodSignature) : CollectingResult<List<VMParam>, String> {
+        // Special case for internal functions: if one signature has no return types (from bytecode)
+        // and the other has return types (from CVL), use the one with return types
+        if (m1.res.isEmpty() && m2.res.isNotEmpty()) {
+            // m1 (bytecode) has no return type info, trust m2 (CVL)
+            return m2.res.lift()
+        } else if (m2.res.isEmpty() && m1.res.isNotEmpty()) {
+            // m2 (bytecode) has no return type info, trust m1 (CVL)
+            return m1.res.lift()
+        }
+
         return mergeVMParams(m1.res, m2.res).bindEither(
             resultCallback = { it.lift() },
             errorCallback = { errs ->
