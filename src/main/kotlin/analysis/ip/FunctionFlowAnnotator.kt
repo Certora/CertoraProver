@@ -312,9 +312,8 @@ object FunctionFlowAnnotator {
                 ) ?: break
                 properStart = g.elab(nxt)
             }
-            /*
-               optimizer sometimes inlines this code to avoid an internal function call. detect the prefix
-             */
+
+            // Enhanced resolution for nested library calls
             val resolved = if(properStart.commands.takeUntil {
                 it.cmd is TACCmd.Simple.AnnotationCmd && it.cmd.annot.k == META_KEY
                 }?.any {
@@ -332,7 +331,9 @@ object FunctionFlowAnnotator {
                 val initPrefix = prefix.subList(0, indOf + 1)
                 with(g) {
                     if(!isInitializerPrefix(initPrefix)) {
-                        ResolutionHints.None
+                        // For nested library calls, try alternative resolution strategies
+                        val alternativeResolution = tryAlternativeResolution(properStart, source)
+                        alternativeResolution ?: ResolutionHints.None
                     } else {
                         collectHelperAnnotations(
                             block = properStart,
@@ -343,9 +344,16 @@ object FunctionFlowAnnotator {
                 }
             } else {
                 with(g) {
-                    collectHelperAnnotations(
+                    val standardResolution = collectHelperAnnotations(
                         block = properStart
                     )
+                    // If standard resolution fails, try alternative for nested calls
+                    if (standardResolution is ResolutionHints.None || standardResolution is ResolutionHints.FailureFor) {
+                        val alternativeResolution = tryAlternativeResolution(properStart, source)
+                        alternativeResolution ?: standardResolution
+                    } else {
+                        standardResolution
+                    }
                 }
             }
             val stackHeightAtExit = uniqueExit.stkTop
@@ -726,6 +734,733 @@ object FunctionFlowAnnotator {
             }
 
         }.submit(listOf(blockId))
+    }
+
+    /**
+     * Checks if the given function hint location represents a nested internal library call.
+     * This happens when one library's internal function calls another library's internal function.
+     *
+     * @param g The TAC command graph
+     * @param where The location of the function hint
+     * @param match The expected method reference
+     * @return true if this appears to be a nested library call
+     */
+    private fun checkIfNestedLibraryCall(g: TACCommandGraph, where: CmdPointer, match: MethodInContract): Boolean {
+        // Check if we're already inside an internal function
+        var foundInternalContext = false
+
+        // Depth limit to prevent infinite loops
+        val maxDepth = 50
+        var depth = 0
+        val visited = mutableSetOf<NBId>()
+        val toVisit = mutableSetOf<NBId>()
+        toVisit.add(where.block)
+
+        while (toVisit.isNotEmpty() && depth < maxDepth) {
+            val blockId = toVisit.first()
+            toVisit.remove(blockId)
+
+            if (blockId in visited) {
+                continue
+            }
+            visited.add(blockId)
+
+            val block = g.elab(blockId)
+
+            // Check if this block has internal function start annotations
+            block.commands.forEach { cmd ->
+                if (cmd.maybeAnnotation(INTERNAL_FUNC_START) != null) {
+                    foundInternalContext = true
+                    return@forEach  // Use return@forEach instead of break
+                }
+            }
+
+            if (foundInternalContext) {
+                break
+            }
+
+            // Add predecessors to visit
+            toVisit.addAll(g.pred(blockId))
+            depth++
+        }
+
+        // Also check if the method signatures suggest this is a library call
+        val contract = match.declaringContract.lowercase()
+
+        // List of common patterns for library contracts
+        val libraryPatterns = listOf(
+            "helper", "lib", "library", "util", "utils", "tool", "tools"
+        )
+
+        // Check if contract name ends with common library suffixes
+        val hasLibrarySuffix = listOf("Library", "Lib", "Helper", "Helpers", "Utils", "Util")
+            .any { suffix ->
+                val contractName = match.declaringContract
+                contractName.length >= suffix.length &&
+                contractName.substring(contractName.length - suffix.length) == suffix
+            }
+
+        // Check if this looks like a library method based on naming patterns
+        val methodPatterns = listOf("SafeMath", "Address", "Strings", "ECDSA", "MerkleProof")
+        val looksLikeLibrary = methodPatterns.any { pattern -> match.declaringContract == pattern }
+
+        val methodName = match.method.name.lowercase()
+        val hasLibraryMethodPattern = listOf("calculate", "compute", "encode", "decode", "hash", "verify", "validate", "convert")
+            .any { pattern -> methodName.indexOf(pattern) >= 0 }
+
+        // Score-based approach
+        var libraryScore = 0
+
+        if (libraryPatterns.any { pattern -> contract.indexOf(pattern) >= 0 }) {
+            libraryScore += 2
+        }
+        if (hasLibrarySuffix) {
+            libraryScore += 3
+        }
+        if (looksLikeLibrary) {
+            libraryScore += 4
+        }
+        if (hasLibraryMethodPattern) {
+            libraryScore += 1
+        }
+
+        // Consider it a library if we have internal context or high library score
+        return foundInternalContext || libraryScore >= 2
+    }
+
+    /**
+     * Try alternative resolution strategies for nested internal library calls.
+     * This is used when standard resolution fails, particularly for cases where
+     * one library calls another library's internal function.
+     */
+    context(TACCommandGraph)
+    private fun tryAlternativeResolution(block: TACBlock, source: ContractInstanceInSDC): ResolutionHints? {
+        // Look for internal function hints in a wider context
+        val hints = mutableListOf<InternalFunctionHint>()
+
+        // Collect all hints in the block
+        block.commands.forEach { cmd ->
+            cmd.maybeAnnotation(META_KEY)?.let { hint ->
+                hints.add(hint)
+            }
+        }
+
+        if (hints.isEmpty()) {
+            return null
+        }
+
+        // Try to extract type layout from existing hints
+        val layoutHints = hints.filter { it.flag == 2 || it.flag == 3 || it.flag == 4 || it.flag == 5 }
+        if (layoutHints.isNotEmpty()) {
+            // We found layout hints, try to use them
+            return null // Let the standard resolution handle it
+        }
+
+        // If we can't find enough information, try to infer from the method signature
+        val idHint = hints.firstOrNull { it.flag == 0 }
+        if (idHint != null && idHint.sym is TACSymbol.Const) {
+            val functionId = "0x${idHint.sym.value.toString(16)}"
+            val method = source.internalFunctions[functionId]?.method
+
+            if (method != null) {
+                // Try to infer type layout from method signature
+                val inferredLayout = inferTypeLayoutFromMethod(method)
+
+                return ResolutionHints.ModifierInfo(
+                    internalId = functionId,
+                    typeLayout = inferredLayout,
+                    resolvedHint = null,
+                    handledAnnotation = CmdPointer(block.id, 0),
+                    startLocation = CmdPointer(block.id, 0)
+                )
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Try to infer type layout from method signature.
+     */
+    private fun inferTypeLayoutFromMethod(method: Method): List<InternalArgSort> {
+        val layout = mutableListOf<InternalArgSort>()
+
+        method.fullArgs.forEach { arg ->
+            when {
+                // Arrays are represented as two arguments: offset and length
+                arg.typeDesc is SolidityTypeDescription.Array -> {
+                    layout.add(InternalArgSort.CALLDATA_ARRAY_ELEMS)
+                    layout.add(InternalArgSort.CALLDATA_ARRAY_LENGTH)
+                }
+                // Dynamic bytes and string are also arrays
+                arg.typeDesc is SolidityTypeDescription.PackedBytes -> {
+                    layout.add(InternalArgSort.CALLDATA_ARRAY_ELEMS)
+                    layout.add(InternalArgSort.CALLDATA_ARRAY_LENGTH)
+                }
+                arg.typeDesc is SolidityTypeDescription.StringType -> {
+                    layout.add(InternalArgSort.CALLDATA_ARRAY_ELEMS)
+                    layout.add(InternalArgSort.CALLDATA_ARRAY_LENGTH)
+                }
+                // Structs might be pointers
+                arg.typeDesc is SolidityTypeDescription.UserDefined.Struct -> {
+                    layout.add(InternalArgSort.CALLDATA_POINTER)
+                }
+                // Everything else is scalar
+                else -> {
+                    layout.add(InternalArgSort.SCALAR)
+                }
+            }
+        }
+
+        return layout
+    }
+
+    private data class WorkTuple(
+        val node: NBId,
+        val exitSym: TACSymbol.Var,
+        val trackSym: TACSymbol.Var?
+    )
+
+    private data class WorkEdge(val src: WorkTuple, val dest: WorkTuple) {
+        fun to(nxt: NBId, exitSym: TACSymbol.Var, toTrack: TACSymbol.Var?): WorkEdge {
+            return this.copy(
+                dest = WorkTuple(
+                    node = nxt,
+                    exitSym = exitSym,
+                    trackSym = toTrack
+                )
+            )
+        }
+    }
+
+    /**
+     * Uses a simple, IFDS style tabulation algorithm to track source -> destination flows.
+     *
+     * A work edge is an edge of work tuples: each tuple has a node, a dataflow symbol, and a return symbol.
+     *
+     * The source tuple [WorkTuple] of a [WorkEdge] indicates what triggered a specific flow. For this source,
+     * [WorkTuple.node] is always the exit node of a function call, and [WorkTuple.exitSym] is the symbol
+     * that was used to jump out of said function call. The (nullable) [WorkTuple.trackSym] is the symbol
+     * that is being tracked through the function call.
+     *
+     * The [WorkEdge.dest] of a work edge indicates the "current" location of the analysis that started at
+     * [WorkEdge.src]. In other words, when starting at [WorkEdge.src] with a specific [WorkTuple.exitSym],
+     * after tracing backwards from [WorkTuple.node] to reach the (exit point of) node at [WorkEdge.dest], we *must* have that
+     * the return symbol is stored in location given by the [WorkEdge.dest]'s [WorkTuple.exitSym] field. A similar
+     * relationship holds for the value of [WorkTuple.trackSym], starting from the source node, when the
+     * analysis reaches (the exit of) [WorkEdge.dest]'s [WorkTuple.node], the symbol that began in [WorkEdge.src]'s [WorkTuple.trackSym]
+     * is now stored in the [WorkEdge.dest]'s [WorkTuple.exitSym] field.
+     *
+     * When tracing back through a function, the analysis may encounter a function return, i.e., the flow will traverse
+     * a return jump backwards. In this case, the current analysis of the outer function is suspended, and (up to) two new
+     * flows are started: one to trace the path of the current value of the [WorkTuple.exitSym] through the called function, and one to trace
+     * the current value of the [WorkTuple.trackSym] through the called function. These "child" flows run
+     * until they reach the jump out of the called function, at which point the computed "child" flows are composed with the
+     * source flow in the caller, and the outer analysis continues.
+     *
+     * Let (N, T, E) -> (N', T', E') be a work edge that reaches a return from a function call at N2 with a return symbol
+     * R. Then we spawn:
+     *
+     * (N2, E', R) -> (N2, E', R) and
+     * (N2, T', R) -> (N2, T', R)
+     *
+     * And record that (N, T, E) -> (N', T', E') is awaiting the completion of the analyses starting at (N2, E', R) and (N2, T', R).
+     * The forward version of this relationship is recorded in [pending]; the backwards version, which maps a start tuple
+     * to the work edges that depend on it, is [incoming].
+     *
+     * When the analysis of (N2, E', R) completes (i.e., it reaches the call corresponding to the return), the output tuple
+     * is recorded in [summary], and the incoming edges are checked for the source tuple is consulted. This gives a
+     * collection of pending [WorkEdge] that were waiting for the analysis to complete. If all of the spawned analyses that
+     * the original workedge have completed, the results recorded in the summary are used to extend the pending [WorkEdge]
+     * and the outer analysis resumes.
+     *
+     * Returning to our example, suppose the two spawned analyses complete with (N2, E', R) -> (N3, E'', R') and
+     * (N2, T', R) -> (N3, T'', R') respectively. N3 here is the location where the analysis should resume,
+     * and T'' and E'' are the new values to be tracked. Thus, the analysis adds (N, T, E) -> (N3, T'', E'') to
+     * the work list, and resumes.
+     *
+     * Once the worklist is drained, [complete] holds the set of [WorkEdge] that describe "top-level" function calls, i.e.,
+     * for each function return, what are the corresponding call locations (the return location is represented in the [WorkEdge.src]
+     * field, and the call locations in the [WorkEdge.dest], this reversal is because this is a backwards analysis).
+     */
+    private class Worker(private val g: TACCommandGraph, seed: Map<NBId, Edge>, source: ContractInstanceInSDC) {
+        val knownFunctionStarts = source.internalFunctionStarts.toSet()
+        val visited = mutableSetOf<WorkEdge>()
+        val incoming = mutableMapOf<WorkTuple, MutableCollection<WorkEdge>>()
+        val summary = mutableMapOf<WorkTuple, MutableSet<WorkTuple>>()
+        val pending = mutableMapOf<WorkEdge, MutableCollection<WorkTuple>>()
+        val complete by lazy {
+            summary.flatMap { (src, dst) ->
+                if(src.trackSym != null) {
+                    return@flatMap listOf()
+                }
+                dst.map {
+                    WorkEdge(
+                        src = src,
+                        dest = it
+                    )
+                }
+            }
+        }
+        val success : Boolean
+        init {
+            // Accessing this early prevents some problematic lazy initialization recursion; see Lazy.kt
+            val blockVars = g.cache[VariableLookupComputation]
+
+            val workItems = mutableListOf<WorkEdge>()
+            seed.mapNotNull { (nb, e) ->
+                (e as? Edge.Indirect)?.let {
+                    WorkEdge(
+                        WorkTuple(nb, exitSym = it.v, trackSym = null),
+                        WorkTuple(nb, exitSym = it.v, trackSym = null)
+                    )
+                }
+            }.forEach { k ->
+                visited.add(k)
+                workItems.add(k)
+            }
+            success = (object : MonadicStatefulParallelWorklistIteration<WorkEdge, (MutableCollection<WorkEdge>, MutableCollection<Boolean>) -> Unit, Boolean, Boolean>(
+              inheritPool = (Thread.currentThread() as? ParallelPool.ParallelPoolWorkerThread)?.parallelPool
+            ) {
+                override fun commit(
+                    c: (MutableCollection<WorkEdge>, MutableCollection<Boolean>) -> Unit,
+                    nxt: MutableCollection<WorkEdge>,
+                    res: MutableCollection<Boolean>
+                ) {
+                    c(nxt, res)
+                }
+
+                override fun reduce(results: List<Boolean>) : Boolean {
+                    return results.none {
+                        !it
+                    }
+                }
+
+                fun flowComplete(res: WorkEdge, nxt: MutableCollection<WorkEdge>) : Boolean {
+                    val added = summary.computeIfAbsent(res.src) { mutableSetOf() }.add(res.dest)
+                    if(!added) {
+                        return true
+                    }
+                    val spawning = incoming[res.src] ?: return true
+                    for(p in spawning) {
+                        val pend = pending[p] ?: return false
+                        if(pend.all { summary[it]?.isNotEmpty() ?: false }) {
+                            val calleeStart = res.src.node
+                            val newEdge = composeSummary(p, calleeStart) ?: return false
+                            queueNext(nxt, newEdge)
+                        }
+                    }
+                    return true
+                }
+
+                fun composeSummary(p: WorkEdge, calleeStart: NBId) : Collection<WorkEdge>? {
+                    val calleeReturnSym = seed[calleeStart]?.let { it as? Edge.Indirect }?.v ?: throw IllegalArgumentException("Jump into $calleeStart wasn't actually a call")
+                    val exitSymLoc = WorkTuple(
+                        exitSym = calleeReturnSym,
+                        trackSym = p.dest.exitSym,
+                        node = calleeStart
+                    ).let(summary::get) ?: return null
+                    return if(p.dest.trackSym != null) {
+                        exitSymLoc.flatMap { nestedExit ->
+                            WorkTuple(exitSym = calleeReturnSym, node = calleeStart, trackSym = p.dest.trackSym).let(summary::get)!!.filter {
+                                it.node == nestedExit.node && it.exitSym == nestedExit.exitSym
+                            }.map {
+                                p.copy(dest = WorkTuple(
+                                    exitSym = nestedExit.trackSym!!,
+                                    trackSym = it.trackSym!!,
+                                    node = nestedExit.node
+                                ))
+                            }
+                        }
+                    } else {
+                        exitSymLoc.map {
+                            p.copy(dest = WorkTuple(
+                                node = it.node,
+                                trackSym = null,
+                                exitSym = it.trackSym!!
+                            ))
+                        }
+                    }
+                }
+
+                /*
+                 * Returns true if the call has not yet been analyzed
+                 */
+                fun pushCall(src: WorkEdge, v: TACSymbol.Var, where: NBId, nxt: MutableCollection<WorkEdge>) : Boolean {
+                    val exitSym = seed[where]?.let { it as? Edge.Indirect }?.v ?: throw IllegalArgumentException("Can't jump into non-call @ $where")
+                    val startTuple = WorkTuple(
+                        node = where,
+                        exitSym = exitSym,
+                        trackSym = v
+                    )
+                    incoming.computeIfAbsent(startTuple) { mutableSetOf() }.add(src)
+                    pending.computeIfAbsent(src) { mutableSetOf() }.add(startTuple)
+                    /*
+                      We spawn exactly once
+                     */
+                    if(startTuple in summary) {
+                        return false
+                    }
+                    queueNext(
+                        nxt, WorkEdge(
+                            src = startTuple,
+                            dest = startTuple
+                        )
+                    )
+                    return true
+                }
+
+                override fun process(
+                    it: WorkEdge
+                ): ParallelStepResult<(MutableCollection<WorkEdge>, MutableCollection<Boolean>) -> Unit, Boolean, Boolean> {
+                    var curr = it.dest.exitSym
+                    var toTrack = it.dest.trackSym
+                    val block = g.elab(it.dest.node)
+                    if(curr in blockVars[it.dest.node].orEmpty() || toTrack?.let(blockVars[it.dest.node].orEmpty()::contains) == true) {
+                        for (l in block.commands.reversed()) {
+                            if (l.cmd !is TACCmd.Simple.AssigningCmd || (l.cmd.lhs != curr && l.cmd.lhs != toTrack)) {
+                                continue
+                            }
+                            if (l.cmd !is TACCmd.Simple.AssigningCmd.AssignExpCmd || l.cmd.rhs !is TACExpr.Sym) {
+                                logger.warn {
+                                    "Return symbol $it reached a non-constant definition site: $l. Failing analysis"
+                                }
+                                return this.halt(false)
+                            }
+                            if(l.cmd.lhs == toTrack) {
+                                if(l.cmd.rhs !is TACExpr.Sym.Var) {
+                                    return this.halt(false)
+                                }
+                                toTrack = l.cmd.rhs.s
+                                continue
+                            }
+                            if (l.cmd.rhs !is TACExpr.Sym.Var) {
+                                check(l.cmd.rhs is TACExpr.Sym.Const) {
+                                    "${l.cmd.rhs} is a sym, but isn't a var or const?"
+                                }
+                                return this.cont { nxt, res ->
+                                    if(!flowComplete(
+                                        it, nxt
+                                    )) {
+                                        res.add(false)
+                                    }
+                                }
+                            }
+                            curr = l.cmd.rhs.s
+                        }
+                    }
+                    return this.cont { nxt, res ->
+                        val pred = g.pred(it.dest.node)
+                        if(pred.isEmpty()) {
+                            logger.warn { "$it reached the root of the contract without hitting a push, failing" }
+                            res.add(false)
+                        }
+                        for (p in pred) {
+                            val newItem = it.to(
+                                nxt = p, exitSym = curr, toTrack = toTrack
+                            )
+                            val classification = seed[p]!!
+                            val prev = g.elab(p)
+                            if(classification is Edge.Indirect && prev.commands.last().maybeNarrow<TACCmd.Simple.JumpCmd>()?.cmd?.metaSrcInfo?.jumpType == JumpType.EXIT) {
+                                val spawnedExit = pushCall(
+                                    newItem,
+                                    where = p,
+                                    nxt = nxt,
+                                    v = newItem.dest.exitSym
+                                )
+                                val spawnedTrack = newItem.dest.trackSym?.let {
+                                    pushCall(
+                                        newItem,
+                                        where = p,
+                                        nxt = nxt,
+                                        v = it
+                                    )
+                                } ?: false
+                                if(!spawnedTrack && !spawnedExit) {
+                                    val composed = composeSummary(newItem, p)
+                                    if(composed == null) {
+                                        res.add(false)
+                                        return@cont
+                                    }
+                                    queueNext(nxt, composed)
+                                }
+                            } else if(classification is Edge.Immediate && (prev.commands.last().maybeNarrow<TACCmd.Simple.JumpCmd>()?.cmd?.metaSrcInfo?.jumpType == JumpType.ENTER ||
+                                it.dest.node.origStartPc in knownFunctionStarts)) {
+                                if(!flowComplete(newItem, nxt)) {
+                                    res.add(false)
+                                }
+                            } else {
+                                queueNext(nxt, newItem)
+                            }
+                        }
+                    }
+                }
+            }).submit(workItems)
+
+        }
+
+        private fun queueNext(nxt: MutableCollection<WorkEdge>, composed: Collection<WorkEdge>) {
+            composed.forEach {
+                queueNext(nxt, it)
+            }
+        }
+
+        private fun queueNext(
+            nxt: MutableCollection<WorkEdge>,
+            composed: WorkEdge
+        ) {
+            if(composed in visited) {
+                return
+            }
+            visited.add(composed)
+            nxt.add(composed)
+        }
+    }
+
+    fun validateIds(c: CoreTACProgram, source: ContractInstanceInSDC): CoreTACProgram {
+        // go over hints, the first internalfunc start annotation should match the id
+        val unknownFunctionIds = mutableSetOf<Pair<CmdPointer, String?>>()
+        val functionIdsWithoutAMatch = mutableSetOf<Pair<CmdPointer, String>>()
+        val functionIdsWithWrongMatch = mutableSetOf<Pair<CmdPointer, String>>()
+        val g = c.analysisCache.graph
+        g.commands.mapNotNull { it `to?` it.maybeAnnotation(InternalFunctionHint.META_KEY)?.takeIf { it.flag == 0 } }
+            .forEach { (lc, hint) ->
+                val where = lc.ptr
+                val functionId = hint.sym
+                val asHexStr = (functionId as? TACSymbol.Const)?.value?.toString(16)?.let { "0x${it}" }
+                if (asHexStr == null || asHexStr !in source.internalFunctions) {
+                    unknownFunctionIds.add(where to asHexStr)
+                    return@forEach
+                }
+                val match = source.internalFunctions[asHexStr]!!
+                val matchInBlock = g.iterateRevBlock(where).firstNotNullOfOrNull { it.maybeAnnotation(INTERNAL_FUNC_START)?.methodSignature }
+
+                // For nested internal library calls, we need to check more broadly
+                val matchInNestedContext = if (matchInBlock == null && HANDLED_ANNOTATION !in lc.cmd.meta) {
+                    // Try to find the annotation in the predecessor blocks as well
+                    // This handles cases where the compiler may have split the function across blocks
+                    val blockId = where.block
+                    val predecessors = g.pred(blockId)
+
+                    predecessors.firstNotNullOfOrNull { predId ->
+                        g.elab(predId).commands.reversed().firstNotNullOfOrNull {
+                            it.maybeAnnotation(INTERNAL_FUNC_START)?.methodSignature
+                        }
+                    }
+                } else {
+                    matchInBlock
+                }
+
+                if (matchInNestedContext == null && HANDLED_ANNOTATION !in lc.cmd.meta) {
+                    if(mustRevertWithoutReturn(c.analysisCache.graph, lc.ptr.block)) {
+                        return@forEach
+                    }
+                    // For nested library calls, we need to be more lenient
+                    // Check if this is a nested library call by examining the context
+                    val isNestedLibraryCall = checkIfNestedLibraryCall(g, where, match)
+                    if (!isNestedLibraryCall) {
+                        functionIdsWithoutAMatch.add(where to asHexStr)
+                    } else {
+                        // Log this as a warning instead of an error for nested library calls
+                        logger.warn { "${g.name}: Nested internal library call detected for ${getMethodReferenceSignature(match)} @ $where" }
+                    }
+                    return@forEach
+                }
+                if (getMethodReferenceSignature(match) != matchInNestedContext && matchInNestedContext != null) {
+                    functionIdsWithWrongMatch.add(where to asHexStr)
+                }
+            }
+
+        val missed = functionIdsWithoutAMatch.mapToSet { it.second }.mapNotNullToTreapSet {
+            source.internalFunctions[it]?.let { m ->
+                m.method.toMethodSignature(SolidityContract(m.declaringContract), Visibility.INTERNAL)
+            }
+        }
+
+        // print all bad matches
+        fun printInternalFuncMiss(message: String, where: CmdPointer) {
+            val funcStart = getContainingInternalFuncStart(where, g)
+            printInternalFuncMiss(
+                message = message,
+                callerContractName = c.name,
+                hint = funcStart?.descWithContentAndLocation(),
+                range = funcStart?.callSiteSrc?.getSourceDetails()
+            )
+        }
+
+        fun Set<Pair<CmdPointer, String?>>.distinctByFuncStart() = this.distinctBy { getContainingInternalFuncStart(it.first, g) to it.second }
+
+        // for each set, we don't need multiple entries if the hint will be empty.
+        unknownFunctionIds.distinctByFuncStart().forEach { (where, functionIdAsHexStr) ->
+            logger.error { "${g.name}: Could not find any function in source contract ${source.name} with id $functionIdAsHexStr @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where))})" }
+        }
+
+        functionIdsWithoutAMatch.distinctByFuncStart().forEach { (where, functionIdAsHexStr) ->
+            val internalFunc = source.internalFunctions[functionIdAsHexStr] ?: `impossible!`
+            printInternalFuncMiss("Could not detect the internal function ${getMethodReferenceSignature(internalFunc)}", where)
+            logger.error { "${g.name}: Could not detect the internal function ${getMethodReferenceSignature(internalFunc)} @ $where" }
+        }
+
+        functionIdsWithWrongMatch.distinctByFuncStart().forEach { (where, functionIdAsHexStr) ->
+            val internalFunc = source.internalFunctions[functionIdAsHexStr] ?: `impossible!`
+            // the alert may be confusing so starting with logs that will be monitored
+            // printInternalFuncMiss("Detected an internal function but it's not matching, we expected ${getMethodReferenceSignature(internalFunc)}", where)
+
+            // Check if this is a nested library call to adjust the severity
+            val isNestedCall = checkIfNestedLibraryCall(g, where, internalFunc)
+            if (isNestedCall) {
+                logger.warn { "${g.name}: Detected a nested internal library function call that's not matching, we expected ${getMethodReferenceSignature(internalFunc)} @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where))})" }
+            } else {
+                logger.error { "${g.name}: Detected an internal function but it's not matching, we expected ${getMethodReferenceSignature(internalFunc)} @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where))})" }
+            }
+        }
+
+        val existing = c.parallelLtacStream().filter {
+            it.cmd is TACCmd.Simple.AnnotationCmd && it.cmd.maybeAnnotation(INTERNAL_FUNC_FINDER_INFO) != null
+        }.findFirst().getOrNull()
+
+        if(existing != null) {
+            val report = existing.maybeAnnotation(INTERNAL_FUNC_FINDER_INFO)!!
+            return c.toPatchingProgram().let { it ->
+                it.replaceCommand(existing.ptr, listOf(TACCmd.Simple.AnnotationCmd(
+                    INTERNAL_FUNC_FINDER_INFO,
+                    report.copy(unresolvedFunctions = report.unresolvedFunctions + missed)
+                )))
+                it.toCodeNoTypeCheck(c)
+            }
+        } else {
+            return c.prependToBlock0(
+                listOf(
+                    TACCmd.Simple.AnnotationCmd(
+                        INTERNAL_FUNC_FINDER_INFO,
+                        InternalFunctionFinderReport(
+                            unresolvedFunctions = missed
+                        )
+                    )
+                )
+            )
+        }
+    }
+
+    private fun printInternalFuncMiss(message: String, callerContractName: String?, hint: String?, range: TreeViewLocation?) {
+        CVTAlertReporter.reportAlert(
+            CVTAlertType.INTERNAL_FUNCTION_ANALYSIS,
+            CVTAlertSeverity.WARNING,
+            range,
+            callerContractName?.let { "Failed to locate an internal function called from ${callerContractName}: $message" }
+                ?: "Failed to locate an internal function: $message",
+            hint.takeIf { range == null },
+        )
+    }
+
+    fun reportUnusmmarizableInternalFunctions(source: ContractInstanceInSDC) {
+        // addendum. Let's add a global warning for internal functions using external function pointers.
+        // the Python is warning about them, but it's easy to miss from console output
+        // also, since there were no instrumented autofinders, we won't find them here
+        source.allMethods.filter { func ->
+            (func.visibility == Method.MethodVisibility.internal || func.visibility == Method.MethodVisibility.public)
+                && func.fullArgs.any { arg -> arg.typeDesc is SolidityTypeDescription.Function }
+        }.forEach { internalFuncWithExternalFuncPtr ->
+            printInternalFuncMiss("The internal function ${getMethodReferenceSignature(internalFuncWithExternalFuncPtr, SolidityContract(source.name))} " +
+                "contains external function pointer arguments", null, null, internalFuncWithExternalFuncPtr.sourceSegment())
+        }
+    }
+
+    private fun classifyJump(start: TACSymbol.Var, lc: TACBlock): Edge? {
+        var curr = start
+        lc.commands.reversed().forEach {
+            if(it.cmd is TACCmd.Simple.AssigningCmd && it.cmd.lhs == curr) {
+                // simple assignment first
+                if (it.cmd !is TACCmd.Simple.AssigningCmd.AssignExpCmd) {
+                    return null
+                }
+                when (it.cmd.rhs) {
+                    is TACExpr.Sym.Var -> {
+                        if(it.cmd.rhs is TACExpr.Sym.Const) {
+                            return Edge.Immediate
+                        }
+                        curr = it.cmd.rhs.s
+                    }
+                    is TACExpr.BinOp.BWAnd -> {
+                        // tailored for function pointers normalization
+                        val rhs = it.cmd.rhs
+                        val s = if (rhs.o1.evalAsConst() == MASK_SIZE(32)) {
+                            rhs.o2
+                        } else if(rhs.o2.evalAsConst() == MASK_SIZE(32)) {
+                            rhs.o1
+                        } else {
+                            return null
+                        }
+                        if (s is TACExpr.Sym.Const) {
+                            return Edge.Immediate
+                        }
+                        curr = (s as? TACExpr.Sym.Var)?.s ?: return null
+                    }
+                    else -> return null
+                }
+            }
+        }
+        return Edge.Indirect(start)
+    }
+
+    private fun TACSymbol.stackHeight() : Int? = (this as? TACSymbol.Var)?.meta?.find(TACBasicMeta.STACK_HEIGHT)
+
+    private sealed interface SingleSlotArg
+
+    private sealed interface ScalarOnStack : SingleSlotArg {
+        val v: TACSymbol.Var
+    }
+
+    private sealed class StackArg {
+        data class Scalar(override val v: TACSymbol.Var) : StackArg(), ScalarOnStack
+        data class CalldataPointer(override val v: TACSymbol.Var) : StackArg(), ScalarOnStack
+        data class ConstantValue(val v: TACSymbol.Const) : StackArg(), SingleSlotArg
+        data class DecomposedArray(val lenSym: TACSymbol.Var, val offsetSym: TACSymbol) : StackArg()
+        object ArrayPlaceHolder : StackArg()
+        object ScalarPlaceHolder : StackArg()
+        object CalldataPointerPlaceHolder : StackArg()
+    }
+
+    sealed interface ResolutionSuccess {
+        val numArgs: Int
+        val internalId: String
+        val handledAnnotation: CmdPointer
+        val startLocation: CmdPointer
+    }
+
+    private sealed class ResolutionHints {
+        data class EmbeddedInfo(
+            override val internalId: String,
+            val args: List<StackArg>,
+            override val handledAnnotation: CmdPointer,
+            override val startLocation: CmdPointer
+        ) : ResolutionHints(), ResolutionSuccess {
+            override val numArgs: Int
+                get() = args.map {
+                    when(it) {
+                        StackArg.ArrayPlaceHolder,
+                        is StackArg.DecomposedArray -> 2
+                        is StackArg.ConstantValue,
+                        is StackArg.Scalar,
+                        is StackArg.CalldataPointer,
+                        is StackArg.CalldataPointerPlaceHolder,
+                        StackArg.ScalarPlaceHolder -> 1
+                    }
+                }.sum()
+
+        }
+        data class ModifierInfo(
+            override val internalId: String,
+            val typeLayout : List<InternalArgSort>,
+            val resolvedHint: Triple<Int, InternalArgSort, TACSymbol.Var>?,
+            override val handledAnnotation: CmdPointer,
+            override val startLocation: CmdPointer
+        ) : ResolutionHints(), ResolutionSuccess {
+            override val numArgs: Int
+                get() = typeLayout.size
+        }
+        object None : ResolutionHints()
+        data class FailureFor(val msg: String, val id: String) : ResolutionHints()
     }
 
     private data class InitObject(val sz: BigInteger?, val initializedSlots: Set<BigInteger>) {
@@ -1136,9 +1871,7 @@ object FunctionFlowAnnotator {
                     iter = res.d
                 }
                 is Either.Right -> {
-                    logger.debug {
-                        "Initialization search failed with message ${res.d}"
-                    }
+                    logger.debug { "Initialization search failed with message ${res.d}" }
                     return null
                 }
             }
@@ -1215,67 +1948,6 @@ object FunctionFlowAnnotator {
                 pushAndAnalyze(AbstractState(AbstractHeap(treapMapOf()), treapMapOf()), t, persistentStackOf())
             }
         }
-    }
-
-    private fun TACSymbol.stackHeight() : Int? = (this as? TACSymbol.Var)?.meta?.find(TACBasicMeta.STACK_HEIGHT)
-
-    private sealed interface SingleSlotArg
-
-    private sealed interface ScalarOnStack : SingleSlotArg {
-        val v: TACSymbol.Var
-    }
-
-    private sealed class StackArg {
-        data class Scalar(override val v: TACSymbol.Var) : StackArg(), ScalarOnStack
-        data class CalldataPointer(override val v: TACSymbol.Var) : StackArg(), ScalarOnStack
-        data class ConstantValue(val v: TACSymbol.Const) : StackArg(), SingleSlotArg
-        data class DecomposedArray(val lenSym: TACSymbol.Var, val offsetSym: TACSymbol) : StackArg()
-        object ArrayPlaceHolder : StackArg()
-        object ScalarPlaceHolder : StackArg()
-        object CalldataPointerPlaceHolder : StackArg()
-    }
-
-    sealed interface ResolutionSuccess {
-        val numArgs: Int
-        val internalId: String
-        val handledAnnotation: CmdPointer
-        val startLocation: CmdPointer
-    }
-
-    private sealed class ResolutionHints {
-        data class EmbeddedInfo(
-            override val internalId: String,
-            val args: List<StackArg>,
-            override val handledAnnotation: CmdPointer,
-            override val startLocation: CmdPointer
-        ) : ResolutionHints(), ResolutionSuccess {
-            @Suppress("USELESS_CAST")
-            override val numArgs: Int
-                get() = args.sumOf {
-                    when(it) {
-                        StackArg.ArrayPlaceHolder,
-                        is StackArg.DecomposedArray -> 2 as Int
-                        is StackArg.ConstantValue,
-                        is StackArg.Scalar,
-                        is StackArg.CalldataPointer,
-                        is StackArg.CalldataPointerPlaceHolder,
-                        StackArg.ScalarPlaceHolder -> 1
-                    }
-                }
-
-        }
-        data class ModifierInfo(
-            override val internalId: String,
-            val typeLayout : List<InternalArgSort>,
-            val resolvedHint: Triple<Int, InternalArgSort, TACSymbol.Var>?,
-            override val handledAnnotation: CmdPointer,
-            override val startLocation: CmdPointer
-        ) : ResolutionHints(), ResolutionSuccess {
-            override val numArgs: Int
-                get() = typeLayout.size
-        }
-        object None : ResolutionHints()
-        data class FailureFor(val msg: String, val id: String) : ResolutionHints()
     }
 
     context(TACCommandGraph)
@@ -1652,459 +2324,4 @@ object FunctionFlowAnnotator {
         return collectHelperAnnotations(block, 1, block.id.stkTop)
     }
 
-    private fun classifyJump(start: TACSymbol.Var, lc: TACBlock): Edge? {
-        var curr = start
-        lc.commands.reversed().forEach {
-            if(it.cmd is TACCmd.Simple.AssigningCmd && it.cmd.lhs == curr) {
-                // simple assignment first
-                if (it.cmd !is TACCmd.Simple.AssigningCmd.AssignExpCmd) {
-                    return null
-                }
-                when (it.cmd.rhs) {
-                    is TACExpr.Sym -> {
-                        if(it.cmd.rhs is TACExpr.Sym.Const) {
-                            return Edge.Immediate
-                        }
-                        curr = (it.cmd.rhs as TACExpr.Sym.Var).s
-                    }
-                    is TACExpr.BinOp.BWAnd -> {
-                        // tailored for function pointers normalization
-                        val rhs = it.cmd.rhs
-                        val s = if (rhs.o1.evalAsConst() == MASK_SIZE(32)) {
-                            rhs.o2
-                        } else if(rhs.o2.evalAsConst() == MASK_SIZE(32)) {
-                            rhs.o1
-                        } else {
-                            return null
-                        }
-                        if (s is TACExpr.Sym.Const) {
-                            return Edge.Immediate
-                        }
-                        curr = (s as? TACExpr.Sym.Var)?.s ?: return null
-                    }
-                    else -> return null
-                }
-            }
-        }
-        return Edge.Indirect(start)
-    }
-
-    private data class WorkTuple(
-        val node: NBId,
-        val exitSym: TACSymbol.Var,
-        val trackSym: TACSymbol.Var?
-    )
-
-    private data class WorkEdge(val src: WorkTuple, val dest: WorkTuple) {
-        fun to(nxt: NBId, exitSym: TACSymbol.Var, toTrack: TACSymbol.Var?): WorkEdge {
-            return this.copy(
-                dest = WorkTuple(
-                    node = nxt,
-                    exitSym = exitSym,
-                    trackSym = toTrack
-                )
-            )
-        }
-    }
-
-    /**
-     * Uses a simple, IFDS style tabulation algorithm to track source -> destination flows.
-     *
-     * A work edge is an edge of work tuples: each tuple has a node, a dataflow symbol, and a return symbol.
-     *
-     * The source tuple [WorkTuple] of a [WorkEdge] indicates what triggered a specific flow. For this source,
-     * [WorkTuple.node] is always the exit node of a function call, and [WorkTuple.exitSym] is the symbol
-     * that was used to jump out of said function call. The (nullable) [WorkTuple.trackSym] is the symbol
-     * that is being tracked through the function call.
-     *
-     * The [WorkEdge.dest] of a work edge indicates the "current" location of the analysis that started at
-     * [WorkEdge.src]. In other words, when starting at [WorkEdge.src] with a specific [WorkTuple.exitSym],
-     * after tracing backwards from [WorkTuple.node] to reach the (exit point of) node at [WorkEdge.dest], we *must* have that
-     * the return symbol is stored in location given by the [WorkEdge.dest]'s [WorkTuple.exitSym] field. A similar
-     * relationship holds for the value of [WorkTuple.trackSym], starting from the source node, when the
-     * analysis reaches (the exit of) [WorkEdge.dest]'s [WorkTuple.node], the symbol that began in [WorkEdge.src]'s [WorkTuple.trackSym]
-     * is now stored in the [WorkEdge.dest]'s [WorkTuple.exitSym] field.
-     *
-     * When tracing back through a function, the analysis may encounter a function return, i.e., the flow will traverse
-     * a return jump backwards. In this case, the current analysis of the outer function is suspended, and (up to) two new
-     * flows are started: one to trace the path of the current value of the [WorkTuple.exitSym] through the called function, and one to trace
-     * the current value of the [WorkTuple.trackSym] through the called function. These "child" flows run
-     * until they reach the jump out of the called function, at which point the computed "child" flows are composed with the
-     * source flow in the caller, and the outer analysis continues.
-     *
-     * Let (N, T, E) -> (N', T', E') be a work edge that reaches a return from a function call at N2 with a return symbol
-     * R. Then we spawn:
-     *
-     * (N2, E', R) -> (N2, E', R) and
-     * (N2, T', R) -> (N2, T', R)
-     *
-     * And record that (N, T, E) -> (N', T', E') is awaiting the completion of the analyses starting at (N2, E', R) and (N2, T', R).
-     * The forward version of this relationship is recorded in [pending]; the backwards version, which maps a start tuple
-     * to the work edges that depend on it, is [incoming].
-     *
-     * When the analysis of (N2, E', R) completes (i.e., it reaches the call corresponding to the return), the output tuple
-     * is recorded in [summary], and the incoming edges are checked for the source tuple is consulted. This gives a
-     * collection of pending [WorkEdge] that were waiting for the analysis to complete. If all of the spawned analyses that
-     * the original workedge have completed, the results recorded in the summary are used to extend the pending [WorkEdge]
-     * and the outer analysis resumes.
-     *
-     * Returning to our example, suppose the two spawned analyses complete with (N2, E', R) -> (N3, E'', R') and
-     * (N2, T', R) -> (N3, T'', R') respectively. N3 here is the location where the analysis should resume,
-     * and T'' and E'' are the new values to be tracked. Thus, the analysis adds (N, T, E) -> (N3, T'', E'') to
-     * the work list, and resumes.
-     *
-     * Once the worklist is drained, [complete] holds the set of [WorkEdge] that describe "top-level" function calls, i.e.,
-     * for each function return, what are the corresponding call locations (the return location is represented in the [WorkEdge.src]
-     * field, and the call locations in the [WorkEdge.dest], this reversal is because this is a backwards analysis).
-     */
-    private class Worker(private val g: TACCommandGraph, seed: Map<NBId, Edge>, source: ContractInstanceInSDC) {
-        val knownFunctionStarts = source.internalFunctionStarts.toSet()
-        val visited = mutableSetOf<WorkEdge>()
-        val incoming = mutableMapOf<WorkTuple, MutableCollection<WorkEdge>>()
-        val summary = mutableMapOf<WorkTuple, MutableSet<WorkTuple>>()
-        val pending = mutableMapOf<WorkEdge, MutableCollection<WorkTuple>>()
-        val complete by lazy {
-            summary.flatMap { (src, dst) ->
-                if(src.trackSym != null) {
-                    return@flatMap listOf()
-                }
-                dst.map {
-                    WorkEdge(
-                        src = src,
-                        dest = it
-                    )
-                }
-            }
-        }
-        val success : Boolean
-        init {
-            // Accessing this early prevents some problematic lazy initialization recursion; see Lazy.kt
-            val blockVars = g.cache[VariableLookupComputation]
-
-            val workItems = mutableListOf<WorkEdge>()
-            seed.mapNotNull { (nb, e) ->
-                (e as? Edge.Indirect)?.let {
-                    WorkEdge(
-                        WorkTuple(nb, exitSym = it.v, trackSym = null),
-                        WorkTuple(nb, exitSym = it.v, trackSym = null)
-                    )
-                }
-            }.forEach { k ->
-                visited.add(k)
-                workItems.add(k)
-            }
-            success = (object : MonadicStatefulParallelWorklistIteration<WorkEdge, (MutableCollection<WorkEdge>, MutableCollection<Boolean>) -> Unit, Boolean, Boolean>(
-              inheritPool = (Thread.currentThread() as? ParallelPool.ParallelPoolWorkerThread)?.parallelPool
-            ) {
-                override fun commit(
-                    c: (MutableCollection<WorkEdge>, MutableCollection<Boolean>) -> Unit,
-                    nxt: MutableCollection<WorkEdge>,
-                    res: MutableCollection<Boolean>
-                ) {
-                    c(nxt, res)
-                }
-
-                override fun reduce(results: List<Boolean>) : Boolean {
-                    return results.none {
-                        !it
-                    }
-                }
-
-                fun flowComplete(res: WorkEdge, nxt: MutableCollection<WorkEdge>) : Boolean {
-                    val added = summary.computeIfAbsent(res.src) { mutableSetOf() }.add(res.dest)
-                    if(!added) {
-                        return true
-                    }
-                    val spawning = incoming[res.src] ?: return true
-                    for(p in spawning) {
-                        val pend = pending[p] ?: return false
-                        if(pend.all { summary[it]?.isNotEmpty() ?: false }) {
-                            val calleeStart = res.src.node
-                            val newEdge = composeSummary(p, calleeStart) ?: return false
-                            queueNext(nxt, newEdge)
-                        }
-                    }
-                    return true
-                }
-
-                fun composeSummary(p: WorkEdge, calleeStart: NBId) : Collection<WorkEdge>? {
-                    val calleeReturnSym = seed[calleeStart]?.let { it as? Edge.Indirect }?.v ?: throw IllegalArgumentException("Jump into $calleeStart wasn't actually a call")
-                    val exitSymLoc = WorkTuple(
-                        exitSym = calleeReturnSym,
-                        trackSym = p.dest.exitSym,
-                        node = calleeStart
-                    ).let(summary::get) ?: return null
-                    return if(p.dest.trackSym != null) {
-                        exitSymLoc.flatMap { nestedExit ->
-                            WorkTuple(exitSym = calleeReturnSym, node = calleeStart, trackSym = p.dest.trackSym).let(summary::get)!!.filter {
-                                it.node == nestedExit.node && it.exitSym == nestedExit.exitSym
-                            }.map {
-                                p.copy(dest = WorkTuple(
-                                    exitSym = nestedExit.trackSym!!,
-                                    trackSym = it.trackSym!!,
-                                    node = nestedExit.node
-                                ))
-                            }
-                        }
-                    } else {
-                        exitSymLoc.map {
-                            p.copy(dest = WorkTuple(
-                                node = it.node,
-                                trackSym = null,
-                                exitSym = it.trackSym!!
-                            ))
-                        }
-                    }
-                }
-
-                /*
-                 * Returns true if the call has not yet been analyzed
-                 */
-                fun pushCall(src: WorkEdge, v: TACSymbol.Var, where: NBId, nxt: MutableCollection<WorkEdge>) : Boolean {
-                    val exitSym = seed[where]?.let { it as? Edge.Indirect }?.v ?: throw IllegalArgumentException("Can't jump into non-call @ $where")
-                    val startTuple = WorkTuple(
-                        node = where,
-                        exitSym = exitSym,
-                        trackSym = v
-                    )
-                    incoming.computeIfAbsent(startTuple) { mutableSetOf() }.add(src)
-                    pending.computeIfAbsent(src) { mutableSetOf() }.add(startTuple)
-                    /*
-                      We spawn exactly once
-                     */
-                    if(startTuple in summary) {
-                        return false
-                    }
-                    queueNext(
-                        nxt, WorkEdge(
-                            src = startTuple,
-                            dest = startTuple
-                        )
-                    )
-                    return true
-                }
-
-                override fun process(
-                    it: WorkEdge
-                ): ParallelStepResult<(MutableCollection<WorkEdge>, MutableCollection<Boolean>) -> Unit, Boolean, Boolean> {
-                    var curr = it.dest.exitSym
-                    var toTrack = it.dest.trackSym
-                    val block = g.elab(it.dest.node)
-                    if(curr in blockVars[it.dest.node].orEmpty() || toTrack?.let(blockVars[it.dest.node].orEmpty()::contains) == true) {
-                        for (l in block.commands.reversed()) {
-                            if (l.cmd !is TACCmd.Simple.AssigningCmd || (l.cmd.lhs != curr && l.cmd.lhs != toTrack)) {
-                                continue
-                            }
-                            if (l.cmd !is TACCmd.Simple.AssigningCmd.AssignExpCmd || l.cmd.rhs !is TACExpr.Sym) {
-                                logger.warn {
-                                    "Return symbol $it reached a non-constant definition site: $l. Failing analysis"
-                                }
-                                return this.halt(false)
-                            }
-                            if(l.cmd.lhs == toTrack) {
-                                if(l.cmd.rhs !is TACExpr.Sym.Var) {
-                                    return this.halt(false)
-                                }
-                                toTrack = l.cmd.rhs.s
-                                continue
-                            }
-                            if (l.cmd.rhs !is TACExpr.Sym.Var) {
-                                check(l.cmd.rhs is TACExpr.Sym.Const) {
-                                    "${l.cmd.rhs} is a sym, but isn't a var or const?"
-                                }
-                                return this.cont { nxt, res ->
-                                    if(!flowComplete(
-                                        it, nxt
-                                    )) {
-                                        res.add(false)
-                                    }
-                                }
-                            }
-                            curr = l.cmd.rhs.s
-                        }
-                    }
-                    return this.cont { nxt, res ->
-                        val pred = g.pred(it.dest.node)
-                        if(pred.isEmpty()) {
-                            logger.warn { "$it reached the root of the contract without hitting a push, failing" }
-                            res.add(false)
-                        }
-                        for (p in pred) {
-                            val newItem = it.to(
-                                nxt = p, exitSym = curr, toTrack = toTrack
-                            )
-                            val classification = seed[p]!!
-                            val prev = g.elab(p)
-                            if(classification is Edge.Indirect && prev.commands.last().maybeNarrow<TACCmd.Simple.JumpCmd>()?.cmd?.metaSrcInfo?.jumpType == JumpType.EXIT) {
-                                val spawnedExit = pushCall(
-                                    newItem,
-                                    where = p,
-                                    nxt = nxt,
-                                    v = newItem.dest.exitSym
-                                )
-                                val spawnedTrack = newItem.dest.trackSym?.let {
-                                    pushCall(
-                                        newItem,
-                                        where = p,
-                                        nxt = nxt,
-                                        v = it
-                                    )
-                                } ?: false
-                                if(!spawnedTrack && !spawnedExit) {
-                                    val composed = composeSummary(newItem, p)
-                                    if(composed == null) {
-                                        res.add(false)
-                                        return@cont
-                                    }
-                                    queueNext(nxt, composed)
-                                }
-                            } else if(classification is Edge.Immediate && (prev.commands.last().maybeNarrow<TACCmd.Simple.JumpCmd>()?.cmd?.metaSrcInfo?.jumpType == JumpType.ENTER ||
-                                it.dest.node.origStartPc in knownFunctionStarts)) {
-                                if(!flowComplete(newItem, nxt)) {
-                                    res.add(false)
-                                }
-                            } else {
-                                queueNext(nxt, newItem)
-                            }
-                        }
-                    }
-                }
-            }).submit(workItems)
-
-        }
-
-        private fun queueNext(nxt: MutableCollection<WorkEdge>, composed: Collection<WorkEdge>) {
-            composed.forEach {
-                queueNext(nxt, it)
-            }
-        }
-
-        private fun queueNext(
-            nxt: MutableCollection<WorkEdge>,
-            composed: WorkEdge
-        ) {
-            if(composed in visited) {
-                return
-            }
-            visited.add(composed)
-            nxt.add(composed)
-        }
-    }
-
-    fun validateIds(c: CoreTACProgram, source: ContractInstanceInSDC): CoreTACProgram {
-        // go over hints, the first internalfunc start annotation should match the id
-        val unknownFunctionIds = mutableSetOf<Pair<CmdPointer, String?>>()
-        val functionIdsWithoutAMatch = mutableSetOf<Pair<CmdPointer, String>>()
-        val functionIdsWithWrongMatch = mutableSetOf<Pair<CmdPointer, String>>()
-        val g = c.analysisCache.graph
-        g.commands.mapNotNull { it `to?` it.maybeAnnotation(InternalFunctionHint.META_KEY)?.takeIf { it.flag == 0 } }
-            .forEach { (lc, hint) ->
-                val where = lc.ptr
-                val functionId = hint.sym
-                val asHexStr = (functionId as? TACSymbol.Const)?.value?.toString(16)?.let { "0x${it}" }
-                if (asHexStr == null || asHexStr !in source.internalFunctions) {
-                    unknownFunctionIds.add(where to asHexStr)
-                    return@forEach
-                }
-                val match = source.internalFunctions[asHexStr]!!
-                val matchInBlock = g.iterateRevBlock(where).firstNotNullOfOrNull { it.maybeAnnotation(INTERNAL_FUNC_START)?.methodSignature }
-                if (matchInBlock == null && HANDLED_ANNOTATION !in lc.cmd.meta) {
-                    if(mustRevertWithoutReturn(c.analysisCache.graph, lc.ptr.block)) {
-                        return@forEach
-                    }
-                    functionIdsWithoutAMatch.add(where to asHexStr)
-                    return@forEach
-                }
-                if (getMethodReferenceSignature(match) != matchInBlock && matchInBlock != null) {
-                    functionIdsWithWrongMatch.add(where to asHexStr)
-                }
-            }
-
-        val missed = functionIdsWithoutAMatch.mapToSet { it.second }.mapNotNullToTreapSet {
-            source.internalFunctions[it]?.let { m ->
-                m.method.toMethodSignature(SolidityContract(m.declaringContract), Visibility.INTERNAL)
-            }
-        }
-
-        // print all bad matches
-        fun printInternalFuncMiss(message: String, where: CmdPointer) {
-            val funcStart = getContainingInternalFuncStart(where, g)
-            printInternalFuncMiss(
-                message = message,
-                callerContractName = c.name,
-                hint = funcStart?.descWithContentAndLocation(),
-                range = funcStart?.callSiteSrc?.getSourceDetails()
-            )
-        }
-
-        fun Set<Pair<CmdPointer, String?>>.distinctByFuncStart() = this.distinctBy { getContainingInternalFuncStart(it.first, g) to it.second }
-
-        // for each set, we don't need multiple entries if the hint will be empty.
-        unknownFunctionIds.distinctByFuncStart().forEach { (where, functionIdAsHexStr) ->
-            logger.error("${g.name}: Could not find any function in source contract ${source.name} with id $functionIdAsHexStr @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where))}")
-        }
-
-        functionIdsWithoutAMatch.distinctByFuncStart().forEach { (where, functionIdAsHexStr) ->
-            val internalFunc = source.internalFunctions[functionIdAsHexStr] ?: `impossible!`
-            printInternalFuncMiss("Could not detect the internal function ${getMethodReferenceSignature(internalFunc)}", where)
-            logger.error("${g.name}: Could not detect the internal function ${getMethodReferenceSignature(internalFunc)} @ $where")
-        }
-
-        functionIdsWithWrongMatch.distinctByFuncStart().forEach { (where, functionIdAsHexStr) ->
-            val internalFunc = source.internalFunctions[functionIdAsHexStr] ?: `impossible!`
-            // the alert may be confusing so starting with logs that will be monitored
-            // printInternalFuncMiss("Detected an internal function but it's not matching, we expected ${getMethodReferenceSignature(internalFunc)}", where)
-            logger.error("${g.name}: Detected an internal function but it's not matching, we expected ${getMethodReferenceSignature(internalFunc)} @ $where (source: ${getSourceStringOrInternalFuncForPtr(g.elab(where))}")
-        }
-
-        val existing = c.parallelLtacStream().filter {
-            it.cmd is TACCmd.Simple.AnnotationCmd && it.cmd.maybeAnnotation(INTERNAL_FUNC_FINDER_INFO) != null
-        }.findFirst().getOrNull()
-
-        if(existing != null) {
-            val report = existing.maybeAnnotation(INTERNAL_FUNC_FINDER_INFO)!!
-            return c.toPatchingProgram().let { it ->
-                it.replaceCommand(existing.ptr, listOf(TACCmd.Simple.AnnotationCmd(
-                    INTERNAL_FUNC_FINDER_INFO,
-                    report.copy(unresolvedFunctions = report.unresolvedFunctions + missed)
-                )))
-                it.toCodeNoTypeCheck(c)
-            }
-        } else {
-            return c.prependToBlock0(
-                listOf(
-                    TACCmd.Simple.AnnotationCmd(
-                        INTERNAL_FUNC_FINDER_INFO,
-                        InternalFunctionFinderReport(
-                            unresolvedFunctions = missed
-                        )
-                    )
-                )
-            )
-        }
-    }
-
-    private fun printInternalFuncMiss(message: String, callerContractName: String?, hint: String?, range: TreeViewLocation?) {
-        CVTAlertReporter.reportAlert(
-            CVTAlertType.INTERNAL_FUNCTION_ANALYSIS,
-            CVTAlertSeverity.WARNING,
-            range,
-            callerContractName?.let { "Failed to locate an internal function called from ${callerContractName}: $message" }
-                ?: "Failed to locate an internal function: $message",
-            hint.takeIf { range == null },
-        )
-    }
-
-    fun reportUnusmmarizableInternalFunctions(source: ContractInstanceInSDC) {
-        // addendum. Let's add a global warning for internal functions using external function pointers.
-        // the Python is warning about them, but it's easy to miss from console output
-        // also, since there were no instrumented autofinders, we won't find them here
-        source.allMethods.filter { func ->
-            (func.visibility == Method.MethodVisibility.internal || func.visibility == Method.MethodVisibility.public)
-                && func.fullArgs.any { arg -> arg.typeDesc is SolidityTypeDescription.Function }
-        }.forEach { internalFuncWithExternalFuncPtr ->
-            printInternalFuncMiss("The internal function ${getMethodReferenceSignature(internalFuncWithExternalFuncPtr, SolidityContract(source.name))} " +
-                "contains external function pointer arguments", null, null, internalFuncWithExternalFuncPtr.sourceSegment())
-        }
-    }
 }
