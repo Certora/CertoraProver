@@ -3797,7 +3797,7 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
 
     /**
      * Checks whether this exp contains a subexpression that may have side effects - for example assert/require-casts,
-     * div-by-zero, non-view contract function calls, etc.
+     * div-by-zero, function calls, etc.
      */
     fun subExpsWithSideEffects(symbolTable: CVLSymbolTable): Set<CVLExp> {
         return object : CVLExpFolder<Set<CVLExp>>() {
@@ -3839,17 +3839,7 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
                     }
 
                     is ApplyExp.ContractFunction.Concrete -> {
-                        val contractFunction = symbolTable.lookUpWithMethodIdWithCallContext(
-                            exp.methodIdWithCallContext,
-                            exp.getScope()
-                        )?.symbolValue as? ContractFunction
-                            ?: error("couldn't find ${exp.methodIdWithCallContext.methodId} in the symbol table")
-
-                        if (contractFunction.evmExternalMethodInfo?.stateMutability?.isView == true) {
-                            acc
-                        } else {
-                            acc + exp
-                        }
+                        acc + exp
                     }
 
                     is ApplyExp.CVLFunction,

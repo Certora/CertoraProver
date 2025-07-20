@@ -1,0 +1,43 @@
+{
+	"rules": {
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"MAX_LIMIT()",
+				"getLimit(uint256)",
+				"limits(uint256)",
+				"limitsLength()"
+			]
+		},
+		"limitInRangeBad": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"SUCCESS": [
+						"setLimit(uint256,uint256)"
+					]
+				}
+			}
+		},
+		"limitInRangeGood": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [
+						"setLimit(uint256,uint256)"
+					]
+				}
+			}
+		},
+		"limitInRangeGood2": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [
+						"setLimit(uint256,uint256)"
+					]
+				}
+			}
+		},
+		"showBadCase": "SUCCESS"
+	}
+}
