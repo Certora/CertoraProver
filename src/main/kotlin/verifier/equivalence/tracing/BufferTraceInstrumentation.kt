@@ -1519,7 +1519,7 @@ class BufferTraceInstrumentation private constructor(
          * Add the sanity constraints w.r.t. callee codesize, returncode etc.
          */
         val returnSizeConstraint = CommandWithRequiredDecls(listOf(
-            TACCmd.Simple.AssigningCmd.ByteLoad(
+            TACCmd.Simple.AssigningCmd.WordLoad(
                 lhs = calleeCodesize,
                 base = EthereumVariables.extcodesize,
                 loc = origCommand.to
