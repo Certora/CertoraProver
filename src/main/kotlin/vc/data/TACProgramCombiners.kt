@@ -110,6 +110,10 @@ object TACProgramCombiners {
         prog.appendToSinks(other)
     }
 
+    infix fun <T: TACCmd, V: CommandWithRequiredDecls<T>> T.andThen(v: V) = v.copy(
+        cmds = listOf(this) + v.cmds
+    )
+
     /**
      * Prepend `this` onto the commands held in [other].
      */
@@ -123,10 +127,6 @@ object TACProgramCombiners {
         name = name,
         rootId = rootId,
         cmdsWithDecls = this
-    )
-
-    infix fun <T: TACCmd, U: CommandWithRequiredDecls<T>> T.andThen(crd: U) : CommandWithRequiredDecls<T> = crd.copy(
-        cmds = listOf(this) + crd.cmds
     )
 }
 

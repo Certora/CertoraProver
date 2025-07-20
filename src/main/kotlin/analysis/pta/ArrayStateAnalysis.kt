@@ -218,6 +218,16 @@ class ArrayStateAnalysis(
         override val relaxedArrayAddition: Boolean
             get() = this@ArrayStateAnalysis.relaxedSemantics
 
+        override fun toStaticArrayInitPointer(
+            av1: InitializationPointer.BlockInitPointer,
+            o1: TACSymbol.Var,
+            target: ArrayStateDomain,
+            whole: PointsToDomain,
+            where: ExprView<TACExpr.Vec.Add>
+        ): ArrayStateDomain {
+            return target.remove(where.cmd.lhs)
+        }
+
         override fun toAddedStaticArrayInitPointer(
             av1: InitializationPointer.StaticArrayInitPointer,
             o1: TACSymbol.Var,

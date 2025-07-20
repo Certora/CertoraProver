@@ -662,6 +662,8 @@ object Summarizer {
             }
         }
 
+        fun CallSummary.getSighashExpr() = TACExpr.Select(this.inBase.asSym(), this.inOffset.asSym())
+
         fun extendDispatchChain(m: ITACMethod) {
                 check(m.attribute == MethodAttribute.Unique.Fallback || callSumm.sigResolution.singleOrNull()?.let { it == m.sigHash!!.n } != false) {
                     "If call summary has a resolved sigResolution, it must match callees sigResolution. " +
@@ -724,11 +726,11 @@ object Summarizer {
                 val patchingBlock = MutableCommandWithRequiredDecls<TACCmd.Simple>()
                 val contractAddress = m.getContainingContract().addressSym as TACSymbol
                 val funcCond: TACExpr = TACExpr.BinRel.Eq(
-                    callSumm.origCallcore.to.asSym(),
+                    callSumm.toVar.asSym(),
                     contractAddress.asSym()
                 ).letIf(callSumm.sigResolution.size != 1 && m.sigHash != null) {
                     val firstWord = TACExpr.BinOp.ShiftRightLogical(
-                        callSumm.origCallcore.getSigHashExpr(),
+                        callSumm.getSighashExpr(),
                         (EVM_BITWIDTH256 - (DEFAULT_SIGHASH_SIZE.toInt() * EVM_BYTE_SIZE.toInt())).asTACExpr
                     )
                     TACExpr.BinBoolOp.LAnd(
@@ -1083,7 +1085,7 @@ object Summarizer {
             Logger.alwaysError("Bad configuration used in presence of unresolved calls summarization", error)
             throw error
         }
-        logger.info { "Applying dispatch list summarization to unresolved call @ ${callSumm.origCallcore.metaSrcInfo}" }
+        logger.info { "Applying dispatch list summarization to unresolved call @ ${callSumm.origCallcore?.metaSrcInfo}" }
 
         val defaultHavocType =
             Havocer.resolveHavocType(scene, caller, callSumm, appliedSummary.specCallSumm.default)
@@ -1096,7 +1098,7 @@ object Summarizer {
                 methods.filter { m ->
                     decisionManager.shouldInline(where, m)
                 }.also { kept ->
-                    val source = callSumm.origCallcore.metaSrcInfo?.getSourceCode() ?: "unknown source"
+                    val source = callSumm.origCallcore?.metaSrcInfo?.getSourceCode() ?: "unknown source"
                     val callingContract = scene.getContract(caller).name
                     if (kept.isEmpty()) {
                         CVLWarningLogger.generalWarning("Dispatch list summary for delegate call only considers " +
@@ -1348,6 +1350,8 @@ object Summarizer {
                             decisionManager = DelegateDecisionManager(getCallersAtPointer, inliningDecisionManager),
                             getCallersAtPointer
                         )
+
+                    is SpecCallSummary.Reroute -> throw CertoraInternalException(internalMsg = "Should have replaced Reroute summaries way earlier in the pipeline", type = CertoraInternalErrorType.SUMMARY_INLINING)
                 }
             }
         inlineSummary(
@@ -1727,7 +1731,7 @@ object Summarizer {
         val receiver = if (call.callType == TACCallType.DELEGATE) {
             TACKeyword.ADDRESS.toVar(block)
         } else {
-            call.origCallcore.to
+            call.toVar
         }
         val caller = TACKeyword.ADDRESS.toVar(block)
         return CommandWithRequiredDecls(

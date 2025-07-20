@@ -73,7 +73,7 @@ object SummaryStack {
                 )
             }
 
-            override val callSiteSrc: TACMetaInfo? = this.callNode.origCallcore.metaSrcInfo
+            override val callSiteSrc: TACMetaInfo? = this.callNode.origCallcore?.metaSrcInfo
 
             override fun toUIString(scene: ISceneIdentifiers): String {
                 val singleOrNullSigResolution = this.callNode.sigResolution.singleOrNull()

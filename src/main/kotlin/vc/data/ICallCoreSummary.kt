@@ -28,6 +28,6 @@ sealed interface ICallCoreSummary : TACSummary {
     val outSize: TACSymbol
     val outBase: TACSymbol
     val callType: TACCallType
-    val origCallcore: TACCmd.Simple.CallCore
+    val origCallcore: TACCmd.Simple.CallCore?
     val summaryId: Int
 }

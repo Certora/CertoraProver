@@ -42,6 +42,7 @@ import instrumentation.calls.materializeReturnSymbol
 import instrumentation.calls.returnSymbol
 import instrumentation.transformers.ABIOptimizations
 import instrumentation.transformers.BranchSnippetInstrumenter
+import instrumentation.transformers.InternalFunctionRerouter
 import instrumentation.transformers.MemoryPartition
 import log.*
 import normalizer.MemoryOverlapFixer
@@ -552,6 +553,20 @@ object IntegrativeChecker {
                 )
             )
         }
+
+        scene.mapContractMethodsInPlace(IScene.MapSort.PARALLEL, "replace_reroute_summaries") { _, method ->
+            ContractUtils.transformMethodInPlace(
+                method as TACMethod,
+                ChainedMethodTransformers(listOf(
+                    MethodToCoreTACTransformer(
+                        ReportTypes.REROUTE_SUMMARIES_MATERIALIZE
+                    ) transform@{ m ->
+                        InternalFunctionRerouter.materializeReroutes(m.code as CoreTACProgram, scene)
+                    }
+                ))
+            )
+        }
+
         // an important optimization for using not one big memory array but many small ones
         scene.mapContractMethodsInPlace(IScene.MapSort.PARALLEL, "partition_memory") { _, method ->
             // won't work on constructors, skip

@@ -1,0 +1,1 @@
+Error in spec file (bad2.spec:2:69): Found matching declaration for IsALibrary.foo(uint256[] storage), but it returns (uint256) where the summarized function returns (bool)

@@ -28,6 +28,8 @@ import datastructures.stdcollections.*
 import java_cup.runtime.ComplexSymbolFactory
 import spec.CVLKeywords
 import spec.cvlast.*
+import spec.cvlast.typedescriptors.PrintingContext
+import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.genericrulegenerators.BuiltInRuleId
 import utils.*
 
@@ -2914,4 +2916,65 @@ class RequireWithoutReason private constructor(override val location: Range, ove
         range,
         "No reason provided for assumption of $exp."
     )
+}
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.METHODS_BLOCK,
+    description = "Reroute target must be compatible with summarized function"
+)
+class IllegalRerouteSummary(
+    override val location: Range,
+    private val errorType: ErrorSort
+) : CVLError() {
+    @KSerializable
+    sealed class ErrorSort : AmbiSerializable {
+        @KSerializable
+        data class ParameterTypeMismatch(val tgt: QualifiedFunction, val params: List<VMTypeDescriptor>) : ErrorSort()
+
+        @KSerializable
+        data class NotALibrary(val tgt: QualifiedFunction) : ErrorSort()
+
+        @KSerializable
+        data class ReturnTypeMismatch(val tgt: QualifiedMethodSignature, val expected: List<VMTypeDescriptor>) : ErrorSort()
+
+        @KSerializable
+        data class NoWithClause(val withRange: Range) : ErrorSort()
+
+        @KSerializable
+        data class IllegalArgument(val exp: CVLExp) : ErrorSort()
+        @KSerializable
+        data class NoMatchingFunction(val missingFunctionName: QualifiedFunction) : ErrorSort()
+    }
+
+    private fun List<VMTypeDescriptor>.formatAsLibrary() = this.joinToString(", ", prefix = "(", postfix = ")") {
+        it.canonicalString(PrintingContext(isLibrary = true))
+    }
+
+    private fun List<VMTypeDescriptor>.returnDescription() = when(this.size) {
+        0 -> "returns no values"
+        else -> "returns ${
+            this.joinToString(", ", prefix = "(", postfix = ")") {
+                it.canonicalString(PrintingContext(isLibrary = true))
+            }
+        }"
+    }
+
+    private val caveat get() = "(If you are not attempting to use a reroute summary, remember that you cannot invoke external library functions or bind storage parameters outside of rerouting summaries.)"
+
+    override val message: String get() = when(errorType) {
+        is ErrorSort.ReturnTypeMismatch -> "Found matching declaration for ${errorType.tgt.qualifiedMethodName}${errorType.tgt.paramTypes.formatAsLibrary()}," +
+            " but it ${errorType.tgt.resType.returnDescription()} where the summarized function ${errorType.expected.returnDescription()}"
+
+        is ErrorSort.IllegalArgument -> {
+            "Illegal argument ${errorType.exp} for reroute summary; only parameters bound by the method block declaration can be used as reroute arguments. $caveat"
+        }
+        is ErrorSort.NoWithClause -> "Reroute summaries cannot have `with` clauses: found a `with` clause at ${errorType.withRange}. $caveat"
+        is ErrorSort.NotALibrary -> "Selected reroute target function ${errorType.tgt} is not an external library function. $caveat"
+        is ErrorSort.ParameterTypeMismatch -> "No external library function ${errorType.tgt.methodId}${errorType.params.joinToString(prefix = "(", postfix = ")", separator = ", ") {
+            it.prettyPrint()
+        }} exists in reroute host contract ${errorType.tgt.host.name}. $caveat"
+
+        is ErrorSort.NoMatchingFunction -> "No external functions with name ${errorType.missingFunctionName.methodId} in reroute host contract ${errorType.missingFunctionName.host.name}. $caveat"
+    }
 }

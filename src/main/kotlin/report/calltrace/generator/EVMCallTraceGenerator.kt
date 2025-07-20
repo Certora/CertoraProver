@@ -597,7 +597,8 @@ internal class EVMCallTraceGenerator(
                 is SpecCallSummary.Constant,
                 is SpecCallSummary.Exp,
                 is SpecCallSummary.HavocSummary,
-                is SpecCallSummary.PerCalleeConstant -> error("Excepting either DISPATCHER(optimistic=false) summary or an 'unresolved external', got ${appliedSummary.specCallSumm}")
+                is SpecCallSummary.Reroute,
+                is SpecCallSummary.PerCalleeConstant -> error("Expecting either DISPATCHER(optimistic=false) summary or an 'unresolved external', got ${appliedSummary.specCallSumm}")
             }
             is Summarization.AppliedSummary.LateInliningDispatcher,
             is Summarization.AppliedSummary.Prover -> "As of internal Prover handling"

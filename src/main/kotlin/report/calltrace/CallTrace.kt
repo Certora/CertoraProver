@@ -43,6 +43,7 @@ enum class CallEndStatus(private val repString: String) {
     VARIABLE_HAVOC("HAVOC"),
     VARIABLE_HAVOC_DEPENDENT("HAVOC DEPENDENT"),
     ASSERT_CAST("ASSERT CAST"),
+    REROUTE("REROUTE"),
     NONE("")
     ;
 

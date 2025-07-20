@@ -394,6 +394,36 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
     }
 
     /**
+     * [sighash] the Sighash of the rerouted function whose name and contract are given by [target].
+     * The original arguments bound by the summary are given in [args]. The arguments to forward to [target] are given by [forwardArgs];
+     * the ith element gives the index into [args] that should be passed as the ith argument of the forwarded call.
+     */
+    @KSerializable
+    data class Reroute(
+        override val summarizationMode: SummarizationMode,
+        override val range: Range,
+        val sighash: BigInteger,
+        val target: QualifiedFunction,
+        val args: List<VMParam>,
+        val forwardArgs: List<Int>
+    ) : ExpressibleInCVL(), SummaryNameIsCanonical, InternalSummary {
+        override val summaryName: String
+            get() = rerouteString
+
+        private val rerouteString : String get() = target.host.name + "." + target.methodId + forwardArgs.joinToString(", ", prefix = "(", postfix = ")") {
+            (args[forwardArgs[it]] as VMParam.Named).name
+        }
+
+        override fun toUIString(): String {
+            return "reroute to $rerouteString"
+        }
+
+        override fun hashCode(): Int = hash {
+            it + summarizationMode + range + sighash + target + args + forwardArgs
+        }
+    }
+
+    /**
      * @property exp The expression used for the summary.
      *
      * @property funParams the parameters to the function being summarized. Note, all parameters are included for an

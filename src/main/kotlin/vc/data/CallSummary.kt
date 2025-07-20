@@ -47,7 +47,7 @@ data class CallSummary(
     val sigResolution: Set<BigInteger?>, // A null value in the set means the call is "resolved" to the fallback
     val symbolicSigResolution: DecoderAnalysis.BufferAccessPath?,
     val callConvention: CallConvention,
-    override val origCallcore: TACCmd.Simple.CallCore,
+    override val origCallcore: TACCmd.Simple.CallCore?,
     @GeneratedBy(Allocator.Id.CALL_SUMMARIES, source = true)
     override val summaryId: Int = Allocator.getFreshId(Allocator.Id.CALL_SUMMARIES),
     val cannotBeInlined: Inliner.IllegalInliningReason?,
@@ -84,7 +84,7 @@ data class CallSummary(
     override val variables: Set<TACSymbol.Var>
         get() {
             return symbols.filterIsInstance<TACSymbol.Var>().toSet() + callConvention.input.support + listOfNotNull(
-                origCallcore.to as? TACSymbol.Var,
+                origCallcore?.to as? TACSymbol.Var,
                 callConvention.rawOut.base,
                 callConvention.rawOut.size as? TACSymbol.Var,
                 callConvention.rawOut.offset as? TACSymbol.Var
@@ -112,7 +112,7 @@ data class CallSummary(
             sigResolution = sigResolution,
             symbolicSigResolution = symbolicSigResolution?.transformVariables(f),
             callConvention = callConvention.transformSymbols(f),
-            origCallcore = origCallcore.transformSymbols(f) as TACCmd.Simple.CallCore,
+            origCallcore = origCallcore?.let { origCore -> origCore.transformSymbols(f) as TACCmd.Simple.CallCore },
             summaryId = summaryId,
             cannotBeInlined = this.cannotBeInlined
         )
@@ -139,7 +139,7 @@ data class CallSummary(
             }},
             sigResolution = sigResolution,
             callConvention = callConvention.transformSymbols { it.withMeta(f) },
-            origCallcore = origCallcore.transformSymbols { it.withMeta(f) }.mapMeta(f) as TACCmd.Simple.CallCore,
+            origCallcore = origCallcore?.let { origCore -> origCore.transformSymbols { it.withMeta(f) }.mapMeta(f) as TACCmd.Simple.CallCore },
             summaryId = summaryId,
             cannotBeInlined = cannotBeInlined,
             symbolicSigResolution = symbolicSigResolution?.transformVariables { it.withMeta(f) }

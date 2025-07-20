@@ -109,6 +109,13 @@ class InternalCVLSummarizer private constructor(
             summary: SpecCallSummary.Exp,
             enclosingProgram: CoreTACProgram
         ) : SummarizationResult
+
+        fun handleRerouteSummary(
+            where: CmdPointer,
+            entryInfo: InternalFunctionStartInfo,
+            rets: FunctionReturnInformation,
+            summaryId: CVL.SummarySignature.Internal
+        ) : SummarizationResult
     }
 
     class ExpressionSummaryMaterializer(
@@ -335,6 +342,15 @@ class InternalCVLSummarizer private constructor(
             )
         }
 
+        override fun handleRerouteSummary(
+            where: CmdPointer,
+            entryInfo: InternalFunctionStartInfo,
+            rets: FunctionReturnInformation,
+            summaryId: CVL.SummarySignature.Internal
+        ): SummarizationResult {
+            throw IllegalStateException("Should have replaced reroute summary at $where far, far earlier in the pipeline")
+        }
+
         /**
          * @return a command to set `calledContract` to the correct value: caller's address for library calls, and call's
          * receiver otherwise, plus one to set `executingContract` to the caller
@@ -418,7 +434,7 @@ class InternalCVLSummarizer private constructor(
          * Runtime check to ensure we are not summarizing a reference type returning function with a non-exp funtion.
          * typechecker should prevent this, the error message is intentionally unfriendly.
          */
-        if(specCallSumm !is SpecCallSummary.Exp) {
+        if(specCallSumm !is SpecCallSummary.Exp && specCallSumm !is SpecCallSummary.Reroute) {
             callSite.methodSignature.resType.singleOrNull()?.let {
                 if(it !is VMValueTypeDescriptor) {
                     throw CertoraException(
@@ -469,6 +485,13 @@ class InternalCVLSummarizer private constructor(
                 rets = retAnnot,
                 summaryId = summSignature,
                 enclosingProgram = enclosingProgram
+            )
+
+            is SpecCallSummary.Reroute -> expressionSummaryHandler.handleRerouteSummary(
+                where = where,
+                entryInfo = callSite,
+                summaryId = summSignature,
+                rets = retAnnot
             )
         }.let { result ->
             val body = result.result
@@ -655,6 +678,30 @@ class InternalCVLSummarizer private constructor(
             ), theSummary.variables).toCode(where.block.getCallId()))
         }
 
+        override fun handleRerouteSummary(
+            where: CmdPointer,
+            entryInfo: InternalFunctionStartInfo,
+            rets: FunctionReturnInformation,
+            summaryId: CVL.SummarySignature.Internal
+        ): SummarizationResult {
+            val theSummary = InternalCallSummary(
+                signature = entryInfo.methodSignature,
+                internalArgs = entryInfo.args,
+                calleeSrc = entryInfo.calleeSrc,
+                callSrc = entryInfo.callSiteSrc,
+                id = Allocator.getFreshId(Allocator.Id.INTERNAL_CALL_SUMMARY),
+                internalExits = rets.rets
+            )
+            return Resummarized(CommandWithRequiredDecls(listOf(
+                TACCmd.Simple.SummaryCmd(
+                    theSummary,
+                    meta = MetaMap()
+                )
+            ), theSummary.variables).toCode(where.block.getCallId())
+
+            )
+        }
+
     }
 
     /**
@@ -729,7 +776,7 @@ class InternalCVLSummarizer private constructor(
          * At the moment this consists of all internal summaries selected by [earlySummarizationCandidates]
          * (that is, non-exp summaries) and the *signature* of all external summaries.
          *
-         * The external summaries affect inlining decisions, but only whetther a function should be inlined or not (we still
+         * The external summaries affect inlining decisions, but only whether a function should be inlined or not (we still
          * apply the external summaries well after the scene cache is relevant), so we do NOT need to include the types
          * of summaries in the digest computation. However, for internal summaries, we do need to include some canonical
          * representation of the summary.

@@ -2806,6 +2806,20 @@ class PointerSemantics(
                 return target.updateVariable(where.lhs) { -> av1 }
             }
 
+            override fun toStaticArrayInitPointer(
+                av1: InitializationPointer.BlockInitPointer,
+                o1: TACSymbol.Var,
+                target: PointsToGraph,
+                whole: PointsToDomain,
+                where: ExprView<TACExpr.Vec.Add>
+            ): PointsToGraph {
+                return target.updateVariable(where.lhs) { ->
+                    InitializationPointer.StaticArrayInitPointer(
+                        address = av1.v
+                    )
+                }
+            }
+
             override fun nondeterministicInteger(where: ExprView<TACExpr.Vec.Add>, s: PointsToDomain, target: PointsToGraph): PointsToGraph {
                 return nondetInt(target, where)
             }

@@ -386,6 +386,7 @@ sealed class CallInstance : TreeViewReportable {
                     && annotation.callResolutionTableInfo.applicationReason == SummaryApplicationReason.Prover -> CallEndStatus.DEFAULT_HAVOC
                 annotation.summary is SpecCallSummary.Dispatcher -> CallEndStatus.DISPATCHER
                 annotation.summary is SpecCallSummary.OptimisticFallback -> CallEndStatus.DISPATCHER
+                annotation.summary is SpecCallSummary.Reroute -> CallEndStatus.REROUTE
                 else -> CallEndStatus.SUMMARIZED
             }
         }

@@ -867,6 +867,7 @@ class CVLAstBuilder(
 
         var ast = bind(GhostTypeRewriter.traverseAst(cvlAst))
         var symbolTable = bind(buildSymbolTable(ast))
+        ast = bind(DetectRerouteSummaries(symbolTable).ast(ast))
 
         ast = bind(resolveUnresolvedApplyExpression(ast, symbolTable))
         ast = bind(DefinitionDependencyChecker(symbolTable).ast(ast))

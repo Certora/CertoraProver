@@ -2,3 +2,5 @@ conf,Analysis
 Public/TestEVM/FoundryCheatcodes/mockCall/BadMethodFilter.conf,True
 Public/TestEVM/RequireReasons/WithCheck.conf,True
 Public/TestEVM/MethodPickingTest/Bad.conf,True
+Public/TestEVM/CVLCompilation/Rerouting/Bad.conf,True
+Public/TestEVM/CVLCompilation/Rerouting/Bad2.conf,True

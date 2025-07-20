@@ -611,6 +611,15 @@ abstract class AdditionSemantics<S> {
                 }
             }
             is InitializationPointer.BlockInitPointer -> {
+                val o2Offs = numericAnalysis.interpSymbol(where.wrapped, st = p.boundsAnalysis, sym = o2)
+                if(o2Offs is QualifiedInt && IntQualifier.MultipleOf(EVM_WORD_SIZE) in o2Offs.qual) {
+                    val blockSize = p.pointsToState.h.blockSpace[av1.v]?.block?.sz
+                    if(blockSize != null && o2Offs.x.ub + av1.offset < blockSize) {
+                        return toStaticArrayInitPointer(
+                            av1, o1, target, where = where, whole = p
+                        )
+                    }
+                }
                 val x = numericAnalysis.interpAsConstant(p, where.wrapped, o2)
                 if (x == null) {
                     nondeterministicInteger(where, p, target)
@@ -661,6 +670,14 @@ abstract class AdditionSemantics<S> {
     open fun toAddedConstArrayElemPointer(v: Set<L>, o1: TACSymbol.Var, target: S, whole: PointsToDomain, where: ExprView<TACExpr.Vec.Add>): S {
         return nondeterministicInteger(where = where, s = whole, target = target)
     }
+
+    abstract fun toStaticArrayInitPointer(
+        av1: InitializationPointer.BlockInitPointer,
+        o1: TACSymbol.Var,
+        target: S,
+        whole: PointsToDomain,
+        where: ExprView<TACExpr.Vec.Add>
+    ) : S
 
     abstract fun toAddedStaticArrayInitPointer(
         av1: InitializationPointer.StaticArrayInitPointer,

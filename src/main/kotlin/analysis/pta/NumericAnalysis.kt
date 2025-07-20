@@ -908,6 +908,13 @@ class NumericAnalysis(
                     }
                 }
             }
+            is TACExpr.BinOp.Div -> {
+                val divOp = target[rhs.o1AsTACSymbol()] as? QualifiedInt
+                if(interpAsConstant(pstate, ltacCmd, rhs.o2AsTACSymbol()) == BigInteger.ONE && divOp != null) {
+                    return target.updateLoc(lhs, divOp)
+                }
+                super.assignExpr(lhs, rhs, target, pstate, ltacCmd)
+            }
             else -> super.assignExpr(lhs, rhs, target, pstate, ltacCmd)
         }
     }
@@ -1011,6 +1018,16 @@ class NumericAnalysis(
                 get() = this@NumericAnalysis.arrayStateAnalysis
             override val relaxedArrayAddition: Boolean
                 get() = this@NumericAnalysis.relaxedAddition
+
+            override fun toStaticArrayInitPointer(
+                av1: InitializationPointer.BlockInitPointer,
+                o1: TACSymbol.Var,
+                target: NumericDomain,
+                whole: PointsToDomain,
+                where: ExprView<TACExpr.Vec.Add>
+            ): NumericDomain {
+                return target + (where.lhs to ANY_POINTER)
+            }
 
             override fun toAddedStaticArrayInitPointer(
                 av1: InitializationPointer.StaticArrayInitPointer,

@@ -225,6 +225,19 @@ class ContractClass(
                 transforms.add(ReportTypes.EARLY_SUMMARIZATION) { c: CoreTACProgram ->
                     InternalCVLSummarizer.EarlySummarization.applyEarlyInternalSummarization(c, cvl)
                 }
+                /**
+                 * It may seem odd that we are inlining reroute summaries so early in the pipeline, when almost all other internal
+                 * summaries are done later in the [rules.CompiledRule] flow.
+                 *
+                 * There are two reasons for this:
+                 * 1. Unlike expression summaries, which require the scene and CVL compilation, reroute summaries can be
+                 * inlined immediately; similar to nondet/havoc, and more importantly
+                 * 2. The rerouting encoding/decoding touches memory and allocations, and thus must be added here so it
+                 * is properly processed by [OptimizeBasedOnPointsToAnalysis] and the [analysis.pta.SimpleInitializationAnalysis].
+                 */
+                transforms.add(ReportTypes.REROUTE_SUMMARIES) { c: CoreTACProgram ->
+                    InternalFunctionRerouter.reroute(c, cvlQuery = cvl)
+                }
             }
 
             if(Config.EnableAggressiveABIOptimization.get()) {
