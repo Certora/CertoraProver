@@ -63,7 +63,9 @@
         return n;
     }
 
-    function getM(address a)public returns (int8) {
+    function getM(address a) public returns (int8) {
         return m[a];
     }
+
+    function alwaysReverts() public { revert(); }
 }

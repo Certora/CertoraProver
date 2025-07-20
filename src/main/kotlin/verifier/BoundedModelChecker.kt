@@ -19,6 +19,7 @@ package verifier
 
 import allocator.Allocator
 import analysis.CommandWithRequiredDecls
+import analysis.controlflow.checkIfAllPathsAreLastReverted
 import analysis.icfg.InlinedMethodCallStack
 import analysis.storage.StorageAnalysisResult
 import bridge.NamedContractIdentifier
@@ -475,6 +476,10 @@ class BoundedModelChecker(
                 }
                 // Now that we're done with the CVLCompiler, we can parallelize
                 .parallelStream()
+                .filter { (_, funcData) ->
+                    // Skip always reverting functions
+                    !checkIfAllPathsAreLastReverted(funcData.funcProg)
+                }
                 .map { (contractFunc, funcData) ->
                     val optimizedFuncProg = funcData.funcProg.applySummaries().optimize(scene)
                     val optimizedParamsProg = funcData.paramsProg.optimize(scene)
