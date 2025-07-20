@@ -189,7 +189,7 @@ def run_local(context: CertoraContext, timings: Dict, additional_commands: Optio
 
     if rc == 0:
         Util.print_completion_message("Finished running verifier:")
-        print("\t%s", " ".join(cmd))
+        print(f'\t{" ".join(cmd)}')
         timings.setdefault("buildTime", 0.0)  # ensure key exists
         return 0
 

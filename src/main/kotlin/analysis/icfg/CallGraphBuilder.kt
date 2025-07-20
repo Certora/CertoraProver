@@ -1661,7 +1661,7 @@ object CallGraphBuilder {
                         CmdPointerSet.CSet.BufferSymbol.Global(offs) to range.toNative()
                     )),
                     storageSet = StorageSet.Nondet,
-                    consts = ConstSet.Nondet
+                    consts = ConstSet.Constant(m.sigHash!!.n)
                 )
                 builder[range.toNative()] = absVal
                 cd.sighashSize
