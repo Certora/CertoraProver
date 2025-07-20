@@ -3957,6 +3957,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     doSolMemInst(solFunction, globals, scalars, calleeLocInst)
                 SolanaFunction.SOL_ALLOC_FREE -> throw PointerDomainError("TODO(4): support sol_alloc_free")
                 SolanaFunction.SOL_GET_CLOCK_SYSVAR -> summarizeCall(calleeLocInst, globals, scalars, memSummaries)
+                SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
+                    forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
                 else -> {
                     warn { "The pointer domain summarized $callee by only havocing r0" }
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))

@@ -110,6 +110,12 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
             SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
     SOL_GET_CLOCK_SYSVAR(ExternalFunction(
         name = "sol_get_clock_sysvar",
+        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG)))),
+    // This is not an actual solana syscall but it is convenient to pretend that it is.
+    SOL_SET_CLOCK_SYSVAR(ExternalFunction(
+        name = "sol_set_clock_sysvar",
+        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG)))),
     SOL_CURVE_VALIDATE_POINT(ExternalFunction(
         name = "sol_curve_validate_point",
@@ -170,7 +176,7 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
                     SOL_GET_STACK_HEIGHT, SOL_GET_PROCESSED_SIBLING_INSTRUCTION,
                     SOL_GET_RENT_SYSVAR, SOL_GET_FEES_SYSVAR, SOL_SET_RETURN_DATA, SOL_GET_RETURN_DATA -> {}
                     // Syscalls that require summaries
-                    SOL_GET_CLOCK_SYSVAR-> {
+                    SOL_GET_CLOCK_SYSVAR, SOL_SET_CLOCK_SYSVAR-> {
                         val summaryArgs = listOf(
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),
