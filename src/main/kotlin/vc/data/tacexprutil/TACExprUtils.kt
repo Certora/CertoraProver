@@ -393,7 +393,7 @@ inline fun <reified T : TACExpr.Vec> T.rebuild(ls: List<TACExpr>) =
 
 /** a sequence of all subexpressions of this [TACExpr] in preorder */
 val TACExpr.subs : Sequence<TACExpr> get() =
-    sequenceOf(this) + getOperands().flatMap { it.subs }
+    sequenceOf(this) + getOperands().asSequence().flatMap { it.subs }
 
 val TACExpr.unquantifiedSubs : Sequence<TACExpr> get() =
     if (this is TACExpr.QuantifiedFormula) {
