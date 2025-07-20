@@ -258,11 +258,7 @@ fun renderGraphToSVGString(name: String, digraph: DotDigraph): String {
                 val dotInputString = digraph.toString()
                 val dotFilename = ArtifactManagerFactory().fitFileLength("${name}.dot", ".dot")
                 if (IsGenerateDotFiles.get()) {
-                    ArtifactManagerFactory().registerArtifact(dotFilename, StaticArtifactLocation.Debugs) { handle ->
-                        ArtifactFileUtils.getWriterForFile(handle, false).use { i ->
-                            i.write(dotInputString)
-                        }
-                    }
+                    ArtifactManagerFactory().writeArtifact(dotFilename, StaticArtifactLocation.Debugs) { dotInputString }
                 }
                 val dotFile = ArtifactManagerFactory().getRegisteredArtifactPathOrNull("${name}.dot")
 

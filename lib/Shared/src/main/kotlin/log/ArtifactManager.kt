@@ -28,10 +28,7 @@ import log.ArtifactManagerFactory.WithArtifactMode.WithoutArtifacts
 import org.apache.commons.lang3.SystemUtils
 import spec.rules.IRule
 import spec.cvlast.RuleIdentifier
-import tac.DebuggableProgram
-import tac.DumpTime
-import tac.DumpType
-import tac.TACFile
+import tac.*
 import utils.*
 import java.io.*
 import java.nio.file.Files
@@ -291,6 +288,19 @@ inline fun IArtifactsManager.registerArtifact(
     registerArtifact(conf)?.let {
         getRegisteredArtifactPathOrNull(it)?.let {
             action(it)
+        }
+    }
+}
+
+inline fun IArtifactsManager.writeArtifact(
+    name: String,
+    location: ArtifactLocation = StaticArtifactLocation.Reports,
+    overwrite: Boolean = false,
+    append: Boolean = false,
+    contents: () -> String) {
+    registerArtifact(name, location) { n ->
+        ArtifactFileUtils.getWriterForFile(n, overwrite, append).use { i ->
+            i.append(contents())
         }
     }
 }

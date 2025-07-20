@@ -17,18 +17,15 @@
 
 package verifier.autoconfig
 
-import config.OUTPUT_NAME_DELIMITER
 import datastructures.stdcollections.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import log.*
 import solver.SolverResult
-import utils.ArtifactFileUtils
 import utils.runIf
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
-import kotlin.io.path.Path
 import kotlin.time.Duration
 
 /**
@@ -124,26 +121,7 @@ fun List<BasicSplitStatistics>.getUsefulNIASolvers() = this.flatMap { it.getUsef
 data class SingleBasicRuleStatistics(
     val ruleName: String,
     val splitStatistics: MutableMap<String, BasicSplitStatistics> = mutableMapOf(),
-) {
-    fun dumpToFile() {
-        val fileName = "BasicSplitStatistics$OUTPUT_NAME_DELIMITER$ruleName.json"
-        ArtifactManagerFactory().registerArtifact(fileName, StaticArtifactLocation.Reports) { name ->
-            val jsonString = BasicSplitStatisticsJavaSerializerWrapper(this).toString()
-            ArtifactFileUtils.getWriterForFile(name, true).use { it.append(jsonString) }
-        }
-    }
-
-    companion object {
-        fun loadFile(filename: String): SingleBasicRuleStatistics {
-            val path = Path(filename)
-            require(path.toFile().exists()) {
-                "does not exist: $path"
-            }
-            val content = path.toFile().readText()
-            return Json.decodeFromString<SingleBasicRuleStatistics>(content)
-        }
-    }
-}
+)
 
 @Serializable
 data class BasicRulesStatistics(

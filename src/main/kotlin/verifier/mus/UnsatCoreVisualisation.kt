@@ -151,9 +151,7 @@ class UnsatCoreVisualisation(
     }
 
     private fun dumpToFile(content: String) {
-        ArtifactManagerFactory().registerArtifact(visualisationDumpFile, StaticArtifactLocation.Reports) { name ->
-            ArtifactFileUtils.getWriterForFile(name, true).use { it.append(content) }
-        }
+        ArtifactManagerFactory().writeArtifact(visualisationDumpFile, StaticArtifactLocation.Reports) { content }
     }
 
     /**

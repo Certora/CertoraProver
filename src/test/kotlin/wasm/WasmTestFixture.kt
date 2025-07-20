@@ -108,11 +108,7 @@ abstract class WasmTestFixture {
             res = joinedRes.finalResult.isSuccess()
 
             if (report) {
-                ArtifactManagerFactory().registerArtifact("test.wat") { handle ->
-                    ArtifactFileUtils.getWriterForFile(handle, overwrite = true, append = false).use { w ->
-                        w.append(wat)
-                    }
-                }
+                ArtifactManagerFactory().writeArtifact("test.wat", overwrite = true) { wat }
             }
         }
         return res
