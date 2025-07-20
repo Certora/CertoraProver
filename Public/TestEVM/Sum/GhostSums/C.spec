@@ -1,6 +1,7 @@
 methods {
     function ghostUpdater(address a, int n) external envfree;
     function ghostUpdaterReverts(address a, int n) external envfree;
+    function updateUnsignedMap(address a, uint u) external envfree;
 }
 
 ghost mapping(address => int) ghostAddrToInt256;
@@ -118,14 +119,21 @@ rule sumInQuant {
     assert (sum bytes4 b, address a. ghostNestedMapping[u][b][m][a]) >= 0;
 }
 
-ghost mapping(address => mathint) unsignedGhost;
+ghost mapping(address => uint256) unsignedGhost;
+hook Sstore currentContract.unsignedMap[KEY address a] uint256 new_value {
+    unsignedGhost[a] = new_value;
+}
+
+hook Sload uint256 value currentContract.unsignedMap[KEY address a] {
+    require unsignedGhost[a] == value;
+}
 rule unsignedBasic {
     mathint initialSum = usum address a. unsignedGhost[a];
     assert initialSum >= 0;
     address addr;
     mathint oldVal = unsignedGhost[addr];
     assert (usum address a. unsignedGhost[a]) >= oldVal;
-    mathint newVal;
+    uint256 newVal;
     require newVal >= 0;
     unsignedGhost[addr] = newVal;
     mathint updatedSum = usum address a. unsignedGhost[a];
@@ -162,6 +170,9 @@ rule unsignedNestedMapping {
 rule havocUsumBasic {
     mathint initialSum = usum address a. unsignedGhost[a];
     assert initialSum >= 0;
+    address addr;
+    uint256 u;
+    updateUnsignedMap(addr, u);
     havoc unsignedGhost;
     assert (usum address a. unsignedGhost[a]) >= 0;
     satisfy (usum address a. unsignedGhost[a]) != initialSum;

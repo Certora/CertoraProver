@@ -15,7 +15,8 @@
 			"SANITY_FAIL": [],
 			"SUCCESS": [
 				"ghostUpdater(address,int256)",
-				"ghostUpdaterReverts(address,int256)"
+				"ghostUpdaterReverts(address,int256)",
+				"updateUnsignedMap(address,uint256)"
 			],
 			"TIMEOUT": [],
 			"UNKNOWN": []

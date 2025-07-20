@@ -453,7 +453,11 @@ class GhostSumInstrumenter(ghosts: List<CVLGhostDeclaration>) : CodeTransformer(
         val sumsToHavoc = summedGhostTACSymbolsToSumGhost[havocedGhost] ?: error("it should have been there")
 
         val usumInitializtionCmds = if (sumsToHavoc.any { it.isUnsigned }) {
-            sumsToHavoc.map { TACCmd.Simple.AssigningCmd.AssignHavocCmd(getUnaccessedGhost(it)) } +
+            sumsToHavoc.flatMap {
+                listOf(
+                    TACCmd.Simple.AssigningCmd.AssignHavocCmd(getUnaccessedGhost(it)),
+                    TACCmd.Simple.AssigningCmd.AssignHavocCmd(getIsAccessedGhost(it.origGhost)),
+                )} +
                 generateUnsignedSumInitialization(patching, sumsToHavoc, globalScope)
         } else {
             listOf()
