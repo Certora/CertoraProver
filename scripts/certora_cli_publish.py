@@ -168,6 +168,7 @@ if __name__ == '__main__':
     copytree(SCRIPTS / EQ_DIR, CERTORA_CLI_DIR / EQ_DIR, dirs_exist_ok=True)
     copytree(SCRIPTS / "Shared", CERTORA_CLI_DIR / "Shared", dirs_exist_ok=True)
     copy(DEFAULT_DIR / "Typechecker.jar" if args.type_checker_path is None else args.type_checker_path, CERTORA_JARS)
+    copy(DEFAULT_DIR / "ASTExtraction.jar", CERTORA_JARS)
     copy(SCRIPTS / "certoraRun.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraMutate.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraEqCheck.py", CERTORA_CLI_DIR)

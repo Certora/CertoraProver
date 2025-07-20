@@ -39,7 +39,7 @@ def spec_file_type(spec_file: str) -> str:
 
 def run_formatter_from_jar(spec_file: str, overwrite: bool) -> None:
     path_to_typechecker = Util.find_jar(FORMATTER_JAR)
-    cmd = ['java', '-jar', str(path_to_typechecker), '--file', spec_file]
+    cmd = ['java', '-jar', str(path_to_typechecker), 'format', '--file', spec_file]
 
     result = subprocess.run(cmd, text=True, capture_output=True)
 
