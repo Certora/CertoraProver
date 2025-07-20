@@ -150,7 +150,10 @@ object StoragePackedLengthSummarizer {
             val intermediateBlocks: Set<NBId>,
             val decodeSuccessor: NBId,
             override val readLoc: LTACCmd,
-            val storageSlotVar: TACSymbol.Var?
+            val storageSlotVar: TACSymbol.Var?,
+
+            val toDelete: Set<CmdPointer>,
+            val toShift: List<TACCmd.Simple>
         ) : SummarizationMutSpec()
     }
 
@@ -255,6 +258,10 @@ object StoragePackedLengthSummarizer {
                     )
                 }
             }
+            val (toDelete, toShift) = when(mut) {
+                is SummarizationMutSpec.MultiBlockSplit -> mut.toDelete to mut.toShift
+                is SummarizationMutSpec.SimpleSplit -> setOf<CmdPointer>() to listOf()
+            }
             val postDecodeLocOrig = when(mut) {
                 is SummarizationMutSpec.MultiBlockSplit -> CmdPointer(mut.decodeSuccessor, 0)
                 is SummarizationMutSpec.SimpleSplit -> mut.endPointer
@@ -293,7 +300,10 @@ object StoragePackedLengthSummarizer {
                 ))
                 p.addVarDecl(tmp)
             }
-            p.reroutePredecessorsTo(reroute, listOf(
+            for(td in toDelete) {
+                p.replaceCommand(td, listOf(TACCmd.Simple.NopCmd))
+            }
+            p.reroutePredecessorsTo(reroute, toShift + listOf(
                 TACCmd.Simple.SummaryCmd(tacSumm, meta = MetaMap())
             ))
         }
@@ -379,14 +389,15 @@ object StoragePackedLengthSummarizer {
             /*
               To summarize with TACTransFormula, we need a self-contained subgraph.
              */
+            val prefixFilter: (LTACCmd) -> Boolean = {
+                it.ptr.pos >= bitTest.readLoc.ptr.pos
+            }
             val subG = g.toSubGraph(
                 diamond + joinPoint + bitTest.maskLocation.ptr.block,
                 /*
                    Lop off the prefix before our read
                  */
-                prefixFilter = {
-                    it.ptr.pos >= bitTest.readLoc.ptr.pos
-                },
+                prefixFilter = prefixFilter,
                 /*
                   Pretend that we don't have the jump to the revert block (we will check this later)
                  */
@@ -394,6 +405,32 @@ object StoragePackedLengthSummarizer {
                     it.takeIf { it !is TACCmd.Simple.JumpiCmd } ?: TACCmd.Simple.NopCmd
                 }
             )
+            val allCmds = g.elab(bitTest.maskLocation.ptr.block).commands.filter(prefixFilter) + (diamond + joinPoint).flatMap {
+                g.elab(it).commands
+            }
+
+            val allDefCmds = allCmds.mapNotNull {
+                it.maybeNarrow<TACCmd.Simple.AssigningCmd>()?.takeIf { lc ->
+                    lc.cmd.lhs != TACKeyword.MEMORY.toVar()
+                }
+            }
+            val allDefVars = allDefCmds.mapToSet {
+                it.cmd.lhs
+            }
+            val allUse = allCmds.flatMapToSet {
+                it.cmd.getFreeVarsOfRhs()
+            }
+            val shiftCandidate = allDefCmds.filter {
+                it.cmd.lhs !in allUse
+            }.filter {
+                it.cmd.getFreeVarsOfRhs().none { rhsV ->
+                    rhsV in allDefVars
+                }
+            }
+            val toDelete = shiftCandidate.mapToSet { it.ptr }
+            val toShift = shiftCandidate.map { it.cmd }
+            val shiftedVars = shiftCandidate.mapToSet { it.cmd.lhs }
+
             val readSpec = bitTest.readSort
             val summarization = SummarizeProgram.summarizeTAC(subG, ComputeTACSummaryTransFormula())
             val exp = summarization.transFormula.exp
@@ -404,7 +441,7 @@ object StoragePackedLengthSummarizer {
             val rawSlotVar = bitTest.readLoc.narrow<TACCmd.Simple.AssigningCmd>().cmd.lhs
             val finalJoin = g.elab(joinPoint).commands.last().ptr
             val resultVar = summarization.transFormula.assignedVars.singleOrNull {
-                g.cache.lva.isLiveAfter(finalJoin, it.sym) && it.sym != rawSlotVar
+                g.cache.lva.isLiveAfter(finalJoin, it.sym) && it.sym != rawSlotVar && it.sym !in shiftedVars
             } ?: return null
             val smtVar = summarization.transFormula.outVars[resultVar]
                 ?: error("TransFormula class invariant violated: assigned var must be an outVar.")
@@ -557,7 +594,9 @@ object StoragePackedLengthSummarizer {
                     readLoc = bitTest.readLoc,
                     storageSlotVar = rawSlotVar.takeIf { _ ->
                         g.cache.strictDef.source(finalJoin, rawSlotVar) == g.cache.strictDef.source(bitTest.maskLocation.ptr, rawSlotVar)
-                    }
+                    },
+                    toShift = toShift,
+                    toDelete = toDelete
                 ))
             }
         }
