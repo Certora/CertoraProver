@@ -356,9 +356,26 @@ object DisciplinedHashModel {
                 HashSizes(
                     constLen, BigInteger.ZERO, generateUpdate = hashCmd.rewrite::fullRewrite
                 )
-            } else if(hashCmd.lenSymbol is TACSymbol.Var && pta.query(QueryInvariants(hashCmd.ptr) {
+            } else if(hashCmd.lenSymbol is TACSymbol.Var && (!pta.query(QueryInvariants(hashCmd.ptr) {
                 hashCmd.lenSymbol `=` TACKeyword.CALLDATASIZE.toVar()
-            }).isNullOrEmpty() && hashCmd.rewrite is ConditionalRewriter) {
+            /**
+             * Because nothing is every easy, when doing these hashes, solidity will do this:
+             * v1 = fp
+             * v3 = v1 + theCalldatasize
+             * v2 = fp
+             * len = v3 - v2
+             *
+             * Because the linear invariant domain (intentionally) forgets about equalities via the FP, we don't end up with
+             * len == theCalldatasize, but instead `v1 - v2 + theCalldataSize = len`. We match this pattern explicitly
+             * and use the GVN to "cancel" the equal terms...
+             */
+            }).isNullOrEmpty() || pta.query(QueryInvariants(hashCmd.ptr) {
+                hashCmd.lenSymbol + v("v1") { it is LVar.PVar } `=` v("v2") { it is LVar.PVar } + TACKeyword.CALLDATASIZE.toVar()
+            }).orEmpty().any { m ->
+                val v1 = (m.symbols["v1"] as LVar.PVar).v
+                val v2 = (m.symbols["v2"] as LVar.PVar).v
+                v1 in g.cache.gvn.equivBefore(hashCmd.ptr, v2)
+            }) && hashCmd.rewrite is ConditionalRewriter) {
                 /**
                  * If we are hashing a buffer of the length of calldata, AND we have a good guess as to what calldata *should*
                  * be, we can generate a rewrite conditional on the calldata buffer being the expected (constant) size.
