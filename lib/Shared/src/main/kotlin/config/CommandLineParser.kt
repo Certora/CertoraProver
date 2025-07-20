@@ -18,6 +18,7 @@ package config
 
 import annotations.PollutesGlobalState
 import certora.CVTVersion
+import cli.SummaryResolutionPolicy
 import config.Config.AvoidAnyOutput
 import config.Config.MainOutputFolder
 import config.Config.OverwriteMainOutputDir
@@ -184,6 +185,14 @@ open class DefaultCommandLineParser {
 
         if (Config.SolverMemLimit.allOptions.count { cmdLineArgs.hasOption(it.realOpt()) } > 1) {
             printErrAndExit("Must use at most one out of ${Config.SolverMemLimit.allOptions.map { it.realOpt() }}")
+        }
+
+        if (Config.CvlFunctionRevert.get() && Config.SummaryResolutionMode.get() != SummaryResolutionPolicy.SIMPLE) {
+            printErrAndExit(
+                "Cvl Function Revert is incompatible with Summary Resolution Mode ${Config.SummaryResolutionMode.get().name.lowercase()}. " +
+                    "Please set either -${Config.CvlFunctionRevert.name} false " +
+                    "or -${Config.SummaryResolutionMode.name} ${SummaryResolutionPolicy.SIMPLE.name.lowercase()}."
+            )
         }
     }
 
