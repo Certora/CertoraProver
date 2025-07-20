@@ -28,6 +28,8 @@ import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.EthereumVariables.extcodesize
 import analysis.EthereumVariables.setLastReverted
+import analysis.storage.DisplayPath
+import analysis.storage.singleDisplayPathOrNull
 import bridge.EVMExternalMethodInfo
 import bridge.SourceLanguage
 import com.certora.collect.*
@@ -2813,7 +2815,7 @@ class CVLCompiler(
             val stateLinks = contract.getContractStateLinks()
             if (stateLinks == null) {
                 logger.info { "Contract ${contract.name} does not contain state link information, assuming there are no links to resolve" }
-            } else if (stateLinks.stateLinks.isEmpty()) {
+            } else if (stateLinks.isEmpty()) {
                 logger.info { "Nothing to link in ${contract.name}" }
             } else {
                 val contractLinksCmdsWithStorageAnalysis =
@@ -2830,6 +2832,28 @@ class CVLCompiler(
                     )
                     allContractsLinksCommands.addAll(contractLinksCmdsWithoutStorageAnalysis)
                 }
+
+                // attempt to add struct link assumptions as well. Note legacy struct link info is not linked here
+                val structLinkCmds = storageVars.mapNotNull { storageVar ->
+                    val fieldName = storageVar.singleDisplayPathOrNull()?.let { it as? DisplayPath.FieldAccess }?.field ?: return@mapNotNull null
+                    val targetContract = stateLinks.structLinkingInfo[fieldName] ?: return@mapNotNull null
+                    val contractAddress = scene.getContract(targetContract).addressSym as TACSymbol
+                    val tmpVar = TACKeyword.TMP(Tag.Bool, "structLinkSetup")
+                    wrapWithCVL(
+                        CommandWithRequiredDecls(
+                            listOf(
+                                TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                                    lhs = tmpVar,
+                                    rhs = TACExpr.BinRel.Eq(storageVar.asSym(), contractAddress.asSym())
+                                ),
+                                TACCmd.Simple.AssumeCmd(tmpVar, "struct linking")
+                            ),
+                            tmpVar
+                        ),
+                        "Struct link ${contract.name}:${fieldName}=${scene.getContract(targetContract).name}"
+                    )
+                }
+                allContractsLinksCommands.addAll(structLinkCmds)
             }
         }
         return CommandWithRequiredDecls.mergeMany(allContractsLinksCommands)
@@ -2941,7 +2965,6 @@ class CVLCompiler(
                     ),
                     "Link ${contractWithStateLinks.contract.name}:${bestSlotName}=${scene.getContract(linkedContractId).name}"
                 )
-
             } ?: emptyList()
 
         return contractLinksCmds

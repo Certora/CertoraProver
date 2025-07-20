@@ -220,6 +220,8 @@ interface IContractClass : WithMemento<IContractClass.ContractMemento>, IContrac
      * If this contract class comes with source information (e.g. from certoraBuild script), it will return it
      * together with the user specific link (`--link`) information
      */
-    fun getContractStateLinks() =
-        (this as? IContractWithSource)?.src?.state?.let { ContractWithStateLinkInfo(this, it) }
+    fun getContractStateLinks(): ContractWithStateLinkInfo? {
+        val contract = (this as? IContractWithSource)?.src ?: return null
+        return ContractWithStateLinkInfo(this, contract.state, contract.legacyStructLinking, contract.structLinkingInfo)
+    }
 }
