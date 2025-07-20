@@ -3605,7 +3605,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             if (dstOffsets.size == 1) {
                 val dstOffset = dstOffsets.single()
                 // strong update
-                transformerWithStrongSem(srcOffsets.single(), dstOffset)
+                transformerWithStrongSem(srcOffsets.first(), dstOffset)
                 // followed by weak updates
                 srcOffsets.drop(1).forEach { srcOffset ->
                     transformerWithWeakSem(srcOffset, dstOffset)
