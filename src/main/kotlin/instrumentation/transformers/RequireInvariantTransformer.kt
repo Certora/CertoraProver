@@ -82,18 +82,23 @@ class RequireInvariantTransformer(val scene: IScene) : CodeTransformer() {
 
         while (true) {
             val cache = lastProg.analysisCache
-            val toMoveStart = cache.graph.commands.filter { cmd -> cmd.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_START) != null }.firstOrNull()
+            val toMoveStart = cache.graph.commands.filter { cmd -> cmd.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_START) != null }
+                .map { it to it.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_START)!!}
+                // We sort by the id here so that TAC is created deterministically to ensure we create the same TAC on subsequent runs.
+                .sortedBy { it.second.id }
+                .firstOrNull()
 
             if (toMoveStart != null) {
-                val invariant = toMoveStart.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_START)!!
+                val toMoveStartCmd = toMoveStart.first
+                val invariantStartCmdAnnotation = toMoveStart.second
                 val target = cache.graph.commands.filter { it.maybeAnnotation(CVL_ASSUME_INVARIANT_TARGET) }.singleOrNull()
-                    ?: error("Found none or more than one annotation to which the require invariant ${invariant.name} should be moved.")
-                val toMoveEnd = cache.graph.commands.filter { cmd -> cmd.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_END) != null }.firstOrNull { it.cmd.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_END)!!.id == invariant.id }
+                    ?: error("Found none or more than one annotation to which the require invariant ${invariantStartCmdAnnotation.name} should be moved.")
+                val toMoveEnd = cache.graph.commands.filter { cmd -> cmd.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_END) != null }.firstOrNull { it.cmd.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_END)!!.id == invariantStartCmdAnnotation.id }
                     ?: error("Failed to find end command")
 
-                lastProg = lastProg.moveCommandsBetweenTo(toMoveStart, toMoveEnd, target).patching {
+                lastProg = lastProg.moveCommandsBetweenTo(toMoveStartCmd, toMoveEnd, target).patching {
                     // Deleting the start pointer to ensure the loop terminates
-                    it.delete(toMoveStart.ptr)
+                    it.delete(toMoveStartCmd.ptr)
                 }
 
             } else {
