@@ -1848,6 +1848,18 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         }
     }
 
+    fun checkStackInvariant(g: PTAGraph<TNum, TOffset>, msg: String) {
+        if (SolanaConfig.SanityChecks.get()) {
+            val stackN = g.getStack()
+            for (field in g.untrackedStackFields.iterator()) {
+                val succC = stackN.getSucc(field)
+                if (succC != null) {
+                    throw PointerDomainError("PTA invariant broken $msg: field $field is marked as inaccessible, but stack node $stackN has non-null successor $succC")
+                }
+            }
+        }
+    }
+
     /**
      * Join leftStack with rightStack.
      *
@@ -1909,7 +1921,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                  *  The field from the left stack is kept in the joined graph (union semantics) **even** if
                  *  the right stack already marked it as top
                  **/
-                onlyLeft.add(Pair(field, leftSuccC))
+                onlyLeft.add(field to leftSuccC)
 
             } else {
                 val renamedLeftSuccC = leftSuccC.renameNode(leftStack, rightStack)
@@ -1917,8 +1929,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     /** leftSuccC and rightSuccC are equal modulo renaming **/
                     outTrackedStackFields.add(field)
                 } else {
+                    val isLeftStack = leftSuccC.getNode() == leftStack
+                    val isRightStack = rightSuccC.getNode() == rightStack
                     /** leftSuccC and rightSuccC are different cells **/
-                    if (leftSuccC.getNode() == leftStack || rightSuccC.getNode() == rightStack) {
+                    if (isLeftStack || isRightStack) {
                         /** One of the stack fields points back to its stack **/
 
                         // Before we make that particular field inaccessible we ask the scalar domain
@@ -1936,7 +1950,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                          *  put in the unification worklist for later processing
                          **/
                         outTrackedStackFields.add(field)
-                        unificationList.add(Pair(leftSuccC.createSymCell(), rightSuccC.createSymCell()))
+                        unificationList.add(leftSuccC.createSymCell() to rightSuccC.createSymCell())
                         dbgJoin { "## JOIN: stack cells at field $field: $leftSuccC and $rightSuccC to the unification list" }
                     }
                 }
@@ -1948,10 +1962,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          **/
         for ((field, succC) in rightStack.getSuccs()) {
             if (leftStack.getSucc(field) == null) {
-                onlyRight.add(Pair(field, succC))
+                onlyRight.add(field to succC)
             }
         }
-        return Pair(outUntrackedStackFields, outTrackedStackFields)
+        return outUntrackedStackFields to outTrackedStackFields
     }
 
     private fun getType(scalar: ScalarValue<TNum, TOffset>): SbfType<TNum, TOffset>? {
@@ -2165,6 +2179,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     private fun removeFieldFromStack(stack: PTANode, field: PTAField, g: PTAGraph<TNum, TOffset>,
                                      @Suppress("UNUSED_PARAMETER")
                                      msg: String) {
+
         val succC = stack.getSuccs()[field]
         if (succC != null) {
             stack.removeSucc(field, succC)
@@ -2220,6 +2235,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                 "Left=$this\nRight=$other\n"
         }
 
+        checkStackInvariant(this,"before joinStacks LEFT")
+        checkStackInvariant(other,"before joinStacks RIGHT")
+
 
         /** To perform stack additions to preserve union semantics **/
         val onlyLeft = mutableListOf<Pair<PTAField, PTACell>>()
@@ -2260,14 +2278,18 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          *  but we do it like this for simplicity.
          **/
         for ((field, c) in onlyLeft) {
-            val renamedC = c.renameNode(leftStack, leftOutStack)
-            leftOutStack.addSucc(field, renamedC)
-            dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
+            if (!other.untrackedStackFields.contains(field)) {
+                val renamedC = c.renameNode(leftStack, leftOutStack)
+                leftOutStack.addSucc(field, renamedC)
+                dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
+            }
         }
         for ((field, c) in onlyRight) {
-            val renamedC = c.renameNode(rightStack, leftOutStack)
-            leftOutStack.addSucc(field, renamedC)
-            dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
+            if (!untrackedStackFields.contains(field)) {
+                val renamedC = c.renameNode(rightStack, leftOutStack)
+                leftOutStack.addSucc(field, renamedC)
+                dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
+            }
         }
 
         /**
@@ -2307,7 +2329,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          **/
         for (field in outUntrackedStackFields.iterator()) {
             removeFieldFromStack(leftOutStack, field, outG,
-                "Removed link at $field from the joined stack because stacks")
+                "Removed link at $field from the joined stack because marked as inaccessible")
         }
 
         /** And finally, perform unifications **/
@@ -2320,6 +2342,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         if (debugPTAJoin) {
             dotDebugger.addResultAndPrint(outG, left, right)
         }
+
+
+        checkStackInvariant(outG,"after join")
 
         if (SolanaConfig.SanityChecks.get() && !SolanaConfig.OptimisticPTAJoin.get()) {
             for (field in outG.untrackedStackFields.iterator()) {
