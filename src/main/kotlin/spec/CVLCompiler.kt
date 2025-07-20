@@ -1644,7 +1644,6 @@ class CVLCompiler(
      * (given by where the [CVL_ASSUME_INVARIANT_TARGET] is placed).
      */
     private fun compileAssumeInvariantGlobally(cmd: CVLCmd.Simple.AssumeCmd.AssumeInvariant, allocatedTACSymbols: TACSymbolAllocation): ParametricInstantiation<CVLTACProgram> {
-
         fun CVLTACProgram.ignoreInCallTrace(): CVLTACProgram =
             this.copy(code = this.code.mapValues { (_, cmds) ->
                 cmds.map { tacCmd ->
@@ -1654,15 +1653,49 @@ class CVLCompiler(
                     }
                 }
             })
+
+        /**
+         * Generates a unique and stable (String) id for an AssumeInvariant command.
+         *
+         * The id must be unique in the sense that no two requireInvariant commands receive the same id.
+         * The id must be stable in the sense that several invocation across different jobs results in the same id.
+         *
+         * The result may not contain invalid characters according to [tac.TACIdentifiers.valid], that's why
+         * it's using hashCode and toUInt calls.
+         */
+        fun CVLCmd.Simple.AssumeCmd.AssumeInvariant.uniqueStableId(): String{
+            val rangeId = (range as? Range.Range)?.let { cmdRange -> "${(cmdRange).specFile.hashCode().toUInt()}_${cmdRange.start.line}" }
+                ?: /* Fallback to plain hashcode to still generate a unique id in case no range is provided*/range.hashCode().toUInt()
+            return "${id}_${rangeId}"
+        }
+
         val inv =
             symbolTable.lookUpNonFunctionLikeSymbol(cmd.id, cmd.scope)?.symbolValue as? CVLInvariant
                 ?: error("Failed to find invariant ${cmd.id}")
 
+        /**
+         * This method creates new CVLExp.VariableExp that end up in meta in TAC. This is problematic for the
+         * cache when their ids are not consistent across compilation. (we get cache misses as the ids differ, even
+         * though the TAC is equivalent (modulo the ids)).
+         *
+         * To avoid this, we create a unique id that depends on the name of the invariant that is required [cmd.id]
+         * and on the range of the requireInvariant command. The range is necessary to create unique variable names
+         * in the case there are multiple requireInvariant commands requiring the same invariant at different locations
+         * with potentially different parameter variables.
+         *
+         * This unique id must be stable across different prover runs so that the TAC cache kicks in.
+         *
+         * Note: As the variable name includes the range, there are cache misses in case a line break or whitespaces changes
+         * the range of the command.
+         */
+        val requireInvariantUniqueId = cmd.uniqueStableId()
+
+
         check(cmd.params.size == inv.params.size){ "The number of parameters of the invariant and the number of parameters of the command don't match." }
         val havocedInvParams = inv.params.mapIndexed { i, p ->
-            val havocParameterName = symbolTable.freshName("initiallyHavocedParam_${i}")
-            val (havocedInvParam, _) = allocatedTACSymbols.generateTransientUniqueCVLParam(symbolTable, havocParameterName, p.type)
-            havocedInvParam
+            val havocParameterName = CVLParam(p.type, "initiallyHavocedParam_${requireInvariantUniqueId}_${i}", Range.Empty())
+            allocatedTACSymbols.generateTacVarFromParam(havocParameterName)
+            havocParameterName
         }
 
         // Replacing the parameters as they are declared in the actual invariant by the newly created havoc'ed parameter names.
@@ -1684,12 +1717,12 @@ class CVLCompiler(
         )
 
         val combinedProg = havocedInvParams.zip(cmd.params).foldIndexed(RequireInvariantProgram(CVLTACProgram.empty("toBePlacedAfterRuleParamSetup"), CVLTACProgram.empty("assumeRequireInvParam"))) { i, acc, (havocedInvParam, exp) ->
-            val globalRequireInvVar = symbolTable.freshName("globalRequireInvParam${i}")
-            val (globalRequireInvVarCVL, _) = allocatedTACSymbols.generateTransientUniqueCVLParam(symbolTable, globalRequireInvVar, havocedInvParam.type)
+            val globalRequireInvVar = CVLParam(havocedInvParam.type, "globalRequireInvParam_${requireInvariantUniqueId}_${i}", Range.Empty())
+            allocatedTACSymbols.generateTacVarFromParam(globalRequireInvVar)
 
             val left = CVLExp.VariableExp(havocedInvParam.id, tag = CVLExpTag(cmd.scope, havocedInvParam.type, cmd.range))
-            val right = CVLExp.VariableExp(globalRequireInvVarCVL.id, tag = CVLExpTag(cmd.scope, globalRequireInvVarCVL.type, cmd.range))
-            val eqExp = CVLExp.RelopExp.EqExp(left, right, tag = CVLExpTag(cmd.scope, globalRequireInvVarCVL.type, cmd.range))
+            val right = CVLExp.VariableExp(globalRequireInvVar.id, tag = CVLExpTag(cmd.scope, havocedInvParam.type, cmd.range))
+            val eqExp = CVLExp.RelopExp.EqExp(left, right, tag = CVLExpTag(cmd.scope, havocedInvParam.type, cmd.range))
             val assumeCmd = CVLCmd.Simple.AssumeCmd.Assume(cmd.range, eqExp, "compileAssumeInvariantGlobally", cmd.scope)
 
             // compiling the assumption that the assigned global is equal to the initially havoc'ed variable
@@ -1697,7 +1730,7 @@ class CVLCompiler(
 
             // Compiling the evaluation of the expression of parameter
             val evaulatedExpressionOfParam = CVLExpressionCompiler(this, allocatedTACSymbols, CompilationEnvironment())
-                .compileExp(globalRequireInvVarCVL, exp).getAsSimple().merge(compiledAssume).getAsSimple().ignoreInCallTrace()
+                .compileExp(globalRequireInvVar, exp).getAsSimple().merge(compiledAssume).getAsSimple().ignoreInCallTrace()
 
             // Adding variable assumption to the freshly havoc'ed CVL parameters. As the freshly generated havoc'ed parameter variables will be moved, the assumption on the bounds must be moved as well.
             val havocedVariableAssumptions = addVariableValueAssumptions(havocedInvParam.id, havocedInvParam.type, "variable assumptions for havoced parameters ", allocatedTACSymbols, CompilationEnvironment()).getAsSimple()
