@@ -2690,7 +2690,7 @@ class CertoraBuildGenerator:
             self.handle_erc7201_annotations()
         self.handle_storage_extension_harnesses()
 
-    def extract_slayout(self, original_file: str, ns_storage: Set[NameSpacedStorage]) -> NewStorageInfo:
+    def extract_slayout(self, original_file: str, ns_storage: Set[NameSpacedStorage], compiler_version: str) -> NewStorageInfo:
         """
         Given a file containing a contract with namespaced storage, extract the storage information
         corresponding to the namespaced types.
@@ -2715,7 +2715,9 @@ class CertoraBuildGenerator:
             # original file is accessed also in the actual code, and compiling it
             # directly can cause issues.
             tmp_file.write(f"import \"{original_file}\";\n\n")
-
+            rel_path = os.path.relpath(tmp_file.name, Path.cwd())
+            if self.context.compiler_map:
+                self.context.compiler_map.update({rel_path: compiler_version}, last=False)
             # Write the harness contract with dummy fields for each namespaced storage
             var_to_slot = storageExtension.write_harness_contract(tmp_file, harness_name, ns_storage)
             tmp_file.flush()
@@ -2727,13 +2729,6 @@ class CertoraBuildGenerator:
                     Path(tmp_file.name),
                     build_dir / f"{Path(original_file).stem}_storage_extension.sol"
                 )
-
-            # Add harness to compiler map
-            storageExtension.add_harness_to_compiler_map(
-                original_file,
-                tmp_file,
-                self.context
-            )
 
             # normalize the path exactly the way collect_for_file expects it:
             abs_path = Util.abs_posix_path(tmp_file.name)
@@ -2802,7 +2797,8 @@ class CertoraBuildGenerator:
                         continue
 
                     # Now that we have all the storage layout information, extract it once
-                    slayouts[key] = self.extract_slayout(imported_file, ns_storage)
+                    slayouts[key] = self.extract_slayout(imported_file, ns_storage,
+                                                         get_relevant_compiler(Path(target_file), self.context))
 
         if self.context.test == str(Util.TestValue.STORAGE_EXTENSION_LAYOUT):
             raise Util.TestResultsReady(slayouts)
