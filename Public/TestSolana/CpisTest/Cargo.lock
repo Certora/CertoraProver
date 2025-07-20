@@ -713,7 +713,7 @@ dependencies = [
 [[package]]
 name = "cvlr-solana"
 version = "0.4.4"
-source = "git+https://github.com/phreppo/cvlr-solana#81eb84fdd2ad9bc5ed45331060067cf34996ffd2"
+source = "git+https://github.com/phreppo/cvlr-solana?branch=cpis#6f851dcd6e8dcedaea75c153e6f22aeaf55b0141"
 dependencies = [
  "arrayref",
  "cvlr-asserts",
