@@ -122,7 +122,8 @@ sealed class CounterexampleModel: AmbiSerializable {
                 is Tag.GhostMap,
                 Tag.WordMap,
                 is Tag.UserDefined.Struct,
-                is Tag.UserDefined.UninterpretedSort ->
+                is Tag.UserDefined.UninterpretedSort,
+                is Tag.Move ->
                     throw UnsupportedOperationException("Unexpected case: We don't have constant TACSymbols for " +
                         "expressions of type \"${v.tag}\".")
 

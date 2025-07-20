@@ -30,44 +30,47 @@ import vc.data.tacexprutil.*
 import java.util.stream.Collectors
 
 object Trap {
-    fun trap(reason: String) =
+    fun trap(reason: String, meta: MetaMap = MetaMap()) =
         if (Config.TrapAsAssert.get()) {
-            trapAsAssert(TACSymbol.False, reason)
+            trapAsAssert(TACSymbol.False, reason, meta)
         } else {
-            trapRevert(reason)
+            trapRevert(reason, meta)
         }
 
     fun assert(
         reason: String,
+        meta: MetaMap = MetaMap(),
         cond: TACExprFact.() -> TACExpr
     ): CommandWithRequiredDecls<TACCmd.Simple> {
         val condSym = TACSymbol.Var("cond", Tag.Bool).toUnique("!")
         return mergeMany(
-            ExprUnfolder.unfoldTo(TACExprFactUntyped(cond), condSym).merge(condSym),
+            ExprUnfolder.unfoldTo(TACExprFactUntyped(cond), condSym, meta).merge(condSym),
             if (Config.TrapAsAssert.get()) {
-                trapAsAssert(condSym, reason)
+                trapAsAssert(condSym, reason, meta)
             } else {
-                listOf(ConditionalTrapRevert(condSym, reason).toCmd()).withDecls()
+                listOf(ConditionalTrapRevert(condSym, reason).toCmd(meta)).withDecls()
             }
         )
     }
 
-    private fun trapAsAssert(cond: TACSymbol, reason: String) =
+    private fun trapAsAssert(cond: TACSymbol, reason: String, meta: MetaMap = MetaMap()) =
         listOf(
             TACCmd.Simple.AssertCmd(
                 cond,
                 reason,
+                meta
             )
         ).withDecls()
 
-    fun trapRevert(reason: String) =
+    fun trapRevert(reason: String, meta: MetaMap = MetaMap()) =
         listOf(
             TACCmd.Simple.LabelCmd(reason),
             TACCmd.Simple.RevertCmd(
                 base = TACKeyword.MEMORY.toVar(),
                 o1 = TACSymbol.lift(0), // WASM has no equivalent of EVM's revert return data
                 o2 = TACSymbol.lift(0), // Ditto
-                revertType = TACRevertType.THROW
+                revertType = TACRevertType.THROW,
+                meta = meta
             )
         ).withDecls()
 }

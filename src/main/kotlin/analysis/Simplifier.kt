@@ -1610,6 +1610,7 @@ object EthereumVariables {
                 }
 
                 is TACCmd.CVL -> throw IllegalStateException("Unexpected to see a CVL TACCmd $cmd")
+                is TACCmd.Move -> throw IllegalStateException("Unexpected to see a Move TACCmd $cmd")
             }
         }
 

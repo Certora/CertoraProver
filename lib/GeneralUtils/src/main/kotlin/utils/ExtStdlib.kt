@@ -915,6 +915,16 @@ operator fun Int.times(other : BigInteger) = this.toBigInteger() * other
 operator fun BigInteger.div(other : Int) = this / other.toBigInteger()
 operator fun Int.div(other : BigInteger) = this.toBigInteger() / other
 
+fun Byte.toBigInteger() = this.toLong().toBigInteger()
+fun UByte.toBigInteger() = this.toLong().toBigInteger()
+fun Short.toBigInteger() = this.toLong().toBigInteger()
+fun UShort.toBigInteger() = this.toLong().toBigInteger()
+fun UInt.toBigInteger() = this.toLong().toBigInteger()
+fun ULong.toBigInteger() = when {
+    this <= Long.MAX_VALUE.toULong() -> this.toLong().toBigInteger()
+    else -> BigInteger(this.toString())
+}
+
 /** N.B. the resulting list is the length of the smallest of the three input lists */
 fun <T1, T2, T3> zip(a: Iterable<T1>, b: Iterable<T2>, c: Iterable<T3>): List<Triple<T1, T2, T3>> {
     val it1 = a.iterator()

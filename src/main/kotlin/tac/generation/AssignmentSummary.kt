@@ -19,6 +19,7 @@ package tac.generation
 
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import datastructures.stdcollections.*
+import tac.*
 import utils.*
 import vc.data.*
 
@@ -27,7 +28,7 @@ import vc.data.*
 */
 @KSerializable
 abstract class AssignmentSummary : TACSummary, AssigningSummary {
-    fun toCmd() = listOf(TACCmd.Simple.SummaryCmd(this)).withDecls(mustWriteVars + mayWriteVars)
+    fun toCmd(meta: MetaMap = MetaMap()) = listOf(TACCmd.Simple.SummaryCmd(this, meta)).withDecls(mustWriteVars + mayWriteVars)
 
     abstract val inputs: List<TACSymbol>
 

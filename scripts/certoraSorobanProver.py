@@ -26,7 +26,7 @@ from typing import List, Optional, Dict
 
 import CertoraProver.certoraContextAttributes as Attrs
 
-from Shared.rustProverCommon import build_rust_project
+from CertoraProver.certoraBuildRust import build_rust_project
 from Shared.proverCommon import (
     build_context,
     collect_and_dump_metadata,

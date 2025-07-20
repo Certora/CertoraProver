@@ -276,6 +276,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     REROUTE_SUMMARIES_MATERIALIZE(LoggerTypes.SUMMARIZATION),
     OPTIMISTIC_SPILL_REWRITE(LoggerTypes.PER_FUNCTION_SIMPLIFICATION),
     NORMALIZE_MASK(LoggerTypes.OPTIMIZE),
+    PROPAGATE_STRINGS(LoggerTypes.COMMON),
     ;
 
     override fun isEnabled(): Boolean = this == NONE || Config.isEnabledLogger(this.loggerCategory) || Config.isEnabledReport(this)

@@ -1,0 +1,123 @@
+/*
+ *     The Certora Prover
+ *     Copyright (C) 2025  Certora Ltd.
+ *
+ *     This program is free software: you can redistribute it and/or modify
+ *     it under the terms of the GNU General Public License as published by
+ *     the Free Software Foundation, version 3 of the License.
+ *
+ *     This program is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
+ *
+ *     You should have received a copy of the GNU General Public License
+ *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+package move
+
+import datastructures.*
+import java.math.BigInteger
+import java.nio.file.*
+import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.*
+import kotlinx.serialization.encoding.*
+import kotlinx.serialization.json.*
+import utils.*
+
+/**
+    The deserialization of the "source map" JSON file produced by the Move compiler.  Relates the bytecode to source
+    locations, and provides names for function parameters, type parameters, and local variables.
+
+    Note: Move also generates a binary source map in BCS serialization format, but BCS is not self-describing; parsing
+    the JSON should be more resiliant to changes in the Move compiler output format.
+ */
+@KSerializable
+data class MoveSourceMap(
+    @SerialName("definition_location") val definitionLocation: Location,
+    @SerialName("module_name") val moduleNameParts: List<String>,
+    @SerialName("struct_map") val structMap: Map<Int, Struct>,
+    @SerialName("function_map") val functionMap: Map<Int, Function>,
+) {
+    val moduleName: MoveModuleName get() {
+        check(moduleNameParts.size == 2) {
+            "Module name must consist of exactly two parts, but got: $moduleNameParts"
+        }
+        return MoveModuleName(
+            BigInteger(moduleNameParts[0], 16),
+            moduleNameParts[1]
+        )
+    }
+
+    @KSerializable
+    data class Location(
+        @SerialName("file_hash") val fileHashBytes: List<UByte>,
+        @SerialName("start") val start: Int,
+        @SerialName("end") val end: Int
+    ) {
+        val fileHash: BigInteger get() = fileHashes(fileHashBytes)
+    }
+
+    @KSerializable(with = NamedLocationSerializer::class)
+    data class NamedLocation(
+        @SerialName("name") val name: String,
+        @SerialName("location") val location: Location
+    )
+
+    @KSerializable
+    data class Struct(
+        @SerialName("definition_location") val definitionLocation: Location,
+        @SerialName("type_parameters") val typeParameters: List<NamedLocation>,
+        @SerialName("fields") val fields: List<Location>
+    )
+
+    @KSerializable
+    data class Function(
+        @SerialName("location") val location: Location,
+        @SerialName("definition_location") val definitionLocation: Location,
+        @SerialName("type_parameters") val typeParameters: List<NamedLocation>,
+        @SerialName("parameters") val parameters: List<NamedLocation>,
+        @SerialName("returns") val returns: List<Location>,
+        @SerialName("locals") val locals: List<NamedLocation>,
+        @SerialName("code_map") val codeMap: Map<Int, Location>,
+        @SerialName("is_native") val isNative: Boolean
+    )
+
+    /**
+        Named locations are represented in the Json as arrays.  E.g.:
+        ```
+            ["name", { file_hash: [...], start: 123, end: 142 }]`
+        ```
+        We need a custom serializer to handle this format, as the default for array serialization requires uniform
+        element types.
+     */
+    private object NamedLocationSerializer : KSerializer<NamedLocation> {
+        override val descriptor: SerialDescriptor = buildClassSerialDescriptor("NamedLocation") {
+            element<String>("name")
+            element<Location>("location")
+        }
+
+        override fun serialize(encoder: Encoder, value: NamedLocation) {
+            encoder.encodeStructure(descriptor) {
+                encodeStringElement(descriptor, 0, value.name)
+                encodeSerializableElement(descriptor, 1, Location.serializer(), value.location)
+            }
+        }
+
+        override fun deserialize(decoder: Decoder): NamedLocation {
+            check(decoder is JsonDecoder)
+            val array = decoder.decodeJsonElement().jsonArray
+            check(array.size == 2) { "Expected JSON array with 2 elements" }
+
+            val name = array[0].jsonPrimitive.content
+            val value = Json.decodeFromJsonElement(Location.serializer(), array[1])
+
+            return NamedLocation(name, value)
+        }
+    }
+
+    companion object {
+        private val fileHashes = memoized { bytes: List<UByte> -> BigInteger(1, bytes.toByteArray()) }
+    }
+}

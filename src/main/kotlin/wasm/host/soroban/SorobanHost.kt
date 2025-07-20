@@ -160,7 +160,7 @@ object SorobanHost : WasmHost {
     ): CommandWithRequiredDecls<TACCmd.Simple> {
 
         fun encode(encoder: TACExprFact.() -> TACExpr) =
-            assign(encodedResult, encoder)
+            assign(encodedResult, exp = encoder)
 
         if (unencodedResult == null) {
             check(type == SorobanType.Void)
@@ -239,7 +239,7 @@ object SorobanHost : WasmHost {
             TACSymbol.Var(argName, Tag.Bit256).toUnique("!").let { decoded ->
                 decoded to mergeMany(
                     hasTag(*tags),
-                    assign(decoded, decoder)
+                    assign(decoded, exp = decoder)
                 )
             }
 

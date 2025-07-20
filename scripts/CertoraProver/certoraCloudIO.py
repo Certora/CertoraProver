@@ -73,6 +73,7 @@ class EcoEnum(Util.NoValEnum):
     EVM = Util.auto()
     SOROBAN = Util.auto()
     SOLANA = Util.auto()
+    SUI = Util.auto()
 
 class ProductEnum(Util.NoValEnum):
     PROVER = Util.auto()
@@ -623,6 +624,11 @@ class CloudVerification:
                     rust_jar_settings.append(paths_in_source_dir(self.context.solana_inlining))
 
             auth_data["jarSettings"] = rust_jar_settings + jar_settings
+
+        elif Attrs.is_sui_app():
+            sui_jar_settings = ['-movePath', Path(self.context.move_path).name]
+            auth_data["jarSettings"] = sui_jar_settings + jar_settings
+
         else:
             auth_data["jarSettings"] = jar_settings
 
@@ -644,6 +650,8 @@ class CloudVerification:
             auth_data["ecosystem"] = EcoEnum.SOLANA.name
         elif Attrs.is_soroban_app():
             auth_data["ecosystem"] = EcoEnum.SOROBAN.name
+        elif Attrs.is_sui_app():
+            auth_data["ecosystem"] = EcoEnum.SUI.name
         else:
             auth_data["ecosystem"] = EcoEnum.EVM.name
 
@@ -770,6 +778,16 @@ class CloudVerification:
                     files_list.append(Util.get_build_dir() / Path(attr_file).name)
                 if attr_file := getattr(self.context, 'rust_logs_stderr', None):
                     files_list.append(Util.get_build_dir() / Path(attr_file).name)
+
+            result = compress_files(self.ZipFilePath, *files_list,
+                                    short_output=Ctx.is_minimal_cli_output(self.context))
+        elif Attrs.is_sui_app():
+            files_list = [Util.get_certora_metadata_file(),
+                          Util.get_configuration_layout_data_file(),
+                          Util.get_build_dir() / Path(self.context.move_path).name]
+
+            if Util.get_certora_sources_dir().exists():
+                files_list.append(Util.get_certora_sources_dir())
 
             result = compress_files(self.ZipFilePath, *files_list,
                                     short_output=Ctx.is_minimal_cli_output(self.context))

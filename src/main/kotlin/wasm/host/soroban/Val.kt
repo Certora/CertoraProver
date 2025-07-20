@@ -427,7 +427,7 @@ object Val {
         Calls [f] with the digest of [v].  This is a convenience method to get the value stored in correct var type.
      */
     fun withDigest(v: TACExpr, f: (TACExpr.Sym.Var) -> CommandWithRequiredDecls<TACCmd.Simple>) =
-        digest(v).letVar("digest", tac.Tag.Bit256, f)
+        digest(v).letVar("digest", tac.Tag.Bit256, f = f)
 
 
     /**

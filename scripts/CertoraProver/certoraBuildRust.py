@@ -13,16 +13,45 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
+sys.path.insert(0, str(scripts_dir_path))
+
 import glob
 import shutil
+import time
+import logging
 from pathlib import Path
-from typing import Set
+from typing import Set, Dict
 
 from CertoraProver.certoraBuild import build_source_tree
 from CertoraProver.certoraContextClass import CertoraContext
 from CertoraProver.certoraParseBuildScript import run_rust_build
 import CertoraProver.certoraContextAttributes as Attrs
 from Shared import certoraUtils as Util
+
+
+log = logging.getLogger(__name__)
+
+
+def build_rust_project(context: CertoraContext, timings: Dict) -> None:
+    """
+    Compile the Rust artefact and record elapsed time in *timings*.
+
+    Args:
+        context: The CertoraContext object containing the configuration.
+        timings: A dictionary to store timing information.
+    """
+    log.debug("Build Rust target")
+    start = time.perf_counter()
+    set_rust_build_directory(context)
+    timings["buildTime"] = round(time.perf_counter() - start, 4)
+    if context.test == str(Util.TestValue.AFTER_BUILD):
+        raise Util.TestResultsReady(context)
 
 
 def set_rust_build_directory(context: CertoraContext) -> None:

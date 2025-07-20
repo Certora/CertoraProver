@@ -157,6 +157,11 @@ enum class TACKeyword(private val varName: String, val type: Tag, val metaMap: M
 
     /** digest(address)->address_to_strkey(address) */
     SOROBAN_ADDRESS_TO_STRKEY("tacSoroAddressToStrkey", Tag.GhostMap(listOf(Tag.Bit256), Tag.Bit256), MetaMap(TACMeta.SOROBAN_ENV)),
+
+    /** (prev_digest, new_elem_hash) -> new_digest */
+    MOVE_VECTOR_PUSH_BACK_DIGEST("tacMvVecPushBackDigest", Tag.GhostMap(listOf(Tag.Bit256, Tag.Bit256), Tag.Bit256)),
+    /** prev_digest -> new_digest */
+    MOVE_VECTOR_POP_BACK_DIGEST("tacMvVecPopBackDigest", Tag.GhostMap(listOf(Tag.Bit256), Tag.Bit256)),
     ;
 
     init {

@@ -188,7 +188,7 @@ data class TACSymbolTable(
         is Tag.UserDefined -> sort in userDefinedTypes
         is Tag.GhostMap -> sort.paramSorts.all { tag -> contains(tag) } && contains(sort.resultSort) // ¯\_(ツ)_/¯
         is Tag.CVLArray -> contains(sort.elementTag)
-        is Tag.Bits, Tag.Bool, Tag.Int, Tag.WordMap, Tag.ByteMap, Tag.BlockchainState -> true
+        is Tag.Bits, Tag.Bool, Tag.Int, Tag.WordMap, Tag.ByteMap, Tag.BlockchainState, is Tag.Move -> true
     }
 
     operator fun contains(v: TACSymbol.Var): Boolean = v in tags

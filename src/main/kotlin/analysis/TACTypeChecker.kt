@@ -305,7 +305,8 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
                 Tag.Int,
                 is Tag.GhostMap,
                 is Tag.UserDefined.Struct,
-                is Tag.UserDefined.UninterpretedSort -> false
+                is Tag.UserDefined.UninterpretedSort,
+                is Tag.Move -> false
                 Tag.ByteMap,
                 Tag.WordMap -> true
             }
@@ -346,6 +347,7 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
                 missingDeclarations.add(v)
                 // reporting only 1 time
                 addError("The variable $v @$ptr is not declared in this program")
+                Thread.dumpStack()
             }
         } else if (currTag != v.tag) {
             addError("The variable $v @$ptr is expected to have tag $currTag")

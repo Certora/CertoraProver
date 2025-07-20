@@ -41,6 +41,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runInterruptible
 import kotlinx.serialization.json.Json
 import log.*
+import move.MoveScene
 import org.apache.commons.cli.UnrecognizedOptionException
 import os.dumpSystemConfig
 import parallel.coroutines.establishMainCoroutineScope
@@ -251,6 +252,8 @@ fun main(args: Array<String>) {
             when {
                 fileName == null && BytecodeFiles.getOrNull() != null &&
                     SpecFile.getOrNull() != null -> handleBytecodeFlow(BytecodeFiles.get(), SpecFile.get())
+
+                fileName == null && Config.MoveModulePath.getOrNull() != null -> handleMoveFlow()
 
                 fileName == null && isCertoraScriptFlow(buildFileName, verificationFileName) -> {
                     val cfgFileNames = getFilesInSourcesDir()
@@ -651,6 +654,23 @@ suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Single> {
         reporterContainer.toFile(scene)
         return result
     }
+}
+
+suspend fun handleMoveFlow() {
+    // See notes in `MoveMemory`
+    if (Config.Smt.UseBV.get()) {
+        throw CertoraException(
+            CertoraErrorType.BAD_CONFIG,
+            "Precise bitwise operations are not supported in Move mode"
+        )
+    }
+
+    val modulePath = Config.MoveModulePath.get()
+    val moveScene = MoveScene(Path(modulePath))
+
+    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(modulePath, "MoveMainProgram")
+    handleGenericFlow(scene, reporterContainer, treeView, moveScene.rules)
+    reporterContainer.toFile(scene)
 }
 
 suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Single>> {

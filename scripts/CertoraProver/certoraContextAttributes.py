@@ -1672,6 +1672,36 @@ class SorobanProverAttributes(CommonAttributes, InternalUseAttributes, BackendAt
     )
 
 
+class SuiProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes):
+    FILES = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_dir,
+        arg_type=AttrUtil.AttrArgType.LIST,
+        argparse_args={
+            'nargs': AttrUtil.MULTIPLE_OCCURRENCES
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.NEW_SECTION
+        )
+    )
+
+    MOVE_PATH = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_dir,
+        arg_type=AttrUtil.AttrArgType.STRING,
+        help_msg="path to a directory which includes all binary .mv files for the Prover",
+        default_desc="",
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.NEW_SECTION
+        )
+    )
+
+
 class SolanaProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes, RustAttributes):
     FILES = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_solana_extension,
@@ -1753,3 +1783,7 @@ def is_ranger_app() -> bool:
 
 def is_sophy_app() -> bool:
     return False  # wait for the tool to be added
+
+
+def is_sui_app() -> bool:
+    return get_attribute_class() == SuiProverAttributes

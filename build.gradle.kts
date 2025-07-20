@@ -122,6 +122,9 @@ allprojects {
 		project.properties.filterKeys { it.startsWith("level.") }.forEach {
 			systemProperty(it.key, it.value)
 		}
+		project.properties.filterKeys { it.startsWith("report.") }.forEach {
+			systemProperty(it.key, it.value)
+		}
 
 		if(project.hasProperty("mathematicaHome")) {
 			systemProperty("mathematicaHome", project.property("mathematicaHome") as String)
@@ -579,7 +582,7 @@ fun DependencyHandlerScope.applyCommon(projectName: String) {
 	implementation("com.github.ajalt:clikt-multiplatform:2.6.0")
 	implementation("org.apache.commons:commons-lang3:3.11")
 	implementation("com.github.certora.collections:collect:${property("certora.collect.version")}")
-	implementation("com.dylibso.chicory:runtime:1.3.0")
+	implementation("com.dylibso.chicory:runtime:${property("chicory.version")}")
 	implementation("org.ow2.asm:asm:9.7.1")
 	implementation("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1")
 
@@ -613,6 +616,9 @@ dependencies {
 
 	implementation("net.fornwall:jelf:0.7.0")
 	implementation("aws.sdk.kotlin:sqs:0.19.0-beta")
+
+	testImplementation("com.dylibso.chicory:wasi:${property("chicory.version")}")
+	testImplementation("com.github.certora:sui-move-build-kotlin:0.0.1")
 }
 
 allprojects {
@@ -787,6 +793,7 @@ val scripts = project.fileTree("scripts") {
 		"certoraRun.py",
 		"certoraSolanaProver.py",
 		"certoraSorobanProver.py",
+		"certoraSuiProver.py",
 		"certoraEVMProver.py",
 		"certoraRanger.py",
 		"certoraMutate.py",

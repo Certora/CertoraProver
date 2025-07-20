@@ -860,6 +860,38 @@ object Config {
             pythonName = "--bytecode_jsons"
         ) {}
 
+    val MoveModulePath =
+        object : ConfigType.StringCmdLine(
+            null,
+            Option("movePath", true, "Directory to search for Move modules")
+        ) {}
+
+    val CvlmAddress =
+        object : ConfigType.BigIntCmdLine(
+            0x436572746f7261.toBigInteger(),
+            Option("cvlmAddress", true, "The address of the CVLM Move modules")
+        ) {}
+
+    val MoveRuleModuleIncludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("includeMoveRuleModules", true, "List of Move modules to include in the rule set.  Default is all modules with rules.")
+    ) {}
+
+    val MoveRuleModuleExcludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("excludeMoveRuleModules", true, "List of Move modules to exclude from the rule set.  Default is none.")
+    ) {}
+
+    val MoveRuleNameIncludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("includeMoveRules", true, "List of Move rule names to include in the rule set.  Default is all rules in included modules.")
+    ) {}
+
+    val MoveRuleNameExcludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("excludeMoveRules", true, "List of Move rule names to exclude from the rule set.  Default is none.")
+    ) {}
+
     val SubContract = object : ConfigType.StringCmdLine(
         null,
         Option("subContract", true, "A contract from a Solidity file to be verified")

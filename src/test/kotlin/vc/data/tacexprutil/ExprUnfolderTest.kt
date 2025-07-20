@@ -33,7 +33,7 @@ internal class ExprUnfolderTest : TACBuilderAuxiliaries() {
     fun simpleTest() {
         val orig = txf { BWXOr(BWAnd(BWNot(aS), bS), BWOr(cS, aS)) }
 
-        val (expr, cmds) = unfold(orig, ::newVar)
+        val (expr, cmds) = unfold(orig, varGenerator = ::newVar)
         fun rhs(index : Int) = (cmds[index] as AssignExpCmd).rhs
         fun lhs(index : Int) = (cmds[index] as AssignExpCmd).lhs.asSym()
         assertEquals(txf { BWNot(aS) }, rhs(0))

@@ -55,6 +55,7 @@ fun Tag.defaultValue(): TACValue {
             }
         is Tag.GhostMap,
         is Tag.UserDefined.Struct,
+        is Tag.Move,
         Tag.BlockchainState,
         Tag.CVLArray.RawArray,
         is Tag.CVLArray.UserArray -> unsupp()
