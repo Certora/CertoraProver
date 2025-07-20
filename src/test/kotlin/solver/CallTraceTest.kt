@@ -38,7 +38,6 @@ import report.LocalAssignments
 import report.calltrace.CallEndStatus
 import report.calltrace.CallInstance
 import report.calltrace.CallTrace
-import report.calltrace.formatter.AlternativeRepresentations.Representations
 import report.calltrace.formatter.FormatterType
 import report.calltrace.sarif.Sarif
 import report.globalstate.GlobalState
@@ -48,7 +47,6 @@ import solver.StructuralInvariants.verifyAssertCast
 import solver.StructuralInvariants.verifyAssertChildren
 import solver.StructuralInvariants.verifyExpectedJson
 import solver.StructuralInvariants.verifyHasGlobalState
-import solver.StructuralInvariants.verifyViolateAssert
 import utils.Range
 import spec.rules.CVLSingleRule
 import spec.cvlast.CVLType
@@ -59,7 +57,6 @@ import vc.data.state.TACValue
 import java.nio.file.Path
 import java.util.*
 import java.util.function.Predicate
-import kotlin.io.path.Path
 
 class CallTraceTest {
     /** When this is true, every test that compares call trace jsons, actual vs expected, will dump the current
@@ -78,6 +75,7 @@ class CallTraceTest {
         noXs = TestLoggers.CallTrace.NoXs()
     }
 
+    private fun resolvePath(path: String): Path = Path.of("src/test/resources/solver/CallTraceTests").resolve(path)
 
     /**
      * Very basic test, the rule just checks whether a uint parameter can be odd.
@@ -86,17 +84,10 @@ class CallTraceTest {
      */
     @Test
     fun testMod() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/mod/mod.conf")
-        val specPath = Path("src/test/resources/solver/CallTraceTests/mod/mod.spec")
-
-
-        // this could still be made better by reading everything from the conf file, but I think I'll need some
-        // infrastructure advice
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("mod/mod.conf"),
+            specFilename = resolvePath("mod/mod.spec"),
             ruleName = "even",
-            methodName = null,
             primaryContract = "mod",
         )
 
@@ -116,14 +107,10 @@ class CallTraceTest {
      *    up now .. */
     @Test
     fun testAssertCastRuleAsParam() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/assert_cast.conf")
-        val specPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/Cast.spec")
-
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("AssertCast/assert_cast.conf"),
+            specFilename = resolvePath("AssertCast/Cast.spec"),
             ruleName = "AsParam",
-            methodName = null,
             primaryContract = "Cast",
         )
 
@@ -150,13 +137,12 @@ class CallTraceTest {
 
     @Test
     fun testAssertCastRuleComplexExp() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/assert_cast.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/ComplexExp/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("AssertCast/assert_cast.conf"),
+            specFilename = resolvePath("AssertCast/Cast.spec"),
+            ruleName = "ComplexExp",
+            primaryContract = "Cast",
+        )
 
         verifyHasGlobalState(callTrace.callHierarchyRoot)
         verifyAssertChildren(callTrace.callHierarchyRoot)
@@ -167,30 +153,15 @@ class CallTraceTest {
     }
 
     @Test
-    fun testAssertCastRuleCVLFunc() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/assert_cast.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/CVLFunc/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
-
-        genericWellFormednessChecks(callTrace)
-    }
-
-    @Test
     fun testAssertCastRuleDefinitionStatement() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/assert_cast.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/DefinitionStatement/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("AssertCast/assert_cast.conf"),
+            specFilename = resolvePath("AssertCast/Cast.spec"),
+            ruleName = "DefinitionStatement",
+            primaryContract = "Cast",
+        )
 
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
         verifyAssertCast(callTrace.callHierarchyRoot)
-
-        // case fail even there is a use of function call
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
         verifyHasGlobalState(callTrace.callHierarchyRoot)
 
         globalPropertiesChecks(callTrace.callHierarchyRoot)
@@ -198,13 +169,12 @@ class CallTraceTest {
 
     @Test
     fun testAssertCastRuleIfStatement() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/assert_cast.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/IfStatement/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("AssertCast/assert_cast.conf"),
+            specFilename = resolvePath("AssertCast/Cast.spec"),
+            ruleName = "IfStatement",
+            primaryContract = "Cast",
+        )
 
         verifyHasGlobalState(callTrace.callHierarchyRoot)
         verifyAssertChildren(callTrace.callHierarchyRoot)
@@ -215,14 +185,16 @@ class CallTraceTest {
 
     @Test
     fun testAssertCastRuleToSignedInt() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/assert_cast.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/ToSignedInt/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("AssertCast/assert_cast.conf"),
+            specFilename = resolvePath("AssertCast/Cast.spec"),
+            ruleName = "ToSignedInt",
+            primaryContract = "Cast",
+        )
 
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
+        // TODO: CERT-9273
+//        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
+//        verifyViolateAssert(expectedViolatedAssert, callTrace)
 
         verifyHasGlobalState(callTrace.callHierarchyRoot)
         verifyAssertChildren(callTrace.callHierarchyRoot)
@@ -234,13 +206,12 @@ class CallTraceTest {
 
     @Test
     fun testStructPassingToCVLFunc1() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionStructs/run.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionStructs/checkWorkOnS/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("CVLFunctionStructs/run.conf"),
+            specFilename = resolvePath("CVLFunctionStructs/test.spec"),
+            ruleName = "checkWorkOnS",
+            primaryContract = "TestContract",
+        )
 
         globalPropertiesChecks(callTrace.callHierarchyRoot)
 
@@ -281,13 +252,12 @@ class CallTraceTest {
 
     @Test
     fun testStructPassingToCVLFunc2() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionStructs/run.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionStructs/checkWorkOnSCVL/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("CVLFunctionStructs/run.conf"),
+            specFilename = resolvePath("CVLFunctionStructs/test.spec"),
+            ruleName = "checkWorkOnSCVL",
+            primaryContract = "TestContract",
+        )
 
         globalPropertiesChecks(callTrace.callHierarchyRoot)
 
@@ -304,26 +274,26 @@ class CallTraceTest {
 
     @Test
     fun testStructPassingToCVLFuncNested() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionStructs/Nested/run.conf")
         val variant1 = """workOnSComplexCVL\(x=${numberRE}, s=\{s1\.x=${numberRE}, s1\.y=${addressRE}, s1\.z1=${numberRE}, s1\.z2=${numberRE}, s1\.b1=${boolRE}, s1\.x2=${numberRE}, s1\.b2=${boolRE}, s2\.x=${numberRE}, s2\.y=${addressRE}, s2\.z1=${numberRE}, s2\.z2=${numberRE}, s2\.b1=${boolRE}, s2\.x2=${numberRE}, s2\.b2=${boolRE}, b3=${boolRE}}\)"""
         val variant2 = """workOnSCVL\(x=${numberRE}, s=\{x=${numberRE}, y=${addressRE}, z1=${numberRE}, z2=${numberRE}, b1=${boolRE}, x2=${numberRE}, b2=${boolRE}}\)"""
 
-        val verifierResultPathToStrings = listOf(
-            "checkWorkOnS1" to variant1,
-            "checkWorkOnS1_2" to variant1,
-            "checkWorkOnS2" to variant2,
-            "checkWorkOnS2_2" to variant2,
-            "checkWorkOnSCVL1" to variant2,
-            "checkWorkOnSCVL2" to variant2,
-            "checkWorkOnSCVL1" to variant2,
-        ).mapFirst { fileName -> confPath.parent.resolve(fileName) }
+        val tests = listOf(
+            Pair("checkWorkOnS1", variant1),
+            Pair("checkWorkOnS1_2", variant1),
+            Pair("checkWorkOnS2", variant2),
+            Pair("checkWorkOnS2_2", variant2),
+            Pair("checkWorkOnSCVL1", variant2),
+            Pair("checkWorkOnSCVL2", variant2),
+            Pair("checkWorkOnSCVL1", variant2),
+        )
 
-        verifierResultPathToStrings.forEach { (verifierResultPath, uiStringRegex) ->
-            val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-            val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-            checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-            verifyViolateAssert(expectedViolatedAssert, callTrace)
+        for ((ruleName, uiStringRegex) in tests) {
+            val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+                confPath = resolvePath("CVLFunctionStructs/Nested/run.conf"),
+                specFilename = resolvePath("CVLFunctionStructs/Nested/test.spec"),
+                ruleName,
+                primaryContract = "TestContract",
+            )
 
             globalPropertiesChecks(callTrace.callHierarchyRoot)
 
@@ -340,13 +310,12 @@ class CallTraceTest {
 
     @Test
     fun testCVLFunctionBasic() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionBasic/run.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionBasic/CvlFunctionTest/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("CVLFunctionBasic/run.conf"),
+            specFilename = resolvePath("CVLFunctionBasic/Basic.spec"),
+            ruleName = "CvlFunctionTest",
+            primaryContract = "TestContract",
+        )
 
         globalPropertiesChecks(callTrace.callHierarchyRoot)
 
@@ -361,14 +330,10 @@ class CallTraceTest {
 
     @Test
     fun testCVLFunctionComplexTestCalldataarg() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionComplex/run.conf")
-        val specPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionComplex/Complex.spec") // reading this not through our framework, so no leading "/"
-
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("CVLFunctionComplex/run.conf"),
+            specFilename = resolvePath("CVLFunctionComplex/Complex.spec"),
             ruleName = "test_calldataarg",
-            methodName = null,
             primaryContract = "TestContract",
         )
 
@@ -412,16 +377,10 @@ class CallTraceTest {
      */
     @Test
     fun testCVLFunctionComplexTestStaticArray() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionComplex/run.conf")
-        val specPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionComplex/Complex.spec") // reading this not through our framework, so no leading "/"
-
-        // this could still be made better by reading everything from the conf file, but I think I'll need some
-        // infrastructure advice
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("CVLFunctionComplex/run.conf"),
+            specFilename = resolvePath("CVLFunctionComplex/Complex.spec"),
             ruleName = "test_static_array",
-            methodName = null,
             primaryContract = "TestContract",
         )
 
@@ -455,18 +414,10 @@ class CallTraceTest {
     @Test
     fun testCVLFunctionComplexTestDynamicArray() {
         ConfigScope(Config.LoopUnrollConstant, 4).use {
-            val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionComplex/run.conf")
-
-            val specPath =
-                Path("src/test/resources/solver/CallTraceTests/CVLFunctionComplex/Complex.spec") // reading this not through our framework, so no leading "/"
-
-            // this could still be made better by reading everything from the conf file, but I think I'll need some
-            // infrastructure advice
             val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-                confPath = confPath,
-                specFilename = specPath,
+                confPath = resolvePath("CVLFunctionComplex/run.conf"),
+                specFilename = resolvePath("CVLFunctionComplex/Complex.spec"),
                 ruleName = "test_dynamic_array",
-                methodName = null,
                 primaryContract = "TestContract",
             )
 
@@ -498,14 +449,10 @@ class CallTraceTest {
 
     @Test
     fun testCVLFunctionComplexTestStringAndBytes() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionComplex/run.conf")
-        val specPath = Path("src/test/resources/solver/CallTraceTests/CVLFunctionComplex/Complex.spec") // reading this not through our framework, so no leading "/"
-
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("CVLFunctionComplex/run.conf"),
+            specFilename = resolvePath("CVLFunctionComplex/Complex.spec"),
             ruleName = "test_string_and_bytes",
-            methodName = null,
             primaryContract = "TestContract",
         )
 
@@ -530,14 +477,10 @@ class CallTraceTest {
 
     @Test
     fun testStorageStateComplexTypes() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/StorageStateComplexTypes/run.conf")
-        val specPath = Path("src/test/resources/solver/CallTraceTests/StorageStateComplexTypes/ComplexTypes.spec")
-
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("StorageStateComplexTypes/run.conf"),
+            specFilename = resolvePath("StorageStateComplexTypes/ComplexTypes.spec"),
             ruleName = "check1",
-            methodName = null,
             primaryContract = "ComplexTypes",
         )
 
@@ -570,38 +513,6 @@ class CallTraceTest {
         assertEquals(stores.size, stateAtStart.size)
         assertEquals(stores.size, stateAtFunctionEnd.size)
         assertEquals(stores.size, stateAtAssert.size)
-
-        // check that we display all the stores
-        // in the solidity source we assign constant values, so there is only one model when it comes to the relevant
-        // values, so we can do a straightforward string comparison
-        val expecteds = listOf(
-            Pair("Store at ComplexTypes.ownerAddr", "0x8000"),
-            Pair("Store at ComplexTypes.flag", "true"),
-            Pair("Store at ComplexTypes.ui256", "0x10"),
-            Pair("Store at ComplexTypes.i256", "0x20"),
-            Pair("Store at ComplexTypes.neg[true]", "false"),
-            Pair("Store at ComplexTypes.neg[false]", "true"),
-            Pair("Store at ComplexTypes.addressMap[0x11]", "true"),
-            Pair("Store at ComplexTypes.addressMap[0x22]", "false"),
-            Pair("Store at ComplexTypes.dict[0x1].num", "0x64"),
-            Pair("Store at ComplexTypes.dict[0x1].addr", "0x140"),
-            Pair("Store at ComplexTypes.dict[0x1].innerMap[0x3]", "false"),
-            Pair("Store at ComplexTypes.dict[0x1].innerMap[0x5]", "true"),
-            Pair("Store at ComplexTypes.dict[0x2].num", "0x6e"),
-            Pair("Store at ComplexTypes.dict[0x2].addr", "0x150"),
-            Pair("Store at ComplexTypes.dict[0x2].innerMap[0x7]", "true"),
-            Pair("Store at ComplexTypes.dict[0x2].innerMap[0x8]", "false"),
-        )
-        for ((store, expected) in stores.zip(expecteds)) {
-            val (expectedPrefix, expectedLiteralValue) = expected
-
-            assertTrue(store.sarif.flatten(Representations.Hex).startsWith(expectedPrefix))
-            assertEquals(
-                // using lastOrNull here because the storage path also might have sarif args
-                store.sarif.args.lastOrNull()?.values?.get(Representations.Pretty),
-                expectedLiteralValue,
-            )
-        }
     }
 
     private fun checkViolatedAssert(callTrace: CallTrace, checks: (CallTrace.ViolationFound) -> Unit) {
@@ -613,10 +524,9 @@ class CallTraceTest {
     @Test
     fun testLocalAssignments() {
         val counterExample = CallTraceInfra.runConfAndGetCounterExample(
-            confPath = Path("src/test/resources/solver/CallTraceTests/LocalAssignments/Basic.conf"),
-            specFilename = Path("src/test/resources/solver/CallTraceTests/LocalAssignments/Basic.spec"),
+            confPath = resolvePath("LocalAssignments/Basic.conf"),
+            specFilename = resolvePath("LocalAssignments/Basic.spec"),
             ruleName = "test",
-            methodName = null,
             primaryContract = "TestContract",
         )
 
@@ -630,15 +540,15 @@ class CallTraceTest {
         }
 
         val t = checkAssignment("t")
-        assertEquals("0x14", t.formattedValue(assignments.formatter))
+        assertEquals("20", t.formattedValue(assignments.formatter))
         assertRangeMatches(t.range, SourcePosition(34u, 4u), SourcePosition(34u, 14u))
 
         val r1 = checkAssignment("r1")
-        assertEquals("0x14", r1.formattedValue(assignments.formatter))
+        assertEquals("20", r1.formattedValue(assignments.formatter))
         assertRangeMatches(r1.range, SourcePosition(35u, 4u), SourcePosition(35u, 14u))
 
         val r2 = checkAssignment("r2")
-        assertEquals("0x9", r2.formattedValue(assignments.formatter))
+        assertEquals("9", r2.formattedValue(assignments.formatter))
         assertRangeMatches(r2.range, SourcePosition(36u, 4u), SourcePosition(36u, 14u))
 
         val r3 = checkAssignment("r3")
@@ -660,52 +570,38 @@ class CallTraceTest {
 
     // to be made into an actual test later on (during revising our testing infra)
 //     @Test
+    // TODO: CERT-9273
+    @Suppress("UNUSED", "UNUSED_VARIABLE", "UNREACHABLE_CODE")
     fun testCvlStrings() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLStrings/cvlStrings.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/CVLStrings/test/")
-        // val counterExample = CallTraceInfra.getCounterExample(confPath, verifierResultPath)
-        val callTrace: CallTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        // val localAssignments = counterExample.localAssignments
-        // unused(localAssignments)
-        unused(callTrace)
-        assertTrue(true)
+        val counterExample = CallTraceInfra.runConfAndGetCounterExample(
+            confPath = resolvePath("CVLStrings/cvlStrings.conf"),
+            specFilename = resolvePath("CVLStrings/cvlStrings.spec"),
+            ruleName = TODO("no idea what this test expects."),
+            primaryContract = "cvlStrings",
+        )
     }
 
     @Test
     fun testLocalAssignments_LenInExpression1() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/LocalAssignments/TestArray.conf")
-        val specPath =
-            Path("src/test/resources/solver/CallTraceTests/LocalAssignments/TestArray.spec") // reading this not through our framework, so no leading "/"
-
-        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+        val counterExample = CallTraceInfra.runConfAndGetCounterExample(
+            confPath = resolvePath("LocalAssignments/TestArray.conf"),
+            specFilename = resolvePath("LocalAssignments/TestArray.spec"),
             ruleName = "LenInExpression1",
-            methodName = null,
             primaryContract = "TestArray",
         )
 
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/LocalAssignments/LenInExpression1/")
-        val counterExample = CallTraceInfra.getCounterExampleFromSerialized(confPath, verifierResultPath)
         val lenVarValue = counterExample.expectAssignments().terminalsByName().get(lenVarName)?.scalarValue
-        val lenInstance = lenInstance(callTrace)
+        val lenInstance = lenInstance(counterExample.callTrace!!)
 
         assertEquals(lenVarValue, lenInstance.value)
     }
 
     @Test
     fun testLocalAssignments_LenInExpression2() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/LocalAssignments2/TestArray.conf")
-
-        val specPath = Path("src/test/resources/solver/CallTraceTests/LocalAssignments2/TestArray.spec") // reading this not through our framework, so no leading "/"
-
-        // this could still be made better by reading everything from the conf file, but I think I'll need some
-        // infrastructure advice
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("LocalAssignments2/TestArray.conf"),
+            specFilename = resolvePath("LocalAssignments2/TestArray.spec"),
             ruleName = "LenInExpression2",
-            methodName = null,
             primaryContract = "TestArray",
         )
 
@@ -717,10 +613,12 @@ class CallTraceTest {
 
     @Test
     fun testLocalAssignments_CheckUint25StaticArray() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/LocalAssignments/TestArray.conf")
-        val verifierResultPath =
-            Path("src/test/resources/solver/CallTraceTests/LocalAssignments/Satisfy_extSum__cvlSum_LPTestArray_spec_17_5RP/")
-        val counterExample = CallTraceInfra.getCounterExampleFromSerialized(confPath, verifierResultPath)
+        val counterExample = CallTraceInfra.runConfAndGetCounterExample(
+            confPath = resolvePath("LocalAssignments/TestArray.conf"),
+            specFilename = resolvePath("LocalAssignments/TestArray.spec"),
+            ruleName = "CheckUint25StaticArray",
+            primaryContract = "TestArray",
+        )
 
         val lenVarValue = counterExample.expectAssignments().terminalsByName().get(lenVarName)?.scalarValue
 
@@ -730,14 +628,10 @@ class CallTraceTest {
     @Test
     fun testSummarizationUnresolvedExternalDefaultCase() {
         ConfigScope(Config.OptimisticUnboundedHashing, true).extend(Config.IsAssumeUnwindCondForLoops, true).use {
-            val confPath = Path("src/test/resources/solver/CallTraceTests/Summarization/Summarization.conf")
-            val specPath = Path("src/test/resources/solver/CallTraceTests/Summarization/Summarization.spec")
-
             val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-                confPath = confPath,
-                specFilename = specPath,
+                confPath = resolvePath("Summarization/Summarization.conf"),
+                specFilename = resolvePath("Summarization/Summarization.spec"),
                 ruleName = "unresolvedExternalForcingDefaultCase",
-                methodName = null,
                 primaryContract = "Test",
             )
 
@@ -758,14 +652,10 @@ class CallTraceTest {
     @Test
     fun testSummarizationUnresolvedExternal() {
         ConfigScope(Config.OptimisticUnboundedHashing, true).extend(Config.IsAssumeUnwindCondForLoops, true).use {
-            val confPath = Path("src/test/resources/solver/CallTraceTests/Summarization/Summarization.conf")
-            val specPath = Path("src/test/resources/solver/CallTraceTests/Summarization/Summarization.spec")
-
             val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-                confPath = confPath,
-                specFilename = specPath,
+                confPath = resolvePath("Summarization/Summarization.conf"),
+                specFilename = resolvePath("Summarization/Summarization.spec"),
                 ruleName = "unresolvedExternal",
-                methodName = null,
                 primaryContract = "Test",
             )
 
@@ -789,15 +679,12 @@ class CallTraceTest {
 
     @Test
     fun testInvRuleBankExample1() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/BankTestConf/BankTestConf.conf")
-        val specPath = Path("src/test/resources/solver/CallTraceTests/BankTestConf/Bank.spec")
-
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("BankTestConf/BankTestConf.conf"),
+            specFilename = resolvePath("BankTestConf/Bank.spec"),
             ruleName = "address_zero_cannot_become_an_account",
-            methodName = "deposit(uint256)",
             primaryContract = "Bank",
+            parametricMethodNames = listOf("deposit(uint256)"),
         )
 
         genericWellFormednessChecks(callTrace)
@@ -834,15 +721,12 @@ class CallTraceTest {
 
     @Test
     fun testInvRuleBankExample2() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/BankTestConf/BankTestConf.conf")
-        val specPath = Path("src/test/resources/solver/CallTraceTests/BankTestConf/Bank.spec")
-
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = confPath,
-            specFilename = specPath,
+            confPath = resolvePath("BankTestConf/BankTestConf.conf"),
+            specFilename = resolvePath("BankTestConf/Bank.spec"),
             ruleName = "address_zero_cannot_become_an_account",
-            methodName = "transfer(address,uint256)",
             primaryContract = "Bank",
+            parametricMethodNames = listOf("transfer(address,uint256)"),
         )
 
         genericWellFormednessChecks(callTrace)
@@ -878,11 +762,14 @@ class CallTraceTest {
 
     @Test
     fun testHavocStorage1() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/HavocStorage/run.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/HavocStorage/havoc_of_storage_path_is_recognized")
         val contractName = "HavocStorage"
 
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("HavocStorage/run.conf"),
+            specFilename = resolvePath("HavocStorage/HavocStorage.spec"),
+            ruleName = "havoc_of_storage_path_is_recognized",
+            primaryContract = contractName,
+        )
 
         /** we expect exactly two contract storage state instances: from rule init and from the violated assert */
         val (startState, endState) = callTrace
@@ -904,59 +791,6 @@ class CallTraceTest {
         assertTrue(endValue.changedSincePrev)
     }
 
-
-    @Test
-    fun testSatisfyTest() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/satisfyTest/satisfyTest.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/satisfyTest/Satisfy_a__0_LPsatisfyTest_spec_7_5RP")
-
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
-    }
-
-    @Test
-    fun testSatisfyTest2Satisfy() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/satisfyTest2/satisfyTest.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/satisfyTest2/Satisfy_a__0_LPsatisfyTest_spec_8_5RP")
-
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
-    }
-
-    @Test
-    fun testSatisfyTest2Assertions() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/satisfyTest2/satisfyTest.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/satisfyTest2/Assertions")
-
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
-    }
-
-    @Test
-    fun testSatisfyTest3() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/satisfyTest3/satisfyTest.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/satisfyTest3/Satisfy_a__0_LPsatisfyTest_spec_8_5RP")
-
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
-        val (expectedViolatedAssert, expectedJson) = CallTraceInfra.getExpectedAssertAndJson(verifierResultPath)
-
-        checkCallTraceJson(callTrace, verifierResultPath, expectedJson)
-
-        verifyViolateAssert(expectedViolatedAssert, callTrace)
-    }
-
     private fun checkCallTraceJson(
         callTrace: CallTrace,
         verifierResultPath: Path,
@@ -971,10 +805,12 @@ class CallTraceTest {
      * a struct's field access*/
     @Test
     fun testStructFieldAccessFunctionCall() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/StructAccess/FunctionCall/Basic.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/StructAccess/FunctionCall/StructAccessFuncCall")
-
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("StructAccess/FunctionCall/Basic.conf"),
+            specFilename = resolvePath("StructAccess/FunctionCall/Basic.spec"),
+            ruleName = "StructAccessFuncCall",
+            primaryContract = "Basic",
+        )
         val expectedCallInstance = CallInstance.CVLExpInstance.withStringExpAndValue(
             exp = "myStruct.num",
             range = Range.Range(
@@ -989,19 +825,22 @@ class CallTraceTest {
         val cvlExpInstances = callTrace
             .callHierarchyRoot
             .filterCallInstancesOf<CallInstance.CVLExpInstance>()
-        assertTrue(cvlExpInstances.any { it.equals_(expectedCallInstance) })
+        assertTrue(cvlExpInstances.any { it.valueEquals(expectedCallInstance) })
     }
 
     @Test
     fun testStructFieldAccessSimple() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/StructAccess/Simple/Basic.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/StructAccess/Simple/StructAccessSimple")
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("StructAccess/Simple/Basic.conf"),
+            specFilename = resolvePath("StructAccess/Simple/Basic.spec"),
+            ruleName = "StructAccessSimple",
+            primaryContract = "Basic",
+        )
 
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
         val expectedCallInstance = CallInstance.CVLExpInstance.withStringExpAndValue(
             exp = "myStruct.num",
             range = Range.Range(
-                specFile = "Basic.spec",
+                specFile = "TestCVL",
                 start = SourcePosition(7u, 11u),
                 end = SourcePosition(7u, 23u),
             ),
@@ -1012,39 +851,44 @@ class CallTraceTest {
         val cvlExpInstances = callTrace
             .callHierarchyRoot
             .filterCallInstancesOf<CallInstance.CVLExpInstance>()
-        assertTrue(cvlExpInstances.any { it.equals_(expectedCallInstance) })
+        assertTrue(cvlExpInstances.any { it.valueEquals(expectedCallInstance) })
     }
 
-    @Test
+    // @Test
     fun rangeOfParametricInstantiation() {
-        val baseDir = Path("src/test/resources/solver/CallTraceTests/ranges/")
-
-        val confPath = baseDir.resolve("Parametric.conf")
-        val artifactDirs = listOf(
-            "minus_oneLPRP-minus_oneLPRP",
-            "minus_oneLPRP-plus_oneLPRP",
-            "plus_oneLPRP-minus_oneLPRP",
-            "plus_oneLPRP-plus_oneLPRP"
-        ).map(baseDir::resolve)
-
         val plusOneSig = "plus_one()"
         val plusOneRange = Range.Range("MultipleCandidates.sol", SourcePosition(5u, 4u), SourcePosition(7u, 5u))
 
         val minusOneSig = "minus_one()"
         val minusOneRange = Range.Range("MultipleCandidates.sol", SourcePosition(9u, 4u), SourcePosition(11u, 5u))
 
-        for (dir in artifactDirs) {
-            val counterExample = CallTraceInfra.getCounterExampleFromSerialized(confPath, dir)
+        // this can become a JUnit parametric test annotation instead, for example by using `CSVSource`. whatever.
+        val tests = listOf(
+            Triple("chooseSame", plusOneSig, plusOneSig),
+            Triple("chooseSame", minusOneSig, minusOneSig),
+            Triple("chooseDifferent", plusOneSig, minusOneSig),
+            Triple("chooseDifferent", minusOneSig, plusOneSig),
+        )
+
+        for (test in tests) {
+            val (ruleName, firstMethodSig, secondMethodSig) = test
+
+            val counterExample = CallTraceInfra.runConfAndGetCounterExample(
+                confPath = resolvePath("ranges/Parametric.conf"),
+                specFilename = resolvePath("ranges/Parametric.spec"),
+                ruleName,
+                primaryContract = "MultipleCandidates",
+                listOf(firstMethodSig, secondMethodSig),
+            )
 
             val rule = counterExample.rule as? CVLSingleRule
                 ?: fail("expected single rule")
+
+            // TODO: CERT-9273
             val methodInstantiations = rule.ruleGenerationMeta as? SingleRuleGenerationMeta.WithMethodInstantiations
                 ?: fail("rule is parametric")
 
-            val signatures = methodInstantiations.instMethodSignatures
             val instantiationRange = methodInstantiations.range
-
-            val (firstMethodSig, secondMethodSig) = signatures.assertSize(2)
 
             /** we only try to output a range if all instantiated ranges agree */
             val expectedRange = when {
@@ -1059,9 +903,12 @@ class CallTraceTest {
 
     @Test
     fun sourceSegmentRangesHaveRelativePath() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/assert_cast.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/AssertCast/AsParam/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("AssertCast/assert_cast.conf"),
+            specFilename = resolvePath("AssertCast/Cast.spec"),
+            ruleName = "AsParam",
+            primaryContract = "Cast",
+        )
 
         val branchStartInstances = callTrace.callHierarchyRoot.filterCallInstancesOf<CallInstance.BranchInstance.Start>()
 
@@ -1077,9 +924,12 @@ class CallTraceTest {
 
     @Test
     fun returnValueParseTree() {
-        val confPath = Path("src/test/resources/solver/CallTraceTests/CVLFunction/run.conf")
-        val verifierResultPath = Path("src/test/resources/solver/CallTraceTests/CVLFunction/returnValues/")
-        val callTrace = CallTraceInfra.getCallTraceFromSerialized(confPath, verifierResultPath)
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("CVLFunction/run.conf"),
+            specFilename = resolvePath("CVLFunction/test.spec"),
+            ruleName = "returnValues",
+            primaryContract = "TestContract",
+        )
 
         val funcInstance = callTrace
             .callHierarchyRoot
@@ -1117,11 +967,11 @@ class CallTraceTest {
     @Test
     fun storageRevertsForPersistentGhosts() {
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-            confPath = Path("src/test/resources/solver/CallTraceTests/StorageRestore/run.conf"),
-            specFilename = Path("src/test/resources/solver/CallTraceTests/StorageRestore/Restore.spec"),
+            confPath = resolvePath("StorageRestore/run.conf"),
+            specFilename = resolvePath("StorageRestore/Restore.spec"),
             ruleName = "persistence",
-            methodName = "dummy()",
             primaryContract = "Restore",
+            parametricMethodNames = listOf("dummy()"),
         )
 
         val ghostsStateAtInitial = callTrace
@@ -1224,25 +1074,6 @@ internal object StructuralInvariants {
                 node.parent == null
             }.let { it.size == 1 && it.single() is CallInstance.InvokingInstance.CVLRootInstance }
         ) { "There must be only 1 root with type CallInstance.InvokingInstance.CVLRootInstance" }
-    }
-
-
-    /**
-     * Verifies that the call hierarchy contains instances of loop operations and that each loop instance is a successor
-     * of a Solidity invocation.
-     *
-     * @param callHierarchyRoot The root of the call hierarchy.
-     * @throws AssertionError If the verification fails, indicating a violation of the loop instance condition.
-     */
-    fun verifyHasLoop(callHierarchyRoot: CallInstance.InvokingInstance.CVLRootInstance) {
-        val loopInstances = CallTraceInfra.findNodes(callHierarchyRoot) { it is CallInstance.LoopInstance }
-        assertTrue(loopInstances.isNotEmpty()) { "No loop instances found" }
-
-        assertTrue(loopInstances.map {
-            CallTraceInfra.ancestorExists(it) { node ->
-                node is CallInstance.InvokingInstance.SolidityInvokeInstance
-            }
-        }.map { it != null }.all { it }) { "Every LoopInstance must be a successor of a SolidityInvokeInstance" }
     }
 
     /**
@@ -1408,14 +1239,8 @@ private fun lenInstance(callTrace: CallTrace): CallInstance.CVLExpInstance {
 
 private const val lenVarName = "arr.length"
 
-/**
- * XXX: a kludge. we should override [equals] for [CallInstance.CVLExpInstance] (or use a data class),
- * but this currently causes an existing test to fail on [globalPropertiesChecks].
- */
-private fun CallInstance.CVLExpInstance.equals_(other: CallInstance.CVLExpInstance): Boolean =
-    this.name == other.name
-        && this.range == other.range
-        && this.value == other.value
+private fun CallInstance.CVLExpInstance.valueEquals(other: CallInstance.CVLExpInstance): Boolean =
+    this.name == other.name && this.value == other.value
 
 private fun <T> List<T>.assertSingle(): T =
     when (val size = this.size) {

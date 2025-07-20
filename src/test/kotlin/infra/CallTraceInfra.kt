@@ -122,8 +122,8 @@ object CallTraceInfra {
         confPath: Path,
         specFilename: Path,
         ruleName: String,
-        methodName: String?,
         primaryContract: String,
+        parametricMethodNames: List<String> = emptyList(),
     ): RuleCheckInfo.WithExamplesData.CounterExample {
         val cvlText = specFilename.readText()
 
@@ -147,16 +147,38 @@ object CallTraceInfra {
             }
             val (scene, iCheckableTACS) = flow.transformResultsToTACs(pqAndS)
 
-            val checkableTAC =
-                iCheckableTACS
+            val relevantTACs = iCheckableTACS.filter { it.subRule.ruleIdentifier.root().displayName == ruleName }
+            check(!iCheckableTACS.isEmpty()) { "rule `$ruleName` not found in resulting TACs, does this rule exist?" }
+
+            val checkableTAC = if (parametricMethodNames.isEmpty()) {
+                relevantTACs
+                    .singleOrNull()
+                    ?: error("got unexpected number of TACs (${relevantTACs.size}) for rule: $ruleName. " +
+                            "maybe you need to specify method instantiation names?")
+            } else {
+                relevantTACs
+                    .filter { it.methodParameterInstantiation.size == parametricMethodNames.size }
                     .find {
-                        val ruleIdentifier = it.subRule.ruleIdentifier
-                        val ruleIdMatches = ruleIdentifier.root().displayName == ruleName
-                        (methodName == null && ruleIdMatches) ||
-                            (ruleIdMatches &&
-                                it.methodParameterInstantiation.entries.singleOrNull()?.value?.toString() == methodName)
+                        /**
+                         * XXX: this relies on
+                         * 1. the method parameters being inserted to the
+                         *    underlying map in declaration order
+                         * 2. the underlying map being ordered
+                         *
+                         * while ordered maps are the default with kotlin maps,
+                         * neither of these are enforced, and so this may break.
+                         * instead, we should change [vc.data.MethodParameterInstantiation]
+                         * to use lists of pairs instead of sets, since instantiations are ordered.
+                         */
+                        val instMethods = it.methodParameterInstantiation.values
+
+                        instMethods.zip(parametricMethodNames).all { (method, expectedName) -> method.toString() == expectedName }
                     }
-                    ?: error("failed to find tac named \"$ruleName\", got: ${iCheckableTACS.map { it.subRule.ruleIdentifier.displayName }}")
+                    ?: error(
+                        "no exact match for parametric method instantiations. " +
+                                "double-check how many methods are expected here, and that the names are exactly right"
+                    )
+            }
 
             val rule = checkableTAC.subRule
 
@@ -193,10 +215,10 @@ object CallTraceInfra {
         confPath: Path,
         specFilename: Path,
         ruleName: String,
-        methodName: String?,
         primaryContract: String,
+        parametricMethodNames: List<String> = emptyList(),
     ): CallTrace {
-        val counterExample = runConfAndGetCounterExample(confPath, specFilename, ruleName, methodName, primaryContract)
+        val counterExample = runConfAndGetCounterExample(confPath, specFilename, ruleName, primaryContract, parametricMethodNames)
         return counterExample.callTrace ?: error("failed to get call trace, got: $counterExample")
     }
 

@@ -3424,10 +3424,3 @@ fun main() {
         writer.write(str)
     }
 }
-
-@Suppress("ForbiddenMethodCall")
-private fun String.splitOnce(delimiter: String): Pair<String, String>? =
-    this
-        .split(delimiter, limit = 2)
-        .takeIf { it.size > 1 }
-        ?.let { it[0] to it[1] }

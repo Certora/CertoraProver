@@ -1228,6 +1228,20 @@ infix fun <T: Comparable<T>> ClosedRange<T>.subsumes(that: ClosedRange<T>): Bool
 fun <K, V> Stream<Pair<K, V>>.toMap(): Map<K, V> = this.collect(Collectors.toMap({it.first}, {it.second}))
 
 /**
+ * tries to split [this] at the first occurence of [delimiter], and returns the string before and after
+ * on success, or null on failure. neither of the returned strings will contain [delimiter].
+ */
+fun String.splitOnce(delimiter: String): Pair<String, String>? {
+    @Suppress("ForbiddenMethodCall")
+    val split = this.split(delimiter, limit = 2)
+
+    val before = split[0]
+    val after = split.getOrNull(1) ?: return null
+
+    return Pair(before, after)
+}
+
+/**
     Returns a sequence of elements from this sequence, skipping adjacent duplicates.
 
     For example, `sequnenceOf(1, 1, 2, 2, 3, 3, 3, 2).skipAdjacentDuplicates()` yields `(1, 2, 3, 2)`.
