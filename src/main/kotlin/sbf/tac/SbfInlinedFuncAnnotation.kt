@@ -88,10 +88,9 @@ data class SbfFuncArgInfo(
 ): HasKSerializable, AmbiSerializable
 
 /**
- * @property name the name of the inlined function
+ * @property name the  name of the inlined function
  * @property id identifies this inlining instance (to match with the corresponding End annotation
  * @property args a guess as to the variables used as arguments.
- * @property mockFor is the function that has been mocked by this one, if any.
  */
 @KSerializable
 @Treapable
@@ -100,7 +99,6 @@ data class SbfInlinedFuncStartAnnotation(
     val mangledName: String,
     val id: Int,
     val args: List<Pair<TACSymbol.Var, SbfFuncArgInfo>>,
-    val mockFor: String?
 ): HasKSerializable, AmbiSerializable,
    TransformableVarEntityWithSupport<SbfInlinedFuncStartAnnotation> {
     override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): SbfInlinedFuncStartAnnotation {

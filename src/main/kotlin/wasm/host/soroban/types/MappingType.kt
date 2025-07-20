@@ -19,10 +19,13 @@ package wasm.host.soroban.types
 
 import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
+import datastructures.stdcollections.*
 import tac.generation.*
 import tac.Tag
 import utils.*
 import vc.data.*
+import vc.data.tacexprutil.*
+import wasm.host.soroban.*
 
 /**
     Base implementation of all types which map from keys to values.  Mappings are immutable.
@@ -96,11 +99,6 @@ abstract class MappingType : ObjectType() {
         TACExprFactUntyped {
             select(mappings.asSym(), handle.asSym(), key)
         }
-
-    fun moveValue(dest: TACSymbol.Var, handle: TACSymbol, key: TACExpr) =
-        mergeMany(
-            assign(dest) { getValue(handle, key) },
-        )
 
     /**
         Gets the size of the mapping identified by [mapping], storing the result in [dest].

@@ -77,21 +77,11 @@ internal class SolanaCallTraceGenerator(
 
     private fun handleSolanaFunctionStart(annot: SbfInlinedFuncStartAnnotation): HandleCmdResult {
         val range = DebugInfoReader.findFunctionRangeInSourcesDir(annot.mangledName)
-        val name = "${annot.name}(...)${
-            if (annot.mockFor != null) {
-                " [mock for ${annot.mockFor}]"
-            } else {
-                ""
-            }
-        }"
         val newInstance = CallInstance.InvokingInstance.SolanaFunctionInstance(
-            name = name,
+            name = "${annot.name}(...)",
             range = range,
             callIndex = annot.id
         )
-        if (annot.mockFor != null) {
-            newInstance.status = CallEndStatus.SUMMARIZED
-        }
         callTracePush(newInstance)
         return HandleCmdResult.Continue
     }

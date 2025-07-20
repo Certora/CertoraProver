@@ -128,8 +128,6 @@ object TACProgramCombiners {
         rootId = rootId,
         cmdsWithDecls = this
     )
-
-    fun <T: TACCmd> List<CommandWithRequiredDecls<T>>.flatten() = CommandWithRequiredDecls.mergeMany(this)
 }
 
 /** Another apt name would be "sequentialComposition" (for [CoreTACProgram]s) */

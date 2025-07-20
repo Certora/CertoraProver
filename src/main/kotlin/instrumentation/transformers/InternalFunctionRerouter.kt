@@ -59,9 +59,9 @@ import utils.*
 import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
 import vc.data.TACProgramCombiners.andThen
-import vc.data.TACProgramCombiners.flatten
 import vc.data.TACProgramCombiners.toCore
 import vc.data.tacexprutil.ExprUnfolder
+import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.flatten
 import java.math.BigInteger
 
 /**

@@ -22,8 +22,6 @@ import net.jqwik.api.constraints.*
 import net.jqwik.kotlin.api.*
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Assertions.assertTrue
-import utils.*
 import wasm.*
 import wasm.host.soroban.SorobanImport.Buf
 import wasm.host.soroban.SorobanImport.IntType

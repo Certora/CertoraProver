@@ -40,7 +40,6 @@ import tac.*
 import vc.data.tacexprutil.getFreeVars
 import java.util.concurrent.atomic.AtomicInteger
 import vc.data.TACProgramCombiners.andThen
-import vc.data.TACProgramCombiners.flatten
 import verifier.equivalence.DefiniteBufferConstructionAnalysis
 import verifier.equivalence.summarization.CommonPureInternalFunction
 import verifier.equivalence.tracing.BufferTraceInstrumentation.ContextSymbols.Companion.lift
@@ -501,6 +500,8 @@ class BufferTraceInstrumentation private constructor(
                     rhs = TACExprFactoryExtensions.build()
                 ), this)
         }
+
+        fun List<CommandWithRequiredDecls<TACCmd.Simple>>.flatten() = CommandWithRequiredDecls.mergeMany(this)
 
 
         context(TACExprFact)

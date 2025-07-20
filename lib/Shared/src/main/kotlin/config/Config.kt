@@ -3378,11 +3378,11 @@ object Config {
 
 
     val SorobanConcreteObjectVals = object : ConfigType.BooleanCmdLine(
-        true,
+        false,
         Option(
             "useConcreteObjectVals",
             true,
-            "Enable optimization for Soroban handle allocations"
+            "Enable (EXPERIMENTAL) optimization for Soroban handle allocations"
         )
     ) {}
 

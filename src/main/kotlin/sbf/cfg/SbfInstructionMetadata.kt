@@ -64,8 +64,6 @@ object SbfMeta {
     val PROMOTED_OVERFLOW_CHECK = MetaKey<Condition>("promoted_overflow_check")
     // The MOV instruction sets the address of a global variable to a register
     val SET_GLOBAL = MetaKey<String>("set_global")
-    // If a call to a function is mocking a call to another function, this is the original function
-    val MOCK_FOR = MetaKey<String>("mock_for")
 
     // These keys have empty strings as values. The values are irrelevant
     val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<String>("hint_optimized_wide_store")

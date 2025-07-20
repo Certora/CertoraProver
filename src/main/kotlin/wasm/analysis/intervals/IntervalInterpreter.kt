@@ -24,16 +24,11 @@ import analysis.LTACCmdView
 import analysis.TACCommandGraph
 import analysis.numeric.*
 import com.certora.collect.*
-import evm.MASK_SIZE
 import utils.*
 import vc.data.TACCmd
 import vc.data.TACExpr
-import vc.data.TACKeyword
-import vc.data.TACMeta
 import vc.data.TACSummary
 import vc.data.TACSymbol
-import vc.data.asTACSymbol
-import wasm.host.soroban.Val
 import java.math.BigInteger
 
 typealias State = TreapMap<TACSymbol.Var, SimpleQualifiedInt>
@@ -135,45 +130,6 @@ class IntervalExpressionInterpreter: NonRelationalExpressionInterpreter<State, S
         )
 
     override fun liftConstant(value: BigInteger) = SimpleQualifiedInt(IntValue.Constant(value), setOf())
-
-    // Override to handle wasm-specific expressions: in particular
-    // soroban vecs/maps store Vals, which are 64 bit values, which we can
-    // use as an invariant here.
-    override fun stepExpression(
-        lhs: TACSymbol.Var,
-        rhs: TACExpr,
-        toStep: State,
-        input: State,
-        whole: State,
-        l: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>
-    ): State {
-        return super.stepExpression(lhs, rhs, toStep, input, whole, l).let { s ->
-           when (rhs) {
-               is TACExpr.Select -> {
-                   val selInfo = rhs.extractMultiDimSelectInfo()
-                   if (selInfo.base !is TACExpr.Sym.Var || !selInfo.base.s.meta.containsKey(TACMeta.SOROBAN_ENV)) {
-                      return s
-                   }
-                   when (selInfo.base.s) {
-                       // Our host implementation guarantees
-                       // these only store vals (which are 64 bits)
-                       TACKeyword.SOROBAN_VEC_MAPPINGS.toVar(),
-                       TACKeyword.SOROBAN_MAP_MAPPINGS.toVar() -> {
-                           val v = IntValue(BigInteger.ZERO, MASK_SIZE(8 * Val.sizeInBytes))
-                           s.updateEntry(lhs, v) { old, n ->
-                               old?.copy(x = old.x.withLowerBound(n.x.lb).withUpperBound(n.x.ub))
-                                   ?: SimpleQualifiedInt(n)
-                           }
-                       }
-
-                       else -> s
-                   }
-               }
-
-               else -> s
-           }
-        }
-    }
 
     override fun interp(
         o1: TACSymbol,
@@ -372,25 +328,6 @@ class IntervalInterpreter(
             override fun stepCommand(l: LTACCmd, toStep: State, input: State, whole: State): State {
                 return super.stepCommand(l, toStep, input, whole).let { s ->
                     when (val cmd = l.cmd) {
-                        is TACCmd.Simple.SummaryCmd -> {
-                            when (val summ = cmd.summ) {
-                                is Val.CheckValid -> {
-                                    val result = SimpleQualifiedInt(
-                                        x = IntValue(BigInteger.ZERO, BigInteger.ONE),
-                                        qual = setOf(
-                                            SimpleIntQualifier.Condition(
-                                                op1 = summ.v,
-                                                condition = ConditionQualifier.Condition.LT,
-                                                op2 = BigInteger.TWO.pow(8*Val.sizeInBytes).asTACSymbol(),
-
-                                            )
-                                        )
-                                    )
-                                    return s + (summ.out to result)
-                                }
-                            }
-                            return s
-                        }
                         is TACCmd.Simple.AssumeCmd -> {
                             if (cmd.cond !is TACSymbol.Var) {
                                 return s

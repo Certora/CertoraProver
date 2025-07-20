@@ -32,21 +32,17 @@ import sbf.support.demangle
  * to a list of CFGs.
  **/
 fun sbfProgramToSbfCfgs(prog: SbfProgram, inlinerConfig: InlinerConfig, memSumaries: MemorySummaries): SbfCallGraph {
-    val newEntriesMap = mutableMapOf<String, ElfAddress>()
+    val newEntriesMap = mutableMapOf<String,ElfAddress>()
     newEntriesMap.putAll(prog.entriesMap)
     prog.funcMan.getAllFunctions().filter { isMangledMockFn(it.name) }.forEach {
         val start = it.entryPoint
-        check(start != null) { "Found mock ${it.name} without start address" }
+        check(start != null) {"Found mock ${it.name} without start address"}
         newEntriesMap[it.name] = start
     }
     return sbfProgramWithMocksToSbfCfgs(prog.copy(entriesMap = newEntriesMap), inlinerConfig, memSumaries)
 }
 
-private fun sbfProgramWithMocksToSbfCfgs(
-    prog: SbfProgram,
-    inlinerConfig: InlinerConfig,
-    memSummaries: MemorySummaries
-): SbfCallGraph {
+private fun sbfProgramWithMocksToSbfCfgs(prog: SbfProgram, inlinerConfig: InlinerConfig, memSummaries: MemorySummaries): SbfCallGraph {
     /**
      * We first build a big monolithic CFG representing the whole sbf program.
      * Since an sbf program can have multiple functions,
@@ -56,7 +52,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
     val monoCFG = MutableSbfCFG("mono_cfg")
 
     val functions = mutableSetOf<SbfFunction>()
-    functions.addAll(prog.entriesMap.map { SbfFunction(it.key, it.value) })
+    functions.addAll(prog.entriesMap.map { SbfFunction(it.key, it.value)})
 
     val targets = MutableSbfCFG.getTargets(prog)
     var curBlock: MutableSbfBasicBlock? = null
@@ -131,13 +127,11 @@ private fun sbfProgramWithMocksToSbfCfgs(
                     it.add(inst)
                     exitDominates = true
                 }
-
                 is SbfInstruction.Jump.UnconditionalJump -> {
                     val succBlock = monoCFG.getOrInsertBlock(inst.target)
                     it.addSucc(succBlock)
                     it.add(inst)
                 }
-
                 is SbfInstruction.Jump.ConditionalJump -> {
                     if (i + 1 >= prog.program.size) {
                         throw CFGBuilderError("out-of-bounds jump instruction")
@@ -160,7 +154,6 @@ private fun sbfProgramWithMocksToSbfCfgs(
                         it.addSucc(falseSuccBlock)
                     }
                 }
-
                 else -> {
                     it.add(inst)
                 }
@@ -194,12 +187,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
     val roots = prog.entriesMap.map { demangler.demangle(it.key) ?: it.key }.toSet()
 
     return relink(
-        MutableSbfCallGraph(
-            demangler.get(),
-            roots,
-            prog.globalsMap,
-            preservedCFGs = CPIS_MOCK_FUNCTION_NAMES
-        ),
+        MutableSbfCallGraph(demangler.get(), roots, prog.globalsMap),
         demangler
     ).let {
         relinkAbort(it, inlinerConfig, memSummaries)
@@ -238,11 +226,10 @@ private fun relinkAbort(prog: SbfCallGraph, inlinerConfig: InlinerConfig, memSum
     }
     return MutableSbfCallGraph(
         newCFGs,
-        prog.getCallGraphRoots().map { it.getName() }.toSet(),
+        prog.getCallGraphRoots().map {it.getName()}.toSet(),
         prog.getGlobals(),
         check = false,
-        preservedCFGs = prog.getPreservedCFGs()
-    )
+        preservedCFGs = prog.getPreservedCFGs())
 }
 
 private fun relinkAbort(cfg: MutableSbfCFG, inlinerConfig: InlinerConfig, memSummaries: MemorySummaries) {
@@ -278,10 +265,8 @@ private fun relinkAbort(cfg: MutableSbfCFG, inlinerConfig: InlinerConfig, memSum
 private class Demangler(private val cfgs: List<MutableSbfCFG>) {
     private val demangledSep = "_"
     private val demangledCFGs = ArrayList<MutableSbfCFG>(cfgs.size)
-
     // Map from mangled to demangled names
     private val demanglerMap: MutableMap<String, String> = mutableMapOf()
-
     // Functions with generic types (each instantiation produces a different hash) or when two
     // copies of the same library is used by mistake.
     private val nonUniqueNames = mutableSetOf<String>()
@@ -294,7 +279,7 @@ private class Demangler(private val cfgs: List<MutableSbfCFG>) {
 
     fun isUnique(name: String) = !nonUniqueNames.contains(name)
 
-    fun demangle(name: String): String? = demanglerMap[name]
+    fun demangle(name:String): String? = demanglerMap[name]
 
     /**
      *  Make [inMap] an injective function. Given `inMap`:
@@ -457,7 +442,7 @@ private fun isMockFn(name: String, demangler: Demangler): Boolean {
 }
 
 private fun getFunctionToBeMocked(name: String, demangler: Demangler): String {
-    check(isMockFn(name, demangler)) { "precondition of getFunctionToBeMocked failed" }
+    check(isMockFn(name, demangler)) {"precondition of getFunctionToBeMocked failed"}
     return name.replace("$demangledMockPrefix::", "")
 }
 

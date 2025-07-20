@@ -21,7 +21,7 @@ import vc.data.TACSymbol
 import java.math.BigInteger
 
 sealed class PathInformation<out Q> {
-    sealed interface NumericRelation {
+    interface NumericRelation {
         val sym: TACSymbol.Var?
         val num: BigInteger?
     }

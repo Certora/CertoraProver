@@ -142,13 +142,9 @@ sealed class IntType : ObjectType() {
             mergeMany(
                 new(obj) { v.asSym() },
                 assign(dest) {
-                    // This looks redundant since we will be writing only 64 bits anyway,
-                    // but it is useful because the result of the small encoding
-                    // has obvious (to the interval analysis, etc) tight bounds
-                    val toRange = v.asSym() mod (BigInteger.TWO.pow(8*(Val.sizeInBytes) - Val.TAG_BITS)).asTACExpr
                     ite(
                         Val.fitsInSmallInt(v.asSym(), smallTag),
-                        Val.encodeSmallInt(toRange, smallTag),
+                        Val.encodeSmallInt(v.asSym(), smallTag),
                         obj.asSym()
                     )
                 }

@@ -205,19 +205,11 @@ private class Inliner(val entry: String,
 
         val callId = Allocator.getFreshId(Allocator.Id.INTERNAL_FUNC)
         check(callId >= 0) {"expected non-negative call id"}
-        val mockFor = call.metaData.getVal(SbfMeta.MOCK_FOR)
         val metaData = call.metaData.plus(
             SbfMeta.CALL_ID to callId.toULong()).plus(
             SbfMeta.INLINED_FUNCTION_NAME to calleeCFG.getName()).plus(
-            SbfMeta.INLINED_FUNCTION_SIZE to numCalleeInsts
-            ).let { md ->
-                // Transfer the CPI mock for as well.
-                if (mockFor != null) {
-                    md.plus(SbfMeta.MOCK_FOR to mockFor)
-                } else {
-                    md
-                }
-            }
+                SbfMeta.INLINED_FUNCTION_SIZE to numCalleeInsts
+            )
 
         val saveRegistersInst = SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData)
         val restoreRegistersInst = SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name, metaData = metaData)

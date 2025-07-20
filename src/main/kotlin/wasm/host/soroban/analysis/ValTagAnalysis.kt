@@ -68,7 +68,10 @@ class ValTagAnalysis private constructor(val graph: TACCommandGraph) {
         }
 
     private fun stateAt(where: CmdPointer): ValTagDomain? {
-        var state = inState[where.block] ?: return null
+        if (where.block !in inState) {
+            throw IllegalArgumentException("Block for $where not in state map")
+        }
+        var state = inState[where.block]!!
         val block = graph.elab(where.block)
         for (cmd in block.commands) {
             if (cmd.ptr == where) {

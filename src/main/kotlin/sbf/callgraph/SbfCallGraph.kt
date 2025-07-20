@@ -102,7 +102,7 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
             preservedCFGs.filter { cfgName ->
                 val keep = cfgName in callGraph
                 if (!keep) {
-                    sbfLogger.info { "Preserved CFG `$cfgName` not found in call graph: proceeding without" }
+                    sbfLogger.warn { "Preserved CFG `$cfgName` not found in call graph: proceeding without" }
                 }
                 keep
             }.toSet()
