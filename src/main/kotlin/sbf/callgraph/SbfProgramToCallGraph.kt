@@ -245,7 +245,9 @@ private fun relinkAbort(prog: SbfCallGraph, inlinerConfig: InlinerConfig, memSum
     )
 }
 
-private fun relinkAbort(cfg: MutableSbfCFG, inlinerConfig: InlinerConfig, memSummaries: MemorySummaries) {
+private fun relinkAbort(cfg: MutableSbfCFG,
+                        inlinerConfig: InlinerConfig,
+                        memSummaries: MemorySummaries) {
     var changed = false
     for (b in cfg.getMutableBlocks().values) {
         for (locInst in b.getLocatedInstructions()) {
@@ -253,7 +255,7 @@ private fun relinkAbort(cfg: MutableSbfCFG, inlinerConfig: InlinerConfig, memSum
             if (inst is SbfInstruction.Call) {
                 val fname = inst.name
                 if (inlinerConfig.getInlineSpec(fname) is InlineSpec.DoInline) {
-                    continue
+                    sbfLogger.warn {"$fname will not be inlined because it is marked as an abort function"}
                 }
                 if (memSummaries.getSummary(fname)?.isAbort == true) {
                     val abortInst = SolanaFunction.toCallInst(
