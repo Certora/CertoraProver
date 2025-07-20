@@ -19,6 +19,9 @@
 package instrumentation.transformers
 
 import allocator.Allocator
+import allocator.GenerateRemapper
+import allocator.GeneratedBy
+import allocator.SuppressRemapWarning
 import analysis.*
 import analysis.alloc.lower32BitMask
 import analysis.icfg.*
@@ -27,6 +30,10 @@ import analysis.ip.InternalArgSort
 import analysis.ip.InternalFuncArg
 import analysis.ip.InternalFuncRet
 import analysis.ip.InternalFunctionStartInfo
+import analysis.pta.ABICodeFinder
+import analysis.pta.HeapType
+import analysis.pta.abi.*
+import analysis.pta.abi.DecoderAnalysis.Companion.toHeapType
 import com.certora.collect.*
 import kotlinx.serialization.UseSerializers
 import datastructures.stdcollections.*
@@ -46,6 +53,7 @@ import spec.cvlast.typedescriptors.EVMLocationSpecifier
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.EVMTypeDescriptor.Companion.getDataLayout
 import spec.cvlast.typedescriptors.TerminalAction.Companion.sizeAsEncodedMember
+import spec.cvlast.typedescriptors.VMValueTypeDescriptor
 import tac.*
 import utils.*
 import vc.data.*
@@ -84,19 +92,25 @@ object InternalFunctionRerouter {
          * [slots] is used to record that offsets (the keys) in the calldata buffer
          * are populated by certain symbols (the values). This is ultimately used to pass storage
          * pointers without going through memory (which makes the storage analysis sad).
+         * [abiOutput] is expected to be populated with the [ABIValue] being encoded into
+         * absolute offset [baseOffset]. NB however that [abiOutput] expects the offset within the encoding,
+         * and thus the keys are expected to be [baseOffset] - [DEFAULT_SIGHASH_SIZE].
          *
          * [ProgramWithNext] returns the program which encodes the value, along with the new position of the next pointer.
          */
         fun encode(
             baseOffset: BigInteger,
             o: EncodingContext,
-            slots: MutableMap<BigInteger, TACSymbol>
+            slots: MutableMap<BigInteger, TACSymbol>,
+            abiOutput: MutableMap<BigInteger, ABIValue>
         ) : ProgramWithNext
     }
 
     private val wordSizeSym = EVM_WORD_SIZE.asTACSymbol()
 
     private fun String.tmp(t: Tag = Tag.Bit256) = TACSymbol.Var(this, t).toUnique("!")
+
+    private class ABIValueSerializer : JavaBlobSerializer<ABIValue>()
 
     /**
      * As noted in the class opener, this transformation runs during preprocessing. It is unknown whether the other
@@ -108,6 +122,7 @@ object InternalFunctionRerouter {
      * during that materialization.
      */
     @KSerializable
+    @GenerateRemapper
     data class RerouteToMaterialize(
         /**
          * The callee contract. At the time this class is created, we do not yet have a scene, so we keep the string
@@ -131,11 +146,28 @@ object InternalFunctionRerouter {
          * The translated into [ScratchByteRange] to [DecomposedCallInputArg], which lets us pass scalarized storage references
          */
         val offsetToSlot: Map<BigInteger, TACSymbol>,
-    ) : TransformableVarEntityWithSupport<RerouteToMaterialize>, AmbiSerializable {
+
+        /**
+         * The ID of the ABI encoding which corresponds to the serialization of the arguments to the reroute summary.
+         *
+         * NB That this encoding ID only appears in the [SerializationRangeMarker], there is no [ABIEncodeComplete]
+         * annotation generated. This ommission is because the [ABIEncodeComplete] would only be used to associate the call
+         * summary with a particular encode, however, we know a priori which call summary should be associated to which
+         * encoding information because we're doing the generation.
+         */
+        @GeneratedBy(Allocator.Id.ABI) val encodingId: Int,
+
+        /**
+         * The "staged" version of the [ABIArgumentEncoding.encodedArgs], used when materializing this into a [CallSummary].
+         */
+        val abiValues: Map<BigInteger, @KSerializable(with = ABIValueSerializer::class) ABIValue>
+    ) : TransformableVarEntityWithSupport<RerouteToMaterialize>, AmbiSerializable, RemapperEntity<RerouteToMaterialize> {
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): RerouteToMaterialize {
             return RerouteToMaterialize(
                 hostContract, sighash, f(inputBase), f(inputSize), offsetToSlot.mapValues {
                     (it.value as? TACSymbol.Var)?.let(f) ?: it.value
+                }, encodingId, abiValues.mapValues {
+                    it.value.transformSymbols(f)
                 }
             )
         }
@@ -1500,13 +1532,17 @@ object InternalFunctionRerouter {
     /**
      * The result of encoding: the program to effect the program [encodingProgram],
      * the [buffer] into which the encoding was performed, and its [bufferSize], as well
-     * as a recording of static offsets within said buffer to immediate arguments (in [offsetToSlot])
+     * as a recording of static offsets within said buffer to immediate arguments (in [offsetToSlot]).
+     *
+     * In addition, the ABI encoding information for offsets within the buffer are encoded into [abiEncodings].
      */
+    @SuppressRemapWarning
     private data class EncodingResult(
         val encodingProgram: CoreTACProgram,
         val buffer: TACSymbol.Var,
         val bufferSize: TACSymbol.Var,
-        val offsetToSlot: Map<BigInteger, TACSymbol>
+        val offsetToSlot: Map<BigInteger, TACSymbol>,
+        val abiEncodings: Map<BigInteger, ABIValue>
     )
 
     /**
@@ -1623,8 +1659,6 @@ object InternalFunctionRerouter {
                 var argTyIt = 0
                 var argSymIt = 0
 
-                val offsetToStorageSlot = mutableMapOf<BigInteger, TACSymbol>()
-
                 /**
                  * Because calldata arguments are passed with two values (ugh) figuring out which symbols in [args]
                  * correspond to which *logical* argument of [summarizedSig] is rather annoying. Hence this loop:
@@ -1653,9 +1687,22 @@ object InternalFunctionRerouter {
                         if(argSym.sort != InternalArgSort.SCALAR) {
                             ctxt.err("Have non-scalar sort for what we think is a storage pointer: $argSym")
                         }
-                        generators[argOrd] = ArgumentEncoder { baseOffset, o, slots ->
+                        generators[argOrd] = ArgumentEncoder { baseOffset, o, slots, abiOutput ->
                             val toRet = o.write(argSym.s).toCore("writeStorage", Allocator.getNBId())
                             slots[baseOffset] = argSym.s
+                            abiOutput[baseOffset - DEFAULT_SIGHASH_SIZE] = when(argSym.s) {
+                                is TACSymbol.Const -> ABIValue.Constant(
+                                    k = argSym.s.value
+                                )
+                                is TACSymbol.Var -> {
+                                    ABIValue.Symbol(
+                                        type = HeapType.Int,
+                                        sym = ObjectPathAnalysis.ObjectRoot(argSym.s),
+                                        childEncodings = mapOf(),
+                                        partitionRelation = null
+                                    )
+                                }
+                            }
                             ProgramWithNext(toRet, o.nextPointer!!)
                         }
                         continue
@@ -1669,11 +1716,11 @@ object InternalFunctionRerouter {
                             check(ty is EVMTypeDescriptor.EVMValueArrayConverter && lenSym.sort == InternalArgSort.CALLDATA_ARRAY_LENGTH) {
                                 "signature thinks we have an array for $argOrd, but signature gives type $ty"
                             }
-                            generators[argOrd] = ArgumentEncoder { _, _, _ ->
+                            generators[argOrd] = ArgumentEncoder { _, _, _, _ ->
                                 ctxt.err("Can't actually pass through calldata yet for $argOrd")
                             }
                         } else {
-                            generators[argOrd] = ArgumentEncoder { _, _, _ ->
+                            generators[argOrd] = ArgumentEncoder { _, _, _, _ ->
                                 ctxt.err("Can't actually pass through calldata yet for $argOrd")
                             }
                         }
@@ -1685,18 +1732,32 @@ object InternalFunctionRerouter {
                     /**
                      * otherwise create a "standard" generator
                      */
-                    generators[argOrd] = ArgumentEncoder { _: BigInteger, o: EncodingContext, _ ->
+                    generators[argOrd] = ArgumentEncoder { offs: BigInteger, o: EncodingContext, slotToSymbol, abi ->
                         val layout = ty.getDataLayout().resultOrThrow {
                             CertoraInternalException(
                                 CertoraInternalErrorType.SUMMARY_INLINING,
                                 "While ${ctxt.asString}: Couldn't get layout for type $ty of $argOrd with errors ${it.joinToString(", ")}"
                             )
                         }
+                        if(ty is VMValueTypeDescriptor) {
+                            slotToSymbol[offs] = argSym.s
+                        }
                         val internal = InternalArgument(
                             baseMap = TACKeyword.MEMORY.toVar(),
                             p = argSym.s,
                             length = null
                         )
+                        abi[offs - DEFAULT_SIGHASH_SIZE] = when(argSym.s) {
+                            is TACSymbol.Const -> ABIValue.Constant(argSym.s.value)
+                            is TACSymbol.Var -> {
+                                ABIValue.Symbol(
+                                    partitionRelation = null,
+                                    childEncodings = mapOf(),
+                                    sym = ObjectPathAnalysis.ObjectRoot(argSym.s),
+                                    type = ty.toHeapType()
+                                )
+                            }
+                        }
                         parallelEncode(
                             internal, o, layout
                         )
@@ -1745,6 +1806,10 @@ object InternalFunctionRerouter {
                     "sighashSetup", Allocator.getNBId()
                 ))
 
+
+                val abiRoots = mutableMapOf<BigInteger, ABIValue>()
+                val offsetToStorageSlot = mutableMapOf<BigInteger, TACSymbol>()
+
                 var argOffset = DEFAULT_SIGHASH_SIZE
                 var encodeArgNum = 0
                 for(i in argOrdinals) {
@@ -1772,7 +1837,8 @@ object InternalFunctionRerouter {
                     val res = setup andThen gen.encode(
                         argOffset,
                         encodingContext,
-                        offsetToStorageSlot
+                        offsetToStorageSlot,
+                        abiRoots
                     )
                     encodingPrograms.add(res.prog)
                     nextPointer = res.next
@@ -1783,7 +1849,8 @@ object InternalFunctionRerouter {
                     encodingProgram = encodingPrograms.reduce(TACProgramCombiners::mergeCodes),
                     buffer = tempBuffer,
                     bufferSize = nextPointer,
-                    offsetToSlot = offsetToStorageSlot
+                    offsetToSlot = offsetToStorageSlot,
+                    abiEncodings = abiRoots
                 )
             }
 
@@ -1808,7 +1875,8 @@ object InternalFunctionRerouter {
                 summarizedSig: QualifiedMethodSignature,
                 r: SpecCallSummary.Reroute
             ) : CoreTACProgram {
-                                /**
+
+                /**
                  * We don't want this internal call to suddenly mutate the global environment. Thus, we backup the current
                  * "external call related" state variables, make the external call, and then restore said state variables.
                  */
@@ -1856,6 +1924,8 @@ object InternalFunctionRerouter {
                     whichMethod = summarizedSig,
                     where = functionStart
                 )
+                val encodingId = Allocator.getFreshId(Allocator.Id.ABI)
+
                 val enc = handleEncoding(
                     summarizedSig = summarizedSig,
                     args = args,
@@ -1872,7 +1942,9 @@ object InternalFunctionRerouter {
                             hostContract = r.target.host,
                             inputBase = enc.buffer,
                             inputSize = enc.bufferSize,
-                            offsetToSlot = enc.offsetToSlot
+                            offsetToSlot = enc.offsetToSlot,
+                            abiValues = enc.abiEncodings,
+                            encodingId = encodingId
                         )
                     ),
                     // see if the callee reverted or not.
@@ -1886,10 +1958,32 @@ object InternalFunctionRerouter {
                  */
                 val backupAndCall = backupCallState andThen havocCallState andThen callAndThenCheckRc
 
+                val encodingRangeId = Allocator.getFreshId(Allocator.Id.ABI_RANGE)
+
+                val encodeStart = CommandWithRequiredDecls(listOf(
+                    TACCmd.Simple.AnnotationCmd(
+                        ABIAnnotator.REGION_START,
+                        SerializationRangeMarker(
+                            id = encodingRangeId,
+                            sources = setOf(ABICodeFinder.Source.Encode(encodingId))
+                        )
+                    )
+                ))
+
+                val encodeComplete = CommandWithRequiredDecls(listOf(
+                    TACCmd.Simple.AnnotationCmd(
+                        ABIAnnotator.REGION_END,
+                        SerializationRangeMarker(
+                            id = encodingRangeId,
+                            sources = setOf(ABICodeFinder.Source.Encode(encodingId))
+                        )
+                    )
+                ))
+
                 /**
                  * encoding of arguments, followed by the backup and call.
                  */
-                val encodeAndCall = enc.encodingProgram andThen backupAndCall
+                val encodeAndCall = encodeStart andThen enc.encodingProgram andThen encodeComplete andThen backupAndCall
 
                 val endAnnotation = CommandWithRequiredDecls(TACCmd.Simple.AnnotationCmd(
                     SummaryStack.END_INTERNAL_SUMMARY,
@@ -2118,7 +2212,10 @@ object InternalFunctionRerouter {
                         baseVar = it.annotation.inputBase.asSym(),
                         offset = TACExpr.zeroExpr,
                         inputSizeLowerBound = null,
-                        encodedArguments = null,
+                        encodedArguments = ABIArgumentEncoding(
+                            encodeId = it.annotation.encodingId,
+                            encodedArgs = it.annotation.abiValues
+                        ),
                         rangeToDecomposedArg = it.annotation.offsetToSlot.entries.associate { (k, v) ->
                             val scratchRange = ScratchByteRange(k, k + 31.toBigInteger())
                             scratchRange to when(v) {

@@ -24,6 +24,7 @@ import analysis.CmdPointer
 import analysis.pta.ABICodeFinder
 import analysis.pta.BoundaryInformation
 import com.certora.collect.*
+import instrumentation.transformers.InternalFunctionRerouter
 import tac.MetaKey
 import tac.NBId
 import utils.*
@@ -48,7 +49,8 @@ class ABIAnnotator(
     private val completionPoints: Map<CmdPointer, TACCmd.Simple.AnnotationCmd.Annotation<*>>,
     boundaries: Collection<BoundaryInformation<ABICodeFinder.Source>>,
     private val relatedCommands: Map<CmdPointer, Set<ABICodeFinder.Source>>,
-    private val blocks: Map<NBId, Set<ABICodeFinder.Source>>
+    private val blocks: Map<NBId, Set<ABICodeFinder.Source>>,
+    private val reroutes: Map<CmdPointer, InternalFunctionRerouter.RerouteToMaterialize>
 ) {
 
     private val end : Map<CmdPointer, SerializationRangeMarker>
@@ -101,6 +103,14 @@ class ABIAnnotator(
 
         cmdPointers.forEach {
             p.replace(it, markCmd)
+        }
+        for((where, annot) in reroutes) {
+            p.replaceCommand(where, listOf(
+                TACCmd.Simple.AnnotationCmd(
+                    InternalFunctionRerouter.RerouteToMaterialize.META_KEY,
+                    annot
+                )
+            ))
         }
     }
 
