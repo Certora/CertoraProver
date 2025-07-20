@@ -20,11 +20,14 @@ package verifier
 import algorithms.getReachable1
 import algorithms.topologicalOrder
 import analysis.CmdPointer
+import analysis.LTACCmd
 import analysis.SimpleCmdsWithDecls
 import analysis.TACProgramPrinter
 import com.certora.collect.*
 import datastructures.MultiMap
+import datastructures.add
 import datastructures.stdcollections.*
+import datastructures.toMutableMultiMap
 import tac.NBId
 import utils.*
 import utils.Color.Companion.green
@@ -69,6 +72,12 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
 
     fun delete(where: CmdPointer) =
         replace(where, emptyList())
+
+    fun deleteAll(lcmds : Sequence<LTACCmd>) {
+        for (lcmd in lcmds) {
+            delete(lcmd.ptr)
+        }
+    }
 
     fun toCode(handleLeinoVars: Boolean = false) =
         toPatchingProgram(handleLeinoVars).toCode(code)
@@ -286,17 +295,28 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
     /**
      * Restricts [code] to the block graph [g] (which should be a subgraph of [code]'s graph).
      * Leaf blocks are expected to contain asserts, and whatever is after that assert is removed here.
+     * [blocks] is the set of blocks we want to keep (default is all keys of [g], but leaves may not appear in [g],
+     * and so we can specify them in [blocks]).
+     *
+     * If [assumeFalseOnDroppedLeaves] is true then blocks that should be erased but have a predecessor that shouldn't be
+     * erased are instead replaced with a block that only has an `assume false` statement. This way the branching
+     * remains intact, which is needed for overflow pattern detection in the "withRevert" case.
+     *
+     * Note that the set of blocks we will get when actually using this patching program may be smaller, because going
+     * through [toPatchingProgram] (which we must do) first calculates the set of reachable blocks.
      */
-    fun limitTACProgramTo(g: MultiMap<NBId, NBId>, blocks: Set<NBId> = g.keys) {
-
-
+    fun limitTACProgramTo(
+        g: MultiMap<NBId, NBId>,
+        blocks: Set<NBId> = g.keys,
+        assumeFalseOnDroppedLeaves: Boolean = false
+    ) {
         if (blocks.isEmpty()) {
             eraseAll()
             return
         }
         val origG = code.analysisCache.graph
 
-        for (b in blocks) {
+        fun processBlock(g: MultiMap<NBId, NBId>, b : NBId) {
             val succs = g[b].orEmpty()
             when (succs.size) {
                 0 -> {
@@ -308,9 +328,7 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
                                 (replacements[ptr] ?: listOf(cmd)).any { isNonTrivialAssert(it) }
                             } ?: error("No assert in leaf block $b, so why is it not erased?")
                         val (block, eraseFrom) = lastAssert.ptr + 1
-                        graph.lcmdSequence(block, low = eraseFrom).forEach {
-                            delete(it.ptr)
-                        }
+                        deleteAll(graph.lcmdSequence(block, low = eraseFrom))
                         setSuccs(block, treapSetOf())
                     } else {
                         setSuccs(b, treapSetOf())
@@ -321,6 +339,24 @@ class PatchingProgramWrapper(private val code: CoreTACProgram) {
                     jumpiTojump(b, succs.single())
                 }
             }
+        }
+
+        if (assumeFalseOnDroppedLeaves) {
+            val droppedLeaves = blocks.flatMapToSet { graph.succ(it) } - blocks
+            for (b in droppedLeaves) {
+                deleteAll(graph.lcmdSequence(b))
+                replacements[CmdPointer(b, 0)] = listOf(TACCmd.Simple.AssumeCmd(TACSymbol.False, "deadLeaf"))
+            }
+            val augmentedG = g.toMutableMultiMap()
+            droppedLeaves.forEach { leaf ->
+                graph.pred(leaf).forEach {
+                    augmentedG.add(it, leaf)
+                }
+            }
+            blocks.forEach { processBlock(augmentedG, it) }
+            droppedLeaves.forEach { setSuccs(it, treapSetOf()) }
+        } else {
+            blocks.forEach { processBlock(g, it) }
         }
     }
 

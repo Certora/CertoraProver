@@ -136,12 +136,12 @@ interface CTPOptimizationPass {
             }
 
         fun globalInliner(reportNum: Int) = make(
-            when (reportNum) {
+            reportType = when (reportNum) {
                 1 -> GLOBAL_INLINER1
                 2 -> GLOBAL_INLINER2
                 else -> error("Invalid report num $reportNum")
             },
-            GlobalInliner::inlineAll
+            optimize = { GlobalInliner.inlineAll(it, cutExcessBlocks = true) }
         )
 
         val overflowPatternRewriter = make(OPTIMIZE_OVERFLOW) { ctp -> OverflowPatternRewriter(ctp).go() }

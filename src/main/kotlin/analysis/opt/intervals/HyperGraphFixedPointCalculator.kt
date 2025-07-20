@@ -52,7 +52,7 @@ class HyperGraphFixedPointCalculator<V, T>(
      * would simplify them before actually saving them.
      */
     private val normalize: (V, T, T) -> T,
-    private val maxFactor: Int = 10
+    private val maxFactor: Int = 4
 ) {
     private inner class Edge(
         val vertices: List<V>,
@@ -111,7 +111,6 @@ class HyperGraphFixedPointCalculator<V, T>(
                     break
                 }
                 val e = queue.first()
-                queue -= e
                 val olds = e.vertices.map(::get)
                 val news = e.func(olds)
                 logger.trace {
@@ -130,6 +129,7 @@ class HyperGraphFixedPointCalculator<V, T>(
                         queue += vertexToEdges[v].orEmpty()
                     }
                 }
+                queue -= e
             }
             logger.debug {
                 "edgeCalculations = $count, edges = ${allEdges.size}, factor = ${count / allEdges.size}"

@@ -24,14 +24,13 @@ import config.Config
 import log.*
 import org.jetbrains.annotations.TestOnly
 import tac.Tag
-import utils.ConcurrentCounterMap
-import utils.ite
-import utils.repeatedMap
+import utils.*
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.TACExpr
 import vc.data.tacexprutil.rebuild
+import verifier.PatchingProgramWrapper
 import java.math.BigInteger
 
 
@@ -43,11 +42,11 @@ val logger = Logger(LoggerTypes.GLOBAL_INLINER)
 class GlobalInliner private constructor(val code: CoreTACProgram) {
 
     companion object {
-        fun inlineAll(code: CoreTACProgram) =
+        fun inlineAll(code: CoreTACProgram, cutExcessBlocks :Boolean = false) =
             repeatedMap(
                 times = Config.globalInliner.get(),
                 init = ConstantPropagatorAndSimplifier(code).rewrite(),
-                transform = { GlobalInliner(it).go() }
+                transform = { GlobalInliner(it).go(cutExcessBlocks) }
             )
 
         @TestOnly
@@ -59,7 +58,7 @@ class GlobalInliner private constructor(val code: CoreTACProgram) {
     }
 
     private val calculator = InliningCalculator(code)
-    private val patcher = code.toPatchingProgram()
+    private val patcher = PatchingProgramWrapper(code)
     private val stats = ConcurrentCounterMap<String>()
 
     private fun rewriteByteLongCopy(ptr: CmdPointer, cmd: TACCmd.Simple.ByteLongCopy) {
@@ -80,7 +79,7 @@ class GlobalInliner private constructor(val code: CoreTACProgram) {
                 return
             }
             stats.plusOne("byteLoad")
-            patcher.update(ptr, AssignExpCmd(cmd.lhs, newE, cmd.meta))
+            patcher.replace(ptr, AssignExpCmd(cmd.lhs, newE, cmd.meta))
         }
     }
 
@@ -116,7 +115,7 @@ class GlobalInliner private constructor(val code: CoreTACProgram) {
         val rhs = cmd.rhs
         val newRhs = rewriteExpr(ptr, rhs)
         if (newRhs != rhs) {
-            patcher.update(ptr, cmd.copy(rhs = newRhs))
+            patcher.replace(ptr, cmd.copy(rhs = newRhs))
         }
     }
 
@@ -124,7 +123,7 @@ class GlobalInliner private constructor(val code: CoreTACProgram) {
     /**
      * Entry point
      */
-    private fun go(): CoreTACProgram {
+    private fun go(cutExcessBlocks: Boolean = false): CoreTACProgram {
         calculator.go()
         logger.trace {
             calculator.debugPrinter().toString(code, "GlobalInliner")
@@ -140,7 +139,10 @@ class GlobalInliner private constructor(val code: CoreTACProgram) {
         logger.info {
             stats.toString("${javaClass.simpleName} - ${code.name}")
         }
-        return patcher.toCode(code)
+        if (cutExcessBlocks) {
+            calculator.intervals.eraseUnreachableBlocks(patcher, assumeFalseOnDroppedLeaves = true)
+        }
+        return patcher.toCode()
     }
 
 }
