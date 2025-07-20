@@ -92,6 +92,3 @@
 ;; This is important for CPI calls.
 #[type((*i32)(r1+0):num)]
 ^solana_program::program::invoke$
-
-#[type((*i32)(r1+0):num)]
-^solana_program::program::invoke_signed$

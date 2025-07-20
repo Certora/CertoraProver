@@ -20,19 +20,7 @@ package sbf.analysis.cpis
 import sbf.cfg.LocatedSbfInstruction
 import sbf.cfg.SbfCFG
 
-/** A call to a known [CpiInstruction] at a specific location in the code. */
-data class CpiCall(
-    val cfg: SbfCFG,
-    val invokeInstruction: LocatedSbfInstruction,
-    val cpiInstruction: CpiInstruction,
-    val invokeType: InvokeType
-) {
-    override fun toString(): String {
-        return "$invokeType: $cpiInstruction @ $invokeInstruction"
-    }
-}
-
-/** A known instruction for a specific Solana program. */
+/** A known instruction for a Solana program. */
 sealed interface CpiInstruction
 
 /** Instructions for the Token program. */
@@ -65,10 +53,11 @@ sealed interface TokenInstruction : CpiInstruction {
     }
 }
 
-/** The type of the `invoke` instruction, which can be either a simple `invoke`, or an `invoke_signed` */
-sealed interface InvokeType {
-    data object Invoke : InvokeType
-    data object InvokeSigned : InvokeType
+/** A call to a known [CpiInstruction] at a specific location in the code. */
+data class CpiCall(val cfg: SbfCFG, val invokeInstruction: LocatedSbfInstruction, val cpiInstruction: CpiInstruction) {
+    override fun toString(): String {
+        return "$cpiInstruction @ $invokeInstruction"
+    }
 }
 
 /** A known Solana program. */
@@ -81,9 +70,7 @@ sealed interface Program {
     data class ProgramId(val chunk0: ULong, val chunk1: ULong, val chunk2: ULong, val chunk3: ULong)
 
     companion object {
-        val SystemProgramId =
-            ProgramId(0UL, 0UL, 0UL, 0UL)
-
+        val SystemProgramId = ProgramId(0UL, 0UL, 0UL, 0UL)
         val TokenProgramId =
             ProgramId(10637895772709248262UL, 12428223917890587609UL, 10463932726783620124UL, 12178014311288245306UL)
 

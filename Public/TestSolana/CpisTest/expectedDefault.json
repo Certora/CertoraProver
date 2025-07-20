@@ -1,26 +1,11 @@
 {
   "assertMessages": {},
   "rules": {
-    "rule_transfer_token_transfers_same_wallet_0": "SUCCESS",
-    "rule_transfer_token_transfers_same_wallet_1": "SUCCESS",
-    "rule_transfer_token_transfers_same_wallet_2": "SUCCESS",
-    "rule_transfer_token_transfers_same_wallet_3": "SUCCESS",
-    "rule_transfer_token_transfers_different_wallets_0": "SUCCESS",
-    "rule_transfer_token_transfers_different_wallets_1": "SUCCESS",
-    "rule_transfer_token_transfers_different_wallets_2": "SUCCESS",
-    "rule_transfer_token_transfers_different_wallets_3": "SUCCESS",
+    "rule_transfer_token_transfers_same_wallet": "SUCCESS",
+    "rule_transfer_token_transfers_different_wallets": "SUCCESS",
     "rule_transfer_token_transfers_same_wallet_failing": "FAIL",
-    "rule_mint_token_mints_0": "SUCCESS",
-    "rule_mint_token_mints_1": "SUCCESS",
-    "rule_mint_token_mints_2": "SUCCESS",
-    "rule_mint_token_mints_3": "SUCCESS",
-    "rule_burn_token_burns_0": "SUCCESS",
-    "rule_burn_token_burns_1": "SUCCESS",
-    "rule_burn_token_burns_2": "SUCCESS",
-    "rule_burn_token_burns_3": "SUCCESS",
-    "rule_close_account_balance_is_zero_after_success_0": "SUCCESS",
-    "rule_close_account_balance_is_zero_after_success_1": "SUCCESS",
-    "rule_close_account_balance_is_zero_after_success_2": "SUCCESS",
-    "rule_close_account_balance_is_zero_after_success_3": "SUCCESS"
+    "rule_mint_token_mints": "SUCCESS",
+    "rule_burn_token_burns": "SUCCESS",
+    "rule_close_account_balance_is_zero_after_success": "SUCCESS"
   }
 }

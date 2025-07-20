@@ -40,54 +40,45 @@ private val cpiLog = Logger(LoggerTypes.CPI)
 /** Type of the memory domain. */
 private typealias MemoryDomainT = MemoryDomain<ConstantSet, ConstantSet>
 
+
 /**
  * Returns the list of CPI calls that the analysis was able to infer.
  * This list is in principle not complete as we rely on static analysis to infer the program ids and the instructions
  * being called.
- * Observe that `invoke` should *not* be inlined, as this analysis detects `call solana_program::program::invoke` and
- * `call solana_program::program::invoke_signed`.
+ * Observe that `invoke` should *not* be inlined, as this analysis detects `call solana_program::program::invoke`.
  */
 fun getCpiCalls(analysis: WholeProgramMemoryAnalysis): List<CpiCall> {
     return CpiAnalysis(analysis.program, analysis.getResults(), analysis.memSummaries).getCpiCalls()
 }
 
-/** A call to `invoke` in a specific location. */
-data class LocatedInvoke(val cfg: SbfCFG, val inst: LocatedSbfInstruction, val type: InvokeType)
-
 /**
- * Returns a list of instructions in the program that are calls to `invoke` instructions.
- * This includes both `invoke` and `invoke_signed`.
- * Note that this method does *not* consider calls to `invoke` that have been inlined.
- * Therefore, it is important to avoid inlining calls to `invoke`.
- * However, if this function detects that a call to `invoke` has been inlined, it emits a warning.
+ * Returns the list of instructions in the program that are `call solana_program::program::invoke`.
+ * Observe that this method does *not* consider calls to `solana_program::program::invoke` that have been inlined.
+ * For this reason, it is important to never inline calls to `invoke`.
+ * Still, if this function detects that a call to `invoke` has been inlined, emits a warning.
  */
-fun getInvokes(analyzedProg: SbfCallGraph): List<LocatedInvoke> {
-    val invokes = mutableListOf<LocatedInvoke>()
+fun getInvokes(analyzedProg: SbfCallGraph): List<Pair<SbfCFG, LocatedSbfInstruction>> {
+    val invokes = mutableListOf<Pair<SbfCFG, LocatedSbfInstruction>>()
     for (cfg in analyzedProg.getCFGs()) {
         for ((_, block) in cfg.getBlocks()) {
             val locatedInstructions = block.getLocatedInstructions()
             for (locatedInstruction in locatedInstructions) {
-                val instruction = locatedInstruction.inst
+                val (_, _, instruction) = locatedInstruction
 
-                if (instruction is SbfInstruction.Call) {
-                    if (instruction.name == INVOKE_FUNCTION_NAME) {
-                        invokes.add(LocatedInvoke(cfg, locatedInstruction, InvokeType.Invoke))
-                    }
-                    if (instruction.name == INVOKE_SIGNED_FUNCTION_NAME) {
-                        invokes.add(LocatedInvoke(cfg, locatedInstruction, InvokeType.InvokeSigned))
-                    }
+                if (instruction is SbfInstruction.Call && instruction.name == INVOKE_FUNCTION_NAME) {
+                    invokes.add(Pair(cfg, locatedInstruction))
                 }
 
                 // We also check that `invoke` has *not* been inlined, and if this is the case, we emit a warning.
                 val inlinedFunctionName: String? = instruction.metaData.getVal(SbfMeta.INLINED_FUNCTION_NAME)
                 val invokeHasBeenInlined =
-                    (inlinedFunctionName == INVOKE_FUNCTION_NAME || inlinedFunctionName == INVOKE_SIGNED_FUNCTION_NAME) &&
+                    inlinedFunctionName == INVOKE_FUNCTION_NAME &&
                         instruction is SbfInstruction.Call &&
                         CVTFunction.from(instruction.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)
                 if (invokeHasBeenInlined) {
                     cpiLog.warn {
-                        "SBF instruction `$locatedInstruction` is an inlined call to invoke. " +
-                            "For the CPIs analysis to work correctly, calls to invoke should *not* be inlined. " +
+                        "SBF instruction `$locatedInstruction` is an inlined call to `invoke`." +
+                            "For the CPIs analysis to work correctly, calls to `invoke` should *not* be inlined." +
                             "Modify the inlining file (${SolanaConfig.InlineFilePath.get()}) to never inline calls to `invoke`, and provide a summary " +
                             "in the summaries file (${SolanaConfig.SummariesFilePath.get()})."
                     }
@@ -100,7 +91,6 @@ fun getInvokes(analyzedProg: SbfCallGraph): List<LocatedInvoke> {
 
 
 const val INVOKE_FUNCTION_NAME = "solana_program::program::invoke"
-const val INVOKE_SIGNED_FUNCTION_NAME = "solana_program::program::invoke_signed"
 
 private data class CpiAnalysis(
     val analyzedProg: SbfCallGraph,
@@ -110,9 +100,9 @@ private data class CpiAnalysis(
 
     fun getCpiCalls(): List<CpiCall> {
         val invokes = getInvokes(analyzedProg)
-        cpiLog.info { "List of calls to invoke: ${invokes.map { "${it.type} : ${it.inst}" }}" }
+        cpiLog.info { "List of calls to invoke: ${invokes.map { it.second }}" }
         val cpiCalls = mutableListOf<CpiCall>()
-        for ((invokeCfg, locatedInvoke, invokeType) in invokes) {
+        for ((invokeCfg, locatedInvoke) in invokes) {
             val basicBlock = invokeCfg.getBlock(locatedInvoke.label)
             check(basicBlock != null) { "Instruction `$locatedInvoke` points to a block that is not in CFG `${invokeCfg.getName()}`" }
             val abstractStateAtEntrypoint = analysisResults[invokeCfg.getName()]
@@ -128,12 +118,11 @@ private data class CpiAnalysis(
                 memSummaries = memSummaries,
                 listener = listener
             )
-            val inferredInstruction = listener.getInferredInstruction()
-            if (inferredInstruction != null) {
-                cpiCalls.add(CpiCall(invokeCfg, locatedInvoke, inferredInstruction, invokeType))
+            if (listener.cpiInstruction != null) {
+                cpiCalls.add(CpiCall(invokeCfg, locatedInvoke, listener.cpiInstruction!!))
             }
         }
-        cpiLog.info { "Inferred CPI calls: $cpiCalls" }
+        cpiLog.info { "Found CPI calls: $cpiCalls" }
         return cpiCalls
     }
 
@@ -148,13 +137,7 @@ private data class CpiAnalysis(
     ) : InstructionListener<MemoryDomainT> {
 
         /** If the listener can detect which instruction is called, it will store the instruction in this variable. */
-        private var cpiInstruction: CpiInstruction? = null
-
-        /**
-         * After the analysis, returns the inferred instruction. If we were not able to infer the instruction that is
-         * being called, returns `null`.
-         */
-        fun getInferredInstruction(): CpiInstruction? = cpiInstruction
+        var cpiInstruction: CpiInstruction? = null
 
         override fun instructionEventBefore(
             locInst: LocatedSbfInstruction,
@@ -168,9 +151,9 @@ private data class CpiAnalysis(
                 val programId = getProgramIdBeforeInvoke(pre, globals)
                 if (programId == null) {
                     cpiLog.warn {
-                        "It was not possible to infer the program id before the call to invoke. " +
-                            "This is usually due a loss of precision of the static analysis. " +
-                            "A possible fix is adding `#[cvlr::early_panic]` to functions that call invoke."
+                        "It was not possible to infer the program id before the call to `invoke`." +
+                            "This is usually due a loss of precision of the static analysis." +
+                            "A possible fix is adding `#[cvlr::early_panic]` to functions that call `invoke`."
                     }
                     return
                 }
@@ -267,7 +250,7 @@ private data class CpiAnalysis(
                 }
                 if (!instructionIdChunk.getNode().mustBeInteger()) {
                     // We want only precise values.
-                    cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (could be something that is not an integer)" }
+                    cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (could be a not an integer)" }
                     return null
                 }
                 val chunk = instructionIdChunk.getNode().integerValue.toLongOrNull()?.toULong()
@@ -328,7 +311,7 @@ private data class CpiAnalysis(
                 return null
             }
             if (!pointedInstructionDiscriminant.getNode().mustBeInteger()) {
-                cpiLog.warn { "PTA node pointing to Token instruction discriminant is not precise enough (could be something that is not an integer)" }
+                cpiLog.warn { "PTA node pointing to Token instruction discriminant is not precise enough (could be a not an integer)" }
                 return null
             }
 

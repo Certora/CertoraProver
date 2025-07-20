@@ -1,8 +1,4 @@
-use solana_program::{
-    account_info::AccountInfo,
-    program::{invoke, invoke_signed},
-    program_error::ProgramError,
-};
+use solana_program::{account_info::AccountInfo, program::invoke, program_error::ProgramError};
 
 #[cfg(not(feature = "certora"))]
 use spl_token::instruction::{burn, close_account, mint_to, transfer};
@@ -10,11 +6,7 @@ use spl_token::instruction::{burn, close_account, mint_to, transfer};
 #[cfg(feature = "certora")]
 use cvlr_solana::cpis::{burn, close_account, mint_to, transfer};
 
-const SEED1: &[u8] = b"seed1";
-const SEED2: &[u8] = b"seed2";
-const SEED3: &[u8] = b"seed3";
-
-pub fn process_transfer_token<const N_SIGNERS: usize>(
+pub fn process_transfer_token(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> Result<(), ProgramError> {
@@ -27,12 +19,12 @@ pub fn process_transfer_token<const N_SIGNERS: usize>(
             .try_into()
             .expect("Invalid slice length"),
     );
-    invoke_transfer_token::<N_SIGNERS>(token_program, from, to, authority, amount)?;
+    invoke_transfer_token(token_program, from, to, authority, amount)?;
     Ok(())
 }
 
 #[cvlr::early_panic]
-fn invoke_transfer_token<'a, const N_SIGNERS: usize>(
+fn invoke_transfer_token<'a>(
     token_program: &AccountInfo<'a>,
     from: &AccountInfo<'a>,
     to: &AccountInfo<'a>,
@@ -48,30 +40,12 @@ fn invoke_transfer_token<'a, const N_SIGNERS: usize>(
         &[],
         amount,
     )?;
-
-    match N_SIGNERS {
-        0 => invoke(&instruction, &[from.clone(), to.clone(), authority.clone()])?,
-        1 => invoke_signed(
-            &instruction,
-            &[from.clone(), to.clone(), authority.clone()],
-            &[&[SEED1]],
-        )?,
-        2 => invoke_signed(
-            &instruction,
-            &[from.clone(), to.clone(), authority.clone()],
-            &[&[SEED1], &[SEED2]],
-        )?,
-        3 => invoke_signed(
-            &instruction,
-            &[from.clone(), to.clone(), authority.clone()],
-            &[&[SEED1], &[SEED2], &[SEED3]],
-        )?,
-        _ => return Err(ProgramError::InvalidArgument),
-    }
+    let account_infos = vec![from.clone(), to.clone(), authority.clone()];
+    invoke(&instruction, &account_infos)?;
     Ok(())
 }
 
-pub fn process_mint_token<const N_SIGNERS: usize>(
+pub fn process_mint_token(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> Result<(), ProgramError> {
@@ -86,12 +60,12 @@ pub fn process_mint_token<const N_SIGNERS: usize>(
             .expect("Invalid slice length"),
     );
 
-    invoke_mint_token::<N_SIGNERS>(token_program, mint, destination, mint_authority, amount)?;
+    invoke_mint_token(token_program, mint, destination, mint_authority, amount)?;
     Ok(())
 }
 
 #[cfg_attr(feature = "certora", cvlr::early_panic)]
-fn invoke_mint_token<'a, const N_SIGNERS: usize>(
+fn invoke_mint_token<'a>(
     token_program: &AccountInfo<'a>,
     mint: &AccountInfo<'a>,
     destination: &AccountInfo<'a>,
@@ -106,32 +80,14 @@ fn invoke_mint_token<'a, const N_SIGNERS: usize>(
         &[],
         amount,
     )?;
-    match N_SIGNERS {
-        0 => invoke(
-            &instruction,
-            &[mint.clone(), destination.clone(), mint_authority.clone()],
-        )?,
-        1 => invoke_signed(
-            &instruction,
-            &[mint.clone(), destination.clone(), mint_authority.clone()],
-            &[&[SEED1]],
-        )?,
-        2 => invoke_signed(
-            &instruction,
-            &[mint.clone(), destination.clone(), mint_authority.clone()],
-            &[&[SEED1], &[SEED2]],
-        )?,
-        3 => invoke_signed(
-            &instruction,
-            &[mint.clone(), destination.clone(), mint_authority.clone()],
-            &[&[SEED1], &[SEED2], &[SEED3]],
-        )?,
-        _ => return Err(ProgramError::InvalidArgument),
-    }
+    invoke(
+        &instruction,
+        &[mint.clone(), destination.clone(), mint_authority.clone()],
+    )?;
     Ok(())
 }
 
-pub fn process_burn_token<const N_SIGNERS: usize>(
+pub fn process_burn_token(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> Result<(), ProgramError> {
@@ -146,12 +102,12 @@ pub fn process_burn_token<const N_SIGNERS: usize>(
             .expect("Invalid slice length"),
     );
 
-    invoke_burn_token::<N_SIGNERS>(token_program, source, mint, authority, amount)?;
+    invoke_burn_token(token_program, source, mint, authority, amount)?;
     Ok(())
 }
 
 #[cvlr::early_panic]
-fn invoke_burn_token<'a, const N_SIGNERS: usize>(
+fn invoke_burn_token<'a>(
     token_program: &AccountInfo<'a>,
     source: &AccountInfo<'a>,
     mint: &AccountInfo<'a>,
@@ -166,33 +122,15 @@ fn invoke_burn_token<'a, const N_SIGNERS: usize>(
         &[],
         amount,
     )?;
-    match N_SIGNERS {
-        0 => invoke(
-            &instruction,
-            &[source.clone(), mint.clone(), authority.clone()],
-        )?,
-        1 => invoke_signed(
-            &instruction,
-            &[source.clone(), mint.clone(), authority.clone()],
-            &[&[SEED1]],
-        )?,
-        2 => invoke_signed(
-            &instruction,
-            &[source.clone(), mint.clone(), authority.clone()],
-            &[&[SEED1], &[SEED2]],
-        )?,
-        3 => invoke_signed(
-            &instruction,
-            &[source.clone(), mint.clone(), authority.clone()],
-            &[&[SEED1], &[SEED2], &[SEED3]],
-        )?,
-        _ => return Err(ProgramError::InvalidArgument),
-    }
+    invoke(
+        &instruction,
+        &[source.clone(), mint.clone(), authority.clone()],
+    )?;
     Ok(())
 }
 
 #[cvlr::early_panic]
-pub fn process_close_account<const N_SIGNERS: usize>(
+pub fn process_close_account(
     accounts: &[AccountInfo],
     _instruction_data: &[u8],
 ) -> Result<(), ProgramError> {
@@ -200,39 +138,21 @@ pub fn process_close_account<const N_SIGNERS: usize>(
     let account = &accounts[1];
     let dest = &accounts[2];
     let owner = &accounts[3];
-    invoke_close_account::<N_SIGNERS>(token_program, account, dest, owner)?;
+    invoke_close_account(token_program, account, dest, owner)?;
     Ok(())
 }
 
 #[cvlr::early_panic]
-fn invoke_close_account<'a, const N_SIGNERS: usize>(
+fn invoke_close_account<'a>(
     token_program: &AccountInfo<'a>,
     account: &AccountInfo<'a>,
     dest: &AccountInfo<'a>,
     owner: &AccountInfo<'a>,
 ) -> Result<(), ProgramError> {
     let instruction = close_account(token_program.key, account.key, dest.key, owner.key, &[])?;
-    match N_SIGNERS {
-        0 => invoke(
-            &instruction,
-            &[account.clone(), dest.clone(), owner.clone()],
-        )?,
-        1 => invoke_signed(
-            &instruction,
-            &[account.clone(), dest.clone(), owner.clone()],
-            &[&[SEED1]],
-        )?,
-        2 => invoke_signed(
-            &instruction,
-            &[account.clone(), dest.clone(), owner.clone()],
-            &[&[SEED1], &[SEED2]],
-        )?,
-        3 => invoke_signed(
-            &instruction,
-            &[account.clone(), dest.clone(), owner.clone()],
-            &[&[SEED1], &[SEED2], &[SEED3]],
-        )?,
-        _ => return Err(ProgramError::InvalidArgument),
-    }
+    invoke(
+        &instruction,
+        &[account.clone(), dest.clone(), owner.clone()],
+    )?;
     Ok(())
 }

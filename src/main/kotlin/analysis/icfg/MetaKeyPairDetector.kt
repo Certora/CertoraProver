@@ -76,7 +76,7 @@ class MetaKeyPairDetector(
     fun getResultsAtSinkBlock(): Map<LTACCmd, List<LTACCmd>> {
         return graph.sinkBlocks.fold(mapOf()){ lastRes, block ->
             callStack.blockOut[block.id]?.startMetas?.let {
-                if(it.isNotEmpty()){
+                if(it.isEmpty()){
                     logger.warn { "There are remaining unmatched start block after propagation to the sink blocks: ${callStack.blockOut[block.id]?.startMetas}. " +
                         "There are commands missing that have the matching annotation." }
                 }
