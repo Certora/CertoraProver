@@ -1,0 +1,11 @@
+# This justfile compiles the code and copies the executable in the current
+# working directory. After modifying the source code, remember to recompile the
+# code and commit the changes to the executable.
+# This script is only used to update the .so file when needed. The test itself
+# does not call `cargo certora-sbf`
+
+export EXECUTABLE_PATH := "./target/sbf-solana-solana/release/cpis.so"
+
+build-sbf:
+    cargo certora-sbf
+    cp $EXECUTABLE_PATH .

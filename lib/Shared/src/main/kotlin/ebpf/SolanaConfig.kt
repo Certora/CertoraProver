@@ -52,6 +52,16 @@ object SolanaConfig {
         )
     ) {}
 
+    val EnableCpiAnalysis = object : ConfigType.BooleanCmdLine(
+        // This feature is experimental for the moment, so we turn it off by default
+        false,
+        Option(
+            "solanaCpiAnalysis",
+            true,
+            "Enable CPI calls analysis. [default: false]"
+        )
+    ) {}
+
 
     // Disassembling options
     val StackFrameSize = object : ConfigType.IntCmdLine(

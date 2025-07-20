@@ -17,7 +17,6 @@
 
 package sbf.domains
 
-import com.certora.collect.*
 import sbf.*
 import sbf.disassembler.*
 import sbf.callgraph.*
@@ -26,7 +25,6 @@ import sbf.support.*
 import kotlin.math.absoluteValue
 import datastructures.stdcollections.*
 import org.jetbrains.annotations.TestOnly
-import utils.*
 import kotlin.collections.removeLast
 
 /**
@@ -156,6 +154,7 @@ private fun dbgMemTransfer(msg: () -> Any) { if (debugPTAMemTransfer) { sbfLogge
 data class PTAOffset(val v: Long): Comparable<PTAOffset>  {
     operator fun plus(other: PTAOffset) = PTAOffset(this.v + other.v)
     operator fun plus(other: Long) = PTAOffset(this.v + other)
+    operator fun plus(other: Int) = PTAOffset(this.v + other)
     operator fun minus(other: PTAOffset) = PTAOffset(this.v - other.v)
     operator fun minus(other: Int) = PTAOffset(this.v - other.toLong())
     operator fun times(other: PTAOffset) = PTAOffset(this.v * other.v)
@@ -552,6 +551,8 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     var isMayExternal: Boolean = false
     // whether this node represents an integer. This is may information.
     var isMayInteger: Boolean = false
+    // If the node could potentially be an integer, this is an overapproximation of the value.
+    var integerValue: Constant = Constant.makeTop()
     // keep track of whether the node has been written, read, or none.
     var access: NodeAccess = NodeAccess.None
 
@@ -825,6 +826,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         n2.isMayHeap    = n2.isMayHeap    or n1.isMayHeap
         n2.isMayExternal= n2.isMayExternal or n1.isMayExternal
         n2.isMayInteger = n2.isMayInteger or n1.isMayInteger
+        n2.integerValue = n2.integerValue.join(n1.integerValue)
 
         n2.access = n2.access.join(n1.access)
 
@@ -1029,6 +1031,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         other.isMayHeap = isMayHeap
         other.isMayExternal = isMayExternal
         other.isMayInteger = isMayInteger
+        other.integerValue = integerValue
         other.access =  access
     }
 
@@ -1293,7 +1296,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
             if (addSep) {
                 sb.append(":")
             }
-            sb.append("Int")
+            sb.append("Int(${this.integerValue})")
             addSep = true
         }
         if (this.isMayGlobal) {
@@ -1610,9 +1613,10 @@ class ExternalAllocation(private val allocator: PTANodeAllocator) {
 }
 
 class IntegerAllocation(private val allocator: PTANodeAllocator) {
-    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0): PTASymCell {
+    fun alloc(locInst: LocatedSbfInstruction, value: Constant, i: Int = 0): PTASymCell {
         val c = allocator.mkCell(locInst, i)
         c.getNode().isMayInteger = true
+        c.getNode().integerValue = value
         return c.createSymCell()
     }
 }
@@ -3024,7 +3028,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     // Found a single field that fully contains the requested slice.
                     // We could actually return `succC` but we allocate a new symbolic integer cell to
                     // avoid creating unnecessary aliasing.
-                    return integerAlloc.alloc(locInst)
+                    return integerAlloc.alloc(locInst, Constant.makeTop()) // Numeric analysis loss of precision
                 }
                 else -> {}
             }
@@ -3115,20 +3119,43 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *  [value] is value to be stored in a store instruction.
      *  [valueType] is the abstract value for [value] inferred by the scalar domain
      */
-    private fun inferSymCellFromValue(value: Value, valueType: SbfType<TNum, TOffset>, locInst: LocatedSbfInstruction): PTASymCell? {
-        return when(value) {
+    private fun inferSymCellFromValue(
+        value: Value,
+        valueType: SbfType<TNum, TOffset>,
+        locInst: LocatedSbfInstruction
+    ): PTASymCell? {
+        return when (value) {
             is Value.Imm -> {
-                // Create a cell (with integer node) for the immediate value
-                integerAlloc.alloc(locInst)
+                val constant: Constant = when (valueType) {
+                    is SbfType.NumType -> {
+                        val longValue = valueType.value.toLongOrNull()
+                        if (longValue != null) {
+                            Constant(longValue)
+                        } else {
+                            Constant.makeTop() // Numeric analysis loss of precision
+                        }
+                    }
+
+                    else -> Constant.makeTop() // Numeric analysis loss of precision
+                }
+                integerAlloc.alloc(locInst, constant)
             }
+
             is Value.Reg -> {
                 getRegCell(value) ?:
                 // We don't have yet a cell for the value: we ask the scalar analysis
                 when (valueType) {
                     is SbfType.NumType -> {
                         // Create a fresh cell for the integer value
-                        integerAlloc.alloc(locInst)
+                        val longValue = valueType.value.toLongOrNull()
+                        val constant = if (longValue != null) {
+                            Constant(longValue)
+                        } else {
+                            Constant.makeTop()
+                        }
+                        integerAlloc.alloc(locInst, constant)
                     }
+
                     is SbfType.PointerType.Global -> {
                         val gv = valueType.global
                         if (gv == null) {
@@ -4028,7 +4055,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         setRegCell(r0, heapAlloc.highLevelAlloc(locInst))
                     }
                     MemSummaryArgumentType.NUM -> {
-                        setRegCell(r0, integerAlloc.alloc(locInst))
+                        setRegCell(r0, integerAlloc.alloc(locInst, Constant.makeTop())) // Numeric analysis loss of precision
                     }
                     else -> {
                         forget(r0)
@@ -4077,7 +4104,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                                 concretizeCell(externAlloc.alloc(locInst, curArg), "$call (3)", locInst)
                             }
                             else -> {
-                                concretizeCell(integerAlloc.alloc(locInst, curArg), "$call (4)", locInst)
+                                concretizeCell(integerAlloc.alloc(locInst, Constant.makeTop(), curArg), "$call (4)", locInst) // Numeric analysis loss of precision
                             }
                         }
                         allocatedC.getNode().setWrite()
@@ -4364,7 +4391,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     if (addSep) {
                         sb.append(":")
                     }
-                    sb.append("Int")
+                    sb.append("Int(${n.integerValue})")
                     addSep = true
                 }
                 if (n.isMayHeap) {
