@@ -287,6 +287,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                     is TACExpr.TernaryExp.AddMod -> {
                         val (a, b, m) = ops
                         when {
+                            m eqTo 0 -> 0.asExpr()
                             a eqTo 0 -> simplifyTop(Mod(b, m))
                             b eqTo 0 -> simplifyTop(Mod(a, m))
                             a is TACExpr.Sym.Const && m is TACExpr.Sym.Const ->
@@ -302,7 +303,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                     is TACExpr.TernaryExp.MulMod -> {
                         val (a, b, m) = ops
                         when {
-                            a eqTo 0 || b eqTo 0 -> 0.asExpr()
+                            a eqTo 0 || b eqTo 0 || m eqTo 0 -> 0.asExpr()
                             a eqTo 1 -> simplifyTop(Mod(b, m))
                             b eqTo 1 -> simplifyTop(Mod(a, m))
                             a is TACExpr.Sym.Const && m is TACExpr.Sym.Const ->
@@ -606,4 +607,3 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
     }
 
 }
-

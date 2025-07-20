@@ -221,8 +221,20 @@ interface ModZm {
             }
 
 
-        fun addMod(a: BigInteger, b: BigInteger, m: BigInteger): BigInteger = (a + b).mod(m)
-        fun mulMod(a: BigInteger, b: BigInteger, m: BigInteger): BigInteger = (a * b).mod(m)
+        fun addMod(a: BigInteger, b: BigInteger, m: BigInteger): BigInteger =
+            if (m == BigInteger.ZERO) {
+                BigInteger.ZERO
+            } else {
+                (a + b).mod(m)
+            }
+
+        fun mulMod(a: BigInteger, b: BigInteger, m: BigInteger): BigInteger =
+            if (m == BigInteger.ZERO) {
+                BigInteger.ZERO
+            } else {
+                (a * b).mod(m)
+            }
+
 
         fun isZero(a: BigInteger) = (a == BigInteger.ZERO).asBigInteger
 
