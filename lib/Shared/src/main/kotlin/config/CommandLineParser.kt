@@ -185,10 +185,6 @@ open class DefaultCommandLineParser {
         if (Config.SolverMemLimit.allOptions.count { cmdLineArgs.hasOption(it.realOpt()) } > 1) {
             printErrAndExit("Must use at most one out of ${Config.SolverMemLimit.allOptions.map { it.realOpt() }}")
         }
-
-        if (Config.BoundedModelChecking.getOrNull() != null && Config.RequireInvariantsPreRuleSemantics.get()){
-            printErrAndExit("The configuration option ${Config.RequireInvariantsPreRuleSemantics.name} is not allowed in BMC mode." )
-        }
     }
 
     private fun basicChecksSkippedByApache(cmdLineArgs: CommandLine, originalArgs: Array<String>) {

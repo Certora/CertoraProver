@@ -39,8 +39,6 @@ from CertoraProver.certoraSourceFinders import add_source_finders
 from CertoraProver.certoraVerifyGenerator import CertoraVerifyGenerator
 from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes
 
-from Shared.certoraUtils import is_relative_to
-
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 from CertoraProver.Compiler.CompilerCollector import CompilerLang, CompilerCollector
@@ -3701,7 +3699,7 @@ def build_from_scratch(context: CertoraContext,
         # the contract files in SDCs are relative to .certora_sources. Which isn't good for us here.
         # Need to be relative to original paths
         for f in paths_set:
-            if is_relative_to(f, absolute_sources_dir):
+            if f.is_relative_to(absolute_sources_dir):
                 rel_f = f.relative_to(absolute_sources_dir)
             else:
                 # may be an absolute path already outside .certora_sources, so we can keep it.

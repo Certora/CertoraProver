@@ -27,7 +27,6 @@ import utils.`to?`
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACSymbol
-import kotlin.streams.toList
 
 /**
  * Checks whether jump conditions that are not loop heads have conditions of the form `a == b`

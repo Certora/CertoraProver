@@ -710,6 +710,7 @@ class MutateApp:
     dump_csv: Optional[Path]
     sync: bool
     wait_for_original_run: bool
+    url_visibility: Vf.UrlVisibilityOptions
     collect_file: Optional[Path]
     poll_timeout: Optional[int]
     max_timeout_attempts_count: Optional[int]
@@ -1405,6 +1406,8 @@ class MutateApp:
         certora_args = [str(conf_file), "--run_source", "MUTATION", "--msg", msg]
         if self.wait_for_original_run:
             certora_args.append("--wait_for_results")
+        if self.url_visibility:
+            certora_args.extend(["--url_visibility", str(self.url_visibility)])
         if self.with_split_stats_data and os.environ.get("WITH_AUTOCONFING", False) == '1':
             certora_args += ['--prover_resource_files', f"ac:{MConstants.SPLIT_STATS_DATA}"]
         if mutation_test_id:

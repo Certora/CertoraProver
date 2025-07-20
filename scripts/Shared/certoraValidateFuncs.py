@@ -99,6 +99,11 @@ class WaitForResultOptions(Util.NoValEnum):
     ALL = auto()
 
 
+class UrlVisibilityOptions(Util.NoValEnum):
+    PRIVATE = auto()
+    PUBLIC = auto()
+
+
 def is_solc_file_valid(orig_filename: Optional[str]) -> str:
     """
     Verifies that a given --solc argument is valid:
@@ -124,7 +129,7 @@ def is_solc_file_valid(orig_filename: Optional[str]) -> str:
         if filename.endswith(f".{suffix}"):
             raise Util.CertoraUserInputError(f"wrong Solidity executable given: {filename}")
 
-    # see https://docs.python.org/3.8/library/shutil.html#shutil.which. We use no mask to give a precise error
+    # see https://docs.python.org/3.9/library/shutil.html#shutil.which. We use no mask to give a precise error
     solc_location = shutil.which(filename, os.F_OK)
     if solc_location is not None:
         solc_path = Path(solc_location)
@@ -425,7 +430,7 @@ def validate_contract_extension_attr(map: Any) -> Dict[str, List[Dict[str, Any]]
     return map
 
 
-def validate_input_file(file: str) -> str:
+def validate_evm_input_file(file: str) -> str:
     # [file[:contractName] ...] or CONF_FILE.conf or TAC_FILE.tac
 
     if Util.SOL_EXT in file:
@@ -469,12 +474,12 @@ def validate_input_file(file: str) -> str:
         except Exception as e:
             raise Util.CertoraUserInputError(f"Cannot access file {file} : {e}")
         return file
-    elif any(file.endswith(ext) for ext in Util.VALID_FILE_EXTENSIONS):
+    elif any(file.endswith(ext) for ext in Util.VALID_EVM_EXTENSIONS):
         validate_readable_file(file)
         return file
 
     raise Util.CertoraUserInputError(
-        f"input file {file} is not in one of the supported types ({Util.VALID_FILE_EXTENSIONS})")
+        f"input file {file} is not in one of the supported types ({Util.VALID_EVM_EXTENSIONS})")
 
 
 def validate_json_file(file: str) -> str:
@@ -543,13 +548,6 @@ def validate_struct_link(link: str) -> str:
         raise Util.CertoraUserInputError(f"Struct link attribute {link} must be of the form contractA:number=contractB"
                                          f" or contractA:fieldName=contractB")
     return link
-
-
-def validate_assert_contracts(contract: str) -> str:
-    if not re.match(Util.SOLIDITY_ID_STRING_RE, contract):
-        raise Util.CertoraUserInputError(
-            f"Contract name {contract} can include only alphanumeric characters, dollar signs or underscores")
-    return contract
 
 
 def validate_equivalence_contracts(equiv_string: str) -> str:
@@ -993,6 +991,10 @@ def parse_ordered_dict(conf_key: str, input_string: str, value_type: Type = str)
 
 def validate_wait_for_results(value: str) -> str:
     return __validate_enum_value(value, WaitForResultOptions)
+
+
+def validate_url_visibility(value: str) -> str:
+    return __validate_enum_value(value, UrlVisibilityOptions)
 
 
 def validate_json5_file(file: str) -> str:

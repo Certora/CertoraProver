@@ -30,7 +30,6 @@ import vc.data.*
 /** Describes how the method call ended. */
 enum class CallEndStatus(private val repString: String) {
     REVERT("REVERT"),
-    THROW("THROW"),
     SUMMARIZED("SUMMARIZED"),
     DISPATCHER("DISPATCHER"),
     DEFAULT_HAVOC("DEFAULT HAVOC"),

@@ -589,7 +589,7 @@ fun DependencyHandlerScope.applyCommon(projectName: String) {
 
 	testImplementation("net.jqwik:jqwik:1.7.1")
 	testImplementation("net.jqwik:jqwik-kotlin:1.7.1")
-	testImplementation("io.mockk:mockk:1.12.4")
+	testImplementation("io.mockk:mockk:1.14.2")
 
 	testImplementation("org.jetbrains.kotlin:kotlin-reflect:${property("kotlin.version")}")
 

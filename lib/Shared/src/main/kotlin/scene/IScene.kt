@@ -54,7 +54,7 @@ import datastructures.stdcollections.*
  */
 interface IScene : ISceneIdentifiers {
     enum class ForkInfo(private val stringer: String) {
-        BASE("base_scene"), ASSERTION("assertions_scene"), CVL("CVL_scene");
+        BASE("base_scene"), CVL("CVL_scene");
 
         override fun toString(): String = stringer
     }

@@ -96,8 +96,10 @@ class SplitRulesHandler():
         rule_flag = Attrs.EvmProverAttributes.RULE.get_flag()
         split_rules_flag = Attrs.EvmProverAttributes.SPLIT_RULES.get_flag()
         msg_flag = Attrs.CommonAttributes.MSG.get_flag()
+
         # it is important to use the cache, when the difference between the runs is only the rules that apply
         build_cache_flag = Attrs.EvmProverAttributes.BUILD_CACHE.get_flag()
+
         group_id_flag = Attrs.EvmProverAttributes.GROUP_ID.get_flag()
         disable_local_typechecking_flag = Attrs.EvmProverAttributes.DISABLE_LOCAL_TYPECHECKING.get_flag()
 

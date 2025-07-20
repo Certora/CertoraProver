@@ -53,7 +53,6 @@ import verifier.ChainedMethodTransformers
 import verifier.ContractUtils
 import verifier.CoreToCoreTransformer
 import java.util.stream.Collectors
-import kotlin.streams.toList
 
 /**
  * Collection of related ABI optimizations (executed by [run]) and the [gcABI] utility function.

@@ -120,9 +120,8 @@ class TACVerifier private constructor(
     private fun nameToSolveSummaryKey(name: NameObject): SDFeatureKey = "${name.baseName}_solving_summary".toSDFeatureKey()
 
     private val isCMDLineSanityRule = when ((rule as? CVLSingleRule)?.ruleGenerationMeta?.sanity) {
-        SingleRuleGenerationMeta.Sanity.PRE_SANITY_CHECK,
         SingleRuleGenerationMeta.Sanity.BASIC_SANITY -> true
-
+        SingleRuleGenerationMeta.Sanity.PRE_SANITY_CHECK,
         SingleRuleGenerationMeta.Sanity.DISABLED_SANITY_CHECK,
         SingleRuleGenerationMeta.Sanity.DONE,
         null -> false

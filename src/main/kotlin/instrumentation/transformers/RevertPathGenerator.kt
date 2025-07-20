@@ -68,8 +68,7 @@ object RevertPathGenerator : CodeTransformer() {
                     if (withRevert == null) {
                         // no @withrevert calls up the callstack, so just assume we didn't revert
                         patching.replaceCommand(lc.ptr, listOf(
-                            TACCmd.Simple.AssumeNotCmd(CVLKeywords.lastReverted.toVar()),
-                            TACCmd.Simple.AssumeNotCmd(CVLKeywords.lastHasThrown.toVar())
+                            TACCmd.Simple.AssumeNotCmd(CVLKeywords.lastReverted.toVar())
                         ))
                     } else {
                         // This call is nested within a @withrevert. Make this node jump to the end of its calling function

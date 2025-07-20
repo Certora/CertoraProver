@@ -1112,19 +1112,21 @@ class AtOnNonContractCall private constructor(override val location: Range, over
 
 // LastRevertWithNonContractCall ///////////////////////////////////////////////////////////////////////////////////////
 
+// TODO(CERT-7707): Remove this once cvlFunctionRevert config is removed
 @KSerializable
 @CVLErrorType(
     category = CVLErrorCategory.SYNTAX,
     description = "Only contract functions can be called `@withrevert`; see {ref}`call-expr`."
 )
-@CVLErrorExample(
-    exampleCVLWithRange =
-        """
-        function f() {}
-        function g() { #f@withrevert()#; }
-        """,
-    exampleMessage = "`@withrevert` may only be used for calls to contract functions; `f` is a CVL function.",
-)
+// Leaving the example just for documentation purposes - it would need -cvlFunctionRevert false to throw the error now
+//@CVLErrorExample(
+//    exampleCVLWithRange =
+//        """
+//        function f() {}
+//        function g() { #f@withrevert()#; }
+//        """,
+//    exampleMessage = "`@withrevert` may only be used for calls to contract functions; `f` is a CVL function.",
+//)
 class WithrevertOnNonContractCall private constructor(override val location: Range, override val message : String) : CVLError() {
     constructor(app : CVLExp.UnresolvedApplyExp, func : SpecFunction)
         : this(app.getRangeOrEmpty(), "`@withrevert` may only be used for calls to contract functions; `${app.callableName}` is a ${func.typeDescription}.")
@@ -2362,20 +2364,19 @@ class DoesNotEndWithReturn private constructor(override val location: Range, ove
         """,
     exampleMessage = "Unreachable statement after `return`: `assert true`"
 )
-// TODO(CERT-7707) once we default to new revert semantics we can add this example
-//@CVLErrorExample(
-//    exampleCVLWithRange =
-//    """
-//            function cvlFun(bool b) returns bool {
-//                {
-//                    revert();
-//                    #assert true;#
-//                }
-//                return true;
-//            }
-//        """,
-//    exampleMessage = "Unreachable statement after `revert`: `assert true`"
-//)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+            function cvlFun(bool b) returns bool {
+                {
+                    revert();
+                    #assert true;#
+                }
+                return true;
+            }
+        """,
+    exampleMessage = "Unreachable statement after `revert`: `assert true`"
+)
 class UnreachableStatement private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(cmd: CVLCmd, reason: CVLCmd.Simple.HaltingCVLCmd) : this(
         cmd.range, "Unreachable statement after `${reason.cmdName}`: `${cmd.toPrintString()}`"
@@ -2885,20 +2886,19 @@ class UnsignedSumOnSignedGhostType private constructor(override val location: Ra
     category = CVLErrorCategory.TYPECHECKING,
     description = "revert statements are only allowed inside function definitions"
 )
-// TODO(CERT-7707) once we default to new revert semantics we can add this example
-//@CVLErrorExample(
-//    exampleCVLWithRange =
-//    """
-//    rule cannotUseRevertOutsideOfFunction {
-//        bool b;
-//        if (!b) {
-//            #revert();# // not allowed
-//        }
-//        assert b;
-//    }
-//    """,
-//    exampleMessage = "Revert statement is not allowed outside a CVL function."
-//)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+    rule cannotUseRevertOutsideOfFunction {
+        bool b;
+        if (!b) {
+            #revert();# // not allowed
+        }
+        assert b;
+    }
+    """,
+    exampleMessage = "Revert statement is not allowed outside a CVL function."
+)
 class RevertCmdOutsideOfFunction private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(range: Range) : this(
         range,

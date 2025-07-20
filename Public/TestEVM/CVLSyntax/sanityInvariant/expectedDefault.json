@@ -1,0 +1,65 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"balancesLargerThanZero": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"balanceLength()",
+						"foo()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"balancesLargerThanZeroNoSanityFailure": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"balanceLength()",
+						"foo()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"privateBalancesLargerThanZero": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"balanceLength()",
+						"foo()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"privateBalancesLargerThanZeroNoSanityFailure": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"balanceLength()",
+						"foo()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		}
+	}
+}

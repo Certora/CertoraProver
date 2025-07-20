@@ -52,7 +52,6 @@ import verifier.equivalence.summarization.PureFunctionExtraction
 import verifier.equivalence.summarization.SharedPureSummarization
 import java.io.File
 import kotlin.math.max
-import kotlin.streams.toList
 
 private val logger = Logger(LoggerTypes.EQUIVALENCE)
 private typealias TCmdPointer<@Suppress("UNUSED_TYPEALIAS_PARAMETER", "unused") T> = CmdPointer

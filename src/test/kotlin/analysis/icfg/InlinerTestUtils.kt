@@ -69,7 +69,7 @@ object InlinerTestUtils {
             mockkObject(Config.IsAssumeUnwindCondForLoops)
             every { Config.IsAssumeUnwindCondForLoops.get() } returns true
             // Having an AssertionQuery that has no meaning is a bit of a hack, to set up this unit-test framework
-            IntegrativeChecker.runInitialTransformations(scene, ProverQuery.AssertionQuery(listOf()))
+            IntegrativeChecker.runInitialTransformations(scene)
         } finally {
             unmockkObject(Config.IsAssumeUnwindCondForLoops)
         }

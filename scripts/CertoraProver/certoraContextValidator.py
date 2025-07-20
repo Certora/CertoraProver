@@ -13,6 +13,7 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+
 import logging
 import os
 import re
@@ -164,6 +165,12 @@ class CertoraContextValidator:
             if len(context.files) > 1:
                 raise Util.CertoraUserInputError("Rust projects must specify exactly one executable in 'files'.")
 
+        if context.url_visibility and context.local:
+            validation_logger.info("'url_visibility' has no effect in local tool runs")
+        set_attr_default(context, attr_name=Attrs.CommonAttributes.URL_VISIBILITY.name.lower(),
+                         ci_value=str(Vf.UrlVisibilityOptions.PUBLIC),
+                         default_value=str(Vf.UrlVisibilityOptions.PRIVATE))
+
     def check_args_post_argparse(self) -> None:
         """
         Performs checks over the arguments after basic argparse parsing
@@ -218,9 +225,17 @@ class CertoraContextValidator:
         if context.compilation_steps_only and context.build_only:
             raise Util.CertoraUserInputError("cannot use both 'compilation_steps_only' and 'build_only'")
 
-        set_wait_for_results_default(context)
+        set_attr_default(context, attr_name=Attrs.CommonAttributes.WAIT_FOR_RESULTS.name.lower(),
+                         ci_value=str(Vf.WaitForResultOptions.ALL),
+                         default_value=str(Vf.WaitForResultOptions.NONE))
         if context.wait_for_results and context.wait_for_results != str(Vf.WaitForResultOptions.NONE) and context.local:
             validation_logger.warning("'wait_for_results' has no effect in local tool runs")
+
+        if context.url_visibility and context.local:
+            validation_logger.info("'url_visibility' has no effect in local tool runs")
+        set_attr_default(context, attr_name=Attrs.CommonAttributes.URL_VISIBILITY.name.lower(),
+                         ci_value=str(Vf.UrlVisibilityOptions.PUBLIC),
+                         default_value=str(Vf.UrlVisibilityOptions.PRIVATE))
 
         # packages must be in a normal form (no unneeded . or ..)
         if context.packages:
@@ -427,14 +442,6 @@ def check_contract_name_arg_inputs(context: CertoraContext) -> None:
         check_conflicting_link_args(context)
 
     context.verified_contract_files = []
-    if context.assert_contracts is not None:
-        for assert_arg in context.assert_contracts:
-            contract = Util.get_trivial_contract_name(assert_arg)
-            if contract not in contract_names:
-                __suggest_contract_name(f"'assert' argument, {contract}, doesn't match any contract name", contract,
-                                        contract_names, contract_to_file)
-            else:
-                context.verified_contract_files.append(contract_to_file[contract])
 
     context.spec_file = None
 
@@ -580,31 +587,32 @@ def check_mode_of_operation(context: CertoraContext) -> None:
 
     @param context: A namespace including all CLI arguments provided
     @raise an CertoraUserInputError when:
-        1. .conf|.tac|.json file is used with --assert_contracts flags
-        2. when both --assert_contracts and --verify flags were given
-        3. when the file is not .tac|.conf|.json and neither --assert_contracts nor --verify were used
-        4. If either --bytecode_jsons or --bytecode_spec was used without the other.
+        1. when both --equivalence_contracts and --verify flags were given
+        2. when the file is not .tac|.conf|.json and neither --equivalence_contracts nor --verify were used
+        3. If either --bytecode_jsons or --bytecode_spec was used without the other.
     """
     context.is_verify = context.verify is not None and len(context.verify) > 0
-    context.is_assert = context.assert_contracts is not None and len(context.assert_contracts) > 0
     context.is_bytecode = context.bytecode_jsons is not None and len(context.bytecode_jsons) > 0
     context.is_equivalence = context.equivalence_contracts is not None
 
-    if (context.project_sanity or context.foundry) and (context.is_verify or context.is_assert or context.is_bytecode or context.is_equivalence):
-        raise Util.CertoraUserInputError("The 'project_sanity' and 'foundry' options cannot coexist with the 'verify', 'assert_contract' or 'bytecode_jsons' options")
+    if (context.project_sanity or context.foundry) and \
+       (context.is_verify or context.is_bytecode or context.is_equivalence):
+        raise Util.CertoraUserInputError("The 'project_sanity' and 'foundry' options cannot coexist with the 'verify', "
+                                         "'assert_contract' or 'bytecode_jsons' options")
 
     if context.project_sanity and context.foundry:
         raise Util.CertoraUserInputError("The 'project_sanity' and 'foundry' options cannot coexist")
 
-    if len(list(filter(None, [context.is_verify, context.is_assert, context.is_equivalence]))) > 1:
-        raise Util.CertoraUserInputError("only one option of 'assert_contracts', 'verify', 'equivalence' can be used")
+    if len(list(filter(None, [context.is_verify, context.is_equivalence]))) > 1:
+        raise Util.CertoraUserInputError("only one option of 'verify', 'equivalence' can be used")
 
     has_bytecode_spec = context.bytecode_spec is not None
     if has_bytecode_spec != context.is_bytecode:
         raise Util.CertoraUserInputError("Must use 'bytecode' together with 'bytecode_spec'")
 
     if not context.files and not any((context.is_bytecode, context.project_sanity, context.foundry)):
-        raise Util.CertoraUserInputError("Should always provide input files, unless 'bytecode_jsons' or 'project_sanity' or 'foundry' are used")
+        raise Util.CertoraUserInputError("Should always provide input files, unless 'bytecode_jsons' or "
+                                         "'project_sanity' or 'foundry' are used")
 
     if context.is_bytecode and context.files:
         raise Util.CertoraUserInputError("Cannot use 'bytecode_jsons' with other files")
@@ -618,7 +626,8 @@ def check_mode_of_operation(context: CertoraContext) -> None:
         if not context.files:
             file_contract_pairs = _get_project_file_contract_pairs(context)
             main_contract = file_contract_pairs[0][1]  # any contract
-            context.files = [f"{file}:{contract}" if file.stem != contract else str(file) for file, contract in file_contract_pairs]
+            context.files = \
+                [f"{file}:{contract}" if file.stem != contract else str(file) for file, contract in file_contract_pairs]
         else:
             first = context.files[0]
             if ':' in first:
@@ -630,12 +639,14 @@ def check_mode_of_operation(context: CertoraContext) -> None:
 
         context.verify = f"{main_contract}:{spec_file_name}"
         context.is_verify = True
-        # In this mode we want to make life easy for the user, so use the auto-dispatcher mode to avoid many unresolved calls
+        # In this mode we want to make life easy for the user,
+        # so use the auto-dispatcher mode to avoid many unresolved calls
         context.auto_dispatcher = True
 
     if context.foundry:
         file_contract_pairs = _get_project_file_contract_pairs(context)
-        test_pairs = [(file, contract) for file, contract in file_contract_pairs if file.stem.endswith(".t") and 'lib' not in file.parents]
+        test_pairs = [(file, contract) for file, contract in file_contract_pairs
+                      if file.stem.endswith(".t") and 'lib' not in file.parents]
         context.files = [f"{file}:{contract}" for file, contract in test_pairs]
         main_contract = test_pairs[0][1]  # any contract
         spec_file_name = _generate_temp_spec(context, "use builtin rule verifyFoundryFuzzTestsNoRevert;\n")
@@ -643,7 +654,8 @@ def check_mode_of_operation(context: CertoraContext) -> None:
         context.foundry_tests_mode = True
         context.verify = f"{main_contract}:{spec_file_name}"
         context.is_verify = True
-        # In this mode we want to make life easy for the user, so use the auto-dispatcher mode to avoid many unresolved calls
+        # In this mode we want to make life easy for the user,
+        # so use the auto-dispatcher mode to avoid many unresolved calls
         context.auto_dispatcher = True
 
     if context.files:
@@ -656,15 +668,11 @@ def check_mode_of_operation(context: CertoraContext) -> None:
         for input_file in context.files:
             special_file_type = next((suffix for suffix in special_file_suffixes if input_file.endswith(suffix)), None)
 
-            if special_file_type:
-                if len(context.files) > 1:
-                    raise Util.CertoraUserInputError(
-                        f"No other files are allowed with a file of type {special_file_type}")
-                if context.is_assert:
-                    raise Util.CertoraUserInputError(
-                        f"Option 'assert_contracts' cannot be used with a {special_file_type} file {input_file}")
+            if special_file_type and len(context.files) > 1:
+                raise Util.CertoraUserInputError(
+                    f"No other files are allowed with a file of type {special_file_type}")
 
-    if not any([context.is_assert, context.is_verify, context.is_bytecode, context.equivalence_contracts,
+    if not any([context.is_verify, context.is_bytecode, context.equivalence_contracts,
                 special_file_type]) and not context.build_only:
         raise Util.CertoraUserInputError("You must use 'verify' when running the Certora Prover")
 
@@ -883,16 +891,17 @@ def check_files_input(file_list: List[str]) -> None:
             if file.endswith(Util.SOROBAN_EXEC_EXTENSION):
                 raise Util.CertoraUserInputError(f'The Soroban file {file} cannot be accompanied with other files')
 
-def set_wait_for_results_default(context: CertoraContext) -> None:
-    if context.wait_for_results is None:
+
+def set_attr_default(context: CertoraContext, attr_name: str, ci_value: str, default_value: str) -> None:
+    if getattr(context, attr_name, None) is None:
         if Util.is_ci_or_git_action():
-            context.wait_for_results = str(Vf.WaitForResultOptions.ALL)
+            setattr(context, attr_name, ci_value)
         else:
-            context.wait_for_results = str(Vf.WaitForResultOptions.NONE)
+            setattr(context, attr_name, default_value)
 
 
 def mode_has_spec_file(context: CertoraContext) -> bool:
-    return not context.is_assert and not context.is_tac and not context.is_equivalence
+    return not (context.is_tac or context.is_equivalence)
 
 
 def to_relative_paths(paths: Union[str, List[str]]) -> Union[str, List[str]]:

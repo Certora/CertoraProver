@@ -13,7 +13,7 @@
       "UNKNOWN": []
     },
     "withRevertCanRevert": "SUCCESS",
-    "codeAfterNonRevertingCallUnreachable": "SUCCESS",
+    "codeAfterNonRevertingCallUnreachable": "SANITY_FAIL",
     "withRevertAlwaysReverts": "FAIL",
     "contractFunctionVersionForComparison": "SUCCESS",
     "withRevertRevertsInCorrectCase": "SUCCESS",

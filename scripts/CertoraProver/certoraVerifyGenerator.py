@@ -47,10 +47,6 @@ class CertoraVerifyGenerator:
             # we need to build once because of the early typechecking...
             self.update_certora_verify_struct(False)
 
-        elif self.context.assert_contracts is not None:
-            contract_to_check_asserts_for = self.context.assert_contracts
-            self.certora_verify_struct = {"type": "assertion",
-                                          "primaryContracts": contract_to_check_asserts_for}
         elif self.context.equivalence_contracts is not None:
             if self.context.method is None:
                 raise Util.CertoraUserInputError("Argument `method` is required for equivalence checks")

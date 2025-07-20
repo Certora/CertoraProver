@@ -25,6 +25,7 @@ import datastructures.stdcollections.*
 import evm.SighashInt
 import log.Logger
 import log.LoggerTypes
+import scene.CONSTRUCTOR
 import scene.MethodAttribute
 import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
@@ -707,7 +708,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                 val declId = "Induction base: After the constructor"
                 CVLSingleRule(
                     inv.uniqueRuleIdentifier.freshDerivedIdentifier(declId),
-                    inv.range,
+                    this@GenerateRulesForInvariantsAndEnvFree.mainContract.allMethods.find { it.name == CONSTRUCTOR }?.sourceSegment()?.range ?: inv.range,
                     newParams,
                     "Initial state does not instate invariant",
                     "Initial state instates invariant",

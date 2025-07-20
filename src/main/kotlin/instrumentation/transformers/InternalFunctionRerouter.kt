@@ -1918,7 +1918,7 @@ object InternalFunctionRerouter {
                             length = EthereumVariables.returnsize
                         )
                     ), ret, EthereumVariables.returnsize, EthereumVariables.returndata, TACKeyword.MEMORY.toVar(), TACKeyword.MEM64.toVar()) andThen
-                        EthereumVariables.setLastRevertedAndLastHasThrown(lastReverted = true, lastHasThrown = false) andThen
+                        EthereumVariables.setLastReverted(lastReverted = true) andThen
                         endAnnotation andThen
                         TACCmd.Simple.RevertCmd(
                             o1 = ret,

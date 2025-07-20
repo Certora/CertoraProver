@@ -404,7 +404,7 @@ def setup_cache(context: CertoraContext) -> None:
     # we have a user defined cache key if the user provided a cache key
     context.user_defined_cache = context.cache is not None
     if not context.disable_auto_cache_key_gen and not os.environ.get("CERTORA_DISABLE_AUTO_CACHE") is not None:
-        if context.is_verify or context.is_assert or context.is_conf:
+        if context.is_verify or context.is_conf:
             # in local mode we don't want to create a cache key if not such is given
             if (context.cache is None) and (not context.local):
                 optimistic_loop = context.optimistic_loop

@@ -26,7 +26,6 @@ import utils.mapNotNull
 import vc.data.*
 import vc.data.tacexprutil.TACExprFactBasicSimp
 import java.math.BigInteger
-import kotlin.streams.toList
 
 /**
  * Rewrites the truly cursed pattern of:

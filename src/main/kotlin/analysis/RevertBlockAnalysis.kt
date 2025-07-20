@@ -54,7 +54,7 @@ object RevertBlockAnalysis : AnalysisCache.Key<Set<NBId>> {
      */
     fun mustReachRevert(node: NBId, graph: TACCommandGraph): Boolean =
         (object : VisitingWorklistIteration<NBId, Boolean, Boolean>() {
-            val relevantAnnotations = setOf(TACMeta.REVERT_PATH, TACMeta.THROW_PATH, TACMeta.RETURN_PATH)
+            val relevantAnnotations = setOf(TACMeta.REVERT_PATH, TACMeta.RETURN_PATH)
             fun findRelevantAnnotation(n: NBId): List<MetaKey<*>> {
                 val cmds = graph.elab(n)
                 return cmds.commands.mapNotNull {

@@ -28,7 +28,6 @@ import tac.*
 import java.math.BigInteger
 import vc.data.tacexprutil.*
 import analysis.dataflow.AbstractValuation.*
-import kotlin.streams.toList
 
 /*
  * contact: Andrew Ferraiuolo (andrew@certora.com)

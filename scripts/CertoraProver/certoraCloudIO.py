@@ -43,7 +43,6 @@ from tqdm import tqdm
 
 import logging
 
-
 cloud_logger = logging.getLogger("cloud")
 
 MAX_FILE_SIZE = 25 * 1024 * 1024
@@ -587,7 +586,7 @@ class CloudVerification:
         """
 
         auth_data = {
-            "process": self.context.process, "runName": self.runName,
+            "runName": self.runName,
             "run_source": self.context.run_source,
             "group_id": self.context.group_id,
             "branch": self.context.prover_version if self.context.prover_version else '',
@@ -686,12 +685,12 @@ class CloudVerification:
 
     def print_output_links(self) -> None:
         print(f"Manage your jobs at {self.get_domain()}")
-        print(f"Follow your job and see verification results at {self.reportUrl}", flush=True)
+        print(f"Follow your job and see verification results at {self.url_print_format()}", flush=True)
 
     def print_verification_summary(self) -> None:
         report_exists = self.check_file_exists(params={"filename": "index.html", "certoraKey": self.context.key})
         if report_exists:
-            print(f"Job is completed! View the results at {self.reportUrl}")
+            print(f"Job is completed! View the results at {self.url_print_format()}")
         print("Finished verification request", flush=True)
 
     def __send_verification_request(self, cl_args: str) -> bool:
@@ -851,7 +850,7 @@ class CloudVerification:
             self.runName, self.reportUrl, self.msg, self.get_domain(), str(self.userId), self.anonymousKey)
 
         # Generate a json file for the VS Code extension with the relevant url
-        self.vscode_extension_info_writer.add_field("verification_report_url", self.reportUrl)
+        self.vscode_extension_info_writer.add_field("verification_report_url", self.url_print_format())
         self.vscode_extension_info_writer.write_file()
 
         if not wait_for_results or wait_for_results == str(Vf.WaitForResultOptions.NONE):
@@ -1140,6 +1139,12 @@ class CloudVerification:
         Util.remove_file(self.ZipFilePath)
         Util.remove_file(self.logZipFilePath)
 
+    def url_print_format(self) -> str:
+        if self.reportUrl and self.context.url_visibility == str(Vf.UrlVisibilityOptions.PRIVATE):
+            return self.privatize_url()
+        else:
+            return self.reportUrl
+
     @lru_cache(maxsize=1, typed=False)
     def get_domain(self) -> str:
         """
@@ -1155,3 +1160,7 @@ class CloudVerification:
             domain = Util.SupportedServers.PRODUCTION.value
 
         return domain
+
+    @lru_cache(maxsize=1)
+    def privatize_url(self) -> str:
+        return self.reportUrl.split('?anonymousKey=')[0]

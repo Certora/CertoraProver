@@ -43,7 +43,6 @@ import vc.data.TACProgramCombiners.andThen
 import verifier.equivalence.DefiniteBufferConstructionAnalysis
 import verifier.equivalence.summarization.CommonPureInternalFunction
 import verifier.equivalence.tracing.BufferTraceInstrumentation.ContextSymbols.Companion.lift
-import kotlin.streams.toList
 
 @Suppress("FunctionName")
 /**

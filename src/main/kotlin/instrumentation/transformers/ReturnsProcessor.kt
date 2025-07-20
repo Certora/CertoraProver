@@ -35,7 +35,6 @@ import utils.`impossible!`
 import vc.data.*
 import vc.data.TACSymbol.Companion.atSync
 import java.math.BigInteger
-import kotlin.streams.toList
 
 /*
     Updates code around returns to update return variables.

@@ -103,15 +103,12 @@ object EnabledRunID : RunID {
 
     private val baseSceneLogger =
         ScalarKeyValueStats<String>(RUN_ID, IScene.ForkInfo.BASE.toString().toSDFeatureKey())
-    private val assertionSceneLogger =
-        ScalarKeyValueStats<String>(RUN_ID, IScene.ForkInfo.ASSERTION.toString().toSDFeatureKey())
     private val cvlSceneLogger =
         ScalarKeyValueStats<String>(RUN_ID, IScene.ForkInfo.CVL.toString().toSDFeatureKey())
 
     private fun sceneForkInfoToLogger(forkInfo: IScene.ForkInfo): ScalarKeyValueStats<String> {
         return when (forkInfo) {
             IScene.ForkInfo.BASE -> baseSceneLogger
-            IScene.ForkInfo.ASSERTION -> assertionSceneLogger
             IScene.ForkInfo.CVL -> cvlSceneLogger
         }
     }
@@ -127,7 +124,6 @@ object EnabledRunID : RunID {
     override val sceneData: Set<ScalarKeyValueStats<String>>
         get() = listOf(
             baseSceneLogger,
-            assertionSceneLogger,
             cvlSceneLogger
         ).filterTo(mutableSetOf(), ScalarKeyValueStats<*>::hasData)
 

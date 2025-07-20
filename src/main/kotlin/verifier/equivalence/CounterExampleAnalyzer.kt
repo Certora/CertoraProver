@@ -44,7 +44,6 @@ import verifier.equivalence.StaticBufferRefinement.fmtError
 import verifier.equivalence.summarization.CommonPureInternalFunction
 import java.math.BigInteger
 import java.util.stream.Collectors
-import kotlin.streams.toList
 
 private val logger = Logger(LoggerTypes.EQUIVALENCE)
 

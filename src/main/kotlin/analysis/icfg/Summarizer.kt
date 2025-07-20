@@ -1308,10 +1308,7 @@ object Summarizer {
                                     }
                             }
                             .prependToBlock0(
-                                EthereumVariables.setLastRevertedAndLastHasThrown(
-                                    lastReverted = false,
-                                    lastHasThrown = false
-                                )
+                                EthereumVariables.setLastReverted(lastReverted = false)
                             )
                                 .appendToSinks(
                                     CommandWithRequiredDecls(
@@ -1319,10 +1316,7 @@ object Summarizer {
                                         lhs = EthereumVariables.rc.at(callIndex = where.wrapped.ptr.block.calleeIdx),
                                         rhs = cvlCompiler.exprFact {
                                             Ite(
-                                                i = LOr(
-                                                    CVLKeywords.lastReverted.toVar().asSym(),
-                                                    CVLKeywords.lastHasThrown.toVar().asSym()
-                                                ),
+                                                i = CVLKeywords.lastReverted.toVar().asSym(),
                                                 t = TACSymbol.Zero.asSym(),
                                                 e = TACSymbol.One.asSym()
                                             )

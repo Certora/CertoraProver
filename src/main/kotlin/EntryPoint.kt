@@ -281,7 +281,7 @@ fun main(args: Array<String>) {
                         }
                     }
                     SpecFile.getOrNull() != null -> handleCVLFlow(fileName, SpecFile.get())
-                    else -> handleSolidityOrHexFlow(fileName)
+                    else -> throw IllegalArgumentException("Unknown file type for $fileName")
                 }
 
                 else -> {
@@ -680,13 +680,6 @@ suspend fun handleCVLFlow(contractFilename: String, specFilename: String) {
     IntegrativeChecker.run(specSource, contractSource)
 }
 
-suspend fun handleSolidityOrHexFlow(fileName: String) {
-    val contractSource = getContractFile(fileName)
-    val scene = SceneFactory.getScene(contractSource)
-    val solidityVerifier = SolidityVerifier(scene) // this is a bit of an odd-one out but let's leave it like this
-    solidityVerifier.runVerifierOnFile(fileName)
-}
-
 fun runBuildScript() {
     CustomBuildScript.get().let { customBuildScript ->
         if (customBuildScript.isNotBlank()) {
@@ -753,6 +746,11 @@ private fun autoConfig() {
         Config.PrettifyCEXSmallBarriers.set(true) //We expect the hashing bound to be relatively small and hence use small barriers
         Config.PostProcessCEXSingleCheckTimeout.setIfUnset(100)
         Config.PostProcessCEXTimeoutSeconds.setIfUnset(600)
+    }
+
+    if(Config.BoundedModelChecking.getOrNull() != null && Config.RequireInvariantsPreRuleSemantics.get()){
+        // In BMC mode, we are _not_ using the global require invariant semantics
+        Config.RequireInvariantsPreRuleSemantics.set(false)
     }
 }
 

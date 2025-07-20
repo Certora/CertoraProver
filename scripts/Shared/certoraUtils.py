@@ -114,7 +114,8 @@ EVM_SOURCE_EXTENSIONS = (SOL_EXT, VY_EXT, YUL_EXT)
 EVM_EXTENSIONS = EVM_SOURCE_EXTENSIONS + ('.tac', '.json')
 SOLANA_EXEC_EXTENSION = '.so'
 SOROBAN_EXEC_EXTENSION = '.wasm'
-VALID_FILE_EXTENSIONS = ['.conf'] + list(EVM_EXTENSIONS) + [SOLANA_EXEC_EXTENSION, SOROBAN_EXEC_EXTENSION]
+VALID_EVM_EXTENSIONS = list(EVM_EXTENSIONS) + ['.conf']
+VALID_FILE_EXTENSIONS = VALID_EVM_EXTENSIONS + [SOLANA_EXEC_EXTENSION, SOROBAN_EXEC_EXTENSION]
 # Type alias definition, not a variable
 CompilerVersion = Tuple[int, int, int]
 MAP_SUFFIX = '_map'
@@ -368,11 +369,8 @@ def remove_file(file_path: Union[str, Path]) -> None:  # TODO - accept only Path
         except OSError:
             pass
     else:
-        try:
-            # When we upgrade to Python 3.8, we can use unlink(missing_ok=True) and remove the try/except clauses
-            file_path.unlink()
-        except FileNotFoundError:
-            pass
+        file_path.unlink(missing_ok=True)
+
 
 def abs_norm_path(file_path: Union[str, Path]) -> Path:
     """
@@ -959,18 +957,6 @@ def flatten_set_list(set_list: List[Set[Any]]) -> List[Any]:
     return list(ret_set)
 
 
-def is_relative_to(path1: Path, path2: Path) -> bool:
-    """certora-cli currently requires python3.8 and it's the last version without support for is_relative_to.
-    Shamelessly copying.
-    """
-    # return path1.is_relative_to(path2)
-    try:
-        path1.relative_to(path2)
-        return True
-    except ValueError:
-        return False
-
-
 def find_jar(jar_name: str) -> Path:
     # if we are a dev running certoraRun.py (local version), we want to get the local jar
     # if we are a dev running an installed version of certoraRun, we want to get the installed jar
@@ -982,7 +968,7 @@ def find_jar(jar_name: str) -> Path:
 
     if certora_home != "":
         local_certora_path = Path(certora_home) / CERTORA_JARS / jar_name
-        if is_relative_to(Path(__file__), Path(certora_home)) and local_certora_path.is_file():
+        if Path(__file__).is_relative_to(Path(certora_home)) and local_certora_path.is_file():
             return local_certora_path
 
     return get_package_resource(CERTORA_JARS / jar_name)

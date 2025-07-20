@@ -371,8 +371,7 @@ class TestCVLSummaries : AbstractCVLTest() {
         val scene = qWithScene.map { it.first }.resultOrNull()!!
         val cvl = q.resultOrNull()!!.let {
             when (it) {
-                is ProverQuery.EquivalenceQuery,
-                is ProverQuery.AssertionQuery -> `impossible!`
+                is ProverQuery.EquivalenceQuery -> `impossible!`
                 is ProverQuery.CVLQuery.Single -> it.cvl
             }
         }

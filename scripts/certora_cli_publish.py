@@ -131,7 +131,7 @@ if __name__ == '__main__':
         VERSION = f"{TIMESTAMP}+{COMMIT}"
         URL = f"https://pypi.org/project/{NAME}"
 
-    MIN_PYTHON_VERSION = '3.8'
+    MIN_PYTHON_VERSION = '3.9'
 
     # Read dependencies from the requirements file
     REQUIREMENTS_FILE = (Path(__file__).parent / "certora_cli_requirements.txt")

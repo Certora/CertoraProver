@@ -27,7 +27,7 @@ import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.EthereumVariables.extcodesize
-import analysis.EthereumVariables.setLastRevertedAndLastHasThrown
+import analysis.EthereumVariables.setLastReverted
 import bridge.EVMExternalMethodInfo
 import bridge.SourceLanguage
 import com.certora.collect.*
@@ -307,14 +307,12 @@ class CVLCompiler(
 
     fun nonRevertingAssumptionsToPostpend(env: CompilationEnvironment) = CommandWithRequiredDecls(listOf(
         TACCmd.Simple.AssumeNotCmd(CVLKeywords.lastReverted.toVar()),
-        TACCmd.Simple.AssumeNotCmd(CVLKeywords.lastHasThrown.toVar()),
         TACCmd.CVL.CopyBlockchainState(
             lhs = CVLKeywords.lastStorage.toVar(),
             meta = MetaMap(TACMeta.LAST_STORAGE_UPDATE)
         )
     ),
         setOf(CVLKeywords.lastReverted.toVar(),
-            CVLKeywords.lastHasThrown.toVar(),
             CVLKeywords.lastStorage.toVar())).toProg("safe return", env)
 
     fun revertingAssumptionsToPostpend(backup: TACSymbol.Var, env: CompilationEnvironment): CVLTACProgram {
@@ -332,13 +330,9 @@ class CVLCompiler(
         val setup = CommandWithRequiredDecls(listOf(
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 lhs = revertCond,
-                rhs = exprFact.LOr(
-                    CVLKeywords.lastReverted.toVar().asSym(),
-                    CVLKeywords.lastHasThrown.toVar().asSym()
-                )
+                rhs = CVLKeywords.lastReverted.toVar().asSym()
             )
-        ), setOf(CVLKeywords.lastReverted.toVar(),
-            CVLKeywords.lastHasThrown.toVar(), revertCond
+        ), setOf(CVLKeywords.lastReverted.toVar(), revertCond
         )
         ).toProg("revert check", env)
         return mergeCodes(
@@ -1001,13 +995,9 @@ class CVLCompiler(
             val setup = CommandWithRequiredDecls(listOf(
                 TACCmd.Simple.AssigningCmd.AssignExpCmd(
                     lhs = revertCond,
-                    rhs = exprFact.LOr(
-                        CVLKeywords.lastReverted.toVar().asSym(),
-                        CVLKeywords.lastHasThrown.toVar().asSym()
-                    )
+                    rhs = CVLKeywords.lastReverted.toVar().asSym()
                 )
-            ), setOf(CVLKeywords.lastReverted.toVar(),
-                CVLKeywords.lastHasThrown.toVar(), revertCond
+            ), setOf(CVLKeywords.lastReverted.toVar(), revertCond
             )
             ).toProg("revert check", compilationEnvironment)
             val revertHandling = mergeCodes(
@@ -1039,7 +1029,7 @@ class CVLCompiler(
         }
         val functionBody = ParametricMethodInstantiatedCode.mergeProgs(compiledArguments, revertProcessedBody).transformCode { p ->
             p.patching { patching ->
-                val setLastRevertedCmds = if (Config.CvlFunctionRevert.get()) { listOf(EthereumVariables.setLastRevertedAndLastHasThrown(lastReverted = false, lastHasThrown = false)) } else { listOf() }
+                val setLastRevertedCmds = if (Config.CvlFunctionRevert.get()) { listOf(EthereumVariables.setLastReverted(lastReverted = false)) } else { listOf() }
                 p.ltacStream().forEach { lc ->
                     if (lc.cmd is TACCmd.Simple.AnnotationCmd) {
                         lc.cmd.bind(RETURN_VALUE) { v ->
@@ -1885,7 +1875,7 @@ class CVLCompiler(
         ))
         val reportLabel = CVLReportLabel.Revert(cmd)
         return getSimple(
-            setLastRevertedAndLastHasThrown(true, false).toProg("cvl revert $name", env).wrapWithCVLLabelCmds(reportLabel) merge jumpToRevertConfluence.toProg("cvl revert $name", env) merge revertConfluence
+            setLastReverted(true).toProg("cvl revert $name", env).wrapWithCVLLabelCmds(reportLabel) merge jumpToRevertConfluence.toProg("cvl revert $name", env) merge revertConfluence
         )
     }
 

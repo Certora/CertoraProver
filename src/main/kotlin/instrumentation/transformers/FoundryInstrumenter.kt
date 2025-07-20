@@ -226,10 +226,6 @@ object FoundryInstrumenter {
                                     lhs = CVLKeywords.lastReverted.toVar(),
                                     rhs = false.asTACSymbol()
                                 ),
-                                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                                    lhs = CVLKeywords.lastHasThrown.toVar(),
-                                    rhs = false.asTACSymbol()
-                                ),
                                 TACCmd.Simple.LabelCmd("←"),
                                 popLcmds.first().cmd, // Add the pop/exit marker here too
                                 TACCmd.Simple.JumpCmd(dst = exitConfluenceBlock)

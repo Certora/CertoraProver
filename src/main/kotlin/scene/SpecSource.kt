@@ -40,12 +40,6 @@ import utils.CollectingResult.Companion.map
 sealed class ProverQuery {
     abstract fun copyWithFilteredCVLRules(scene: IScene): ProverQuery
 
-    data class AssertionQuery(val contractsToCheckAssert: List<NamedContractIdentifier>): ProverQuery() {
-        override fun copyWithFilteredCVLRules(scene: IScene): ProverQuery {
-            return this
-        }
-    }
-
     data class EquivalenceQuery(
         val contractA: NamedContractIdentifier,
         val contractB: NamedContractIdentifier,
@@ -135,9 +129,6 @@ class CertoraBuilderSpecSource(val verificationConf: VerificationQuery) : ISpecS
     }
     override fun getQuery(contractInstances: List<ContractInstanceInSDC>, scene: ICVLScene): CollectingResult<ProverQuery, CVLError> {
         return when(verificationConf.type!!) {
-            VerificationQueryType.assertion ->
-                (verificationConf.primaryContracts?.map { SolidityContract(it) }
-                    ?.let { ProverQuery.AssertionQuery(it)} ?: ProverQuery.AssertionQuery(emptyList())).lift()
             VerificationQueryType.spec -> {
                 val cvlInput = verificationConf.toCVLInput()
                 getCVLQuery(

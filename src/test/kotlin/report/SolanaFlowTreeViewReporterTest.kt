@@ -47,18 +47,20 @@ class SolanaFlowTreeViewReporterTest {
 
     @Test
     fun multiAssertFlow() {
-        ConfigScope(Config.MultiAssertCheck, true).use {
-            val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rulesToAsserts.keys.toHashSet()).first
-            val nodes = treeView.nodes()
-            /**
-             * The multi assert mode generates one TAC program per assert and the tree will list the base rule and for each assert in the
-             * rule a child node.
-             */
-            assertEquals(rulesToAsserts.keys.size + totalAsserts, nodes.size, "Found $nodes")
+        ConfigScope(Config.MultiAssertCheck, true)
+            .extend(Config.DoSanityChecksForRules, SanityValues.NONE)
+            .use {
+                val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rulesToAsserts.keys.toHashSet()).first
+                val nodes = treeView.nodes()
+                /**
+                 * The multi assert mode generates one TAC program per assert and the tree will list the base rule and for each assert in the
+                 * rule a child node.
+                 */
+                assertEquals(rulesToAsserts.keys.size + totalAsserts, nodes.size, "Found $nodes")
 
-            // The number of paths to leaves in the tree must match the number of asserts across all rules
-            assertEquals(totalAsserts, treeView.pathsToLeaves().size)
-        }
+                // The number of paths to leaves in the tree must match the number of asserts across all rules
+                assertEquals(totalAsserts, treeView.pathsToLeaves().size)
+            }
     }
 
     @Test

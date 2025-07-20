@@ -33,7 +33,6 @@ import tac.MetaKey
 import tac.Tag
 import vc.data.TACProgramCombiners.andThen
 import vc.data.tacexprutil.ExprUnfolder
-import kotlin.streams.toList
 
 /**
  * Optimistically rewrites suspected write-once spill locations to skip memory.

@@ -41,6 +41,7 @@ def set_rust_build_directory(context: CertoraContext) -> None:
     except Exception as e:
         raise Util.CertoraUserInputError(f"Collecting build files failed with the exception: {e}")
 
+
 def build_rust_app(context: CertoraContext) -> None:
     assert not context.files, "build_rust_app: expecting files to be empty"
     if context.build_script:
@@ -61,24 +62,6 @@ def build_rust_app(context: CertoraContext) -> None:
         raise Util.TestResultsReady(build_command)
 
     run_rust_build(context, build_command)
-
-def add_solana_files_from_prover_args(context: CertoraContext) -> None:
-    if context.prover_args:
-        inlining_file = False
-        summaries_file = False
-        for prover_arg in context.prover_args:
-            for arg in prover_arg.split(' '):
-                if inlining_file:
-                    context.solana_inlining = context.solana_inlining or [Path(arg)]
-                    inlining_file = False
-                if summaries_file:
-                    context.solana_summaries = context.solana_summaries or [Path(arg)]
-                    summaries_file = False
-
-                if arg == '-solanaInlining':
-                    inlining_file = True
-                elif arg == '-solanaSummaries':
-                    summaries_file = True
 
 
 def add_solana_files_to_sources(context: CertoraContext, sources: Set[Path]) -> None:
@@ -126,7 +109,6 @@ def collect_files_from_rust_sources(context: CertoraContext, sources: Set[Path])
     if getattr(context, 'conf_file', None) and Path(context.conf_file).exists():
         sources.add(Path(context.conf_file).absolute())
 
-    add_solana_files_from_prover_args(context)
     add_solana_files_to_sources(context, sources)
 
 

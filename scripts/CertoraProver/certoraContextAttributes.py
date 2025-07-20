@@ -15,7 +15,6 @@
 
 import logging
 
-import json5
 import sys
 from pathlib import Path
 from typing import Type, List, Optional
@@ -29,6 +28,8 @@ from CertoraProver.certoraCollectConfigurationLayout import AttributeJobConfigDa
 
 
 attributes_logger = logging.getLogger("attributes")
+
+FORBIDDEN_PROVER_ARGS = ['-solanaInlining', '-solanaSummaries']
 
 
 def validate_prover_args(value: str) -> str:
@@ -50,6 +51,11 @@ def validate_prover_args(value: str) -> str:
                 if not attr.temporary_jar_invocation_allowed:
                     raise Util.CertoraUserInputError(
                         f"Use CLI flag '{flag_name}' instead of 'prover_attrs' with {string} as value")
+
+    for string in strings:
+        if string in FORBIDDEN_PROVER_ARGS:
+            raise Util.CertoraUserInputError(
+                f"Use a Prover option instead of 'prover_attrs' with {string} as value")
     return value
 
 
@@ -210,88 +216,26 @@ class CommonAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
+    URL_VISIBILITY = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_url_visibility,
+        help_msg="Sets the visibility of the generated report link",
+        default_desc="Generate a Private report link",
+        argparse_args={
+            'nargs': AttrUtil.SINGLE_OR_NONE_OCCURRENCES,
+            'action': AttrUtil.UniqueStore,
+            'default': None,  # 'default': when --url_visibility was not used
+            # when --url_visibility was used without an argument its probably because the link should be public
+            'const': str(Vf.UrlVisibilityOptions.PUBLIC)
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False,
+        # Avoiding presentation of this attribute in Config Tab
+        config_data=None
+    )
+
 
 class DeprecatedAttributes(AttrUtil.Attributes):
-    AUTO_NONDET_DIFFICULT_INTERNAL_FUNCS = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.BOOLEAN,
-        deprecation_msg="`auto_nondet_difficult_internal_funcs` is deprecated, use `nondet_difficult_funcs` instead",
-        argparse_args={
-            'action': AttrUtil.STORE_TRUE
-        },
-        affects_build_cache_key=False,
-        disables_build_cache=False
-    )
-    AUTO_NONDET_MINIMAL_DIFFICULTY = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_non_negative_integer,
-        deprecation_msg="`auto_nondet_minimal_difficulty` is deprecated, use `nondet_minimal_difficulty` instead",
-        argparse_args={
-            'action': AttrUtil.UniqueStore
-        },
-        affects_build_cache_key=False,
-        disables_build_cache=False
-    )
-    CONTRACT_COMPILER_SKIP_SEVERE_WARNING_AS_ERROR = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.BOOLEAN,
-        deprecation_msg="`contract_compiler_skip_severe_warning_as_error` is deprecated. "
-                        "Use `ignore_solidity_warnings` instead",
-        affects_build_cache_key=True,
-        disables_build_cache=False,
-        argparse_args={
-            'action': AttrUtil.STORE_TRUE
-        }
-    )
-
-    SEND_ONLY = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.BOOLEAN,
-        deprecation_msg="'send_only' is deprecated and is now the default. In CI, use 'wait_for_results none' instead",
-        argparse_args={
-            'action': AttrUtil.STORE_TRUE
-        },
-        affects_build_cache_key=False,
-        disables_build_cache=False
-    )
-
-    USE_MEMORY_SAFE_AUTOFINDERS = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.BOOLEAN,
-        deprecation_msg="`use_memory_safe_autofinders` is deprecated and is turned on by default. To disable it"
-                        " use `no_memory_safe_autofinders`",
-        argparse_args={
-            'action': AttrUtil.STORE_TRUE
-        },
-        affects_build_cache_key=True,
-        disables_build_cache=False
-    )
-
-    DISABLE_FINDER_FRIENDLY_OPTIMIZER = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.BOOLEAN,
-        deprecation_msg="`disable_finder_friendly_optimizer` is deprecated, use `strict_solc_optimizer` instead",
-        argparse_args={
-            'action': AttrUtil.STORE_TRUE
-        },
-        affects_build_cache_key=True,
-        disables_build_cache=False
-    )
-
-    DO_NOT_USE_MEMORY_SAFE_AUTOFINDERS = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.BOOLEAN,
-        deprecation_msg="`do_not_use_memory_safe_autofinders` is deprecated, use `no_memory_safe_autofinders` instead",
-        argparse_args={
-            'action': AttrUtil.STORE_TRUE
-        },
-        affects_build_cache_key=True,
-        disables_build_cache=False
-    )
-
-    FINDER_FRIENDLY_OPTIMIZER = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.BOOLEAN,
-        deprecation_msg="`finder_friendly_optimizer` is deprecated and is turned on by default. To disable it"
-                        " use `strict_solc_optimizer`",
-        argparse_args={
-            'action': AttrUtil.STORE_TRUE
-        },
-        affects_build_cache_key=True,
-        disables_build_cache=False
-    )
+    pass
 
     SOLC_MAP = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_compiler_map,
@@ -825,17 +769,6 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
-    ASSERT_CONTRACTS = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_assert_contracts,
-        arg_type=AttrUtil.AttrArgType.LIST,
-        argparse_args={
-            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
-            'action': AttrUtil.APPEND,
-        },
-        affects_build_cache_key=False,
-        disables_build_cache=False
-    )
-
     EQUIVALENCE_CONTRACTS = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_equivalence_contracts,
         arg_type=AttrUtil.AttrArgType.STRING,
@@ -1358,12 +1291,10 @@ class BackendAttributes(AttrUtil.Attributes):
         attr_validation_func=Vf.validate_sanity_value,
         help_msg="Select the type of sanity check that will be performed during execution",
         jar_flag='-ruleSanityChecks',
-        default_desc="No sanity checks",
+        default_desc="Basic sanity checks (Vacuity and trivial invariant check)",
         argparse_args={
-            'nargs': AttrUtil.SINGLE_OR_NONE_OCCURRENCES,
             'action': AttrUtil.UniqueStore,
             'default': None,  # 'default': when no --rule_sanity given
-            'const': Vf.RuleSanityValue.BASIC.name.lower()  # 'default': when empty --rule_sanity is given
         },
         affects_build_cache_key=False,
         disables_build_cache=False
@@ -1473,17 +1404,6 @@ class BackendAttributes(AttrUtil.Attributes):
         },
         affects_build_cache_key=False,
         disables_build_cache=False
-    )
-
-    PROCESS = AttrUtil.AttributeDefinition(
-        argparse_args={
-            'action': AttrUtil.UniqueStore,
-            'default': 'emv'
-        },
-        affects_build_cache_key=False,
-        disables_build_cache=False,
-        # Avoiding presentation of this attribute in Config Tab
-        config_data=None
     )
 
     PROVER_ARGS = AttrUtil.AttributeDefinition(
@@ -1664,16 +1584,6 @@ class BackendAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
-    ALLOW_SOLIDITY_CALLS_IN_QUANTIFIERS = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.BOOLEAN,
-        jar_flag='-allowSolidityQuantifierCalls',
-        argparse_args={
-            'action': AttrUtil.STORE_TRUE
-        },
-        affects_build_cache_key=False,
-        disables_build_cache=False
-    )
-
 
 class RustAttributes(AttrUtil.Attributes):
 
@@ -1709,10 +1619,11 @@ class RustAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
+
 class EvmProverAttributes(CommonAttributes, DeprecatedAttributes, EvmAttributes, InternalUseAttributes,
                           BackendAttributes):
     FILES = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_input_file,
+        attr_validation_func=Vf.validate_evm_input_file,
         arg_type=AttrUtil.AttrArgType.LIST,
         help_msg="Solidity or Vyper contract files for analysis or a conf file",
         default_desc="",
@@ -1742,6 +1653,7 @@ class RangerAttributes(EvmProverAttributes):
         # do not show these attributes in the help message
         combined_list = cls.ranger_unsupported_attributes() + cls.ranger_true_by_default_attributes()
         return [attr.name for attr in combined_list] + [cls.LOOP_ITER.name, cls.RANGER_FAILURE_LIMIT.name]
+
 
 class SorobanProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes, RustAttributes):
     FILES = AttrUtil.AttributeDefinition(
@@ -1818,70 +1730,6 @@ def set_attribute_class(cls: Type[AttrUtil.Attributes]) -> None:
     cls.set_attribute_list()
 
 
-def detect_application_class(args: List[str]) -> Type[AttrUtil.Attributes]:
-
-    attributes_logger.debug("calling detect_application_class")
-
-    def application_by_suffix(file: str) -> Type[AttrUtil.Attributes]:
-        if file.endswith(Util.EVM_EXTENSIONS):
-            return EvmProverAttributes
-        elif file.endswith(Util.SOROBAN_EXEC_EXTENSION):
-            return SorobanProverAttributes
-        elif file.endswith(Util.SOLANA_EXEC_EXTENSION):
-            return SolanaProverAttributes
-        elif file.endswith('.conf'):
-            raise Util.CertoraUserInputError(f"Cannot use conf files inside a conf file: {file}")
-        else:
-            raise Util.CertoraUserInputError(f"Unsupported file type: {file}")
-
-    cli_files = []
-    cli_conf_files = []
-    files = []
-    build_script = None
-    for arg in args:
-        if arg.startswith('-'):
-            break  # Stop processing when a flag is detected
-        cli_files.append(arg)
-        if arg.endswith('.conf'):
-            cli_conf_files.append(arg)
-
-    if len(cli_conf_files) == 1:
-        conf_file_path = Path(cli_conf_files[0])
-
-        with conf_file_path.open() as conf_file:
-            configuration = json5.load(conf_file, allow_duplicate_keys=False)
-            files = configuration.get('files', [])
-            build_script = configuration.get('build_script')
-
-    if build_script:
-        return SorobanProverAttributes
-
-    if len(cli_conf_files) == 0:
-        files = cli_files
-
-    if len(cli_conf_files) > 1:
-        raise Util.CertoraUserInputError(f"multiple conf files: {cli_conf_files})")
-
-    candidate = None
-
-    for file in files:
-        file = file.split(':')[0]  # remove contract part if exist
-        app = application_by_suffix(file)
-        if not candidate:
-            candidate = app
-        elif candidate == app:
-            continue
-        else:
-            raise Util.CertoraUserInputError(f"Illegal files combination: {files})")
-
-    if candidate:
-        attributes_logger.debug(f"detect_application_class returns {candidate}")
-        return candidate
-    else:
-        attributes_logger.debug(f"detect_application_class returns {EvmProverAttributes}")
-        return EvmProverAttributes
-
-
 def is_solana_app() -> bool:
     return get_attribute_class() == SolanaProverAttributes
 
@@ -1893,12 +1741,15 @@ def is_soroban_app() -> bool:
 def is_rust_app() -> bool:
     return is_soroban_app() or is_solana_app()
 
+
 # Ranger will also return true for this function
 def is_evm_app() -> bool:
     return issubclass(get_attribute_class(), EvmProverAttributes)
 
+
 def is_ranger_app() -> bool:
     return get_attribute_class() == RangerAttributes
+
 
 def is_sophy_app() -> bool:
     return False  # wait for the tool to be added

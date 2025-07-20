@@ -554,11 +554,6 @@ internal sealed class CallTraceGenerator(
         )
     }
 
-    private fun handleThrowPath(): HandleCmdResult {
-        currCallInstance.status = CallEndStatus.THROW
-        return HandleCmdResult.Continue
-    }
-
     private fun handleSummaryStart(summStart: SummaryStack.SummaryStart, currBlock: NBId, idx: Int): HandleCmdResult {
         val summaryInstance = CallInstance.InvokingInstance.SummaryInstance(currBlock, idx, summStart, scene, formatter)
 
@@ -856,10 +851,6 @@ internal sealed class CallTraceGenerator(
 
                     TACMeta.REVERT_PATH -> {
                         handleRevertPath(cmd, currBlock, cmdIdx)
-                    }
-
-                    TACMeta.THROW_PATH -> {
-                        handleThrowPath()
                     }
 
                     SummaryStack.START_EXTERNAL_SUMMARY, SummaryStack.START_INTERNAL_SUMMARY -> {

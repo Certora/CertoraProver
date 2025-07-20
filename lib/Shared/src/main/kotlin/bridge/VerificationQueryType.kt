@@ -19,7 +19,6 @@ package bridge
 
 enum class VerificationQueryType {
     spec,
-    assertion,
     equivalence
     ;
 

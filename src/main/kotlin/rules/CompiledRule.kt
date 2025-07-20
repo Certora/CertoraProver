@@ -509,8 +509,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
             baseRulesCheckableTACs: List<ICheckableTAC>
         ): Result<List<ICheckableTAC>> {
             val ruleTypeCheck = when (_rule.ruleType) {
-                is SpecType.Single.InvariantCheck.GenericPreservedInductionStep, is SpecType.Single.InvariantCheck.ExplicitPreservedInductionStep -> true
-                is SpecType.Single.InvariantCheck, is SpecType.Single.EnvFree -> false
+                is SpecType.Single.EnvFree,
                 is SpecType.Single.BuiltIn -> false
                 else -> true
             }

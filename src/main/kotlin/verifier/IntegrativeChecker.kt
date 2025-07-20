@@ -17,7 +17,6 @@
 
 package verifier
 
-import analysis.CommandWithRequiredDecls
 import analysis.constructor.SceneConstructorOracle
 import analysis.hash.DisciplinedHashModel
 import analysis.icfg.*
@@ -46,28 +45,19 @@ import instrumentation.transformers.InternalFunctionRerouter
 import instrumentation.transformers.MemoryPartition
 import log.*
 import normalizer.MemoryOverlapFixer
-import optimizer.Pruner
 import optimizer.hashRewrites
 import optimizer.rewriteCodedataCopy
 import report.*
-import report.callresolution.CallResolutionTableBase
 import rules.*
 import scene.*
-import solver.SolverResult
-import spec.CVL
-import spec.CVLKeywords
-import spec.IWithSummaryInfo
 import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
-import spec.rules.AssertRule
 import spec.rules.IRule
-import spec.toVar
 import tac.*
 import utils.*
 import vc.data.*
 import verifier.ContractUtils.tacOptimizations
 import verifier.equivalence.EquivalenceChecker
-import java.math.BigInteger
 
 private val logger = Logger(LoggerTypes.COMMON)
 
@@ -76,241 +66,6 @@ private const val SUMMARY_X = "\u2717"
 private const val SUMMARY_CHECK = "\u2714"
 
 object IntegrativeChecker {
-
-    private fun addSinkForAssertions(x: CoreTACProgram): CoreTACProgram {
-        val lastHasThrown = CVLKeywords.lastHasThrown.toVar(Tag.Bool)
-        val lastHasNotThrown = TACKeyword.TMP(Tag.Bool).toUnique()
-        return (if (x.code.isEmpty()) {
-            require(x.blockgraph.isEmpty())
-            x.copy(
-                code = mapOf(Pair(StartBlock, listOf())),
-                blockgraph = BlockGraph(StartBlock to treapSetOf())
-            )
-        } else {
-            x
-        })
-            .prependToBlock0(
-                CommandWithRequiredDecls(
-                    listOf(
-                        TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                            CVLKeywords.lastHasThrown.toVar(Tag.Bool),
-                            TACSymbol.Const(BigInteger.ZERO, Tag.Bool)
-                        )
-                    ),
-                    CVLKeywords.lastHasThrown.toVar()
-                )
-            )
-            .addSinkMainCall(
-                CommandWithRequiredDecls<TACCmd.Simple>(
-                    listOf(
-                        TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                            lastHasNotThrown,
-                            TACExpr.UnaryExp.LNot(lastHasThrown.asSym())
-                        ),
-                        TACCmd.Simple.AssertCmd(
-                            lastHasNotThrown,
-                            "Assertion check"
-                        )
-                    ),
-                    setOf(lastHasNotThrown)
-                )
-            ).first
-    }
-
-    data class AssertionCheck(
-        val code: ITACMethod,
-        val rule: IRule
-    )
-
-    private suspend fun handleAssertions(
-        scene: IScene,
-        assertions: ProverQuery.AssertionQuery,
-        reporter: OutputReporter,
-        treeViewReporter: TreeViewReporter
-    ): List<RuleCheckResult.Single> {
-        if (assertions.contractsToCheckAssert.isNotEmpty()) {
-            Logger.always("Has assertion checks.", respectQuiet = false)
-            scene.mapContractMethodsInPlace("assert-inline") { _scene, _method ->
-                val transformers = ChainedMethodTransformers(
-                    listOf(
-                        CoreToCoreTransformer(ReportTypes.ASSERTION_SINK, ::addSinkForAssertions).lift(),
-                        CoreToCoreTransformer(ReportTypes.MERGED) { p: CoreTACProgram -> BlockMerger.mergeBlocks(p) }.lift(),
-                        MethodToCoreTACTransformer(ReportTypes.INLINED) body@{ m: ITACMethod ->
-                            val c = m.code as CoreTACProgram
-                            /**
-                             * The callee analysis in [Summarization] assumes loop free code, but we don't
-                             * unroll in library contracts. Thus we skip doing summaries on libraries (we can
-                             * think harder about this if someone actually cares).
-                             */
-                            if((m.getContainingContract() as? IContractWithSource)?.src?.isLibrary == true) {
-                                Logger.alwaysWarn("Not running summarization on library contract ${m.getContainingContract().name} in assertion checking mode")
-                                return@body c
-                            }
-                            Summarization.handleSummaries(
-                                c,
-                                _scene,
-                                object : IWithSummaryInfo {
-                                    override val internalSummaries: Map<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>
-                                        get() = emptyMap()
-
-                                    override val externalSummaries: Map<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>
-                                        get() = emptyMap()
-                                    override val unresolvedSummaries: Map<CVL.SummarySignature.External, SpecCallSummary.DispatchList>
-                                        get() = emptyMap()
-                                },
-                                null
-                            )
-                        },
-                        CoreToCoreTransformer(
-                            ReportTypes.PATH_OPTIMIZE_FOR_ASSERTIONS_PASS
-                        ) { c: CoreTACProgram -> Pruner(c).prune() }.lift()
-                    )
-                )
-                ContractUtils.transformMethodInPlace(_method, transformers)
-            }
-        }
-
-        val contractNames = scene.getContracts().map { it.name }
-        val assertionChecks = mutableListOf<AssertionCheck>()
-        assertions.contractsToCheckAssert.forEach { contract ->
-            Logger.always("Checking assertions for ${contract}...", respectQuiet = false)
-            if (contract.name !in contractNames) {
-                throw IllegalStateException("No contract $contract in $contractNames")
-            }
-
-            val inlinedCodes = scene.getContract(contract)
-            inlinedCodes.getDeclaredMethods().forEach { inlinedCode ->
-                val funcName = inlinedCode.soliditySignature
-                val assertRule = CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
-                    val declId = contract.name + OUTPUT_NAME_DELIMITER + funcName
-                    AssertRule(RuleIdentifier.freshIdentifier(declId), true, funcName, scope)
-                }
-                StatusReporter.registerSubrule(assertRule)
-                assertionChecks.add(
-                    AssertionCheck(
-                        inlinedCode,
-                        assertRule
-                    )
-                )
-            }
-        }
-
-        // TODO: Run in parallel if we really want...
-        val assertionResults = mutableListOf<RuleCheckResult.Single>()
-        assertionChecks.forEach { assertionCheck ->
-            val inlinedCode = assertionCheck.code
-            val assertRule = assertionCheck.rule
-            val contract = inlinedCode.getContainingContract().name
-            val funcName = inlinedCode.soliditySignature
-
-            //  Add check AssertNot lastHasThrown as sink - added during inlining
-
-            // adding state links? TODO
-
-            val codeToCheck = inlinedCode.code as CoreTACProgram
-            ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
-                codeToCheck,
-                ReportTypes.SOL_METHOD_WITH_ASSERTS,
-                StaticArtifactLocation.Outputs,
-                DumpTime.AGNOSTIC
-            )
-            logger.info { "Processing for assertions:" }
-
-            val startTime = System.currentTimeMillis()
-            treeViewReporter.addTopLevelRule(assertRule)
-            treeViewReporter.signalStart(assertRule)
-            val vcRes = checkVC(scene, codeToCheck, liveStatsReporter = DummyLiveStatsReporter, assertRule)
-            val endTime = System.currentTimeMillis()
-            val finalResult = vcRes.finalResult
-            when (finalResult) {
-                SolverResult.SAT -> {
-                    Logger.always(
-                        "For contract $contract " +
-                            "and method ${funcName}, " +
-                            "found a violated assertion. See report.", respectQuiet = false
-                    )
-                }
-
-                SolverResult.UNSAT -> {
-                    Logger.always(
-                        "For contract $contract " +
-                            "and method ${funcName}, " +
-                            "proved that all assertions hold.", respectQuiet = false
-                    )
-                }
-
-                SolverResult.UNKNOWN, SolverResult.TIMEOUT -> {
-                    Logger.always(
-                        "For contract $contract " +
-                            "and method ${funcName}, " +
-                            "failed to execute.", respectQuiet = false
-                    )
-                }
-
-                SolverResult.SANITY_FAIL -> throw IllegalStateException("Unexpected solver result in assert mode: $finalResult")
-            }
-
-            val assertRuleResult =
-                if (finalResult != SolverResult.SAT) {
-                    RuleCheckResult.Single.Basic(
-                        rule = assertRule,
-                        result = finalResult,
-                        verifyTime = VerifyTime.WithInterval(startTime, endTime),
-                        ruleCheckInfo = RuleCheckResult.Single.RuleCheckInfo.BasicInfo(
-                            dumpGraphLink = null,
-                            isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
-                            isSolverResultFromCache = IsFromCache.INAPPLICABLE
-                        ),
-                        CallResolutionTableBase.Empty,
-                        ruleAlerts = emptyList()
-                    )
-                } else {
-                    RuleCheckResult.Single.WithCounterExamples(
-                        rule = assertRule,
-                        result = finalResult,
-                        verifyTime = VerifyTime.WithInterval(startTime, endTime),
-                        ruleAlerts = emptyList(),
-                        ruleCheckInfo = RuleCheckResult.Single.RuleCheckInfo.WithExamplesData(
-                            vcRes.examplesInfo.map { exampleInfo ->
-                                RuleCheckResult.Single.RuleCheckInfo.WithExamplesData.CounterExample(
-                                    //todo: seems like a bug (might affect the way things are reported in the --assert mode)
-                                    failureResultMeta = if (exampleInfo.reason != null) {
-                                        listOf(
-                                            RuleCheckResult.RuleFailureMeta.ViolatedAssert(
-                                                assertRule.ruleIdentifier.derivedAssertIdentifier(exampleInfo.reason),
-                                                exampleInfo.reason
-                                            )
-                                        )
-                                    } else {
-                                        emptyList()
-                                    },
-                                    rule = assertRule,
-                                    model = exampleInfo.model,
-                                    dumpGraphLink = null,
-                                    localAssignments = null,
-                                )
-                            },
-                            isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
-                            isSolverResultFromCache = IsFromCache.INAPPLICABLE
-                        )
-                    )
-                }
-            treeViewReporter.signalEnd(assertRule, assertRuleResult)
-            assertionResults.add(assertRuleResult)
-        }
-
-        reporter.feedReporter(assertionResults, scene)
-        return assertionResults
-    }
-
-    // TODO: Separate verify and result generation, .verify() to return instead of having side-effects on the class
-    private suspend fun checkVC(
-        scene: ISceneIdentifiers,
-        codeToCheck: CoreTACProgram,
-        liveStatsReporter: LiveStatsReporter,
-        singleRule: IRule,
-    ): Verifier.VerifierResult =
-        TACVerifier.verify(scene, codeToCheck, liveStatsReporter, singleRule)
 
     private suspend fun handleCVLs(
         scene: IScene,
@@ -379,8 +134,7 @@ object IntegrativeChecker {
         // some special casing we do for each of the types
         ConfigScope(
             ConfigType.CheckNoAddedAssertions,
-            ConfigType.CheckNoAddedAssertions.get() ||
-                (query is ProverQuery.AssertionQuery && query.contractsToCheckAssert.isEmpty())
+            ConfigType.CheckNoAddedAssertions.get()
         ).use {
             val extensionContractsMapping = ExtensionContractsMapping.fromContracts(contractSource.instances())
 
@@ -427,7 +181,7 @@ object IntegrativeChecker {
      *
      * Run TAC optimizations
      */
-    fun runInitialTransformations(scene: IScene, query: ProverQuery, extensionContractsMapping: ExtensionContractsMapping? = null) {
+    fun runInitialTransformations(scene: IScene, query: ProverQuery? = null, extensionContractsMapping: ExtensionContractsMapping? = null) {
         val cvlQuery = (query as? ProverQuery.CVLQuery.Single)?.cvl
         fun isAlwaysNondetDelegate(c: CallSummary) = Config.SummarizeExtLibraryCallsAsNonDetPreLinking.get() && c.callType == TACCallType.DELEGATE
         if(!extensionContractsMapping.isNullOrEmpty()) {
@@ -788,12 +542,6 @@ object IntegrativeChecker {
 
     private fun createTreeViewReporter(scene: IScene, query: ProverQuery): TreeViewReporter {
         return when(query){
-            is ProverQuery.AssertionQuery ->
-                TreeViewReporter(
-                    null,
-                    "AssertContract",
-                    scene,
-                )
             is ProverQuery.CVLQuery.Single -> query.cvl.let {
                 TreeViewReporter(
                     it.getContractNameFromContractId(SolidityContract.Current)?.name,
@@ -831,15 +579,6 @@ object IntegrativeChecker {
                 runInitialTransformations(scene, query, extensionContractsMapping)
                 if(!Config.PreprocessOnly.get()) {
                     when (query) {
-                        is ProverQuery.AssertionQuery -> {
-                            handleAssertions(
-                                scene.fork(IScene.ForkInfo.ASSERTION),
-                                query,
-                                reporterContainer,
-                                treeView
-                            )
-                        }
-
                         is ProverQuery.CVLQuery.Single -> {
                             handleCVLs(
                                 scene.fork(IScene.ForkInfo.CVL),

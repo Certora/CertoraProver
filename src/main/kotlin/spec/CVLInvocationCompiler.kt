@@ -434,11 +434,8 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
             Also do this when processing calldata (EVM will cut the 12 bytes, but spec code has to do it as well for address types)
              */
 
-            // TODO: RESET REVERT
-            val hasThrownSymbol = CVLKeywords.lastHasThrown.toVar(Tag.Bool)
-
             // handle msg
-            val msgSetup = buildMsgSetup(hasThrownSymbol, calleeId, envArg, calleeAddress)
+            val msgSetup = buildMsgSetup(calleeId, envArg, calleeAddress)
 
             // handle tx
             val txSetup = passFromEnvToTAC(
@@ -549,24 +546,16 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
          * More OLD Copy-Pasted Code
          */
         fun buildMsgSetup(
-            hasThrownSymbol: TACSymbol.Var,
             calleeId: CallId,
             envSymbol: TACSymbol.Var,
             calleeAddress: TACSymbol
         ): CommandWithRequiredDecls<TACCmd.Spec> {
-            val l1 = CommandWithRequiredDecls(
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    hasThrownSymbol,
-                    TACSymbol.False
-                ), hasThrownSymbol
-            ).merge(
-                passFromEnvToTAC(
-                    envSymbol,
-                    EthereumVariables.caller.at(callIndex = calleeId),
-                    "msg",
-                    "sender",
-                    EVMTypeDescriptor.address
-                )
+            val l1 = passFromEnvToTAC(
+                envSymbol,
+                EthereumVariables.caller.at(callIndex = calleeId),
+                "msg",
+                "sender",
+                EVMTypeDescriptor.address
             )
 
             val l2 = passFromEnvToTAC(
@@ -856,7 +845,7 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
                 ), setOf(balanceSufficient, envVar, balanceRead, msgAmount, senderAddress)))
                 .toProg("balanceCheck", callId.toContext())
 
-            val revertPath = EthereumVariables.setLastRevertedAndLastHasThrown(lastReverted = true, lastHasThrown = false)
+            val revertPath = EthereumVariables.setLastReverted(lastReverted = true)
                 .merge(if (isNoRevert && Config.CvlFunctionRevert.get()) {
                     TACCmd.Simple.AnnotationCmd(REVERT_CONFLUENCE)
                 } else {

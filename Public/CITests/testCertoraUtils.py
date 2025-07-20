@@ -83,11 +83,6 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
         'invalid': ['a:fp99', 'a', ':', ':8', 'a:af']
     },
 
-    Vf.validate_assert_contracts: {
-        'valid': ['$Bank_'],
-        'invalid': ['Bank!']
-    },
-
     Vf.validate_build_dir: {
         'valid': ['subdir']
     },
@@ -122,14 +117,13 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
         'invalid': ['G', '00000000000000000000000000000000000000000']
     },
 
-    Vf.validate_input_file: {
+    Vf.validate_evm_input_file: {
         'valid': [
             path_test_file('_simple$.sol'),
             path_test_file('_simple$.sol') + ':_Simple$',
             path_test_file('empty.tac'),
             path_test_file('tac_file.conf'),
             path_test_file('erc20.json'),
-            path_test_file('empty.so'),
             path_test_file('empty.sol:Contract')
         ],
         'invalid': [
@@ -406,6 +400,10 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
 
     Vf.validate_wait_for_results: {
         'enum': Vf.WaitForResultOptions
+    },
+
+    Vf.validate_url_visibility: {
+        'enum': Vf.UrlVisibilityOptions
     },
 
     Vf.validate_function_finder_mode: {

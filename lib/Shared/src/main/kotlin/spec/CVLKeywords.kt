@@ -67,7 +67,6 @@ enum class CVLKeywords(
     tx("tx", EVMBuiltinTypes.tx),
 
     lastReverted("lastReverted", CVLType.PureCVLType.Primitive.Bool, meta = MetaMap(TACBasicMeta.LAST_REVERTED), alwaysDefined = true),
-    lastHasThrown("lastHasThrown", CVLType.PureCVLType.Primitive.Bool, meta = MetaMap(TACBasicMeta.LAST_HAS_THROWN), alwaysDefined = true),
     lastStorage("lastStorage", CVLType.PureCVLType.VMInternal.BlockchainState, alwaysDefined = true),
 
     allContracts("allContracts", CVLType.PureCVLType.Primitive.AccountIdentifier, alwaysDefined = true),

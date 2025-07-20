@@ -608,7 +608,7 @@ class TestClient(unittest.TestCase):
                              expected="Cannot use 'bytecode_jsons' with other files")
         suite.expect_failure(description="2 conf files",
                              run_flags=[_p('tac_file.conf'), _p('tac_file.conf')],
-                             expected="multiple conf files")
+                             expected="No other files are allowed when using a config file")
         suite.expect_failure(description="2 tag files",
                              run_flags=[_p('empty.tac'), _p('empty.tac')],
                              expected="No other files are allowed with a file of type .tac")
@@ -1319,7 +1319,6 @@ class TestClient(unittest.TestCase):
 
         result = suite.expect_checkpoint(description='run certoraRun with ranger attributes',
                                          run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}",
-                                                    "--rule_sanity",
                                                     "--coverage_info",
                                                     "--independent_satisfy",
                                                     "--multi_assert_check",

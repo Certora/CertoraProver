@@ -9,7 +9,7 @@
 			]
 		},
 		"limitInRangeBad": {
-			"Induction base: After the constructor": "SUCCESS",
+			"Induction base: After the constructor": "SANITY_FAIL",
 			"Induction step: after external (non-view) methods": {
 				"Using general requirements": {
 					"SUCCESS": [

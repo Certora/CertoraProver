@@ -9,7 +9,7 @@ we recommend following the documentation here: https://docs.certora.com/en/lates
 The instructions here are for users on Mac OS and Linux.
 
 ## Dependencies
-* JDK 11+
+* JDK 19+
 * SMT solvers:
   * [required] Z3 -- https://github.com/Z3Prover/z3/releases
   * [required] CVC5 -- https://github.com/cvc5/cvc5/releases
