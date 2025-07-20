@@ -2104,6 +2104,15 @@ object Config {
         )
     ) {}
 
+    val globalInliner = object : ConfigType.IntCmdLine(
+        default = 1,
+        option = Option(
+            "globalInliner",
+            true,
+            "The number of times to run globalInliner in sequence [default : 1]"
+        )
+    ) {}
+
 
     val LastIntervalsRewriter = object : ConfigType.IntCmdLine(
         default = 1,

@@ -19,9 +19,7 @@ package utils
 
 import com.certora.collect.*
 import datastructures.stdcollections.*
-import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.sync.*
 import utils.Color.Companion.bBlack
 import utils.Color.Companion.bRed
 import utils.Color.Companion.bRedBg
@@ -1209,6 +1207,14 @@ inline fun <T> List<T>.forWithNext(action : (T, T) -> Unit) {
     for (i in 0 until size - 1) {
         action(this[i], this[i+1])
     }
+}
+
+fun <T> repeatedMap(times : Int, init : T, transform : (T) -> T) : T {
+    var result = init
+    repeat(times) {
+        result = transform(result)
+    }
+    return result
 }
 
 infix fun <T: Comparable<T>> ClosedRange<T>.overlaps(that: ClosedRange<T>): Boolean {

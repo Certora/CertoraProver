@@ -20,11 +20,13 @@ package analysis.opt.inliner
 import analysis.CmdPointer
 import analysis.opt.ConstantPropagatorAndSimplifier
 import analysis.opt.inliner.Inlinee.Term
+import config.Config
 import log.*
 import org.jetbrains.annotations.TestOnly
 import tac.Tag
 import utils.ConcurrentCounterMap
 import utils.ite
+import utils.repeatedMap
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
@@ -42,9 +44,11 @@ class GlobalInliner private constructor(val code: CoreTACProgram) {
 
     companion object {
         fun inlineAll(code: CoreTACProgram) =
-            ConstantPropagatorAndSimplifier(code).rewrite()
-                .let { GlobalInliner(it).go() }
-                .let { GlobalInliner(it).go() }
+            repeatedMap(
+                times = Config.globalInliner.get(),
+                init = ConstantPropagatorAndSimplifier(code).rewrite(),
+                transform = { GlobalInliner(it).go() }
+            )
 
         @TestOnly
         fun inlineStats(code: CoreTACProgram) =
