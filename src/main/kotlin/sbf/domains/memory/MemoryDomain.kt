@@ -444,7 +444,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             if (isLoad) {
                 check(baseValBeforeKilled != null) {"Unexpected null scalar value for $stmt"}
                 val baseType = baseValBeforeKilled.type()
-                ptaGraph.doLoad(locInst, base, baseType, globals)
+                ptaGraph.doLoad(locInst, base, baseType, globals, scalars)
             } else {
                 val value = stmt.value
                 val baseType = scalars.getValue(base).type()

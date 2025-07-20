@@ -2872,13 +2872,14 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                                   isStack: Boolean,
                                   lhs: Value.Reg,
                                   field: PTAField,
-                                  derefC: PTACell) {
+                                  derefC: PTACell,
+                                  scalars: ScalarDomain<TNum, TOffset>) {
 
         check(derefC.getOffset() == field.offset) {"precondition of loadFromUninitMem failed"}
 
         if (isStack) {
             // Read from uninitialized stack is common due to memcpy from the input region
-            val reconstructedSuccC = reconstructFromIntegerCells(locInst, derefC, field.size)
+            val reconstructedSuccC = reconstructFromIntegerCells(locInst, derefC, field.size, scalars)
             when {
                 reconstructedSuccC != null -> {
                     // It's possible that the read field was marked as untracked by a previous store.
@@ -2954,7 +2955,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      **/
     private fun loadFromCell(locInst: LocatedSbfInstruction,
                              lhs: Value.Reg,
-                             derefC: PTACell): Boolean {
+                             derefC: PTACell,
+                             scalars: ScalarDomain<TNum, TOffset>): Boolean {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem)
         check(inst.isLoad) {"doLoad expects a Load instead of $inst"}
@@ -2965,7 +2967,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                 // We skip the load if the loaded value cannot affect control-flow of the program
                 // This is important because we want PTA to check that the load matches the last store even if the loaded
                 // value is not a pointer.
-                loadFromUninitMem(locInst, derefC.getNode() == getStack(), lhs, field, derefC)
+                loadFromUninitMem(locInst, derefC.getNode() == getStack(), lhs, field, derefC, scalars)
                 true
             } else {
                 false
@@ -2980,7 +2982,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * Modify the lhs of [locInst] to point to [derefSc]'s successor in the points-to graph.
      * [derefSc] is a symbolic cell, so it needs first to be resolved.
      **/
-    private fun loadFromSymCell(locInst: LocatedSbfInstruction, derefSc: PTASymCell) {
+    private fun loadFromSymCell(locInst: LocatedSbfInstruction, derefSc: PTASymCell, scalars: ScalarDomain<TNum, TOffset>) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem) {"doLoad expects a Load instead of $inst"}
         check(inst.isLoad) {"doLoad expects a Load instead of $inst"}
@@ -2991,7 +2993,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             // If the access is not on the stack then calling `concretizeCell` is okay since it should not cause the
             // collapse of the stack.
             val derefC = concretizeCell(derefSc, "$derefSc in $inst", locInst)
-            loadFromCell(locInst, lhs, derefC)
+            loadFromCell(locInst, lhs, derefC, scalars)
         } else {
             // If the access is on the stack then we try to get all possible offsets. Otherwise, we throw an exception.
             if (derefSc.getOffset().isTop()) {
@@ -3001,11 +3003,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             check(offsets.isNotEmpty()) { "list of offsets should not be empty in $inst" }
 
             // For the first offset, `lhs` is updated with a strong update
-            loadFromCell(locInst, lhs, derefSc.getNode().createCell(offsets.first()))
+            loadFromCell(locInst, lhs, derefSc.getNode().createCell(offsets.first()), scalars)
             // For the rest of offsets, `lhs` is updated with a weak update
             for (offset in offsets.drop(1)) {
                 val oldSymCell = getRegCell(lhs)
-                loadFromCell(locInst, lhs, derefSc.getNode().createCell(offset))
+                loadFromCell(locInst, lhs, derefSc.getNode().createCell(offset), scalars)
                 val newSymCell = getRegCell(lhs)
                 // if it returns null then lhs points to "top", so we stop here
                 merge(lhs, oldSymCell, newSymCell, locInst) ?: break
@@ -3013,11 +3015,19 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         }
     }
 
+    @TestOnly
+    fun doLoad(locInst: LocatedSbfInstruction,
+               base: Value.Reg,
+               baseType: SbfType<TNum, TOffset>,
+               globalsMap: GlobalVariableMap) =
+        doLoad(locInst, base, baseType, globalsMap, ScalarDomain.makeTop(sbfTypesFac))
+
     /** Transfer function for load instruction **/
     fun doLoad(locInst: LocatedSbfInstruction,
                base: Value.Reg,
                baseType: SbfType<TNum, TOffset>,
-               globalsMap: GlobalVariableMap) {
+               globalsMap: GlobalVariableMap,
+               scalars: ScalarDomain<TNum, TOffset>) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem && inst.isLoad) {"doLoad expects a Load instruction instead of $inst"}
 
@@ -3041,7 +3051,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         // Mark node as read
         baseSc.getNode().setRead()
 
-        loadFromSymCell(locInst, derefSc)
+        loadFromSymCell(locInst, derefSc, scalars)
     }
 
 
@@ -3049,7 +3059,24 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *  Create a fresh cell for slice [deref].getOffset()..[deref].getOffset()+[width] from existing cells.
      **/
     @TestOnly
-    fun reconstructFromIntegerCells(locInst: LocatedSbfInstruction, deref: PTACell, width: Short): PTASymCell? {
+    fun reconstructFromIntegerCells(locInst: LocatedSbfInstruction,
+                                    deref: PTACell, width: Short,
+                                    scalars: ScalarDomain<TNum, TOffset>): PTASymCell? {
+
+        fun isIntegerCell(field: PTAField, isStackField: Boolean, succC: PTACell): Boolean {
+            // We use first flow-sensitive information
+            if (isStackField) {
+                val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
+                if (scalarVal.type() is SbfType.NumType) {
+                    return true
+                }
+            }
+
+            // Otherwise, we use flow-insensitive information
+            // This might cause a PTA error during invariants replay phase which was did not happen during analysis phase.
+            return succC.getNode().mustBeInteger()
+        }
+
         val derefNode= deref.getNode()
         if (derefNode.getSuccs().isEmpty()) {
             return null
@@ -3060,7 +3087,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         var cover = SetOfFiniteIntervals(listOf())
 
         for ((field, succC) in derefNode.getSuccs()) {
-            if (!succC.getNode().mustBeInteger()) { continue }
+            if (!isIntegerCell(field, derefNode == getStack(), succC)) { continue }
 
             val fieldRange =  field.toInterval()
             when {

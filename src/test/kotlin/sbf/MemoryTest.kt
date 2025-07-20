@@ -930,21 +930,21 @@ class MemoryTest {
 
 
         /** We should reconstruct a cell from (4040,4) and (4044,4) **/
-        val c1 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4040), 8)
+        val c1 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4040), 8, absVal.getScalars())
         Assertions.assertEquals(true, c1 != null)
         sbfLogger.warn{"ReconstructFromIntegerCells(4040,8)=$c1\nPTAGraph=$g" }
 
         /** We should reconstruct a cell from (4048,8) **/
-        val c2 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4048), 4)
+        val c2 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4048), 4, absVal.getScalars())
         Assertions.assertEquals(true, c2 != null)
         sbfLogger.warn{"ReconstructFromIntegerCells(4048,4)=$c2\nPTAGraph=$g" }
 
         /** We cannot reconstruct a cell from (4064,8) **/
-        val c3 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4064), 8)
+        val c3 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4064), 8, absVal.getScalars())
         Assertions.assertEquals(true, c3 == null)
 
         /** We cannot reconstruct a cell from (4044,8) **/
-        val c4 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4044), 8)
+        val c4 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4044), 8, absVal.getScalars())
         Assertions.assertEquals(true, c4 == null)
     }
 
