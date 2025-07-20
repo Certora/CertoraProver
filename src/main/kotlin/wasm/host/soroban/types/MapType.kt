@@ -150,9 +150,7 @@ object MapType : MappingType() {
                 withPresence(handle, key) { presence ->
                     Trap.assert("Key not found in map") { presence.asSym() }
                 },
-                assign(dest) {
-                    select(mappings.asSym(), handle.asSym(), key.digest.asSym())
-                },
+                moveValue(dest, handle, key.digest.asSym())
             )
         }
 
@@ -466,13 +464,7 @@ object MapType : MappingType() {
                     // Read all values from the map
                     mergeMany(
                         keyVars.zip(valVars).map { (key, value) ->
-                            assign(value) {
-                                select(
-                                    mappings.asSym(),
-                                    handle.asSym(),
-                                    Val.digest(key.asSym())
-                                )
-                            }
+                            moveValue(value, handle, Val.digest(key.asSym()))
                         }
                     ),
                     // Write the values to memory

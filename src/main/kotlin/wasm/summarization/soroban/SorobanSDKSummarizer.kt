@@ -23,8 +23,11 @@ import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import tac.generation.*
 import tac.Tag
+import utils.*
 import vc.data.*
 import vc.data.TACExprFactUntyped
+import wasm.WasmPipelinePhase
+import wasm.WasmPostUnrollSummary
 import wasm.host.soroban.Val
 import wasm.host.soroban.types.IntType
 import vc.data.TACExprFactUntyped as txf
@@ -160,7 +163,8 @@ class SorobanSDKSummarizer(
             WASM_SDK_FUNC_SUMMARY_START,
             StraightLine.InlinedFuncStartAnnotation.TAC(
                 name,
-                listOf(ptr) + lowEndianPieces.map { it.toTacSymbol() }, null)
+                listOf(ptr) + lowEndianPieces.map { it.toTacSymbol() },
+                null)
         )).withDecls()
         val exit = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_END,
@@ -181,6 +185,73 @@ class SorobanSDKSummarizer(
     }
 
     /**
+     * The "pure" part of Val to Int conversion, i.e.
+     * memory is not touched by this command.
+     * @param type the type of Int we're creating
+     * @param handle the input Val
+     * @param successOut the output containing whether the conversion succeeded
+     * @param intPieces the big endian 64-bit pieces of the decoded integer
+     */
+    @KSerializable
+    data class ValToIntIntrinsic(
+        val name: String,
+        val type: IntType,
+        val handle: TACSymbol,
+        val successOut: TACSymbol.Var,
+        val intPieces: List<TACSymbol.Var>,
+    ): WasmPostUnrollSummary(phase = WasmPipelinePhase.PostOptimization) {
+        init {
+            check(type.numPieces == intPieces.size) {
+                "expected ${type.numPieces} pieces, got ${intPieces.size}"
+            }
+        }
+        override val mustWriteVars: Collection<TACSymbol.Var>
+            get() = setOf(successOut) + intPieces
+
+        override val inputs: List<TACSymbol>
+            get() = listOf()
+
+        override fun transformSymbols(f: Transformer): AssignmentSummary {
+            return ValToIntIntrinsic(
+                name,
+                type,
+                f(handle),
+                f(successOut),
+                intPieces.map { f(it )}
+            )
+        }
+
+        override fun gen(
+            simplifiedInputs: List<TACExpr>,
+            analysisCache: AnalysisCache
+        ): CommandWithRequiredDecls<TACCmd.Simple> {
+            val decoded = TACKeyword.TMP(Tag.Bit256, "decoded")
+
+            val allocCheck = Val.hasTag(handle.asSym(), type.tag) implies Val.isAllocated(handle.asSym())
+
+            return mergeMany(
+                Trap.assert("Expected a valid object $handle") { allocCheck },
+
+                assign(successOut) {
+                    Val.hasTag(handle.asSym(), type.smallTag) or Val.hasTag(handle.asSym(), type.tag)
+                },
+                // Just retrieve the value from our map (if we never observed the conversion _into_ val then
+                // running all the sdk code is pointless anyway)
+                type.decodeVal(decoded, handle.asSym()),
+                assume { decoded.asSym() le type.allBitsSet },
+                mergeMany(
+                    intPieces.withIndex().map { (piece, v) ->
+                       assign(v) {
+                           val decodeThis = type.objPiece(decoded.asSym(), piece)
+                           ite(i = successOut.asSym(), t = decodeThis, e = TACExpr.Unconstrained(Tag.Bit256))
+                       }
+                    },
+                ),
+            )
+        }
+    }
+
+    /**
      * Summarize the SDK function by eliminating control flow branching (by using [type.decodeVal])
      *
      * Assigns
@@ -192,11 +263,12 @@ class SorobanSDKSummarizer(
         val ptr = outPtrArg.toTacSymbol()
         val handle = handleArg.toTacSymbol()
         val succeed = TACKeyword.TMP(Tag.Bool, "succeed")
-        val decoded = TACKeyword.TMP(Tag.Bit256, "decoded")
-        val allocCheck = Val.hasTag(handle.asSym(), type.tag) implies Val.isAllocated(handle.asSym())
+        val pieces = (0 ..< type.numPieces).map { piece ->
+            TACKeyword.TMP(Tag.Bit256, "piece!${piece}")
+        }
         val enter = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_START,
-            StraightLine.InlinedFuncStartAnnotation.TAC(name, listOf(ptr, handle), null)
+            StraightLine.InlinedFuncStartAnnotation.TAC(name, listOf(ptr, handle),  null)
         )).withDecls()
         val exit = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_END,
@@ -204,15 +276,8 @@ class SorobanSDKSummarizer(
         )).withDecls()
         return mergeMany(
             enter,
-            // The VM should trap if the Int object is invalid
-            // (but passing a non Int-like val simply results in the Err Result case)
-            Trap.assert("Expected a valid object $handle") { allocCheck },
-
-            assign(succeed) {
-                Val.hasTag(handle.asSym(), type.smallTag) or Val.hasTag(handle.asSym(), type.tag)
-            },
-
-            // Otherwise, we will succeed on an i128-like Val
+            ValToIntIntrinsic(name, type, handle, succeed, pieces).toCmd(),
+            // store the results to memory
             TACExprFactUntyped {
                 ite(i = succeed.asSym(),
                     t = 0.asTACExpr,
@@ -220,19 +285,14 @@ class SorobanSDKSummarizer(
             }.letVar { success ->
                 memStore(ptr.asSym(), success)
             },
-
-            // Just retrieve the value from our map (if we never observed the conversion _into_ val then
-            // running all the sdk code is pointless anyway)
-            type.decodeVal(decoded, handle.asSym()),
-            assume { decoded.asSym() le type.allBitsSet },
             mergeMany(
-                (0 ..< type.numPieces).map { piece ->
+                pieces.withIndex().map { (i, piece) ->
                     // little endian in memory while objPiece is big endian:
-                    // piece 0 is the most signifiant so it goes at the greatest offset
-                    val offset = ((type.numPieces - piece)*8).asTACExpr
+                    // piece 0 is the most significant so it goes at the greatest offset
+                    val offset = ((type.numPieces - i)*8).asTACExpr
                     memStore(
                         txf { ptr.asSym().add(offset) },
-                        txf { ite(i = succeed.asSym(), t = type.objPiece(decoded.asSym(), piece), e = TACExpr.Unconstrained(Tag.Bit256)) }
+                        piece.asSym()
                     )
                 }
             ),

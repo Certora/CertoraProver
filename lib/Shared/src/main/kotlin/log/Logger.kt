@@ -123,6 +123,7 @@ enum class LoggerTypes : LoggerName {
     REPORT_UTILS,
     SBF,
     WASM,
+    WASM_ANALYSIS,
     CVLR,
     CONTRACT_CREATION,
     VM_INTEROP,
