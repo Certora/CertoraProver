@@ -454,8 +454,8 @@ def convert_pathname_to_posix(json_dict: Dict[str, Any], entry: str, smart_contr
                 # protecting against long strings
                 if len(json_dict_str) > 200:
                     json_dict_str = json_dict_str[:200] + '...'
-                fatal_error(compiler_logger, f"The path of the source file {file_path}"
-                                             f"in the standard json file {json_dict_str} does not exist")
+                fatal_error(compiler_logger, f"The path of the source file {file_path} "
+                                             f"in the standard json file does not exist!\n{json_dict_str} ")
         json_dict[entry] = json_dict_posix_paths
 
 
@@ -1432,8 +1432,11 @@ class CertoraBuildGenerator:
                 compiler_version = compiler_collector.compiler_version
                 major, minor, patch = compiler_version
 
-                err_msg = "--finder_friendly_optimizer option supports solc versions 0.6.7 - 0.8.25 only, " \
-                          f"got {major}.{minor}.{patch}"
+                err_msg = \
+                    f"Unsupported solc version {major}.{minor}.{patch} for `solc_via_ir`. " \
+                    f"Supported versions: 0.6.7 – 0.8.25.\n" \
+                    f"Use `solc_via_ir_map` to disable `solc_via_ir` for specific files with older compiler versions."
+
                 yul_optimizer_steps = None
                 if major != 0:
                     raise Util.CertoraUserInputError(err_msg)
@@ -3579,7 +3582,11 @@ class CertoraBuildGenerator:
         return sources
 
     def __del__(self) -> None:
-        self.cleanup()
+        try:
+            self.cleanup()
+        except ImportError:
+            # Avoiding Python interpreter shutdown exceptions which are safe to ignore
+            pass
 
 
 # make sure each source file exists and its path is in absolute format

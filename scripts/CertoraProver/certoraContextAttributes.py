@@ -293,6 +293,30 @@ class DeprecatedAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
+    SOLC_MAP = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_compiler_map,
+        arg_type=AttrUtil.AttrArgType.MAP,
+        deprecation_msg="`solc_map` is deprecated, use `compiler_map` instead",
+        help_msg='Map contracts to the appropriate Solidity compiler in case not all contract files are compiled '
+                 'with the same Solidity compiler version. \n\nCLI Example: '
+                 '\n  --solc_map A=solc8.11,B=solc8.9,C=solc7.5\n\nJSON Example: '
+                 '\n  "solc_map: {"'
+                 '\n    "A": "solc8.11",'
+                 '\n    "B": "solc8.9",'
+                 '\n    "C": "solc7.5"'
+                 '\n  }',
+        default_desc="Uses the same Solidity compiler version for all contracts",
+        argparse_args={
+            'action': AttrUtil.UniqueStore,
+            'type': lambda value: Vf.parse_ordered_dict('solc_map', value)
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
+    )
+
 
 class EvmAttributes(AttrUtil.Attributes):
 
@@ -385,29 +409,6 @@ class EvmAttributes(AttrUtil.Attributes):
         argparse_args={
             'action': AttrUtil.UniqueStore,
             'type': lambda value: Vf.parse_ordered_dict('solc_evm_version_map', value)
-        },
-        affects_build_cache_key=True,
-        disables_build_cache=False,
-        config_data=AttributeJobConfigData(
-            main_section=MainSection.SOLIDITY_COMPILER
-        )
-    )
-
-    SOLC_MAP = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_compiler_map,
-        arg_type=AttrUtil.AttrArgType.MAP,
-        help_msg='Map contracts to the appropriate Solidity compiler in case not all contract files are compiled '
-                 'with the same Solidity compiler version. \n\nCLI Example: '
-                 '\n  --solc_map A=solc8.11,B=solc8.9,C=solc7.5\n\nJSON Example: '
-                 '\n  "solc_map: {"'
-                 '\n    "A": "solc8.11",'
-                 '\n    "B": "solc8.9",'
-                 '\n    "C": "solc7.5"'
-                 '\n  }',
-        default_desc="Uses the same Solidity compiler version for all contracts",
-        argparse_args={
-            'action': AttrUtil.UniqueStore,
-            'type': lambda value: Vf.parse_ordered_dict('solc_map', value)
         },
         affects_build_cache_key=True,
         disables_build_cache=False,

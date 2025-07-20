@@ -285,6 +285,7 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
     # Setup defaults (defaults are not recorded in conf file)
     context.expected_file = context.expected_file or "expected.json"
     context.run_source = context.run_source or Vf.RunSources.COMMAND.name.upper()
+    context.java_version = Util.get_java_version()
 
     context_logger.debug("parsed args successfully.")
     context_logger.debug(f"args= {context}")
@@ -547,7 +548,7 @@ def run_local_spec_check(with_typechecking: bool, context: CertoraContext) -> No
     if context.disable_local_typechecking or Util.is_ci_or_git_action():
         return
     args = collect_jar_args(context)
-    if Util.is_java_installed():
+    if Util.is_java_installed(context.java_version):
         run_typechecker("Typechecker.jar", with_typechecking, args)
     else:
         raise Util.CertoraUserInputError("Cannot run local checks because of missing a suitable java installation. "

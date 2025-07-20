@@ -997,31 +997,46 @@ def get_package_resource(resource: Path) -> Path:
     return Path(__file__).parents[2] / resource
 
 
-def is_java_installed() -> bool:
+def get_java_version() -> str:
     """
-    Check that java is installed and with a version that is suitable for running certora jars
-    @return True on success
+    Retrieve installed java version
+    @return installed java version on success or empty string
     """
     # Check if java exists on the machine
     java = which("java")
     if java is None:
+        return ''
+
+    try:
+        java_version_str = subprocess.check_output(['java', '-version'], stderr=subprocess.STDOUT).decode()
+        java_version = re.search(r'version \"([\d\.]+)\"', java_version_str).groups()[0]  # type: ignore[union-attr]
+
+        return java_version
+    except (subprocess.CalledProcessError, AttributeError):
+        typecheck_logger.debug("Couldn't find the installed Java version.")
+        return ''
+
+
+def is_java_installed(java_version: str) -> bool:
+    """
+    Check that java is installed and with a version that is suitable for running certora jars
+    @return True on success
+    """
+    if not java_version:
         typecheck_logger.warning(
             f"`java` is not installed. Installing Java version {MIN_JAVA_VERSION} or later will enable faster "
             f"CVL specification syntax checking before uploading to the cloud.")
         return False
 
-    try:
-        java_version_str = subprocess.check_output(['java', '-version'], stderr=subprocess.STDOUT).decode()
-        major_java_version = re.search(r'version \"(\d+).*', java_version_str).groups()[0]  # type: ignore[union-attr]
+    else:
+        major_java_version = java_version.split('.')[0]
         if int(major_java_version) < MIN_JAVA_VERSION:
             typecheck_logger.warning("Installed Java version is too old to check CVL specification files locally. "
                                      f" Java version should be at least {MIN_JAVA_VERSION} to allow local java-based "
                                      "type checking")
 
             return False
-    except (subprocess.CalledProcessError, AttributeError):
-        typecheck_logger.warning("Couldn't find the installed Java version.")
-        return False
+
     return True
 
 

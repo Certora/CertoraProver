@@ -1299,7 +1299,7 @@ class TestClient(unittest.TestCase):
         child_data['override_base_config'] = "does_not_exist.conf"
         with open("child.conf", "w") as f: json.dump(child_data, f, indent=4)
         suite.expect_failure(description="override base: base does not exist", run_flags=['child.conf'],
-                             expected="read_from_conf_file: child.conf: not found")
+                             expected="Error when reading child.conf: Cannot load base config: does_not_exist.conf")
 
         # base conf is not a valid JSON
         with open("base_bad.conf", "w") as f: f.write("Not JSON")

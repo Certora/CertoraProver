@@ -91,7 +91,7 @@ class RunSources(Util.NoValEnum):
     MUTATION = auto()
     BENCHMARK = auto()
     LIGHT_TEST = auto()
-    RERUN = auto()
+    REPORT = auto()
 
 
 class WaitForResultOptions(Util.NoValEnum):
