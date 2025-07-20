@@ -22,6 +22,7 @@ import analysis.JoinLattice
 import sbf.cfg.*
 import sbf.disassembler.Label
 import datastructures.stdcollections.*
+import sbf.SolanaConfig
 import sbf.disassembler.GlobalVariableMap
 import sbf.domains.*
 
@@ -60,11 +61,13 @@ class NPAnalysis(
     /** Used by the NPDomain to represent contents of stack slots **/
     private val vFac = VariableFactory()
     /**
-     * We need to run a forward analysis to know whether a pointer points to the
-     * stack or not. Note that we run only a scalar domain so the analysis will be
-     * quite cheap but imprecise.
+     * We run a forward analysis for two reasons:
+     * 1) the backward analysis needs to know whether a pointer points to the
+     *    stack or not.
+     * 2) remove unreachable blocks.
+     *    Note that to make the analysis more precise, we use set-value abstraction in scalar analysis.
      **/
-    private val fwdAnalysis = AdaptiveScalarAnalysis(cfg, globalsMap, memSummaries)
+    private val fwdAnalysis = ScalarAnalysis(cfg, globalsMap, memSummaries, ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong()))
     val registerTypes = AnalysisRegisterTypes(fwdAnalysis)
     /** Exit blocks of the cfg **/
     val exits: MutableSet<Label> = mutableSetOf()
