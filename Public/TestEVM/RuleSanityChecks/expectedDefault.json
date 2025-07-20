@@ -1,0 +1,35 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "check_assert_reachable_01": "SUCCESS",
+        "check_assert_reachable_02": "FAIL",
+        "check_assert_reachable_03": "SUCCESS",
+        "check_assert_reachable_dependent_on_method_parameter_01": {
+            "FAIL": [
+                "require_nothing()",
+                "i()"
+            ],
+            "SANITY_FAIL": [
+                "always_revert()",
+                "require_i_lowerthan_10()"
+            ],
+            "SUCCESS": [],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "check_assert_unreachable_01": "SANITY_FAIL",
+        "check_assert_unreachable_03": "SANITY_FAIL",
+        "envfreeFuncsStaticCheck": {
+            "FAIL": [],
+            "SANITY_FAIL": [],
+            "SUCCESS": [
+                "always_revert()",
+                "i()",
+                "require_i_lowerthan_10()",
+                "require_nothing()"
+            ],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        }
+    }
+}

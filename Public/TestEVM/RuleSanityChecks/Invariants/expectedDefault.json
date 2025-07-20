@@ -1,0 +1,80 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"allSanityFail": "SANITY_FAIL",
+		"allSanityPass": "SUCCESS",
+		"alwaysTrueInv": {
+			"Induction base: After the constructor": "SANITY_FAIL",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [
+						"setB(uint256)",
+						"returnSame(uint256)",
+						"getB()",
+						"getMinusOne(uint256)",
+						"getPlusOne(uint256)"
+					],
+					"SUCCESS": [],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"returnSame(uint256)",
+				"b()",
+				"getB()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"wrongInv": {
+			"Induction base: After the constructor": "FAIL",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"setB(uint256)",
+						"returnSame(uint256)",
+						"getB()",
+						"getMinusOne(uint256)",
+						"getPlusOne(uint256)"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"zeroOrTwo": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [
+						"returnSame(uint256)",
+						"getB()",
+						"getMinusOne(uint256)",
+						"getPlusOne(uint256)"
+					],
+					"SUCCESS": [],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				},
+				"Using specific requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [
+						"setB(uint256)"
+					],
+					"SUCCESS": [],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,15 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "simple": {
+      "FAIL": [],
+      "SANITY_FAIL": [
+        "Empty.nothing()",
+        "Empty2.nothing()"
+      ],
+      "SUCCESS": [],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    }
+  }
+}

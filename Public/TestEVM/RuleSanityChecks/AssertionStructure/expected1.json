@@ -1,0 +1,24 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "disjunction_left": "SANITY_FAIL",
+        "disjunction_right": "SANITY_FAIL",
+        "double_implication_both_false": "SANITY_FAIL",
+        "double_implication_both_true": "SANITY_FAIL",
+        "double_implication_pass": "SANITY_FAIL",
+        "envfreeFuncsStaticCheck": {
+            "FAIL": [],
+            "SANITY_FAIL": [],
+            "SUCCESS": [
+                "counter()",
+                "incrementAndGet()"
+            ],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "p_implies_q_false_hypothesis": "SANITY_FAIL",
+        "p_implies_q_true_conclusion": "SANITY_FAIL",
+        "vacuous_implication": "SANITY_FAIL",
+        "first_tautologize_second": "SANITY_FAIL"
+    }
+}

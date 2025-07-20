@@ -1,0 +1,34 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"alwaysTrue": {
+			"Induction base: After the constructor": "SANITY_FAIL",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [
+						"x()",
+						"y()"
+					],
+					"SUCCESS": [],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"x()",
+				"y()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"notTautologousAssertRedundantRequire": "SANITY_FAIL",
+		"one": "SUCCESS",
+		"tautologousAssertRedundantRequire": "SANITY_FAIL",
+		"vacuousFermat": "SANITY_FAIL"
+	}
+}

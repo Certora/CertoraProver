@@ -1,0 +1,81 @@
+{
+  "assertMessages": {
+    "depositCorrectness": "Depositor balance should increase by dep... - Bank.spec line 82",
+    "withdraw_succeeds": "withdraw must succeed - Bank.spec line 14"
+  },
+  "rules": {
+    "address_zero_cannot_become_an_account": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "deposit(uint256)",
+            "transfer(address,uint256)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "withdraw()",
+            "withdraw(uint256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "assertion_structure_1": "SANITY_FAIL",
+    "assertion_structure_2": "SANITY_FAIL",
+    "depositCorrectness": "FAIL",
+    "depositCorrectness_repeat": "SUCCESS",
+    "distributivityWithdraw": "SANITY_FAIL",
+    "envfreeFuncsStaticCheck": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "getfunds(address)"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "others_can_only_increase": {
+      "FAIL": [
+        "transfer(address,uint256)"
+      ],
+      "SANITY_FAIL": [
+        "ercBalance()",
+        "funds(address)",
+        "getfunds(address)",
+        "init_state()"
+      ],
+      "SUCCESS": [
+        "deposit(uint256)",
+        "withdraw()",
+        "withdraw(uint256)"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "require_redundant": "SANITY_FAIL",
+    "require_redundantNoTautology": "SANITY_FAIL",
+    "squaresNonNeg": {
+      "Induction base: After the constructor": "SANITY_FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [
+            "deposit(uint256)",
+            "transfer(address,uint256)",
+            "withdraw()",
+            "withdraw(uint256)"
+          ],
+          "SUCCESS": [],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "tautology": "SANITY_FAIL",
+    "transfer_reverts": "SUCCESS",
+    "vacuous": "SANITY_FAIL",
+    "withdraw_succeeds": "FAIL"
+  }
+}

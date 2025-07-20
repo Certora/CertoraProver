@@ -1,0 +1,21 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "passingWithOneTimeout": "TIMEOUT",
+    "insaneWithOneTimeout": "SANITY_FAIL",
+    "parametricOneTimeout": {
+      "FAIL": [],
+      "SANITY_FAIL": ["b()", "c()", "x()", "y()", "z()"],
+      "SUCCESS": [],
+      "TIMEOUT": ["foo()"],
+      "UNKNOWN": []
+    },
+    "envfreeFuncsStaticCheck": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": ["b()", "c()", "x()", "y()", "z()", "foo()"],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    }
+  }
+}

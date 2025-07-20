@@ -1,0 +1,30 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "NotRedundantParametric": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "valSmallerThanSix()",
+        "valExactlyFive()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "Redundancy": "SUCCESS",
+    "Tautology": "SUCCESS",
+    "Vacuity": "SUCCESS",
+    "envfreeFuncsStaticCheck": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "alwaysTrue(uint256)",
+        "val()",
+        "condResult()",
+        "alwaysRevert()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    }
+  }
+}
