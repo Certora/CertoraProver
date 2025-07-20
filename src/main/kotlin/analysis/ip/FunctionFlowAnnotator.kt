@@ -20,6 +20,7 @@ package analysis.ip
 import allocator.Allocator
 import allocator.SuppressRemapWarning
 import analysis.*
+import analysis.dataflow.GlobalValueNumbering
 import analysis.dataflow.VariableLookupComputation
 import analysis.ip.InternalFunctionHint.Companion.META_KEY
 import analysis.numeric.*
@@ -613,6 +614,16 @@ object FunctionFlowAnnotator {
         ) : GenerationResult
     }
 
+    private val NonConstGvn = object : AnalysisCache.Key<GlobalValueNumbering> {
+        override fun createCached(graph: TACCommandGraph): GlobalValueNumbering {
+            return GlobalValueNumbering(
+                graph = graph,
+                groupByConst = false
+            )
+        }
+
+    }
+
 
     /**
      * Given a [FunctionBoundary] as context, and a resolved function found within said function,
@@ -657,7 +668,7 @@ object FunctionFlowAnnotator {
         fun TACSymbol.relocateOrNull(): Either<Set<TACSymbol>, String> = when(this) {
             is TACSymbol.Const -> setOf(this).toLeft()
             is TACSymbol.Var -> {
-                graph.cache.gvn.findCopiesAt(annotationLocation, resolved.startLocation to this).takeIf { it.isNotEmpty() }?.toLeft() ?:
+                graph.cache[NonConstGvn].findCopiesAt(annotationLocation, resolved.startLocation to this).takeIf { it.isNotEmpty() }?.toLeft() ?:
                     "For argument symbol $this at ${resolved.startLocation}, could not find copy at function start $annotationLocation".toRight()
             }
         }
