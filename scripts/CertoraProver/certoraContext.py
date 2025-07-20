@@ -139,7 +139,8 @@ def get_local_run_cmd(context: CertoraContext) -> List[str]:
 
     if Attrs.is_evm_app() and context.cache is not None:
         run_args.extend(['-cache', context.cache])
-
+    if Attrs.is_concord_app():
+        run_args.extend(['-equivalenceCheck', 'true'])
     jar_args = collect_jar_args(context)
     run_args.extend(jar_args)
 
@@ -165,12 +166,17 @@ class ProverParser(AttrUtil.ContextAttributeParser):
 
     def format_help(self) -> str:
         console = Console()
-        if Attrs.is_ranger_app():
+        if Attrs.is_concord_app():
+            console.print("\n\nConcord - Certora’s equivalence checker for smart contracts")
+        elif Attrs.is_ranger_app():
             console.print("\n\nRanger - Certora’s bounded model checker for smart contracts")
         else:
             console.print("\n\nThe Certora Prover - A formal verification tool for smart contracts")
         # Using sys.stdout.write() as print() would color some of the strings here
         sys.stdout.write(f"\n\nUsage: {sys.argv[0]} <Files> <Flags>\n\n")
+        if Attrs.is_concord_app():
+            sys.stdout.write("Concord supports only Solidity (.sol/.yul) and configuration (.conf) files.\n"
+                             "Rust and Vyper contracts are not currently supported.\n\n")
         if Attrs.is_ranger_app():
             sys.stdout.write("Ranger supports only Solidity (.sol) and configuration (.conf) files.\n"
                              "Rust and Vyper contracts are not currently supported.\n\n")
@@ -214,6 +220,16 @@ def __get_argparser() -> argparse.ArgumentParser:
     return parser
 
 
+def set_apps_members(context: CertoraContext) -> None:
+    # in many cases accessing context is simpler than accessing Attrs
+    context.is_solana_app = Attrs.is_solana_app()
+    context.is_soroban_app = Attrs.is_soroban_app()
+    context.is_rust_app = Attrs.is_rust_app()
+    context.is_evm_app = Attrs.is_evm_app()
+    context.is_ranger_app = Attrs.is_ranger_app()
+    context.is_concord_app = Attrs.is_concord_app()
+
+
 def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
     """
     Compiles an argparse.Namespace from the given list of command line arguments.
@@ -248,6 +264,7 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
     args = parser.parse_args(args_list)
     context = CertoraContext(**vars(args))
     context.args_list = args_list
+    set_apps_members(context)
 
     __remove_parsing_whitespace(args_list)
     format_input(context)
@@ -264,8 +281,7 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
         Cv.check_mode_of_operation(context)  # Here boolean run characteristics are set
 
     validator = Cv.CertoraContextValidator(context)
-    if Attrs.is_evm_app():
-        validator.handle_ranger_attrs()
+
     validator.validate()
     if Attrs.is_evm_app() or Attrs.is_rust_app():
         current_build_directory = Util.get_build_dir()
@@ -282,6 +298,8 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
     if Attrs.is_evm_app():
         validator.check_args_post_argparse()
         setup_cache(context)  # Here context.cache, context.user_defined_cache are set
+        validator.handle_ranger_attrs()
+        validator.handle_concord_attrs()
     if Attrs.is_rust_app():
         validator.check_rust_args_post_argparse()
 
@@ -528,6 +546,8 @@ def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[s
     cmd_str_list = ['java', '-jar', str(path_to_typechecker), '-buildDirectory', str(Util.get_build_dir())] + args
     if with_typechecking:
         cmd_str_list.append('-typeCheck')
+
+    context_logger.debug(f"typechecking cmd: {' '.join(cmd_str_list)}")
 
     exit_code = Util.run_jar_cmd(cmd_str_list, False,
                                  custom_error_message="Failed to run Certora Prover locally. Please check the errors "

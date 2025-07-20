@@ -58,7 +58,6 @@ import CertoraProver.certoraContextAttributes as Attrs
 from Mutate import mutateAttributes as MutAttrs
 import CITests.testCertoraUtils as TestUtil
 from certoraSorobanProver import run_soroban_prover
-from certoraRanger import run_ranger
 from certoraRun import run_certora
 from Shared import certoraUtils as Util
 from CertoraProver.Compiler.CompilerCollectorFactory import get_relevant_compiler
@@ -1308,6 +1307,35 @@ class TestClient(unittest.TestCase):
         suite.expect_failure(description="override base: base does not exist", run_flags=['child.conf'],
                              expected="Error when reading child.conf: Cannot load base config: base_bad.conf")
 
+    def test_concord(self) -> None:
+        suite = TestUtil.ConcordTestSuite(test_attribute=str(Util.TestValue.CHECK_ARGS))
+        suite.expect_success(description='run concord with 2 contracts and one check_method',
+                             run_flags=[_p('A.sol:A'), _p('A.sol:B'), "--check_method", "m()"])
+        suite.expect_failure(description='run concord with bad check_method',
+                             run_flags=[_p('A.sol:A'), _p('A.sol:B'), "--check_method", "m("],
+                             expected="attribute/flag 'check_method': Malformed method 'm(' in")
+        suite.expect_failure(description='run concord with bad check_method',
+                             run_flags=[_p('A.sol:A'), _p('A.sol:B'), "--check_method", "Contract.m()"],
+                             expected="checked method cannot contain a dot")
+        suite.expect_failure(description='run concord with no check_method',
+                             run_flags=[_p('A.sol:A'), _p('A.sol:B')],
+                             expected="'check_method' attribute/flag is mandatory when running Concord")
+        suite.expect_failure(description='run concord with one contract',
+                             run_flags=[_p('A.sol'), f"{_p('A.sol')}:A", "--check_method", "m()"],
+                             expected="expecting 2 contracts for Concord, got 1")
+        for attr in Attrs.ConcordAttributes.unsupported_attributes():
+
+            if attr in [Attrs.ConcordAttributes.METHOD, Attrs.ConcordAttributes.VERIFY, Attrs.ConcordAttributes.FOUNDRY,
+                        Attrs.ConcordAttributes.PROJECT_SANITY, Attrs.ConcordAttributes.CONTRACT_EXTENSIONS,
+                        Attrs.ConcordAttributes.PARAMETRIC_CONTRACTS]:
+                continue
+            run_flags = [_p('A.sol'), "--check_method", "m()", attr.get_flag()]
+            if attr.arg_type != AttrUtil.AttrArgType.BOOLEAN:
+                run_flags.append(TestUtil.get_valid_value(attr))
+            attr_name = attr.get_conf_key()
+            suite.expect_failure(description=f'unsupported methods: {attr_name}',
+                                 run_flags=run_flags,
+                                 expected=f"{attr_name}")
 
 
     def test_ranger(self) -> None:
@@ -1331,7 +1359,7 @@ class TestClient(unittest.TestCase):
                                                                                   "ranger_failure_limit "
                                                                                   f"{Util.DEFAULT_RANGER_FAILURE_LIMIT}"
                                                                                   f" got {result.ranger_failure_limit}")
-        for attr in Attrs.RangerAttributes.ranger_unsupported_attributes():
+        for attr in Attrs.RangerAttributes.unsupported_attributes():
             attr_name = attr.get_conf_key()
             assert not getattr(result, attr_name), f"test_ranger: {attr_name} should not be in set during Ranger run"
 

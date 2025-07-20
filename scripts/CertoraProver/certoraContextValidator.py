@@ -46,10 +46,28 @@ class CertoraContextValidator:
     def __init__(self, context: CertoraContext):
         self.context = context
 
+    def handle_concord_attrs(self) -> None:
+        if Attrs.is_concord_app():
+            for attr in (Attrs.ConcordAttributes.unsupported_attributes()):
+                attr_name = attr.get_conf_key()
+                if getattr(self.context, attr_name):
+                    if attr.arg_type == AttrUtil.AttrArgType.BOOLEAN:
+                        setattr(self.context, attr_name, False)
+                    else:
+                        setattr(self.context, attr_name, None)
+                    raise Util.CertoraUserInputError(f"Concord does not support {attr_name}")
+            if not self.context.check_method:
+                raise Util.CertoraUserInputError("'check_method' attribute/flag is mandatory when running Concord")
+            contracts = getattr(self.context, 'contracts', None)
+            if not contracts:
+                raise Util.CertoraUserInputError("No contracts were specified for Concord")
+            if len(contracts) != 2:
+                raise Util.CertoraUserInputError(f"expecting 2 contracts for Concord, got {len(contracts)}: {contracts}")
+
     def handle_ranger_attrs(self) -> None:
         # unset unsupported attributes
         if Attrs.is_ranger_app():
-            for attr in Attrs.RangerAttributes.ranger_unsupported_attributes():
+            for attr in Attrs.RangerAttributes.unsupported_attributes():
                 attr_name = attr.get_conf_key()
                 if getattr(self.context, attr_name):
                     if attr.arg_type == AttrUtil.AttrArgType.BOOLEAN:
@@ -67,7 +85,7 @@ class CertoraContextValidator:
                                        f"ignoring the set value of {self.context.loop_iter}")
             self.context.loop_iter = self.context.loop_iter or Util.DEFAULT_RANGER_LOOP_ITER
 
-            for attr in Attrs.RangerAttributes.ranger_true_by_default_attributes():
+            for attr in Attrs.RangerAttributes.true_by_default_attributes():
                 attr_name = attr.get_conf_key()
                 setattr(self.context, attr_name, True)
 
@@ -593,7 +611,7 @@ def check_mode_of_operation(context: CertoraContext) -> None:
     """
     context.is_verify = context.verify is not None and len(context.verify) > 0
     context.is_bytecode = context.bytecode_jsons is not None and len(context.bytecode_jsons) > 0
-    context.is_equivalence = context.equivalence_contracts is not None
+    context.is_equivalence = context.equivalence_contracts is not None or context.is_concord_app
 
     if (context.project_sanity or context.foundry) and \
        (context.is_verify or context.is_bytecode or context.is_equivalence):
@@ -672,8 +690,10 @@ def check_mode_of_operation(context: CertoraContext) -> None:
                 raise Util.CertoraUserInputError(
                     f"No other files are allowed with a file of type {special_file_type}")
 
-    if not any([context.is_verify, context.is_bytecode, context.equivalence_contracts,
-                special_file_type]) and not context.build_only:
+    if (
+        not Attrs.is_concord_app() and
+        not any([context.is_verify, context.is_bytecode,
+                 context.equivalence_contracts, special_file_type]) and not context.build_only):
         raise Util.CertoraUserInputError("You must use 'verify' when running the Certora Prover")
 
 def find_matching_contracts(context: CertoraContext, pattern: str) -> List[str]:

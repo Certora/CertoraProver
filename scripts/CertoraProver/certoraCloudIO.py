@@ -78,7 +78,7 @@ class EcoEnum(Util.NoValEnum):
 class ProductEnum(Util.NoValEnum):
     PROVER = Util.auto()
     RANGER = Util.auto()
-    SOPHY = Util.auto()
+    CONCORD = Util.auto()
 
 
 class TimeError(Exception):
@@ -629,6 +629,8 @@ class CloudVerification:
             sui_jar_settings = ['-movePath', Path(self.context.move_path).name]
             auth_data["jarSettings"] = sui_jar_settings + jar_settings
 
+        elif Attrs.is_concord_app():
+            auth_data["jarSettings"] = jar_settings + ["-equivalenceCheck", "true"]
         else:
             auth_data["jarSettings"] = jar_settings
 
@@ -657,8 +659,8 @@ class CloudVerification:
 
         if Attrs.is_ranger_app():
             auth_data["product"] = ProductEnum.RANGER.name
-        elif Attrs.is_sophy_app():
-            auth_data["product"] = ProductEnum.SOPHY.name
+        elif Attrs.is_concord_app():
+            auth_data["product"] = ProductEnum.CONCORD.name
         else:
             auth_data["product"] = ProductEnum.PROVER.name
 

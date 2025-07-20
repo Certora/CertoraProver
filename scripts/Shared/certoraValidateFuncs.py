@@ -758,6 +758,16 @@ def validate_git_hash(git_hash: str) -> str:
         raise Util.CertoraUserInputError("Git hash must consist of between 1 and 40 characters")
     return git_hash
 
+def validate_check_method_flag(method: str) -> str:
+    if '.' in method:
+        raise Util.CertoraUserInputError(f"Malformed `check_mathod` argument '{method}': checked method cannot contain a dot. Use only the method name without the contract prefix."
+                                         "the contract part is not allowed in `--check_method`")
+    if ' ' in method:
+        raise Util.CertoraUserInputError(f"Malformed method '{method}' in `--check_method`: remove all whitespace")
+
+    if not __validate_matching_parens(method):
+        raise Util.CertoraUserInputError(f"Malformed method '{method}' in `--check_method`: unmatched parenthesis")
+    return method
 
 def validate_method_flag(method: str) -> str:
     contract_and_method = method.split('.')

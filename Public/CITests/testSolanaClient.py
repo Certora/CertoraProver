@@ -56,7 +56,6 @@ import CITests.testCertoraUtils as TestUtil
 
 from certoraSolanaProver import run_solana_prover
 from certoraSorobanProver import run_soroban_prover
-from certoraRanger import run_ranger
 from certoraRun import run_certora
 from Shared import certoraUtils as Util
 from CertoraProver.Compiler.CompilerCollectorFactory import get_relevant_compiler

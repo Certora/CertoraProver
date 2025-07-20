@@ -167,8 +167,11 @@ class Attributes:
         table.add_column(Text("Description"), width=desc_col_width)
         table.add_column(Text("Default"), width=default_col_width)
 
+        unsupported_attribute_names = [attr.name for attr in cls.unsupported_attributes()]
         for name in dir(cls):
             if name in cls.hide_attributes():
+                continue
+            if name in unsupported_attribute_names:
                 continue
             if name.isupper():
                 attr = getattr(cls, name, None)
@@ -190,11 +193,9 @@ class Attributes:
             v.name = name
             return v
 
-        if not cls._attribute_list:
-            cls._attribute_list = [set_name(name) for name in dir(cls) if name.isupper()]
-            cls._all_conf_names = [attr.name.lower() for attr in cls.attribute_list()]
-            #  'compiler_map' does not have a matching 'compiler' attribute
-            cls._all_map_attrs = [attr for attr in cls._all_conf_names if attr.endswith(Util.MAP_SUFFIX)]
+        cls._attribute_list = [set_name(name) for name in dir(cls) if name.isupper()]
+        cls._all_conf_names = [attr.name.lower() for attr in cls.attribute_list()]
+        cls._all_map_attrs = [attr for attr in cls._all_conf_names if attr.endswith(Util.MAP_SUFFIX)]
 
     @classmethod
     def hide_attributes(cls) -> List[str]:
@@ -202,4 +203,9 @@ class Attributes:
         This function is used to hide attributes from the help message.
         :return: A list of attribute names to be hidden.
         """
+        return []
+
+    @classmethod
+    def unsupported_attributes(cls) -> list:
+        # Return a list of AttributeDefinition objects that are unsupported
         return []

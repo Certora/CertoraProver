@@ -1638,20 +1638,43 @@ class EvmProverAttributes(CommonAttributes, DeprecatedAttributes, EvmAttributes,
     )
 
 
+class ConcordAttributes(EvmProverAttributes):
+    CHECK_METHOD = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_check_method_flag,
+        help_msg="the method to be checked by Concord equivalent checker",
+        default_desc="Mandatory for Concord",
+        jar_flag='-method',
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
+    @classmethod
+    def unsupported_attributes(cls) -> List[AttrUtil.AttributeDefinition]:
+        return [cls.VERIFY, cls.MSG, cls.PROTOCOL_NAME, cls.PROTOCOL_AUTHOR, cls.RULE, cls.EXCLUDE_RULE,
+                cls.SPLIT_RULES, cls.EXCLUDE_METHOD, cls.PARAMETRIC_CONTRACTS, cls.COVERAGE_INFO, cls.FOUNDRY,
+                cls.INDEPENDENT_SATISFY, cls.MULTI_ASSERT_CHECK, cls.MULTI_EXAMPLE, cls.PROJECT_SANITY,
+                cls.RULE_SANITY, cls.ADDRESS, cls.CONTRACT_EXTENSIONS, cls.CONTRACT_RECURSION_LIMIT, cls.LINK,
+                cls.OPTIMISTIC_CONTRACT_RECURSION, cls.STRUCT_LINK, cls.DYNAMIC_BOUND, cls.DYNAMIC_DISPATCH,
+                cls.PROTOTYPE, cls.METHOD]
+
+
 class RangerAttributes(EvmProverAttributes):
     @classmethod
-    def ranger_unsupported_attributes(cls) -> List[AttrUtil.AttributeDefinition]:
+    def unsupported_attributes(cls) -> List[AttrUtil.AttributeDefinition]:
         return [cls.PROJECT_SANITY, cls.RULE_SANITY, cls.COVERAGE_INFO, cls.FOUNDRY, cls.INDEPENDENT_SATISFY,
                 cls.MULTI_ASSERT_CHECK, cls.MULTI_EXAMPLE, cls.VYPER]
 
     @classmethod
-    def ranger_true_by_default_attributes(cls) -> List[AttrUtil.AttributeDefinition]:
+    def true_by_default_attributes(cls) -> List[AttrUtil.AttributeDefinition]:
         return [cls.OPTIMISTIC_LOOP, cls.OPTIMISTIC_FALLBACK, cls.AUTO_DISPATCHER, cls.OPTIMISTIC_HASHING]
 
     @classmethod
     def hide_attributes(cls) -> List[str]:
         # do not show these attributes in the help message
-        combined_list = cls.ranger_unsupported_attributes() + cls.ranger_true_by_default_attributes()
+        combined_list = cls.unsupported_attributes() + cls.true_by_default_attributes()
         return [attr.name for attr in combined_list] + [cls.LOOP_ITER.name, cls.RANGER_FAILURE_LIMIT.name]
 
 
@@ -1772,7 +1795,7 @@ def is_rust_app() -> bool:
     return is_soroban_app() or is_solana_app()
 
 
-# Ranger will also return true for this function
+# Ranger and Concord will also return true for this function
 def is_evm_app() -> bool:
     return issubclass(get_attribute_class(), EvmProverAttributes)
 
@@ -1781,8 +1804,8 @@ def is_ranger_app() -> bool:
     return get_attribute_class() == RangerAttributes
 
 
-def is_sophy_app() -> bool:
-    return False  # wait for the tool to be added
+def is_concord_app() -> bool:
+    return get_attribute_class() == ConcordAttributes
 
 
 def is_sui_app() -> bool:

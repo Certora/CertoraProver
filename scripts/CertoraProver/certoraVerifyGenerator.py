@@ -59,6 +59,15 @@ class CertoraVerifyGenerator:
                 "primary_contract": equiv_contracts[0],
                 "secondary_contract": equiv_contracts[1]
             }
+        elif context.is_concord_app:
+            if len(context.contracts) != 2:
+                raise Util.CertoraUserInputError(f"Expecting 2 contracts but got {len(context.contracts)}: {context.contracts}")
+            contract_list = list(context.contracts)
+            self.certora_verify_struct = {
+                "type": "equivalence",
+                "primary_contract": contract_list[0],
+                "secondary_contract": contract_list[1]
+            }
 
     def update_certora_verify_struct(self, in_certora_sources: bool) -> None:
         """

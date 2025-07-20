@@ -37,6 +37,7 @@ from Mutate import mutateConstants as MConstants
 from certoraSolanaProver import run_solana_prover
 from certoraSorobanProver import run_soroban_prover
 from certoraRanger import run_ranger
+from certoraConcord import run_concord
 from certoraRun import run_certora
 
 
@@ -824,6 +825,9 @@ class RangerTestSuite(TestSuite):
     def __init__(self, **kwargs: Any):
         super().__init__(run_ranger, **kwargs)
 
+class ConcordTestSuite(TestSuite):
+    def __init__(self, **kwargs: Any):
+        super().__init__(run_concord, **kwargs)
 
 class ProverTestSuite(TestSuite):
     def __init__(self, **kwargs: Any):
