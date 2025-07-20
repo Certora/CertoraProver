@@ -25,13 +25,13 @@ import datastructures.stdcollections.*
 import evm.EVM_BYTE_SIZE_INT
 import evm.MASK_SIZE
 import verifier.equivalence.tracing.BufferTraceInstrumentation
-import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.flatten
 import rules.RuleCheckResult
 import tac.MetaMap
 import tac.NBId
 import tac.Tag
 import vc.data.*
 import vc.data.TACProgramCombiners.andThen
+import vc.data.TACProgramCombiners.flatten
 import vc.data.codeFromCommandWithVarDecls
 import vc.data.tacexprutil.ExprUnfolder
 import verifier.AbstractTACChecker

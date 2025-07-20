@@ -41,6 +41,7 @@ import config.Config
 import datastructures.stdcollections.*
 import evm.*
 import instrumentation.calls.ArgNum
+import instrumentation.calls.CalldataByteRange
 import instrumentation.calls.CalldataEncoding
 import instrumentation.transformers.FilteringFunctions
 import instrumentation.transformers.TACDSA
@@ -1171,21 +1172,31 @@ object CallGraphBuilder {
              * The empty map is considered to be "oops, all nondet!"
              */
             val src = s.byteAddressed[i.node] ?: return treapMapOf<ByteRange, HeapInt>().toLeft()
-            val toRet = treapMapBuilderOf<ByteRange, HeapInt>()
-            for(kv in src) {
-                val (mK, mV) = kv.tryIntersect(startInd, size) ?: continue
-                check(mK.start >= startInd) {
-                    "Intersection broke $kv -> $mK with $startInd"
-                }
-                toRet[ByteRange(
-                    mK.start - startInd,
-                    mK.end - startInd
-                )] = mV
-            }
-            return toRet.build().toLeft()
+            return projectFrom(
+                src, startInd, size
+            ).toLeft()
         }
 
         companion object {
+            fun projectFrom(
+                src: TreapMap<ByteRange, HeapInt>,
+                startInd: BigInteger,
+                size: IntValue?
+            ): TreapMap<ByteRange, HeapInt> {
+                val toRet = treapMapBuilderOf<ByteRange, HeapInt>()
+                for(kv in src) {
+                    val (mK, mV) = kv.tryIntersect(startInd, size) ?: continue
+                    check(mK.start >= startInd) {
+                        "Intersection broke $kv -> $mK with $startInd"
+                    }
+                    toRet[ByteRange(
+                        mK.start - startInd,
+                        mK.end - startInd
+                    )] = mV
+                }
+                return toRet.build()
+            }
+
             /**
              * A simple (i.e., less precise but faster) merge operation on [ByteRange] maps. Disjoint keys are discarded,
              * the values of common keys between [t] and [other] are joined.
@@ -1625,6 +1636,63 @@ object CallGraphBuilder {
 
         private fun NodeState.andKillBuffer() = this.copy(bufferContents = null)
 
+        /**
+         * "psuedo" because this buffer is never explicitly constructed, we're inventing it like it was built
+         * by some sequence of writes.
+         */
+        private val pseudoCalldataModel: TreapMap<ByteRange, HeapInt>? by lazy d@{
+            val cd = m.calldataEncoding as? CalldataEncoding ?: return@d null
+            if(!cd.valueTypesArgsOnly || cd.expectedCalldataSize == null) {
+                return@d null
+            }
+            fun CalldataByteRange.toNative() = ByteRange(
+                this.from, this.to
+            )
+            val builder = treapMapBuilderOf<ByteRange, HeapInt>()
+            var offsIt = if(cd.sighashSize != BigInteger.ZERO) {
+                val range = CalldataByteRange(
+                    BigInteger.ZERO, cd.sighashSize - BigInteger.ONE
+                )
+                val offs = cd.byteOffsetToScalar[range] ?: return@d null
+                val absVal = HeapInt(
+                    symbolicValueSource = null,
+                    returnVal = null,
+                    writeCmdPtrSet = CmdPointerSet.CSet(setOf(
+                        CmdPointerSet.CSet.BufferSymbol.Global(offs) to range.toNative()
+                    )),
+                    storageSet = StorageSet.Nondet,
+                    consts = ConstSet.Nondet
+                )
+                builder[range.toNative()] = absVal
+                cd.sighashSize
+            } else {
+                BigInteger.ZERO
+            }
+            while(offsIt < cd.expectedCalldataSize) {
+                val expectedRange = CalldataByteRange(
+                    offsIt, offsIt + EVM_WORD_SIZE - BigInteger.ONE
+                )
+                val scalar = cd.byteOffsetToScalar[expectedRange] ?: return@d null
+                val absVal = HeapInt(
+                    symbolicValueSource = null,
+                    returnVal = null,
+                    writeCmdPtrSet = CmdPointerSet.CSet(setOf(
+                        CmdPointerSet.CSet.BufferSymbol.Global(scalar) to CmdPointerSet.fullWord
+                    )),
+                    consts = ConstSet.Nondet,
+                    storageSet = StorageSet.Set(setOf(
+                        SymbolicAddress.CallDataInput(
+                            inputArg = scalar,
+                            offset = offsIt
+                        )
+                    ))
+                )
+                builder[expectedRange.toNative()] = absVal
+                offsIt += EVM_WORD_SIZE
+            }
+            builder.build()
+        }
+
         private fun stepNodes(st: SigHashState, ltacCmd: LTACCmd) : NodeState {
             if (ltacCmd.cmd is TACCmd.Simple.AssigningCmd.ByteStore &&
                 ltacCmd.cmd.base == TACKeyword.MEMORY.toVar()
@@ -1637,20 +1705,21 @@ object CallGraphBuilder {
                 if (typ != IPointsToSet.Type.INT) {
                     return st.nodes
                 }
+                val writeSet = CmdPointerSet.Singleton(ltacCmd.ptr, ltacCmd.cmd.value)
                 val writtenInt = when (ltacCmd.cmd.value) {
                     is TACSymbol.Var -> {
                         val storageSet = st.storageSlots[ltacCmd.cmd.value] ?: StorageSet.Nondet
                         pta.query(ConstantValue(v = ltacCmd.ptr, x = ltacCmd.cmd.value))?.let {
                             HeapInt(
                                 consts = ConstSet.Constant(it),
-                                writeCmdPtrSet = CmdPointerSet.Singleton(ltacCmd.ptr),
+                                writeCmdPtrSet = writeSet,
                                 storageSet = storageSet,
                                 returnVal = null,
                                 symbolicValueSource = null
                             )
                         } ?: HeapInt(
                             consts = ConstSet.Nondet,
-                            writeCmdPtrSet = CmdPointerSet.Singleton(ltacCmd.ptr),
+                            writeCmdPtrSet = writeSet,
                             storageSet = storageSet,
                             returnVal = null,
                             symbolicValueSource = null
@@ -1659,7 +1728,7 @@ object CallGraphBuilder {
 
                     is TACSymbol.Const -> HeapInt(
                         consts = ConstSet.Constant(ltacCmd.cmd.value.value),
-                        writeCmdPtrSet = CmdPointerSet.Singleton(ltacCmd.ptr),
+                        writeCmdPtrSet = writeSet,
                         storageSet = StorageSet.Nondet,
                         returnVal = null,
                         symbolicValueSource = null
@@ -1719,12 +1788,30 @@ object CallGraphBuilder {
                         nodeState.copy(direct = nodeState.direct - ptaNode)
                     }
                 }
+                if(ltacCmd.cmd.srcBase == TACKeyword.CALLDATA.toVar() && constantValueAt(ltacCmd.cmd.srcOffset, ltacCmd) == BigInteger.ZERO && ltacCmd.cmd.length is TACSymbol.Var &&
+                    pta.query(QueryInvariants(ltacCmd.ptr) {
+                        ltacCmd.cmd.length `=` TACKeyword.CALLDATASIZE.toVar()
+                    }) != null && pseudoCalldataModel != null) {
+                    val source = pseudoCalldataModel!!
+                    /*
+                     * In principle, there might be some way for to intelligently do something with copies
+                     * from calldata from constant offsets that aren't 0 and for sizes that are all of calldata.
+                     * For the time being however, we choose to be overly strict, while suppporting the only thing we care about
+                     */
+                    val toCopy = NodeState.projectFrom(
+                        source, BigInteger.ZERO, null
+                    )
+                    val outWriter = st.nodes.getCopyWriter(
+                        base, ltacCmd
+                    ) ?: return st.nodes.killAffectedNodes(base)
+                    return outWriter(toCopy)
+                }
                 return st.nodes.killAffectedNodes(base)
             } else if (isCmdMemDataCopy(ltacCmd)) {
                 /* BG - 20230526
-                             * Handle the highly restricted case of a scratch memory to memory copy via the identity contract.
-                             * Vyper likes to copy ABI buffers around in fun and interesting ways
-                             */
+                 * Handle the highly restricted case of a scratch memory to memory copy via the identity contract.
+                 * Vyper likes to copy ABI buffers around in fun and interesting ways
+                 */
                 val callCmd = ltacCmd.narrow<TACCmd.Simple.CallCore>().cmd
                 val inBase =
                     pta.fieldNodesAt(ltacCmd.ptr, callCmd.inOffset) as? IndexedWritableSet ?: return st.nodes
@@ -2907,38 +2994,48 @@ object CallGraphBuilder {
              * as [vc.data.TACCmd.Simple.AssigningCmd.ByteStore] commands and taking the [vc.data.TACCmd.Simple.AssigningCmd.ByteStore.value]
              * as the symbol value to capture.
              */
-            val writtenSymbols = hInt.writeCmdPtrSet.toSet().map { byteStorePtr ->
-                g.elab(byteStorePtr).let { writeCmd ->
-                    writeCmd.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()?.cmd?.value?.let {
-                        LTACSymbol(
-                            byteStorePtr,
-                            it
-                        )
-                    } ?: error("Unexpected write command $writeCmd @ $byteStorePtr")
-                }
+            val writtenSymbols = hInt.writeCmdPtrSet.cs.map { (byteStorePtr, _) ->
+                byteStorePtr
             }.toSet()
 
             /**
              * Also, did we always write the same address? If so, we can record this information too.
              */
-            val passedAddress = writtenSymbols.monadicMap {
-                when (it.symbol) {
-                    is TACSymbol.Const -> CalledContract.FullyResolved.ConstantAddress(
-                        it.symbol.value
-                    )
-                    is TACSymbol.Var -> stateGenerator(it.ptr)?.storageSlots?.get(
-                        it.symbol
-                    )?.let {
-                        it as? StorageSet.Set
-                    }?.slots?.monadicMap {
-                        it
-                    }?.map {
-                        resolver().symbolicToResolved(
-                            it
+            val passedAddress = writtenSymbols.monadicMap { bSym ->
+                when(bSym) {
+                    is CmdPointerSet.CSet.BufferSymbol.Global -> {
+                        val offs = bSym.v.meta[TACMeta.CALLDATA_OFFSET] ?: return@monadicMap null
+                        CalledContract.SymbolicInput(
+                            offset = offs,
+                            inputArg = bSym.v
                         )
-                    }?.uniqueOrNull()
+                    }
+
+                    is CmdPointerSet.CSet.BufferSymbol.WrittenAt -> {
+                        when (bSym.what) {
+                            is TACSymbol.Const -> CalledContract.FullyResolved.ConstantAddress(
+                                bSym.what.value
+                            )
+
+                            is TACSymbol.Var -> stateGenerator(bSym.where)?.storageSlots?.get(
+                                bSym.what
+                            )?.let {
+                                it as? StorageSet.Set
+                            }?.slots?.monadicMap {
+                                it
+                            }?.map {
+                                resolver().symbolicToResolved(
+                                    it
+                                )
+                            }?.uniqueOrNull()
+                        }
+                    }
                 }
             }?.uniqueOrNull()
+
+            val writtenLTACSyms = writtenSymbols.monadicMap {
+                (it as? CmdPointerSet.CSet.BufferSymbol.WrittenAt)?.toLSym()
+            }?.toSet() ?: return null
 
             val decomposedName = DecomposedArgVariableWithSourceWrites.decompVarName(
                 Tag.Bit256, scratchByteRange.from, getCallNumbering(callIt.ptr)
@@ -2949,7 +3046,7 @@ object CallGraphBuilder {
              * might need instrumentation
              */
             decomposedCallInputWithSourceWrites[callIt.ptr] = decomposedCallInputWithSourceWrites.getOrDefault(callIt.ptr, treapSetOf()) + DecomposedArgVariableWithSourceWrites(
-                writtenSymbols, decomposedName
+                writtenLTACSyms, decomposedName
             )
 
             return DecomposedCallInputArg.Variable(
@@ -3249,14 +3346,12 @@ object CallGraphBuilder {
                     return@monadicMap null
                 }
                 v.cs.monadicMap { (ptr, range) ->
-                    ptr.takeIf {
+                    (ptr as? CmdPointerSet.CSet.BufferSymbol.WrittenAt)?.takeIf {
                         range == CmdPointerSet.fullWord
-                    }?.let(g::elab)
-                }?.monadicMap {
-                    it.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()
+                    }
                 }?.let {
                     it.map {
-                        LTACSymbol(it.ptr, it.cmd.value)
+                        LTACSymbol(it.where, it.what)
                     }
                 }?.let {
                     k to it.toSet()
@@ -3421,9 +3516,9 @@ object CallGraphBuilder {
 
             }
             val leftJustifiedSize = hInt.writeCmdPtrSet.cs.map { (ptr, _) ->
-                val lcmd = g.elab(ptr).maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>() ?: return@map EVM_WORD_SIZE
-                val v = lcmd.cmd.value as? TACSymbol.Var ?: return@map EVM_WORD_SIZE
-                val bits = matchLeftShift.query(v, lcmd.wrapped).toNullableResult() ?: return@map EVM_WORD_SIZE
+                val v = (ptr as? CmdPointerSet.CSet.BufferSymbol.WrittenAt)?.what as? TACSymbol.Var ?: return@map EVM_WORD_SIZE
+                val lcmd = g.elab(ptr.where)
+                val bits = matchLeftShift.query(v, lcmd).toNullableResult() ?: return@map EVM_WORD_SIZE
                 if (bits.mod(EVM_BYTE_SIZE) == BigInteger.ZERO) {
                     EVM_WORD_SIZE - (bits / EVM_BYTE_SIZE)
                 } else {
@@ -3679,7 +3774,14 @@ object CallGraphBuilder {
             if(!pts.index.isConstant || pts.index.c != BigInteger.ZERO) {
                 throw CallGraphBuilderFailedException("Four-byte annotation @ $where is wrong? We are expecting to write to beginning, but index is ${pts.index}", g.elab(where))
             }
-            val fourByte = Constant(summ.fourByte).liftToReduced(CmdPointerSet.Singleton(where), StorageSet.Nondet)
+            val fourByte = Constant(summ.fourByte).liftToReduced(CmdPointerSet.CSet(setOf(
+                CmdPointerSet.CSet.BufferSymbol.WrittenAt(
+                    where = where,
+                    what = summ.fourByte.shiftLeft(256 - 32).asTACSymbol()
+                ) to ByteRange(
+                    BigInteger.ZERO, 3.toBigInteger()
+                )
+            )), StorageSet.Nondet)
             return s.forEachIndexedNode(pts) { nodeState, ind ->
                 check(ind.index.isConstant && ind.index.c == BigInteger.ZERO) {
                     "Everything is broken, did not have write @ 0 for $ind, despite a promise to the contrary by $pts"

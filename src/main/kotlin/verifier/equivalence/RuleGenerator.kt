@@ -28,7 +28,6 @@ import evm.MASK_SIZE
 import instrumentation.calls.CalldataEncoding
 import verifier.equivalence.tracing.BufferTraceInstrumentation
 import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.`=`
-import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.flatten
 import scene.ContractClass
 import scene.TACMethod
 import solver.CounterexampleModel
@@ -40,6 +39,7 @@ import utils.*
 import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
 import vc.data.TACProgramCombiners.andThen
+import vc.data.TACProgramCombiners.flatten
 import vc.data.TACSymbol.Companion.atSync
 import vc.data.codeFromCommandWithVarDecls
 import vc.data.tacexprutil.ExprUnfolder

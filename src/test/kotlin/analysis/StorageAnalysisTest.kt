@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import scene.TACMethod
 import tac.TACStorageLayout
 import tac.Tag
 import testing.ttl.TACMockLanguage
@@ -1451,7 +1452,7 @@ class StorageAnalysisTest : SingleMethodTest {
         ).let { (model, pta) ->
             if(model.isNotEmpty() && pta is FlowPointsToInformation) {
                 DisciplinedHashModel.disciplinedHashModel(
-                    method.code as CoreTACProgram,
+                    method as TACMethod,
                     model,
                     pta
                 )

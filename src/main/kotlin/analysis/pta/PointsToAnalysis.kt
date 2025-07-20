@@ -1448,8 +1448,8 @@ class PointsToAnalysis(
         val state = mutableMapOf<NBId, PointsToResult>()
         graph.rootBlocks.map { it.id }.forEach {
             state[it] = PointsToDomain(
-                boundsAnalysis = NumericAnalysis.empty,
-                pointsToState = PointerSemantics.empty,
+                boundsAnalysis = NumericAnalysis.initial,
+                pointsToState = PointerSemantics.initial,
                 arrayState = treapMapOf(),
                 structState = treapMapOf(),
                 decoderState = DecoderAnalysis.State.empty,
