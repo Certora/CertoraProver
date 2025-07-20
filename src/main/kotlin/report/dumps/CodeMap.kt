@@ -1682,6 +1682,12 @@ fun extendModel(
                     when (value) {
                         is ConcreteTacValue ->
                             when (val constExp = value.asConstantTacExpr()) {
+                                is TACExpr.Sym.Const ->
+                                    if (s.tag is Tag.Bits) {
+                                        constExp.s.value.asTACSymbol(s.tag)
+                                    } else {
+                                        constExp.s
+                                    }
                                 is TACExpr.Sym -> constExp.s
                                 else -> failedToEval(value)
                             }
