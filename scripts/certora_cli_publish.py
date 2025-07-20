@@ -177,6 +177,7 @@ if __name__ == '__main__':
     copy(SCRIPTS / "certoraEVMProver.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraRanger.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraConcord.py", CERTORA_CLI_DIR)
+    copy(SCRIPTS / "certoraCVLFormatter.py", CERTORA_CLI_DIR)
 
     # write inputs
     INIT_PY = "__init__.py"
