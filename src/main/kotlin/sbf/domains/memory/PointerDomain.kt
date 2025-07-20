@@ -17,7 +17,6 @@
 
 package sbf.domains
 
-import com.certora.collect.*
 import sbf.*
 import sbf.disassembler.*
 import sbf.callgraph.*
@@ -26,7 +25,6 @@ import sbf.support.*
 import kotlin.math.absoluteValue
 import datastructures.stdcollections.*
 import org.jetbrains.annotations.TestOnly
-import utils.*
 import kotlin.collections.removeLast
 
 /**
@@ -156,6 +154,7 @@ private fun dbgMemTransfer(msg: () -> Any) { if (debugPTAMemTransfer) { sbfLogge
 data class PTAOffset(val v: Long): Comparable<PTAOffset>  {
     operator fun plus(other: PTAOffset) = PTAOffset(this.v + other.v)
     operator fun plus(other: Long) = PTAOffset(this.v + other)
+    operator fun plus(other: Int) = PTAOffset(this.v + other)
     operator fun minus(other: PTAOffset) = PTAOffset(this.v - other.v)
     operator fun minus(other: Int) = PTAOffset(this.v - other.toLong())
     operator fun times(other: PTAOffset) = PTAOffset(this.v * other.v)
@@ -552,6 +551,8 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     var isMayExternal: Boolean = false
     // whether this node represents an integer. This is may information.
     var isMayInteger: Boolean = false
+    // If the node could potentially be an integer, this is an overapproximation of the value.
+    var integerValue: Constant = Constant.makeTop()
     // keep track of whether the node has been written, read, or none.
     var access: NodeAccess = NodeAccess.None
 
@@ -825,6 +826,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         n2.isMayHeap    = n2.isMayHeap    or n1.isMayHeap
         n2.isMayExternal= n2.isMayExternal or n1.isMayExternal
         n2.isMayInteger = n2.isMayInteger or n1.isMayInteger
+        n2.integerValue = n2.integerValue.join(n1.integerValue)
 
         n2.access = n2.access.join(n1.access)
 
@@ -1029,6 +1031,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         other.isMayHeap = isMayHeap
         other.isMayExternal = isMayExternal
         other.isMayInteger = isMayInteger
+        other.integerValue = integerValue
         other.access =  access
     }
 
@@ -1293,7 +1296,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
             if (addSep) {
                 sb.append(":")
             }
-            sb.append("Int")
+            sb.append("Int(${this.integerValue})")
             addSep = true
         }
         if (this.isMayGlobal) {
@@ -1610,9 +1613,10 @@ class ExternalAllocation(private val allocator: PTANodeAllocator) {
 }
 
 class IntegerAllocation(private val allocator: PTANodeAllocator) {
-    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0): PTASymCell {
+    fun alloc(locInst: LocatedSbfInstruction, value: Constant, i: Int = 0): PTASymCell {
         val c = allocator.mkCell(locInst, i)
         c.getNode().isMayInteger = true
+        c.getNode().integerValue = value
         return c.createSymCell()
     }
 }
@@ -1844,6 +1848,18 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         }
     }
 
+    fun checkStackInvariant(g: PTAGraph<TNum, TOffset>, msg: String) {
+        if (SolanaConfig.SanityChecks.get()) {
+            val stackN = g.getStack()
+            for (field in g.untrackedStackFields.iterator()) {
+                val succC = stackN.getSucc(field)
+                if (succC != null) {
+                    throw PointerDomainError("PTA invariant broken $msg: field $field is marked as inaccessible, but stack node $stackN has non-null successor $succC")
+                }
+            }
+        }
+    }
+
     /**
      * Join leftStack with rightStack.
      *
@@ -1905,7 +1921,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                  *  The field from the left stack is kept in the joined graph (union semantics) **even** if
                  *  the right stack already marked it as top
                  **/
-                onlyLeft.add(Pair(field, leftSuccC))
+                onlyLeft.add(field to leftSuccC)
 
             } else {
                 val renamedLeftSuccC = leftSuccC.renameNode(leftStack, rightStack)
@@ -1913,8 +1929,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     /** leftSuccC and rightSuccC are equal modulo renaming **/
                     outTrackedStackFields.add(field)
                 } else {
+                    val isLeftStack = leftSuccC.getNode() == leftStack
+                    val isRightStack = rightSuccC.getNode() == rightStack
                     /** leftSuccC and rightSuccC are different cells **/
-                    if (leftSuccC.getNode() == leftStack || rightSuccC.getNode() == rightStack) {
+                    if (isLeftStack || isRightStack) {
                         /** One of the stack fields points back to its stack **/
 
                         // Before we make that particular field inaccessible we ask the scalar domain
@@ -1923,7 +1941,28 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
                         val offset = (scalarVal.type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset
                         if (offset == null || offset.isTop()) {
-                            outUntrackedStackFields = outUntrackedStackFields.add(field)
+                            if (SolanaConfig.OptimisticPTAJoin.get() && SolanaConfig.OptimisticPTAJoinWithStackPtr.get()) {
+                                // The analysis does not know statically if after the join the stack offset `field` points
+                                // to another stack offset or some non-stack memory (eg., heap)
+                                //
+                                // We optimistically choose that `field` points to the stack
+                                when {
+                                    isLeftStack && !isRightStack -> {
+                                        // left points to stack and right to non-stack
+                                        onlyLeft.add(field to leftSuccC)
+                                    }
+                                    !isLeftStack -> {
+                                        // right points to stack and left to non-stack
+                                        onlyRight.add(field to rightSuccC)
+                                    }
+                                    else -> {
+                                        // both points to stack but different offsets
+                                        outUntrackedStackFields = outUntrackedStackFields.add(field)
+                                    }
+                                }
+                            } else {
+                                outUntrackedStackFields = outUntrackedStackFields.add(field)
+                            }
                         }
                     } else {
                         /**
@@ -1932,7 +1971,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                          *  put in the unification worklist for later processing
                          **/
                         outTrackedStackFields.add(field)
-                        unificationList.add(Pair(leftSuccC.createSymCell(), rightSuccC.createSymCell()))
+                        unificationList.add(leftSuccC.createSymCell() to rightSuccC.createSymCell())
                         dbgJoin { "## JOIN: stack cells at field $field: $leftSuccC and $rightSuccC to the unification list" }
                     }
                 }
@@ -1944,10 +1983,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          **/
         for ((field, succC) in rightStack.getSuccs()) {
             if (leftStack.getSucc(field) == null) {
-                onlyRight.add(Pair(field, succC))
+                onlyRight.add(field to succC)
             }
         }
-        return Pair(outUntrackedStackFields, outTrackedStackFields)
+        return outUntrackedStackFields to outTrackedStackFields
     }
 
     private fun getType(scalar: ScalarValue<TNum, TOffset>): SbfType<TNum, TOffset>? {
@@ -2161,6 +2200,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     private fun removeFieldFromStack(stack: PTANode, field: PTAField, g: PTAGraph<TNum, TOffset>,
                                      @Suppress("UNUSED_PARAMETER")
                                      msg: String) {
+
         val succC = stack.getSuccs()[field]
         if (succC != null) {
             stack.removeSucc(field, succC)
@@ -2216,6 +2256,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                 "Left=$this\nRight=$other\n"
         }
 
+        checkStackInvariant(this,"before joinStacks LEFT")
+        checkStackInvariant(other,"before joinStacks RIGHT")
+
 
         /** To perform stack additions to preserve union semantics **/
         val onlyLeft = mutableListOf<Pair<PTAField, PTACell>>()
@@ -2256,14 +2299,18 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          *  but we do it like this for simplicity.
          **/
         for ((field, c) in onlyLeft) {
-            val renamedC = c.renameNode(leftStack, leftOutStack)
-            leftOutStack.addSucc(field, renamedC)
-            dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
+            if (!other.untrackedStackFields.contains(field)) {
+                val renamedC = c.renameNode(leftStack, leftOutStack)
+                leftOutStack.addSucc(field, renamedC)
+                dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
+            }
         }
         for ((field, c) in onlyRight) {
-            val renamedC = c.renameNode(rightStack, leftOutStack)
-            leftOutStack.addSucc(field, renamedC)
-            dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
+            if (!untrackedStackFields.contains(field)) {
+                val renamedC = c.renameNode(rightStack, leftOutStack)
+                leftOutStack.addSucc(field, renamedC)
+                dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
+            }
         }
 
         /**
@@ -2303,7 +2350,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          **/
         for (field in outUntrackedStackFields.iterator()) {
             removeFieldFromStack(leftOutStack, field, outG,
-                "Removed link at $field from the joined stack because stacks")
+                "Removed link at $field from the joined stack because marked as inaccessible")
         }
 
         /** And finally, perform unifications **/
@@ -2316,6 +2363,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         if (debugPTAJoin) {
             dotDebugger.addResultAndPrint(outG, left, right)
         }
+
+
+        checkStackInvariant(outG,"after join")
 
         if (SolanaConfig.SanityChecks.get() && !SolanaConfig.OptimisticPTAJoin.get()) {
             for (field in outG.untrackedStackFields.iterator()) {
@@ -3024,7 +3074,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     // Found a single field that fully contains the requested slice.
                     // We could actually return `succC` but we allocate a new symbolic integer cell to
                     // avoid creating unnecessary aliasing.
-                    return integerAlloc.alloc(locInst)
+                    return integerAlloc.alloc(locInst, Constant.makeTop()) // Numeric analysis loss of precision
                 }
                 else -> {}
             }
@@ -3115,20 +3165,43 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *  [value] is value to be stored in a store instruction.
      *  [valueType] is the abstract value for [value] inferred by the scalar domain
      */
-    private fun inferSymCellFromValue(value: Value, valueType: SbfType<TNum, TOffset>, locInst: LocatedSbfInstruction): PTASymCell? {
-        return when(value) {
+    private fun inferSymCellFromValue(
+        value: Value,
+        valueType: SbfType<TNum, TOffset>,
+        locInst: LocatedSbfInstruction
+    ): PTASymCell? {
+        return when (value) {
             is Value.Imm -> {
-                // Create a cell (with integer node) for the immediate value
-                integerAlloc.alloc(locInst)
+                val constant: Constant = when (valueType) {
+                    is SbfType.NumType -> {
+                        val longValue = valueType.value.toLongOrNull()
+                        if (longValue != null) {
+                            Constant(longValue)
+                        } else {
+                            Constant.makeTop() // Numeric analysis loss of precision
+                        }
+                    }
+
+                    else -> Constant.makeTop() // Numeric analysis loss of precision
+                }
+                integerAlloc.alloc(locInst, constant)
             }
+
             is Value.Reg -> {
                 getRegCell(value) ?:
                 // We don't have yet a cell for the value: we ask the scalar analysis
                 when (valueType) {
                     is SbfType.NumType -> {
                         // Create a fresh cell for the integer value
-                        integerAlloc.alloc(locInst)
+                        val longValue = valueType.value.toLongOrNull()
+                        val constant = if (longValue != null) {
+                            Constant(longValue)
+                        } else {
+                            Constant.makeTop()
+                        }
+                        integerAlloc.alloc(locInst, constant)
                     }
+
                     is SbfType.PointerType.Global -> {
                         val gv = valueType.global
                         if (gv == null) {
@@ -4028,7 +4101,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         setRegCell(r0, heapAlloc.highLevelAlloc(locInst))
                     }
                     MemSummaryArgumentType.NUM -> {
-                        setRegCell(r0, integerAlloc.alloc(locInst))
+                        setRegCell(r0, integerAlloc.alloc(locInst, Constant.makeTop())) // Numeric analysis loss of precision
                     }
                     else -> {
                         forget(r0)
@@ -4077,7 +4150,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                                 concretizeCell(externAlloc.alloc(locInst, curArg), "$call (3)", locInst)
                             }
                             else -> {
-                                concretizeCell(integerAlloc.alloc(locInst, curArg), "$call (4)", locInst)
+                                concretizeCell(integerAlloc.alloc(locInst, Constant.makeTop(), curArg), "$call (4)", locInst) // Numeric analysis loss of precision
                             }
                         }
                         allocatedC.getNode().setWrite()
@@ -4364,7 +4437,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     if (addSep) {
                         sb.append(":")
                     }
-                    sb.append("Int")
+                    sb.append("Int(${n.integerValue})")
                     addSep = true
                 }
                 if (n.isMayHeap) {

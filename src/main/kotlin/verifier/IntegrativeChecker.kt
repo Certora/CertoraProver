@@ -268,7 +268,7 @@ object IntegrativeChecker {
                             val code = method.code as CoreTACProgram
                             // as it is now it won't work. the pointers aren't preserved. but we can collect patches to apply
                             val patch = code.toPatchingProgram()
-                            val updatedHashCallCoreCmds = DisciplinedHashModel.applyDisciplinedHashModelOnPatch(patch, code, pointsTo)
+                            val updatedHashCallCoreCmds = DisciplinedHashModel.applyDisciplinedHashModelOnPatch(patch, method as TACMethod, pointsTo)
                             ExtCallSummarization.annotateCallsAndReturnsWithAnalysisResultsWithPatching(patch, code, analysisResults, updatedHashCallCoreCmds)
                             patch.toCode(code)
                         },

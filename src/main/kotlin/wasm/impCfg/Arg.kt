@@ -78,7 +78,7 @@ data class ArgRegister(val register: Tmp) : Arg {
         return register.toString()
     }
 
-    override fun toTacSymbol(): TACSymbol {
+    override fun toTacSymbol(): TACSymbol.Var {
         return TACSymbol.Var(register.toString(), Tag.Bit256)
     }
 
@@ -94,7 +94,7 @@ data class ArgRegister(val register: Tmp) : Arg {
         return register.name
     }
 
-    override fun transformTmps(rename: (Tmp) -> Tmp): Arg {
+    override fun transformTmps(rename: (Tmp) -> Tmp): ArgRegister {
         return copy(register = rename(register))
     }
 }

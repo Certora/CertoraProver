@@ -1,0 +1,94 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;                    POINTS-TO SUMMARIES
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; if the call returns then (*i64)(r1+0) is always a valid pointer.
+;;; 1st call:
+;;; - precondition: (*i64)(r1+0) is a Rust dangling pointer
+;;; - post-condition: (*i64)(r1+0) points to new allocated memory (malloc)
+;;; 2nd call:
+;;; - precondition: (*i64)(r1+0) is a valid pointer
+;;; - post-condition: (*i64)(r1+0) points to a new allocated memory after resizing the memory object
+;;;                   to which r1 pointed to before the call (realloc).
+#[type((*i64)(r1+0):ptr_heap)]
+^alloc::raw_vec::RawVec<T,A>::reserve_for_push(_[0-9][0-9]*)*$
+#[type((*i64)(r1+0):ptr_heap)]
+^alloc::raw_vec::RawVec<T,A>::reserve::do_reserve_and_handle(_[0-9][0-9]*)*$
+
+#[type((*i64)(r1+0):num)]
+#[type((*i64)(r1+8):num)]
+^__multi3$
+
+#[type((*i64)(r1+0):num)]
+#[type((*i64)(r1+8):num)]
+^__udivti3$
+
+#[type((*i64)(r1+0):num)]
+#[type((*i64)(r1+8):num)]
+^__divti3$
+
+#[type(r0:num)]
+^__muldf3$
+
+#[type(r0:num)]
+^__divdf3$
+
+#[type((*i64)(r1+0):num)]
+#[type((*i64)(r1+8):num)]
+#[type((*i64)(r1+16):num)]
+#[type((*i64)(r1+24):num)]
+#[type((*i64)(r1+32):num)]
+^sol_get_clock_sysvar$
+
+;; %"AccountInfo" = type { %"Pubkey"*, i64*, i64*, %"Pubkey"*, i64, i8, i8, i8, [5 x i8] }
+#[type((*i64)(r1+0):ptr_external)]
+#[type((*i64)(r1+8):ptr_external)]
+#[type((*i64)(r1+16):ptr_external)]
+#[type((*i64)(r1+24):ptr_external)]
+#[type((*i64)(r1+32):num)]
+#[type((*i8)(r1+40):num)]
+#[type((*i8)(r1+41):num)]
+#[type((*i8)(r1+42):num)]
+^([^:]+::)*CVT_nondet_account_info$
+
+#[type((*i64)(r1+0):num)]
+#[type((*i64)(r1+8):num)]
+#[type((*i64)(r1+16):num)]
+#[type((*i64)(r1+24):num)]
+^([^:]+::)*CVT_nondet_pubkey$
+
+#[type((*i64)(r1+0):num)]
+#[type((*i64)(r1+8):num)]
+^([^:]+::)*CVT_nondet_layout_unchecked$
+
+#[type(r0:ptr_external)]
+^([^:]+::)*CVT_nondet_pointer_usize$
+
+#[type((*i32)(r1+0):num)]
+^solana_program::account_info::AccountInfo::realloc$
+
+;; Result<Pubkey, PubkeyError>
+#[type((*i8)(r1+0):num)]
+#[type((*i64)(r1+1):num)]
+#[type((*i64)(r1+9):num)]
+#[type((*i64)(r1+17):num)]
+#[type((*i64)(r1+25):num)]
+^solana_program::pubkey::Pubkey::create_program_address$
+
+;; (Pubkey, u8)
+#[type((*i64)(r1+0):num)]
+#[type((*i64)(r1+8):num)]
+#[type((*i64)(r1+16):num)]
+#[type((*i64)(r1+24):num)]
+#[type((*i8)(r1+32):num)]
+^solana_program::pubkey::Pubkey::find_program_address$
+
+
+#[type((*i32)(r1+0):num)]
+^solana_program::program::invoke_signed_unchecked$
+
+;; This is important for CPI calls.
+#[type((*i32)(r1+0):num)]
+^solana_program::program::invoke$

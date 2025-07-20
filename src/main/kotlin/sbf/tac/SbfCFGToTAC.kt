@@ -993,6 +993,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val fnName = metaData.getVal(SbfMeta.INLINED_FUNCTION_NAME) ?: return null
         val fnMangledName = metaData.getVal(SbfMeta.MANGLED_NAME) ?: return null
         val callId = metaData.getVal(SbfMeta.CALL_ID)?.toInt() ?: return null
+        val mockFor = metaData.getVal(SbfMeta.MOCK_FOR)
 
         // These are the observed args across all call sites
         val observedArgs = functionArgInference.inferredArgs(fnName) ?: return null
@@ -1017,7 +1018,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             name = fnName,
             mangledName = fnMangledName,
             args = tacArgs,
-            id = callId
+            id = callId,
+            mockFor = mockFor
         )
     }
 

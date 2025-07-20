@@ -67,6 +67,7 @@ import java.io.File
 import java.util.stream.Collectors
 import wasm.transform.BitopsRewriter
 import wasm.transform.BranchConditionSimplifier
+import wasm.transform.MaskNormalizer
 
 class InvalidRules(msg: String) : Exception(msg)
 class TrivialRule(msg: String) : Exception(msg)
@@ -273,6 +274,7 @@ object WasmEntryPoint {
                 .map(CoreToCoreTransformer(ReportTypes.JUMP_COND_NORMALIZATION, BranchConditionSimplifier::rewrite))
                 .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_WASM_BITOPS, BitopsRewriter::rewriteXorEquality))
                 .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE_WASM_BITOPS, BitopsRewriter::rewriteSignedOverflowCheck))
+                .map(CoreToCoreTransformer(ReportTypes.NORMALIZE_MASK, MaskNormalizer::normalizeMasks))
                 .map(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE, IntervalBasedExprSimplifier::analyze))
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.WASM_INIT_LOOP_SUMMARIZATION, ConstantArrayInitializationSummarizer::annotateLoops))

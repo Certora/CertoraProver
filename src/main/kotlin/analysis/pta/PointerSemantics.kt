@@ -3313,6 +3313,10 @@ class PointerSemantics(
                 ignoreNextZeroWrite = null
             )
         )
+
+        val initial = empty.copy(
+            store = treapMapOf(TACKeyword.CALLDATASIZE.toVar() to INT, TACKeyword.RETURN_SIZE.toVar() to INT)
+        )
     }
 
     private fun consumeArraySizeHints(state: PointsToGraph, it: List<ArrayHints>) : PointsToGraph =

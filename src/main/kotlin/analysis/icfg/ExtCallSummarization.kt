@@ -23,6 +23,7 @@ import allocator.GenerateRemapper
 import allocator.GeneratedBy
 import analysis.CmdPointer
 import analysis.LTACCmdView
+import analysis.hash.DisciplinedHashModel
 import analysis.narrow
 import com.certora.collect.*
 import datastructures.stdcollections.*
@@ -125,25 +126,40 @@ object ExtCallSummarization {
     private fun annotateCallsAndReturnsWithAnalysisResults(method: ITACMethod, analysisResults: CallGraphBuilder.AnalysisResults) {
         val icore = method.code as CoreTACProgram
         val patching = icore.toPatchingProgram()
-        annotateCallsAndReturnsWithAnalysisResultsWithPatching(patching, icore, analysisResults, emptySet())
+        annotateCallsAndReturnsWithAnalysisResultsWithPatching(patching, icore, analysisResults, DisciplinedHashModel.HashRewriteEffect.empty)
         method.updateCode(patching)
     }
 
     /**
-     * [updatedCallCoreCmds] is a set of CmdPointers that are no longer [TACCmd.Simple.CallCore] in [patch]
+     * [hashRewriter] is a set of CmdPointers that are no longer [TACCmd.Simple.CallCore] in [patch]
      */
     fun annotateCallsAndReturnsWithAnalysisResultsWithPatching(
         patching: SimplePatchingProgram,
         icore: CoreTACProgram,
         analysisResults: CallGraphBuilder.AnalysisResults,
-        updatedCallCoreCmds: Set<CmdPointer>
+        hashRewriter: DisciplinedHashModel.HashRewriteEffect
     ) {
         val graph = icore.analysisCache.graph
+
+        /**
+         * Records all of the commands to insert before the indicated location.
+         */
+        val staged = mutableMapOf<CmdPointer, MutableList<TACCmd.Simple>>()
+
+        fun stageAdd(where: CmdPointer, what: List<TACCmd.Simple>) = staged.getOrPut(where) { mutableListOf() }.addAll(what)
+
+        for((lv, bkp) in hashRewriter.stagedSave) {
+            stageAdd(lv.ptr, listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                lhs = bkp,
+                rhs = lv.v.asSym()
+            )))
+            patching.addVarDecl(bkp)
+        }
 
         val metaUpdates = mutableMapOf<CmdPointer, MetaMap>()
         val simplifier = ExpressionSimplifier(g = graph, customDefAnalysis = graph.cache.def)
         val res = graph.commands.parallelStream().filter {
-            it.cmd is TACCmd.Simple.CallCore && it.ptr !in updatedCallCoreCmds
+            it.cmd is TACCmd.Simple.CallCore && it.ptr !in hashRewriter.rewrittenCores
         }.map {
             it.narrow<TACCmd.Simple.CallCore>()
         }.map {
@@ -173,7 +189,7 @@ object ExtCallSummarization {
             }
         }
 
-        val killedCallIds = updatedCallCoreCmds.mapNotNullToSet {
+        val killedCallIds = hashRewriter.rewrittenCores.mapNotNullToSet {
             analysisResults.callNumbering.callNumbering[it]
         }
 
@@ -212,9 +228,9 @@ object ExtCallSummarization {
             decomposePatchInfo.patches.forEach { (ptr, assignExpCmds) ->
                 // let's make sure that our ptr has the right call id
                 if (ptr !in graphPointers) {
-                    throw IllegalStateException("Cmd pointer ${ptr} associated with $assignExpCmds does not exist")
+                    throw IllegalStateException("Cmd pointer $ptr associated with $assignExpCmds does not exist")
                 }
-                patching.addBefore(ptr, assignExpCmds.toList())
+                stageAdd(ptr, assignExpCmds.toList())
                 assignExpCmds.forEach { cmd ->
                     patching.addVarDecl(cmd.lhs)
                 }
@@ -232,7 +248,6 @@ object ExtCallSummarization {
                 )
             )
         }
-        val returnWriteSnippets = mutableMapOf<CmdPointer, SnippetCmd.EVMSnippetCmd.EVMFunctionReturnWrite>()
         analysisResults.returnInformation.returnLoc.forEach { (t, u) ->
             val returnWrite = Allocator.getFreshId(Allocator.Id.RETURN_SUMMARIES)
             metaUpdates.additiveMerge(
@@ -258,12 +273,13 @@ object ExtCallSummarization {
                                 offset = offset
                             ))
                     )
-                    returnWriteSnippets[lSym.ptr] =
+                    stageAdd(lSym.ptr, listOf(
                         SnippetCmd.EVMSnippetCmd.EVMFunctionReturnWrite(
                             returnbufOffset = offset,
                             returnValueSym = lSym.symbol,
                             callIndex = NBId.ROOT_CALL_ID
-                        )
+                        ).toAnnotation(icore.destructiveOptimizations)
+                    ))
                 }
             }
         }
@@ -274,24 +290,29 @@ object ExtCallSummarization {
             ))
         }
 
+        for((where, toPrefix) in staged) {
+            if(where in metaUpdates) {
+                patching.replace(where) { orig ->
+                    toPrefix + orig.mapMeta {
+                        it + metaUpdates[where]!!
+                    }
+                }
+            } else {
+                patching.addBefore(where, toPrefix)
+            }
+        }
+
         for ((where, meta) in metaUpdates) {
             if (where in callToSummary) {
                 continue
             }
-            if (where in returnWriteSnippets) {
-                patching.replace(where) { cmd ->
-                    listOf(
-                        cmd.mapMeta {
-                            it + meta
-                        },
-                        returnWriteSnippets.getValue(where).toAnnotation(icore.destructiveOptimizations)
-                    )
-                }
-            } else {
-                patching.update(where) { cmd ->
-                    cmd.mapMeta {
-                        it + meta
-                    }
+            // any meta updates were done in the staged loop above
+            if(where in staged) {
+                continue
+            }
+            patching.update(where) { cmd ->
+                cmd.mapMeta {
+                    it + meta
                 }
             }
         }
@@ -358,7 +379,7 @@ object ExtCallSummarization {
                 tags[it.ptr] = decompSymVar.tag
                 val cmdValue = it.symbol
                 if (cmdValue.tag == Tag.Bool) {
-                    toRetPatches.getOrPut(it.ptr, { mutableSetOf<TACCmd.Simple.AssigningCmd.AssignExpCmd>() }).add(
+                    toRetPatches.getOrPut(it.ptr, { mutableSetOf() }).add(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                     lhs = decompSymVar, rhs = cmdValue.asSym().ensureIntOrBvForAssignmentTo(decompSymVar)
                             )
@@ -368,7 +389,7 @@ object ExtCallSummarization {
                         "Expected that ${cmdValue} will have a subtype of $decompSymVar, but instead got " +
                                 "${cmdValue.tag} and ${decompSymVar.tag}, respectively"
                     }
-                    toRetPatches.getOrPut(it.ptr, { mutableSetOf<TACCmd.Simple.AssigningCmd.AssignExpCmd>() }).add(
+                    toRetPatches.getOrPut(it.ptr, { mutableSetOf() }).add(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                     lhs = decompSymVar, rhs = cmdValue
                             )
@@ -378,8 +399,8 @@ object ExtCallSummarization {
         }
 
         return DecomposeArgVariablesPatchInfo(
-                toRetPatches,
-                toRetAssigned
+            toRetPatches,
+            toRetAssigned
         )
     }
 

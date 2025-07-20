@@ -723,7 +723,7 @@ class MutateApp:
     def __init__(self, args_list: List[str]) -> None:
         self.mutation_test_id = ''
         self.numb_of_jobs: int = 0
-        self.backup_paths: List[Path] = []
+        self.backup_path: Optional[Path] = None
         self.sources_dir: Optional[Path] = None
         self.with_split_stats_data = False
         self.manual_mutants_list: List[Mutant] = list()
@@ -882,9 +882,9 @@ class MutateApp:
                                                      " verification results. Please remove or replace the mutation")
 
     def restore_backups(self) -> None:
-        for backup_path in self.backup_paths:
-            Util.restore_backup(backup_path)
-        self.backup_paths = []
+        if self.backup_path:
+            Util.restore_backup(self.backup_path)
+        self.backup_path = None
 
     def submit_soroban(self) -> None:
 
@@ -931,12 +931,14 @@ class MutateApp:
         # run mutants
         mutant_runs = []
         try:
-            self.backup_paths = []
             for mutant in all_mutants:
                 # call certoraRun for each mutant we found
                 mutant_runs.append(self.run_mutant_soroban(mutant))
+                self.restore_backups()
         finally:
-            self.restore_backups()
+            if self.backup_path:
+                mutation_logger.warning("Not empty backup path")
+                self.restore_backups()
 
         # wrap it all up and make the input for the 2nd step: the collector
         assert self.collect_file, "submit_soroban: no collect_file"
@@ -1144,10 +1146,11 @@ class MutateApp:
     def run_mutant_soroban(self, mutant: Mutant) -> MutantJob:
         file_to_mutate = Path(mutant.original_filename)
         # create a backup copy (if needed) by adding '.backup' to the end of the file
-        if Util.get_backup_path(file_to_mutate) not in self.backup_paths:
-            backup_file = Util.create_backup(file_to_mutate)
-            assert backup_file, f"run_mutant_soroban: create_backup for {file_to_mutate} failed"
-            self.backup_paths.append(backup_file)
+        if self.backup_path and Util.get_backup_path(file_to_mutate) != self.backup_path:
+            raise Util.ImplementationError("backup_path is set but does not match the file to mutate")
+        if not self.backup_path:
+            self.backup_path = Util.create_backup(file_to_mutate)
+            assert self.backup_path, f"run_mutant_soroban: create_backup for {file_to_mutate} failed"
         shutil.copy(mutant.filename, file_to_mutate)
 
         try:

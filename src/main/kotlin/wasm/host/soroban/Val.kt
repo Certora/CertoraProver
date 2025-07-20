@@ -27,6 +27,8 @@ import tac.MetaMap
 import utils.*
 import utils.ModZm.Companion.to2s
 import vc.data.*
+import wasm.WasmPipelinePhase
+import wasm.WasmPostUnrollSummary
 import java.math.BigInteger
 import vc.data.TACExprFactUntyped as expr
 
@@ -187,6 +189,7 @@ object Val {
     fun allocHandle(dest: TACSymbol.Var, tag: Tag, contentSummary: (TACExprFact.() -> List<TACExpr>)? = null) = mergeMany(
         listOfNotNull(
             assignHavoc(dest, MetaMap(WASM_FRESH_HANDLE to tag.value)),
+            assume { dest lt BigInteger.TWO.pow(sizeInBytes*8).asTACExpr },
             assumeValid(dest, false, tag),
             assume { not(select(TACKeyword.SOROBAN_OBJECTS.toVar().asSym(), dest.asSym())) },
             assign(TACKeyword.SOROBAN_OBJECTS.toVar()) {
@@ -324,28 +327,61 @@ object Val {
             }
         }
 
+    @KSerializable
+    data class CheckValid(val out: TACSymbol.Var, val v: TACSymbol, val checkAlloc: Boolean, val validTags: List<Int>) :
+        WasmPostUnrollSummary(phase = WasmPipelinePhase.PostOptimization) {
+        override val inputs: List<TACSymbol>
+            get() = listOf(v)
+
+        override fun transformSymbols(f: Transformer): AssignmentSummary {
+            return CheckValid(
+                out = f(out),
+                v = f(v),
+                checkAlloc,
+                validTags
+            )
+        }
+
+        override val annotationDesc: String
+            get() = "$out = isValidVal($v, checkAlloc=$checkAlloc, validTags=$validTags"
+
+        override fun gen(
+            simplifiedInputs: List<TACExpr>,
+            analysisCache: AnalysisCache
+        ): CommandWithRequiredDecls<TACCmd.Simple> {
+            val tagArray = validTags.map { tagInt -> Tag.entries.first { it.value == tagInt } }.toTypedArray()
+            val checkValid = getTag(v.asSym()).letVar { tag ->
+                assign(out) {
+                    (v lt BigInteger.TWO.pow(64).asTACExpr) and
+                        checkValidTag(tag, tagArray) and
+                        checkInt32Range(tag, v.asSym(), tagArray)
+                }
+            }
+            return if (checkAlloc) {
+                mergeMany(checkValid, assumeAllocated(v.asSym(), tagArray))
+            } else {
+                checkValid
+            }
+        }
+
+        override val mustWriteVars: Collection<TACSymbol.Var>
+            get() = setOf(out)
+    }
+
     private fun withValidity(
         v: TACExpr,
         checkAlloc: Boolean,
         validTags: Array<out Tag>,
         f: (TACExpr.Sym.Var) -> CommandWithRequiredDecls<TACCmd.Simple>
-    ) =
-        getTag(v).letVar { tag ->
-            expr {
-                (v lt BigInteger.TWO.pow(64).asTACExpr) and
-                checkValidTag(tag, validTags) and
-                checkInt32Range(tag, v, validTags)
-            }.letVar(tac.Tag.Bool) { valid ->
-                if (!checkAlloc) {
-                    f(valid)
-                } else {
-                    mergeMany(
-                        assumeAllocated(v, validTags),
-                        f(valid)
-                    )
-                }
-            }
-        }
+    ): CommandWithRequiredDecls<TACCmd.Simple> {
+        val valid = TACKeyword.TMP(tac.Tag.Bool, "validity")
+        return mergeMany(
+            v.letVar("val") { x ->
+                TACCmd.Simple.SummaryCmd(CheckValid(valid, x.s, checkAlloc, validTags.map { it.value })).withDecls(valid)
+            },
+            f(valid.asSym())
+        )
+    }
 
     fun assertValid(sym: TACSymbol, module: String, func: String, vararg validTags: Tag) =
         withValidity(sym.asSym(), true, validTags) { valid ->

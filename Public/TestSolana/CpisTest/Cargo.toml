@@ -1,0 +1,27 @@
+[package]
+name = "cpis"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/spec.rs"
+
+[profile.dev]
+split-debuginfo = "unpacked"
+
+[features]
+certora = []
+
+[dependencies]
+cvlr = "0.4"
+cvlr-solana = { git = "https://github.com/phreppo/cvlr-solana" }
+solana-program = "1.18"
+spl-token = { version = "4", features = ["no-entrypoint"] }
+spl-token-2022 = { version = "3", features = ["no-entrypoint"] }
+
+[package.metadata.certora]
+sources = ["Cargo.toml", "src/**/*.rs"]
+solana_inlining = ["./cvt_inlining_core.txt"]
+solana_summaries = ["./cvt_summaries_core.txt"]

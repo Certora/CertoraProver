@@ -28,6 +28,7 @@ import analysis.numeric.linear.TermMatching.matchesAny
 import analysis.pta.abi.DecoderAnalysis
 import com.certora.collect.*
 import datastructures.stdcollections.*
+import evm.DEFAULT_SIGHASH_SIZE
 import evm.EVM_BITWIDTH256
 import evm.EVM_WORD_SIZE
 import evm.MAX_EVM_UINT256
@@ -1314,14 +1315,7 @@ class NumericAnalysis(
 
     override fun assignVariable(lhs: TACSymbol.Var, rhs: TACSymbol.Var, target: NumericDomain, pstate: PointsToDomain,
                                 where: LTACCmd): NumericDomain {
-        val newVal = target[rhs] ?: if(rhs == TACKeyword.CALLDATASIZE.toVar()) {
-            QualifiedInt(
-                    qual = treapSetOf(IntQualifier.CalldataSize),
-                    x = IntValue.Nondet
-            )
-        } else {
-            AnyInt
-        }
+        val newVal = target[rhs] ?: AnyInt
         return target.updateLoc(lhs, newVal)
     }
 
@@ -1754,7 +1748,7 @@ class NumericAnalysis(
         val condVal = st[op1]!!.expectInt()
         val propagation = compute(op1, condVal, st, pstate, target) ?: throw PruneInfeasible()
         val arrayHintPropagation = mutableListOf<ArrayHints>()
-        val additional = mutableMapOf<TACSymbol.Var, MutableList<PathInformation.Qual<IntQualifier>>>()
+        val additional = mutableMapOf<TACSymbol.Var, MutableList<PathInformation<IntQualifier>>>()
         for((v, propagatedFacts) in propagation) {
             for(ub in propagatedFacts.filterIsInstance<UpperBound>().filter {
                 it.sym != null
@@ -1801,7 +1795,51 @@ class NumericAnalysis(
                 }
             }
             val valueQualifiers = st[v]?.tryResolve()?.let { it as? QualifiedInt }?.qual
-            st[v]?.tryResolve()?.let { it as? QualifiedInt }?.qual?.filterIsInstance<IntQualifier.RemainingElementsProofFor>()?.takeIf {
+            if(IntQualifier.CalldataSize in valueQualifiers.orEmpty()) {
+                val cds = TACKeyword.CALLDATASIZE.toVar()
+                additional.getOrPut(cds) { mutableListOf() }.addAll(propagatedFacts.filterNot {
+                    it is PathInformation.Qual && it.q.relates(cds)
+                })
+            }
+            if(IntQualifier.CalldataPayloadSize in valueQualifiers.orEmpty()) {
+                val cds = TACKeyword.CALLDATASIZE.toVar()
+                additional.getOrPut(cds) {
+                    mutableListOf()
+                }.addAll(propagatedFacts.mapNotNull { pi ->
+                    when(pi) {
+                        is StrictSignedLowerBound,
+                        is StrictSignedUpperBound,
+                        is WeakSignedLowerBound,
+                        is WeakSignedUpperBound,
+                        is Qual -> null
+
+                        is NumericRelation -> {
+                            val c = pi.num ?: return@mapNotNull null
+                            when(pi) {
+                                is StrictEquality -> {
+                                    StrictEquality(num = c + DEFAULT_SIGHASH_SIZE, sym = null)
+                                }
+                                is StrictInequality -> {
+                                    StrictInequality(num = c + DEFAULT_SIGHASH_SIZE, sym = null)
+                                }
+                                is StrictLowerBound -> {
+                                    StrictLowerBound(num = c + DEFAULT_SIGHASH_SIZE, sym = null)
+                                }
+                                is StrictUpperBound -> {
+                                    StrictUpperBound(num = c + DEFAULT_SIGHASH_SIZE, sym = null)
+                                }
+                                is WeakLowerBound -> {
+                                    WeakLowerBound(num = c + DEFAULT_SIGHASH_SIZE, sym = null)
+                                }
+                                is WeakUpperBound -> {
+                                    WeakUpperBound(num = c + DEFAULT_SIGHASH_SIZE, sym = null)
+                                }
+                            }
+                        }
+                    }
+                })
+            }
+            valueQualifiers?.filterIsInstance<IntQualifier.RemainingElementsProofFor>()?.takeIf {
                 it.isNotEmpty()
             }?.let {
                 val lowerBound = propagatedFacts.mapNotNull {
@@ -1981,6 +2019,11 @@ class NumericAnalysis(
 
     companion object {
         val empty: NumericDomain = treapMapOf()
+        val initial = treapMapOf<TACSymbol.Var, IntDomain>(TACKeyword.CALLDATASIZE.toVar() to QualifiedInt(
+            IntValue.Nondet, treapSetOf(IntQualifier.CalldataSize)
+        ), TACKeyword.RETURN_SIZE.toVar() to QualifiedInt(
+            IntValue.Constant(BigInteger.ZERO), treapSetOf()
+        ))
     }
 
     override fun writeSingleMemory(loc: TACSymbol, value: TACSymbol, target: NumericDomain, pState: PointsToDomain,
