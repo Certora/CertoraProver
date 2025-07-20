@@ -446,6 +446,9 @@ jobs:
 
 workflows:
   prover-sanity:
+    when:
+      and:
+        - not: << pipeline.parameters.release_prod_version >>
     jobs:
       - build:
           filters:
