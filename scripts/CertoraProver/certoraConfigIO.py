@@ -99,7 +99,8 @@ def handle_override_base_config(context: CertoraContext) -> None:
     if context.override_base_config:
         try:
             with Path(context.override_base_config).open() as conf_file:
-                override_base_config_attrs = json5.load(conf_file, allow_duplicate_keys=False)
+                override_base_config_attrs = json5.load(conf_file, allow_duplicate_keys=False,
+                                                        object_pairs_hook=OrderedDict)
                 context.conf_file_attr = {**override_base_config_attrs, **context.conf_file_attr}
 
                 if 'override_base_config' in override_base_config_attrs:
