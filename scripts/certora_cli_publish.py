@@ -254,7 +254,8 @@ setuptools.setup(
             "certoraSolanaProver = certora_cli.certoraSolanaProver:entry_point",
             "certoraSorobanProver = certora_cli.certoraSorobanProver:entry_point",
             "certoraEVMProver = certora_cli.certoraEVMProver:entry_point",
-            "certoraRanger = certora_cli.certoraRanger:entry_point"
+            "certoraRanger = certora_cli.certoraRanger:entry_point",
+            "certoraCVLFormatter = certora_cli.certoraCVLFormatter:entry_point"
         ]
     }},
     python_requires='>={MIN_PYTHON_VERSION}',

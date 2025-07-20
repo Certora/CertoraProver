@@ -19,6 +19,10 @@ import os
 import sys
 import argparse
 import subprocess
+from pathlib import Path
+
+scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
+sys.path.insert(0, str(scripts_dir_path))
 
 from Shared import certoraUtils as Util
 from pathlib import Path
@@ -62,7 +66,11 @@ def check_java_version() -> None:
         raise Util.CertoraUserInputError(f"Java {Util.MIN_JAVA_VERSION} or higher is required to run the formatter. "
                                          f"Please install Java and try again.")
 
-if __name__ == '__main__':
-    check_java_version()
+
+def entry_point() -> None:
     spec_file, overwrite = parse_args()
+    check_java_version()
     run_formatter_from_jar(spec_file, overwrite)
+
+if __name__ == '__main__':
+    entry_point()
