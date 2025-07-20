@@ -45,7 +45,7 @@ class SexpParserTest {
 
     @Test
     fun test05() {
-        val s = parseSexp("lastHasThrown", 0).first
-        assert(s.toString() == "lastHasThrown")
+        val s = parseSexp("foobar", 0).first
+        assert(s.toString() == "foobar")
     }
 }
