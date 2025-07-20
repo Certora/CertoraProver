@@ -1941,7 +1941,28 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
                         val offset = (scalarVal.type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset
                         if (offset == null || offset.isTop()) {
-                            outUntrackedStackFields = outUntrackedStackFields.add(field)
+                            if (SolanaConfig.OptimisticPTAJoin.get() && SolanaConfig.OptimisticPTAJoinWithStackPtr.get()) {
+                                // The analysis does not know statically if after the join the stack offset `field` points
+                                // to another stack offset or some non-stack memory (eg., heap)
+                                //
+                                // We optimistically choose that `field` points to the stack
+                                when {
+                                    isLeftStack && !isRightStack -> {
+                                        // left points to stack and right to non-stack
+                                        onlyLeft.add(field to leftSuccC)
+                                    }
+                                    !isLeftStack -> {
+                                        // right points to stack and left to non-stack
+                                        onlyRight.add(field to rightSuccC)
+                                    }
+                                    else -> {
+                                        // both points to stack but different offsets
+                                        outUntrackedStackFields = outUntrackedStackFields.add(field)
+                                    }
+                                }
+                            } else {
+                                outUntrackedStackFields = outUntrackedStackFields.add(field)
+                            }
                         }
                     } else {
                         /**

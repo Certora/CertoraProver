@@ -105,6 +105,16 @@ object SolanaConfig {
         )
     ) {}
 
+    val OptimisticPTAJoinWithStackPtr = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "solanaOptimisticJoinWithStackPtr",
+            true,
+            "At a joint point, if a field might point to either a stack pointer or non-stack pointer then it chooses the stack pointer. " +
+                      "The flag ${OptimisticPTAJoin.name} must be enabled [default: false]"
+        )
+    ) {}
+
     val OptimisticPTAOverlaps = object : ConfigType.BooleanCmdLine(
         false,
         Option(
