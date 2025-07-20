@@ -461,7 +461,7 @@ object IntegrativeChecker {
 
         if (Config.EnableStorageSplitting.get()) {
             scene.mapContractsInPlace(IScene.MapSort.PARALLEL, "storage_splitting") { _, contract ->
-                StorageSplitter(contract).splitStorage()
+                StorageSplitter.splitStorage(contract)
             }
         }
         scene.mapContractsInPlace("storage_splitting") { _, contract ->

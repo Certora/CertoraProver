@@ -949,18 +949,14 @@ hook_pattern ::=
          RESULT = new HookPattern(range(hxleft, rpxright), HookType.SSTORE,p,op,s);
        :}
 
-  // tload/tsore hooks are currently limited to `(slot N)` patterns
-  | HOOK:h TLOAD named_vm_param_no_loc:p simple_slot_only_static_slot_part:s
-      {:    StaticSlotPattern ssp = new StaticSlotPattern(range(sxleft,sxright)); ssp.add(s);
-            RESULT = new HookPattern(range(hxleft, sxright), HookType.TLOAD, p, ssp);      :}
+  | HOOK:h TLOAD named_vm_param_no_loc:p slot_pattern:s
+      {:    RESULT = new HookPattern(range(hxleft, sxright), HookType.TLOAD, p,s);      :}
 
-  | HOOK:h TSTORE simple_slot_only_static_slot_part:s named_vm_param_no_loc:p
-      {:    StaticSlotPattern ssp = new StaticSlotPattern(range(sxleft,sxright)); ssp.add(s);
-            RESULT = new HookPattern(range(hxleft, pxright), HookType.TSTORE,p,ssp);     :}
+  | HOOK:h TSTORE slot_pattern:s named_vm_param_no_loc:p
+      {:    RESULT = new HookPattern(range(hxleft, pxright), HookType.TSTORE,p,s);     :}
 
-  | HOOK:h TSTORE simple_slot_only_static_slot_part:s named_vm_param_no_loc:p LP named_vm_param_no_loc:op RP:rp
-      {:    StaticSlotPattern ssp = new StaticSlotPattern(range(sxleft,sxright)); ssp.add(s);
-            RESULT = new HookPattern(range(hxleft, rpxright), HookType.TSTORE,p,op,ssp);  :}
+  | HOOK:h TSTORE slot_pattern:s named_vm_param_no_loc:p LP named_vm_param_no_loc:op RP:rp
+      {:    RESULT = new HookPattern(range(hxleft, rpxright), HookType.TSTORE,p,op,s);  :}
 
   | HOOK:h CREATE LP named_vm_param_no_loc:p RP:rp
       {: RESULT = new HookPattern(range(hxleft, rpxright), HookType.CREATE, p);      :}

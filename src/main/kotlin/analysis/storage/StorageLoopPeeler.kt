@@ -94,7 +94,7 @@ object StorageLoopPeeler {
             }
 
             val hasStorageAccess = loop.body.asSequence().flatMap { graph.elab(it).commands }.filter {
-                it.cmd is TACCmd.Simple.StorageAccessCmd && it.cmd.base.meta.containsKey(TACMeta.STORAGE_KEY)
+                it.cmd is TACCmd.Simple.StorageAccessCmd && it.cmd.base.isStorageOrTransientStorage()
             }.isNotEmpty()
 
             if (!hasStorageAccess) {

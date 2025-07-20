@@ -91,6 +91,8 @@ object ProverInputPreprocessor {
 
                 override fun getStorageLayout(): TACStorageLayout? = sdc.storageLayout?.toTACStorageLayout()
 
+                override fun getTransientStorageLayout(): TACStorageLayout? = sdc.transientStorageLayout?.toTACStorageLayout()
+
                 override val transientStorage: IStorageInfo
                     get() = DummyStorageInfo
 

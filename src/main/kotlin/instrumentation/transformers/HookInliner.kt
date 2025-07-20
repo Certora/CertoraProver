@@ -44,6 +44,7 @@ import spec.cvlast.typedescriptors.VMValueTypeDescriptor
 import tac.*
 import utils.*
 import vc.data.*
+import vc.data.TACHookPattern.StorageHook.Companion.map
 import vc.data.TACMeta.LAST_STORAGE_UPDATE
 import vc.data.TACMeta.RESET_STORAGE
 import vc.data.TACMeta.REVERT_MANAGEMENT
@@ -601,12 +602,18 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
             }
             val storageAnalysisFailMatch = ast.parallelLtacStream().mapNotNull {
                 it.maybeAnnotation(STORAGE_ANALYSIS_FAILURE)
-            }.collect(Collectors.toList()).firstOrNull()
-            if (storageAnalysisFailMatch != null) {
+            }.collect(Collectors.toList())
+            val storageAnalysisFailBases = storageAnalysisFailMatch.mapToSet { it.base }
+            val hookBases: Set<StorageAnalysis.Base> = cvlCompiler.cvl.hooks.mapNotNullToSet {
+                (it.pattern as? CVLHookPattern.StoragePattern)?.base?.map()
+            }
+            // if we only ever hook on storage whose analysis didn't fail it's ok
+            if (storageAnalysisFailBases.any { hookBases.contains(it) }) {
+                val relevantFailures = storageAnalysisFailMatch.filter { it.base in hookBases }
                 throw CertoraException(
                     CertoraErrorType.HOOK_INLINING,
                     "A failure was found in the storage analysis, cannot hook on storage. " +
-                        "Details: ${storageAnalysisFailMatch.userFacingMsg.getCoreMessage()}"
+                        "Details: ${relevantFailures.first().userFacingMsg.getCoreMessage()}"
                 )
             }
         }

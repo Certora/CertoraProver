@@ -64,6 +64,7 @@ interface IContractClassIdentifiers: Serializable, ICVLContractClass {
 
     fun getDeclaredMethods(): Collection<IMethodIdentifiers>
     fun getStorageLayout(): TACStorageLayout?
+    fun getTransientStorageLayout(): TACStorageLayout?
 
     fun getMethodOrFallback(sig: BigInteger?) = if (sig != null) {
         getMethodBySigHash(sig)
@@ -88,7 +89,8 @@ data class ContractClassIdentifiers(
     override val methods: Map<BigInteger?, MethodIdentifiers>,
     override val wholeContractMethod: MethodIdentifiers?,
     override val constructorMethod: MethodIdentifiers?,
-    val storage: TACStorageLayout?
+    val storage: TACStorageLayout?,
+    val transientStorage: TACStorageLayout?
 ) :
     IContractClassIdentifiers {
     override fun getMethodBySigHash(sig: BigInteger): IMethodIdentifiers? = methods[sig]
@@ -96,6 +98,7 @@ data class ContractClassIdentifiers(
     override fun getDeclaredMethods(): Collection<IMethodIdentifiers> = methods.values + listOfNotNull(constructorMethod)
 
     override fun getStorageLayout(): TACStorageLayout? = storage
+    override fun getTransientStorageLayout(): TACStorageLayout? = transientStorage
 }
 
 interface IContractClass : WithMemento<IContractClass.ContractMemento>, IContractClassIdentifiers {
@@ -117,7 +120,8 @@ interface IContractClass : WithMemento<IContractClass.ContractMemento>, IContrac
         wholeContractMethod = getMethodByUniqueAttribute(MethodAttribute.Unique.Whole)?.toIdentifiers(),
         constructorMethod = getConstructor()?.toIdentifiers(),
         methods = getMethods().asSequence().map { it.toIdentifiers() }.associateBy { it.sigHash?.n },
-        storage = this.getStorageLayout()
+        storage = this.getStorageLayout(),
+        transientStorage = this.getTransientStorageLayout()
     )
 
     override fun getWholeContract(): ITACMethod? =

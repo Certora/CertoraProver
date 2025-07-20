@@ -93,6 +93,7 @@ fun createContractClassWithoutMethods(name: String, instanceId : BigInteger, add
         override val storage: StorageInfoWithReadTracker
             get() = StorageInfoWithReadTracker.empty()
         override fun getStorageLayout(): TACStorageLayout? = null
+        override fun getTransientStorageLayout(): TACStorageLayout? = null
         override val transientStorage: StorageInfo
             get() = StorageInfo.empty()
     }

@@ -1,0 +1,23 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "deltaEqualStorage": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: Reset transient storage": "FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "borrow(int256)",
+            "getDelta()",
+            "identity(uint256)",
+            "repay(int256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    }
+  }
+}

@@ -20,6 +20,7 @@ package analysis.split
 import algorithms.UnionFind
 import analysis.CmdPointer
 import analysis.commands
+import analysis.storage.StorageAnalysis
 import analysis.storage.StorageAnalysisResult
 import analysis.storage.StorageAnalysisResult.NonIndexedPath
 import datastructures.UniqueCache
@@ -42,7 +43,8 @@ import kotlin.contracts.contract
  * Containing shortcuts and common convenience functions, and keeping the calculated ternaries for all methods.
  */
 class SplitContext(
-    val contract: IContractClass
+    val contract: IContractClass,
+    val base: StorageAnalysis.Base
 ) {
     val logger = Logger(LoggerTypes.STORAGE_SPLITTING)
 
@@ -98,13 +100,13 @@ class SplitContext(
         isKeywordVar(v) || mentionedVars[method]?.contains(v) == true
 
     fun isStorage(v: TACSymbol.Var) =
-        contract.instanceId == v.meta.find(TACMeta.STORAGE_KEY)
+        contract.instanceId == v.meta.find(base.storageKey)
 
     /** Since this is accessed a lot, we save it in a map instead of recalculating */
     private val storageCommands by lazy {
         methods.associateWith { method ->
             method.commands.filter { lcmd ->
-                lcmd.cmd is TACCmd.Simple.StorageAccessCmd && lcmd.cmd.meta.containsKey(TACMeta.IS_STORAGE_ACCESS)
+                lcmd.cmd is TACCmd.Simple.StorageAccessCmd && lcmd.cmd.meta.containsKey(base.isStorageAccessKey)
             }
         }
     }

@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "envfreeFuncsStaticCheck": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "lock()",
+        "unlock()",
+        "isLocked()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "sanity": "SUCCESS",
+    "lockLocks": "SUCCESS",
+    "unlockUnlocks": "SUCCESS",
+    "TloadHookWorks": "SUCCESS"
+  }
+}

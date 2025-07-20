@@ -43,7 +43,8 @@ abstract class MapBackedContractClass(
     override val bytecode: DisassembledEVMBytecode?,
     override val constructorBytecode: DisassembledEVMBytecode?,
     final override val name: String,
-    private val storageLayout: TACStorageLayout?
+    private val storageLayout: TACStorageLayout?,
+    private val transientStorageLayout: TACStorageLayout?
 ) : IContractClass, Serializable, IMutableStorageInfo, IMutableTransientStorageInfo {
     abstract override val methods: Map<BigInteger?, ITACMethod>
     abstract override val wholeContractMethod : ITACMethod?
@@ -73,6 +74,10 @@ abstract class MapBackedContractClass(
 
     override fun getStorageLayout(): TACStorageLayout? {
         return this.storageLayout
+    }
+
+    override fun getTransientStorageLayout(): TACStorageLayout? {
+        return this.transientStorageLayout
     }
 
     override fun getDeclaredMethods(): Collection<ITACMethod> = methods.values + constructorMethod

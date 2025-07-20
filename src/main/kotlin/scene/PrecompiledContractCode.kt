@@ -65,7 +65,8 @@ sealed class PrecompiledContractCode : Serializable {
                 bytecode = null,
                 constructorBytecode = null,
                 name = ContractUniverse.ETHEREUM.getNameOfPrecompiledByAddress(address)!!,
-                storageLayout = null
+                storageLayout = null,
+                transientStorageLayout = null
             ) {
                 override val methods: Map<BigInteger?, ITACMethod>
                     get() = mapOf()

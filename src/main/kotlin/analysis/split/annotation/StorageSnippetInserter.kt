@@ -19,9 +19,11 @@ package analysis.split.annotation
 
 import analysis.CmdPointer
 import analysis.split.SplitRewriter
+import analysis.storage.StorageAnalysis
 import datastructures.stdcollections.*
-import utils.Range
+import scene.IContractClass
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
+import utils.*
 import vc.data.*
 import java.math.BigInteger
 
@@ -59,25 +61,6 @@ sealed class StorageSnippetInserter(protected val patcher: SimplePatchingProgram
      */
     abstract fun nextChange(ptr: CmdPointer, newCmds: List<TACCmd.Simple>)
 
-    protected fun rawStorageAccessSnippet(
-        loadCmd: TACCmd.Simple.AssigningCmd?,
-        loc: TACSymbol?,
-        value: TACSymbol?,
-        storageType: EVMTypeDescriptor.EVMValueType?,
-        range: Range.Range?,
-    ): SnippetCmd.EVMSnippetCmd.RawStorageAccess? {
-        if (loc == null) {
-            return null
-        }
-        val isLoad = loadCmd != null
-        if (loc is TACSymbol.Var) {
-            val path = loc.meta[TACMeta.STABLE_STORAGE_PATH]
-            if (path != null) {
-                return SnippetCmd.EVMSnippetCmd.RawStorageAccess.WithPath(isLoad, path, contId, value, storageType, range)
-            }
-        }
-        return SnippetCmd.EVMSnippetCmd.RawStorageAccess.WithLocSym(isLoad, loc, contId, value, storageType, range)
-    }
 
     /** Called when all changes have been registered to this object, will apply those changes to [patcher]. */
     abstract fun applyChanges()
@@ -85,6 +68,26 @@ sealed class StorageSnippetInserter(protected val patcher: SimplePatchingProgram
     companion object {
         private fun storageType(v: TACSymbol.Var) = v.meta.find(TACMeta.STORAGE_TYPE)
 
+        fun rawStorageAccessSnippet(
+            contId : BigInteger,
+            loadCmd: TACCmd.Simple.AssigningCmd?,
+            loc: TACSymbol?,
+            value: TACSymbol?,
+            storageType: EVMTypeDescriptor.EVMValueType?,
+            range: Range.Range?,
+        ): SnippetCmd.EVMSnippetCmd.RawStorageAccess? {
+            if (loc == null) {
+                return null
+            }
+            val isLoad = loadCmd != null
+            if (loc is TACSymbol.Var) {
+                val path = loc.meta[TACMeta.STABLE_STORAGE_PATH]
+                if (path != null) {
+                    return SnippetCmd.EVMSnippetCmd.RawStorageAccess.WithPath(isLoad, path, contId, value, storageType, range)
+                }
+            }
+            return SnippetCmd.EVMSnippetCmd.RawStorageAccess.WithLocSym(isLoad, loc, contId, value, storageType, range)
+        }
 
         /**
          * Takes the result of [SplitRewriter], which is a list of changes to the tac program ([changes]).
@@ -190,6 +193,7 @@ sealed class StorageSnippetInserter(protected val patcher: SimplePatchingProgram
                                 )
                             }
                         }
+
                         is TACCmd.Simple.AssigningCmd.WordLoad -> {
                             annotator.createStorageSnippet(
                                 ptr,
@@ -201,6 +205,7 @@ sealed class StorageSnippetInserter(protected val patcher: SimplePatchingProgram
                                 range,
                             )
                         }
+
                         is TACCmd.Simple.WordStore -> {
                             annotator.createStorageSnippet(
                                 ptr,
@@ -212,49 +217,75 @@ sealed class StorageSnippetInserter(protected val patcher: SimplePatchingProgram
                                 range,
                             )
                         }
+
                         else -> Unit
                     }
                 }
             }
 
-            /** give raw snippets to the loads and stores that do not appear in [changes] */
-            graph.commands.filter { (ptr, _) -> ptr !in changes.changes }.forEach { (ptr, cmd) ->
-                /** [nextChange] is interesting only in the StorageAnalysisSuccess case -- we initialize the changes-list with
-                 * the original load/store, since we'll call patcher.replace.. so here we're basically emulating the
-                 * way that [cmd] would have occurred in [changes] without actually differing from the command in the
-                 * original program. */
-                annotator.nextChange(ptr, mutableListOf(cmd))
-
-                fun takeValueSym(s: TACSymbol) =
-                    s is TACSymbol.Const || (s is TACSymbol.Var && s in coreTacProg.symbolTable.tags)
-
-                when (cmd) {
-                    is TACCmd.Simple.AssigningCmd.WordLoad ->
-                        annotator.createStorageSnippet(
-                            ptr,
-                            1, /** add right after the single command we registered via the [nextChange] call */
-                            cmd,
-                            cmd.loc,
-                            cmd.lhs.takeIf(::takeValueSym),
-                            storageType(cmd.base),
-                            cmd.sourceRange(),
-                        )
-                    is TACCmd.Simple.WordStore ->
-                        annotator.createStorageSnippet(
-                            ptr,
-                            1,
-                            loadCmd = null,
-                            cmd.loc,
-                            cmd.value.takeIf(::takeValueSym),
-                            storageType(cmd.base),
-                            cmd.sourceRange(),
-                        )
-                    else -> Unit
-                }
-            }
             annotator.applyChanges()
             return patcher
         }
+
+
+        fun addSnippetsToRemainingAccesses(contract: IContractClass, processedBases: Set<StorageAnalysis.Base>) {
+            for (method in contract.getDeclaredMethods()) {
+                val code = method.code as CoreTACProgram
+                val patcher = ConcurrentPatchingProgram(code)
+
+                fun takeValueSym(s: TACSymbol) =
+                    s is TACSymbol.Const || (s is TACSymbol.Var && s in code.symbolTable.tags)
+
+                /** give raw snippets to the loads and stores that were not annotated otherwise */
+                code.parallelLtacStream()
+                    .filter { (_, cmd) ->
+                        (cmd is TACCmd.Simple.AssigningCmd.WordLoad || cmd is TACCmd.Simple.WordStore) &&
+                            // this type of storage failed storage analysis completely
+                            StorageAnalysis.Base.entries.any {
+                                it.isStorageAccessKey in cmd.meta && it !in processedBases
+                            } ||
+                            // or this command specifically didn't have a storage path
+                            cmd.meta[TACMeta.STORAGE_PATHS] == null
+                    }
+                    .forEach { (ptr, cmd) ->
+                        when (cmd) {
+                            is TACCmd.Simple.AssigningCmd.WordLoad ->
+                                patcher.insertAfter(
+                                    ptr,
+                                    listOf(
+                                        rawStorageAccessSnippet(
+                                            contract.instanceId,
+                                            cmd,
+                                            cmd.loc,
+                                            cmd.lhs.takeIf(::takeValueSym),
+                                            storageType(cmd.base),
+                                            cmd.sourceRange(),
+                                        )!!.toAnnotation()
+                                    )
+                                )
+
+                            is TACCmd.Simple.WordStore ->
+                                patcher.insertAfter(
+                                    ptr,
+                                    listOf(
+                                        rawStorageAccessSnippet(
+                                            contract.instanceId,
+                                            loadCmd = null,
+                                            cmd.loc,
+                                            cmd.value.takeIf(::takeValueSym),
+                                            storageType(cmd.base),
+                                            cmd.sourceRange(),
+                                        )!!.toAnnotation()
+                                    )
+                                )
+
+                            else -> Unit
+                        }
+                    }
+                method.updateCode(patcher.toPatchingProgram())
+            }
+        }
+
     }
 }
 

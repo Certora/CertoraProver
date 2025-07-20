@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "envfreeFuncsStaticCheck": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "test(bytes32,uint256,bool)"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "canAccessNormalStorage": "SUCCESS"
+  }
+}

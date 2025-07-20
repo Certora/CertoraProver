@@ -1,3 +1,3 @@
 Created a meta slot tacS!ce4604a0000000000000000000000001!0
-Created a meta slot tacS!ce4604a0000000000000000000000001!StructAccess_offset0_base.ArrayAccess_base.Root_slot0!W32
-Detected and rewrote StructAccess_offset0_base.ArrayAccess_base.Root_slot0 as a packed array of width 32 bits
+Created a meta slot tacS!ce4604a0000000000000000000000001!StructAccess_offset0_base.ArrayAccess_base.S_Root_slot0!W32
+Detected and rewrote StructAccess_offset0_base.ArrayAccess_base.S_Root_slot0 as a packed array of width 32 bits

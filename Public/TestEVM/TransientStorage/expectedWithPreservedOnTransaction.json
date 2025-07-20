@@ -1,0 +1,95 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "failingInvariant": {
+      "Induction base: After the constructor": "FAIL",
+      "Induction step: Reset transient storage": "SANITY_FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SUCCESS": [],
+          "SANITY_FAIL": [
+            "borrow(int256)",
+            "getDelta()",
+            "identity(uint256)",
+            "repay(int256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "shouldFailOnAllInductionStepsNotTransactionBoundary": {
+      "Induction base: After the constructor": "SANITY_FAIL",
+      "Induction step: Reset transient storage": "SANITY_FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "borrow(int256)",
+            "getDelta()",
+            "identity(uint256)",
+            "repay(int256)"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "shouldFailOnTransientPreserverdState": {
+      "Induction base: After the constructor": "SANITY_FAIL",
+      "Induction step: Reset transient storage": "FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SUCCESS": [],
+          "SANITY_FAIL": [
+            "borrow(int256)",
+            "getDelta()",
+            "identity(uint256)",
+            "repay(int256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "shouldSucceed": {
+      "Induction base: After the constructor": "SANITY_FAIL",
+      "Induction step: Reset transient storage": "SANITY_FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SUCCESS": [],
+          "SANITY_FAIL": [
+            "borrow(int256)",
+            "getDelta()",
+            "identity(uint256)",
+            "repay(int256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "trivialInvariant": {
+      "Induction base: After the constructor": "SANITY_FAIL",
+      "Induction step: Reset transient storage": "SANITY_FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SUCCESS": [],
+          "SANITY_FAIL": [
+            "borrow(int256)",
+            "getDelta()",
+            "identity(uint256)",
+            "repay(int256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    }
+  }
+}

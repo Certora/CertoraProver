@@ -20,6 +20,7 @@ package spec
 import analysis.CommandWithRequiredDecls
 import analysis.merge
 import analysis.storage.DisplayPath
+import analysis.storage.StorageAnalysis.Base
 import analysis.storage.StorageAnalysis.AnalysisPath
 import analysis.storage.StorageAnalysis.Offset
 import analysis.storage.StorageAnalysisResult
@@ -55,7 +56,8 @@ private fun AnalysisPath.extendOffset(v: BigInteger): AnalysisPath =
         is AnalysisPath.Root ->
             // We implicitly treat each field of a toplevel struct as if it were simply its own root
             AnalysisPath.Root(
-                slot = this.slot + v.div(EVM_WORD_SIZE)
+                slot = this.slot + v.div(EVM_WORD_SIZE),
+                base = this.base
             )
 
         is AnalysisPath.StructAccess ->
@@ -461,7 +463,8 @@ class StorageAccessCompiler(
             is StorageAnalysisResult.NonIndexedPath.Root ->
                 // We implicitly treat each field of a toplevel struct as if it were simply its own root
                 StorageAnalysisResult.NonIndexedPath.Root(
-                    slot = this.slot + v
+                    slot = this.slot + v,
+                    base = this.base
                 )
 
             is StorageAnalysisResult.NonIndexedPath.StructAccess ->
@@ -707,13 +710,17 @@ class StorageAccessCompiler(
                     }
                     val contract = scene.getContract(ty.name)
                     val storage = contract.storage as StorageInfoWithReadTracker
+                    val transientStorage = contract.transientStorage
                     val storageLayout = contract.getStorageLayout() ?: compilationException {
                         "Cannot compile storage access without storage type information"
                     }
                     /** find the [TACStorageType] for the top-level field being accessed. This null access is asserted
                      * because the type checker accepted this code, which means this lookup *should* succeed.
                      */
-                    val stateVar = storageLayout.slots[expression.fieldName]!!
+                    val (stateVar, base) = storageLayout.slots[expression.fieldName]?.let { it to Base.STORAGE }
+                        ?: ((contract.getTransientStorageLayout() ?: compilationException {
+                            "Cannot compile storage access of ${expression.fieldName} which was not found in normal storage without transient storage type information"
+                        }).slots[expression.fieldName]!! to Base.TRANSIENT_STORAGE)
 
                     /**
                      * the invariants are created here (and only here), at the base of the recursion,
@@ -722,7 +729,7 @@ class StorageAccessCompiler(
                      * which we only visit once.
                      */
                     val invariants = Invariants(
-                        storageVarCandidates = storage.storageVariables.keys,
+                        storageVarCandidates = storage.storageVariables.keys + transientStorage.stateVars(),
                         contractInstanceId = contract.instanceId,
                     )
 
@@ -731,7 +738,7 @@ class StorageAccessCompiler(
                         /**
                          * Path starts at the slot number given to us by the Solidity compiler
                          */
-                        path = StorageAnalysisResult.NonIndexedPath.Root(stateVar.slot),
+                        path = StorageAnalysisResult.NonIndexedPath.Root(stateVar.slot, base),
                         /**
                          * likewise, the pointer begins at this constant slot
                          */
@@ -757,7 +764,7 @@ class StorageAccessCompiler(
                          * this is because [DisplayPath]s currently have no concept of contract access (for historical reasons?)
                          */
                         displayPath = DisplayPath.Root(expression.fieldName),
-                        analysisPath = AnalysisPath.Root(stateVar.slot)
+                        analysisPath = AnalysisPath.Root(stateVar.slot, base)
                     ))
                 } else {
                     /**

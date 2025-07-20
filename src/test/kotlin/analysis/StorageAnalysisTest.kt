@@ -247,7 +247,7 @@ sealed class AccessPathBuilder {
 
     data class Root(private val rootSlot: BigInteger) : AccessPathBuilder() {
         override fun build(): StorageAnalysis.AnalysisPath {
-            return AccessPath.Root(rootSlot)
+            return AccessPath.Root(rootSlot, StorageAnalysis.Base.STORAGE)
         }
 
         override fun offset(v: BigInteger): AccessPathBuilder {
@@ -335,7 +335,7 @@ class StorageAnalysisTest : SingleMethodTest {
     @ScopedMatrix
     fun testMappingHeap(solc: String, optimize: Boolean) =
         runStorageAnalysis(mapping, solc, optimize, heapTest(setOf(
-                ResultRoot(BigInteger.ZERO,
+                ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                         ResultType.Mapping(
                                 ResultType.Word.wrapInStruct())))))
 
@@ -344,13 +344,13 @@ class StorageAnalysisTest : SingleMethodTest {
     fun testMappingAccessPaths(solc: String, optimize: Boolean) =
             runStorageAnalysis(mapping, solc, optimize, accessPathTest(
                     AccessPath.MapAccess(
-                            AccessPath.Root(BigInteger.ZERO), placeholder, placeholder, placeholder)))
+                            AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder, placeholder)))
 
     @ParameterizedTest
     @ScopedMatrix
     fun testArrayHeap(solc: String, optimize: Boolean) =
         runStorageAnalysis(array, solc, optimize, heapTest(setOf(
-                ResultRoot(BigInteger.ZERO,
+                ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                         ResultType.Array(
                                 ResultType.Word.wrapInStruct(), elementSize = BigInteger.ONE)))))
 
@@ -359,13 +359,13 @@ class StorageAnalysisTest : SingleMethodTest {
     fun testArrayAccessPaths(solc: String, optimize: Boolean) =
             runStorageAnalysis(array, solc, optimize, accessPathTest(
                     AccessPath.ArrayAccess(
-                            AccessPath.Root(BigInteger.ZERO), placeholder, placeholder)))
+                            AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder)))
 
     @ParameterizedTest
     @ScopedMatrix
     fun testArrayWithStructsHeap(solc: String, optimize: Boolean) =
         runStorageAnalysis(structArray, solc, optimize, heapTest(setOf(
-                ResultRoot(BigInteger.ZERO,
+                ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                         ResultType.Array(
                                 ResultType.Struct(mapOf(
                                         BigInteger.ZERO to ResultType.Word,
@@ -377,18 +377,18 @@ class StorageAnalysisTest : SingleMethodTest {
             runStorageAnalysis(structArray, solc, optimize, accessPathTest(setOf(
                 AccessPath.StructAccess(
                         AccessPath.ArrayAccess(
-                                AccessPath.Root(BigInteger.ZERO), placeholder, placeholder),
+                                AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder),
                         StorageAnalysis.Offset.Words(BigInteger.ZERO)),
                 AccessPath.StructAccess(
                         AccessPath.ArrayAccess(
-                                AccessPath.Root(BigInteger.ZERO), placeholder, placeholder),
+                                AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder),
                         StorageAnalysis.Offset.Words(BigInteger.ONE)))))
 
     @ParameterizedTest
     @ScopedMatrix
     fun testMappingWithConstantIndex(solc: String, optimize: Boolean) =
             runStorageAnalysis(constantMapIndex, solc, optimize, heapTest(setOf(
-                    ResultRoot(BigInteger.ZERO,
+                    ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                             ResultType.Mapping(
                                     codomain = ResultType.Mapping(
                                             ResultType.Word.wrapInStruct()
@@ -401,7 +401,7 @@ class StorageAnalysisTest : SingleMethodTest {
     @ScopedMatrix
     fun testNestedMappingHeap(solc: String, optimize: Boolean) =
         runStorageAnalysis(nestedMapping, solc, optimize, heapTest(setOf(
-                ResultRoot(BigInteger.ZERO,
+                ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                         ResultType.Mapping(
                                 ResultType.Mapping(
                                         ResultType.Word.wrapInStruct()).wrapInStruct())))))
@@ -412,14 +412,14 @@ class StorageAnalysisTest : SingleMethodTest {
             runStorageAnalysis(nestedMapping, solc, optimize, accessPathTest(
                     AccessPath.MapAccess(
                             AccessPath.MapAccess(
-                                    AccessPath.Root(BigInteger.ZERO), placeholder, placeholder, placeholder).wrapInStruct(),
+                                    AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder, placeholder).wrapInStruct(),
                             placeholder, placeholder, placeholder)))
 
     @ParameterizedTest
     @ScopedMatrix
     fun testMappingWithNestedStructHeap(solc: String, optimize: Boolean) =
             runStorageAnalysis(nestedStructMapping, solc, optimize, heapTest(setOf(
-                    ResultRoot(BigInteger.ZERO,
+                    ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                         ResultType.Mapping(
                                 ResultType.Struct(mapOf(
                                         BigInteger.ZERO to ResultType.Word,
@@ -433,26 +433,26 @@ class StorageAnalysisTest : SingleMethodTest {
             runStorageAnalysis(nestedStructMapping, solc, optimize, accessPathTest(setOf(
                     AccessPath.StructAccess(
                             AccessPath.MapAccess(
-                                    AccessPath.Root(BigInteger.ZERO), placeholder, placeholder, placeholder),
+                                    AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder, placeholder),
                             StorageAnalysis.Offset.Words(BigInteger.ONE)),
                     AccessPath.StructAccess(
                             AccessPath.MapAccess(
-                                    AccessPath.Root(BigInteger.ZERO), placeholder, placeholder, placeholder),
+                                    AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder, placeholder),
                             StorageAnalysis.Offset.Words(BigInteger.TWO)),
                     AccessPath.StructAccess(
                             AccessPath.MapAccess(
-                                    AccessPath.Root(BigInteger.ZERO), placeholder, placeholder, placeholder),
+                                    AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder, placeholder),
                             StorageAnalysis.Offset.Words(BigInteger.ZERO)),
                     AccessPath.StructAccess(
                             AccessPath.MapAccess(
-                                    AccessPath.Root(BigInteger.ZERO), placeholder, placeholder, placeholder),
+                                    AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder, placeholder),
                             StorageAnalysis.Offset.Words(3.toBigInteger())))))
 
     @ParameterizedTest
     @ScopedMatrix
     fun testArrayMappingHeap(solc: String, optimize: Boolean) =
             runStorageAnalysis(arrayMapping, solc, optimize, heapTest(setOf(
-                    ResultRoot(BigInteger.ZERO,
+                    ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                         ResultType.Mapping(
                                 ResultType.Array(
                                         ResultType.Word.wrapInStruct(), BigInteger.ONE).wrapInStruct())))))
@@ -463,14 +463,14 @@ class StorageAnalysisTest : SingleMethodTest {
             runStorageAnalysis(arrayMapping, solc, optimize, accessPathTest(
                     AccessPath.ArrayAccess(
                             AccessPath.MapAccess(
-                                    AccessPath.Root(BigInteger.ZERO), placeholder, placeholder, placeholder).wrapInStruct(),
+                                    AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder, placeholder).wrapInStruct(),
                             placeholder, placeholder).wrapInStruct()))
 
     @ParameterizedTest
     @ScopedMatrix
     fun testConstantIndexAccessWithStructHeap(solc: String, optimize: Boolean) =
             runStorageAnalysis(constantIndexAccessWithStruct, solc, optimize, heapTest(setOf(
-                    ResultRoot(BigInteger.ZERO,
+                    ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                         ResultType.Array(
                                 ResultType.Struct(mapOf(
                                         BigInteger.ZERO to ResultType.Word,
@@ -482,18 +482,18 @@ class StorageAnalysisTest : SingleMethodTest {
             runStorageAnalysis(constantIndexAccessWithStruct, solc, optimize, accessPathTest(setOf(
                     AccessPath.StructAccess(
                             AccessPath.ArrayAccess(
-                                    AccessPath.Root(BigInteger.ZERO), placeholder, placeholder),
+                                    AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder),
                             StorageAnalysis.Offset.Words(BigInteger.ZERO)),
                     AccessPath.StructAccess(
                             AccessPath.ArrayAccess(
-                                    AccessPath.Root(BigInteger.ZERO), placeholder, placeholder),
+                                    AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder),
                             StorageAnalysis.Offset.Words(BigInteger.ONE)))))
 
     @ParameterizedTest
     @ScopedMatrix
     fun testLoopOverUintArrayHeap(solc: String, optimize: Boolean) =
             runStorageAnalysis(loopOverUintArray, solc, optimize, heapTest(setOf(
-                    ResultRoot(BigInteger.ZERO,
+                    ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                         ResultType.Array(
                                 ResultType.Word.wrapInStruct(), BigInteger.ONE)))))
 
@@ -502,13 +502,13 @@ class StorageAnalysisTest : SingleMethodTest {
     fun testLoopOverUintArrayAccessPaths(solc: String, optimize: Boolean) =
             runStorageAnalysis(loopOverUintArray, solc, optimize, accessPathTest(setOf(
                     AccessPath.ArrayAccess(
-                            AccessPath.Root(BigInteger.ZERO), placeholder, placeholder))))
+                            AccessPath.Root(BigInteger.ZERO, StorageAnalysis.Base.STORAGE), placeholder, placeholder))))
 
     @ParameterizedTest
     @ScopedMatrix
     fun testStorageToMemoryCopy(solc: String, optimize: Boolean) =
             runStorageAnalysis(storageToMemArrayCopy, solc, optimize, heapTest(setOf(
-                    ResultRoot(BigInteger.ZERO,
+                    ResultRoot(BigInteger.ZERO, StorageAnalysis.Base.STORAGE,
                             ResultType.Mapping(
                                     ResultType.Struct(mapOf(
                                             BigInteger.ZERO to
@@ -923,7 +923,8 @@ class StorageAnalysisTest : SingleMethodTest {
         assertThrows(StorageAnalysisFailedException::class.java) {
             StorageAnalysis.doAnalysis(
                     (method.code as CoreTACProgram).analysisCache.graph,
-                    method.getContainingContract().getStorageLayout())
+                    method.getContainingContract().getStorageLayout(),
+                    StorageAnalysis.Base.STORAGE)
         }
     }
 
@@ -1473,7 +1474,7 @@ class StorageAnalysisTest : SingleMethodTest {
 
     private fun runStorageAnalysis(code: CoreTACProgram, layout: TACStorageLayout?, checks: (TACCommandGraph, StorageAnalysisResult.Complete) -> Unit) =
         try {
-            val result = StorageAnalysis.doAnalysis(code.analysisCache.graph, layout)
+            val result = StorageAnalysis.doAnalysis(code.analysisCache.graph, layout, StorageAnalysis.Base.STORAGE) // TODO pass one here?
             Assertions.assertTrue(result is StorageAnalysisResult.Complete) {
                 "The storage analysis failed with ${(result as StorageAnalysisResult.Failure).reason.message}"
             }
@@ -1513,6 +1514,7 @@ class StorageAnalysisTest : SingleMethodTest {
             checks = heapTest(setOf(
                 StorageTree.Root(
                     slot = BigInteger.ZERO,
+                    base = StorageAnalysis.Base.STORAGE,
                     types = StorageTree.Type.Mapping(StorageTree.Type.Word.wrapInStruct())
                 )
             ))
@@ -1549,6 +1551,7 @@ class StorageAnalysisTest : SingleMethodTest {
             checks = heapTest(setOf(
                 StorageTree.Root(
                     slot = BigInteger.ZERO,
+                    base = StorageAnalysis.Base.STORAGE,
                     types = StorageTree.Type.Mapping(StorageTree.Type.Word.wrapInStruct())
                 )
             ))
@@ -1580,6 +1583,7 @@ class StorageAnalysisTest : SingleMethodTest {
             checks = heapTest(setOf(
                 StorageTree.Root(
                     slot = BigInteger.ZERO,
+                    base = StorageAnalysis.Base.STORAGE,
                     types = StorageTree.Type.Mapping(StorageTree.Type.Word.wrapInStruct())
                 )
             ))
@@ -1838,7 +1842,7 @@ class StorageAnalysisTest : SingleMethodTest {
             L1024 = "0x0"
             L1024 = storage[L1024]
         }
-        StorageAnalysis.doAnalysis(cfg, null).let {result ->
+        StorageAnalysis.doAnalysis(cfg, null, StorageAnalysis.Base.STORAGE).let { result ->
             result as StorageAnalysisResult.Complete
         }.let {
             assertEquals(
@@ -1857,7 +1861,7 @@ class StorageAnalysisTest : SingleMethodTest {
             jump()
             L1024 = storage[L1024]
         }
-        StorageAnalysis.doAnalysis(cfg, null).let {result ->
+        StorageAnalysis.doAnalysis(cfg, null, StorageAnalysis.Base.STORAGE).let { result ->
             result as StorageAnalysisResult.Complete
         }.let {
             assertEquals(
@@ -1891,7 +1895,7 @@ class StorageAnalysisTest : SingleMethodTest {
             }
         }
 
-        StorageAnalysis.doAnalysis(cfg, null).let {result ->
+        StorageAnalysis.doAnalysis(cfg, null, StorageAnalysis.Base.STORAGE).let { result ->
             result as StorageAnalysisResult.Complete
         }.let {
             assertEquals(

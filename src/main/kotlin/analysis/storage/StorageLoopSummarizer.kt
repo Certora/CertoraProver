@@ -68,7 +68,7 @@ object StorageLoopSummarizer {
             }
 
             val copyCmds = l.body.asSequence().flatMap { graph.elab(it).commands }.filter {
-                it.cmd is TACCmd.Simple.StorageAccessCmd && it.cmd.base.meta.containsKey(TACMeta.STORAGE_KEY)
+                it.cmd is TACCmd.Simple.StorageAccessCmd && it.cmd.base.isStorageOrTransientStorage()
             }.map {
                 it.ptr
             }.toList().takeIf {

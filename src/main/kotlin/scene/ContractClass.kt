@@ -79,6 +79,7 @@ class ContractClass(
     override val src: ContractInstanceInSDC,
     decompiledResult: ContractUtils.SimplifiedDecompiledContract,
     storageLayout: TACStorageLayout?,
+    transientStorageLayout: TACStorageLayout?,
     bytecode: DisassembledEVMBytecode,
     constructorBytecode: DisassembledEVMBytecode,
     perContract: IPerContractClassCache,
@@ -89,7 +90,8 @@ class ContractClass(
     name = src.name,
     bytecode = bytecode,
     constructorBytecode = constructorBytecode,
-    storageLayout = storageLayout
+    storageLayout = storageLayout,
+    transientStorageLayout = transientStorageLayout
 ), IContractWithSource {
 
     // constructor whole-contract flow
@@ -518,6 +520,7 @@ class ContractClass(
             constructorCode = this.constructorMethod.fork(),
             methods = this.methods.values.map { it.fork() },
             storageLayout = this.getStorageLayout(),
+            transientStorageLayout = this.getTransientStorageLayout(),
             storageInfoField = this.storageInfoField,
             transientStorageInfoField = this.transientStorageInfoField,
             bytecode = this.bytecode,

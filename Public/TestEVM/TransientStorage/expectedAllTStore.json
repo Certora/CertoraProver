@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "envfreeFuncsStaticCheck": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "maybeAccess(bool)"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "allTStoreHookWorks": "SUCCESS"
+  }
+}

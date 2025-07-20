@@ -262,6 +262,14 @@ class SymbolTableFiller(
                 }
             }
 
+            contract.transientStorageLayout?.toTACStorageLayout()?.slots?.let { slots ->
+                slots.filter { it.key !in duplicateSlotNames }.mapTo(results) { (slot, type) ->
+                    type.typeDescriptor?.let { _ ->
+                        symbolTable.register(namedContract, slot, type.typeDescriptor)
+                    } ?: ok
+                }
+            }
+
             contract.immutables.distinctBy { it.varname }
                 .forEach { immutable ->
                     val type = immutable.type

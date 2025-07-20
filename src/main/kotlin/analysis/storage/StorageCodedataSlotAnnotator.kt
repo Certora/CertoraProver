@@ -79,7 +79,7 @@ object StorageCodedataSlotAnnotator {
         val use = graph.cache.use
         return code.parallelLtacStream().flatMap {
             if (it.cmd is TACCmd.Simple.StorageAccessCmd
-                && it.cmd.base.meta.containsKey(TACMeta.STORAGE_KEY)) {
+                && it.cmd.base.isStorageOrTransientStorage()) {
                 (it.cmd.loc as? TACSymbol.Var)?.let { loc ->
                     def.defSitesOf(loc, it.ptr)
                         .filter {

@@ -177,7 +177,7 @@ class StorageAnalysisFailWithMeta(
 
         if (locOkToUse !is TACSymbol.Var) {
             // we don't have a display path
-            addEVMStorageSnippetCmd(ptr, rawStorageAccessSnippet(loadCmd, locOkToUse, valueOkToUse, storageType, range))
+            addEVMStorageSnippetCmd(ptr, rawStorageAccessSnippet(contId, loadCmd, locOkToUse, valueOkToUse, storageType, range))
             return
         }
 
@@ -185,7 +185,7 @@ class StorageAnalysisFailWithMeta(
 
         // TODO: CERT-3215
         if (disPath == null) {
-            addEVMStorageSnippetCmd(ptr, rawStorageAccessSnippet(loadCmd, locOkToUse, valueOkToUse, storageType, range))
+            addEVMStorageSnippetCmd(ptr, rawStorageAccessSnippet(contId, loadCmd, locOkToUse, valueOkToUse, storageType, range))
             return
         }
 
@@ -197,6 +197,7 @@ class StorageAnalysisFailWithMeta(
             addEVMStorageSnippetCmd(
                 ptr,
                 rawStorageAccessSnippet(
+                    contId,
                     loadCmd,
                     locOkToUse,
                     valueOkToUse,
@@ -230,7 +231,7 @@ class DummyStorageAnalysisFail(patcher: SimplePatchingProgram, contId: BigIntege
         storageType: EVMValueType?,
         range: Range.Range?
     ) {
-        addEVMStorageSnippetCmd(ptr, rawStorageAccessSnippet(loadCmd, loc, value, storageType, range))
+        addEVMStorageSnippetCmd(ptr, rawStorageAccessSnippet(contId, loadCmd, loc, value, storageType, range))
     }
 }
 
