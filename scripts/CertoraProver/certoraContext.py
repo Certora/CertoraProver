@@ -272,7 +272,7 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
 
     if context.is_conf:
         read_from_conf_file(context)
-
+    context.process = None
     context.local = Util.is_local(context)
     context.is_tac = context.files and context.files[0].endswith('.tac')
     context.is_vyper = context.files and context.files[0].endswith('.vy')

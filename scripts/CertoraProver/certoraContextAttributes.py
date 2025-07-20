@@ -237,6 +237,15 @@ class CommonAttributes(AttrUtil.Attributes):
 class DeprecatedAttributes(AttrUtil.Attributes):
     pass
 
+    PROCESS = AttrUtil.AttributeDefinition(
+        argparse_args={
+            'action': AttrUtil.UniqueStore,
+        },
+        deprecation_msg="`process` is deprecated and will be removed in a future release.",
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
     SOLC_MAP = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_compiler_map,
         arg_type=AttrUtil.AttrArgType.MAP,
