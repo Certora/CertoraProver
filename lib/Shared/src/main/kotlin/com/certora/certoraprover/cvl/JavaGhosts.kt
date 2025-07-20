@@ -29,19 +29,22 @@ import utils.Range
 
 // This file contains the "Java" AST nodes for ghosts and their axioms.  See "README.md" for information about the Java AST.
 
-sealed class GhostDecl : Kotlinizable<CVLGhostDeclaration> {
-    abstract fun withAxioms(axioms: List<GhostAxiom>): GhostDecl
+sealed interface GhostDecl : TopLevel<CVLGhostDeclaration> {
+    fun withAxioms(axioms: List<GhostAxiom>): GhostDecl
+    override val range: Range.Range
+    val id: String
+    val persistent: Boolean
+    val axioms: List<GhostAxiom>
 }
 
-
-class GhostFunDecl @JvmOverloads constructor(
-    val range: Range,
-    val id: String,
+data class GhostFunDecl @JvmOverloads constructor(
+    override val range: Range.Range,
+    override val id: String,
     val paramTypes: List<TypeOrLhs>,
     val returnType: TypeOrLhs,
-    val persistent: Boolean,
-    val axioms: List<GhostAxiom> = emptyList()
-) : GhostDecl() {
+    override val persistent: Boolean,
+    override val axioms: List<GhostAxiom> = emptyList()
+) : GhostDecl {
     override fun withAxioms(axioms: List<GhostAxiom>): GhostFunDecl
         = GhostFunDecl(range, id, paramTypes, returnType, persistent, this.axioms + axioms)
 
@@ -63,13 +66,13 @@ class GhostFunDecl @JvmOverloads constructor(
  * `ghost i() returns uint;`
  * .
  */
-class GhostMapDecl @JvmOverloads constructor(
-    val range: Range,
+data class GhostMapDecl @JvmOverloads constructor(
+    override val range: Range.Range,
     val type: TypeOrLhs,
-    val id: String,
-    val persistent: Boolean,
-    val axioms: List<GhostAxiom> = emptyList()
-) : GhostDecl() {
+    override val id: String,
+    override val persistent: Boolean,
+    override val axioms: List<GhostAxiom> = emptyList()
+) : GhostDecl {
     override fun withAxioms(axioms: List<GhostAxiom>): GhostMapDecl
         = GhostMapDecl(range, type, id, persistent, this.axioms + axioms)
 
@@ -81,7 +84,7 @@ class GhostMapDecl @JvmOverloads constructor(
     }
 }
 
-class GhostAxiom(val exp: Exp, val type: Type) : Kotlinizable<CVLGhostAxiom> {
+data class GhostAxiom(val exp: Exp, val type: Type, override val range: Range) : Kotlinizable<CVLGhostAxiom> {
     enum class Type { INITIAL, ALWAYS }
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLGhostAxiom, CVLError> {

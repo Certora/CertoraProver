@@ -1,0 +1,3 @@
+hook Sstore currentContract.set._inner._values[INDEX uint256 index] bytes32 newValue {
+    ghostValues[index] = newValue;
+}

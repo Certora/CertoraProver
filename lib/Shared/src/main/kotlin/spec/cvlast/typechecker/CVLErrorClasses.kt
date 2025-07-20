@@ -166,21 +166,21 @@ private const val dollar = "\${'\$'}"
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-                 #ghost int ${dollar}x#;
+                 #ghost int ${dollar}x;#
              """,
     exampleMessage = "${dollar}x is not a valid name for a ghost. " +
         "Names must start with a letter or underscore and may only contain letters, numbers, underscores and dollar signs.",
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-                 #ghost ${dollar}x() returns bool#;
+                 #ghost ${dollar}x() returns bool;#
              """,
     exampleMessage = "${dollar}x is not a valid name for a ghost function. " +
         "Names must start with a letter or underscore and may only contain letters, numbers, underscores and dollar signs.",
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-                 #using PrimaryContract as ${dollar}c#;
+                 #using PrimaryContract as ${dollar}c;#
              """,
     exampleMessage = "${dollar}c is not a valid name for a contract alias. " +
         "Names must start with a letter or underscore and may only contain letters, numbers, underscores and dollar signs.",
@@ -673,12 +673,12 @@ class DispatcherSummaryNoImplementation(override val location: Range) : CVLError
 @CVLErrorExample("ghost uint g; rule shadowing { #bool g = true;# assert g; }")  // Check that ghosts cannot be shadowed by definitions
 @CVLErrorExample("ghost uint g; function f(#uint g#) {}")                        // Shadowing by a function argument
 @CVLErrorExample("ghost uint g; invariant i(#uint g#) true;")                    // Shadowing by an invariant argument
-@CVLErrorExample("ghost uint g; #ghost uint g#;")                                // Duplicate ghost variables
-@CVLErrorExample("ghost uint g; #ghost g() returns uint#;")                      // Ghost function and variable with same name [CERT-3312]
+@CVLErrorExample("ghost uint g; #ghost uint g;#")                                // Duplicate ghost variables
+@CVLErrorExample("ghost uint g; #ghost g() returns uint;#")                      // Ghost function and variable with same name [CERT-3312]
 @CVLErrorExample("ghost uint g; hook Sstore uint_field #uint g# { uint ignore; }")     // Simple hook param shadows ghost
 @CVLErrorExample("ghost uint g; hook Sstore array_field[INDEX #uint g#] uint v { uint ignore; }") // shadowing in hook pattern
 @CVLErrorExample("ghost uint g; definition f(#uint g#) returns bool = false;")   // shadowing with definition argument
-@CVLErrorExample("ghost g() returns uint; #ghost uint g#;")                      // Ghost function and variable with same name [CERT-3312]
+@CVLErrorExample("ghost g() returns uint; #ghost uint g;#")                      // Ghost function and variable with same name [CERT-3312]
 @CVLErrorExample("function f() { mathint x; { #mathint x = 0;# } }")             // Shadowing inside a block
 @CVLErrorExample("function f() { mathint x; if (_) { #mathint x = 0;# } }")      // Shadowing inside an `if` block
 @CVLErrorExample("invariant i(env e) true { preserved with(#env e#) {} }")       // Shadowing by preserved argument over invariant argument
@@ -2639,7 +2639,7 @@ class NoFoundryTestsLeft private constructor(override val location: Range, overr
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-        #using Extension as extension#;
+        #using Extension as extension;#
     """
 )
 class AliasingExtensionContract private constructor(override val location: Range, override val message: String) : CVLError() {
@@ -2837,7 +2837,7 @@ class SumNonBasicParamExpression private constructor(override val location: Rang
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-        #ghost mapping(mathint => uint) summable#;
+        #ghost mapping(mathint => uint) summable;#
         function f {
             mathint m1 = sum mathint a. summable[a];
             mathint m2 = usum mathint a. summable[a];
@@ -2846,7 +2846,7 @@ class SumNonBasicParamExpression private constructor(override val location: Rang
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-        #ghost mapping(mathint => mapping(mathint => uint)) summable#;
+        #ghost mapping(mathint => mapping(mathint => uint)) summable;#
         function f {
             mathint m;
             mathint m1 = sum mathint a. summable[m][a];
@@ -2870,7 +2870,7 @@ class SumSignedAndUnsignedNotSupported private constructor(override val location
     exampleCVLWithRange = """
         ghost mapping(uint => int) g;
         function f() {
-            assert (#usum uint u. g[u]#) >= 0;
+            assert #(usum uint u. g[u])# >= 0;
         }
     """
 )

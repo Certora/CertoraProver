@@ -1,0 +1,3 @@
+hook Sload bytes32 nextKey (slot 0).(offset 32)[KEY bytes32 key].(offset 0) {
+    require isSucc(toNode(key), toNode(nextKey));
+}

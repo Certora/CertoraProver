@@ -1290,8 +1290,8 @@ object Summarizer {
                         )
                         val generatedSummary = if (Config.CvlFunctionRevert.get()) {
                             // The RC of the summary depends on the whether the summary reverted or has thrown. To handle
-                            // summaries that don't call into Solidity functions (so don't explicitly set lastReverted or
-                            // lastHasThrown), we set them to false before entering the summary.
+                            // summaries that don't call into Solidity functions (so don't explicitly set lastReverted),
+                            // we set them to false before entering the summary.
                             // We also remove any toplevel RevertConfluences in the summary,
                             // since we do not want the RevertPathGenerator to generate jumps here,
                             // but rather use the return code to return to the surrounding contract code solidity-style.

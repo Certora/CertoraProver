@@ -17,9 +17,13 @@
 
 package spec
 
+import com.certora.certoraprover.cvl.Lexer
 import config.Config.prependSourcesDir
+import java_cup.runtime.ComplexSymbolFactory
 import log.*
+import spec.cvlast.CVLBuiltInName
 import utils.CertoraFileCache
+import utils.mapToSet
 import java.io.Reader
 import java.io.StringReader
 
@@ -50,5 +54,22 @@ sealed class CVLSource {
 
         override fun getReader(): Reader =
             StringReader(rawTxt)
+    }
+
+
+    fun lexer(csf: ComplexSymbolFactory, vmConfig: VMConfig, fileName: String): Lexer {
+        val lexer = Lexer(csf, this.getReader())
+
+        checkAllKeywordsUnique(vmConfig)
+
+        lexer.setCastFunctions(allCastFunctions)
+        lexer.setMemoryLocations(vmConfig.memoryLocations)
+        lexer.setHookableOpcodes(vmConfig.hookableOpcodes)
+        lexer.setMethodQualifiers(vmConfig.preReturnMethodQualifiers, vmConfig.postReturnMethodQualifiers)
+        lexer.setConstVals(CVLKeywords.constVals.compute(vmConfig).keys)
+        lexer.setBuiltInFunctions(CVLBuiltInName.entries.mapToSet { it.bifName })
+        lexer.theFilename = fileName
+
+        return lexer
     }
 }

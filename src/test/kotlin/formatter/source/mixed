@@ -1,0 +1,19 @@
+rule Rule1         {
+assert       x>1
+;}
+
+    ghost
+    noParamsWithAxioms(  )
+            returns
+            uint {
+                                           axiom
+
+
+                                           myAxiom()            >= 0; axiom
+                           hereIsAnotherOne;
+
+
+                      }
+rule Rule2         {
+assert       x>2
+;}

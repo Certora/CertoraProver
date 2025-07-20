@@ -1,0 +1,17 @@
+methods {
+  // REVERTS IF DECLARED:
+  // upgradeAdmin() returns address envfree;
+  function governorAdmin()
+  external returns address envfree;
+}
+
+rule only_upgrade_admin_can_set_governor_admin(address a) {
+  env e;
+  address admin = upgradeAdmin(e);
+  setGovernorAdmin@withrevert(e, a);
+
+  assert lastReverted <=> (e.msg.sender != admin || a == 0), "did revert";
+
+  require !lastReverted;
+  assert governorAdmin() == a, "new admin not set";
+}

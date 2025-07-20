@@ -77,6 +77,8 @@ fun <T> listOf(vararg elements: T): List<T> =
         else -> stdListOf(*elements)
     }
 
+fun <T> flatListOf(vararg elements: Iterable<T>): List<T> = elements.flatMap { it.toList() }
+
 operator fun <T> Collection<T>.plus(element: T): List<T> =
     if (this is List<T>) {
         when (this.size) {

@@ -1,0 +1,10 @@
+ghost noParamsWithAxioms() returns uint {
+    axiom myAxiom() >= 0;
+    axiom hereIsAnotherOne;
+}
+
+ghost busters() returns bool;
+
+ghost uint u {
+    axiom u == 1;
+}

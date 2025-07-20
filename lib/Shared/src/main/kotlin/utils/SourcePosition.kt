@@ -36,10 +36,6 @@ data class SourcePosition(val line: UInt, val charByteOffset: UInt) : AmbiSerial
 
     constructor(loc: ComplexSymbolFactory.Location) : this(loc.line.toUInt(), loc.column.toUInt())
 
-    fun isPrevious(second: SourcePosition): Boolean {
-        return (this.line < second.line) || (this.line == second.line && this.charByteOffset <= second.charByteOffset)
-    }
-
     //The IDE coordinates are 1-based (first line is 1, first character is between character 1 and 2)
     //this is because the Monaco API expects 1-based positions
     val lineForIDE: Int get() = line.toInt() + 1

@@ -21,7 +21,6 @@ import com.certora.collect.*
 import datastructures.stdcollections.*
 import spec.cvlast.*
 import spec.cvlast.CVLType.PureCVLType.VMInternal
-import spec.rules.HasRange
 import utils.*
 import java.math.BigInteger
 
@@ -63,7 +62,6 @@ sealed class CVLReportLabel : AmbiSerializable, HasRange {
         override fun toString() = "Apply hook $hookPatternString"
     }
 
-    fun rangeOrNull(): Range.Range? = tryAs<HasRange>()?.range?.tryAs()
 }
 
 fun CVLCmd.Simple.p(): String =

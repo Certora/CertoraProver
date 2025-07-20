@@ -1,0 +1,4 @@
+hook Sstore (slot 1, offset 8) uint128 i {
+    havoc ghostZ assuming forall foo g. ghostZ@new(g) == i;
+    havoc totalZ assuming forall foo g. totalZ@new(g) == totalZ@old(g) + i;
+}

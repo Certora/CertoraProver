@@ -1,0 +1,4 @@
+hook Sstore (slot 4)[KEY uint256 k] bool b (bool old_b) {
+    assert !disjunctM() => !old_b;
+    havoc disjunctM assuming disjunctM@new() == (disjunctM@old() || b);
+}

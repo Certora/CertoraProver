@@ -114,7 +114,7 @@ class EValdCVLExpAstBuilder(val model: CounterexampleModel, val formatter: CallT
                 val errorExplanation =
                     CallInstance.CVLExpInstance.withStringExpAndValue(
                         "Cycle detected for $label",
-                        range = label.rangeOrNull(),
+                        range = label.range.nonEmpty(),
                         value = null,
                         formatterType = FormatterType.Value.Unknown("cycle detected type"), // XXX hope this is unused ..
                         formatter = formatter,
@@ -130,7 +130,7 @@ class EValdCVLExpAstBuilder(val model: CounterexampleModel, val formatter: CallT
 
             val evaldExpCallInstance = CallInstance.CVLExpInstance.withStringExpAndValue(
                 exp = evaldExp.expLabel.toString(),
-                range = evaldExp.expLabel.rangeOrNull(),
+                range = evaldExp.expLabel.range.nonEmpty(),
                 value = evaldExp.formattedValue,
                 formatterType = type,
                 formatter = formatter,

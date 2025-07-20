@@ -52,7 +52,6 @@ import spec.cvlast.typedescriptors.VMDynamicArrayTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.isWildcard
-import spec.rules.HasRange
 import spec.rules.ICVLRule
 import utils.*
 import utils.CollectingResult.Companion.asError
@@ -1175,25 +1174,19 @@ data class ScopedMethodSignature(
 )
 
 @Treapable
-interface InvariantType: AmbiSerializable{
+sealed interface InvariantType: AmbiSerializable{
     fun getShortName(): String
 }
 @KSerializable
-object StrongInvariantType: InvariantType{
+data object StrongInvariantType: InvariantType{
     private fun readResolve(): Any = StrongInvariantType
-    override fun hashCode(): Int {
-        return hashObject(this)
-    }
     override fun getShortName(): String {
         return "Strong"
     }
 }
 @KSerializable
-object WeakInvariantType: InvariantType{
+data object WeakInvariantType: InvariantType{
     private fun readResolve(): Any = WeakInvariantType
-    override fun hashCode(): Int {
-        return hashObject(this)
-    }
     override fun getShortName(): String {
         return "Weak"
     }
@@ -2306,21 +2299,21 @@ data class CVLExpTag(
     val scope: CVLScope,
     val type: CVLType?,
     val range: Range,
-    val hasParens: Boolean = false,
+    val hasParenthesis: Boolean = false,
     val annotation: ExpressionAnnotation? = null
 ) : AmbiSerializable {
     constructor(
         scope: CVLScope,
         range: Range,
-        hasParens: Boolean = false
-    ) : this(scope, null, range, hasParens)
+        hasParenthesis: Boolean = false
+    ) : this(scope, null, range, hasParenthesis)
 
     companion object {
         fun transient(tag: CVLType.PureCVLType) = CVLExpTag(
             range = Range.Empty(),
             scope = CVLScope(listOf(), null), // no scope at all!,
             type = tag,
-            hasParens = false
+            hasParenthesis = false
         )
     }
 
@@ -2546,7 +2539,7 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
             "for boolean expressions the evaluator should return only 1 or 0, got $v"
         }
 
-    fun String.wrapWithParens() = if (tag.hasParens) {
+    fun String.wrapWithParens() = if (tag.hasParenthesis) {
         "($this)"
     } else {
         this

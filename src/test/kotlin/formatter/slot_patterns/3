@@ -1,0 +1,3 @@
+hook Sstore (slot 0).(offset 32)[KEY bytes32 key].(offset 0) bytes32 newNextKey {
+    havoc reach assuming updateSucc(toNode(key), toNode(newNextKey));
+}

@@ -17,10 +17,8 @@
 
 package com.certora.certoraprover.cvl
 
-import com.certora.certoraprover.cvl.CallSummary.HavocingSummary
 import config.Config.VMConfig
 import datastructures.stdcollections.*
-import java_cup.runtime.ComplexSymbolFactory
 import spec.CVLKeywords
 import spec.CVLWarningLogger
 import spec.TypeResolver
@@ -39,11 +37,19 @@ import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.HasRange
 import utils.Range
 
 // This file contains the "Java" AST nodes for the methods block and its components.  See README.md for information about the Java AST.
 
-interface MethodEntry : Kotlinizable<MethodBlockEntry>
+sealed interface MethodEntry : Kotlinizable<MethodBlockEntry>
+
+data class MethodsBlock(val entries: List<MethodEntry>, override val range: Range.Range) : TopLevel<List<MethodBlockEntry>> {
+    override fun kotlinize(
+        resolver: TypeResolver,
+        scope: CVLScope
+    ): CollectingResult<List<MethodBlockEntry>, CVLError> = entries.map { entry -> entry.kotlinize(resolver, scope) }.flatten()
+}
 
 /**
  * Gets the default summarization mode.
@@ -62,24 +68,24 @@ fun getDefaultSummarizationMode(summary: CallSummary, target: MethodEntryTargetC
     }
 
 /** Represents an entry in the `methods` block.  */
-class ImportedFunction(
-    private val range: Range,
+data class ImportedFunction(
+    override val range: Range,
     /**
      * The undefaulted method signature. The `contract` field will be `null` if no contract is
      * specified, and will be "_" if the wildcard is specified.  The defaulting happens in the
      * `kotlinize` method.
      */
-    private val methodSignature: MethodSig,
-    private val qualifiers: MethodQualifiers,
-    private val summary: CallSummary?,
-    private val withParams: List<CVLParam>?,
-    private val withRange: Range?
+    internal val methodSignature: MethodSig,
+    internal val qualifiers: MethodQualifiers,
+    internal val summary: CallSummary?,
+    internal val withParams: List<CVLParam>?,
+    internal val withRange: Range?
 ) : MethodEntry {
     override fun toString() = "ImportedFunction($methodSignature,$qualifiers) => $summary"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<MethodBlockEntry, CVLError> = collectingErrors {
         val target     = methodSignature.kotlinizeTarget(resolver)
-        val qualifiers = bind(qualifiers.kotlinize())
+        val qualifiers = bind(qualifiers.kotlinize(resolver, scope))
 
         // Compute a default summarization mode based on the entire methods block entry.
         // It is still the case that if a summary explicitly specifies a summarization mode,
@@ -138,11 +144,11 @@ class ImportedFunction(
 }
 
 @Suppress("Deprecation") // TODO CERT-3752
-class CatchAllSummary(
-    private val range: Range,
-    private val ref: MethodReferenceExp,
-    private val summary: CallSummary,
-    private val preFlags: List<LocatedToken>
+data class CatchAllSummary(
+    override val range: Range,
+    internal val ref: MethodReferenceExp,
+    internal val summary: CallSummary,
+    internal val preFlags: List<LocatedToken>
 ) : MethodEntry {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CatchAllSummaryAnnotation, CVLError> = collectingErrors{
         val contractId = ref.contract
@@ -150,7 +156,7 @@ class CatchAllSummary(
             returnError(CVLError.General(ref.range, "Catch-all summaries must be of the form ContractName._"))
         }
 
-        if (summary !is HavocingSummary) {
+        if (summary !is CallSummary.HavocingCallSummary) {
             returnError(CVLError.General(ref.range, "Catch-all summaries must use havocing summaries (`NONDET`, `HAVOC_ALL`, `HAVOC_ECF`, `AUTO`)"))
         }
 
@@ -187,29 +193,27 @@ class CatchAllSummary(
     }
 }
 
-class UnresolvedDynamicSummary(
-    private val range: Range,
-    private val methodReferenceExp: MethodReferenceExp,
-    private val params: List<VMParam>?,
-    private val preFlags: List<LocatedToken>,
-    private val dispatchList: CallSummary.DispatchList,
-    private val isDeprecatedSyntax: Boolean
+data class UnresolvedDynamicSummary(
+    override val range: Range,
+    internal val methodReferenceExp: MethodReferenceExp,
+    internal val params: List<VMParam>?,
+    internal val preFlags: List<LocatedToken>,
+    internal val dispatchList: CallSummary.DispatchList?,
+    internal val isDeprecatedSyntax: Boolean
 ) : MethodEntry {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<MethodBlockEntry, CVLError> = collectingErrors {
         if (isDeprecatedSyntax) {
             CVLWarningLogger.syntaxWarning("The syntax `function _._ external => DISPATCH...` is deprecated and will be removed in a future version. " +
                 "Use instead `unresolved external in _._ => DISPATCH...`", range)
 
-            if (methodReferenceExp.contract == null
-                || !(methodReferenceExp.contract!!.id == CVLKeywords.wildCardExp.keyword
-                    && methodReferenceExp.method == CVLKeywords.wildCardExp.keyword)) {
+            if (methodReferenceExp.contract?.id != CVLKeywords.wildCardExp.keyword || methodReferenceExp.method != CVLKeywords.wildCardExp.keyword) {
                 collectError(DispatchListWithSpecificId(methodReferenceExp))
             }
         }
 
         val target = methodReferenceExp.kotlinizeTarget(resolver)
         val namedSig = if (params != null) {
-            bind(MethodSig(range, methodReferenceExp, params, null).kotlinizeNamed(target, resolver, scope))
+            bind(MethodSig(range, methodReferenceExp, params, emptyList()).kotlinizeNamed(target, resolver, scope))
         } else {
             if (methodReferenceExp.method != CVLKeywords.wildCardExp.keyword) {
                 collectError(DispatchListWithSpecificId(methodReferenceExp))
@@ -222,26 +226,28 @@ class UnresolvedDynamicSummary(
             .filter { it.value != Visibility.EXTERNAL.toString() }
             .forEach { collectError(OnlyExternalSummaryAllowed(it)) }
 
-        val dispatchList = bind(dispatchList.kotlinize(resolver, scope))
+        val dispatchList = if (dispatchList != null) {
+            bind(dispatchList.kotlinize(resolver, scope))
+        } else {
+            // TODO: CERT-9281
+            returnAnyway()
+        }
 
         CatchUnresolvedSummaryAnnotation(range, target, namedSig, dispatchList)
     }
 
 }
 
-sealed class CallSummary (
-    val range : Range,
+sealed interface CallSummary : HasRange {
+    override val range : Range
     val summarizationMode: SummarizationMode?
-) {
-    constructor(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, summarizationMode: SummarizationMode?)
-        : this(Range.Range(left,right), summarizationMode)
 
     /**
      * @param funParams  the parameters to the summarized method
      * @param withClause the environment argument defined by a `with(...)` clause, or `null` if there is no `with` clause
      * @return this, converted to a kotlin [SpecCallSummary]
      */
-    abstract fun kotlinize(
+    fun kotlinize(
         resolver: TypeResolver,
         scope: CVLScope,
         funParams: List<spec.cvlast.VMParam>,
@@ -250,9 +256,7 @@ sealed class CallSummary (
     ): CollectingResult<ExpressibleInCVL, CVLError>
 
     /** An ALWAYS(c) summary  */
-    class Always(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?, val returnValue: Exp)
-        : CallSummary(left, right, resolution)
-    {
+    data class Always(override val range: Range, override val summarizationMode: SummarizationMode?, val returnValue: Exp) : CallSummary {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope,
@@ -266,8 +270,7 @@ sealed class CallSummary (
     }
 
     /** A CONSTANT summary  */
-    class Constant(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?)
-        : CallSummary(left, right, resolution) {
+    data class Constant(override val range: Range, override val summarizationMode: SummarizationMode?) : CallSummary {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope,
@@ -279,9 +282,7 @@ sealed class CallSummary (
     }
 
     /** A PER_CALLEE_CONSTANT summary  */
-    class PerCalleeConstant(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?)
-        : CallSummary(left, right, resolution)
-    {
+    data class PerCalleeConstant(override val range: Range, override val summarizationMode: SummarizationMode?) : CallSummary {
         override fun kotlinize(resolver: TypeResolver, scope: CVLScope,
                                funParams: List<spec.cvlast.VMParam>,
                                withClause: WithClause?,
@@ -292,20 +293,13 @@ sealed class CallSummary (
             ).lift()
     }
 
-    sealed interface HavocingSummary
-
-    sealed class HavocingCallSummary (
-        range : Range,
-        summarizationMode: SummarizationMode?
-    ) : CallSummary(range, summarizationMode), HavocingSummary {
-        constructor(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, summarizationMode: SummarizationMode?)
-            : this(Range.Range(left,right), summarizationMode)
+    sealed class HavocingCallSummary : CallSummary {
+        abstract override val range: Range
+        abstract override val summarizationMode: SummarizationMode?
     }
 
     /** A NONDET summary  */
-    class Nondet(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?)
-        : HavocingCallSummary(left, right, resolution)
-    {
+    data class Nondet(override val range: Range, override val summarizationMode: SummarizationMode?) : HavocingCallSummary() {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope,
@@ -317,9 +311,7 @@ sealed class CallSummary (
     }
 
     /** A HAVOC_ECF summary  */
-    class HavocECF(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?)
-        : HavocingCallSummary(left, right, resolution)
-    {
+    data class HavocECF(override val range: Range, override val summarizationMode: SummarizationMode?) : HavocingCallSummary() {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope,
@@ -331,9 +323,7 @@ sealed class CallSummary (
     }
 
     /** A HAVOC_ALL summary  */
-    class HavocAll(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?)
-        : HavocingCallSummary(left, right, resolution)
-    {
+    data class HavocAll(override val range: Range, override val summarizationMode: SummarizationMode?) : HavocingCallSummary() {
         override fun kotlinize(resolver: TypeResolver, scope: CVLScope,
                                funParams: List<spec.cvlast.VMParam>,
                                withClause: WithClause?,
@@ -342,9 +332,7 @@ sealed class CallSummary (
             SpecCallSummary.HavocSummary.HavocAll(summarizationMode ?: defaultSummarizationMode, this@HavocAll.range).lift()
     }
 
-    class AssertFalse(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?)
-        : HavocingCallSummary(left, right, resolution)
-    {
+    data class AssertFalse(override val range: Range, override val summarizationMode: SummarizationMode?) : HavocingCallSummary() {
         override fun kotlinize(resolver: TypeResolver, scope: CVLScope,
                                funParams: List<spec.cvlast.VMParam>,
                                withClause: WithClause?,
@@ -356,9 +344,7 @@ sealed class CallSummary (
     }
 
     /** An (explicit) AUTO summary  */
-    class Auto(left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?)
-        : HavocingCallSummary(left, right, resolution)
-    {
+    data class Auto(override val range: Range, override val summarizationMode: SummarizationMode?) : HavocingCallSummary() {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope,
@@ -370,45 +356,43 @@ sealed class CallSummary (
     }
 
     /** A DISPATCHER summary  */
-    class Dispatcher(
-        left: ComplexSymbolFactory.Location,
-        right: ComplexSymbolFactory.Location,
-        resolution: SummarizationMode?,
-        private val optimistic: Boolean,
-        private val useFallback: Boolean
-    )
-        : CallSummary(left, right, resolution)
-    {
+    data class Dispatcher(
+        override val range: Range,
+        override val summarizationMode: SummarizationMode?,
+        val flags: FlagSyntax?,
+    ) : CallSummary {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope,
             funParams: List<spec.cvlast.VMParam>,
             withClause: WithClause?,
             defaultSummarizationMode: SummarizationMode
-        ): CollectingResult<SpecCallSummary.Dispatcher, CVLError> =
-            SpecCallSummary.Dispatcher(summarizationMode ?: defaultSummarizationMode, optimistic, useFallback,
+        ): CollectingResult<SpecCallSummary.Dispatcher, CVLError> {
+            val (optimistic, useFallback) = when (this.flags) {
+                is FlagSyntax.OptimismLiteral -> Pair(this.flags.asBoolean, false)
+                is FlagSyntax.FlagList -> Pair(this.flags.parsedOptimistic ?: false, this.flags.parsedUseFallback ?: false)
+                null -> Pair(false, false)
+            }
+            return SpecCallSummary.Dispatcher(
+                summarizationMode ?: defaultSummarizationMode, optimistic, useFallback,
                 this@Dispatcher.range
             ).lift()
+        }
     }
 
     /** A special fallback dynamic summary for all unresolved calls */
-    class DispatchList(
-        val range: Range,
-        private val dispatcherList: List<PatternSig>,
+    data class DispatchList(
+        override val range: Range,
+        internal val dispatcherList: List<PatternSig>,
         val default: HavocingCallSummary?,
-        val useFallback: Boolean,
-        val optimistic: Boolean
+        val flags: FlagSyntax.FlagList?,
     ): Kotlinizable<SpecCallSummary.DispatchList> {
-        sealed class PatternSig {
-            abstract val range: Range
-        }
-        data class PatternSigParams(val sig: MethodSig) : PatternSig() {
-            override val range: Range
-                get() = sig.range
-        }
-        data class PattenSigWildcardMethod(val sig: MethodSig) : PatternSig() {
-            override val range: Range
-                get() = sig.range
+        sealed interface PatternSig : HasRange {
+            val sig: MethodSig
+            override val range: Range get() = sig.range
+
+            data class Params(override val sig: MethodSig) : PatternSig
+            data class WildcardMethod(override val sig: MethodSig) : PatternSig
         }
 
         override fun kotlinize(
@@ -418,7 +402,7 @@ sealed class CallSummary (
             val translatedFuns: List<CollectingResult<SpecCallSummary.DispatchList.Pattern, CVLError>> = dispatcherList.map { pattern ->
                 when(pattern) {
                     // Non wildcard method - _.foo(uint) / C.foo(uint)
-                    is PatternSigParams -> {
+                    is PatternSig.Params -> {
                         val sig = pattern.sig
                         if (sig.id.method == CVLKeywords.wildCardExp.keyword) {
                             WildCardMethodWithParams(sig).asError()
@@ -433,7 +417,7 @@ sealed class CallSummary (
                         }
                     }
                     // Expect wildcard method - C._
-                    is PattenSigWildcardMethod -> {
+                    is PatternSig.WildcardMethod -> {
                         val sig = pattern.sig
                         if (sig.baseContract() == CVLKeywords.wildCardExp.keyword
                             && sig.id.method == CVLKeywords.wildCardExp.keyword) {
@@ -447,6 +431,10 @@ sealed class CallSummary (
                     }
                 }
             }
+
+            val optimistic = this.flags?.parsedOptimistic ?: false
+            val useFallback = this.flags?.parsedUseFallback ?: false
+
             if(optimistic && default != null){
                 return OptimisticDispatchListHasNoDefault(this).asError()
             }
@@ -470,10 +458,12 @@ sealed class CallSummary (
      * @param exp           The `f(...)` portion
      * @param expectedType  The `expect t` portion
      */
-    class Expression(
-        left: ComplexSymbolFactory.Location, right: ComplexSymbolFactory.Location, resolution: SummarizationMode?,
-        private val exp: Exp, private val expectedType: ExpectClause,
-    ) : CallSummary(left, right, resolution) {
+    data class Expression(
+        override val range: Range,
+        override val summarizationMode: SummarizationMode?,
+        internal val exp: Exp,
+        internal val expectedType: ExpectClause,
+    ) : CallSummary {
         override fun kotlinize(
             resolver: TypeResolver,
             scope: CVLScope,
@@ -506,39 +496,53 @@ sealed class CallSummary (
     }
 
     /** The `expect <type>` portion of an [Expression] summary </type> */
-    interface ExpectClause {
+    sealed interface ExpectClause : Kotlinizable<List<VMTypeDescriptor>?> {
+        override val range: Range
+
         /**
          * Convert the expected return types to [VMTypeDescriptor]s.  `expect void` returns an empty list, whereas a
          * missing expect clause returns `null`
          */
-        fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<List<VMTypeDescriptor>?, CVLError>
+        override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<List<VMTypeDescriptor>?, CVLError>
 
         /** `expect void`  */
-        class Void : ExpectClause {
+        class Void(override val range: Range.Range) : ExpectClause {
             override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<List<VMTypeDescriptor>, CVLError>
                 = emptyList<VMTypeDescriptor>().lift()
         }
 
         /** `expect t` for a non-void type `t`  */
-        class Type(private val type: List<VMParam>) : ExpectClause {
+        class Type(internal val type: List<VMParam>, override val range: Range.Range) : ExpectClause {
             override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<List<VMTypeDescriptor>, CVLError>
-                = type.map { it.kotlinize(resolver, scope).map { it.vmType } }.flatten()
+                = type.map { it.kotlinize(resolver, scope).map { param -> param.vmType } }.flatten()
         }
 
         /** missing `expect` clause  */
         class None : ExpectClause {
+            override val range: Range get() = Range.Empty()
             override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<List<VMTypeDescriptor>?, CVLError>
                 = null.lift()
         }
     }
+
+    /**
+     * we have several competing syntaxes here.
+     * actually, there's another one - we model "no parenthesis" as null.
+     * the reason we need to model it like this, is so that we don't lose the original syntax used in the input.
+     *
+     * XXX: this should also contain the captured range.
+     */
+    sealed interface FlagSyntax {
+        enum class OptimismLiteral(val asBoolean: Boolean) : FlagSyntax { TRUE(true), FALSE(false), ASSERT(false), REQUIRE(true) }
+        data class FlagList(val parsedOptimistic: Boolean?, val parsedUseFallback: Boolean?) : FlagSyntax
+    }
 }
 
-
-class MethodQualifiers(
-    private val range: Range,
+data class MethodQualifiers(
+    override val range: Range,
     val preReturnsAnnotations: List<LocatedToken>,
     val postReturnsAnnotations: List<LocatedToken>
-) : List<LocatedToken> by (preReturnsAnnotations + postReturnsAnnotations) {
-    fun kotlinize(): CollectingResult<spec.cvlast.MethodQualifiers, CVLError>
+) : Kotlinizable<spec.cvlast.MethodQualifiers> {
+    override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<spec.cvlast.MethodQualifiers, CVLError>
         = VMConfig.getMethodQualifierAnnotations(preReturnsAnnotations, postReturnsAnnotations, range)
 }

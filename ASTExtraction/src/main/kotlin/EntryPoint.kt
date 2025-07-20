@@ -17,70 +17,92 @@
 
 @file:Suppress("MissingPackageDeclaration") // `main` is in default package
 
-import kotlinx.serialization.Serializable
+import com.certora.certoraprover.cvl.Ast
+import com.certora.certoraprover.cvl.formatter.FormatterInput
+import com.certora.certoraprover.cvl.formatter.util.parseToAst
 import kotlinx.serialization.encodeToString
 import spec.CVLInput
 import spec.CVLSource
+import spec.CVLSource.File
+import spec.CVLSource.Raw
 import spec.DummyTypeResolver
 import spec.cvlast.CVLAst
-import spec.cvlast.CVLCmd
 import spec.cvlast.SolidityContract
-import spec.cvlast.transformer.CVLAstTransformer
-import spec.cvlast.transformer.CVLCmdTransformer
-import spec.cvlast.transformer.CVLExpTransformer
 import spec.cvlast.typechecker.CVLError
-import spec.cvlast.typechecker.RequireWithoutReason
 import utils.CollectingResult
-import utils.CollectingResult.Companion.asError
-import java.io.File
+import utils.nextOrNull
+import java.nio.file.Path
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.readText
 import kotlin.system.exitProcess
 
 /**
- * This entry point allows syntax checking of CVL spec files from the command line. Used by the LSP server.
+ * This entry point is used by the LSP server.
  *
  * Input is in the form of a single file. If syntax checking passes, a [CVLAst] and potential warnings are emitted to stdout.
  * If it fails, errors are emitted to stdout, while the ast will be null. Serialization is done via JSON.
  * Currently only basic syntax checking is done. For example, types are not validated and imports are not considered.
  *
- * Supported modes:
- *   ASTExtraction.jar -f FILE: takes a path to a single CVL file, emits a syntax check, then exits.
- *   ASTExtraction.jar -r: listens for input on stdin (in the form of an entire CVL file), emits a syntax check, then exits.
+ * This entry point is currently internal-only.
  */
 fun main(args: Array<String>) {
-    val source = when (args.getOrNull(0)) {
-        "-f", "--file" -> {
-            val path = args.getOrNull(1) ?: usage()
-            val file = File(path).takeIf(File::isFile) ?: badFile(path)
+    val iter = args.iterator()
 
-            CVLSource.File(filepath = file.absolutePath, origpath = file.absolutePath, isImported = false)
+    val mode = iter
+        .nextOrNull()
+        ?.let { Arg.parse(it) as? Arg.Mode }
+        ?: exitUsage()
+
+
+    val sourceArg = iter
+        .nextOrNull()
+        ?.let { Arg.parse(it) as? Arg.InputSource }
+        ?: exitUsage()
+
+    val source = when (sourceArg) {
+        Arg.InputSource.File -> {
+            val next = iter.nextOrNull() ?: exitUsage()
+            iter.requireExhausted()
+            val path = Path.of(next).takeIf(Path::isRegularFile) ?: exitError { "invalid file: $next" }
+            Source.File(path)
         }
 
-        "-r", "--raw" -> {
-            val input = readUntilEndOfInput()
-
-            CVLSource.Raw(name = "", rawTxt = input, isImported = false)
+        Arg.InputSource.Raw -> {
+            iter.requireExhausted()
+            val stdin = readUntilEndOfInput()
+            Source.String(stdin)
         }
-
-        else -> usage()
     }
 
-    CVLInput.Plain(source).emitAst()
+    when (mode) {
+        Arg.Mode.SyntaxCheck -> {
+            val cvlSource = when (source) {
+                is Source.File -> {
+                    val absolutePath = source.file.toAbsolutePath().toString()
+                    File(filepath = absolutePath, origpath = absolutePath, isImported = false)
+                }
+
+                is Source.String -> Raw(name = "dummy file", rawTxt = source.str, isImported = false)
+            }
+            syntaxCheck(cvlSource)
+        }
+
+        Arg.Mode.Format -> {
+            when (source) {
+                is Source.File -> format(source.file.readText())
+                is Source.String -> format(source.str)
+            }
+        }
+    }
 }
 
-@Serializable
-data class AstAndDiagnostics(val ast: CVLAst?, val diagnostics: List<LSPDiagnostic>)
-
-@Serializable
-data class LSPDiagnostic(val error: CVLError, val severity: Severity)
-
-@Serializable
-enum class Severity { WARNING, ERROR }
-
-private fun CVLInput.Plain.emitAst() {
+private fun syntaxCheck(cvlSource: CVLSource): Nothing {
     val primaryContract = SolidityContract(name = "")
     val typeResolver = DummyTypeResolver(primaryContract)
 
-    when (val astOrErrors = getRawCVLAst(typeResolver)) {
+    val astOrErrors = CVLInput.Plain(cvlSource).getRawCVLAst(typeResolver)
+
+    when (astOrErrors) {
         is CollectingResult.Result -> {
             val originalAst: CVLAst = astOrErrors.result
             val warnings: List<LSPDiagnostic> = collectWarningsForLSP(originalAst).errorOrNull().orEmpty().map { LSPDiagnostic(it, Severity.WARNING) }
@@ -98,29 +120,35 @@ private fun CVLInput.Plain.emitAst() {
     }
 }
 
-private fun usage(): Nothing {
-    println("Usage:")
-    println("  ASTExtraction.jar -f FILE | --file FILE")
-    println("  ASTExtraction.jar -r | --raw")
+private fun format(source: String): Nothing {
+    val ast = when (val cr = parseToAst(source)) {
+        is CollectingResult.Result<Ast> -> cr.result
+        is CollectingResult.Error<CVLError> -> {
+            val lineBreak = System.lineSeparator()
+            val messages = cr.messages.joinToString(separator = lineBreak, transform = CVLError::message)
 
-    exitProcess(EXIT_FAILURE)
-}
-
-private fun badFile(path: String): Nothing {
-    errprintln("invalid file: $path")
-
-    exitProcess(EXIT_FAILURE)
-}
-
-private fun collectWarningsForLSP(ast: CVLAst): CollectingResult<CVLAst, CVLError> {
-    val cmdChecker = object : CVLCmdTransformer<CVLError>(CVLExpTransformer.copyTransformer()) {
-        override fun assumeCmd(cmd: CVLCmd.Simple.AssumeCmd.Assume): CollectingResult<CVLCmd, CVLError> {
-            if (cmd.description == null) {
-                return RequireWithoutReason(cmd.range, cmd.exp).asError()
+            exitError {
+                if (cr.messages.isEmpty()) {
+                    "file could not be parsed."
+                } else {
+                    "file could not be parsed. got errors:${lineBreak}${messages}"
+                }
             }
-            return super.assumeCmd(cmd)
         }
     }
-    val astChecker = object : CVLAstTransformer<CVLError>(cmdChecker) {}
-    return astChecker.ast(ast)
+
+    // XXX: try-catch isn't proper error handling.
+    try {
+        val output = FormatterInput(ast).output()
+        println(output)
+        exitProcess(EXIT_SUCCESS)
+    } catch (e: IllegalStateException) {
+        // here to catch things from `ensure`
+        exitError { "error while formatting valid AST. got: $e" }
+    }
+}
+
+private sealed interface Source {
+    class File(val file: Path) : Source
+    class String(val str: kotlin.String) : Source
 }

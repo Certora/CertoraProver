@@ -34,14 +34,16 @@ import utils.CollectingResult.Companion.transpose
 
 // This file contains the "Java" AST nodes for commands.  See README.md for a description of the Java AST.
 
-sealed class Cmd(val range: Range) : Kotlinizable<CVLCmd>
+sealed interface Cmd : Kotlinizable<CVLCmd> {
+    override val range: Range
+}
 
-class ApplyCmd(range: Range, private val applyExp: UnresolvedApplyExp) : Cmd(range) {
+data class ApplyCmd(override val range: Range, internal val applyExp: UnresolvedApplyExp) : Cmd {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
         = applyExp.kotlinize(resolver, scope).map { CVLCmd.Simple.Apply(range, it, scope) }
 }
 
-class AssertCmd(range: Range, val exp: Exp, val description: String?) : Cmd(range) {
+data class AssertCmd(override val range: Range, val exp: Exp, val description: String?) : Cmd {
     override fun toString() = "Assert($exp,$description)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -51,7 +53,7 @@ class AssertCmd(range: Range, val exp: Exp, val description: String?) : Cmd(rang
 }
 
 
-class AssumeCmd(_range: Range, val exp: Exp, val description: String?) : Cmd(_range) {
+data class AssumeCmd(override val range: Range, val exp: Exp, val description: String?) : Cmd {
     override fun toString() = "Assume($exp,$description)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -59,7 +61,7 @@ class AssumeCmd(_range: Range, val exp: Exp, val description: String?) : Cmd(_ra
 }
 
 
-class AssumeInvariantCmd(_range: Range, val id: String, val params: List<Exp>) : Cmd(_range) {
+data class AssumeInvariantCmd(override val range: Range, val id: String, val params: List<Exp>) : Cmd {
     override fun toString() = "AssumeInvariant($id,$params)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -67,7 +69,7 @@ class AssumeInvariantCmd(_range: Range, val id: String, val params: List<Exp>) :
 }
 
 
-class BlockCmd(_range: Range, val block: List<Cmd>) : Cmd(_range) {
+data class BlockCmd(override val range: Range, val block: List<Cmd>) : Cmd {
     override fun toString() = "Block($block)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd.Composite.Block, CVLError>
@@ -77,7 +79,7 @@ class BlockCmd(_range: Range, val block: List<Cmd>) : Cmd(_range) {
 }
 
 
-class DeclarationCmd(val type: TypeOrLhs, val id: String, idRange: Range) : Cmd(idRange) {
+data class DeclarationCmd(val type: TypeOrLhs, val id: String, override val range: Range) : Cmd {
     override fun toString() = "Declaration($type $id)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError> =
@@ -87,7 +89,7 @@ class DeclarationCmd(val type: TypeOrLhs, val id: String, idRange: Range) : Cmd(
 }
 
 
-class DefinitionCmd(_range: Range, val type: TypeOrLhs?, val lhs: List<TypeOrLhs>, val exp: Exp) : Cmd(_range) {
+data class DefinitionCmd(override val range: Range, val type: TypeOrLhs?, val lhs: List<TypeOrLhs>, val exp: Exp) : Cmd {
     override fun toString() = "Definition(${type?.let { "$it " }.orEmpty()}${lhs.joinToString()} := $exp)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError> = collectingErrors {
@@ -99,7 +101,7 @@ class DefinitionCmd(_range: Range, val type: TypeOrLhs?, val lhs: List<TypeOrLhs
     }
 }
 
-class HavocCmd(range: Range, val targets: List<Exp>, private val assumingExp: Exp?) : Cmd(range) {
+data class HavocCmd(override val range: Range, val targets: List<Exp>, internal val assumingExp: Exp?) : Cmd {
     constructor(range: Range, targets: List<Exp>) : this(range, targets, null)
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError> = collectingErrors {
@@ -115,7 +117,7 @@ class HavocCmd(range: Range, val targets: List<Exp>, private val assumingExp: Ex
 }
 
 
-class IfCmd(range: Range, val cond: Exp, val thenCmd: Cmd, val elseCmd: Cmd?) : Cmd(range) {
+class IfCmd(override val range: Range, val cond: Exp, val thenCmd: Cmd, val elseCmd: Cmd?) : Cmd {
     override fun toString() = "If($cond,$thenCmd,${elseCmd ?: ""})"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError> {
@@ -133,7 +135,7 @@ class IfCmd(range: Range, val cond: Exp, val thenCmd: Cmd, val elseCmd: Cmd?) : 
 }
 
 
-class ResetStorageCmd(_range: Range, val target: Exp) : Cmd(_range) {
+class ResetStorageCmd(override val range: Range, val target: Exp) : Cmd {
     override fun toString() = "reset_storage($target)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -141,7 +143,7 @@ class ResetStorageCmd(_range: Range, val target: Exp) : Cmd(_range) {
 }
 
 
-class ReturnCmd(_range: Range, val exps: List<Exp>) : Cmd(_range) {
+class ReturnCmd(override val range: Range, val exps: List<Exp>) : Cmd {
     override fun toString() = "Return($exps)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -149,7 +151,7 @@ class ReturnCmd(_range: Range, val exps: List<Exp>) : Cmd(_range) {
 }
 
 
-class RevertCmd(_range: Range, val reason: String?) : Cmd(_range) {
+class RevertCmd(override val range: Range, val reason: String?) : Cmd {
     override fun toString() = "Revert($reason)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -157,7 +159,7 @@ class RevertCmd(_range: Range, val reason: String?) : Cmd(_range) {
 }
 
 
-class SatisfyCmd(range: Range, val exp: Exp, val description: String?) : Cmd(range) {
+class SatisfyCmd(override val range: Range, val exp: Exp, val description: String?) : Cmd {
     override fun toString() = "Satisfy($exp,$description)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>

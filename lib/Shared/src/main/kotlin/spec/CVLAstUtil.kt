@@ -846,10 +846,9 @@ class GenerateRulesForInvariantsAndEnvFree(
                     invariantIdentifier, inv.range,
                     listOfNotNull(initstateInvariantScenario(inv), resetTransientStorageRule(inv)) +
                         invScope.extendIn(CVLScope.Item::RuleScopeItem) { inductionStepScope ->
-                            val inductionStepDisplayName = if(inv.invariantType == StrongInvariantType) {
-                                "Induction step (strong invariant): after external (non-view) methods and before unresolved calls"
-                            } else {
-                                "Induction step: after external (non-view) methods"
+                            val inductionStepDisplayName = when (inv.invariantType) {
+                                StrongInvariantType -> "Induction step (strong invariant): after external (non-view) methods and before unresolved calls"
+                                WeakInvariantType -> "Induction step: after external (non-view) methods"
                             }
                             val inductionStepId = invariantIdentifier.freshDerivedIdentifier(inductionStepDisplayName)
                             GroupRule(

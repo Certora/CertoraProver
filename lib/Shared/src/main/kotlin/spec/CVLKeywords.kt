@@ -18,6 +18,8 @@
 package spec
 
 import config.Config
+import datastructures.stdcollections.plus
+import datastructures.stdcollections.toList
 import evm.MASK_SIZE
 import org.apache.commons.lang3.concurrent.Memoizer
 import spec.cvlast.CVLType
@@ -169,3 +171,12 @@ class CVLCastFunction private constructor(
 val allCastFunctions = CVLCastFunction.castFunctions.filter {
     it.castType.hasConcrete
 }.associateBy { f -> f.keyword }
+
+fun checkAllKeywordsUnique(vmConfig: VMConfig){
+    val allKeywords = allCastFunctions.keys.toList() +
+            vmConfig.memoryLocations +
+            vmConfig.preReturnMethodQualifiers +
+            vmConfig.postReturnMethodQualifiers +
+            vmConfig.hookableOpcodes
+    check(allKeywords.distinct().size == allKeywords.size) { "duplicate keywords found which may lead to lexer ambiguities" }
+}
