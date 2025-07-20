@@ -91,16 +91,19 @@ Program {
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":16}
 		AnnotationCmd:30 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"establish equivalence of extension and base contract immutables"}}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":17}
+		AnnotationCmd:31 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Message","s":"Assuming all requireInvariants commands globally"}}
+		AnnotationCmd JSON{"key":{"name":"cvl.assume.invariant.target","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}
+		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":18}
 		AnnotationCmd JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":1}
-		AnnotationCmd:31 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Declaration","range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":18,"charByteOffset":4},"end":{"line":18,"charByteOffset":19}},"cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"id":"toCast","scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AnnotationCmd:32 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Declaration","range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":18,"charByteOffset":4},"end":{"line":18,"charByteOffset":19}},"cvlType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"id":"toCast","scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
 		AnnotationCmd JSON{"key":{"name":"cvl.trace.declaration","type":"spec.CVLCompiler$Companion$TraceMeta$VariableDeclaration","erasureStrategy":"Erased"},"value":{"v":{"#class":"spec.CVLCompiler.Companion.TraceMeta.ValueIdentity.TACVar","t":{"namePrefix":"CANON4","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.def.site","type":"spec.CVLDefinitionSite","erasureStrategy":"Canonical"},"value":{"#class":"spec.CVLDefinitionSite.Rule","range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":18,"charByteOffset":4},"end":{"line":18,"charByteOffset":19}}}},{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}},{"key":{"name":"cvl","type":"java.lang.Boolean","erasureStrategy":"Canonical"},"value":true},{"key":{"name":"cvl.display","type":"java.lang.String","erasureStrategy":"CallTrace"},"value":"toCast"}]}},"t":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"type":{"#class":"spec.CVLCompiler.Companion.TraceMeta.DeclarationType.Variable"},"fields":null}}
-		AnnotationCmd:32 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":18}
-		AnnotationCmd:33 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Assert","range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":4},"end":{"line":19,"charByteOffset":38}},"exp":{"#class":"spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GeExp","l":{"#class":"spec.cvlast.CVLExp.CastExpr","toCastType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.IntK","k":256},"arg":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"toCast","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":25},"end":{"line":19,"charByteOffset":31}}},"twoStateIndex":"NEITHER"},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.IntK","k":256},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":11},"end":{"line":19,"charByteOffset":31}}},"castType":"ASSERT"},"r":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":36},"end":{"line":19,"charByteOffset":37}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":11},"end":{"line":19,"charByteOffset":37}}}},"description":null,"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
-		AssignExpCmd:34 I9:3 CANON4:8
-		AssignExpCmd:35 B10 Ge(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) I9:3 )
-		AnnotationCmd:35 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.AssertCast","cvlExpOutSym":{"namePrefix":"I9","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]},"assertCond":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"B10","tag":{"#class":"tac.Tag.Bool"},"callIndex":0},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":11},"end":{"line":19,"charByteOffset":31}}}}
-		AssertCmd:36 B10 "Cast safety of toCast (uint256) to int256 (Cast.spec:20:12)"
-		AnnotationCmd:35 JSON{"key":{"name":"snippet.cmd.scope.end","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}
+		AnnotationCmd:33 JSON{"key":{"name":"cvl.label.end","type":"java.lang.Integer","erasureStrategy":"Canonical"},"value":19}
+		AnnotationCmd:34 JSON{"key":{"name":"cvl.label.start","type":"report.calltrace.CVLReportLabel","erasureStrategy":"CallTrace"},"value":{"#class":"report.calltrace.CVLReportLabel.Cmd","cmd":{"cmd_type":"spec.cvlast.CVLCmd.Simple.Assert","range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":4},"end":{"line":19,"charByteOffset":38}},"exp":{"#class":"spec.cvlast.CVLExp.RelopExp.ArithRelopExp.GeExp","l":{"#class":"spec.cvlast.CVLExp.CastExpr","toCastType":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.IntK","k":256},"arg":{"#class":"spec.cvlast.CVLExp.VariableExp","id":"toCast","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":25},"end":{"line":19,"charByteOffset":31}}},"twoStateIndex":"NEITHER"},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.IntK","k":256},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":11},"end":{"line":19,"charByteOffset":31}}},"castType":"ASSERT"},"r":{"#class":"spec.cvlast.CVLExp.Constant.NumberLit","n":"0","tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.NumberLiteral","n":"0"},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":36},"end":{"line":19,"charByteOffset":37}}}},"tag":{"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}},"type":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.Bool"},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":11},"end":{"line":19,"charByteOffset":37}}}},"description":null,"scope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"},{"#class":"spec.cvlast.CVLScope.Item.RuleScopeItem","scopeId":1}],"innerScope":{"scopeStack":[{"#class":"spec.cvlast.CVLScope.Item.AstScopeItem"}],"innerScope":{"scopeStack":[],"innerScope":null}}}}}}
+		AssignExpCmd:35 I9:3 CANON4:8
+		AssignExpCmd:36 B10 Ge(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff(int) I9:3 )
+		AnnotationCmd:36 JSON{"key":{"name":"snippet.cmd","type":"vc.data.SnippetCmd","erasureStrategy":"CallTrace"},"value":{"#class":"vc.data.SnippetCmd.CVLSnippetCmd.AssertCast","cvlExpOutSym":{"namePrefix":"I9","tag":{"#class":"tac.Tag.Int"},"callIndex":0,"meta":[{"key":{"name":"cvl.type","type":"spec.cvlast.CVLType$PureCVLType","erasureStrategy":"CallTrace"},"value":{"#class":"spec.cvlast.CVLType.PureCVLType.Primitive.UIntK","k":256}}]},"assertCond":{"#class":"vc.data.TACSymbol.Var.Full","namePrefix":"B10","tag":{"#class":"tac.Tag.Bool"},"callIndex":0},"range":{"#class":"utils.Range.Range","specFile":"Cast.spec","start":{"line":19,"charByteOffset":11},"end":{"line":19,"charByteOffset":31}}}}
+		AssertCmd:37 B10 "Cast safety of toCast (uint256) to int256 (Cast.spec:20:12)"
+		AnnotationCmd:36 JSON{"key":{"name":"snippet.cmd.scope.end","type":"tac.MetaMap$Companion$NothingValue","erasureStrategy":"Canonical"},"value":{}}
 	}
 }
 Axioms {
@@ -686,28 +689,17 @@ Metas {
         "erasureStrategy": "Canonical"
       },
       "value": 18
-    },
-    {
-      "key": {
-        "name": "cvl.range",
-        "type": "utils.Range",
-        "erasureStrategy": "CallTrace"
-      },
-      "value": {
-        "#class": "utils.Range.Range",
-        "specFile": "Cast.spec",
-        "start": {
-          "line": 18,
-          "charByteOffset": 4
-        },
-        "end": {
-          "line": 18,
-          "charByteOffset": 19
-        }
-      }
     }
   ],
   "32": [
+    {
+      "key": {
+        "name": "cvl.label.start.id",
+        "type": "java.lang.Integer",
+        "erasureStrategy": "Canonical"
+      },
+      "value": 19
+    },
     {
       "key": {
         "name": "cvl.range",
@@ -731,11 +723,32 @@ Metas {
   "33": [
     {
       "key": {
+        "name": "cvl.range",
+        "type": "utils.Range",
+        "erasureStrategy": "CallTrace"
+      },
+      "value": {
+        "#class": "utils.Range.Range",
+        "specFile": "Cast.spec",
+        "start": {
+          "line": 18,
+          "charByteOffset": 4
+        },
+        "end": {
+          "line": 18,
+          "charByteOffset": 19
+        }
+      }
+    }
+  ],
+  "34": [
+    {
+      "key": {
         "name": "cvl.label.start.id",
         "type": "java.lang.Integer",
         "erasureStrategy": "Canonical"
       },
-      "value": 19
+      "value": 20
     },
     {
       "key": {
@@ -757,7 +770,7 @@ Metas {
       }
     }
   ],
-  "34": [
+  "35": [
     {
       "key": {
         "name": "cvl.exp",
@@ -834,7 +847,7 @@ Metas {
       }
     }
   ],
-  "35": [
+  "36": [
     {
       "key": {
         "name": "cvl.range",
@@ -855,7 +868,7 @@ Metas {
       }
     }
   ],
-  "36": [
+  "37": [
     {
       "key": {
         "name": "cvl.user.defined.assert",

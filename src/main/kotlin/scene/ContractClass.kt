@@ -377,7 +377,7 @@ class ContractClass(
             }
 
             transforms.addExpensive(ReportTypes.INITIALIZATION) { c: CoreTACProgram ->
-                if (Config.EnabledInitializationAnalysis.get()) {
+                if (Config.EnabledInitializationAnalysis.get() && !Config.EquivalenceCheck.get()) {
                     InitAnnotation.annotateInitializationWindows(c)
                 } else {
                     c
@@ -398,9 +398,11 @@ class ContractClass(
                 }
             }
 
-            transforms.addExpensive(ReportTypes.MEMORY_SPLITTER_AND_BRANCH_PRUNER) { m: ITACMethod ->
-                OptimizeBasedOnPointsToAnalysis.doWork(m)
-            };
+            if(!Config.EquivalenceCheck.get()) {
+                transforms.addExpensive(ReportTypes.MEMORY_SPLITTER_AND_BRANCH_PRUNER) { m: ITACMethod ->
+                    OptimizeBasedOnPointsToAnalysis.doWork(m)
+                };
+            }
 
             cb@{ sighash: BigInteger? ->
                 if(cvl != null) {

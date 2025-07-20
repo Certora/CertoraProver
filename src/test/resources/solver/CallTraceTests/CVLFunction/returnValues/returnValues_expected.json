@@ -212,6 +212,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null
@@ -333,11 +344,11 @@
                                                 "text": "z ↪ '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0x5",
+                                                        "value": "0x8",
                                                         "values": [
-                                                            "0x5",
-                                                            "5",
-                                                            "0x5"
+                                                            "0x8",
+                                                            "8",
+                                                            "0x8"
                                                         ],
                                                         "tooltip": "value of expression",
                                                         "truncatable": true
@@ -535,11 +546,11 @@
                                                                 "text": "z ↪ '{0}'",
                                                                 "arguments": [
                                                                     {
-                                                                        "value": "0x5",
+                                                                        "value": "0x8",
                                                                         "values": [
-                                                                            "0x5",
-                                                                            "5",
-                                                                            "0x5"
+                                                                            "0x8",
+                                                                            "8",
+                                                                            "0x8"
                                                                         ],
                                                                         "tooltip": "value of expression",
                                                                         "truncatable": true

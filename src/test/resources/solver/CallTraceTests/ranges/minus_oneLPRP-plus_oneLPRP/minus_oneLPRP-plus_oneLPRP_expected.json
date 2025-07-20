@@ -323,6 +323,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null

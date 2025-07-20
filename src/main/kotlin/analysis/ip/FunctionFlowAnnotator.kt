@@ -66,7 +66,7 @@ import kotlin.math.absoluteValue
 
 private val logger = Logger(LoggerTypes.FUNCTION_BUILDER)
 
-fun <T> T?.warnIfNull(f: () -> String) = warnIfNull(logger, f)
+private fun <T> T?.warnIfNull(f: () -> String) = warnIfNull(logger, f)
 
 @KSerializable
 @Treapable

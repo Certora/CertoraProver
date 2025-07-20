@@ -2,7 +2,7 @@
     "ptr": {
         "block": {
             "type": "tac.BlockIdentifier",
-            "origStartPc": 39,
+            "origStartPc": 37,
             "stkTop": 0,
             "decompCopy": 0,
             "calleeIdx": 0,
@@ -15,7 +15,7 @@
         "type": "vc.data.TACCmd.Simple.AssertCmd",
         "o": {
             "type": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "B26",
+            "namePrefix": "B27",
             "tag": {
                 "type": "tac.Tag.Bool"
             },
@@ -50,7 +50,7 @@
                     "type": "java.lang.Integer",
                     "erasureStrategy": "Canonical"
                 },
-                "value": 5
+                "value": 7
             },
             {
                 "key": {

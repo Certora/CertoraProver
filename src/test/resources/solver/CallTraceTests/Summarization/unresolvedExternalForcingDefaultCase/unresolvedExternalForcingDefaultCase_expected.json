@@ -24,14 +24,14 @@
                     "childrenList": [
                         {
                             "message": {
-                                "text": "0x2735.balance: '{0}'",
+                                "text": "0x8200.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "MAX_UINT256",
+                                        "value": "2^255",
                                         "values": [
-                                            "MAX_UINT256",
-                                            "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                            "2^255",
+                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
                                         ],
                                         "tooltip": "balance",
                                         "truncatable": false
@@ -48,11 +48,11 @@
                                 "text": "Test.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "2^256 - 2",
+                                        "value": "2^255",
                                         "values": [
-                                            "2^256 - 2",
-                                            "115792089237316195423570985008687907853269984665640564039457584007913129639934",
-                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                            "2^255",
+                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
                                         ],
                                         "tooltip": "balance",
                                         "truncatable": false
@@ -266,6 +266,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null
@@ -362,11 +373,11 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0x2735",
+                                        "value": "0x8200",
                                         "values": [
-                                            "0x2735",
-                                            "0x2735",
-                                            "0x2735"
+                                            "0x8200",
+                                            "0x8200",
+                                            "0x8200"
                                         ],
                                         "tooltip": "address of sender",
                                         "truncatable": true
@@ -376,7 +387,7 @@
                                         "values": [
                                             "Test",
                                             "Test",
-                                            "0xf"
+                                            "0x8"
                                         ],
                                         "tooltip": "address of receiver",
                                         "truncatable": false
@@ -400,11 +411,11 @@
                                         "text": "Load from: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "MAX_UINT256",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "MAX_UINT256",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -421,11 +432,11 @@
                                         "text": "Store at: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "MAX_UINT256",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "MAX_UINT256",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -442,11 +453,11 @@
                                         "text": "Load from: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^256 - 2",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "2^256 - 2",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639934",
-                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -463,11 +474,11 @@
                                         "text": "Store at: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^256 - 2",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "2^256 - 2",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639934",
-                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -574,31 +585,31 @@
                         "text": "Test.unresolvedExternalSummaryDefault(target='{0}', data=bytes (length='{1}')) ↪ '{2}'",
                         "arguments": [
                             {
-                                "value": "0x2737",
+                                "value": "0x4300",
                                 "values": [
-                                    "0x2737",
-                                    "0x2737",
-                                    "0x2737"
+                                    "0x4300",
+                                    "0x4300",
+                                    "0x4300"
                                 ],
                                 "tooltip": "value",
                                 "truncatable": true
                             },
                             {
-                                "value": "0x3",
+                                "value": "0xb",
                                 "values": [
-                                    "0x3",
-                                    "3",
-                                    "0x3"
+                                    "0xb",
+                                    "11",
+                                    "0xb"
                                 ],
                                 "tooltip": "value",
                                 "truncatable": true
                             },
                             {
-                                "value": "0x1",
+                                "value": "0xd0",
                                 "values": [
-                                    "0x1",
-                                    "1",
-                                    "0x1"
+                                    "0xd0",
+                                    "208",
+                                    "0xd0"
                                 ],
                                 "tooltip": "value",
                                 "truncatable": true
@@ -612,11 +623,11 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0x2735",
+                                        "value": "0x8200",
                                         "values": [
-                                            "0x2735",
-                                            "0x2735",
-                                            "0x2735"
+                                            "0x8200",
+                                            "0x8200",
+                                            "0x8200"
                                         ],
                                         "tooltip": "address of sender",
                                         "truncatable": true
@@ -626,7 +637,7 @@
                                         "values": [
                                             "Test",
                                             "Test",
-                                            "0xf"
+                                            "0x8"
                                         ],
                                         "tooltip": "address of receiver",
                                         "truncatable": false
@@ -650,11 +661,11 @@
                                         "text": "Load from: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "MAX_UINT256",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "MAX_UINT256",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -671,11 +682,11 @@
                                         "text": "Store at: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "MAX_UINT256",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "MAX_UINT256",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -692,11 +703,11 @@
                                         "text": "Load from: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^256 - 2",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "2^256 - 2",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639934",
-                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -713,11 +724,11 @@
                                         "text": "Store at: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^256 - 2",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "2^256 - 2",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639934",
-                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -895,11 +906,11 @@
                                 "text": "Test.bytesToUint(b=bytes) ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x1",
+                                        "value": "0xd0",
                                         "values": [
-                                            "0x1",
-                                            "1",
-                                            "0x1"
+                                            "0xd0",
+                                            "208",
+                                            "0xd0"
                                         ],
                                         "tooltip": "return value",
                                         "truncatable": true
@@ -991,14 +1002,14 @@
                                     "childrenList": [
                                         {
                                             "message": {
-                                                "text": "0x2735.balance: '{0}'",
+                                                "text": "0x8200.balance: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "MAX_UINT256",
+                                                        "value": "2^255",
                                                         "values": [
-                                                            "MAX_UINT256",
-                                                            "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                                            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                            "2^255",
+                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                         ],
                                                         "tooltip": "balance",
                                                         "truncatable": false
@@ -1015,11 +1026,11 @@
                                                 "text": "Test.balance: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "2^256 - 2",
+                                                        "value": "2^255",
                                                         "values": [
-                                                            "2^256 - 2",
-                                                            "115792089237316195423570985008687907853269984665640564039457584007913129639934",
-                                                            "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                                            "2^255",
+                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                         ],
                                                         "tooltip": "balance",
                                                         "truncatable": false
@@ -1115,11 +1126,11 @@
                                 "text": "res ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x1",
+                                        "value": "0xd0",
                                         "values": [
-                                            "0x1",
-                                            "1",
-                                            "0x1"
+                                            "0xd0",
+                                            "208",
+                                            "0xd0"
                                         ],
                                         "tooltip": "value of expression",
                                         "truncatable": true
@@ -1193,14 +1204,14 @@
                             "childrenList": [
                                 {
                                     "message": {
-                                        "text": "0x2735.balance: '{0}'",
+                                        "text": "0x8200.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "MAX_UINT256",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "MAX_UINT256",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false
@@ -1217,11 +1228,11 @@
                                         "text": "Test.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^256 - 2",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "2^256 - 2",
-                                                    "115792089237316195423570985008687907853269984665640564039457584007913129639934",
-                                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
                                                 "truncatable": false

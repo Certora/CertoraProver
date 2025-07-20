@@ -72,6 +72,7 @@ import vc.data.*
  * is contained within the summary object.
  */
 class SimpleCanonicalization private constructor(
+    val variableCanonicalizer: VariableCanonicalizer?,
     val prog: CoreTACProgram,
     val end: (LTACCmd) -> Boolean,
     val include: (LTACCmd) -> Boolean,
@@ -86,6 +87,10 @@ class SimpleCanonicalization private constructor(
      */
     forceVariableEquiv: List<Collection<TACSymbol.Var>>
 ) {
+    fun interface VariableCanonicalizer {
+        fun canonicalize(v: TACSymbol.Var, namePrefix: String, fresh: () -> Int): TACSymbol.Var?
+    }
+
     companion object {
         /**
          * Canonicalize a subgraph of [prog] beginning at [start] running until a
@@ -106,10 +111,11 @@ class SimpleCanonicalization private constructor(
             start: CmdPointer,
             excludeStart: Boolean,
             forceVariableEquiv: List<Collection<TACSymbol.Var>> = listOf(),
+            variableCanonicalizer: VariableCanonicalizer? = null,
             include: (LTACCmd) -> Boolean,
             end: (LTACCmd) -> Boolean
-        ): CanonProgramWithMeta {
-            return SimpleCanonicalization(prog, end, include, forceVariableEquiv).canonicalizeSubgraph(start, excludeStart)
+        ): CanonicalProgram {
+            return SimpleCanonicalization(variableCanonicalizer, prog, end, include, forceVariableEquiv).canonicalizeSubgraph(start, excludeStart)
         }
     }
 
@@ -157,6 +163,12 @@ class SimpleCanonicalization private constructor(
         override fun mapVar(t: TACSymbol.Var): TACSymbol.Var {
             check(t.callIndex == NBId.ROOT_CALL_ID)
             return canonVars.getOrPut(t.namePrefix) {
+                val canonOverride = variableCanonicalizer?.canonicalize(t, t.namePrefix) {
+                    varCounter++
+                }
+                if(canonOverride != null) {
+                    return@getOrPut canonOverride
+                }
                 val freshId = varCounter++
                 freshId.toVar(t.tag)
             }.also { cVar ->
@@ -201,47 +213,13 @@ class SimpleCanonicalization private constructor(
         }
     }
 
-    /**
-     * The basic canonicalized program, consisting of a static CFG in [block]. The program represented by this
-     * interface has many of the same structural invariants of a "real" [CoreTACProgram]; the successor relation of [block]
-     * is closed, and the domains of [block] and [code] are equal, and the co-domain of [code] are always non-empty lists.
-     *
-     * Accordingly if two canonical programs have equal [block] and [code] fields, then they represent *computationally*
-     * equal fragments of a [CoreTACProgram]; executed on some input the programs should do the same thing.
-     */
-    interface ICanonProgram {
-        val block: LinkedArrayHashMap<NBId, TreapSet<NBId>>
-        val code: Map<NBId, List<TACCmd.Simple>>
-    }
-
-    data class CanonProgram(override val block: LinkedArrayHashMap<NBId, TreapSet<NBId>>, override val code: Map<NBId, List<TACCmd.Simple>>) :
-        ICanonProgram
-
-    /**
-     * An [ICanonProgram] which has metadata which allows lifting into a [CoreTACProgram] (via [toProgram]), and which allows
-     * querying the canonicalized variable names assigned to variables in the input program via [variableMapping].
-     *
-     * NB that a variable that appears in the original, canonicalized fragment is not guaranteed to be mapped by [variableMapping];
-     * if the variable only appears in metas or commands excluded by [include], then it will not appear in the domain
-     * of [variableMapping].
-     *
-     * One final note: you should *not* compare instances of these classes using equality to determine if subprograms
-     * are equivalent.
-     */
-    data class CanonProgramWithMeta(
-        val canon: CanonProgram,
-        val variableMapping: (TACSymbol.Var) -> TACSymbol.Var?,
-        val varDecls: Set<TACSymbol.Var>
-    ) : ICanonProgram by canon {
-        fun toProgram(name: String) = CoreTACProgram(
-            code = canon.code,
-            blockgraph = canon.block,
-            procedures = setOf(),
-            instrumentationTAC = InstrumentationTAC(UfAxioms.empty()),
-            name = name,
-            symbolTable = TACSymbolTable.withTags(varDecls),
-            check = true
-        )
+    class CanonicalProgram(
+        val code: CoreTACProgram,
+        val variableMapping: (TACSymbol.Var) -> TACSymbol.Var?
+    ) {
+        infix fun equivTo(other: CanonicalProgram) : Boolean {
+            return code.blockgraph == other.code.blockgraph && code.code == other.code.code
+        }
     }
 
     private fun Int.toBlock() = BlockIdentifier(
@@ -262,7 +240,7 @@ class SimpleCanonicalization private constructor(
     private fun canonicalizeSubgraph(
         start: CmdPointer,
         excludeStart: Boolean,
-    ) : CanonProgramWithMeta {
+    ) : CanonicalProgram {
         val worklist = ArrayDeque<Pair<CmdPointer, Boolean>>()
         worklist.add(
             start to excludeStart
@@ -305,10 +283,10 @@ class SimpleCanonicalization private constructor(
                 blockGraph[b] = treapSetOf()
             }
         }
-        val canonProgram = CanonProgram(blockGraph.mapValuesTo(LinkedArrayHashMap()) {
+        val canonProgram = CoreTACProgram(blockgraph = blockGraph.mapValuesTo(LinkedArrayHashMap()) {
             it.value.toTreapSet()
-        }, code)
-        return CanonProgramWithMeta(canon = canonProgram, varDecls = canonVars.values.toSet(), variableMapping = {
+        }, code = code, check = true, instrumentationTAC = InstrumentationTAC(UfAxioms.empty()), symbolTable = TACSymbolTable.withTags(canonVars.values.toSet()), procedures = setOf(), name = "canon")
+        return CanonicalProgram(canonProgram, variableMapping = {
             canonVars[it.namePrefix]
         })
     }
@@ -364,6 +342,9 @@ class SimpleCanonicalization private constructor(
         check(block !in code)
         val translatedCode = mutableListOf<TACCmd.Simple>()
         val ret = translateBlock(start, excludeStart, translatedCode)
+        if(translatedCode.isEmpty()) {
+            translatedCode.add(TACCmd.Simple.NopCmd)
+        }
         code[block] = translatedCode
         return ret
     }

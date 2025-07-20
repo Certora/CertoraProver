@@ -775,6 +775,7 @@
         }
     },
     "ruleGenerationMeta": {
-        "type": "spec.rules.SingleRuleGenerationMeta.Empty"
+        "type": "spec.rules.SingleRuleGenerationMeta.WithSanity",
+        "sanity": "PRE_SANITY_CHECK"
     }
 }

@@ -55,7 +55,7 @@
                     }
                 },
                 {
-                    "namePrefix": "b0320",
+                    "namePrefix": "b0311",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -168,7 +168,7 @@
                     }
                 },
                 {
-                    "namePrefix": "certoraAssume310311",
+                    "namePrefix": "certoraAssume303304",
                     "tag": {
                         "type": "tac.Tag.Bool"
                     },
@@ -373,7 +373,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8"
+                    "value": "2711"
                 },
                 {
                     "namePrefix": "R4",
@@ -424,7 +424,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                    "value": "1"
                 },
                 {
                     "namePrefix": "R5",
@@ -495,7 +495,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8000000000000000000000000000000000000000000000000000000000000000"
+                    "value": "1"
                 },
                 {
                     "namePrefix": "R9",
@@ -657,7 +657,7 @@
                     "value": "0"
                 },
                 {
-                    "namePrefix": "currentContract173",
+                    "namePrefix": "currentContract162",
                     "tag": {
                         "type": "tac.Tag.Int"
                     },
@@ -705,10 +705,115 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "8"
+                    "value": "2711"
                 },
                 {
-                    "namePrefix": "s1246_length",
+                    "namePrefix": "s1236_datahavocme1142",
+                    "tag": {
+                        "type": "tac.Tag.ByteMap"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "utils.Range.Range",
+                                    "specFile": "cvlStrings.spec",
+                                    "start": {
+                                        "line": 32,
+                                        "charByteOffset": 4
+                                    },
+                                    "end": {
+                                        "line": 32,
+                                        "charByteOffset": 14
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "tacsimplesimple.havocme",
+                                "type": "tac.MetaMap$Companion$NothingValue",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.data.is-reference",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": false
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.DynamicArray.StringType"
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "s1"
+                        }
+                    ]
+                },
+                {
+                    "type": "vc.data.state.TACValue.MappingValue.MapDefinition",
+                    "exp": {
+                        "defParams": [
+                            {
+                                "s": {
+                                    "namePrefix": "x",
+                                    "tag": {
+                                        "type": "tac.Tag.Bit256"
+                                    },
+                                    "callIndex": 0
+                                },
+                                "tag": {
+                                    "type": "tac.Tag.Bit256"
+                                }
+                            }
+                        ],
+                        "definition": {
+                            "type": "vc.data.TACExpr.Sym.Const",
+                            "s": {
+                                "value": "0"
+                            },
+                            "tag": {
+                                "type": "tac.Tag.Bit256"
+                            }
+                        },
+                        "tag": {
+                            "type": "tac.Tag.ByteMap"
+                        }
+                    }
+                },
+                {
+                    "namePrefix": "s1236_length",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -930,7 +1035,73 @@
                     ]
                 },
                 {
-                    "namePrefix": "s1246_datahavocme784",
+                    "namePrefix": "s1236_length",
+                    "tag": {
+                        "type": "tac.Tag.Bit256"
+                    },
+                    "callIndex": 0,
+                    "meta": [
+                        {
+                            "key": {
+                                "name": "cvl.def.site",
+                                "type": "spec.CVLDefinitionSite",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": {
+                                "type": "spec.CVLDefinitionSite.Rule",
+                                "range": {
+                                    "type": "utils.Range.Range",
+                                    "specFile": "cvlStrings.spec",
+                                    "start": {
+                                        "line": 32,
+                                        "charByteOffset": 4
+                                    },
+                                    "end": {
+                                        "line": 32,
+                                        "charByteOffset": 14
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.lengthof",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": "s1"
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.type",
+                                "type": "spec.cvlast.CVLType$PureCVLType",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": {
+                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
+                                "k": 256
+                            }
+                        },
+                        {
+                            "key": {
+                                "name": "cvl",
+                                "type": "java.lang.Boolean",
+                                "erasureStrategy": "Canonical"
+                            },
+                            "value": true
+                        },
+                        {
+                            "key": {
+                                "name": "cvl.display",
+                                "type": "java.lang.String",
+                                "erasureStrategy": "CallTrace"
+                            },
+                            "value": "s1.length"
+                        }
+                    ]
+                },
+                {
+                    "namePrefix": "s1236_datahavocme1142",
                     "tag": {
                         "type": "tac.Tag.ByteMap"
                     },
@@ -1004,7 +1175,7 @@
                     ]
                 },
                 {
-                    "namePrefix": "s1246_length",
+                    "namePrefix": "R5",
                     "tag": {
                         "type": "tac.Tag.Bit256"
                     },
@@ -1012,65 +1183,35 @@
                     "meta": [
                         {
                             "key": {
-                                "name": "cvl.def.site",
-                                "type": "spec.CVLDefinitionSite",
+                                "name": "Tac.symbol.keyword",
+                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
                                 "erasureStrategy": "Canonical"
                             },
                             "value": {
-                                "type": "spec.CVLDefinitionSite.Rule",
-                                "range": {
-                                    "type": "utils.Range.Range",
-                                    "specFile": "cvlStrings.spec",
-                                    "start": {
-                                        "line": 32,
-                                        "charByteOffset": 4
-                                    },
-                                    "end": {
-                                        "line": 32,
-                                        "charByteOffset": 14
-                                    }
-                                }
+                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
+                                "name": "tacContractAt"
                             }
                         },
                         {
                             "key": {
-                                "name": "cvl.lengthof",
+                                "name": "tac.contract.sym.addr.name",
                                 "type": "java.lang.String",
-                                "erasureStrategy": "Canonical"
+                                "erasureStrategy": "Erased"
                             },
-                            "value": "s1"
+                            "value": "ecrecover"
                         },
                         {
                             "key": {
-                                "name": "cvl.type",
-                                "type": "spec.cvlast.CVLType$PureCVLType",
-                                "erasureStrategy": "CallTrace"
+                                "name": "tac.contract.sym.addr",
+                                "type": "java.math.BigInteger",
+                                "erasureStrategy": "Erased"
                             },
-                            "value": {
-                                "type": "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK",
-                                "k": 256
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "cvl",
-                                "type": "java.lang.Boolean",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": true
-                        },
-                        {
-                            "key": {
-                                "name": "cvl.display",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "CallTrace"
-                            },
-                            "value": "s1.length"
+                            "value": "1"
                         }
                     ]
                 },
                 {
-                    "namePrefix": "s1246_data",
+                    "namePrefix": "s1236_data",
                     "tag": {
                         "type": "tac.Tag.ByteMap"
                     },
@@ -1139,42 +1280,6 @@
                                 "erasureStrategy": "CallTrace"
                             },
                             "value": "s1"
-                        }
-                    ]
-                },
-                {
-                    "namePrefix": "R5",
-                    "tag": {
-                        "type": "tac.Tag.Bit256"
-                    },
-                    "callIndex": 0,
-                    "meta": [
-                        {
-                            "key": {
-                                "name": "Tac.symbol.keyword",
-                                "type": "vc.data.TACSymbol$Var$KeywordEntry",
-                                "erasureStrategy": "Canonical"
-                            },
-                            "value": {
-                                "type": "vc.data.TACSymbol.Var.KeywordEntry.NonTACKeywordEntry",
-                                "name": "tacContractAt"
-                            }
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr.name",
-                                "type": "java.lang.String",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "ecrecover"
-                        },
-                        {
-                            "key": {
-                                "name": "tac.contract.sym.addr",
-                                "type": "java.math.BigInteger",
-                                "erasureStrategy": "Erased"
-                            },
-                            "value": "1"
                         }
                     ]
                 },

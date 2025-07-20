@@ -35,11 +35,11 @@
                                         "text": "val: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xc",
+                                                "value": "0x3",
                                                 "values": [
-                                                    "0xc",
-                                                    "12",
-                                                    "0xc"
+                                                    "0x3",
+                                                    "3",
+                                                    "0x3"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -81,17 +81,17 @@
                     "childrenList": [
                         {
                             "message": {
-                                "text": "0x4300.balance: '{0}'",
+                                "text": "0x2711.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "2^255",
+                                        "value": "0x0",
                                         "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0x0",
+                                            "0",
+                                            "0x0"
                                         ],
                                         "tooltip": "balance",
-                                        "truncatable": false
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -105,14 +105,14 @@
                                 "text": "TestContract.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "2^255",
+                                        "value": "0x0",
                                         "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0x0",
+                                            "0",
+                                            "0x0"
                                         ],
                                         "tooltip": "balance",
-                                        "truncatable": false
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -148,11 +148,11 @@
                                         "truncatable": true
                                     },
                                     {
-                                        "value": "0x3",
+                                        "value": "0x6",
                                         "values": [
-                                            "0x3",
-                                            "3",
-                                            "0x3"
+                                            "0x6",
+                                            "6",
+                                            "0x6"
                                         ],
                                         "tooltip": "ghost value",
                                         "truncatable": true
@@ -179,11 +179,11 @@
                                 "text": "innerVal: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0xc",
+                                        "value": "0x3",
                                         "values": [
-                                            "0xc",
-                                            "12",
-                                            "0xc"
+                                            "0x3",
+                                            "3",
+                                            "0x3"
                                         ],
                                         "tooltip": "ghost value",
                                         "truncatable": true
@@ -400,6 +400,17 @@
                 {
                     "message": {
                         "text": "establish equivalence of extension and base contract immutables",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
                         "arguments": [
                         ]
                     },
@@ -692,11 +703,11 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0x4300",
+                                        "value": "0x2711",
                                         "values": [
-                                            "0x4300",
-                                            "0x4300",
-                                            "0x4300"
+                                            "0x2711",
+                                            "0x2711",
+                                            "0x2711"
                                         ],
                                         "tooltip": "address of sender",
                                         "truncatable": true
@@ -706,7 +717,7 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x8200"
+                                            "0x2712"
                                         ],
                                         "tooltip": "address of receiver",
                                         "truncatable": false
@@ -730,14 +741,14 @@
                                         "text": "Load from: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -751,14 +762,14 @@
                                         "text": "Store at: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -772,14 +783,14 @@
                                         "text": "Load from: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -793,14 +804,14 @@
                                         "text": "Store at: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -821,20 +832,20 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x8200"
+                                            "0x2712"
                                         ],
                                         "tooltip": "address",
                                         "truncatable": false
                                     },
                                     {
-                                        "value": "2^255",
+                                        "value": "0x1",
                                         "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0x1",
+                                            "1",
+                                            "0x1"
                                         ],
                                         "tooltip": "storage value",
-                                        "truncatable": false
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1058,11 +1069,11 @@
                                 "truncatable": true
                             },
                             {
-                                "value": "0x3",
+                                "value": "0x6",
                                 "values": [
-                                    "0x3",
-                                    "3",
-                                    "0x3"
+                                    "0x6",
+                                    "6",
+                                    "0x6"
                                 ],
                                 "tooltip": "value",
                                 "truncatable": true
@@ -1076,11 +1087,11 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0x4300",
+                                        "value": "0x2711",
                                         "values": [
-                                            "0x4300",
-                                            "0x4300",
-                                            "0x4300"
+                                            "0x2711",
+                                            "0x2711",
+                                            "0x2711"
                                         ],
                                         "tooltip": "address of sender",
                                         "truncatable": true
@@ -1090,7 +1101,7 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x8200"
+                                            "0x2712"
                                         ],
                                         "tooltip": "address of receiver",
                                         "truncatable": false
@@ -1114,14 +1125,14 @@
                                         "text": "Load from: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -1135,14 +1146,14 @@
                                         "text": "Store at: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -1156,14 +1167,14 @@
                                         "text": "Load from: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -1177,14 +1188,14 @@
                                         "text": "Store at: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -1205,20 +1216,20 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x8200"
+                                            "0x2712"
                                         ],
                                         "tooltip": "address",
                                         "truncatable": false
                                     },
                                     {
-                                        "value": "2^255",
+                                        "value": "0x1",
                                         "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0x1",
+                                            "1",
+                                            "0x1"
                                         ],
                                         "tooltip": "storage value",
-                                        "truncatable": false
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1274,11 +1285,11 @@
                                 "text": "double: ghost_double[d] summary @ Basic.spec:3:75() ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x3",
+                                        "value": "0x6",
                                         "values": [
-                                            "0x3",
-                                            "3",
-                                            "0x3"
+                                            "0x6",
+                                            "6",
+                                            "0x6"
                                         ],
                                         "tooltip": "return value",
                                         "truncatable": true
@@ -1302,11 +1313,11 @@
                                                 "truncatable": true
                                             },
                                             {
-                                                "value": "0x3",
+                                                "value": "0x6",
                                                 "values": [
-                                                    "0x3",
-                                                    "3",
-                                                    "0x3"
+                                                    "0x6",
+                                                    "6",
+                                                    "0x6"
                                                 ],
                                                 "tooltip": "value read from ghost",
                                                 "truncatable": true
@@ -1401,11 +1412,11 @@
                         "text": "TestContract.getval() ↪ '{0}'",
                         "arguments": [
                             {
-                                "value": "0xc",
+                                "value": "0x3",
                                 "values": [
-                                    "0xc",
-                                    "12",
-                                    "0xc"
+                                    "0x3",
+                                    "3",
+                                    "0x3"
                                 ],
                                 "tooltip": "value",
                                 "truncatable": true
@@ -1423,20 +1434,20 @@
                                         "values": [
                                             "TestContract",
                                             "TestContract",
-                                            "0x8200"
+                                            "0x2712"
                                         ],
                                         "tooltip": "address",
                                         "truncatable": false
                                     },
                                     {
-                                        "value": "2^255",
+                                        "value": "0x1",
                                         "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0x1",
+                                            "1",
+                                            "0x1"
                                         ],
                                         "tooltip": "storage value",
-                                        "truncatable": false
+                                        "truncatable": true
                                     }
                                 ]
                             },
@@ -1471,11 +1482,11 @@
                                 "text": "TestContract.getval() ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0xc",
+                                        "value": "0x3",
                                         "values": [
-                                            "0xc",
-                                            "12",
-                                            "0xc"
+                                            "0x3",
+                                            "3",
+                                            "0x3"
                                         ],
                                         "tooltip": "return value",
                                         "truncatable": true
@@ -1519,11 +1530,11 @@
                                                 "text": "Ghost read: innerVal ↪ '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0xc",
+                                                        "value": "0x3",
                                                         "values": [
-                                                            "0xc",
-                                                            "12",
-                                                            "0xc"
+                                                            "0x3",
+                                                            "3",
+                                                            "0x3"
                                                         ],
                                                         "tooltip": "value read from ghost",
                                                         "truncatable": true
@@ -1566,11 +1577,11 @@
                                                         "text": "innerVal ↪ '{0}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0xc",
+                                                                "value": "0x3",
                                                                 "values": [
-                                                                    "0xc",
-                                                                    "12",
-                                                                    "0xc"
+                                                                    "0x3",
+                                                                    "3",
+                                                                    "0x3"
                                                                 ],
                                                                 "tooltip": "value of expression",
                                                                 "truncatable": true
@@ -1597,9 +1608,9 @@
                                                         "text": "contractVal ↪ '{0}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0xc",
+                                                                "value": "0x3",
                                                                 "values": [
-                                                                    "0xc"
+                                                                    "0x3"
                                                                 ],
                                                                 "tooltip": "value of expression",
                                                                 "truncatable": true
@@ -1642,11 +1653,11 @@
                                         "text": "Load from TestContract.val ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xc",
+                                                "value": "0x3",
                                                 "values": [
-                                                    "0xc",
-                                                    "12",
-                                                    "0xc"
+                                                    "0x3",
+                                                    "3",
+                                                    "0x3"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": true
@@ -1700,11 +1711,11 @@
                                                         "text": "val: '{0}'",
                                                         "arguments": [
                                                             {
-                                                                "value": "0xc",
+                                                                "value": "0x3",
                                                                 "values": [
-                                                                    "0xc",
-                                                                    "12",
-                                                                    "0xc"
+                                                                    "0x3",
+                                                                    "3",
+                                                                    "0x3"
                                                                 ],
                                                                 "tooltip": "storage value",
                                                                 "truncatable": true
@@ -1746,17 +1757,17 @@
                                     "childrenList": [
                                         {
                                             "message": {
-                                                "text": "0x4300.balance: '{0}'",
+                                                "text": "0x2711.balance: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "2^255",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "2^255",
-                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                            "0x0",
+                                                            "0",
+                                                            "0x0"
                                                         ],
                                                         "tooltip": "balance",
-                                                        "truncatable": false
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -1770,14 +1781,14 @@
                                                 "text": "TestContract.balance: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "2^255",
+                                                        "value": "0x0",
                                                         "values": [
-                                                            "2^255",
-                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                            "0x0",
+                                                            "0",
+                                                            "0x0"
                                                         ],
                                                         "tooltip": "balance",
-                                                        "truncatable": false
+                                                        "truncatable": true
                                                     }
                                                 ]
                                             },
@@ -1813,11 +1824,11 @@
                                                         "truncatable": true
                                                     },
                                                     {
-                                                        "value": "0x3",
+                                                        "value": "0x6",
                                                         "values": [
-                                                            "0x3",
-                                                            "3",
-                                                            "0x3"
+                                                            "0x6",
+                                                            "6",
+                                                            "0x6"
                                                         ],
                                                         "tooltip": "ghost value",
                                                         "truncatable": true
@@ -1844,11 +1855,11 @@
                                                 "text": "innerVal: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0xc",
+                                                        "value": "0x3",
                                                         "values": [
-                                                            "0xc",
-                                                            "12",
-                                                            "0xc"
+                                                            "0x3",
+                                                            "3",
+                                                            "0x3"
                                                         ],
                                                         "tooltip": "ghost value",
                                                         "truncatable": true
@@ -2017,11 +2028,11 @@
                                 "text": "r3 ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x3",
+                                        "value": "0x6",
                                         "values": [
-                                            "0x3",
-                                            "3",
-                                            "0x3"
+                                            "0x6",
+                                            "6",
+                                            "0x6"
                                         ],
                                         "tooltip": "value of expression",
                                         "truncatable": true
@@ -2106,11 +2117,11 @@
                                                 "text": "val: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0xc",
+                                                        "value": "0x3",
                                                         "values": [
-                                                            "0xc",
-                                                            "12",
-                                                            "0xc"
+                                                            "0x3",
+                                                            "3",
+                                                            "0x3"
                                                         ],
                                                         "tooltip": "storage value",
                                                         "truncatable": true
@@ -2152,17 +2163,17 @@
                             "childrenList": [
                                 {
                                     "message": {
-                                        "text": "0x4300.balance: '{0}'",
+                                        "text": "0x2711.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -2176,14 +2187,14 @@
                                         "text": "TestContract.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "2^255",
+                                                "value": "0x0",
                                                 "values": [
-                                                    "2^255",
-                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                                    "0x0",
+                                                    "0",
+                                                    "0x0"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": false
+                                                "truncatable": true
                                             }
                                         ]
                                     },
@@ -2219,11 +2230,11 @@
                                                 "truncatable": true
                                             },
                                             {
-                                                "value": "0x3",
+                                                "value": "0x6",
                                                 "values": [
-                                                    "0x3",
-                                                    "3",
-                                                    "0x3"
+                                                    "0x6",
+                                                    "6",
+                                                    "0x6"
                                                 ],
                                                 "tooltip": "ghost value",
                                                 "truncatable": true
@@ -2250,11 +2261,11 @@
                                         "text": "innerVal: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0xc",
+                                                "value": "0x3",
                                                 "values": [
-                                                    "0xc",
-                                                    "12",
-                                                    "0xc"
+                                                    "0x3",
+                                                    "3",
+                                                    "0x3"
                                                 ],
                                                 "tooltip": "ghost value",
                                                 "truncatable": true

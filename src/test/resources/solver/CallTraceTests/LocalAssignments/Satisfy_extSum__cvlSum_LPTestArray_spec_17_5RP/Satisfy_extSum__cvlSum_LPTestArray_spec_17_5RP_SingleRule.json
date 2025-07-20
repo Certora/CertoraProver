@@ -7,7 +7,7 @@
             "counter": 2
         },
         "displayName": "Satisfy_extSum__cvlSum_(TestArray_spec_17_5)",
-        "counter": 4
+        "counter": 6
     },
     "range": {
         "type": "utils.Range.Range",
@@ -3106,7 +3106,8 @@
                 }
             },
             "ruleGenerationMeta": {
-                "type": "spec.rules.SingleRuleGenerationMeta.Empty"
+                "type": "spec.rules.SingleRuleGenerationMeta.WithSanity",
+                "sanity": "PRE_SANITY_CHECK"
             }
         },
         "assertId": 1,

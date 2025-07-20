@@ -2,7 +2,7 @@
     "ptr": {
         "block": {
             "type": "tac.BlockIdentifier",
-            "origStartPc": 41,
+            "origStartPc": 36,
             "stkTop": 0,
             "decompCopy": 0,
             "calleeIdx": 0,

@@ -7,13 +7,14 @@
  *     the Free Software Foundation, version 3 of the License.
  *
  *     This program is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY, without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR a PARTICULAR PURPOSE.  See the
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *     GNU General Public License for more details.
  *
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 package verifier.equivalence
 
 import allocator.Allocator
@@ -25,11 +26,7 @@ import analysis.maybeAnnotation
 import analysis.snarrowOrNull
 import datastructures.stdcollections.*
 import evm.MASK_SIZE
-import instrumentation.calls.CalldataEncoding
-import verifier.equivalence.tracing.BufferTraceInstrumentation
-import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.`=`
-import scene.ContractClass
-import scene.TACMethod
+import rules.CompiledRule
 import solver.CounterexampleModel
 import tac.CallId
 import tac.MetaKey
@@ -40,21 +37,55 @@ import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
 import vc.data.TACProgramCombiners.andThen
 import vc.data.TACProgramCombiners.flatten
-import vc.data.TACSymbol.Companion.atSync
 import vc.data.codeFromCommandWithVarDecls
 import vc.data.tacexprutil.ExprUnfolder
-import verifier.equivalence.EquivalenceChecker.Companion.mergeCodes
+import verifier.equivalence.data.*
 import verifier.equivalence.summarization.CommonPureInternalFunction
+import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.`=`
 import java.math.BigInteger
 import java.util.stream.Collectors
 
 /**
- * Responsible for generating the rule to be checked, handling inlining/environment setup, etc.
+ * Abstract class responsible for stitching together the instrumented versions of A and B
+ * and the generated VC. [I] is the type of the calling convention for programs A and B.
+ *
+ * This class will handle setting the environment variables to be equivalent (and saving their values
+ * for retrieval later from the CEX), setting immutables to be equivalent, storage and transient storage to be equal,
+ * setting balances to be equal, and setting the contract addresses to be equal. Binding the calling information
+ * is left to the subclasses.
  */
-class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMethod) {
+abstract class AbstractRuleGeneration<I>(
+    protected val context: EquivalenceQueryContext
+) {
+    /**
+     * Setup code that is always placed before the instrumented bodies are inlined. This code is expected to initialize
+     * the common inputs that will be passed to both programs via [generateInput].
+     */
+    abstract fun setupCode(): CommandWithRequiredDecls<TACCmd.Simple>
 
-    private val contractA = methodA.getContainingContract() as ContractClass
-    private val contractB = methodB.getContainingContract() as ContractClass
+    /**
+     * Bind the inputs/arguments of [p] using the context [context]. [p] has been call-indexed to use [callId];
+     * however the calling convention information in [p] has not been automatically updated to reflect this call-indexing (as
+     * [I] is an unknown type to this class).
+     * The returned [CommandWithRequiredDecls] should bind the arguments/inputs of [p], and is automatically prepended
+     * onto [p] by this function's caller.
+     */
+    abstract fun <T: MethodMarker> generateInput(
+        p: CallableProgram<T, I>,
+        context: ProgramContext<T>,
+        callId: CallId
+    ) : CommandWithRequiredDecls<TACCmd.Simple>
+
+    /**
+     * The program [inlined] has been call indexed with [callId] and had its arguments bound via [callingConv].
+     * This function may (or may not) annotate the entrance/exit points of the resulting program, e.g. for call trace purposes.
+     */
+    abstract fun <T: MethodMarker> annotateInOut(
+        inlined: CoreTACProgram,
+        callingConv: I,
+        context: ProgramContext<T>,
+        callId: CallId
+    ) : CoreTACProgram
 
 
     @SuppressRemapWarning
@@ -64,11 +95,11 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
         val callId: CallId
     )
 
-    private val contractAStorage = contractA.storage.stateVars().single()
-    private val contractBStorage = contractB.storage.stateVars().single()
+    private val contractA get() = context.contextA.hostContract
+    private val contractB get() = context.contextB.hostContract
 
-    private val contractATStorage = contractA.transientStorage.stateVars().single()
-    private val contractBTStorage = contractB.transientStorage.stateVars().single()
+    private val contractAStorage = context.contextA.storageVariable
+    private val contractATStorage = context.contextA.transientStorageVariable
 
     private val environmentVars = listOf(
         EthereumVariables.balance,
@@ -101,7 +132,7 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
     }
 
     /**
-     * The "initial storage". Picked arbitrarily to be equal to [methodA]'s storage.
+     * The "initial storage". Picked arbitrarily to be equal to [context].[EquivalenceQueryContext.contextA]'s storage.
      */
     private val storageBackup = TACSymbol.Var("certoraStorageSource", Tag.WordMap)
 
@@ -111,21 +142,18 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
     private val transientBackup = TACSymbol.Var("certoraTransientSource", Tag.WordMap)
 
     /**
-     * The arbitrary calldata sent to the two methods.
-     */
-    private val theCalldata = TACSymbol.Var("certoraEquivInputCalldata", Tag.ByteMap)
-    private val theCalldataSize = TACSymbol.Var("certoraEquivInputCalldataSize", Tag.Bit256)
-
-    /**
      * Program which initializes immutables to be the same, adds
      * contraints on code sizes, sets up the environment, and so on.
      */
-    private val setupProgram = run {
+    private val setupProgram by lazy {
 
-        val immutInit = contractA.src.immutables.mapToSet {
+        /**
+         * Constrain the immutables to be the same (throws if there are different immutables)
+         */
+        val immutEquivalence = context.contextA.hostContract.src.immutables.mapToSet {
             it.varname
         }.let { aImmuts ->
-            val bImmuts = contractB.src.immutables.mapToSet {
+            val bImmuts = context.contextB.hostContract.src.immutables.mapToSet {
                 it.varname
             }
             check(bImmuts == aImmuts)
@@ -139,11 +167,11 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
             }.flatten()
         }
 
-        val dummyIdx = TACKeyword.TMP(Tag.Bit256, "!initIdx")
-
-        val initialization = environmentToSeed.map { (envVar, seed) ->
-            envVar `=` seed
-        }.flatten() andThen (storageBackup `=` contractAStorage) andThen (transientBackup `=` contractATStorage) andThen ExprUnfolder.unfoldPlusOneCmd(
+        /**
+         * Constrain the host contracts values to be equivalent (we technically only need one of these
+         * equalities, as we constrain the address syms to be equivalent later)
+         */
+        val balanceEquivalence = ExprUnfolder.unfoldPlusOneCmd(
             "balanceEquiv",
             with(TACExprFactTypeCheckedOnlyPrimitives) {
                 Eq(
@@ -152,21 +180,14 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
                 )
             }) {
             TACCmd.Simple.AssumeCmd(it.s, "equal balances")
-        }.merge(contractA.addressSym, contractB.addressSym, EthereumVariables.balance) andThen (theCalldata `=` {
-            TACExpr.MapDefinition(
-                listOf(dummyIdx.asSym()),
-                Ite(
-                    Lt(dummyIdx.asSym(), theCalldataSize.asSym()),
-                    TACExpr.Unconstrained(Tag.Bit256),
-                    TACExpr.zeroExpr
-                ), Tag.ByteMap
-            )
-        }).merge(theCalldataSize) andThen ExprUnfolder.unfoldPlusOneCmd("sighash", TACExprFactoryExtensions.run {
-            (theCalldata.get(0) shiftRLog (256 - 32)) eq methodA.sigHash!!.n
-        }) {
-            TACCmd.Simple.AssumeCmd(it.s, "set sighash")
-        } andThen invocationEnvToSeed.mapNotNull { (env, seed) ->
-            if(env.tag != Tag.Bit256) {
+        }.merge(contractA.addressSym, contractB.addressSym, EthereumVariables.balance)
+
+
+        /**
+         * Set invocation environment to predetermined values, and record values in [EnvironmentRecord]
+         */
+        val invocationEnvSetup = invocationEnvToSeed.mapNotNull { (env, seed) ->
+            if (env.tag != Tag.Bit256) {
                 return@mapNotNull null
             }
             val kwd = env.meta[TACSymbol.Var.KEYWORD_ENTRY]?.maybeTACKeywordOrdinal ?: return@mapNotNull null
@@ -176,15 +197,37 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
                     EnvironmentRecord(kwd, seed)
                 ), seed
             )
-        }.flatten() andThen ExprUnfolder.unfoldPlusOneCmd("senderConstrain", TACExprFactoryExtensions.run {
+        }.flatten()
+
+        // set environment to predetermined values
+        val environmentSetup = environmentToSeed.map { (envVar, seed) ->
+            envVar `=` seed
+        }.flatten()
+        // constrain the msg.sender to be a value address
+        val senderIsAddress = ExprUnfolder.unfoldPlusOneCmd("senderConstrain", TACExprFactoryExtensions.run {
             invocationEnvToSeed.find { (orig, _) ->
                 orig == EthereumVariables.caller
             }?.second!! le MASK_SIZE(160)
         }) {
             TACCmd.Simple.AssumeCmd(it.s, "sender is address")
-        } andThen immutInit andThen ExprUnfolder.unfoldPlusOneCmd("sameAddress", TACExpr.BinRel.Eq(contractA.addressSym.asSym(), contractB.addressSym.asSym(), Tag.Bool)) {
+        }
+
+        // constrain the contracts to have the same address (value of `this`)
+        val hostAddressEquivalence = ExprUnfolder.unfoldPlusOneCmd(
+            "sameAddress",
+            TACExpr.BinRel.Eq(contractA.addressSym.asSym(), contractB.addressSym.asSym(), Tag.Bool)
+        ) {
             TACCmd.Simple.AssumeCmd(it.s, "contracts have same addresses")
         }
+        val initialization = environmentSetup andThen
+            (storageBackup `=` contractAStorage) andThen
+            (transientBackup `=` contractATStorage) andThen
+            balanceEquivalence andThen
+            invocationEnvSetup andThen
+            immutEquivalence andThen
+            senderIsAddress andThen
+            hostAddressEquivalence
+
         val withDecl = initialization.merge(
             invocationEnvToSeed.flatMap { listOf(it.first, it.second) } + environmentToSeed.flatMap {
                 listOf(it.first, it.second)
@@ -194,25 +237,24 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
             transientBackup,
             contractAStorage,
             contractATStorage,
-            contractBStorage,
-            contractBTStorage
         )
 
-        codeFromCommandWithVarDecls(StartBlock, withDecl, "setup")
+        val customSetup = setupCode()
+
+        codeFromCommandWithVarDecls(StartBlock, withDecl andThen customSetup, "setup")
     }
 
     /**
-     * Inlines [code] which is assumed to be the instrumented version of [origMethod]. In addition to call indexing,
-     * via [CoreTACProgram.createCopy], this handles setting up storage, adding push/pop records, etc.
+     * Inlines [programAndId]. In addition to call indexing,
+     * via [CoreTACProgram.createCopy], binds arguments annotates input/outputs via [generateInput] and [annotateInOut].
      *
      * Basically a stripped down version of [Inliner.prepareMethodForInlining]
      */
-    private fun setupAndPrepareForInlining(
-        code: CoreTACProgram,
-        contractStorage: TACSymbol.Var,
-        contractTransientStorage: TACSymbol.Var,
-        origMethod: TACMethod
+    private fun <T: MethodMarker> setupAndPrepareForInlining(
+        programAndId: CallableProgram<T, I>,
+        context: ProgramContext<T>
     ) : ForInlining {
+        val code = programAndId.program
         val callId = Allocator.getFreshId(Allocator.Id.CALL_ID)
         val callee = code.createCopy(callId).let { withCopy ->
             withCopy.parallelLtacStream().mapNotNull {
@@ -232,49 +274,54 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
             }.patchForEach(withCopy, check = true) {
                 it(this)
             }
-        }.patching { patcher ->
-            this.analysisCache.graph.sinks.forEach(
-                Inliner.CallStack.stackPopper(
-                    patcher, Inliner.CallStack.PopRecord(
-                        callee = origMethod.toRef(),
-                        callId
-                    )
-                )
-            )
-            this.analysisCache.graph.roots.forEach(
-                Inliner.CallStack.stackPusher(
-                    patcher, Inliner.CallStack.PushRecord(
-                        callee = origMethod.toRef(),
-                        calleeId = callId,
-                        summary = null,
-                        isNoRevert = false,
-                        convention = Inliner.CallConventionType.Serialization
-                    )
-                )
+        }.let { forAnnot ->
+            annotateInOut(
+                context = context,
+                callingConv = programAndId.callingInfo,
+                inlined = forAnnot,
+                callId = callId
             )
         }
+
+        val argumentSetup = generateInput(
+            callId = callId,
+            context = context,
+            p = object : CallableProgram<T, I> {
+                override val program: CoreTACProgram
+                    get() = callee
+                override val callingInfo: I
+                    get() = programAndId.callingInfo
+
+                override fun pp(): String {
+                    return programAndId.pp()
+                }
+            }
+        )
+
         val environmentSetup = environmentToSeed.map { (lhs, rhs) ->
             lhs `=` rhs
         }.flatten() andThen invocationEnvToSeed.map { (lhs, rhs) ->
             lhs.at(callId) `=` rhs
-        }.flatten() andThen (contractStorage `=` storageBackup) andThen
-            (contractTransientStorage `=` transientBackup) andThen
-            (TACKeyword.CALLDATA.toVar().atSync(callId) `=` theCalldata) andThen
-            (TACKeyword.CALLDATASIZE.toVar().atSync(callId) `=` theCalldataSize) andThen
-            (origMethod.calldataEncoding as CalldataEncoding).byteOffsetToScalar.map { (range, v) ->
-                v.at(callId) `=` {
-                    Select(theCalldata.asSym(), range.from.asTACExpr)
-                }
-            }.flatten()
+        }.flatten() andThen (context.storageVariable `=` storageBackup) andThen
+            (context.transientStorageVariable `=` transientBackup) andThen
+            argumentSetup
 
         val withSetup = callee.prependToBlock0(environmentSetup)
         return ForInlining(
             prog = withSetup,
             callId = callId,
-            proc = Procedure(callId, _method = origMethod),
+            proc = Procedure(callId, ProcedureId.EquivProgram(
+                name = programAndId.pp(),
+                hostContract = context.hostContract.instanceId
+            )),
         )
     }
 
+    /**
+     * [code] holds the instrumented programs and rules inlined together and with arguments bound; i.e., a self-contained
+     * program checking the VC which can be passed to [verifier.TACVerifier.verify]. The call ids for program A and B
+     * are [methodACallId] and [methodBCallId].
+     */
     data class GeneratedRule(
         val code: CoreTACProgram,
         val methodACallId: CallId,
@@ -304,6 +351,7 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
             val META_KEY = MetaKey<EnvironmentRecord>("equivalence.env")
         }
     }
+
     companion object {
         fun extractEnvironmentValues(
             model: CounterexampleModel,
@@ -320,13 +368,18 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
         }
     }
 
+    /**
+     * Given A and B callable programs versions [aCode] and [bCode], and a [vc] program asserting their equivalence, return the [GeneratedRule]
+     * which binds arguments, constrains storage, etc. This function also runs the resulting rule through the standard
+     * [CompiledRule.optimize] pipeline, as that contains many CVL agnostic optimizations crucial to performance.
+     */
     fun generateRule(
-        methodAInst: BufferTraceInstrumentation.InstrumentationResults,
-        methodBInst: BufferTraceInstrumentation.InstrumentationResults,
+        aCode: CallableProgram<MethodMarker.METHODA, I>,
+        bCode: CallableProgram<MethodMarker.METHODB, I>,
         vc: CoreTACProgram
-    ): GeneratedRule {
-        val setupA = setupAndPrepareForInlining(methodAInst.code, contractAStorage, contractATStorage, methodA)
-        val setupB = setupAndPrepareForInlining(methodBInst.code, contractBStorage, contractBTStorage, methodB)
+    ) : GeneratedRule {
+        val setupA = setupAndPrepareForInlining(aCode, context.contextA)
+        val setupB = setupAndPrepareForInlining(bCode, context.contextB)
 
         val ruleStart = setupProgram
 
@@ -336,17 +389,20 @@ class RuleGenerator(private val methodA: TACMethod, private val methodB: TACMeth
             "intermission"
         )
 
-        return GeneratedRule(
-            code = mergeCodes(
-                ruleStart,
-                mergeCodes(
-                    setupA.prog,
-                    mergeCodes(
-                        intermission,
-                        mergeCodes(setupB.prog, vc)
-                    )
+        val ruleCode = EquivalenceChecker.mergeCodes(
+            ruleStart,
+            EquivalenceChecker.mergeCodes(
+                setupA.prog,
+                EquivalenceChecker.mergeCodes(
+                    intermission,
+                    EquivalenceChecker.mergeCodes(setupB.prog, vc)
                 )
-            ), methodACallId = setupA.callId, methodBCallId = setupB.callId
+            )
+        ).let {
+            CompiledRule.optimize(context.scene.toIdentifiers(), it, bmcMode = false)
+        }
+        return GeneratedRule(
+            code = ruleCode, methodACallId = setupA.callId, methodBCallId = setupB.callId
         )
     }
 }

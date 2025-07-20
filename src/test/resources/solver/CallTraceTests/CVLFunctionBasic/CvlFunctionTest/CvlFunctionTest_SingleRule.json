@@ -212,7 +212,8 @@
                         "innerScope": null
                     }
                 }
-            }
+            },
+            "comesFromSpec": true
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume",
@@ -385,7 +386,8 @@
                         "innerScope": null
                     }
                 }
-            }
+            },
+            "comesFromSpec": true
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume",
@@ -558,7 +560,8 @@
                         "innerScope": null
                     }
                 }
-            }
+            },
+            "comesFromSpec": true
         },
         {
             "cmd_type": "spec.cvlast.CVLCmd.Simple.Assert",
@@ -1101,7 +1104,8 @@
                                             "innerScope": null
                                         }
                                     }
-                                }
+                                },
+                                "comesFromSpec": true
                             },
                             {
                                 "cmd_type": "spec.cvlast.CVLCmd.Simple.AssumeCmd.Assume",
@@ -1266,7 +1270,8 @@
                                             "innerScope": null
                                         }
                                     }
-                                }
+                                },
+                                "comesFromSpec": true
                             },
                             {
                                 "cmd_type": "spec.cvlast.CVLCmd.Simple.Assert",
@@ -2034,6 +2039,7 @@
         }
     },
     "ruleGenerationMeta": {
-        "type": "spec.rules.SingleRuleGenerationMeta.Empty"
+        "type": "spec.rules.SingleRuleGenerationMeta.WithSanity",
+        "sanity": "PRE_SANITY_CHECK"
     }
 }

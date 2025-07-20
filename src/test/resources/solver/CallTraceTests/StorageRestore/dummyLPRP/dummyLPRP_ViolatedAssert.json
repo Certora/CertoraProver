@@ -9,39 +9,18 @@
             "topOfStackValue": 0,
             "freshCopy": 0
         },
-        "pos": 12
+        "pos": 16
     },
     "cmd": {
         "type": "vc.data.TACCmd.Simple.AssertCmd",
         "o": {
-            "type": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "CANON66!!65",
+            "type": "vc.data.TACSymbol.Const",
+            "value": "0",
             "tag": {
                 "type": "tac.Tag.Bool"
-            },
-            "callIndex": 0,
-            "meta": [
-                {
-                    "key": {
-                        "name": "cvl.type",
-                        "type": "spec.cvlast.CVLType$PureCVLType",
-                        "erasureStrategy": "CallTrace"
-                    },
-                    "value": {
-                        "type": "spec.cvlast.CVLType.PureCVLType.Primitive.Bool"
-                    }
-                },
-                {
-                    "key": {
-                        "name": "cvl",
-                        "type": "java.lang.Boolean",
-                        "erasureStrategy": "Canonical"
-                    },
-                    "value": true
-                }
-            ]
+            }
         },
-        "description": "!(non_persi)",
+        "description": "\"test should end here\"",
         "meta": [
             {
                 "key": {
@@ -58,7 +37,7 @@
                     "type": "java.lang.Integer",
                     "erasureStrategy": "Canonical"
                 },
-                "value": 2
+                "value": 14
             },
             {
                 "key": {
@@ -70,12 +49,12 @@
                     "type": "utils.Range.Range",
                     "specFile": "Restore.spec",
                     "start": {
-                        "line": 22,
+                        "line": 24,
                         "charByteOffset": 4
                     },
                     "end": {
-                        "line": 22,
-                        "charByteOffset": 22
+                        "line": 24,
+                        "charByteOffset": 41
                     }
                 }
             }

@@ -18,41 +18,33 @@
 package verifier.equivalence
 
 import allocator.Allocator
-import analysis.CmdPointer
 import analysis.CommandWithRequiredDecls
-import datastructures.NonEmptyList
 import datastructures.stdcollections.*
 import evm.EVM_BYTE_SIZE_INT
 import evm.MASK_SIZE
+import spec.rules.EquivalenceRule
 import verifier.equivalence.tracing.BufferTraceInstrumentation
-import rules.RuleCheckResult
 import tac.MetaMap
 import tac.NBId
 import tac.Tag
+import utils.*
 import vc.data.*
 import vc.data.TACProgramCombiners.andThen
 import vc.data.TACProgramCombiners.flatten
 import vc.data.codeFromCommandWithVarDecls
 import vc.data.tacexprutil.ExprUnfolder
-import verifier.AbstractTACChecker
+import verifier.equivalence.data.MethodMarker
+import verifier.equivalence.data.ProgramContext
+import verifier.equivalence.data.CallableProgram
 import java.math.BigInteger
 
-/**
- * Trace explorer that attempts to prove, using the [StaticBufferRefinement.BufferRefinement],
- * that the two buffers at [siteA] and [siteB] are equivalent.
- *
- * If this refinment fails, the original SAT result processing which spawned this query is continued with
- * [failureContinuation].
- */
-internal class StaticBufferEquality(
-    val refineA: StaticBufferRefinement.BufferRefinement,
-    val siteA: CmdPointer,
-    val refineB: StaticBufferRefinement.BufferRefinement,
-    val siteB: CmdPointer,
-    val parent: EquivalenceChecker.IInstrumentationLevels,
-    val context: QueryContext,
-    private val failureContinuation: CounterExampleAnalyzer.CEXContinuation
-) : EquivalenceChecker.TraceExplorer {
+class StaticBufferEqualityChecker<I>(
+    private val cexContext: CounterExampleContext<I>,
+    private val refineA: StaticBufferRefinement.BufferRefinement,
+    private val refineB: StaticBufferRefinement.BufferRefinement,
+) {
+    private val originalQuery get() = cexContext.checkResult
+
     /**
      * Representation of a byte in the final buffer: pulled from some [byteIndex] from [srcVar]
      */
@@ -173,8 +165,8 @@ internal class StaticBufferEquality(
                 currV = bit
                 currStart = bufferInd
                 continue
-            // expect descending bit numbers (write numbers msb)
-            // so if we start at bitindex j, the kth bit in the sequence should be j - k
+                // expect descending bit numbers (write numbers msb)
+                // so if we start at bitindex j, the kth bit in the sequence should be j - k
             } else if (currV.srcVar == bit.srcVar && currV.byteIndex - (bufferInd - currStart) == bit.byteIndex) {
                 continue
             } else {
@@ -206,45 +198,36 @@ internal class StaticBufferEquality(
         bBufferTerm = bBuffer.second
     }
 
-    /**
-     * Force the solver to go to the two *write* sites. Note that this is *not* necessarily the same locations as [siteA]
-     * and [siteB]; the buffers might be eventually copied to where they are used, but we have proved in [StaticBufferRefinement]
-     * that this copying *always* happens, so it is fine to compare these buffers "at the source".
-     */
-    override fun getBConfig(pairwiseProofManager: EquivalenceChecker.PairwiseProofManager): BufferTraceInstrumentation.InstrumentationControl {
-        return BufferTraceInstrumentation.InstrumentationControl(
-            traceMode = BufferTraceInstrumentation.TraceInclusionMode.UntilExactly(refineB.bufferWriteSource),
-            useSiteControl = mapOf(
-                refineB.bufferWriteSource to BufferTraceInstrumentation.UseSiteControl(
-                    trackBufferContents = true,
-                )
-            ),
-            eventLoggingLevel = parent.traceLevel,
-            forceMloadInclusion = mapOf(),
-            eventSiteOverride = mapOf()
+
+    private fun <M: MethodMarker> buildInstControl(
+        p: CallableProgram<M, I>,
+        t: ExplorationManager.EquivalenceCheckConfiguration<*>.() -> BufferTraceInstrumentation.InstrumentationControl,
+        refine: StaticBufferRefinement.BufferRefinement
+    ) : TraceEquivalenceChecker.ProgramAndConfig<M, I> {
+        val baseConfig = cexContext.instrumentationSettings.t()
+        return TraceEquivalenceChecker.ProgramAndConfig(
+            p,
+            baseConfig.copy(
+                traceMode = BufferTraceInstrumentation.TraceInclusionMode.UntilExactly(
+                    refine.bufferWriteSource
+                ),
+                useSiteControl = mapOf(refine.bufferWriteSource to BufferTraceInstrumentation.UseSiteControl(
+                    trackBufferContents = true
+                )),
+                eventSiteOverride = mapOf()
+            )
         )
     }
 
-    override fun getAConfig(pairwiseProofManager: EquivalenceChecker.PairwiseProofManager): BufferTraceInstrumentation.InstrumentationControl {
-        return BufferTraceInstrumentation.InstrumentationControl(
-            traceMode = BufferTraceInstrumentation.TraceInclusionMode.UntilExactly(refineA.bufferWriteSource),
-            useSiteControl = mapOf(
-                refineA.bufferWriteSource to BufferTraceInstrumentation.UseSiteControl(
-                    trackBufferContents = true,
-                )
-            ),
-            eventLoggingLevel = parent.traceLevel,
-            forceMloadInclusion = mapOf(),
-            eventSiteOverride = mapOf()
-        )
-    }
-
-    override fun generateVC(
-        methodAInst: BufferTraceInstrumentation.InstrumentationResults,
-        methodBInst: BufferTraceInstrumentation.InstrumentationResults
-    ): CoreTACProgram {
-        val siteAInfo = methodAInst.useSiteInfo[refineA.bufferWriteSource]!!
-        val siteBInfo = methodBInst.useSiteInfo[refineB.bufferWriteSource]!!
+    private fun generateVC(
+        a: TraceEquivalenceChecker.IntermediateInstrumentation<MethodMarker.METHODA, I>,
+        contextA: ProgramContext<*>,
+        b: TraceEquivalenceChecker.IntermediateInstrumentation<MethodMarker.METHODB, I>,
+        contextB: ProgramContext<*>
+    ) : CoreTACProgram {
+        unused(contextA, contextB)
+        val siteAInfo = a.result.useSiteInfo[refineA.bufferWriteSource]!!
+        val siteBInfo = b.result.useSiteInfo[refineB.bufferWriteSource]!!
 
         /**
          * Get the bytemaps which hold the values written into the two buffers, and the total
@@ -301,41 +284,16 @@ internal class StaticBufferEquality(
                 ), setOf(assertVar) + aInstVars + bInstVars
             ), "assertion"
         )
+
     }
 
-    /**
-     * We found a case where the buffers were indeed not equal,
-     * continue processing the original cex
-     */
-    override suspend fun onSat(
-        models: NonEmptyList<AbstractTACChecker.ExampleInfo>,
-        methodAContext: EquivalenceChecker.InlinedInstrumentation<EquivalenceChecker.METHODA>,
-        methodBContext: EquivalenceChecker.InlinedInstrumentation<EquivalenceChecker.METHODB>,
-        vcProgram: CoreTACProgram,
-        failureResult: RuleCheckResult.Single.WithCounterExamples,
-        pairwiseProofManager: EquivalenceChecker.PairwiseProofManager
-    ): EquivalenceChecker.SatInterpretation {
-        return failureContinuation.resume()
+    suspend fun checkStaticEquivalence(rule: EquivalenceRule): TraceEquivalenceChecker.CheckResult<I> {
+        return TraceEquivalenceChecker<I>(cexContext.queryContext, cexContext.ruleGeneration).instrumentAndCheck(
+            rule,
+            buildInstControl(originalQuery.programA.originalProgram, ExplorationManager.EquivalenceCheckConfiguration<*>::getAConfig, refineA),
+            buildInstControl(originalQuery.programB.originalProgram, ExplorationManager.EquivalenceCheckConfiguration<*>::getBConfig, refineB),
+            ::generateVC
+        )
     }
 
-    /**
-     * We've now proven that [siteA] and [siteB] *always* have equal buffers. Register this fact,
-     * and restart the equivalence checking with [parent].
-     */
-    override suspend fun onUnsat(
-        methodA: EquivalenceChecker.InlinedInstrumentation<EquivalenceChecker.METHODA>,
-        methodB: EquivalenceChecker.InlinedInstrumentation<EquivalenceChecker.METHODB>,
-        pairwiseProofManager: EquivalenceChecker.PairwiseProofManager
-    ): EquivalenceChecker.UnsatInterpretation {
-        pairwiseProofManager.registerPairwiseProof(siteA, siteB)
-        return EquivalenceChecker.UnsatInterpretation.Refine(Explorer(parent, context))
-    }
-
-    override fun onTimeout(
-        methodA: EquivalenceChecker.InlinedInstrumentation<EquivalenceChecker.METHODA>,
-        methodB: EquivalenceChecker.InlinedInstrumentation<EquivalenceChecker.METHODB>,
-        pairwiseProofManager: EquivalenceChecker.PairwiseProofManager
-    ): EquivalenceChecker.TraceExplorer? {
-        return null
-    }
 }

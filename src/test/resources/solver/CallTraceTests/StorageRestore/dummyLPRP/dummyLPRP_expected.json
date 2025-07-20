@@ -24,17 +24,17 @@
                     "childrenList": [
                         {
                             "message": {
-                                "text": "0x401.balance: '{0}'",
+                                "text": "0x8200.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x0",
+                                        "value": "2^255",
                                         "values": [
-                                            "0x0",
-                                            "0",
-                                            "0x0"
+                                            "2^255",
+                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
                                         ],
                                         "tooltip": "balance",
-                                        "truncatable": true
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -48,14 +48,14 @@
                                 "text": "Restore.balance: '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "0x0",
+                                        "value": "2^255",
                                         "values": [
-                                            "0x0",
-                                            "0",
-                                            "0x0"
+                                            "2^255",
+                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
                                         ],
                                         "tooltip": "balance",
-                                        "truncatable": true
+                                        "truncatable": false
                                     }
                                 ]
                             },
@@ -336,6 +336,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null
@@ -566,17 +577,17 @@
                             "childrenList": [
                                 {
                                     "message": {
-                                        "text": "0x401.balance: '{0}'",
+                                        "text": "0x8200.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -590,14 +601,14 @@
                                         "text": "Restore.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -923,17 +934,17 @@
                             "childrenList": [
                                 {
                                     "message": {
-                                        "text": "0x401.balance: '{0}'",
+                                        "text": "0x8200.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -947,14 +958,14 @@
                                         "text": "Restore.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -1054,11 +1065,11 @@
                                 "text": "sender: '{0}'; receiver: '{1}'; transferred amount: '{2}'",
                                 "arguments": [
                                     {
-                                        "value": "0x401",
+                                        "value": "0x8200",
                                         "values": [
-                                            "0x401",
-                                            "0x401",
-                                            "0x401"
+                                            "0x8200",
+                                            "0x8200",
+                                            "0x8200"
                                         ],
                                         "tooltip": "address of sender",
                                         "truncatable": true
@@ -1068,7 +1079,7 @@
                                         "values": [
                                             "Restore",
                                             "Restore",
-                                            "0x402"
+                                            "0x4300"
                                         ],
                                         "tooltip": "address of receiver",
                                         "truncatable": false
@@ -1092,14 +1103,14 @@
                                         "text": "Load from: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -1113,14 +1124,14 @@
                                         "text": "Store at: sender.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -1134,14 +1145,14 @@
                                         "text": "Load from: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -1155,14 +1166,14 @@
                                         "text": "Store at: receiver.balance ↪ '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -1234,17 +1245,17 @@
                                     "childrenList": [
                                         {
                                             "message": {
-                                                "text": "0x401.balance: '{0}'",
+                                                "text": "0x8200.balance: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0x0",
+                                                        "value": "2^255",
                                                         "values": [
-                                                            "0x0",
-                                                            "0",
-                                                            "0x0"
+                                                            "2^255",
+                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                         ],
                                                         "tooltip": "balance",
-                                                        "truncatable": true
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -1258,14 +1269,14 @@
                                                 "text": "Restore.balance: '{0}'",
                                                 "arguments": [
                                                     {
-                                                        "value": "0x0",
+                                                        "value": "2^255",
                                                         "values": [
-                                                            "0x0",
-                                                            "0",
-                                                            "0x0"
+                                                            "2^255",
+                                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                         ],
                                                         "tooltip": "balance",
-                                                        "truncatable": true
+                                                        "truncatable": false
                                                     }
                                                 ]
                                             },
@@ -1462,9 +1473,9 @@
                         "text": "Ghost read: non_persi ↪ '{0}'",
                         "arguments": [
                             {
-                                "value": "true",
+                                "value": "false",
                                 "values": [
-                                    "true"
+                                    "false"
                                 ],
                                 "tooltip": "value read from ghost",
                                 "truncatable": false
@@ -1491,9 +1502,9 @@
                         "text": "!(non_persi) ↪ '{0}'",
                         "arguments": [
                             {
-                                "value": "false",
+                                "value": "true",
                                 "values": [
-                                    "false"
+                                    "true"
                                 ],
                                 "tooltip": "value of expression",
                                 "truncatable": false
@@ -1507,9 +1518,9 @@
                                 "text": "non_persi ↪ '{0}'",
                                 "arguments": [
                                     {
-                                        "value": "true",
+                                        "value": "false",
                                         "values": [
-                                            "true"
+                                            "false"
                                         ],
                                         "tooltip": "value of expression",
                                         "truncatable": false
@@ -1543,7 +1554,28 @@
                             "col": 22
                         }
                     }
+                }
+            ],
+            "jumpToDefinition": {
+                "file": "Restore.spec",
+                "start": {
+                    "line": 23,
+                    "col": 5
                 },
+                "end": {
+                    "line": 23,
+                    "col": 23
+                }
+            }
+        },
+        {
+            "message": {
+                "text": "assert false",
+                "arguments": [
+                ]
+            },
+            "status": "",
+            "childrenList": [
                 {
                     "message": {
                         "text": "Global State",
@@ -1562,17 +1594,17 @@
                             "childrenList": [
                                 {
                                     "message": {
-                                        "text": "0x401.balance: '{0}'",
+                                        "text": "0x8200.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -1586,14 +1618,14 @@
                                         "text": "Restore.balance: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "0x0",
+                                                "value": "2^255",
                                                 "values": [
-                                                    "0x0",
-                                                    "0",
-                                                    "0x0"
+                                                    "2^255",
+                                                    "57896044618658097711785492504343953926634992332820282019728792003956564819968",
+                                                    "0x8000000000000000000000000000000000000000000000000000000000000000"
                                                 ],
                                                 "tooltip": "balance",
-                                                "truncatable": true
+                                                "truncatable": false
                                             }
                                         ]
                                     },
@@ -1619,16 +1651,16 @@
                                         "text": "non_persi: '{0}'",
                                         "arguments": [
                                             {
-                                                "value": "true",
+                                                "value": "false",
                                                 "values": [
-                                                    "true"
+                                                    "false"
                                                 ],
                                                 "tooltip": "ghost value",
                                                 "truncatable": false
                                             }
                                         ]
                                     },
-                                    "status": "CONCRETE",
+                                    "status": "HAVOC DEPENDENT",
                                     "childrenList": [
                                     ],
                                     "jumpToDefinition": {
@@ -1684,12 +1716,12 @@
             "jumpToDefinition": {
                 "file": "Restore.spec",
                 "start": {
-                    "line": 23,
+                    "line": 25,
                     "col": 5
                 },
                 "end": {
-                    "line": 23,
-                    "col": 23
+                    "line": 25,
+                    "col": 42
                 }
             }
         }

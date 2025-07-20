@@ -283,7 +283,7 @@ class Decompiler private constructor(
 
     // Get source info for a given command
     private fun EVMPC.diagnosticSource() = diagnosticSources.getOrPut(this) {
-        TACMetaInfo(code[this]!!.meta, address, sourceContext).getSourceDetails()?.let {
+        TACMetaInfo(this, code[this]!!.meta, address, sourceContext).getSourceDetails()?.let {
             "${it.fileName}:${it.lineNumber} | Block $this"
         } ?: "Block $this"
     }
@@ -1084,7 +1084,7 @@ class Decompiler private constructor(
         )
 
         interpretBlock(block) {
-            val metaInfo = TACMetaInfo(cmd.meta, address, sourceContext)
+            val metaInfo = TACMetaInfo(pc, cmd.meta, address, sourceContext)
             val meta = metaInfo.toMap()
             val inst = cmd.inst
 

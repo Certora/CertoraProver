@@ -17,15 +17,17 @@
 
 package verifier.equivalence
 
-import scene.IScene
-import scene.TACMethod
+import verifier.equivalence.data.EquivalenceQueryContext
 
 /**
- * Generic class which holds context about the equivalence query: the [methodA] and [methodB]
- * being compared, and the [scene] in which the query is occurring.
+ * All of the information about the counter example being analyzed; the context
+ * of the overall query in [queryContext], the [checkResult] (which should be a SAT result),
+ * the rule generator use [ruleGeneration], and the settings used to generate the program which
+ * had the counter example in [instrumentationSettings].
  */
-class QueryContext(
-    val methodA: TACMethod,
-    val methodB: TACMethod,
-    val scene: IScene
+data class CounterExampleContext<I>(
+    val queryContext: EquivalenceQueryContext,
+    val checkResult: TraceEquivalenceChecker.CheckResult<I>,
+    val ruleGeneration: AbstractRuleGeneration<I>,
+    val instrumentationSettings: ExplorationManager.EquivalenceCheckConfiguration<I>
 )

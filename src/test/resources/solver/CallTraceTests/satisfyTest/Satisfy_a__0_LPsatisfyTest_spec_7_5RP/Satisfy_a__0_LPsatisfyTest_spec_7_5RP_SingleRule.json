@@ -7,7 +7,7 @@
             "counter": 1
         },
         "displayName": "Satisfy_a__0_(satisfyTest_spec_7_5)",
-        "counter": 5
+        "counter": 6
     },
     "range": {
         "type": "utils.Range.Range",
@@ -552,7 +552,8 @@
                 }
             },
             "ruleGenerationMeta": {
-                "type": "spec.rules.SingleRuleGenerationMeta.Empty"
+                "type": "spec.rules.SingleRuleGenerationMeta.WithSanity",
+                "sanity": "PRE_SANITY_CHECK"
             }
         },
         "assertId": 1,

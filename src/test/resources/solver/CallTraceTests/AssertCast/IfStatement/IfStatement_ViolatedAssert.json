@@ -9,7 +9,7 @@
             "topOfStackValue": 0,
             "freshCopy": 0
         },
-        "pos": 81
+        "pos": 84
     },
     "cmd": {
         "type": "vc.data.TACCmd.Simple.AssertCmd",
@@ -50,7 +50,7 @@
                     "type": "java.lang.Integer",
                     "erasureStrategy": "Canonical"
                 },
-                "value": 1
+                "value": 4
             },
             {
                 "key": {

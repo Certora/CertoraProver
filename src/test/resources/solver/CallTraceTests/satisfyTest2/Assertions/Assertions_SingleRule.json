@@ -7,7 +7,7 @@
             "counter": 1
         },
         "displayName": "Assertions",
-        "counter": 6
+        "counter": 7
     },
     "range": {
         "type": "utils.Range.Empty"
@@ -709,7 +709,8 @@
                 }
             },
             "ruleGenerationMeta": {
-                "type": "spec.rules.SingleRuleGenerationMeta.Empty"
+                "type": "spec.rules.SingleRuleGenerationMeta.WithSanity",
+                "sanity": "PRE_SANITY_CHECK"
             }
         }
     },

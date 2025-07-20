@@ -7,7 +7,7 @@
             "counter": 1
         },
         "displayName": "minus_one()-minus_one()",
-        "counter": 7
+        "counter": 15
     },
     "range": {
         "type": "utils.Range.Range",
@@ -1573,7 +1573,7 @@
     },
     "ruleGenerationMeta": {
         "type": "spec.rules.SingleRuleGenerationMeta.WithMethodInstantiations",
-        "sanity": "DISABLED_SANITY_CHECK",
+        "sanity": "PRE_SANITY_CHECK",
         "range": {
             "type": "utils.Range.Range",
             "specFile": "MultipleCandidates.sol",

@@ -68,7 +68,9 @@ internal data class GarbageCollectionInfo(
                                 init and overlap case, between (lowerBoundVar, upperBoundVar) and (offs, writeEndPoint)
                                 which is upperBoundVar > offs and writeEndPoint > lowerBoundVar
                             */
-                            ((upperBoundVar gt s.updateLoc) and (writeEndPoint gt lowerBoundVar))
+                            ((upperBoundVar gt s.updateLoc) and (writeEndPoint gt lowerBoundVar)) or
+                                (upperBoundVar eq s.updateLoc) or
+                                (writeEndPoint eq lowerBoundVar)
                         )
                     ),
                     /**

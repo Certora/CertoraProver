@@ -212,6 +212,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null
@@ -281,33 +292,23 @@
                                 "truncatable": true
                             },
                             {
-                                "value": "0x5",
+                                "value": "0x8",
                                 "values": [
-                                    "0x5",
-                                    "5",
-                                    "0x5"
+                                    "0x8",
+                                    "8",
+                                    "0x8"
                                 ],
                                 "tooltip": "value at x",
                                 "truncatable": true
                             },
                             {
-                                "value": "0x8200",
+                                "value": "0x401",
                                 "values": [
-                                    "0x8200",
-                                    "0x8200",
-                                    "0x8200"
+                                    "0x401",
+                                    "0x401",
+                                    "0x401"
                                 ],
                                 "tooltip": "value at y",
-                                "truncatable": true
-                            },
-                            {
-                                "value": "0xd",
-                                "values": [
-                                    "0xd",
-                                    "13",
-                                    "0xd"
-                                ],
-                                "tooltip": "value at z1",
                                 "truncatable": true
                             },
                             {
@@ -316,6 +317,16 @@
                                     "0x7",
                                     "7",
                                     "0x7"
+                                ],
+                                "tooltip": "value at z1",
+                                "truncatable": true
+                            },
+                            {
+                                "value": "0x6",
+                                "values": [
+                                    "0x6",
+                                    "6",
+                                    "0x6"
                                 ],
                                 "tooltip": "value at z2",
                                 "truncatable": true
@@ -329,11 +340,11 @@
                                 "truncatable": false
                             },
                             {
-                                "value": "0xa",
+                                "value": "0x5",
                                 "values": [
-                                    "0xa",
-                                    "10",
-                                    "0xa"
+                                    "0x5",
+                                    "5",
+                                    "0x5"
                                 ],
                                 "tooltip": "value at x2",
                                 "truncatable": true

@@ -24,6 +24,7 @@ import log.*
 import solver.CounterexampleModel
 import utils.*
 import vc.data.*
+import verifier.equivalence.data.MethodMarker
 import java.math.BigInteger
 
 private val logger = Logger(LoggerTypes.EQUIVALENCE)
@@ -40,16 +41,16 @@ internal object MemoryImprecisionAnalyzer {
      * Scope this search only to the portion of [vcProgram] corresponding to the instrumentation
      * described by [context], which is for method [T].
      */
-    internal fun <T: EquivalenceChecker.METHOD_MARKER> analyze(
+    internal fun <T: MethodMarker> analyze(
         model: CounterexampleModel,
         vcProgram: CoreTACProgram,
-        context: EquivalenceChecker.InlinedInstrumentation<T>
+        context: TraceEquivalenceChecker.Instrumentation<T, *>
     ) : Pair<CmdPointer, Int>? {
         /**
          * Find all commands in the subprogram corresponding to [T] that were mload's in the original program.
          */
         val imprecisionCand = vcProgram.parallelLtacStream().filter {
-            it.ptr.block.calleeIdx == context.methodCallId && it.ptr.block in model.reachableNBIds &&
+            it.ptr.block.calleeIdx == context.inlinedCallId && it.ptr.block in model.reachableNBIds &&
                 MemoryReadNumbering.READ_COUNTER in it.cmd.meta
         }.mapNotNull {
             it.maybeExpr<TACExpr.Select>()
@@ -168,7 +169,7 @@ internal object MemoryImprecisionAnalyzer {
          * Now, get the read number inserted by [MemoryReadNumbering].
          */
         val id = vcProgram.analysisCache.graph.elab(principal.first).cmd.meta[MemoryReadNumbering.READ_COUNTER]
-        val origProg = context.orig.code as CoreTACProgram
+        val origProg = context.originalProgram.program
 
         /**
          * Use that to find the original location in the method [T] to instrument with this window.

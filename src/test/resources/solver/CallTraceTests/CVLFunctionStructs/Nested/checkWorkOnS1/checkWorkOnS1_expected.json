@@ -127,9 +127,9 @@
                                                 "truncatable": true
                                             },
                                             {
-                                                "value": "false",
+                                                "value": "true",
                                                 "values": [
-                                                    "false"
+                                                    "true"
                                                 ],
                                                 "tooltip": "storage value",
                                                 "truncatable": false
@@ -925,6 +925,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null
@@ -1454,9 +1465,9 @@
                                         "truncatable": true
                                     },
                                     {
-                                        "value": "false",
+                                        "value": "true",
                                         "values": [
-                                            "false"
+                                            "true"
                                         ],
                                         "tooltip": "storage value",
                                         "truncatable": false
@@ -1943,9 +1954,9 @@
                                                 "truncatable": true
                                             },
                                             {
-                                                "value": "false",
+                                                "value": "true",
                                                 "values": [
-                                                    "false"
+                                                    "true"
                                                 ],
                                                 "tooltip": "value at s1.b2",
                                                 "truncatable": false
@@ -2530,9 +2541,9 @@
                                                         "truncatable": true
                                                     },
                                                     {
-                                                        "value": "false",
+                                                        "value": "true",
                                                         "values": [
-                                                            "false"
+                                                            "true"
                                                         ],
                                                         "tooltip": "storage value",
                                                         "truncatable": false

@@ -234,7 +234,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe35"
+                    "value": "1"
                 },
                 {
                     "namePrefix": "R2",
@@ -403,7 +403,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "2710"
+                    "value": "f"
                 },
                 {
                     "namePrefix": "R6",
@@ -434,7 +434,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe35"
+                    "value": "1"
                 },
                 {
                     "namePrefix": "B11",
@@ -854,7 +854,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "2710"
+                    "value": "f"
                 }
             ],
             "reachableBadNBIds": [

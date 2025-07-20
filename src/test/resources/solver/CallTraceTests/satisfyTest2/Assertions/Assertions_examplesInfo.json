@@ -176,7 +176,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "3"
+                    "value": "0"
                 },
                 {
                     "namePrefix": "R0",
@@ -396,7 +396,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "5"
+                    "value": "2711"
                 },
                 {
                     "namePrefix": "R6",
@@ -481,7 +481,7 @@
                     ]
                 },
                 {
-                    "type": "vc.data.state.TACValue.PrimitiveValue.Bool.True"
+                    "type": "vc.data.state.TACValue.PrimitiveValue.Bool.False"
                 },
                 {
                     "namePrefix": "B12",
@@ -587,7 +587,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "3"
+                    "value": "0"
                 },
                 {
                     "namePrefix": "OK_0_0_0_0_0_0",
@@ -666,7 +666,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "5"
+                    "value": "2711"
                 }
             ],
             "reachableBadNBIds": [

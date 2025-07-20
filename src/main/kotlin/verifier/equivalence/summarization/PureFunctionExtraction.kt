@@ -18,11 +18,11 @@
 package verifier.equivalence.summarization
 
 import analysis.*
-import analysis.ip.INTERNAL_FUNC_EXIT
-import analysis.ip.INTERNAL_FUNC_START
-import analysis.ip.InternalFunctionExitFinder
+import analysis.icfg.Summarization
+import analysis.ip.*
 import analysis.opt.ConstantComputationInliner
 import analysis.opt.PointerSimplification
+import bridge.ContractInstanceInSDC
 import com.certora.collect.*
 import compiler.SolidityFunctionStateMutability
 import datastructures.stdcollections.*
@@ -34,10 +34,14 @@ import spec.cvlast.SolidityContract
 import spec.cvlast.Visibility
 import spec.cvlast.typedescriptors.VMValueTypeDescriptor
 import tac.MetaKey
+import tac.MetaMap
+import tac.NBId
 import tac.Tag
 import utils.*
 import vc.data.*
+import vc.data.SimplePatchingProgram.Companion.patchForEach
 import java.util.stream.Collectors
+import kotlin.jvm.optionals.getOrNull
 
 /**
  * Extract "common" pure internal functions from a method. These are pure (as annotated in the original
@@ -46,23 +50,26 @@ import java.util.stream.Collectors
  * representation, and if so, what the canonical representation is.
  */
 object PureFunctionExtraction {
+    interface CallingConvention<R: CallingConvention<R>> {
+        val argSymbols: List<TACSymbol>
+        val exitVars: List<TACSymbol.Var>
+        fun withArgsAndReturns(args: List<TACSymbol>, rets: List<TACSymbol.Var>) : R
+    }
 
     /**
      * An instance of a canonicalized function with signature [qual] which starts at [where].
      *
      * The canonicalized program is given in [subProgram].
      *
-     * [argSyms] and [exitVars] are the canonicalized argument and return values respectively.
-     *
-     * NB that [argSyms] is [TACSymbol]: if [qual] is called with a constant argument, that constant argument
-     * may (or may not) be reflected in the corresponding slot in [argSyms].
+     * [callingConvention] describes the input/output behavior of the function. For Solidity functions, these are
+     * the argument/return symbols. For vyper functions, this will be the the input argument offset
+     * and the variable that holds the return location.
      */
-    private data class CanonicalizedFunction(
+    private data class CanonicalizedFunction<R: CallingConvention<R>>(
         val qual: QualifiedMethodSignature,
         val where: LTACCmd,
-        val argSyms: List<TACSymbol>,
-        val exitVars: List<TACSymbol.Var>,
-        val subProgram: SimpleCanonicalization.CanonProgramWithMeta,
+        val callingConvention: R,
+        val subProgram: SimpleCanonicalization.CanonicalProgram,
     )
 
     /**
@@ -71,14 +78,14 @@ object PureFunctionExtraction {
      */
     @KSerializable
     @Treapable
-    private data class KeepAlive(
-        val list: List<TACSymbol.Var>
+    private data class ExitKeepAlive(
+        val exitVars: List<TACSymbol.Var>
     ) : WithSupport, AmbiSerializable {
         override val support: Set<TACSymbol.Var>
-            get() = list.toSet()
+            get() = exitVars.toSet()
     }
 
-    private val keepAliveMeta = MetaKey<KeepAlive>("keep.alive")
+    private val exitKeepAliveMeta = MetaKey<ExitKeepAlive>("keep.alive")
 
     /**
      * An inclusion predicate used to select which commands are included by [SimpleCanonicalization].
@@ -106,57 +113,215 @@ object PureFunctionExtraction {
     }
 
     /**
-     * Represents one or more [CanonicalizedFunction] which all have the exact same canonicalized body
-     * (as determined by comparing the [SimpleCanonicalization.ICanonProgram.block] and [SimpleCanonicalization.ICanonProgram.code]
-     * of the [equivClass]) and the same [argsSyms] and [exitSyms]. In other words, all [CanonicalizedFunction] which
-     * have exactly the same [CanonicalizedFunction.subProgram] and [CanonicalizedFunction.argSyms] and [CanonicalizedFunction.exitVars]
-     * are grouped together in an [EquivalenceClass], with a representative [equivClass].
+     * Represents one or more [CanonicalizedFunction] which all have the exact same canonicalized body ([equivClass])
+     * (as determined by [SimpleCanonicalization.CanonicalProgram.equivTo]) and the same [callingConvention].
      *
      * Intuitively, this class represents "all bodies of a function called with the same combination of constant/non-constant args"
      *
-     * NB that if multiple [CanonicalizedFunction] are grouped together with a variable at some index `i`
-     * within [CanonicalizedFunction.argSyms], that doesn't mean the argument *values* at position `i` are the same,
-     * simply that all of those instances had *some* symbolic argument at position i.
+     * NB that if multiple [CanonicalizedFunction] are grouped together with the same calling conventions, that doesn't mean the
+     * argument *values* are always the same, simply that all all of the function bodies accessed their arguments
+     * (whether symbolic or constant) in the same way.
      */
-    private data class EquivalenceClass(
-        val equivClass: SimpleCanonicalization.CanonProgramWithMeta,
-        val argsSyms: List<TACSymbol>,
-        val exitSyms: List<TACSymbol.Var>
+    private data class EquivalenceClass<R: CallingConvention<R>>(
+        val equivClass: SimpleCanonicalization.CanonicalProgram,
+        val callingConvention: R
     ) {
-        fun includes(other: CanonicalizedFunction) : Boolean {
-            return equivClass.canon == other.subProgram.canon && this.argsSyms == other.argSyms && this.exitSyms == other.exitVars
+        fun includes(other: CanonicalizedFunction<R>) : Boolean {
+            return equivClass equivTo other.subProgram && this.callingConvention == other.callingConvention
         }
+    }
+
+    private fun <R: CallingConvention<R>> Collection<EquivalenceClass<R>>.equivOrNull() : EquivalenceClass<R>? {
+        var curr : EquivalenceClass<R>?= null
+        for(i in this) {
+            if(curr == null) {
+                curr = i
+            } else if(curr.callingConvention != i.callingConvention || !(curr.equivClass equivTo i.equivClass)) {
+                return null
+            }
+        }
+        return curr
     }
 
     /**
      * Given a canonical representation of some [EquivalenceClass], run some optimizations and then recanonicalize
-     * the function. The canonical program in [f] is translated into a [CoreTACProgram] via the [SimpleCanonicalization.CanonProgramWithMeta.toProgram].
+     * the function [f].
      *
      * The optimizations applied to this program are [TACDSA], [ConstantComputationInliner], and [PointerSimplification].
      * The commands in [prefix] are appended to the materialized canonicalized program before any of these
      * optimizations are run.
      */
-    private fun optimizeAndRecanonicalize(f: EquivalenceClass, prefix: List<TACCmd.Simple> = listOf()): SimpleCanonicalization.CanonProgram {
+    private fun optimizeAndRecanonicalizeForMatch(f: EquivalenceClass<*>, prefix: List<TACCmd.Simple> = listOf()): SimpleCanonicalization.CanonicalProgram {
         val meta = TACCmd.Simple.AnnotationCmd(
-            keepAliveMeta,
-            KeepAlive(f.exitSyms)
+            exitKeepAliveMeta,
+            ExitKeepAlive(f.callingConvention.exitVars)
         )
-        val r = f.equivClass.toProgram("test").prependToBlock0(prefix).appendToSinks(CommandWithRequiredDecls(meta))
+        val r = f.equivClass.code.prependToBlock0(prefix).appendToSinks(CommandWithRequiredDecls(meta))
+        return standardReoptimizePipeline(
+            r
+        ) {
+            SimpleCanonicalization.canonicalize(
+                it,
+                start = CmdPointer(it.entryBlockId, 0),
+                forceVariableEquiv = listOf(),
+                end = { _ ->  false },
+                excludeStart = false,
+                include = ::canonicalizationInclusionPredicate,
+                variableCanonicalizer = environmentCanonicalizer
+            )
+        }
+    }
+
+    @KSerializable
+    private data class StartKeepAlive(
+        val symbols: List<TACSymbol>
+    ) : TransformableVarEntityWithSupport<StartKeepAlive>, AmbiSerializable {
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): StartKeepAlive {
+            return StartKeepAlive(symbols.map { sym ->
+                (sym as? TACSymbol.Var)?.let(f) ?: sym
+            })
+        }
+
+        override val support: Set<TACSymbol.Var>
+            get() = symbols.mapNotNullToSet { it as? TACSymbol.Var }
+
+        companion object {
+            val META_KEY = MetaKey<StartKeepAlive>("canon.start.symbols")
+        }
+    }
+
+    private fun <R: CallingConvention<R>> optimizeForGrouping(
+        f: EquivalenceClass<R>
+    ) : EquivalenceClass<R> {
+        val withKeepAlive = f.equivClass.code.getEndingBlocks().map {
+            f.equivClass.code.analysisCache.graph.elab(it).commands.last()
+        }.filter {
+            !it.cmd.isHalting()
+        }.mapToSet { it.ptr }.stream().patchForEach(f.equivClass.code) { exitSite ->
+            replace(exitSite) { cmd ->
+                listOf(
+                    cmd,
+                    TACCmd.Simple.AnnotationCmd(
+                        exitKeepAliveMeta,
+                        ExitKeepAlive(f.callingConvention.exitVars)
+                    )
+                )
+            }
+        }.prependToBlock0(listOf(TACCmd.Simple.AnnotationCmd(
+            StartKeepAlive.META_KEY,
+            StartKeepAlive(f.callingConvention.argSymbols)
+        )))
+
+        return standardReoptimizePipeline(withKeepAlive) { preCanon ->
+            val toCanonStart = preCanon.parallelLtacStream().mapNotNull {
+                it.maybeAnnotation(StartKeepAlive.META_KEY)
+            }.findFirst().getOrNull()?.symbols ?: error("standard pipeline deleted start annotation, this is a fatal error")
+
+            val canonEnds = preCanon.parallelLtacStream().mapNotNull {
+                it.maybeAnnotation(exitKeepAliveMeta)?.exitVars
+            }.toList().toEquivClasses { it }
+
+            canonicalizeWithIO(
+                preCanon,
+                startArgs = toCanonStart,
+                funcExits = canonEnds,
+                start = CmdPointer(preCanon.getStartingBlock(), 0),
+                end = { _ -> false }
+            ) { prog, canonArg, canonExit ->
+                EquivalenceClass(
+                    equivClass = prog,
+                    callingConvention = f.callingConvention.withArgsAndReturns(
+                        canonArg, canonExit
+                    )
+                )
+            }
+        }
+    }
+
+    private fun <T> Collection<T>.toEquivClasses(ext: (T) -> List<TACSymbol.Var>) : List<Set<TACSymbol.Var>> {
+        val equivs = mutableListOf<MutableSet<TACSymbol.Var>>()
+        for(exit in this) {
+            for((ind, r) in ext(exit).withIndex()) {
+                if(ind >= equivs.size) {
+                    equivs.add(mutableSetOf())
+                }
+                equivs[ind].add(r)
+            }
+        }
+        return equivs
+    }
+
+    private fun <R> standardReoptimizePipeline(
+        r: CoreTACProgram,
+        final: (CoreTACProgram) -> R
+    ) : R {
         return TACDSA.simplify(r, protectedVars = setOf(), protectCallIndex = setOf(), annotate = false, isTypechecked = true)
             .let(ConstantComputationInliner::rewriteConstantCalculations)
             .let(PointerSimplification::simplify)
             .let {
-                SimpleCanonicalization.canonicalize(
-                    it,
-                    start = CmdPointer(it.entryBlockId, 0),
-                    forceVariableEquiv = listOf(),
-                    end = { _ ->  false },
-                    excludeStart = false,
-                    include = ::canonicalizationInclusionPredicate
-                )
-            }.canon
+                final(it)
+            }
     }
 
+    private val pseudoStorage = TACSymbol.Var("storage", Tag.WordMap, NBId.ROOT_CALL_ID, MetaMap(TACMeta.NO_CALLINDEX))
+
+    private val environmentCanonicalizer = SimpleCanonicalization.VariableCanonicalizer { v, name, fresh ->
+        if(TACMeta.EVM_MEMORY in v.meta) {
+            TACSymbol.Var(name, Tag.ByteMap, NBId.ROOT_CALL_ID, MetaMap(TACMeta.EVM_MEMORY))
+        } else if(TACSymbol.Var.KEYWORD_ENTRY in v.meta) {
+            if(v.meta[TACSymbol.Var.KEYWORD_ENTRY]!!.maybeTACKeywordOrdinal?.let {
+                TACKeyword.entries[it]
+                } == TACKeyword.STACK_HEIGHT) {
+                return@VariableCanonicalizer null
+            }
+            v
+        } else if(TACMeta.STORAGE_KEY in v.meta) {
+            pseudoStorage
+        } else if(TACMeta.MCOPY_BUFFER in v.meta) {
+            TACSymbol.Var("mcopyBuff${fresh()}", Tag.ByteMap, NBId.ROOT_CALL_ID, MetaMap(TACMeta.MCOPY_BUFFER))
+        } else {
+            null
+        }
+    }
+
+    private fun <R> canonicalizeWithIO(
+        prog: CoreTACProgram,
+        startArgs: List<TACSymbol>,
+        funcExits: List<Set<TACSymbol.Var>>,
+        start: CmdPointer,
+        end: (LTACCmd) -> Boolean,
+        mk: (SimpleCanonicalization.CanonicalProgram, List<TACSymbol>, List<TACSymbol.Var>) -> R
+    ) : R {
+        /**
+         * Canonicalize the function body
+         */
+        val canon = SimpleCanonicalization.canonicalize(
+            prog,
+            start,
+            excludeStart = true,
+            forceVariableEquiv = funcExits,
+            include = ::canonicalizationInclusionPredicate,
+            variableCanonicalizer = environmentCanonicalizer
+        ) { maybeExit ->
+            end(maybeExit)
+        }
+        val exitVars = funcExits.map { repr ->
+            canon.variableMapping(repr.first())!!
+        }
+        val mca = prog.analysisCache[MustBeConstantAnalysis]
+
+        val argVars = startArgs.mapIndexed { idx, internalArg ->
+            when (internalArg) {
+                is TACSymbol.Const -> internalArg
+                is TACSymbol.Var -> {
+                    canon.variableMapping(internalArg) ?: mca.mustBeConstantAt(
+                        start, internalArg
+                    )?.asTACSymbol() ?: TACSymbol.Var("certora!Unused$idx", Tag.Bit256)
+                }
+            }
+        }
+        return mk(canon, argVars, exitVars)
+    }
 
     /**
      * Given multiple [CanonicalizedFunction] instances with the same signature,
@@ -178,22 +343,21 @@ object PureFunctionExtraction {
      * G is the most general, canonical form of the function.
      *
      * If the above process fails, we check if the different function bodies were just optimized differently. We do
-     * this by simply reoptimizing and recanonicalizing (via [optimizeAndRecanonicalize]) all the equivalence classes
+     * this by simply reoptimizing and recanonicalizing (via [optimizeForGrouping]) all the equivalence classes
      * and then checking whether this yields a single result. If so, we return that unique result.
      *
      * Otherwise, we return null, indicating we could not infer a unique, canonical representation for all functions in [canoned].
      */
-    private fun canonicalizeGroup(
-        canoned: List<CanonicalizedFunction>
-    ) : SimpleCanonicalization.CanonProgram? {
-        val equiv = mutableListOf<EquivalenceClass>()
+    private fun <R: CallingConvention<R>> canonicalizeGroup(
+        canoned: List<CanonicalizedFunction<R>>
+    ) : EquivalenceClass<R>? {
+        val equiv = mutableListOf<EquivalenceClass<R>>()
         for(p in canoned) {
             if(equiv.any { it.includes(p) }) {
                 continue
             }
             equiv.add(EquivalenceClass(
-                argsSyms = p.argSyms,
-                exitSyms = p.exitVars,
+                callingConvention = p.callingConvention,
                 equivClass = p.subProgram
             ))
         }
@@ -203,21 +367,21 @@ object PureFunctionExtraction {
          * function (within some external method body).
          */
         if(equiv.size == 1) {
-            return equiv.single().equivClass.canon
+            return equiv.single()
         }
 
         /**
          * What is the most symbolic arguments?
          */
         val mostVars = equiv.maxOf { repr ->
-            repr.argsSyms.count { sym -> sym is TACSymbol.Var }
+            repr.callingConvention.argSymbols.count { sym -> sym is TACSymbol.Var }
         }
 
         /**
          * Is there a single equivalence class with that count?
          */
         val mostGeneralForm = equiv.singleOrNull { eq ->
-            eq.argsSyms.count { sym ->
+            eq.callingConvention.argSymbols.count { sym ->
                 sym is TACSymbol.Var
             } == mostVars
         }
@@ -230,23 +394,23 @@ object PureFunctionExtraction {
         if(mostGeneralForm == null) {
             // one last try
             return equiv.map {
-                optimizeAndRecanonicalize(it)
-            }.uniqueOrNull()
+                optimizeForGrouping(it)
+            }.equivOrNull()
         }
         /**
          * Otherwise, see if the other equivalence classes are just specializations of mostGeneralForm
          */
         for(eq in equiv) {
-            if(eq.equivClass.canon == mostGeneralForm.equivClass.canon) {
+            if(eq.equivClass equivTo mostGeneralForm.equivClass) {
                 continue
             }
-            if(eq.argsSyms.size != mostGeneralForm.argsSyms.size) {
+            if(eq.callingConvention.argSymbols.size != mostGeneralForm.callingConvention.argSymbols.size) {
                 return null
             }
-            val zipped = mostGeneralForm.argsSyms.zip(eq.argsSyms)
+            val zipped = mostGeneralForm.callingConvention.argSymbols.zip(eq.callingConvention.argSymbols)
 
             /**
-             * This prefix is passed to [optimizeAndRecanonicalize] for the general form, and effects the
+             * This prefix is passed to [optimizeAndRecanonicalizeForMatch] for the general form, and effects the
              * assignment of constant arguments of `eq` to the symbolic arguments in `mostGeneralForm`.
              *
              */
@@ -296,58 +460,100 @@ object PureFunctionExtraction {
             }
             /**
              * Recanonicalize `mostGeneralForm` using these constant assignments, which will be folded into the body of
-             * the function by [ConstantComputationInliner] used by the [optimizeAndRecanonicalize].
+             * the function by [ConstantComputationInliner] used by the [optimizeAndRecanonicalizeForMatch].
              */
-            val newCanon1 = optimizeAndRecanonicalize(mostGeneralForm, assignPrefix)
+            val newCanon1 = optimizeAndRecanonicalizeForMatch(mostGeneralForm, assignPrefix)
 
             /**
              * optimize and recanonicalize. We need to do this here because due canonicalization, the optimizations
-             * done in [optimizeAndRecanonicalize] can still make non-trivial changes unrelated to the constant
+             * done in [optimizeAndRecanonicalizeForMatch] can still make non-trivial changes unrelated to the constant
              * prefix. Thus, we need those same "unrelated to constant arguments" optimizations to be applied
              * to `eq` for an apples to apples comparison.
              */
-            val newCanon2 = optimizeAndRecanonicalize(eq, listOf())
+            val newCanon2 = optimizeAndRecanonicalizeForMatch(eq, listOf())
             /**
              * Well, even after this, we still do not have a match. give up
              */
-            if(newCanon1 != newCanon2) {
+            if(!(newCanon1 equivTo newCanon2)) {
                 return null
             }
         }
-        return mostGeneralForm.equivClass.canon
+        return mostGeneralForm
     }
 
     /**
      * Indicates that all instances of [sig] within some external program have a canonical representation of
      * [prog]. NB this comes with some caveats, given the handling of specialization described in [canonicalizeGroup]
      */
-    data class CanonFunction(
+    data class CanonFunction<R: CallingConvention<R>>(
         val sig: QualifiedMethodSignature,
-        val prog: SimpleCanonicalization.CanonProgram
+        val prog: SimpleCanonicalization.CanonicalProgram,
+        val callingConvention: R
     )
+
+    object SolidityExtractor : PureFunctionExtractor<InternalFuncStartAnnotation, InternalFuncExitAnnotation, SolidityCallingConvention> {
+        override fun exitFinder(prog: CoreTACProgram): Summarization.ExitFinder {
+            return InternalFunctionExitFinder(prog)
+        }
+
+        override val startMeta: MetaKey<InternalFuncStartAnnotation>
+            get() = INTERNAL_FUNC_START
+        override val endMeta: MetaKey<InternalFuncExitAnnotation>
+            get() = INTERNAL_FUNC_EXIT
+
+        override fun accept(sig: QualifiedMethodSignature, src: ContractInstanceInSDC): Boolean {
+            return sig.paramTypes.all {
+                it is VMValueTypeDescriptor
+            } && sig.resType.all {
+                it is VMValueTypeDescriptor
+            } && src.internalFunctions.any { (_, m) ->
+                m.method.toMethodSignature(SolidityContract(m.declaringContract), Visibility.INTERNAL).matchesNameAndParams(sig) && m.method.stateMutability == SolidityFunctionStateMutability.pure
+            }
+        }
+
+        override fun toCallingConvention(
+            start: InternalFuncStartAnnotation,
+            exits: List<InternalFuncExitAnnotation>,
+            startSyms: List<TACSymbol>,
+            exitVars: List<TACSymbol.Var>
+        ): SolidityCallingConvention {
+            return SolidityCallingConvention(startSyms, exitVars)
+        }
+
+        override fun getArgSymbols(l: LTACAnnotation<InternalFuncStartAnnotation>): List<TACSymbol> {
+            return l.annotation.args.map {
+                it.s
+            }
+        }
+
+        override fun getExitSymbols(l: LTACAnnotation<InternalFuncExitAnnotation>): List<TACSymbol.Var> {
+            return l.annotation.rets.map { it.s }
+        }
+
+    }
 
     /**
      * Given a set of [pureInternalSigs] that are expected to appear in [prog],
      * compute which can be assigned a canonical representation as represented by the [CanonFunction]
      * objects in the returned list.
      */
-    private fun findCanonicalRepresentationFor(
+    private fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R>> findCanonicalRepresentationFor(
         prog: CoreTACProgram,
-        pureInternalSigs: Collection<QualifiedMethodSignature>
-    ) : List<CanonFunction> {
-        val exits = InternalFunctionExitFinder(prog)
-        val mca = MustBeConstantAnalysis(
-            graph = prog.analysisCache.graph
-        )
+        pureInternalSigs: Collection<QualifiedMethodSignature>,
+        extractor: PureFunctionExtractor<T, U, R>
+    ) : List<CanonFunction<R>> {
+        val exits = extractor.exitFinder(prog)
         val canoned = prog.parallelLtacStream().mapNotNull {
-            it `to?` it.maybeAnnotation(INTERNAL_FUNC_START)
-        }.filter { (_, start) ->
+            it.annotationView(extractor.startMeta)
+        }.filter { startAnnot ->
             pureInternalSigs.any {
-                it.matchesNameAndParams(start.methodSignature)
+                it.matchesNameAndParams(startAnnot.annotation.which)
             }
-        }.map { (where, start) ->
-            val funcExits = exits.getExits(calleeId = start.id, startPtr = where.ptr)
-            val equivs = mutableListOf<MutableSet<TACSymbol.Var>>()
+        }.map { start ->
+            val where = start.ptr
+            val funcExits = exits.getExits(calleeId = start.annotation.id, startPtr = where).map {
+                it.annotationView(extractor.endMeta)!!
+            }
             /**
              * For all exit sites, ensure the variables assigned to the exit variables are given the same canonical name.
              *
@@ -376,47 +582,27 @@ object PureFunctionExtraction {
              *
              * However, this sort of variable reuse is not expected in practice thanks to DSA.
              */
-            for(exit in funcExits) {
-                for((ind, r) in exit.wrapped.maybeAnnotation(INTERNAL_FUNC_EXIT)!!.rets.withIndex()) {
-                    if(ind >= equivs.size) {
-                        equivs.add(mutableSetOf())
-                    }
-                    equivs[ind].add(r.s)
-                }
+            val equivs = funcExits.toEquivClasses { exit ->
+                extractor.getExitSymbols(exit)
             }
-            /**
-             * Canonicalize the function body
-             */
-            val canon = SimpleCanonicalization.canonicalize(
-                prog,
-                where.ptr,
-                excludeStart = true,
-                forceVariableEquiv = equivs,
-                include = ::canonicalizationInclusionPredicate
-            ) { maybeExit ->
-                maybeExit.maybeAnnotation(INTERNAL_FUNC_EXIT)?.id == start.id
-            }
-            val exitVars = equivs.map { repr ->
-                canon.variableMapping(repr.first())!!
-            }
+            canonicalizeWithIO(
+                prog = prog,
+                start = where,
+                funcExits = equivs,
+                end = { maybeExit -> maybeExit.maybeAnnotation(extractor.endMeta)?.id == start.annotation.id },
+                startArgs = extractor.getArgSymbols(start)
+            ) { prog, startSyms, exitVars ->
+                val callingConv = extractor.toCallingConvention(
+                    start.annotation, funcExits.map { it.annotation }, startSyms, exitVars
+                )
 
-            val argVars = start.args.mapIndexed { idx, internalArg ->
-                when(val a = internalArg.s) {
-                    is TACSymbol.Const -> a
-                    is TACSymbol.Var -> {
-                        canon.variableMapping(a) ?: mca.mustBeConstantAt(
-                            where.ptr, a
-                        )?.asTACSymbol() ?: TACSymbol.Var("certora!Unused$idx", Tag.Bit256)
-                    }
-                }
+                CanonicalizedFunction(
+                    callingConvention = callingConv,
+                    qual = start.annotation.which,
+                    where = start.wrapped,
+                    subProgram = prog
+                )
             }
-            CanonicalizedFunction(
-                where = where,
-                argSyms = argVars,
-                exitVars = exitVars,
-                subProgram = canon,
-                qual = start.methodSignature
-            )
         }.collect(Collectors.groupingBy {
             it.qual.qualifiedMethodName to it.qual.paramTypes
         })
@@ -425,17 +611,36 @@ object PureFunctionExtraction {
          * canoned now holds all of the [CanonicalizedFunction] grouped by signature. For each such
          * group, try to extract the canonical representation via [canonicalizeGroup]
          */
-        val toRet = mutableListOf<CanonFunction>()
+        val toRet = mutableListOf<CanonFunction<R>>()
         for((_, subFuncs) in canoned) {
             val repr = canonicalizeGroup(subFuncs) ?: continue
             toRet.add(
                 CanonFunction(
                     sig = subFuncs.first().qual,
-                    prog = repr
+                    prog = repr.equivClass,
+                    callingConvention = repr.callingConvention
                 )
             )
         }
         return toRet
+    }
+
+    interface PureFunctionExtractor<T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R>> {
+        fun exitFinder(prog: CoreTACProgram) : Summarization.ExitFinder
+        fun getExitSymbols(l: LTACAnnotation<U>) : List<TACSymbol.Var>
+        fun getArgSymbols(l: LTACAnnotation<T>) : List<TACSymbol>
+
+        val startMeta: MetaKey<T>
+        val endMeta: MetaKey<U>
+
+        fun accept(sig: QualifiedMethodSignature, src: ContractInstanceInSDC) : Boolean
+
+        fun toCallingConvention(
+            start: T,
+            exits: List<U>,
+            startSyms: List<TACSymbol>,
+            exitVars: List<TACSymbol.Var>
+        ) : R
     }
 
     /**
@@ -444,22 +649,16 @@ object PureFunctionExtraction {
      * 2. Have only scalar input/output types
      * 3. Have some canonical representation.
      */
-    fun canonicalPureFunctionsIn(m: TACMethod) : List<CanonFunction> {
+    fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R>> canonicalPureFunctionsIn(m: TACMethod, extractor: PureFunctionExtractor<T, U, R>) : List<CanonFunction<R>> {
         val src = (m.getContainingContract() as? IContractWithSource)?.src ?: return listOf()
         val prog = m.code as CoreTACProgram
         val res = prog.parallelLtacStream().mapNotNull {
-            it.maybeAnnotation(INTERNAL_FUNC_START)?.methodSignature
+            it.maybeAnnotation(extractor.startMeta)?.which
         }.filter { sig ->
-            sig.paramTypes.all {
-                it is VMValueTypeDescriptor
-            } && sig.resType.all {
-                it is VMValueTypeDescriptor
-            } && src.internalFunctions.any { (_, m) ->
-                m.method.toMethodSignature(SolidityContract(m.declaringContract), Visibility.INTERNAL).matchesNameAndParams(sig) && m.method.stateMutability == SolidityFunctionStateMutability.pure
-            }
+            extractor.accept(sig, src)
         }.collect(Collectors.toSet())
         return findCanonicalRepresentationFor(
-            prog, res
+            prog, res, extractor
         )
     }
 }

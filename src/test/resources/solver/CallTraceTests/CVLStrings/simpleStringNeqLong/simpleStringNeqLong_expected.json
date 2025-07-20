@@ -212,6 +212,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null
@@ -314,17 +325,6 @@
                             ],
                             "jumpToDefinition": null,
                             "storageId": null
-                        },
-                        {
-                            "message": {
-                                "text": "Copy-Loop",
-                                "arguments": [
-                                ]
-                            },
-                            "status": "",
-                            "childrenList": [
-                            ],
-                            "jumpToDefinition": null
                         },
                         {
                             "message": {

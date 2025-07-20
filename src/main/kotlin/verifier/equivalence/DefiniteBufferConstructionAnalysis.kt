@@ -77,7 +77,7 @@ object DefiniteBufferConstructionAnalysis {
              * ... whose offset and length are known constants ...
              */
             val la = lc.cmd.accesses.singleOrNull { la ->
-                !la.isWrite && la.base == TACKeyword.MEMORY.toVar() && la.offset.isConstAt(lc.ptr) != null && la.length.isConstAt(lc.ptr) != null
+                !la.isWrite && TACMeta.EVM_MEMORY in la.base.meta && la.offset.isConstAt(lc.ptr) != null && la.length.isConstAt(lc.ptr) != null
             } ?: return@mapNotNull null
             lc to la
         }.mapNotNull { (lc, la) ->
@@ -111,7 +111,7 @@ object DefiniteBufferConstructionAnalysis {
                 if(prev.cmd !is TACCmd.Simple.AssigningCmd.ByteStore) {
                     continue
                 }
-                if(prev.cmd.base != TACKeyword.MEMORY.toVar()) {
+                if(prev.cmd.base != la.base) {
                     continue
                 }
                 /**

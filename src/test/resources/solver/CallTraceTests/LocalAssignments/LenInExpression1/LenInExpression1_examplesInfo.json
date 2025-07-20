@@ -396,7 +396,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "7"
+                    "value": "f"
                 },
                 {
                     "namePrefix": "R6",
@@ -794,7 +794,7 @@
                 },
                 {
                     "type": "vc.data.state.TACValue.PrimitiveValue.Integer",
-                    "value": "7"
+                    "value": "f"
                 }
             ],
             "reachableBadNBIds": [

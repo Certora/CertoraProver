@@ -148,12 +148,15 @@ interface InternalFunctionStartInfo {
 @GenerateRemapper
 @Treapable
 data class InternalFuncStartAnnotation(
-    @GeneratedBy(Allocator.Id.INTERNAL_FUNC, source = true) val id: Int, val startPc: Int,
+    @GeneratedBy(Allocator.Id.INTERNAL_FUNC, source = true) override val id: Int, val startPc: Int,
     override val args: List<InternalFuncArg>, override val methodSignature: QualifiedMethodSignature,
     val stackOffsetToArgPos: Map<Int, Int>,
     override val callSiteSrc: TACMetaInfo?,
     override val calleeSrc: TACMetaInfo?
-) : TransformableVarEntityWithSupport<InternalFuncStartAnnotation>, RemapperEntity<InternalFuncStartAnnotation>, Serializable, InternalFunctionStartInfo {
+) : TransformableVarEntityWithSupport<InternalFuncStartAnnotation>, RemapperEntity<InternalFuncStartAnnotation>, Serializable, InternalFunctionStartInfo, InternalFunctionStartAnnot {
+    override val which: QualifiedMethodSignature
+        get() = methodSignature
+
     fun isSummarizable() = args.all { it.sort == InternalArgSort.SCALAR }
 
     fun getArgPos(argOffset: Int): Int = stackOffsetToArgPos[argOffset] ?: run {
@@ -302,10 +305,10 @@ sealed class InternalFuncValueLocation : AmbiSerializable, TransformableVarEntit
 @Treapable
 data class InternalFuncExitAnnotation(
     @GeneratedBy(Allocator.Id.INTERNAL_FUNC)
-    val id: Int,
+    override val id: Int,
     val rets: List<InternalFuncRet>,
     val methodSignature: QualifiedMethodSignature
-) : TransformableVarEntityWithSupport<InternalFuncExitAnnotation>, RemapperEntity<InternalFuncExitAnnotation>, HasKSerializable {
+) : TransformableVarEntityWithSupport<InternalFuncExitAnnotation>, RemapperEntity<InternalFuncExitAnnotation>, HasKSerializable, InternalFunctionExitAnnot {
 
     override val support: Set<TACSymbol.Var>
         get() = rets.flatMapToSet { it.support }

@@ -15,18 +15,17 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package verifier.equivalence
+package verifier.equivalence.cex
 
-import scene.IScene
-import scene.TACMethod
+import verifier.equivalence.tracing.BufferTraceInstrumentation
 
 /**
- * Mixin to "import" the fields of [QueryContext] as fields of the extending interface.
+ * An event which has a [sort], [params] (which describes the parameters of the event)
+ * and an optional buffer representation [bufferRepr].
  */
-interface WithQueryContext {
-    val context: QueryContext
+sealed interface EventWithData : IEvent {
+    val params: List<EventParam>
+    val sort: BufferTraceInstrumentation.TraceEventSort
+    val bufferRepr: List<UByte>?
 
-    val scene: IScene get() = context.scene
-    val methodA: TACMethod get() = context.methodA
-    val methodB: TACMethod get() = context.methodB
 }

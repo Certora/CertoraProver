@@ -269,6 +269,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null
@@ -337,20 +348,20 @@
                                         "values": [
                                             "Basic",
                                             "Basic",
-                                            "0xa"
+                                            "0xf"
                                         ],
                                         "tooltip": "address",
                                         "truncatable": false
                                     },
                                     {
-                                        "value": "2^255",
+                                        "value": "0x1",
                                         "values": [
-                                            "2^255",
-                                            "57896044618658097711785492504343953926634992332820282019728792003956564819968",
-                                            "0x8000000000000000000000000000000000000000000000000000000000000000"
+                                            "0x1",
+                                            "1",
+                                            "0x1"
                                         ],
                                         "tooltip": "storage value",
-                                        "truncatable": false
+                                        "truncatable": true
                                     }
                                 ]
                             },

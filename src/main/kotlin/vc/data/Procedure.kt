@@ -266,4 +266,13 @@ sealed class ProcedureId : AmbiSerializable {
             // not have spaces though.
             name.replace(" ", "_")
     }
+
+    @KSerializable
+    data class EquivProgram(val name: String, val hostContract: BigInteger) : ProcedureId() {
+        override val address: ContractOfProcedure
+            get() = ContractOfProcedure.withContractId(hostContract)
+
+        override fun toString() = name.replace(" ", "_") // I guess? everyone else is doing it
+    }
 }
+

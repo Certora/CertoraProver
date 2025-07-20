@@ -318,6 +318,17 @@
                     "childrenList": [
                     ],
                     "jumpToDefinition": null
+                },
+                {
+                    "message": {
+                        "text": "Assuming all requireInvariants commands globally",
+                        "arguments": [
+                        ]
+                    },
+                    "status": "",
+                    "childrenList": [
+                    ],
+                    "jumpToDefinition": null
                 }
             ],
             "jumpToDefinition": null
@@ -377,54 +388,54 @@
                         "text": "workOnSComplexCVL(x='{0}', s={s1.x='{1}', s1.y='{2}', s1.z1='{3}', s1.z2='{4}', s1.b1='{5}', s1.x2='{6}', s1.b2='{7}', s2.x='{8}', s2.y='{9}', s2.z1='{10}', s2.z2='{11}', s2.b1='{12}', s2.x2='{13}', s2.b2='{14}', b3='{15}'})",
                         "arguments": [
                             {
-                                "value": "0x1",
+                                "value": "0x2",
                                 "values": [
-                                    "0x1",
-                                    "1",
-                                    "0x1"
+                                    "0x2",
+                                    "2",
+                                    "0x2"
                                 ],
                                 "tooltip": "1st parameter",
                                 "truncatable": true
                             },
                             {
-                                "value": "0xc",
+                                "value": "MAX_UINT256",
                                 "values": [
-                                    "0xc",
-                                    "12",
-                                    "0xc"
+                                    "MAX_UINT256",
+                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                                 ],
                                 "tooltip": "value at s1.x",
-                                "truncatable": true
+                                "truncatable": false
                             },
                             {
-                                "value": "0x4300",
+                                "value": "0xffffffffffffffffffffffffffffffffffffffff",
                                 "values": [
-                                    "0x4300",
-                                    "0x4300",
-                                    "0x4300"
+                                    "0xffffffffffffffffffffffffffffffffffffffff",
+                                    "0xffffffffffffffffffffffffffffffffffffffff",
+                                    "0xffffffffffffffffffffffffffffffffffffffff"
                                 ],
                                 "tooltip": "value at s1.y",
                                 "truncatable": true
                             },
                             {
-                                "value": "0xb",
+                                "value": "MAX_UINT8",
                                 "values": [
-                                    "0xb",
-                                    "11",
-                                    "0xb"
+                                    "MAX_UINT8",
+                                    "255",
+                                    "0xff"
                                 ],
                                 "tooltip": "value at s1.z1",
-                                "truncatable": true
+                                "truncatable": false
                             },
                             {
-                                "value": "0x9",
+                                "value": "MAX_UINT8",
                                 "values": [
-                                    "0x9",
-                                    "9",
-                                    "0x9"
+                                    "MAX_UINT8",
+                                    "255",
+                                    "0xff"
                                 ],
                                 "tooltip": "value at s1.z2",
-                                "truncatable": true
+                                "truncatable": false
                             },
                             {
                                 "value": "false",
@@ -435,14 +446,14 @@
                                 "truncatable": false
                             },
                             {
-                                "value": "0x8",
+                                "value": "MAX_UINT256",
                                 "values": [
-                                    "0x8",
-                                    "8",
-                                    "0x8"
+                                    "MAX_UINT256",
+                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                                 ],
                                 "tooltip": "value at s1.x2",
-                                "truncatable": true
+                                "truncatable": false
                             },
                             {
                                 "value": "false",
@@ -453,44 +464,44 @@
                                 "truncatable": false
                             },
                             {
-                                "value": "0x6",
+                                "value": "MAX_UINT256",
                                 "values": [
-                                    "0x6",
-                                    "6",
-                                    "0x6"
+                                    "MAX_UINT256",
+                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                                 ],
                                 "tooltip": "value at s2.x",
-                                "truncatable": true
+                                "truncatable": false
                             },
                             {
-                                "value": "0x8200",
+                                "value": "0xffffffffffffffffffffffffffffffffffffffff",
                                 "values": [
-                                    "0x8200",
-                                    "0x8200",
-                                    "0x8200"
+                                    "0xffffffffffffffffffffffffffffffffffffffff",
+                                    "0xffffffffffffffffffffffffffffffffffffffff",
+                                    "0xffffffffffffffffffffffffffffffffffffffff"
                                 ],
                                 "tooltip": "value at s2.y",
                                 "truncatable": true
                             },
                             {
-                                "value": "0xd",
+                                "value": "MAX_UINT8",
                                 "values": [
-                                    "0xd",
-                                    "13",
-                                    "0xd"
+                                    "MAX_UINT8",
+                                    "255",
+                                    "0xff"
                                 ],
                                 "tooltip": "value at s2.z1",
-                                "truncatable": true
+                                "truncatable": false
                             },
                             {
-                                "value": "0x7",
+                                "value": "MAX_UINT8",
                                 "values": [
-                                    "0x7",
-                                    "7",
-                                    "0x7"
+                                    "MAX_UINT8",
+                                    "255",
+                                    "0xff"
                                 ],
                                 "tooltip": "value at s2.z2",
-                                "truncatable": true
+                                "truncatable": false
                             },
                             {
                                 "value": "false",
@@ -501,14 +512,14 @@
                                 "truncatable": false
                             },
                             {
-                                "value": "0xa",
+                                "value": "MAX_UINT256",
                                 "values": [
-                                    "0xa",
-                                    "10",
-                                    "0xa"
+                                    "MAX_UINT256",
+                                    "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                                 ],
                                 "tooltip": "value at s2.x2",
-                                "truncatable": true
+                                "truncatable": false
                             },
                             {
                                 "value": "false",
