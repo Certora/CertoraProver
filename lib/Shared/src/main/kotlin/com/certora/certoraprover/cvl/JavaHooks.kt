@@ -192,19 +192,19 @@ enum class HookType(val lowLevel: Boolean, @Suppress("Unused") val numInputs: In
     LOG3(true, 5, 0),
     @OpcodeHookType(withOutput = false, params = ["uint256 offset", "uint256 size", "bytes32 topic1", "bytes32 topic2", "bytes32 topic3", "bytes32 topic4"], extraInterfaces = [CVLHookPattern.LogHookPattern::class])
     LOG4(true, 6, 0),
-    @OpcodeHookType(withOutput = true, params = ["uint256 callValue", "uint256 offset", "uint256 len"], valueType = "address")
+    @OpcodeHookType(withOutput = true, params = ["uint256 callValue", "uint256 offset", "uint256 len"], valueType = "address", envParams = ["uint16 pc"])
     CREATE1(true, 3, 1),
 
     // not to be confused with legacy CREATE
-    @OpcodeHookType(withOutput = true, params = ["uint256 callValue", "uint256 offset", "uint256 len", "bytes32 salt"], valueType = "address")
+    @OpcodeHookType(withOutput = true, params = ["uint256 callValue", "uint256 offset", "uint256 len", "bytes32 salt"], valueType = "address", envParams = ["uint16 pc"])
     CREATE2(true, 4, 1),
-    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 callValue", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
+    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 callValue", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector", "uint16 pc"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
     CALL(true, 7, 1),
-    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 callValue", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
+    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 callValue", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector", "uint16 pc"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
     CALLCODE(true, 7, 1),
-    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
+    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector", "uint16 pc"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
     DELEGATECALL(true, 6, 1),
-    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
+    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector", "uint16 pc"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
     STATICCALL(true, 6, 1),
     @OpcodeHookType(withOutput = false, params = ["uint256 offset", "uint256 size"])
     REVERT(true, 2, 0),

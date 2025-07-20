@@ -1737,6 +1737,10 @@ sealed class TACCmd : Serializable, ITACCmd {
             paramName = "sighash",
             generator = SighashBinder::class
         )
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         data class CallCmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
             @OpcodeParameter("gas") val o1: TACSymbol, // gas
@@ -1771,6 +1775,10 @@ sealed class TACCmd : Serializable, ITACCmd {
         @OpcodeEnvironmentParam(
             paramName = "sighash",
             generator = SighashBinder::class
+        )
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
         )
         @HookableOpcode("CALLCODE", additionalInterfaces = [CallOpcodeSummary::class])
         data class CallcodeCmd(
@@ -1809,6 +1817,10 @@ sealed class TACCmd : Serializable, ITACCmd {
             paramName = "sighash",
             generator = SighashBinder::class
         )
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         @HookableOpcode("DELEGATECALL", additionalInterfaces = [CallOpcodeSummary::class])
         data class DelegatecallCmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
@@ -1843,6 +1855,10 @@ sealed class TACCmd : Serializable, ITACCmd {
             paramName = "sighash",
             generator = SighashBinder::class
         )
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         @HookableOpcode("STATICCALL", additionalInterfaces = [CallOpcodeSummary::class])
         data class StaticcallCmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
@@ -1874,6 +1890,10 @@ sealed class TACCmd : Serializable, ITACCmd {
         }
 
         @HookableOpcode("CREATE1")
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         data class CreateCmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
             @OpcodeParameter override val value: TACSymbol,
@@ -1893,6 +1913,10 @@ sealed class TACCmd : Serializable, ITACCmd {
         }
 
         @HookableOpcode("CREATE2")
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         data class Create2Cmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
             @OpcodeParameter override val value: TACSymbol,

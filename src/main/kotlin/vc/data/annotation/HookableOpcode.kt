@@ -35,6 +35,7 @@ annotation class HookableOpcode(
 )
 
 @Target(AnnotationTarget.CLASS)
+@Repeatable
 annotation class OpcodeEnvironmentParam(
     val paramName: String,
     val generator: KClass<out OpcodeEnvironmentBinder>

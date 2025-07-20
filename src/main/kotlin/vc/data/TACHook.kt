@@ -741,12 +741,54 @@ sealed class TACHookPattern : Serializable {
                         is All_sstore -> AllSstore(pattern.loc, pattern.v)
                         is All_tload -> AllTload(pattern.value, pattern.loc)
                         is All_tstore -> AllTstore(pattern.loc, pattern.v)
-                        is Create1 -> vc.data.Create1(pattern.value,pattern.callValue, pattern.offset, pattern.len)
-                        is Create2 -> vc.data.Create2(pattern.value,pattern.callValue, pattern.offset, pattern.len, pattern.salt)
-                        is Call -> vc.data.Call(pattern.value,pattern.gas,pattern.addr,pattern.callValue,pattern.argsOffset,pattern.argsLength,pattern.retOffset,pattern.retLength,pattern.selector)
-                        is Callcode -> vc.data.Callcode(pattern.value,pattern.gas,pattern.addr,pattern.callValue,pattern.argsOffset,pattern.argsLength,pattern.retOffset,pattern.retLength,pattern.selector)
-                        is Delegatecall -> vc.data.Delegatecall(pattern.value,pattern.gas,pattern.addr,pattern.argsOffset,pattern.argsLength,pattern.retOffset,pattern.retLength,pattern.selector)
-                        is Staticcall -> vc.data.Staticcall(pattern.value,pattern.gas,pattern.addr,pattern.argsOffset,pattern.argsLength,pattern.retOffset,pattern.retLength,pattern.selector)
+                        is Create1 -> vc.data.Create1(pattern.value,pattern.callValue, pattern.offset, pattern.len, pattern.pc)
+                        is Create2 -> vc.data.Create2(pattern.value,pattern.callValue, pattern.offset, pattern.len, pattern.salt, pattern.pc)
+                        is Call -> vc.data.Call(
+                            output = pattern.value,
+                            gas = pattern.gas,
+                            callee = pattern.addr,
+                            value = pattern.callValue,
+                            argsOffset = pattern.argsOffset,
+                            argsSize = pattern.argsLength,
+                            retOffset = pattern.retOffset,
+                            retSize = pattern.retLength,
+                            sighash = pattern.selector,
+                            pc = pattern.pc
+                        )
+                        is Callcode -> vc.data.Callcode(
+                            output = pattern.value,
+                            gas = pattern.gas,
+                            addr = pattern.addr,
+                            value = pattern.callValue,
+                            argsOffset = pattern.argsOffset,
+                            argsLength = pattern.argsLength,
+                            retOffset = pattern.retOffset,
+                            retLength = pattern.retLength,
+                            sighash = pattern.selector,
+                            pc = pattern.pc
+                        )
+                        is Delegatecall -> vc.data.Delegatecall(
+                            output = pattern.value,
+                            gas = pattern.gas,
+                            addr = pattern.addr,
+                            argsOffset = pattern.argsOffset,
+                            argsLength = pattern.argsLength,
+                            retOffset = pattern.retOffset,
+                            retLength = pattern.retLength,
+                            sighash = pattern.selector,
+                            pc = pattern.pc
+                        )
+                        is Staticcall -> vc.data.Staticcall(
+                            output = pattern.value,
+                            gas = pattern.gas,
+                            addr = pattern.addr,
+                            argsOffset = pattern.argsOffset,
+                            argsLength = pattern.argsLength,
+                            retOffset = pattern.retOffset,
+                            retLength = pattern.retLength,
+                            sighash = pattern.selector,
+                            pc = pattern.pc
+                        )
                         is Returndatasize -> vc.data.Returndatasize(pattern.value)
                     }
                 }

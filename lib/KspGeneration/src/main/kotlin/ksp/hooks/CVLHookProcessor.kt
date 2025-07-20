@@ -57,8 +57,9 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
             "bytes32" -> "spec.cvlast.CVLType.PureCVLType.Primitive.BytesK(32)"
             "bytes4" -> "spec.cvlast.CVLType.PureCVLType.Primitive.BytesK(4)"
             "uint32" -> "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK(32)"
+            "uint16" -> "spec.cvlast.CVLType.PureCVLType.Primitive.UIntK(16)"
             else -> {
-                environment.logger.error("Could not understand type ${tyName}: we only support address, bytes32, bytes4, and uint256")
+                environment.logger.error("Could not understand type ${tyName}: we only support address, bytes32, bytes4, uint16, uint32, and uint256")
                 return null
             }
         }
@@ -73,8 +74,9 @@ class CVLHookProcessor(val environment: SymbolProcessorEnvironment) : SymbolProc
             "bytes32" -> "$evmTypes.BytesK(256)"
             "bytes4" -> "$evmTypes.BytesK(4)"
             "uint32" -> "$evmTypes.UIntK(32)"
+            "uint16" -> "$evmTypes.UIntK(16)"
             else -> {
-                environment.logger.error("Could not understand evm type $tyName: we only support address, bytes32, bytes4, and uint256, uint32")
+                environment.logger.error("Could not understand evm type $tyName: we only support address, bytes32, bytes4, uint256, uint16, and uint32")
                 return null
             }
         }
