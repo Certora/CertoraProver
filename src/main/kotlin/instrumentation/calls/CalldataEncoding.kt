@@ -173,9 +173,8 @@ data class CalldataEncoding(
                             it.maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.let {
                                 it.cmd.srcBase.meta.containsKey(TACMeta.IS_CALLDATA) && it.cmd.dstBase.meta.containsKey(
                                     TACMeta.EVM_MEMORY
-                                )
-                                    && it.cmd.srcOffset is TACSymbol.Const && (it.cmd.srcOffset as TACSymbol.Const).value == BigInteger.ZERO
-                                    && it.cmd.dstOffset is TACSymbol.Const && (it.cmd.dstOffset as TACSymbol.Const).value == BigInteger.ZERO
+                                ) && graph.cache[MustBeConstantAnalysis].mustBeConstantAt(where, it.cmd.srcOffset) == BigInteger.ZERO
+                                    && graph.cache[MustBeConstantAnalysis].mustBeConstantAt(where, it.cmd.dstOffset) == BigInteger.ZERO
                             } != true
                         }) {
                         err()
