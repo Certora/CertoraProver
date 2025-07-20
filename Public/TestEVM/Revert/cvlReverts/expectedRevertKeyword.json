@@ -5,6 +5,8 @@
       "SANITY_FAIL": [],
       "SUCCESS": [
         "callSummarizeMe(bool)",
+        "callSummarizeMeReturning(bool)",
+        "callSummarizeMeReturningInternal(bool)",
         "alwaysRevertContractFun()"
       ],
       "TIMEOUT": [],
@@ -12,6 +14,8 @@
     },
     "cvlRevertCanRevert": "SUCCESS",
     "goingThroughSummary": "SUCCESS",
+    "goingThroughSummaryWithReturnValue": "SUCCESS",
+    "goingThroughSummaryWithReturnValueInternal": "SUCCESS",
     "withoutWithRevertCannotRevert": "SUCCESS",
     "codeAfterRevertIsSkipped": "SUCCESS",
     "differentRevertReasons": "SUCCESS",

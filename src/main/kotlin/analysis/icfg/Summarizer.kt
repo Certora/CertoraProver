@@ -1952,11 +1952,34 @@ object Summarizer {
         where: CmdPointer,
         summaryName: String,
     ): CoreTACProgram {
+        val augmentedSetup = if (Config.CvlFunctionRevert.get()) {
+            setup.merge(EthereumVariables.setLastReverted(lastReverted = false))
+        } else {
+            setup
+        }
 
         val ret = summary
             .let { p -> CVLToSimpleCompiler.compileVMParamAssignments(p, convertIns) }
-            .prependToBlock0(setup).let {
-                mergeCodes(it, assignOuts)
+            .prependToBlock0(augmentedSetup).let {
+                if (Config.CvlFunctionRevert.get()) {
+                    val revertNode = CommandWithRequiredDecls(
+                        listOf(
+                            TACCmd.Simple.NopCmd
+                        ), listOf()
+                    ).toProg("no return data assignment on revert path", where.block.getCallId().toContext())
+                    mergeIfCodes(
+                        it,
+                        jumpiCmd = TACCmd.Simple.JumpiCmd(
+                            dst = revertNode.getStartingBlock(),
+                            elseDst = assignOuts.getStartingBlock(),
+                            cond = CVLKeywords.lastReverted.toVar()
+                        ),
+                        thenCode = revertNode,
+                        elseCode = assignOuts
+                    )
+                } else {
+                    mergeCodes(it, assignOuts)
+                }
             }.transformToCore(scene)
 
         /** collect a list of [MethodRef]s that were inlined in this summary */
