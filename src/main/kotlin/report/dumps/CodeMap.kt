@@ -1076,7 +1076,7 @@ data class CodeMap(
                     when (cmdExpectedValue) {
                         is ExpectedValue.Value ->
                             if (cmdExpectedValue.value != cmdValue.asBigIntOrNull()) {
-                                val expectedStr = bigIntPretty(cmdExpectedValue.value) ?: toString()
+                                val expectedStr = bigIntPretty(cmdExpectedValue.value) ?: cmdExpectedValue.value.toString()
                                 "<span style='background-color:red;'>$cmdHtml $valueStr (ex. $expectedStr)</span>"
                             } else {
                                 "$cmdHtml $valueStr"
