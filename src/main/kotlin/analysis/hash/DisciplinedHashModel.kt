@@ -358,7 +358,7 @@ object DisciplinedHashModel {
                 )
             } else if(hashCmd.lenSymbol is TACSymbol.Var && pta.query(QueryInvariants(hashCmd.ptr) {
                 hashCmd.lenSymbol `=` TACKeyword.CALLDATASIZE.toVar()
-            }) != null && hashCmd.rewrite is ConditionalRewriter) {
+            }).isNullOrEmpty() && hashCmd.rewrite is ConditionalRewriter) {
                 /**
                  * If we are hashing a buffer of the length of calldata, AND we have a good guess as to what calldata *should*
                  * be, we can generate a rewrite conditional on the calldata buffer being the expected (constant) size.
