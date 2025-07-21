@@ -17,6 +17,7 @@
 
 package analysis
 
+import analysis.storage.StorageAnalysis.Base
 import analysis.storage.StorageAnalysis.AnalysisPath
 import analysis.storage.StorageTree
 import analysis.storage.StorageTree.Type
@@ -149,6 +150,7 @@ class StoragePathAnnotationTest {
             arbitraryStorageTreeType().flatMap { type ->
                 val rootTree = StorageTree.Root(
                     root.toBigInteger(),
+                    Base.STORAGE,
                     if (type is Type.Struct) {
                         type.elements.values.single()
                     } else {
@@ -235,7 +237,7 @@ class StoragePathAnnotationTest {
                 Type.Bottom -> throw UnsupportedOperationException("Type.Bottom in storage tree")
             }
         }
-        return walk(root.types, AnalysisPath.Root(root.slot), root.slot)
+        return walk(root.types, AnalysisPath.Root(root.slot, Base.STORAGE), root.slot)
     }
 
     private fun arbitraryStorageTreeType(): Arbitrary<Type> {

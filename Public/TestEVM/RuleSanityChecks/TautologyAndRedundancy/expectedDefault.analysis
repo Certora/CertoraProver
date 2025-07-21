@@ -1,0 +1,44 @@
+{
+        "POINTSTO":	{
+			"0":false,
+			"constructor()":false,
+			"certorafallback_0()":true,
+			"c()":true,
+			"setVarToTrue()":true,
+			"setVarToFalse()":true,
+			"BooleanVar-c()":true,
+			"BooleanVar-setVarToFalse()":true,
+			"BooleanVar-setVarToTrue()":true,
+			"BooleanVar-fallback":true
+		},
+		"CALLGRAPH": {
+			"0":false,
+			"constructor()":false,
+			"certorafallback_0()":true,
+			"c()":true,
+			"setVarToTrue()":true,
+			"setVarToFalse()":true
+		},
+		"MEMORY_MODEL": {
+			"ecrecover":false,
+			"constructor_BooleanVar":false,
+			"BooleanVar-fallback":true,
+			"BooleanVar-c()":true,
+			"BooleanVar-setVarToTrue()":true,
+			"BooleanVar-setVarToFalse()":true
+		},
+		"POINTSTO_MEMORY": {
+			"ecrecover":false,
+			"constructor_BooleanVar":false,
+			"BooleanVar-fallback":true,
+			"BooleanVar-c()":true,
+			"BooleanVar-setVarToTrue()":true,
+			"BooleanVar-setVarToFalse()":true
+		},
+		"INIT": {
+			"BooleanVar-setVarToFalse()":true,
+			"BooleanVar-fallback":true,
+			"BooleanVar-c()":true,
+			"BooleanVar-setVarToTrue()":true
+		}
+}

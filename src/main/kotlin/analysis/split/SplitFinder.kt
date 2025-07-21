@@ -53,7 +53,7 @@ import java.math.BigInteger
 
 /**
  * Finds a [Split] for each variable and storage path in the contract, so that they are aligned with each other.
- * See the design document [https://certora.atlassian.net/l/c/xnzCHTuJ] for more details.
+ * See the design document [https://www.notion.so/certora/Storage-Splitting-2-1-432dd60ee7ee44dcadd3f2a158972dd6] for more details.
  *
  * First step is to find these splits according to an analysis of the contract. Then we check if we are aligned with
  * what the solidity compiler suggests. If there are conflicts, we take a join of the two suggestions and find a fixed

@@ -145,10 +145,6 @@ data class StaticRule(
     override val isSatisfyRule: Boolean = false
 }
 
-interface HasRange {
-    val range: Range
-}
-
 /**
  * Meta information about a "Single" rule as is being processed by `RuleChecker`.
  * In particular, gives information about:

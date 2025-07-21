@@ -18,7 +18,6 @@
 package analysis.storage
 
 import analysis.numeric.IntValue
-import analysis.numeric.MAX_UINT
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import evm.inEVMRange
@@ -147,15 +146,12 @@ sealed class Stride {
                 check(v.v != IntValue.Constant(BigInteger.ZERO))  {
                     "Representation violation: zero term"
                 }
-                check(factored.all { (_,v) -> v.v != IntValue.Nondet }) {
-                    "Representation violation: nondet factor "
-                }
             }
         }
 
         companion object {
             fun sumOf(factored: TreapMap<BigInteger, SymValue>, off: BigInteger): Stride =
-                if (!off.inEVMRange || factored.any { (_,v) -> v.v == IntValue.Nondet })  {
+                if (!off.inEVMRange)  {
                     Top
                 } else {
                     SumOfTerms(
@@ -285,17 +281,8 @@ sealed class Stride {
                     feasibleFactors.mapValues { (coeff, range) ->
                         // The (single) range denotes "may" values, so this is where we can do some refinement.
 
-                        val lb = if (off + (coeff*range.v.lb) < i.lb && range.v.lb != BigInteger.ZERO) {
-                            (i.lb - off).ceilDiv(coeff)
-                        } else {
-                            range.v.lb
-                        }
-
-                        val ub = if (i.ub != MAX_UINT && i.ub < off + (coeff*range.v.ub)) {
-                            (i.ub - off) / coeff
-                        } else {
-                            range.v.ub
-                        }
+                        val lb = (i.lb - off).ceilDiv(coeff).max(range.v.lb)
+                        val ub = ((i.ub - off) / coeff).min(range.v.ub)
 
                         if (lb > ub) {
                             return this

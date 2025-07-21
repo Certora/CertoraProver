@@ -111,7 +111,6 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     private val accountsAlloc = TACFixedSizeBlockAllocator("TACSolanaAccountAllocator", SBF_INPUT_START.toULong(), MAX_SOLANA_ACCOUNTS.toUShort(), SOLANA_ACCOUNT_SIZE.toULong())
     // Since the input region is large enough we use it also to allocate memory that other external functions might allocate
     private val extMemAlloc = TACBumpAllocator("TACExternalAllocator", SBF_EXTERNAL_START.toULong() , SBF_INPUT_END.toULong())
-
     // Map a de-referenced pointer to a symbolic variable.
     // The memory analysis guarantees that all pointers that might alias will be mapped to same
     // symbolic variable.
@@ -126,12 +125,13 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     // Unsupported calls. We just keep track of them to reduce the number of user warnings
     private val unsupportedCalls: MutableSet<String> = mutableSetOf()
     private val functionArgInference = FunctionArgumentInference(cfg)
-
     // We need type information about registers and stack contents.
     // It's much cheaper to analyze the whole cfg from scratch with a ScalarAnalysis and rebuild invariants at the
     // instruction level than rebuilding invariants at the instruction level with [memoryAnalysis]
     val sbfTypesFac: ISbfTypeFactory<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
     val regTypes: IRegisterTypes<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
+    // To model clock syscalls
+    val clock: Clock = Clock { prefix -> mkFreshIntVar(prefix = prefix) }
 
     init {
         val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
@@ -993,6 +993,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val fnName = metaData.getVal(SbfMeta.INLINED_FUNCTION_NAME) ?: return null
         val fnMangledName = metaData.getVal(SbfMeta.MANGLED_NAME) ?: return null
         val callId = metaData.getVal(SbfMeta.CALL_ID)?.toInt() ?: return null
+        val mockFor = metaData.getVal(SbfMeta.MOCK_FOR)
 
         // These are the observed args across all call sites
         val observedArgs = functionArgInference.inferredArgs(fnName) ?: return null
@@ -1017,7 +1018,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             name = fnName,
             mangledName = fnMangledName,
             args = tacArgs,
-            id = callId
+            id = callId,
+            mockFor = mockFor
         )
     }
 
@@ -1425,6 +1427,12 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                     }
                     SolanaFunction.SOL_MEMSET -> {
                         translateMemSet(locInst)
+                    }
+                    SolanaFunction.SOL_GET_CLOCK_SYSVAR -> {
+                        clock.get(locInst)
+                    }
+                    SolanaFunction.SOL_SET_CLOCK_SYSVAR -> {
+                        clock.set(locInst)
                     }
                     else -> {
                         summarizeCall(locInst)

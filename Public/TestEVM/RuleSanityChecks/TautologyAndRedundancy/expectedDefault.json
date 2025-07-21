@@ -1,0 +1,34 @@
+{
+    "assertMessages": {},
+    "rules": {
+	"envfreeFuncsStaticCheck": "SUCCESS",
+        "NestedAssert": "SANITY_FAIL",
+        "PartiallySanityFail": {
+            "FAIL": [],
+            "SANITY_FAIL": [
+                "setVarToFalse()",
+                "setVarToTrue()"
+            ],
+            "SUCCESS": [],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "twoParametric": {
+            "FAIL": [],
+            "SANITY_FAIL": [
+                "setVarToFalse()-setVarToFalse()",
+                "setVarToFalse()-c()",
+                "setVarToTrue()-setVarToFalse()",
+                "c()-setVarToFalse()",
+                "c()-c()",
+                "c()-setVarToTrue()",
+                "setVarToFalse()-setVarToTrue()",
+                "setVarToTrue()-c()",
+                "setVarToTrue()-setVarToTrue()"
+            ],
+            "SUCCESS": [],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        }
+    }
+}

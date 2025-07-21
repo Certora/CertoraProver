@@ -91,6 +91,8 @@ object ProverInputPreprocessor {
 
                 override fun getStorageLayout(): TACStorageLayout? = sdc.storageLayout?.toTACStorageLayout()
 
+                override fun getTransientStorageLayout(): TACStorageLayout? = sdc.transientStorageLayout?.toTACStorageLayout()
+
                 override val transientStorage: IStorageInfo
                     get() = DummyStorageInfo
 
@@ -204,7 +206,7 @@ object ProverInputPreprocessor {
                 // in the past we just passed an empty array, but now we need a different mechanism
                 // to know that there's nothing to check, and there is just a nullability check
                 // TODO CERT-1908
-                if (verify.type != null && verify.type != VerificationQueryType.assertion) {
+                if (verify.type != null) {
                     withSpec(verify).map { ast ->
                         printFilteredRules(
                             ast.rules.mapToSet { it.declarationId } +

@@ -250,6 +250,17 @@ class MutateAttributes(AttrUtil.Attributes):
         }
     )
 
+    URL_VISIBILITY = MutateAttributeDefinition(
+        attr_validation_func=Vf.validate_url_visibility,
+        argparse_args={
+            'nargs': AttrUtil.SINGLE_OR_NONE_OCCURRENCES,
+            'action': AttrUtil.UniqueStore,
+            'default': None,  # 'default': when --url_visibility was not used
+            # when --url_visibility was used without an argument its probably because the link should be public
+            'const': str(Vf.UrlVisibilityOptions.PUBLIC)
+        }
+    )
+
 
 def get_args(args_list: List[str]) -> Dict:
 

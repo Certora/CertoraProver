@@ -731,6 +731,9 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 SolanaFunction.SOL_GET_CLOCK_SYSVAR -> {
                     summarizeCall(locInst, memSummaries)
                 }
+                SolanaFunction.SOL_SET_CLOCK_SYSVAR -> {
+                    forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+                }
                 SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE -> {
                     analyzeMemTransfer(locInst)
                 }

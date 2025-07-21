@@ -17,7 +17,7 @@
 
 package wasm.host.soroban
 
-import analysis.CommandWithRequiredDecls
+import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.opt.*
@@ -28,6 +28,7 @@ import tac.generation.*
 import utils.*
 import vc.data.*
 import verifier.CoreToCoreTransformer
+import wasm.analysis.intervals.IntervalBasedExprSimplifier
 import wasm.host.soroban.modules.ContextModuleImpl
 import wasm.host.soroban.opt.*
 import wasm.host.soroban.types.*
@@ -66,6 +67,7 @@ object SorobanHost : WasmHost {
         tac
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE) { ConstantPropagator.propagateConstants(it, setOf()) })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_SOROBAN_MEMORY) { optimizeSorobanMemory(it) })
+        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE, IntervalBasedExprSimplifier::analyze))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.WASM_PROPAGATE_REVERT_CONDITIONS, PropagateRevertConditions::transform))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.CANONICALIZE_SCALARSET, CanonicalizeObjectValAllocations::canonicalize))
 
@@ -158,7 +160,7 @@ object SorobanHost : WasmHost {
     ): CommandWithRequiredDecls<TACCmd.Simple> {
 
         fun encode(encoder: TACExprFact.() -> TACExpr) =
-            assign(encodedResult, encoder)
+            assign(encodedResult, exp = encoder)
 
         if (unencodedResult == null) {
             check(type == SorobanType.Void)
@@ -237,7 +239,7 @@ object SorobanHost : WasmHost {
             TACSymbol.Var(argName, Tag.Bit256).toUnique("!").let { decoded ->
                 decoded to mergeMany(
                     hasTag(*tags),
-                    assign(decoded, decoder)
+                    assign(decoded, exp = decoder)
                 )
             }
 

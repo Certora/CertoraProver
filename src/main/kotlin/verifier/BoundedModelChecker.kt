@@ -19,6 +19,7 @@ package verifier
 
 import allocator.Allocator
 import analysis.CommandWithRequiredDecls
+import analysis.controlflow.checkIfAllPathsAreLastReverted
 import analysis.icfg.InlinedMethodCallStack
 import analysis.storage.StorageAnalysisResult
 import bridge.NamedContractIdentifier
@@ -28,6 +29,10 @@ import config.Config.containsMethodFilteredByConfig
 import config.ReportTypes
 import datastructures.stdcollections.*
 import instrumentation.transformers.InitialCodeInstrumentation
+import kotlinx.serialization.Serializable
+import kotlin.time.measureTimedValue
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import log.*
 import parallel.coroutines.parallelMapOrdered
 import report.*
@@ -60,6 +65,7 @@ import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.stream.Collectors
+import kotlin.time.TimeSource
 
 private val logger = Logger(LoggerTypes.BOUNDED_MODEL_CHECKER)
 
@@ -300,6 +306,40 @@ class BoundedModelChecker(
     private val funcReads: Map<ContractFunction, StateModificationFootprint?>
     private val funcWrites: Map<ContractFunction, StateModificationFootprint?>
 
+    private data class Stats(
+        val globalStats: ConcurrentHashMap<String, Long> = ConcurrentHashMap<String, Long>(),
+        val ruleStats: ConcurrentHashMap<String, MutableMap<String, Long>> = ConcurrentHashMap<String, MutableMap<String, Long>>()
+    ) {
+        @Serializable
+        private data class SerializableStats(
+            val globalStats: Map<String, Long>,
+            val ruleStats: Map<String, Map<String, Long>>
+        )
+
+        fun toSerializable() =
+            SerializableStats(globalStats.toSortedMap().toMap(), ruleStats.toSortedMap().mapValues { it.value.toSortedMap().toMap() })
+
+        fun <T> collectGlobalStats(name: String, f: () -> T): T {
+            val t = measureTimedValue(f)
+            globalStats.compute(name) { _, _ -> t.duration.inWholeMilliseconds }
+            return t.value
+        }
+
+        suspend fun <T> collectRuleStats(name: String, sequenceName: String, f: suspend () -> T): T {
+            val start = TimeSource.Monotonic.markNow()
+            val ret = f()
+            val duration = start.elapsedNow()
+            ruleStats.compute(name) { _, v ->
+                val m = v ?: mutableMapOf()
+                m[sequenceName] = duration.inWholeMilliseconds
+                m
+            }
+            return ret
+        }
+    }
+
+    private val stats = Stats()
+
     init {
         val compiler = CVLCompiler(scene, this.cvl, "bmc compiler")
 
@@ -308,7 +348,7 @@ class BoundedModelChecker(
                 this, scene, cvl, null, null
             )
 
-        initializationProg = run {
+        initializationProg = stats.collectGlobalStats("initializationProg") {
             val block = withScopeAndRange(CVLScope.AstScope, Range.Empty()) {
                 val initAxiomCmds = cvl.ghosts
                     .asSequence()
@@ -369,9 +409,9 @@ class BoundedModelChecker(
             prog.copy(name = "initialization code").applySummaries().optimize(scene)
         }
 
-        setupFunctionProg = run {
+        setupFunctionProg = stats.collectGlobalStats("setupFunctionProg") {
             val callSetup = withScopeAndRange(CVLScope.AstScope, Range.Empty()) {
-                this@run.cvl.subs.find { it.declarationId == SETUP_FUNC_NAME && it.params.isEmpty() }?.let {
+                this@BoundedModelChecker.cvl.subs.find { it.declarationId == SETUP_FUNC_NAME && it.params.isEmpty() }?.let {
                     CVLCmd.Simple.Apply(
                         range,
                         CVLExp.ApplyExp.CVLFunction(
@@ -423,42 +463,50 @@ class BoundedModelChecker(
             return FuncData(n, paramDeclarations, call.copy(name = func.abiWithContractStr()), callId)
         }
 
-        compiledFuncs = this.cvl.importedFuncs.values.asSequence()
-        .flatten()
-            .filterNot { it.methodSignature is UniqueMethod }
-            .filterNot { it.annotation.library }
-            .filter { func ->
-                Config.contractChoice.get().let { it.isEmpty() || func.methodSignature.qualifiedMethodName.host.name in it }
-            }
-            .map { contractFunc ->
-                contractFunc to compileFunction(contractFunc)
-            }
-            // Now that we're done with the CVLCompiler, we can parallelize
-            .parallelStream()
-            .map { (contractFunc, funcData) ->
-                val optimizedFuncProg = funcData.funcProg.applySummaries().optimize(scene)
-                val optimizedParamsProg = funcData.paramsProg.optimize(scene)
+        compiledFuncs = stats.collectGlobalStats("compiledFuncs") {
+            this.cvl.importedFuncs.values.asSequence()
+                .flatten()
+                .filterNot { it.methodSignature is UniqueMethod }
+                .filterNot { it.annotation.library }
+                .filter { func ->
+                    Config.contractChoice.get().let { it.isEmpty() || func.methodSignature.qualifiedMethodName.host.name in it }
+                }
+                .map { contractFunc ->
+                    contractFunc to compileFunction(contractFunc)
+                }
+                // Now that we're done with the CVLCompiler, we can parallelize
+                .parallelStream()
+                .filter { (_, funcData) ->
+                    // Skip always reverting functions
+                    !checkIfAllPathsAreLastReverted(funcData.funcProg)
+                }
+                .map { (contractFunc, funcData) ->
+                    val optimizedFuncProg = funcData.funcProg.applySummaries().optimize(scene)
+                    val optimizedParamsProg = funcData.paramsProg.optimize(scene)
 
-                ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
-                    optimizedFuncProg,
-                    ReportTypes.BMC_FUNC,
-                    StaticArtifactLocation.Outputs,
-                    DumpTime.AGNOSTIC
-                )
+                    ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
+                        optimizedFuncProg,
+                        ReportTypes.BMC_FUNC,
+                        StaticArtifactLocation.Outputs,
+                        DumpTime.AGNOSTIC
+                    )
 
-                contractFunc to funcData.copy(paramsProg = optimizedParamsProg, funcProg = optimizedFuncProg)
+                    contractFunc to funcData.copy(paramsProg = optimizedParamsProg, funcProg = optimizedFuncProg)
+                }
+                .filter { (_, funcData) ->
+                    // Note the filtering we do ignores the `isView` attribute of the functions. This is because e.g. Solidity-generated
+                    // getters don't have this flag yet we want to skip them, and also it may be that a view function will modify a ghost
+                    // via some hook.
+                    getAllWritesAndReads(funcData.funcProg, funcData.callId).first?.let { !it.isEmpty() } != false
+                }.collect(Collectors.toMap({ it.first }, { it.second })).also {
+                    logger.info { "bmc on ${it.size} functions" }
+                }.toSortedMap(compareBy<ContractFunction> { it.abiWithContractStr() })
+        }
+
+        val funcWritesAndReads = stats.collectGlobalStats("funcWritesAndReads") {
+            compiledFuncs.mapValues { (_, funcData) ->
+                getAllWritesAndReads(funcData.funcProg, funcData.callId)
             }
-            .filter { (_, funcData) ->
-                // Note the filtering we do ignores the `isView` attribute of the functions. This is because e.g. Solidity-generated
-                // getters don't have this flag yet we want to skip them, and also it may be that a view function will modify a ghost
-                // via some hook.
-                getAllWritesAndReads(funcData.funcProg, funcData.callId).first?.let { !it.isEmpty() } != false
-            }.collect(Collectors.toMap({ it.first }, { it.second })).also {
-                logger.info { "bmc on ${it.size} functions" }
-            }.toSortedMap(compareBy<ContractFunction> { it.abiWithContractStr() })
-
-        val funcWritesAndReads = compiledFuncs.mapValues { (_, funcData) ->
-            getAllWritesAndReads(funcData.funcProg, funcData.callId)
         }
 
         funcWrites = funcWritesAndReads.mapValues { (_, writesAndReads) -> writesAndReads.first }
@@ -498,15 +546,17 @@ class BoundedModelChecker(
             }
         }.toMap()
 
-        BoundedModelCheckerFilters.init(
-            cvl,
-            scene,
-            compiler,
-            compiledFuncs,
-            funcReads,
-            funcWrites,
-            (invProgs + ruleProgs).mapValues { (_, progs) -> progs.assert }
-        )
+        stats.collectGlobalStats("BoundedModelCheckerFilters.init") {
+            BoundedModelCheckerFilters.init(
+                cvl,
+                scene,
+                compiler,
+                compiledFuncs,
+                funcReads,
+                funcWrites,
+                (invProgs + ruleProgs).mapValues { (_, progs) -> progs.assert }
+            )
+        }
     }
 
     /**
@@ -858,7 +908,9 @@ class BoundedModelChecker(
                 )
 
                 treeViewReporter.signalStart(seqRule)
-                val res = checkProg(prog, seqRule)
+                val res = stats.collectRuleStats(baseRule.ruleIdentifier.toString(), "Range $sequenceLen: ${seqRule.ruleIdentifier}") {
+                    checkProg(prog, seqRule)
+                }
 
                 if (res is RuleCheckResult.Single.WithCounterExamples) {
                     // The sequence failed. So we want to show the specific function (from the dispatch list in the last
@@ -943,7 +995,9 @@ class BoundedModelChecker(
         val allResults = if (!isVacuous(constructorVacuityProg, constructorsRule, registerTreeView = true)) {
             val constructorProg = generateProgForSequence(listOf(), progs)
             treeViewReporter.signalStart(constructorsRule)
-            val constructorRes = checkProg(constructorProg, constructorsRule)
+            val constructorRes = stats.collectRuleStats(baseRule.ruleIdentifier.toString(), "Range 0: ${constructorsRule.ruleIdentifier}") {
+                checkProg(constructorProg, constructorsRule)
+            }
             treeViewReporter.signalEnd(constructorsRule, constructorRes)
             nSequencesChecked.getAndIncrement()
             if (constructorRes is RuleCheckResult.Single && constructorRes.result == SolverResult.SAT) {
@@ -967,12 +1021,18 @@ class BoundedModelChecker(
 
     suspend fun checkAll(): List<RuleCheckResult> {
         StatusReporter.freeze()
-        treeViewReporter.use {
-            val allToRun = invProgs + ruleProgs
+        try {
+            treeViewReporter.use {
+                val allToRun = invProgs + ruleProgs
 
-            return allToRun.toList().parallelMapOrdered { _, (baseRule, data) ->
-                runAllSequences(baseRule, data)
-            }.flatten()
+                return allToRun.toList().parallelMapOrdered { _, (baseRule, data) ->
+                    runAllSequences(baseRule, data)
+                }.flatten()
+            }
+        } finally {
+            ArtifactManagerFactory().writeArtifact("RangerStats.json", overwrite = true) {
+                Json { prettyPrint = true }.encodeToString(stats.toSerializable())
+            }
         }
     }
 }

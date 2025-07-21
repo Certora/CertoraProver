@@ -386,6 +386,7 @@ sealed class CallInstance : TreeViewReportable {
                     && annotation.callResolutionTableInfo.applicationReason == SummaryApplicationReason.Prover -> CallEndStatus.DEFAULT_HAVOC
                 annotation.summary is SpecCallSummary.Dispatcher -> CallEndStatus.DISPATCHER
                 annotation.summary is SpecCallSummary.OptimisticFallback -> CallEndStatus.DISPATCHER
+                annotation.summary is SpecCallSummary.Reroute -> CallEndStatus.REROUTE
                 else -> CallEndStatus.SUMMARIZED
             }
         }
@@ -430,7 +431,7 @@ sealed class CallInstance : TreeViewReportable {
         constructor(message: String, labelId: Int? = null): this(CVLReportLabel.Message(message, Range.Empty()), labelId)
 
         override val name: String get() = label.toString()
-        override val range: Range.Range? get() = label.rangeOrNull()
+        override val range: Range.Range? get() = label.range.nonEmpty()
     }
 
     /** a CVL `if` block was entered */

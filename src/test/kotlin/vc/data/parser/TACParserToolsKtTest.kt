@@ -109,7 +109,7 @@ internal class TACParserToolsKtTest: WithTACSource {
                     x1.asSym(),
                     ACCESS_PATHS,
                     StorageAnalysisResult.AccessPaths(
-                        treapSetOf(StorageAnalysis.AnalysisPath.Root(BigInteger.ONE))
+                        treapSetOf(StorageAnalysis.AnalysisPath.Root(BigInteger.ONE, StorageAnalysis.Base.STORAGE))
                     )
                 )
             ),

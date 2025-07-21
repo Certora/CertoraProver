@@ -29,6 +29,7 @@ import report.TreeViewLocation
 @Serializable
 @Treapable
 sealed class Range : AmbiSerializable, Comparable<Range> {
+    fun nonEmpty(): Range? = this as? Range
 
     /**
      * Display enough information about `this` to make it useful in the context of an error message at [base].
@@ -43,11 +44,12 @@ sealed class Range : AmbiSerializable, Comparable<Range> {
         TreeViewLocation {
 
         init {
-            check(start.isPrevious(end)){"end position cannot come before the start position"}
+            require(start <= end) { "end position cannot come before the start position"}
         }
-        constructor(_start: ComplexSymbolFactory.Location, _end: ComplexSymbolFactory.Location) : this(_start.unit,
-            SourcePosition(_start),
-            SourcePosition(_end)
+        constructor(start: ComplexSymbolFactory.Location, end: ComplexSymbolFactory.Location) : this(
+            start.unit,
+            SourcePosition(start),
+            SourcePosition(end),
         )
 
         override fun toString(): String = "${fileName}:${start}"
@@ -78,6 +80,11 @@ sealed class Range : AmbiSerializable, Comparable<Range> {
                 else -> 0
             }
         }
+
+        operator fun contains(smaller: Range) =
+            this.specFile == smaller.specFile
+                    && this.start <= smaller.start
+                    && smaller.end <= this.end
 
         /** attempts to open [file] and return the string demarcated by [start] and [end] */
         fun slicedString(): String? {
@@ -153,4 +160,8 @@ private fun slicedString(lines: Sequence<String>, range: Range.Range): String {
     }
 
     return sb.toString()
+}
+
+interface HasRange {
+    val range: Range
 }

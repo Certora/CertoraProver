@@ -188,10 +188,11 @@ sealed class UserFailMessage: Serializable {
         override val contractName: String,
         override val methodNameOrSig: String,
         override val errorCode: UInt,
-        val postFixMessage: String
+        val postFixMessage: String,
+        val base: String
     ): UserFailMessage() {
         override fun getCoreMessage(): String =
-            "Storage analysis failed in contract ${contractName}, " +
+            "Storage analysis for $base failed in contract ${contractName}, " +
                 " function ${methodNameOrSig}. ${postFixMessage}"
 
         override fun getFullMessage(): String =

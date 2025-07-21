@@ -43,7 +43,6 @@ import vc.data.TACMeta.IS_TRANSIENT_STORAGE_ACCESS
 import vc.data.TACMeta.NO_CALLINDEX
 import vc.data.TACMeta.RETURN_PATH
 import vc.data.TACMeta.REVERT_PATH
-import vc.data.TACMeta.THROW_PATH
 import vc.data.TACMeta.TRANSFERS_BALANCE
 import vc.data.TACProgramCombiners.andThen
 import vc.data.tacexprutil.ExprUnfolder
@@ -1208,31 +1207,27 @@ object EthereumVariables {
 
     }
 
-    fun setLastRevertedAndLastHasThrown(lastReverted: Boolean, lastHasThrown: Boolean, meta: MetaMap = MetaMap()): CommandWithRequiredDecls<TACCmd.Simple> {
-        val hasThrownSymbol = CVLKeywords.lastHasThrown.toVar(Tag.Bool)
+    fun setLastReverted(lastReverted: Boolean, meta: MetaMap = MetaMap()): CommandWithRequiredDecls<TACCmd.Simple> {
         val hasRevertedSymbol = CVLKeywords.lastReverted.toVar(Tag.Bool)
 
         return CommandWithRequiredDecls(
             listOf(
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(hasThrownSymbol, lastHasThrown.asTACSymbol(), meta),
                 TACCmd.Simple.AssigningCmd.AssignExpCmd(hasRevertedSymbol, lastReverted.asTACSymbol(), meta),
                 TACCmd.Simple.AnnotationCmd(
-                    if (lastHasThrown) {
-                        THROW_PATH
-                    } else if (lastReverted) {
+                    if (lastReverted) {
                         REVERT_PATH
                     } else {
                         RETURN_PATH
                     }
                 )
             ),
-            setOf(hasThrownSymbol, hasRevertedSymbol)
+            setOf(hasRevertedSymbol)
         )
     }
 
     fun simplifyInvalid(c: TACCmd.EVM.InvalidCmd): CommandWithRequiredDecls<TACCmd.Simple> {
         unused(c) // reason why we're keeping this?
-        return setLastRevertedAndLastHasThrown(lastReverted = true, lastHasThrown = true).merge(
+        return setLastReverted(lastReverted = true).merge(
             listOf(
                 TACCmd.Simple.RevertCmd(
                     TACSymbol.Const(BigInteger.ZERO),
@@ -1247,7 +1242,7 @@ object EthereumVariables {
     fun simplifyRevert(
         c: TACCmd.EVM.EVMRevertCmd
     ): CommandWithRequiredDecls<TACCmd.Simple> {
-        return setLastRevertedAndLastHasThrown(lastReverted = true, lastHasThrown = false).merge(
+        return setLastReverted(lastReverted = true).merge(
             listOf(
                 TACCmd.Simple.RevertCmd(c.component1(), c.component2(), c.component3(), c.component4(), c.component5())
             )
@@ -1257,7 +1252,7 @@ object EthereumVariables {
     fun simplifyReturn(
         c: TACCmd.EVM.EVMReturnCmd
     ): CommandWithRequiredDecls<TACCmd.Simple> {
-        return setLastRevertedAndLastHasThrown(lastReverted = false, lastHasThrown = false, meta = c.meta).merge(
+        return setLastReverted(lastReverted = false, meta = c.meta).merge(
             listOf(
                 TACCmd.Simple.ReturnCmd(c.component1(), c.component2(), c.component3(), c.component4())
             )
@@ -1384,7 +1379,7 @@ object EthereumVariables {
     )
 
     fun simplifyStop(): CommandWithRequiredDecls<TACCmd.Simple> {
-        return setLastRevertedAndLastHasThrown(lastReverted = false, lastHasThrown = false).merge(
+        return setLastReverted(lastReverted = false).merge(
             listOf(
                 TACCmd.Simple.ReturnCmd(TACSymbol.Const(BigInteger.ZERO), TACSymbol.Const(BigInteger.ZERO))
             )
@@ -1615,6 +1610,7 @@ object EthereumVariables {
                 }
 
                 is TACCmd.CVL -> throw IllegalStateException("Unexpected to see a CVL TACCmd $cmd")
+                is TACCmd.Move -> throw IllegalStateException("Unexpected to see a Move TACCmd $cmd")
             }
         }
 

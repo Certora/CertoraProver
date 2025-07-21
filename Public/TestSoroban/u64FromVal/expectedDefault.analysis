@@ -1,0 +1,125 @@
+{
+  "AddInternalFunctions": {
+    "test_to_from_u64_conditions": true,
+    "test_u64_to_val_tags": true,
+    "test_to_from_u64_reach_error": true,
+    "reach_vals_not_equal": true,
+    "reach_val_positive": true,
+    "reach_val_zero": true,
+    "reach_val_small_positive": true,
+    "reach_vals_equal": true,
+    "test_to_from_u64_small_range": true,
+    "test_u64_to_val_roundtrip": true,
+    "test_to_from_u64_reach_small": true
+  },
+  "NonLinearStats": {
+    "test_to_from_u64_reach_error": [
+      true,
+      true
+    ],
+    "reach_val_small_positive": [
+      true,
+      true
+    ],
+    "reach_vals_not_equal": [
+      true,
+      true
+    ],
+    "reach_vals_equal": [
+      true,
+      true
+    ],
+    "test_to_from_u64_small_range": [
+      true,
+      true
+    ],
+    "reach_val_zero": [
+      true,
+      true
+    ],
+    "reach_val_positive": [
+      true,
+      true
+    ],
+    "test_u64_to_val_tags": [
+      true,
+      true
+    ],
+    "test_u64_to_val_roundtrip": [
+      true,
+      true
+    ],
+    "test_to_from_u64_reach_small": [
+      true,
+      true
+    ]
+  },
+  "PathCountStats": {
+    "reach_val_zero": [
+      true,
+      true
+    ],
+    "reach_vals_equal": [
+      true,
+      true
+    ],
+    "reach_val_positive": [
+      true,
+      true
+    ],
+    "test_to_from_u64_reach_error": [
+      true,
+      true
+    ],
+    "test_to_from_u64_small_range": [
+      true,
+      true
+    ],
+    "reach_val_small_positive": [
+      true,
+      true
+    ],
+    "reach_vals_not_equal": [
+      true,
+      true
+    ],
+    "test_u64_to_val_tags": [
+      true,
+      true
+    ],
+    "test_u64_to_val_roundtrip": [
+      true,
+      true
+    ],
+    "test_to_from_u64_reach_small": [
+      true,
+      true
+    ]
+  },
+  "SCALARSET": {
+    "test_to_from_u64_conditions": false,
+    "reach_val_positive": false,
+    "reach_val_zero": false,
+    "test_to_from_u64_reach_small": false,
+    "test_to_from_u64_small_range": false,
+    "test_to_from_u64_reach_error": false,
+    "test_u64_to_val_tags": true,
+    "reach_vals_equal": false,
+    "reach_vals_not_equal": false,
+    "test_u64_to_val_roundtrip": true,
+    "reach_val_small_positive": false
+  },
+  "SKeyDetection": {
+    "test_to_from_u64_conditions": true,
+    "test_to_from_u64_reach_error": true,
+    "test_u64_to_val_tags": true,
+    "test_u64_to_val_roundtrip": true,
+    "reach_val_positive": true,
+    "test_to_from_u64_small_range": true,
+    "reach_val_zero": true,
+    "reach_vals_not_equal": true,
+    "reach_vals_equal": true,
+    "reach_val_small_positive": true,
+    "test_to_from_u64_reach_small": true
+  }
+}

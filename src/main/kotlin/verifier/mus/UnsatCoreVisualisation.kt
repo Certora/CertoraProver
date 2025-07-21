@@ -151,9 +151,7 @@ class UnsatCoreVisualisation(
     }
 
     private fun dumpToFile(content: String) {
-        ArtifactManagerFactory().registerArtifact(visualisationDumpFile, StaticArtifactLocation.Reports) { name ->
-            ArtifactFileUtils.getWriterForFile(name, true).use { it.append(content) }
-        }
+        ArtifactManagerFactory().writeArtifact(visualisationDumpFile, StaticArtifactLocation.Reports) { content }
     }
 
     /**
@@ -344,7 +342,7 @@ class UnsatCoreVisualisation(
             "\t\tpattern: /(\\b(?:rule|methods|invariant|definition|hook|ghost|sort|function)\\s+)(?!\\d)[\\w\$]+/,\n" +
             "\t\tlookbehind: true\n" +
             "\t},\n" +
-            "\t'keyword': /\\b(?:rule|methods|invariant|definition|hook|ghost|sort|function|if|else|returns?|in|@new|@old|require|assert|requireInvariant|havoc|assuming|envfree|filtered|at|as|using|import|use|builtin|lastReverted|lastHasThrown|lastStorage|preserved|with|Sstore|Sload|offset|STORAGE|KEY|INDEX|axiom|init_state|max_uint|max_uint256|max_uint160|max_address|max_uint128|max_uint96|max_uint64|max_uint32|max_uint16|max_uint8|@withrevert|@norevert|@dontsummarize|fallback|NONDET|CONSTANT|DISPATCHER|ALWAYS|HAVOC|HAVOC_ECF|HAVOC_ALL|PER_CALLEE_CONSTANT|AUTO|forall|exists|call|s?invoke|loop_invariant)\\b/,\n" +
+            "\t'keyword': /\\b(?:rule|methods|invariant|definition|hook|ghost|sort|function|if|else|returns?|in|@new|@old|require|assert|requireInvariant|havoc|assuming|envfree|filtered|at|as|using|import|use|builtin|lastReverted|lastStorage|preserved|with|Sstore|Sload|offset|STORAGE|KEY|INDEX|axiom|init_state|max_uint|max_uint256|max_uint160|max_address|max_uint128|max_uint96|max_uint64|max_uint32|max_uint16|max_uint8|@withrevert|@norevert|@dontsummarize|fallback|NONDET|CONSTANT|DISPATCHER|ALWAYS|HAVOC|HAVOC_ECF|HAVOC_ALL|PER_CALLEE_CONSTANT|AUTO|forall|exists|call|s?invoke|loop_invariant)\\b/,\n" +
             "\t'operator': /[<>]=?|<?=>|[!=]=?=?|--?|\\+\\+?|&&?|\\|\\|?|[?*/~^%]/\n" +
             "});\n" +
             "\n" +

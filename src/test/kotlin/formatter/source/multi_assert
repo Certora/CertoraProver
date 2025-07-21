@@ -1,0 +1,26 @@
+methods {
+    function toBeSummarized() internal returns (uint256) => g();
+}
+
+ghost uint myGhost;
+
+// assert in cvl function called many times
+function g() returns uint {
+    assert myGhost > 0;
+    havoc myGhost;
+    require myGhost > 0;
+    return myGhost;
+}
+
+// assert in hook called many times
+
+rule sanity {
+    require myGhost > 0;
+    env e;
+    calldataarg args;
+    method f;
+    f(e, args);
+    // originally we had satisfy true, but final result is flaky with it until we fix satisfy+assert in same rule
+    // see CERT-3833
+    assert false;
+}

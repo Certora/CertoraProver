@@ -42,7 +42,7 @@ class StorageMetaInfo(private val cx: SplitContext) {
 
         var metaMap = MetaMap()
         metaMap += TACMeta.BIT_WIDTH to range.width
-        metaMap += TACMeta.STORAGE_KEY to cx.contract.instanceId
+        metaMap += path.storageBase().storageKey to cx.contract.instanceId
 
         val innerSort = if (path is NonIndexedPath.Root) {
             ScalarizationSort.Split(idx = path.slot)
@@ -60,7 +60,7 @@ class StorageMetaInfo(private val cx: SplitContext) {
             metaMap += TACMeta.STORAGE_TYPE to type.toDescriptor()
             if (path is NonIndexedPath.Root) {
                 metaMap += TACMeta.DISPLAY_PATHS to DisplayPaths(
-                    setOf(cx.layout.toDisplayPath(AnalysisPath.Root(path.slot), range)!!)
+                    setOf(cx.layout.toDisplayPath(AnalysisPath.Root(path.slot, path.base), range)!!)
                 )
             }
         }

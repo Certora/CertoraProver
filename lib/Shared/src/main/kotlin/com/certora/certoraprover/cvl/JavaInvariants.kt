@@ -17,7 +17,6 @@
 
 package com.certora.certoraprover.cvl
 
-import cli.InvariantType
 import config.Config
 import spec.TypeResolver
 import spec.cvlast.*
@@ -33,30 +32,25 @@ import utils.ErrorCollector.Companion.collectingErrors
 
 // This file contains the "Java" AST nodes for invariants and their components.  See README.md for information about the Java AST.
 
-class Invariant(
+data class Invariant(
     val isImportedSpecFile: Boolean,
-    val range: Range,
+    override val range: Range.Range,
     val id: String,
     val params: List<CVLParam>,
     val exp: Exp,
     val mpf: MethodParamFiltersMap,
     val proof: InvariantProof,
-    val invariantType: String
-) : Kotlinizable<CVLInvariant> {
-    override fun toString() = "Invariant($id,${params.joinToString()},$exp,$invariantType)"
-    private fun getInvariantType(invariantType: String): spec.cvlast.InvariantType{
-        return when(invariantType){
-            InvariantType.WEAK.msg -> WeakInvariantType
-            InvariantType.STRONG.msg -> StrongInvariantType
-            else -> {
-                if(Config.DefaultInvariantType.get() == InvariantType.STRONG) {
-                    StrongInvariantType
-                } else {
-                    WeakInvariantType
-                }
-            }
+    val declaredInvariantType: InvariantType?,
+) : TopLevel<CVLInvariant> {
+    override fun toString(): String {
+        val invariantType = when (this.declaredInvariantType) {
+            StrongInvariantType -> "strong"
+            WeakInvariantType -> "weak"
+            null -> "default"
         }
+        return "Invariant($id,${params.joinToString()},$exp,$invariantType)"
     }
+
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLInvariant, CVLError> {
         return scope.extendInCollecting(::InvariantScopeItem) { iScope: CVLScope -> collectingErrors {
             val _params = params.map { it.kotlinize(resolver, iScope) }.flatten()
@@ -64,29 +58,37 @@ class Invariant(
             val _mpf    = mpf.kotlinize(resolver, iScope)
             val _proof  = proof.kotlinize(resolver, iScope)
             val source  = if (isImportedSpecFile) { SpecType.Single.FromUser.ImportedSpecFile } else { SpecType.Single.FromUser.SpecFile }
-            val invariantType = getInvariantType(invariantType)
+            val invariantType = declaredInvariantType ?: Config.DefaultInvariantType.get().kotlinize()
 
             map(_params, _exp, _mpf, _proof) { params, exp, mpf, proof ->
                 CVLInvariant(range, id, source, params, exp, mpf, proof, iScope, !isImportedSpecFile, RuleIdentifier.freshIdentifier(id), invariantType)
             }
         }}
     }
-
 }
 
-class InvariantProof(val preserved: List<Preserved>) : Kotlinizable<CVLInvariantProof> {
+fun cli.InvariantType.kotlinize() = when (this) {
+    cli.InvariantType.WEAK -> WeakInvariantType
+    cli.InvariantType.STRONG -> StrongInvariantType
+}
+
+data class InvariantProof(val preserved: List<Preserved>, override val range: Range) : Kotlinizable<CVLInvariantProof> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLInvariantProof, CVLError>
         = preserved.map { it.kotlinize(resolver, scope) }.flatten().map { CVLInvariantProof(it) }
 }
 
-sealed class Preserved(val range: Range, val withParams: List<CVLParam>, val block: List<Cmd>) : Kotlinizable<CVLPreserved> {
+sealed interface Preserved : Kotlinizable<CVLPreserved> {
+    override val range: Range
+    val withParams: List<CVLParam>?
+    val block: CmdList
+
     /** @return the kotlinization of `this` after [block] and [withParams] have been kotlinized */
-    abstract fun create(resolver: TypeResolver, scope: CVLScope, block : List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>) : CollectingResult<CVLPreserved, CVLError>
+    fun create(resolver: TypeResolver, scope: CVLScope, block : List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>) : CollectingResult<CVLPreserved, CVLError>
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLPreserved, CVLError> {
         return scope.extendInCollecting(::PreserveScopeItem) { subScope -> collectingErrors {
-            val _block      = block.map { it.kotlinize(resolver, subScope) }.flatten()
-            val _withParams = withParams.map { it.kotlinize(resolver, subScope) }.flatten()
+            val _block      = block.kotlinize(resolver, subScope)
+            val _withParams = withParams.orEmpty().map { it.kotlinize(resolver, subScope) }.flatten()
             bind(_block, _withParams) { block, withParams ->
                 create(resolver, subScope, block, withParams)
             }
@@ -94,30 +96,30 @@ sealed class Preserved(val range: Range, val withParams: List<CVLParam>, val blo
     }
 }
 
-class ExplicitMethodPreserved(
-    range: Range,
+data class ExplicitMethodPreserved(
+    override val range: Range,
     val methodSig: MethodSig,
-    withParams: List<CVLParam>?,
-    block: List<Cmd>
-) : Preserved(range, withParams.orEmpty(), block) {
+    override val withParams: List<CVLParam>?,
+    override val block: CmdList,
+) : Preserved {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
         = methodSig.kotlinizeExternal(resolver, scope).map { methodSig ->
             ExplicitMethod(range, methodSig, block, withParams, scope)
         }
 }
 
-class FallbackPreserved(range: Range, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(range, withParams.orEmpty(), block) {
+data class FallbackPreserved(override val range: Range, override val withParams: List<CVLParam>?, override val block: CmdList) : Preserved {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
         = CVLPreserved.Fallback(range, block, withParams, scope).lift()
 }
 
 
-class TransactionBoundaryPreserved(range: Range, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(range, withParams.orEmpty(), block) {
+data class TransactionBoundaryPreserved(override val range: Range, override val withParams: List<CVLParam>?, override val block: CmdList) : Preserved {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
         = CVLPreserved.TransactionBoundary(range, block, withParams, scope).lift()
 }
 
-class GenericPreserved(range: Range, withParams: List<CVLParam>?, block: List<Cmd>) : Preserved(range, withParams.orEmpty(), block) {
+data class GenericPreserved(override val range: Range, override val withParams: List<CVLParam>?,override val  block: CmdList) : Preserved {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
         = CVLPreserved.Generic(range, block, withParams, scope).lift()
 }

@@ -30,4 +30,22 @@ object CEXUtils {
     fun Either<BigInteger, CounterexampleModel.ResolvingFailure>.withFailureString(msg: String) = this.mapRight {
         "$msg: $it"
     }
+
+    /**
+     * (Monadically) turns a partial function that represents a buffer into a list of ubytes representing
+     * a buffer of length [len]. If any bytes in the range 0 .. [len] are not mapped by the partial function, this function
+     * returns an Either.Right.
+     */
+    fun Either<PartialFn<BigInteger, UByte>, String>.toList(len: BigInteger) : Either<List<UByte>, String> {
+        return this.bindLeft pp@{ fn ->
+            val outL = mutableListOf<UByte>()
+            for(i in 0 until len.intValueExact()) {
+                outL.add(
+                    fn[i.toBigInteger()] ?: return@pp "Missing byte value at $i".toRight()
+                )
+            }
+            outL.toLeft()
+        }
+    }
+
 }

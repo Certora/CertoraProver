@@ -1,0 +1,8 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "checkAssertWithSinvoke": "SANITY_FAIL",
+        "r": "SUCCESS",
+        "r_reachability": "FAIL"
+    }
+}

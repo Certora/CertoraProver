@@ -16,118 +16,51 @@
  */
 package verifier.equivalence
 
-import analysis.*
+import analysis.CmdPointer
 import com.certora.collect.*
 import config.Config
-import config.ReportTypes
-import datastructures.NonEmptyList
 import datastructures.stdcollections.*
-import verifier.equivalence.tracing.BufferTraceInstrumentation
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.*
-import log.ArtifactManagerFactory
-import log.StaticArtifactLocation
-import report.DummyLiveStatsReporter
+import log.*
 import report.OutputReporter
 import report.StatusReporter
-import report.callresolution.CallResolutionTable
-import report.callresolution.CallResolutionTableBase
-import rules.CompiledRule
-import rules.IsFromCache
+import report.TreeViewReporter
 import rules.RuleCheckResult
-import rules.VerifyTime
-import scene.*
-import tac.*
+import scene.IScene
+import scene.ProverQuery
+import scene.TACMethod
+import spec.rules.EquivalenceRule
+import tac.MetaKey
+import tac.MetaMap
+import tac.NBId
+import tac.Tag
 import utils.*
 import vc.data.*
-import verifier.*
-import java.math.BigInteger
-import java.util.concurrent.atomic.AtomicInteger
-import log.*
-import report.TreeViewReporter
-import spec.cvlast.QualifiedMethodSignature
-import spec.rules.EquivalenceRule
-import verifier.equivalence.summarization.PureFunctionExtraction
-import verifier.equivalence.summarization.SharedPureSummarization
+import verifier.equivalence.cex.*
+import verifier.equivalence.data.*
+import verifier.equivalence.tracing.BufferTraceInstrumentation
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
-import kotlin.streams.toList
 
 private val logger = Logger(LoggerTypes.EQUIVALENCE)
-private typealias TCmdPointer<@Suppress("UNUSED_TYPEALIAS_PARAMETER", "unused") T> = CmdPointer
+
+internal typealias TaggedMap<@Suppress("UNUSED_TYPEALIAS_PARAMETER", "unused") T, K, V> = Map<K, V>
+
 
 /**
  * The actual object that does equivalence checking.
  */
 class EquivalenceChecker private constructor(
-    override val context: QueryContext,
+    override val queryContext: EquivalenceQueryContext,
+    val methodA: TACMethod,
+    val methodB: TACMethod,
     /**
      * The overall rule for this equivalence check
      */
     val equivalenceRule: EquivalenceRule
-) : WithQueryContext {
-    /**
-     * Used to generate the rules. Mostly just to have this logic live somewhere else
-     */
-    private val ruleGen = RuleGenerator(methodA, methodB)
-    private val pairwiseProofManager = PairwiseProofManager()
-
-
-    /**
-     * Display information
-     */
-    sealed interface ContextLabel {
-        val displayLabel: String
-        val description: String
-
-        enum class LogLabel(override val displayLabel: String, override val description: String) : ContextLabel {
-            LOG_TOPIC1("Topic 1", "The first log topic (usually the hash of the event signature)"),
-            LOG_TOPIC2("Topic 2", "The second log topic (the first indexed event parameter)"),
-            LOG_TOPIC3("Topic 3", "The third log topic (the second indexed event parameter)"),
-            LOG_TOPIC4("Topic 4", "The fourth log topic (the third indexed event parameter)")
-        }
-
-        enum class ExternalCallLabel(override val displayLabel: String, override val description: String) : ContextLabel {
-            CALL_VALUE("Value", "Ether value sent with call in wei"),
-            CALLEE("Callee address", "Target account of external call"),
-            CALLEE_CODESIZE("Callee codesize", "Non-deterministically chosen codesize of the target account"),
-            RETURNSIZE("Result Buffer Size", "Size, in bytes, of the return/revert buffer"),
-            CALL_RESULT("Call Result", "Whether the external call reverted or returned successfully")
-        }
-
-        sealed interface InternalCallLabel : ContextLabel {
-            data object Signature : InternalCallLabel {
-                override val displayLabel: String
-                    get() = "Internal function signature"
-                override val description: String
-                    get() = "The fully qualified signature of a common pure function"
-            }
-
-            data class Arg(val name: String, val tooltip: String) : InternalCallLabel {
-                override val displayLabel: String
-                    get() = name
-                override val description: String
-                    get() = tooltip
-            }
-
-            data class ReturnValue(val ord: Int) : InternalCallLabel {
-                override val displayLabel: String
-                    get() {
-                        val naturalPos = ord + 1
-                        return naturalPos.toString() + when(naturalPos.mod(10)) {
-                            1 -> "st"
-                            2 -> "nd"
-                            3 -> "rd"
-                            else -> "th"
-                        } + "  Return"
-                    }
-
-                override val description: String
-                    get() = "The $displayLabel value returned by the function"
-            }
-        }
-    }
+) : IWithQueryContext {
 
     @KSerializable
     data class StorageComparison(
@@ -148,6 +81,10 @@ class EquivalenceChecker private constructor(
     }
 
     companion object {
+
+        fun <T: MethodMarker> TACMethod.toContext() = ProgramContext.of<T>(this)
+
+
         fun List<UByte>.asBufferRepr(emptyRepr: String): String {
             if(isEmpty()) {
                 return emptyRepr
@@ -157,78 +94,14 @@ class EquivalenceChecker private constructor(
             }
         }
 
-        /**
-         * (Monadically) turns a partial function that represents a buffer into a list of ubytes representing
-         * a buffer of length [len]. If any bytes in the range 0 .. [len] are not mapped by the partial function, this function
-         * returns an Either.Right.
-         */
-        fun Either<PartialFn<BigInteger, UByte>, String>.toList(len: BigInteger) : Either<List<UByte>, String> {
-            return this.bindLeft pp@{ fn ->
-                val outL = mutableListOf<UByte>()
-                for(i in 0 until len.intValueExact()) {
-                    outL.add(
-                        fn[i.toBigInteger()] ?: return@pp "Missing byte value at $i".toRight()
-                    )
-                }
-                outL.toLeft()
-            }
-        }
-
         val TRACE_EQUIVALENCE_ASSERTION = MetaKey<Int>("equivalence.trace.assertion")
         val STORAGE_EQUIVALENCE_ASSERTION = MetaKey<StorageComparison>("equivalence.storage.assertion")
 
-        private fun trySummarize(
-            sharedSigs: Collection<QualifiedMethodSignature>,
-            methodA: TACMethod,
-            methodB: TACMethod
-        ) : Pair<CoreTACProgram, CoreTACProgram> {
-            val sigs = sharedSigs.toList().mapIndexed { index, q ->
-                q to index
-            }
-            val summarizer = SharedPureSummarization(sigs)
-            try {
-                logger.info {
-                    "Trying to batch summarize common pure functions"
-                }
-                val codeA = summarizer.summarize(methodA.code as CoreTACProgram)
-                val codeB = summarizer.summarize(methodB.code as CoreTACProgram)
-                return codeA to codeB
-            } catch(@Suppress("TooGenericExceptionCaught") e: Exception) {
-                when(e) {
-                    is TACStructureException, is SharedPureSummarization.SummaryApplicationError -> {
-                        logger.warn(e) {
-                            "Failed to summarize batch, falling back on sequential"
-                        }
-                    }
-                    else -> throw e
-                }
-            }
-            var codeAIt = methodA.code as CoreTACProgram
-            var codeBIt = methodB.code as CoreTACProgram
-            for(s in sigs) {
-                logger.info {
-                    "Trying to summarize ${s.first.prettyPrintFullyQualifiedName()}"
-                }
-                try {
-                    val nextA = SharedPureSummarization(listOf(s)).summarize(codeAIt)
-                    val nextB = SharedPureSummarization(listOf(s)).summarize(codeBIt)
-                    codeAIt = nextA
-                    codeBIt = nextB
-                } catch(@Suppress("TooGenericExceptionCaught") e: Exception) {
-                    when(e) {
-                        is TACStructureException, is SharedPureSummarization.SummaryApplicationError -> {
-                            logger.warn(e) {
-                                "Failed to summarize ${s.first.prettyPrintFullyQualifiedName()}, skipping"
-                            }
-                        }
-                        else -> throw e
-                    }
-                }
-            }
-            return codeAIt to codeBIt
-        }
-
-        private fun IScene.resolve(query: ProverQuery.EquivalenceQuery) : Pair<TACMethod, TACMethod> {
+        /**
+         * Finds the method in the two contracts of [query] that matches the provided [Config.MethodChoices] arg.
+         * Throws if these functions can't be found (unrecoverable error)
+         */
+        fun IScene.resolve(query: ProverQuery.EquivalenceQuery) : Pair<TACMethod, TACMethod> {
             val methodChoice = Config.MethodChoices.orEmpty().singleOrNull() ?: throw CertoraException(
                 CertoraErrorType.BAD_CONFIG,
                 "Missing single method choice"
@@ -268,79 +141,9 @@ class EquivalenceChecker private constructor(
                 "Missing single method choice"
             )
 
-            val (methodAForAnalysis, methodBForAnalysis) = scene.resolve(query)
-
-            val methodBPure = PureFunctionExtraction.canonicalPureFunctionsIn(methodBForAnalysis)
-            val methodAPure = PureFunctionExtraction.canonicalPureFunctionsIn(methodAForAnalysis)
-
-            val shared = methodBPure.filter { (qB, progA) ->
-                methodAPure.any { (qA, progB) ->
-                    qA.matchesNameAndParams(qB) && progA == progB
-                }
-            }
-            logger.info {
-                "The following pure functions were found in common:"
-            }
-            if(logger.isInfoEnabled) {
-                for((q, _) in shared) {
-                    logger.info {
-                        "\t* ${q.toNamedDecSignature()}"
-                    }
-                }
-            }
-
-            val (coreA, coreB) = trySummarize(
-                methodA = methodAForAnalysis,
-                methodB = methodBForAnalysis,
-                sharedSigs = shared.map { it.sig }
+            EquivalencePreprocessor.preprocess(
+                scene, query
             )
-
-            fun ITACMethod.earlySummaryUpdate(newCore: CoreTACProgram) = ContractUtils.transformMethodInPlace(this, ChainedMethodTransformers(listOf(
-                CoreToCoreTransformer(ReportTypes.EARLY_SUMMARIZATION) { _ ->
-                    newCore
-                }.lift()
-            )))
-
-            scene.mapContractMethodsInPlace("equiv_summarization") { _, method ->
-                if(method.sigHash == methodAForAnalysis.sigHash && method.getContainingContract().instanceId == methodAForAnalysis.getContainingContract().instanceId) {
-                    method.earlySummaryUpdate(coreA)
-                } else if(method.sigHash == methodBForAnalysis.sigHash && method.getContainingContract().instanceId == methodBForAnalysis.getContainingContract().instanceId) {
-                    method.earlySummaryUpdate(coreB)
-                }
-            }
-
-            /**
-             * Adds some equivalence checker specific normalizations. These aren't useless for the "regular" flow
-             */
-            scene.mapContractMethodsInPlace("equiv_normalization") { _, method ->
-                ContractUtils.transformMethodInPlace(method, ChainedMethodTransformers(listOf(
-                    CoreToCoreTransformer(ReportTypes.SIGHASH_PACKING_NORMALIZER, SighashPackingNormalizer::doWork).lift(),
-                    CoreToCoreTransformer(ReportTypes.SIGHASH_READ_NORMALIZER, SighashReadNormalizer::doWork).lift(),
-                )))
-            }
-
-            IntegrativeChecker.runLoopUnrolling(scene)
-            scene.mapContractMethodsInPlace("initial_postInline") { _, method ->
-                val isLibrary = (method.getContainingContract() as? IContractWithSource)?.src?.isLibrary == true
-                if(isLibrary) {
-                    return@mapContractMethodsInPlace
-                }
-                ContractUtils.transformMethodInPlace(
-                    method,
-                    ContractUtils.tacOptimizations()
-                )
-            }
-            /**
-             * Give a unique numbering to all mloads [MemoryReadNumbering]. This helps identify reads that need to have a bounded precision window.
-             *
-             * Further, annotate buffers for which we can statically determine the writes which define their contents [DefiniteBufferConstructionAnalysis].
-             */
-            scene.mapContractMethodsInPlace("read_numbering") { _, method ->
-                ContractUtils.transformMethodInPlace(method, ChainedMethodTransformers(listOf(
-                    CoreToCoreTransformer(ReportTypes.READ_NUMBERING, MemoryReadNumbering::instrument).lift(),
-                    CoreToCoreTransformer(ReportTypes.DEFINITE_BUFFER_ANALYSIS, DefiniteBufferConstructionAnalysis::instrument).lift()
-                )))
-            }
             val equivalenceRule = EquivalenceRule.freshRule("Equivalence of ${query.contractA.name} and ${query.contractB.name} on $methodChoice")
 
             StatusReporter.registerSubrule(equivalenceRule)
@@ -351,11 +154,14 @@ class EquivalenceChecker private constructor(
             treeViewReporter.signalStart(equivalenceRule)
 
             val r = EquivalenceChecker(
-                QueryContext(
-                    scene = scene,
-                    methodA = methodA,
-                    methodB = methodB
-                ),
+                object : EquivalenceQueryContext {
+                    override val contextA: ProgramContext<MethodMarker.METHODA> = ProgramContext.of(methodA)
+                    override val contextB: ProgramContext<MethodMarker.METHODB> = ProgramContext.of(methodB)
+                    override val scene: IScene
+                        get() = scene
+                },
+                methodA,
+                methodB,
                 equivalenceRule = equivalenceRule,
             ).handleEquivalence()
             r.forEach {
@@ -366,6 +172,7 @@ class EquivalenceChecker private constructor(
             outputReporter.feedReporter(r, scene)
             return r
         }
+
 
         fun TACMethod.pp() = "${this.getContainingContract().name}.${this.soliditySignature ?: this.name}"
 
@@ -383,288 +190,6 @@ class EquivalenceChecker private constructor(
             val META_KEY = MetaKey<IndexHolder>("equiv.trace.read.marker")
 
         }
-    }
-
-
-    // CEX stuff
-
-    /**
-     * An argument decoded by one of the methods
-     */
-    data class Argument(
-        /**
-         * Which argument number, from 0
-         */
-        val ordinal: Int,
-        /**
-         * The name of the argument (in methodA)
-         */
-        val name: String,
-        /**
-         * The name of the argument in methodB (if different from A)
-         */
-        val altName: String?,
-        /**
-         * The string representation of said argument
-         */
-        val value: String
-    )
-
-    /**
-     * Information about the call into the two functions.
-     * [messageValue] is the value of `msg.value`,
-     * [sender] is `msg.sender`, [argumentFormatting] is the list of
-     * argument data extracted from the method bodies
-     */
-    data class InputExplanation(
-        val messageValue: BigInteger?,
-        val sender: BigInteger?,
-        val argumentFormatting: List<Argument>
-    ) {
-        fun prettyPrint(altContract: ContractClass): String {
-            val msg = "Input parameters:\n" +
-                "\tSender: ${sender?.toString(16) ?: "Unknown"}\n" +
-                "\tCall value: ${messageValue ?: "Unknown"}\n" +
-                "\tDecoded arguments:\n" +
-                argumentFormatting.joinToString("\n") { arg ->
-                    val altName = if(arg.altName != null && arg.altName != arg.name) {
-                        " (in ${altContract.name}: ${arg.altName})"
-                    } else {
-                        ""
-                    }
-                    "\t\t -> ${arg.name}$altName = ${arg.value}"
-                }.ifBlank {
-                    "\t\tNone found"
-                }
-            return msg
-        }
-    }
-
-    /**
-     * Records information about an environment interaction, AKA an external call.
-     *
-     */
-    internal sealed interface ExternalCall : IEvent {
-        /**
-         * An external call whose details were fully resolved. Implements the [EventWithData] interface.
-         */
-        data class Complete(
-            /**
-             * The callee address
-             */
-            val callee: BigInteger,
-            /**
-             * The value sent along with the call
-             */
-            val value: BigInteger,
-            /**
-             * The codesize chosen by the solver for the target address
-             */
-            val calleeCodesize: BigInteger,
-            /**
-             * The returnsize chosen by the solver for the external call
-             */
-            val returnSize: BigInteger,
-            /**
-             * Whether the external call was modeled to revert/return
-             */
-            val callResult: Boolean,
-            /**
-             * The calldata as a list of bytes or an explanation for why we couldn't extract it
-             */
-            val calldata: Either<List<UByte>, String>,
-        ) : ExternalCall, EventWithData {
-            override val params: List<EventParam>
-                get() = listOf(
-                    EventParam(ContextLabel.ExternalCallLabel.CALLEE, callee.toHexString()),
-                    EventParam(ContextLabel.ExternalCallLabel.CALL_VALUE, value.toString()),
-                    EventParam(ContextLabel.ExternalCallLabel.CALLEE_CODESIZE, calleeCodesize.toString()),
-                    EventParam(ContextLabel.ExternalCallLabel.CALL_RESULT, if(callResult) {
-                        "Successful return"
-                    } else {
-                        "Revert"
-                    }),
-                    EventParam(ContextLabel.ExternalCallLabel.RETURNSIZE, returnSize.toString()),
-                )
-            override val sort: BufferTraceInstrumentation.TraceEventSort
-                get() = BufferTraceInstrumentation.TraceEventSort.EXTERNAL_CALL
-            override val bufferRepr: List<UByte>?
-                get() = calldata.leftOrNull()
-
-            override fun prettyPrint(): String {
-                val calldataStr = when(calldata) {
-                    is Either.Left -> calldata.d.asBufferRepr("(An empty buffer)")
-                    is Either.Right -> "Failed to extract calldata: ${calldata.d}"
-                }
-                val resultStr = if(callResult) {
-                    "A successful return"
-                } else {
-                    "A revert"
-                }
-                return "\tExternal call to 0x${callee.toString(16)} with eth: $value\n" +
-                    "\tThe calldata buffer was:\n" +
-                    "\t\t $calldataStr\n" +
-                    "\t The callee codesize was chosen as: $calleeCodesize\n" +
-                    "\t The call result was:\n" +
-                    "\t\t $resultStr\n" +
-                    "\t\t With a buffer of length: $returnSize"
-            }
-        }
-
-        /**
-         * Error data holder explaining why we couldn't resolve all the call information
-         */
-        data class Incomplete(override val msg: String) : ExternalCall, IncompleteEvent {
-            override fun prettyPrint(): String {
-                return "\tCouldn't extract information for this call: $msg"
-            }
-        }
-    }
-
-    /**
-     * Some "event" that happened during execution; a log, exit, or external call.
-     */
-    sealed interface IEvent {
-        fun prettyPrint(): String
-    }
-
-    object SyncEvent : IEvent {
-        override fun prettyPrint(): String {
-            throw UnsupportedOperationException()
-        }
-    }
-
-    data class Elaboration(
-        val what: String
-    ) : IEvent {
-        override fun prettyPrint(): String {
-            return what
-        }
-    }
-
-    /**
-     * A placeholder for an event that we couldn't actually precisely resolve,
-     * for whatever reason is described in [msg].
-     */
-    sealed interface IncompleteEvent : IEvent {
-        val msg: String
-    }
-
-    data class Missing(override val msg: String) : IncompleteEvent {
-        override fun prettyPrint(): String {
-            return "Failed to resolve event: $msg"
-        }
-    }
-
-    /**
-     * KV-pair for some event parameter and it's formatted value
-     */
-    data class EventParam(
-        val label: ContextLabel,
-        val value: String? // the formatted value
-    )
-
-    /**
-     * An event which has a [sort], [params] (which describes the parameters of the event)
-     * and an optional buffer representation [bufferRepr].
-     */
-    sealed interface EventWithData : IEvent {
-        val params: List<EventParam>
-        val sort: BufferTraceInstrumentation.TraceEventSort
-        val bufferRepr: List<UByte>?
-
-    }
-
-    /**
-     * Basic event, just minimally implements the [EventWithData] interface
-     */
-    data class BasicEvent(
-        override val bufferRepr: List<UByte>?,
-        override val sort: BufferTraceInstrumentation.TraceEventSort,
-        override val params: List<EventParam>,
-    ) : EventWithData {
-
-        override fun prettyPrint() : String {
-            val context = params.joinToString("\n") { (k, v) ->
-                "\t\t -> ${k.displayLabel}: $v"
-            }.ifBlank {
-                "\t\tNo additional context information"
-            }
-            val contextBody = "\tEvent Context:\n$context"
-            val description = when(sort) {
-                BufferTraceInstrumentation.TraceEventSort.REVERT -> "! The call reverted"
-                BufferTraceInstrumentation.TraceEventSort.RETURN -> "! The call returned"
-                BufferTraceInstrumentation.TraceEventSort.LOG -> "! A log was emitted"
-                BufferTraceInstrumentation.TraceEventSort.EXTERNAL_CALL -> "! An external call was made"
-                BufferTraceInstrumentation.TraceEventSort.INTERNAL_SUMMARY_CALL -> "! An internal call was made"
-            }
-            val bufferBody = if(sort.showBuffer) {
-                val bufferDescription = bufferRepr?.let { bufferMap ->
-                    bufferMap.joinToString("") {
-                        it.toString(16)
-                    }.ifBlank { "! Empty" }
-                } ?: "? Couldn't extract the buffer contents"
-                "\n\tThe raw buffer used in the event was:\n\t\t$bufferDescription"
-            } else { "" }
-            return "\t$description\n$contextBody$bufferBody"
-        }
-    }
-
-    /**
-     * An explanation for why the traces differ
-     */
-    sealed interface MismatchExplanation {
-        /**
-         * There was an [eventInB] which did not appear in [methodA]
-         */
-        data class MissingInA(
-            val eventInB: EventWithData
-        ) : MismatchExplanation
-
-        /**
-         * There was an [eventInA] that did not appear in [methodB]
-         */
-        data class MissingInB(
-            val eventInA: EventWithData
-        ) : MismatchExplanation
-
-        /**
-         * The kth event was different across the methods, [eventInA] vs [eventInB]
-         */
-        data class DifferentEvents(
-            val eventInA: EventWithData,
-            val eventInB: EventWithData
-        ) : MismatchExplanation
-
-        /**
-         * Same events, but storage was left in different states. [slot] is the witness to this
-         * difference, and the differences are described in [contractAValue] and [contractBValue]
-         */
-        data class StorageExplanation(
-            val slot: String,
-            val contractAValue: String,
-            val contractBValue: String
-        ) : MismatchExplanation
-    }
-
-    /**
-     * Response from the current [TraceExplorer] on what to do with the current unsat (aka "verified") result.
-     */
-    internal sealed interface UnsatInterpretation {
-        /**
-         * Loop, using the new [TraceExplorer] [cont]
-         */
-        data class Refine(val cont: TraceExplorer) : UnsatInterpretation
-
-        /**
-         * Halt the loop, everything is verified
-         */
-        data object Verified: UnsatInterpretation
-
-        /**
-         * Disregard the verified result, take [s] instead
-         */
-        data class Override(val s: SatInterpretation) : UnsatInterpretation
     }
 
     internal sealed interface SatInterpretation {
@@ -697,409 +222,76 @@ class EquivalenceChecker private constructor(
              */
             val diffExplanation: MismatchExplanation
         ) : SatInterpretation
-
-        /**
-         * Discard the current result, restart loop with new [TraceExplorer] [cont].
-         */
-        data class Refine(val cont: TraceExplorer) : SatInterpretation
     }
 
-    /**
-     * Object that drives the equivalence loop. Effectively fills in the logic in the "set up rule, run solver, check result"
-     * found in [equivalenceLoop].
-     */
-    internal interface TraceExplorer {
+    private suspend fun checkEquivalence() : RuleCheckResult {
+        val programA = object : CallableProgram<MethodMarker.METHODA, TACMethod> {
+            override val program: CoreTACProgram
+                get() = methodA.code as CoreTACProgram
+            override val callingInfo: TACMethod
+                get() = methodA
 
-        /**
-         * Get the [BufferTraceInstrumentation.InstrumentationControl] to use
-         * for instrumenting [methodA].
-         */
-        fun getAConfig(pairwiseProofManager: PairwiseProofManager): BufferTraceInstrumentation.InstrumentationControl
-
-        /**
-         * Get the [BufferTraceInstrumentation.InstrumentationControl] to use
-         * for instrumenting [methodB]
-         */
-        fun getBConfig(pairwiseProofManager: PairwiseProofManager): BufferTraceInstrumentation.InstrumentationControl
-
-        /**
-         * Generate the verification condition based on the completed instrumentation in [methodAInst] and
-         * [methodBInst].
-         *
-         * The program returned by this function is appended to the end of the generated rule
-         * that is sent to the solver.
-         */
-        fun generateVC(
-            methodAInst: BufferTraceInstrumentation.InstrumentationResults,
-            methodBInst: BufferTraceInstrumentation.InstrumentationResults,
-        ) : CoreTACProgram
-
-        /**
-         * Called if the rule generated by [generateVC] is satisfied, that is, the assertion fails.
-         * What the equivalence loop should do is determined by the [SatInterpretation] object returned.
-         *
-         * [models] is the example info (containing most importantly, the [solver.CounterexampleModel]) for the sat result.
-         * [methodAContext] and [methodBContext] provide information about the instrumented methods, including the call IDs
-         * chosen for them in the generated rule.
-         *
-         * [vcProgram] is the program that was sent to the solver, aka the "presolver" rule.
-         * [failureResult] is the rule result built from the sat result. To be returned if this sat result indicates a rule
-         * failure.
-         *
-         * [pairwiseProofManager] encapsulates the instrumentation overrides used for [methodA] and [methodB]. If the counterexample
-         * indicates imprecision, this object can be used to fine-tune the instrumentation.
-         */
-        suspend fun onSat(
-            models: NonEmptyList<AbstractTACChecker.ExampleInfo>,
-            methodAContext: InlinedInstrumentation<METHODA>,
-            methodBContext: InlinedInstrumentation<METHODB>,
-            vcProgram: CoreTACProgram,
-            failureResult: RuleCheckResult.Single.WithCounterExamples,
-            pairwiseProofManager: PairwiseProofManager,
-        ) : SatInterpretation
-
-        /**
-         * Called when the rule generated by [generateVC] verifies, that is, the solver returns unsat.
-         * If this returns null, the overall result is taken as given.
-         * Otherwise, if a trace explorer is returned as the left variant, then the equivalence
-         * loop will continue with that result.
-         * If a rule check result is returned as the right variant, the overall equivalence process
-         * fails with that result.
-         */
-        suspend fun onUnsat(
-            methodA: InlinedInstrumentation<METHODA>,
-            methodB: InlinedInstrumentation<METHODB>,
-            pairwiseProofManager: PairwiseProofManager
-        ): UnsatInterpretation
-
-        /**
-         * Called if the solver timed out. The explorer can try to adjust instrumentation overrides via [pairwiseProofManager]
-         * and return a new [TraceExplorer] to be used to try again. If null is returned, the overall equivalence check
-         * fails with "timeout".
-         */
-        fun onTimeout(
-            methodA: InlinedInstrumentation<METHODA>,
-            methodB: InlinedInstrumentation<METHODB>,
-            pairwiseProofManager: PairwiseProofManager
-        ): TraceExplorer?
-    }
-
-    internal interface IInstrumentationLevels {
-        val traceLevel: BufferTraceInstrumentation.TraceTargets
-        fun onTimeout(
-            context: QueryContext,
-            pairwiseProofManager: PairwiseProofManager,
-            aConfig: BufferTraceInstrumentation.InstrumentationResults
-        ): IInstrumentationLevels?
-
-        fun onSuccess(
-            context: QueryContext,
-            aConfig: BufferTraceInstrumentation.InstrumentationResults,
-            bConfig: BufferTraceInstrumentation.InstrumentationResults
-        ): IInstrumentationLevels?
-
-        fun getAInclusion(): BufferTraceInstrumentation.TraceInclusionMode
-        fun getBInclusion(): BufferTraceInstrumentation.TraceInclusionMode
-    }
-
-    internal class ExitInstrumentation(val exits: List<CmdPointer>, val curr: Int) :IInstrumentationLevels {
-        constructor(method: TACMethod) : this((method.code as CoreTACProgram).parallelLtacStream().filter {
-            it.cmd.isHalting()
-        }.map { it.ptr }.toList(), 0)
-        override val traceLevel: BufferTraceInstrumentation.TraceTargets
-            get() = BufferTraceInstrumentation.TraceTargets.Results
-
-        override fun onTimeout(
-            context: QueryContext,
-            pairwiseProofManager: PairwiseProofManager,
-            aConfig: BufferTraceInstrumentation.InstrumentationResults
-        ): IInstrumentationLevels? {
-            return null
-        }
-
-        override fun onSuccess(
-            context: QueryContext,
-            aConfig: BufferTraceInstrumentation.InstrumentationResults,
-            bConfig: BufferTraceInstrumentation.InstrumentationResults
-        ): IInstrumentationLevels? {
-            if(curr == exits.lastIndex) {
-                return null
+            override fun pp(): String {
+                return methodA.pp()
             }
-            return ExitInstrumentation(exits, curr + 1)
         }
 
-        override fun getAInclusion(): BufferTraceInstrumentation.TraceInclusionMode {
-            return BufferTraceInstrumentation.TraceInclusionMode.UntilExactly(
-                exits[curr]
+        val programB = object : CallableProgram<MethodMarker.METHODB, TACMethod> {
+            override val program: CoreTACProgram
+                get() = methodB.code as CoreTACProgram
+            override val callingInfo: TACMethod
+                get() = methodB
+
+            override fun pp(): String {
+                return methodB.pp()
+            }
+        }
+
+        val equivalence = object : FullEquivalence<TACMethod, SatInterpretation>(
+            programB = programB,
+            programA = programA,
+            rule = equivalenceRule,
+            queryContext = queryContext,
+            ruleGenerator = CalldataRuleGenerator(
+                queryContext = queryContext
             )
-        }
-
-        override fun getBInclusion(): BufferTraceInstrumentation.TraceInclusionMode {
-            return BufferTraceInstrumentation.TraceInclusionMode.Unified
-        }
-
-    }
-
-    /**
-     * Encapsulates the logic for determining how to "advance" the equivalence proof. This involves
-     * proceeding through the various trace targets, and the "tiers" of events in the (entirely
-     * untested) tiered mode.
-     */
-    internal data class InstrumentationLevels(
-        val inclusion: BufferTraceInstrumentation.TraceInclusionMode,
-        override val traceLevel: BufferTraceInstrumentation.TraceTargets,
-    ) : IInstrumentationLevels {
-        /**
-         * Used to try to simplify the problem to address a timeout, or give up
-         */
-        override fun onTimeout(
-            context: QueryContext,
-            pairwiseProofManager: PairwiseProofManager,
-            aConfig: BufferTraceInstrumentation.InstrumentationResults
-        ) : IInstrumentationLevels? {
-            if(traceLevel == BufferTraceInstrumentation.TraceTargets.Results) {
-                return ExitInstrumentation(context.methodA)
+        ) {
+            override fun explainTraceCEX(
+                targets: BufferTraceInstrumentation.TraceTargets,
+                a: TraceEvent<MethodMarker.METHODA>?,
+                b: TraceEvent<MethodMarker.METHODB>?,
+                res: TraceEquivalenceChecker.CheckResult<TACMethod>
+            ): SatInterpretation {
+                return CounterExampleExplainer(
+                    queryContext = queryContext,
+                    instLevels = targets,
+                    checkResult = res
+                ).explainCounterExample(a, b)
             }
-            return when(inclusion) {
-                BufferTraceInstrumentation.TraceInclusionMode.Unified -> {
-                    logger.info {
-                        "Timeout in unified mode, falling back on tiered"
-                    }
-                    this.copy(inclusion = BufferTraceInstrumentation.TraceInclusionMode.Until(0))
+
+            override fun explainStorageCEX(res: TraceEquivalenceChecker.CheckResult<TACMethod>, f: StorageStateDiff<TACMethod>): SatInterpretation {
+                return CounterExampleExplainer(
+                    queryContext = queryContext,
+                    instLevels = BufferTraceInstrumentation.TraceTargets.Results,
+                    checkResult = res
+                ).explainStorageCEX(f.failingAssert)
+            }
+
+            suspend fun check() = equivalenceLoop(StandardExplorationStrategy.entry())
+        }.check()
+
+        return when(equivalence) {
+            is FullEquivalence.EquivalenceResult.ExplainedCounterExample -> {
+                handleSatInterpretation(equivalence.ex)
+            }
+            is FullEquivalence.EquivalenceResult.GaveUp -> {
+                logger.info {
+                    "Giving up, taking the sat result: ${equivalence.message}"
                 }
-                is BufferTraceInstrumentation.TraceInclusionMode.Until -> {
-                    if(!tryForceSummarization(pairwiseProofManager, aConfig)) {
-                        logger.info {
-                            "No further simplifications found, giving up"
-                        }
-                        return null
-                    }
-                    logger.info {
-                        "Found forced summarization, retrying..."
-                    }
-                    return this
-                }
-                is BufferTraceInstrumentation.TraceInclusionMode.UntilExactly -> `impossible!`
+                equivalence.check.ruleResult
             }
-        }
-
-        /**
-         * Try to find a use site that isn't yet summarized in methodA and summarize it, making the buffers simpler.
-         */
-        private fun tryForceSummarization(pairwiseProofManager: PairwiseProofManager, aConfig: BufferTraceInstrumentation.InstrumentationResults) : Boolean {
-            val weakeningCand = aConfig.useSiteInfo.filter { (k, v) ->
-                v.traceReport?.traceInclusion?.mayAppear == true && !pairwiseProofManager.isSummarized(k)
-            }.maxByOrNull { (_, v) ->
-                v.traceReport?.heuristicDifficulty!!
-            } ?: return false
-            logger.info {
-                "Found use site ${weakeningCand.key} in a, forcing summarization"
-            }
-            pairwiseProofManager.forceSummarized(weakeningCand.key)
-            return true
-        }
-
-        /**
-         * Advance the proof state. If we're in the unified mode, go to the next trace target (call -> log -> exits).
-         * If we're in tiered mode, go to the next tier if necessary, otherwise go to the next target.
-         */
-        override fun onSuccess(
-            context: QueryContext,
-            aConfig: BufferTraceInstrumentation.InstrumentationResults,
-            bConfig: BufferTraceInstrumentation.InstrumentationResults
-        ): IInstrumentationLevels? {
-            when(inclusion) {
-                BufferTraceInstrumentation.TraceInclusionMode.Unified -> {
-                    val nxt = this.traceLevel.nextTarget()
-                    if(nxt == null) {
-                        logger.info {
-                            "all done!"
-                        }
-                        return null
-                    }
-                    return InstrumentationLevels(inclusion, nxt)
-                }
-                is BufferTraceInstrumentation.TraceInclusionMode.Until -> {
-                    val done = aConfig.useSiteInfo.count { (_, v) ->
-                        v.traceReport?.traceInclusion?.mayAppear == true
-                    } == 0 && bConfig.useSiteInfo.count { (_, v) ->
-                        v.traceReport?.traceInclusion?.mayAppear == true
-                    } == 0
-                    logger.info {
-                        "Done at level $inclusion"
-                    }
-                    return if(done) {
-                        logger.info {
-                            "No events remain after this level: success!"
-                        }
-                        return this.traceLevel.nextTarget()?.let {
-                            this.copy(traceLevel = it, inclusion = BufferTraceInstrumentation.TraceInclusionMode.Unified)
-                        }
-                    } else {
-                        logger.info {
-                            "Events remain, starting next level"
-                        }
-                        this.copy(inclusion = BufferTraceInstrumentation.TraceInclusionMode.Until(traceNumber = inclusion.traceNumber + 1))
-                    }
-                }
-                is BufferTraceInstrumentation.TraceInclusionMode.UntilExactly -> `impossible!`
-            }
-        }
-
-        override fun getAInclusion(): BufferTraceInstrumentation.TraceInclusionMode = inclusion
-        override fun getBInclusion(): BufferTraceInstrumentation.TraceInclusionMode = inclusion
-
-
-        private fun BufferTraceInstrumentation.TraceTargets.nextTarget(): BufferTraceInstrumentation.TraceTargets? {
-            return when(this) {
-                BufferTraceInstrumentation.TraceTargets.Calls -> BufferTraceInstrumentation.TraceTargets.Log
-                BufferTraceInstrumentation.TraceTargets.Log -> BufferTraceInstrumentation.TraceTargets.Results
-                BufferTraceInstrumentation.TraceTargets.Results -> null
-            }
-        }
-    }
-
-    /**
-     * Object encapsulating the instrumentation of some method [orig] (with static type tag [WHICH])
-     * whose instrumentation results is in [instrumentation].
-     *
-     * [methodCallId] is the call id chosen for the inlining of the instrumented method.
-     */
-    internal data class InlinedInstrumentation<WHICH>(
-        val methodCallId: CallId,
-        val instrumentation: BufferTraceInstrumentation.InstrumentationResults,
-        val orig: TACMethod
-    )
-
-    /**
-     * The actual equivalence check loop.
-     */
-    suspend private fun equivalenceLoop(trace: TraceExplorer) : RuleCheckResult {
-        logger.info {
-            "starting new loop iteration"
-        }
-        /**
-         * instrument the two functions according to the instructions of [trace]
-         */
-        val aConfig = trace.getAConfig(pairwiseProofManager)
-        logger.info {
-            "Instrumenting $methodA with $aConfig"
-        }
-        val instrumentedA = BufferTraceInstrumentation.instrument(methodA, aConfig)
-        ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
-            instrumentedA.code,
-            ReportTypes.INSTRUMENT_BUFFER_TRACE, location = StaticArtifactLocation.Reports, time = DumpTime.POST_TRANSFORM
-        )
-        val bConfig = trace.getBConfig(pairwiseProofManager)
-        logger.info {
-            "Instrumenting $methodB with $bConfig"
-        }
-        val instrumentedB = BufferTraceInstrumentation.instrument(methodB, bConfig)
-        ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
-            instrumentedB.code,
-            ReportTypes.INSTRUMENT_BUFFER_TRACE, location = StaticArtifactLocation.Reports, time = DumpTime.POST_TRANSFORM
-        )
-
-        /**
-         * Generate the VC, call the solver
-         */
-        val vc = trace.generateVC(instrumentedA, instrumentedB)
-        val theRule = ruleGen.generateRule(instrumentedA, instrumentedB, vc)
-
-        val start = System.currentTimeMillis()
-        val vcRes = TACVerifier.verify(scene, theRule.code, DummyLiveStatsReporter, equivalenceRule)
-        val end = System.currentTimeMillis()
-        val verifyTime = VerifyTime.WithInterval(start, end)
-        val res = Verifier.JoinedResult(vcRes)
-
-        val methodACallId = theRule.methodACallId
-        val methodBCallId = theRule.methodBCallId
-
-
-        val methodAContext = InlinedInstrumentation<METHODA>(methodACallId, instrumentedA, methodA)
-        val methodBContext = InlinedInstrumentation<METHODB>(methodBCallId, instrumentedB, methodB)
-
-        res.reportOutput(equivalenceRule)
-
-        logger.info {
-            "Solver result is ${vcRes.finalResult}"
-        }
-
-        /**
-         * Interpret the result
-         */
-        when(res) {
-            is Verifier.JoinedResult.Failure -> {
-                val origProgWithAssertIdMeta =
-                    CompiledRule.addAssertIDMetaToAsserts(res.simpleSimpleSSATAC, equivalenceRule)
-                val ruleResult = RuleCheckResult.Single.WithCounterExamples(
-                    rule = equivalenceRule,
-                    result = vcRes.finalResult,
-                    verifyTime = verifyTime,
-                    ruleAlerts = emptyList(),
-                    ruleCheckInfo = RuleCheckResult.Single.RuleCheckInfo.WithExamplesData(
-                        isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
-                        isSolverResultFromCache = IsFromCache.INAPPLICABLE,
-                        rule = equivalenceRule,
-                        res = res,
-                        scene = scene,
-                        origProgWithAssertIdMeta = origProgWithAssertIdMeta,
-                        callResolutionTableFactory = CallResolutionTable.Factory(theRule.code, scene, equivalenceRule),
-                    )
-                )
-                val interp = trace.onSat(
-                    models = res.examplesInfo,
-                    methodAContext = methodAContext,
-                    methodBContext = methodBContext,
-                    vcProgram = res.simpleSimpleSSATAC,
-                    failureResult = ruleResult,
-                    pairwiseProofManager = pairwiseProofManager
-                )
-                return handleSatInterpretation(interp)
-            }
-            is Verifier.JoinedResult.Success,
-            is Verifier.JoinedResult.SanityFail,
-            is Verifier.JoinedResult.Timeout,
-            is Verifier.JoinedResult.Unknown -> {
-                val ruleResult = RuleCheckResult.Single.Basic(
-                    result = vcRes.finalResult,
-                    callResolutionTable = CallResolutionTableBase.Empty,
-                    ruleAlerts = emptyList(),
-                    rule = equivalenceRule,
-                    ruleCheckInfo = RuleCheckResult.Single.RuleCheckInfo.BasicInfo(
-                        isSolverResultFromCache = IsFromCache.INAPPLICABLE,
-                        isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
-                        dumpGraphLink = null
-                    ),
-                    verifyTime = verifyTime,
-                    unsatCoreStats = null
-                )
-                if(res is Verifier.JoinedResult.Success) {
-                    when(val r = trace.onUnsat(methodA = methodAContext, methodB = methodBContext,pairwiseProofManager)) {
-                        is UnsatInterpretation.Override -> {
-                            return handleSatInterpretation(r.s)
-                        }
-                        is UnsatInterpretation.Refine -> {
-                            logger.info {
-                                "There is more work to do, looping"
-                            }
-                            return equivalenceLoop(r.cont)
-                        }
-                        UnsatInterpretation.Verified -> {
-                            logger.info {
-                                "All done"
-                            }
-                        }
-                    }
-                } else if(res is Verifier.JoinedResult.Timeout) {
-                    trace.onTimeout(methodAContext, methodBContext, pairwiseProofManager)?.let {
-                        logger.info {
-                            "Attempting to solve timeout with new context"
-                        }
-                        return equivalenceLoop(it)
-                    }
-                }
-                return ruleResult
+            is FullEquivalence.EquivalenceResult.Verified -> {
+                equivalence.check.ruleResult
             }
         }
     }
@@ -1108,7 +300,7 @@ class EquivalenceChecker private constructor(
      * Handle the sat interpretation.
      */
     @Suppress("ForbiddenMethodCall") // allow println for now
-    private suspend fun handleSatInterpretation(
+    private fun handleSatInterpretation(
         interp: SatInterpretation
     ) : RuleCheckResult {
         return when(interp) {
@@ -1294,13 +486,6 @@ class EquivalenceChecker private constructor(
                 println(msg)
                 interp.ruleCheckResult
             }
-
-            is SatInterpretation.Refine -> {
-                logger.info {
-                    "Attempting to refine with: ${interp.cont.javaClass.name}"
-                }
-                equivalenceLoop(interp.cont)
-            }
         }
     }
 
@@ -1433,35 +618,35 @@ class EquivalenceChecker private constructor(
         /**
          * Get the buffer identity overrides for [methodA]
          */
-        fun getAOverrides() : Map<CmdPointer, BufferTraceInstrumentation.TraceOverrideSpec> = aSiteOverrides.mapValues {
+        fun getAOverrides() : TaggedMap<MethodMarker.METHODA, CmdPointer, BufferTraceInstrumentation.TraceOverrideSpec> = aSiteOverrides.mapValues {
             it.value.toSiteOverride()
         }
 
         /**
          * Get the buffer identity overrides for [methodB]
          */
-        fun getBOverrides() = bSitePartners.mapValues { (_, partners) ->
+        fun getBOverrides() : TaggedMap<MethodMarker.METHODB, CmdPointer, BufferTraceInstrumentation.TraceOverrideSpec> = bSitePartners.mapValues { (_, partners) ->
             partners.toGates().let(BufferTraceInstrumentation.TraceOverrideSpec::ConditionalOverrides)
         }
 
-        fun getAUseSiteControl(): Map<TCmdPointer<METHODA>, BufferTraceInstrumentation.UseSiteControl> = methodAReached.mapValues {
+        fun getAUseSiteControl(): TaggedMap<MethodMarker.METHODA, CmdPointer, BufferTraceInstrumentation.UseSiteControl> = methodAReached.mapValues {
             BufferTraceInstrumentation.UseSiteControl(
                 trackBufferContents = false,
                 traceReached = it.value
             )
         }
 
-        fun getBUseSiteControl(): Map<TCmdPointer<METHODB>, BufferTraceInstrumentation.UseSiteControl> = mapOf()
+        fun getBUseSiteControl(): TaggedMap<MethodMarker.METHODB, CmdPointer, BufferTraceInstrumentation.UseSiteControl> = mapOf()
 
         /**
          * Get the bounded precision windows (expressed as a map from mload locations to window size) for [methodA]
          */
-        fun getAMloadOverrides() : Map<CmdPointer, Int> = aMloadOverrides
+        fun getAMloadOverrides() : TaggedMap<MethodMarker.METHODA, CmdPointer, Int> = aMloadOverrides
 
         /**
          * Get the bounded precision windows (expressed as a map from mload locations to window size) for [methodB]
          */
-        fun getBMloadOverrides() : Map<CmdPointer, Int> = bMLoadOverrides
+        fun getBMloadOverrides() : TaggedMap<MethodMarker.METHODB, CmdPointer, Int> = bMLoadOverrides
 
         /**
          * Register that the mload at [where] in [methodB] should use a bounded precision window
@@ -1493,71 +678,8 @@ class EquivalenceChecker private constructor(
     }
 
 
-    /**
-     * An event that is of interest, as extracted from the [BufferTraceInstrumentation.TraceIndexMarker]
-     * annotation. This annotation appeared at [vcProgramSite] in the program sent to the solver, and
-     * was found at [origProgramSite] in the pre-inlined, instrumented version.
-     */
-    internal data class LTraceEventMarker<Which: METHOD_MARKER>(
-        val origProgramSite: CmdPointer,
-        val vcProgramSite: CmdPointer,
-        val marker: BufferTraceInstrumentation.TraceIndexMarker
-    )
-
-    /**
-     * [LTraceEventMarker] stored in [trace] with some information
-     * about the enclosing method in [context].
-     */
-    internal data class LTraceWithContext<Which: METHOD_MARKER>(
-        val trace: LTraceEventMarker<Which>,
-        val context: InlinedInstrumentation<Which>
-    )
-
-    /**
-     * Attempt to keep me from mixing method a and method b. Several classes here have a ghost type
-     * parameter which indicates which method this is describing.
-     */
-    @Suppress("ClassName")
-    internal sealed interface METHOD_MARKER
-
-    /**
-     * Dummy type indicating "for method A"
-     */
-    object METHODA : METHOD_MARKER
-
-    /**
-     * dummy type indicating "for method B"
-     */
-    object METHODB : METHOD_MARKER
-
-    private val json = Json { allowStructuredMapKeys = true }
-
-    @OptIn(ExperimentalSerializationApi::class)
     suspend fun handleEquivalence(): List<RuleCheckResult> {
-        val x = System.getProperty("save.state")
-        if(x != null && x != "" && File(x).exists()) {
-            File(x).inputStream().use {
-                json.decodeFromStream(PairwiseProofManager.Memento.serializer(), it)
-            }.let(pairwiseProofManager::loadMemento)
-        }
-        val ruleCheckResult = try {
-            equivalenceLoop(
-                Explorer(
-                    InstrumentationLevels(
-                        inclusion = BufferTraceInstrumentation.TraceInclusionMode.Until(0),
-                        traceLevel = BufferTraceInstrumentation.TraceTargets.Calls,
-                    ),
-                    QueryContext(methodA, methodB, scene)
-                )
-            )
-        } finally {
-            if (x != null && x != "") {
-                File(x).outputStream().use {
-                    json.encodeToStream(pairwiseProofManager.save(), it)
-                }
-            }
-        }
-        return listOf(ruleCheckResult)
+        return listOf(checkEquivalence())
     }
 
 }

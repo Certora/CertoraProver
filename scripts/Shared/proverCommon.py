@@ -156,11 +156,13 @@ def ensure_version_compatibility(context: CertoraContext) -> None:
         """
         validate_version_and_branch(context)
 
+
 # --------------------------------------------------------------------------- #
 # Verification helpers
 # --------------------------------------------------------------------------- #
 
-def run_local(context: CertoraContext, timings: Dict, additional_commands: Optional[List[str]] = None, compare_with_expected_file: bool = False) -> int:
+def run_local(context: CertoraContext, timings: Dict, additional_commands: Optional[List[str]] = None,
+              compare_with_expected_file: bool = False) -> int:
     """
     Run the verifier locally and return its exit code (0 = success).
     Args:
@@ -187,7 +189,7 @@ def run_local(context: CertoraContext, timings: Dict, additional_commands: Optio
 
     if rc == 0:
         Util.print_completion_message("Finished running verifier:")
-        print("\t%s", " ".join(cmd))
+        print(f'\t{" ".join(cmd)}')
         timings.setdefault("buildTime", 0.0)  # ensure key exists
         return 0
 

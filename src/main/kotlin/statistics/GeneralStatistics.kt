@@ -68,10 +68,13 @@ data class ScalarKeyValueStats<P: Serializable>(
 const val ANALYSIS_SUCCESS_STATS_KEY = "ANALYSIS"
 const val INSTRUMENTATION_SUCCESS_STATS_KEY = "INSTRUMENTATION"
 const val ANALYSIS_STORAGE_SUBKEY = "STORAGE"
+const val ANALYSIS_TRANSIENT_STORAGE_SUBKEY = "TRANSIENT_STORAGE"
 const val ANALYSIS_UNPACKING_SUBKEY = "UNPACKING"
 const val ANALYSIS_POINTSTO_SUBKEY = "POINTSTO"
 const val ANALYSIS_CALLGRAPH_SUBKEY = "CALLGRAPH"
 const val ANALYSIS_INIT_SUBKEY = "INIT"
+// wasm analysis keys
+const val ANALYSIS_SCALARSET_INFERENCE_SUBKEY = "SCALARSET"
 // key for all aggregated time results
 const val TIME_STATS_KEY = "TIMES"
 // key for call resolution (focus on sighash) statistics

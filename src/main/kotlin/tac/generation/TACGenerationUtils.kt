@@ -28,8 +28,8 @@ import vc.data.tacexprutil.*
 fun assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()) =
     listOf(TACCmd.Simple.AssigningCmd.AssignHavocCmd(dest, meta)).withDecls(dest)
 
-fun assign(dest: TACSymbol.Var, exp: TACExprFact.() -> TACExpr) =
-    ExprUnfolder.unfoldTo(TACExprFactUntyped(exp), dest).merge(dest)
+fun assign(dest: TACSymbol.Var, meta: MetaMap = MetaMap(), exp: TACExprFact.() -> TACExpr) =
+    ExprUnfolder.unfoldTo(TACExprFactUntyped(exp), dest, meta).merge(dest)
 
 /** Helper for logical implication */
 infix fun TACExpr.implies(other: TACExpr): TACExpr =
@@ -38,10 +38,24 @@ infix fun TACExpr.implies(other: TACExpr): TACExpr =
 fun TACExpr.letVar(
     name: String,
     tag: Tag = Tag.Bit256,
+    meta: MetaMap = MetaMap(),
     f: (TACExpr.Sym.Var) -> CommandWithRequiredDecls<TACCmd.Simple>
 ) = TACKeyword.TMP(tag, name).let { v ->
     mergeMany(
-        assign(v) { this@TACExpr },
+        assign(v, meta) { this@TACExpr },
+        f(v.asSym())
+    )
+}
+
+/** Like [letVar], but can return arbitrary [TACCmd]s */
+fun TACExpr.letVarEx(
+    name: String,
+    tag: Tag = Tag.Bit256,
+    meta: MetaMap = MetaMap(),
+    f: (TACExpr.Sym.Var) -> CommandWithRequiredDecls<TACCmd>
+) = TACKeyword.TMP(tag, name).let { v ->
+    mergeMany(
+        assign(v, meta) { this@TACExpr },
         f(v.asSym())
     )
 }
@@ -56,38 +70,57 @@ fun memStore(l: TACExpr, v: TACExpr) =
 
 fun TACExpr.letVar(
     tag: Tag = Tag.Bit256,
+    meta: MetaMap = MetaMap(),
     f: (TACExpr.Sym.Var) -> CommandWithRequiredDecls<TACCmd.Simple>
-) = letVar("", tag, f)
+) = letVar("", tag, meta, f)
+
+/** Like [letVar], but can return arbitrary [TACCmd]s */
+fun TACExpr.letVarEx(
+    tag: Tag = Tag.Bit256,
+    meta: MetaMap = MetaMap(),
+    f: (TACExpr.Sym.Var) -> CommandWithRequiredDecls<TACCmd>
+) = letVarEx("", tag, meta, f)
 
 fun (TACExprFact.() -> TACExpr).letVar(
     name: String = "",
     tag: Tag = Tag.Bit256,
+    meta: MetaMap = MetaMap(),
     f: (TACExpr.Sym.Var) -> CommandWithRequiredDecls<TACCmd.Simple>
-) = TACExprFactUntyped.this().letVar(name, tag, f)
+) = TACExprFactUntyped.this().letVar(name, tag, meta, f)
+
+/** Like [letVar], but can return arbitrary [TACCmd]s */
+fun (TACExprFact.() -> TACExpr).letVarEx(
+    name: String = "",
+    tag: Tag = Tag.Bit256,
+    meta: MetaMap = MetaMap(),
+    f: (TACExpr.Sym.Var) -> CommandWithRequiredDecls<TACCmd>
+) = TACExprFactUntyped.this().letVarEx(name, tag, meta, f)
 
 fun TACCmd.Simple.withDecls(vararg decls: TACSymbol.Var) = listOf(this).withDecls(*decls)
+fun TACCmd.withDecls(vararg decls: TACSymbol.Var) = listOf(this).withDecls(*decls)
 
-fun assert(msg: String, cond: TACExprFact.() -> TACExpr) =
+fun assert(msg: String, meta: MetaMap = MetaMap(), cond: TACExprFact.() -> TACExpr) =
     cond.letVar("a", Tag.Bool) {
-        TACCmd.Simple.AssertCmd(it.s, msg).withDecls()
+        TACCmd.Simple.AssertCmd(it.s, msg, meta).withDecls()
     }
 
-fun assume(cond: TACExprFact.() -> TACExpr) =
-    cond.letVar("a", Tag.Bool) {
-        TACCmd.Simple.AssumeCmd(it.s, "").withDecls()
+fun assume(meta: MetaMap = MetaMap(), cond: TACExprFact.() -> TACExpr) =
+    cond.letVar("a", Tag.Bool, meta) {
+        TACCmd.Simple.AssumeCmd(it.s, "", meta).withDecls()
     }
 
-fun label(label: String) = TACCmd.Simple.LabelCmd(label).withDecls()
+fun label(label: String, meta: MetaMap = MetaMap()) = TACCmd.Simple.LabelCmd(label, meta).withDecls()
 
 fun defineMap(
     map: TACSymbol.Var,
+    meta: MetaMap = MetaMap(),
     def: TACExprFact.(List<TACExpr.Sym.Var>) -> TACExpr
 ): CommandWithRequiredDecls<TACCmd.Simple> {
     val mapType = map.tag as Tag.Map
     val queryVars = mapType.paramSorts.map { TACKeyword.TMP(it) }
     val queryParams = queryVars.map { it.asSym() }
 
-    return assign(map) {
+    return assign(map, meta) {
         MapDefinition(
             queryParams,
             def(queryParams),

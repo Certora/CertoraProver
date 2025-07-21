@@ -53,6 +53,7 @@ import vc.data.ParametricInstantiation.Companion.toSimple
 import vc.data.TACCmd.CVL.BufferPointer.Companion.toBufferPointer
 import vc.data.TACExprFactUntyped.shiftRLog
 import vc.data.TACProgramCombiners.andThen
+import vc.data.TACProgramCombiners.flatten
 import vc.data.TACSymbol.Companion.Zero
 import vc.data.TACSymbol.Companion.atSync
 import vc.data.TACSymbol.Var.Companion.KEYWORD_ENTRY
@@ -434,11 +435,8 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
             Also do this when processing calldata (EVM will cut the 12 bytes, but spec code has to do it as well for address types)
              */
 
-            // TODO: RESET REVERT
-            val hasThrownSymbol = CVLKeywords.lastHasThrown.toVar(Tag.Bool)
-
             // handle msg
-            val msgSetup = buildMsgSetup(hasThrownSymbol, calleeId, envArg, calleeAddress)
+            val msgSetup = buildMsgSetup(calleeId, envArg, calleeAddress)
 
             // handle tx
             val txSetup = passFromEnvToTAC(
@@ -549,24 +547,16 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
          * More OLD Copy-Pasted Code
          */
         fun buildMsgSetup(
-            hasThrownSymbol: TACSymbol.Var,
             calleeId: CallId,
             envSymbol: TACSymbol.Var,
             calleeAddress: TACSymbol
         ): CommandWithRequiredDecls<TACCmd.Spec> {
-            val l1 = CommandWithRequiredDecls(
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    hasThrownSymbol,
-                    TACSymbol.False
-                ), hasThrownSymbol
-            ).merge(
-                passFromEnvToTAC(
-                    envSymbol,
-                    EthereumVariables.caller.at(callIndex = calleeId),
-                    "msg",
-                    "sender",
-                    EVMTypeDescriptor.address
-                )
+            val l1 = passFromEnvToTAC(
+                envSymbol,
+                EthereumVariables.caller.at(callIndex = calleeId),
+                "msg",
+                "sender",
+                EVMTypeDescriptor.address
             )
 
             val l2 = passFromEnvToTAC(
@@ -603,7 +593,8 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
         override fun bindArguments(meth: CVLTACProgram, callee: ITACMethod): CVLTACProgram {
             val calldataSize = TACKeyword.CALLDATASIZE.toVar(callId)
             val params = callee.evmExternalMethodInfo!!.argTypes
-            val scalar = (callee.calldataEncoding as CalldataEncoding).byteOffsetToScalar.map {
+            val calldataEncoding = callee.calldataEncoding as CalldataEncoding
+            val scalar = calldataEncoding.byteOffsetToScalar.map {
                 it.key.from to it.value.at(callId)
             }.toMap()
             val buffer = TACKeyword.CALLDATA.toVar().atSync(callId)
@@ -668,29 +659,43 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
                     TACCmd.Simple.AssumeCmd(it.s, "sighashBind")
                 }
             }
-
-
-            val calldataInitialize = CommandWithRequiredDecls(
-                listOf(
-                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                        lhs = buffer,
-                        rhs = TACExpr.MapDefinition(
-                            listOf(sym.asSym()),
-                            tag = Tag.ByteMap,
-                            definition = TACExprFactSimple {
-                                ite(
-                                    sym.asSym() lt calldataSize.asSym(),
-                                    defaultVal,
-                                    TACExpr.zeroExpr
-                                )
-                            }
-                        )
+            // not bound by argument encoding
+            val calldataZeroBind = calldataEncoding.byteOffsetToScalar.findEntry { range, _ ->
+                range.from == BigInteger.ZERO && callee.sigHash != null
+            }?.let { (_, r) ->
+                val indexedR = r.atSync(callId)
+                CommandWithRequiredDecls(listOf(
+                    TACCmd.Simple.AssigningCmd.ByteLoad(
+                        lhs = indexedR,
+                        loc = Zero,
+                        base = buffer
                     )
-                ),
-                setOf(initMap, calldataSize)
-            ).letIf(sighashBinding != null) {
-                it.merge(sighashBinding!!)
+                ), indexedR)
             }
+
+
+            val calldataInitialize = listOfNotNull(
+                CommandWithRequiredDecls(
+                    listOf(
+                        TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                            lhs = buffer,
+                            rhs = TACExpr.MapDefinition(
+                                listOf(sym.asSym()),
+                                tag = Tag.ByteMap,
+                                definition = TACExprFactSimple {
+                                    ite(
+                                        sym.asSym() lt calldataSize.asSym(),
+                                        defaultVal,
+                                        TACExpr.zeroExpr
+                                    )
+                                }
+                            )
+                        )
+                    ),
+                    setOf(initMap, calldataSize)
+                ),
+                sighashBinding
+            ).flatten()
 
 
             val actualCalldataSize = TACKeyword.TMP(Tag.Bit256, "!calldata").toUnique("!")
@@ -722,14 +727,15 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
             val havocCalldataSize = CommandWithRequiredDecls(listOf(
                 TACCmd.Simple.AssigningCmd.AssignHavocCmd(lhs = calldataSize)
             ), setOf(calldataSize))
-            val prefix = CommandWithRequiredDecls.mergeMany(
+            val prefix = listOfNotNull(
                 havocCalldataSize,
                 calldataInitialize,
                 CommandWithRequiredDecls(listOf(
                     TACCmd.Simple.AnnotationCmd(StartSerializationMarker.META_KEY, StartSerializationMarker(encodingId, callId))
                 )),
-                setup
-            )
+                setup,
+                calldataZeroBind
+            ).flatten()
             val preamble = encoding.prependToBlock0(prefix)
             val afterEncoding = (sizeSetup andThen CommandWithRequiredDecls(listOf(
                 TACCmd.Simple.AnnotationCmd(EndSerializationMarker.META_KEY, EndSerializationMarker(encodingId, callId))
@@ -856,7 +862,7 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
                 ), setOf(balanceSufficient, envVar, balanceRead, msgAmount, senderAddress)))
                 .toProg("balanceCheck", callId.toContext())
 
-            val revertPath = EthereumVariables.setLastRevertedAndLastHasThrown(lastReverted = true, lastHasThrown = false)
+            val revertPath = EthereumVariables.setLastReverted(lastReverted = true)
                 .merge(if (isNoRevert && Config.CvlFunctionRevert.get()) {
                     TACCmd.Simple.AnnotationCmd(REVERT_CONFLUENCE)
                 } else {

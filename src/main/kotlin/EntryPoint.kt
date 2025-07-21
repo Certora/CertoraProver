@@ -41,6 +41,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runInterruptible
 import kotlinx.serialization.json.Json
 import log.*
+import move.MoveScene
 import org.apache.commons.cli.UnrecognizedOptionException
 import os.dumpSystemConfig
 import parallel.coroutines.establishMainCoroutineScope
@@ -252,6 +253,8 @@ fun main(args: Array<String>) {
                 fileName == null && BytecodeFiles.getOrNull() != null &&
                     SpecFile.getOrNull() != null -> handleBytecodeFlow(BytecodeFiles.get(), SpecFile.get())
 
+                fileName == null && Config.MoveModulePath.getOrNull() != null -> handleMoveFlow()
+
                 fileName == null && isCertoraScriptFlow(buildFileName, verificationFileName) -> {
                     val cfgFileNames = getFilesInSourcesDir()
                     val ruleCheckResults = handleCertoraScriptFlow(
@@ -281,7 +284,7 @@ fun main(args: Array<String>) {
                         }
                     }
                     SpecFile.getOrNull() != null -> handleCVLFlow(fileName, SpecFile.get())
-                    else -> handleSolidityOrHexFlow(fileName)
+                    else -> throw IllegalArgumentException("Unknown file type for $fileName")
                 }
 
                 else -> {
@@ -653,6 +656,23 @@ suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Single> {
     }
 }
 
+suspend fun handleMoveFlow() {
+    // See notes in `MoveMemory`
+    if (Config.Smt.UseBV.get()) {
+        throw CertoraException(
+            CertoraErrorType.BAD_CONFIG,
+            "Precise bitwise operations are not supported in Move mode"
+        )
+    }
+
+    val modulePath = Config.MoveModulePath.get()
+    val moveScene = MoveScene(Path(modulePath))
+
+    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(modulePath, "MoveMainProgram")
+    handleGenericFlow(scene, reporterContainer, treeView, moveScene.rules)
+    reporterContainer.toFile(scene)
+}
+
 suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Single>> {
     val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName, "SolanaMainProgram")
     treeView.use {
@@ -678,13 +698,6 @@ suspend fun handleCVLFlow(contractFilename: String, specFilename: String) {
     val (contractSource, specSource) = getSources(contractFilename, specFilename)
     // consider doing a quick check on cvls before, then build scene, then re-fetch cvl? (e.g. bytecode case)
     IntegrativeChecker.run(specSource, contractSource)
-}
-
-suspend fun handleSolidityOrHexFlow(fileName: String) {
-    val contractSource = getContractFile(fileName)
-    val scene = SceneFactory.getScene(contractSource)
-    val solidityVerifier = SolidityVerifier(scene) // this is a bit of an odd-one out but let's leave it like this
-    solidityVerifier.runVerifierOnFile(fileName)
 }
 
 fun runBuildScript() {
@@ -753,6 +766,11 @@ private fun autoConfig() {
         Config.PrettifyCEXSmallBarriers.set(true) //We expect the hashing bound to be relatively small and hence use small barriers
         Config.PostProcessCEXSingleCheckTimeout.setIfUnset(100)
         Config.PostProcessCEXTimeoutSeconds.setIfUnset(600)
+    }
+
+    if(Config.BoundedModelChecking.getOrNull() != null && Config.RequireInvariantsPreRuleSemantics.get()){
+        // In BMC mode, we are _not_ using the global require invariant semantics
+        Config.RequireInvariantsPreRuleSemantics.set(false)
     }
 }
 

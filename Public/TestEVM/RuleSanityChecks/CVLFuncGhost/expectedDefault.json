@@ -1,0 +1,9 @@
+{
+  "assertMessages": {
+
+  },
+  "rules": {
+    "CVLFuncRevert": "SANITY_FAIL",
+    "CVLUtils": "SANITY_FAIL"
+  }
+}

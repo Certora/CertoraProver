@@ -31,6 +31,7 @@ import CertoraProver.certoraContextAttributes as Attrs
 
 metadata_logger = logging.getLogger("metadata")
 
+
 def collect_args_with_jar_flags() -> List[str]:
     return_array = []
     for attr in Attrs.get_attribute_class().attribute_list():
@@ -70,10 +71,18 @@ class RunMetaData:
     dirty -- true iff the git repository has changes (git diff is not empty)
     main_spec -- the relative path to the main spec file that should be displayed by default at the web report
     conf_path -- the relative path form the cwd_relative to the configuration file
+    group_id -- optional identifier for grouping this run
+    java_version -- version of Java used during the run, if available
+    python_version -- version of Python running the process
+    certora_ci_client -- name of the CI client if available, derived from environment
+    timestamp -- UTC timestamp when the run metadata was generated
+    CLI_package_name -- name of the CLI package
+    CLI_version -- version of the CLI
+    jar_flag_info -- CLI attributes which are jarFlags
     """
     def __init__(self, raw_args: List[str], conf: Dict[str, Any], origin: str, revision: str,
                  branch: str, cwd_relative: Path, dirty: bool, main_spec: Optional[str],
-                 conf_path: Optional[Path], group_id: Optional[str]):
+                 conf_path: Optional[Path], group_id: Optional[str], java_version: str):
         self.raw_args = raw_args
         self.conf = conf
         self.origin = origin
@@ -85,6 +94,7 @@ class RunMetaData:
         self.conf_path = conf_path
         self.group_id = group_id
         self.python_version = ".".join(str(x) for x in sys.version_info[:3])
+        self.java_version = java_version
         self.certora_ci_client = Utils.get_certora_ci_name()
         self.timestamp = str(datetime.now(timezone.utc).timestamp())
         _, self.CLI_package_name, self.CLI_version = Utils.get_package_and_version()
@@ -105,6 +115,7 @@ class RunMetaData:
             f" conf_path: {self.conf_path}\n"
             f" group_id: {self.group_id}\n"
             f" python_version: {self.python_version}\n"
+            f" java_version: {self.java_version}\n"
             f" CertoraCI client: {self.certora_ci_client}\n"
             f" jar_flag_info: {self.jar_flag_info}\n"
         )
@@ -182,7 +193,8 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            dirty=True,
                            main_spec=None,
                            conf_path=None,
-                           group_id=None)
+                           group_id=None,
+                           java_version=context.java_version)
 
     # collect information about current git snapshot
     cwd_abs = wd.absolute()
@@ -210,7 +222,8 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            dirty=True,
                            main_spec=get_main_spec(context),
                            conf_path=conf_path,
-                           group_id=context.group_id)
+                           group_id=context.group_id,
+                           java_version=context.java_version)
 
     try:
         sha_out = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=wd,
@@ -245,7 +258,8 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            dirty=dirty,
                            main_spec=get_main_spec(context),
                            conf_path=conf_path,
-                           group_id=context.group_id)
+                           group_id=context.group_id,
+                           java_version=context.java_version)
 
         metadata_logger.debug(f' collected data:\n{str(data)}')
 
@@ -263,4 +277,5 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            dirty=True,
                            main_spec=get_main_spec(context),
                            conf_path=conf_path,
-                           group_id=context.group_id)
+                           group_id=context.group_id,
+                           java_version=context.java_version)

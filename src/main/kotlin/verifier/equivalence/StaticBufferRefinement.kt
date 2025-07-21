@@ -27,7 +27,6 @@ import kotlinx.coroutines.coroutineScope
 import log.*
 import report.DummyLiveStatsReporter
 import scene.IScene
-import scene.TACMethod
 import solver.CounterexampleModel
 import solver.SolverResult
 import spec.rules.EquivalenceRule
@@ -44,7 +43,7 @@ import vc.data.tacexprutil.ExprUnfolder
 import vc.data.tacexprutil.getFreeVars
 import verifier.TACVerifier
 import verifier.Verifier
-import verifier.equivalence.EquivalenceChecker.Companion.pp
+import verifier.equivalence.data.*
 import java.math.BigInteger
 import java.util.stream.Collectors
 
@@ -370,11 +369,11 @@ object StaticBufferRefinement {
 
     private operator fun ToTACExpr.get(ind: ToTACExpr) = TACExpr.Select(this.toTACExpr(), ind.toTACExpr())
 
-    private fun getPrelude(m: TACMethod, l: String): CoreTACProgram {
+    private fun getPrelude(m: CallableProgram<*, *>, l: String): CoreTACProgram {
         return codeFromCommandWithVarDecls(
             StartBlock,
             CommandWithRequiredDecls(TACCmd.Simple.LabelCmd(l)),
-            "prelude_${m.getContainingContract().name}_$l"
+            "prelude_${m.pp()}_$l"
         )
     }
 
@@ -389,17 +388,19 @@ object StaticBufferRefinement {
      * with a mapping from the numeric long read ids to their [CmdPointer] (as these IDs
      * are not stable)
      */
-    private suspend fun <T: EquivalenceChecker.METHOD_MARKER> extractWriteInstrumentation(
+    private suspend fun <T: MethodMarker> extractWriteInstrumentation(
         instControl: BufferTraceInstrumentation.InstrumentationControl,
-        eventMarker: EquivalenceChecker.LTraceWithContext<T>,
+        eventMarker: TraceWithContext<T, *>,
+        context: ProgramContext<T>,
         scene: IScene,
     ) : Either<Pair<WriteOffsets, Map<Int, CmdPointer>>, String> {
-        fun <T> Either<T, String>.withErrorCtxt() = this.mapRight { "Extracting write offsets from ${eventMarker.context.orig.pp()}: $it" }
+        fun <T> Either<T, String>.withErrorCtxt() = this.mapRight { "Extracting write offsets from ${eventMarker.context.originalProgram.pp()}: $it" }
         fun fail(msg: String) = msg.toRight().withErrorCtxt()
-        val eventCmd = eventMarker.trace.origProgramSite
+        val eventCmd = eventMarker.event.origProgramSite
 
         val inst = BufferTraceInstrumentation.instrument(
-            m = eventMarker.context.orig,
+            code = eventMarker.context.originalProgram.program,
+            context = context,
             options = instControl
         )
 
@@ -434,7 +435,7 @@ object StaticBufferRefinement {
         val instVars = inst.useSiteInfo[eventCmd]?.instrumentation?.bufferWrites!!
         val dummyVars = TACKeyword.TMP(Tag.Bit256, "DummyValueForCount")
         val dummyContents = TACKeyword.TMP(Tag.Bit256, "DummyValueForOffsets")
-        val start = getPrelude(eventMarker.context.orig, "Extracting static offsets")
+        val start = getPrelude(eventMarker.context.originalProgram, "Extracting static offsets")
         val varKeepAlive = toAdd.toCommandWithRequiredDecls()
         val assertCode = ExprUnfolder.unfoldPlusOneCmd("dummyEquation", TACExprFactTypeCheckedOnlyPrimitives {
             (dummyVars eq select(
@@ -453,7 +454,7 @@ object StaticBufferRefinement {
             // well, this assertion was SUPPOSED to be false...
             return fail("failed getting cex for static offsets: ${report.finalResult}")
         }
-        val extractionRule = EquivalenceRule.freshRule("Static extraction from ${eventMarker.context.orig.getContainingContract().name}")
+        val extractionRule = EquivalenceRule.freshRule("Static extraction from ${eventMarker.context.originalProgram.pp()}")
         Verifier.JoinedResult(report).reportOutput(extractionRule)
         val reportTac = report.tac
         val reportIdToInstrumentaiton = reportTac.parallelLtacStream().mapNotNull {
@@ -488,14 +489,15 @@ object StaticBufferRefinement {
     /**
      * Extract the static refinement for the buffer used at [eventMarker], or an error if not possible
      */
-    private suspend fun <T: EquivalenceChecker.METHOD_MARKER> tryRefineBuffer(
+    private suspend fun <T: MethodMarker> tryRefineBuffer(
         traceLevel: BufferTraceInstrumentation.TraceTargets,
-        eventMarker: EquivalenceChecker.LTraceWithContext<T>,
+        eventMarker: TraceWithContext<T, *>,
+        context: ProgramContext<T>,
         scene: IScene,
     ) : Either<BufferRefinement, String> {
-        fun <T> Either<T, String>.withErrorCtxt() = this.mapRight { "Extracting buffers from ${eventMarker.context.orig.pp()}: $it" }
+        fun <T> Either<T, String>.withErrorCtxt() = this.mapRight { "Extracting buffers from ${eventMarker.context.originalProgram.pp()}: $it" }
         fun fail(msg: String) = msg.toRight().withErrorCtxt()
-        val eventCmd = eventMarker.trace.origProgramSite
+        val eventCmd = eventMarker.event.origProgramSite
 
         /**
          * Instrument the method, recording precise information for the buffer in question, and all
@@ -505,8 +507,8 @@ object StaticBufferRefinement {
             eventCmd to BufferTraceInstrumentation.UseSiteControl(
                 trackBufferContents = true,
             )
-        ) + eventMarker.context.instrumentation.useSiteInfo.mapNotNull {
-            if ((eventMarker.context.orig.code as CoreTACProgram).analysisCache.graph.elab(it.key)
+        ) + eventMarker.context.instrumentationResult.useSiteInfo.mapNotNull {
+            if ((eventMarker.context.originalProgram.program).analysisCache.graph.elab(it.key)
                     .maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.cmd?.dstBase?.let {
                         TACMeta.MCOPY_BUFFER in it.meta
                     } != true
@@ -530,11 +532,13 @@ object StaticBufferRefinement {
         val (staticWrites, reverseIdMapping) = extractWriteInstrumentation(
             instControl = options,
             eventMarker = eventMarker,
+            context = context,
             scene = scene
         ).leftOr { return it.withErrorCtxt() }
 
         val nextInst = BufferTraceInstrumentation.instrument(
-            m = eventMarker.context.orig,
+            code = eventMarker.context.originalProgram.program,
+            context = context,
             options = options
         )
         val mustEqualities = mutableListOf<TACExpr.BinRel>()
@@ -604,11 +608,11 @@ object StaticBufferRefinement {
             codeFromCommandWithVarDecls(Allocator.getNBId(), it, "assertion")
         }
         val nextCode = Allocator.getFreshId(Allocator.Id.CALL_ID)
-        val checkIsStaticFootprint = getPrelude(eventMarker.context.orig, "Checking static offsets") andThen
+        val checkIsStaticFootprint = getPrelude(eventMarker.context.originalProgram, "Checking static offsets") andThen
             (nextInst.code.createCopy(nextCode) andThen finalAssertion)
         val isStaticReport = TACVerifier.verify(scene.toIdentifiers(), checkIsStaticFootprint, DummyLiveStatsReporter)
         if(isStaticReport.finalResult != SolverResult.UNSAT) {
-            val staticRule = EquivalenceRule.freshRule("Verifying static offsets in ${eventMarker.context.orig.getContainingContract().name}")
+            val staticRule = EquivalenceRule.freshRule("Verifying static offsets in ${eventMarker.context.originalProgram.pp()}")
             Verifier.JoinedResult(isStaticReport).reportOutput(staticRule)
             return fail("Not actually static offsets")
         }
@@ -625,24 +629,26 @@ object StaticBufferRefinement {
 
 
     internal suspend fun tryRefineBuffers(
-        aTraceAndContext: EquivalenceChecker.LTraceWithContext<EquivalenceChecker.METHODA>,
-        bTraceAndContext: EquivalenceChecker.LTraceWithContext<EquivalenceChecker.METHODB>,
-        scene: IScene,
+        queryContext: EquivalenceQueryContext,
+        aTraceAndContext: TraceWithContext<MethodMarker.METHODA, *>,
+        bTraceAndContext: TraceWithContext<MethodMarker.METHODB, *>,
         targetEvents: BufferTraceInstrumentation.TraceTargets
     ) : Pair<BufferRefinement, BufferRefinement>? {
         val (aRefine, bRefine) = coroutineScope {
             val methodARefine = async {
                 tryRefineBuffer(
                     traceLevel = targetEvents,
-                    scene = scene,
+                    scene = queryContext.scene,
                     eventMarker = aTraceAndContext,
+                    context = queryContext.contextA
                 )
             }
             val methodBRefine = async {
                 tryRefineBuffer(
                     traceLevel = targetEvents,
-                    scene = scene,
+                    scene = queryContext.scene,
                     eventMarker = bTraceAndContext,
+                    context = queryContext.contextB
                 )
             }
             methodARefine.await() to methodBRefine.await()
@@ -650,12 +656,12 @@ object StaticBufferRefinement {
         if(aRefine !is Either.Left || bRefine !is Either.Left) {
             if(aRefine is Either.Right) {
                 logger.warn {
-                    "Failed to refine ${aTraceAndContext.context.orig.pp()}: ${aRefine.d}"
+                    "Failed to refine ${aTraceAndContext.context.originalProgram.pp()}: ${aRefine.d}"
                 }
             }
             if(bRefine is Either.Right) {
                 logger.warn {
-                    "Failed to refine ${bTraceAndContext.context.orig.pp()}: ${bRefine.d}"
+                    "Failed to refine ${bTraceAndContext.context.originalProgram.pp()}: ${bRefine.d}"
                 }
             }
             return null

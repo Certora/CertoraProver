@@ -35,6 +35,7 @@ import datastructures.MultiMap
 import datastructures.stdcollections.*
 import decompiler.BLOCK_SOURCE_INFO
 import log.*
+import move.MoveToTAC
 import report.BigIntPretty.bigIntPretty
 import report.TreeViewLocation
 import report.dumps.AddInternalFunctions.addInternalFunctionIdxsDontThrow
@@ -324,7 +325,13 @@ data class CodeMap(
                     varWithAnchor(s)
                 }
             }
+        }
 
+        fun getHtmlRep(arg: MoveToTAC.AnnotationArg): String {
+            return when (arg) {
+                is MoveToTAC.AnnotationArg.Value -> varWithAnchor(arg.v)
+                is MoveToTAC.AnnotationArg.ExpandedRef -> "${varWithAnchor(arg.iLoc)}.${varWithAnchor(arg.offset)}"
+            }
         }
 
         fun getHtmlRepAnchor(s: TACSymbol): String {
@@ -381,6 +388,8 @@ data class CodeMap(
                         }
                     }", Color.DARKBLUE).withTitle(metaValue.toString())
                     is InternalFuncExitAnnotation -> colorText("$larrow Method call ${wrapInternalFunEnd(metaValue.id)} ${metaValue.rets.joinToString(", ","(rets: ",")") { getHtmlRep(it.s) }})", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is MoveToTAC.FuncStartAnnotation -> colorText("$rarrow ${metaValue.name.toString().escapeHTML()}(${metaValue.args.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is MoveToTAC.FuncEndAnnotation -> colorText("$larrow ${metaValue.name.toString().escapeHTML()}(returns ${metaValue.returns.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
                     is Inliner.CallStack.PushRecord -> colorText("$rarrow Solidity call ${metaValue.calleeId}", Color.DARKBLUE).withTitle(metaValue.toString())
                     is Inliner.CallStack.PopRecord -> colorText("$larrow Solidity call ${metaValue.calleeId}", Color.DARKBLUE).withTitle(metaValue.toString())
                     is InternalFunctionFinderReport -> if (metaValue.unresolvedFunctions.isNotEmpty()) {
@@ -802,6 +811,47 @@ data class CodeMap(
                 }
             }
 
+            is TACCmd.Move -> when (c) {
+                is TACCmd.Move.BorrowLocCmd ->
+                    "${getHtmlRep(c.ref)} = &${getHtmlRep(c.loc)}".asRaw()
+                is TACCmd.Move.ReadRefCmd ->
+                    "${getHtmlRep(c.dst)} = *${getHtmlRep(c.ref)}".asRaw()
+                is TACCmd.Move.WriteRefCmd ->
+                    "*${getHtmlRep(c.ref)} = ${getHtmlRep(c.src)}".asRaw()
+                is TACCmd.Move.PackStructCmd ->
+                    c.srcs.joinToString(", ", "{", "}") { getHtmlRep(it) }.let {
+                        "${getHtmlRep(c.dst)} = $it".asRaw()
+                    }
+                is TACCmd.Move.UnpackStructCmd ->
+                    c.dsts.joinToString(", ", "{", "}") { getHtmlRep(it) }.let {
+                        "$it = ${getHtmlRep(c.src)}".asRaw()
+                    }
+                is TACCmd.Move.BorrowFieldCmd ->
+                    "${getHtmlRep(c.dstRef)} = &${getHtmlRep(c.srcRef)}[${c.fieldIndex}]".asRaw()
+                is TACCmd.Move.VecPackCmd ->
+                    c.srcs.joinToString(", ", "[", "]") { getHtmlRep(it) }.let {
+                        "${getHtmlRep(c.dst)} = $it".asRaw()
+                    }
+                is TACCmd.Move.VecUnpackCmd ->
+                    c.dsts.joinToString(", ", "[", "]") { getHtmlRep(it) }.let {
+                        "$it = ${getHtmlRep(c.src)}".asRaw()
+                    }
+                is TACCmd.Move.VecBorrowCmd ->
+                    "${getHtmlRep(c.dstRef)} = &${getHtmlRep(c.srcRef)}[${c.index}]".asRaw()
+                is TACCmd.Move.VecLenCmd ->
+                    "${getHtmlRep(c.dst)} = length(${getHtmlRep(c.ref)})".asRaw()
+                is TACCmd.Move.VecPushBackCmd ->
+                    "push(${getHtmlRep(c.ref)}, ${getHtmlRep(c.src)})".asRaw()
+                is TACCmd.Move.VecPopBackCmd ->
+                    "${getHtmlRep(c.dst)} = pop(${getHtmlRep(c.ref)})".asRaw()
+                is TACCmd.Move.GhostArrayBorrowCmd ->
+                    "${getHtmlRep(c.dstRef)} = &${getHtmlRep(c.arrayRef)}[${c.index}]".asRaw()
+                is TACCmd.Move.HashCmd ->
+                    "${getHtmlRep(c.dst)} = hash<${c.hashFamily}>(${getHtmlRep(c.loc)})".asRaw()
+                is TACCmd.Move.EqCmd ->
+                    "${getHtmlRep(c.dst)} = ${getHtmlRep(c.a)} == ${getHtmlRep(c.b)}".asRaw()
+            }
+
             is TACCmd.Simple.AssigningCmd.AssignSha3Cmd -> "${getHtmlRep(c.lhs)} = keccak256(${getHtmlRep(c.memBaseMap)}[${
                 getHtmlRep(
                     c.op1
@@ -1076,7 +1126,7 @@ data class CodeMap(
                     when (cmdExpectedValue) {
                         is ExpectedValue.Value ->
                             if (cmdExpectedValue.value != cmdValue.asBigIntOrNull()) {
-                                val expectedStr = bigIntPretty(cmdExpectedValue.value) ?: toString()
+                                val expectedStr = bigIntPretty(cmdExpectedValue.value) ?: cmdExpectedValue.value.toString()
                                 "<span style='background-color:red;'>$cmdHtml $valueStr (ex. $expectedStr)</span>"
                             } else {
                                 "$cmdHtml $valueStr"
@@ -1565,7 +1615,10 @@ fun generateCodeMap(
     addInternalFunctions: Boolean = true
 ): CodeMap = when (ast) {
     is CoreTACProgram -> generateCodeMap(ast, name, addInternalFunctions, edges)
-    is EVMTACProgram, is CanonicalTACProgram<*, *>, is CVLTACProgram -> degenerateCodeMap(ast, name, edges)
+    is EVMTACProgram,
+    is CanonicalTACProgram<*, *>,
+    is CVLTACProgram,
+    is move.MoveTACProgram -> degenerateCodeMap(ast, name, edges)
     else -> throw Exception("Unexpected code $ast")
 }
 
@@ -1682,6 +1735,12 @@ fun extendModel(
                     when (value) {
                         is ConcreteTacValue ->
                             when (val constExp = value.asConstantTacExpr()) {
+                                is TACExpr.Sym.Const ->
+                                    if (s.tag is Tag.Bits) {
+                                        constExp.s.value.asTACSymbol(s.tag)
+                                    } else {
+                                        constExp.s
+                                    }
                                 is TACExpr.Sym -> constExp.s
                                 else -> failedToEval(value)
                             }

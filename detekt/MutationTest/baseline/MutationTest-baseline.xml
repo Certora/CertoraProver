@@ -2,7 +2,7 @@
     <CurrentIssues>
         <ID>BracesOnIfStatements:MutationTestEntryPoint.kt$MutationTest$else</ID>
         <ID>BracesOnIfStatements:MutationTestEntryPoint.kt$MutationTest$if</ID>
-        <ID>ForbiddenComment:CertoraRunParameters.kt$CertoraRunParameters$ TODO: this is temporary. We will eventually support send_only in certoraMutate. * Method to check if the parameters contains the 'send_only' key/value pair. * @return true if the parameters contains the 'send_only' pair.</ID>
+        <ID>ForbiddenComment:CertoraRunParameters.kt$CertoraRunParameters$ TODO: this is temporary. We will eventually support wait_for_results in certoraMutate. * Method to check if the parameters contains the 'wait_for_results' key/value pair. * @return true if the parameters contains the 'wait_for_results' pair.</ID>
         <ID>ForbiddenComment:MutationTestEntryPoint.kt$// TODO: We probably don't want the errors to be that verbose</ID>
         <ID>ForbiddenMethodCall:CertoraRunParameters.kt$CertoraRunParameters$println(jsonParameters.toString())</ID>
         <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$MutationTest$println("An error occurred while executing Gambit. Could not find gambit process.")</ID>
@@ -12,7 +12,7 @@
         <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$MutationTest$println("Invalid configuration: cannot work offline with staging")</ID>
         <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$MutationTest$println("See report at: $reportLink")</ID>
         <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$MutationTest$println("You need to set your CERTORAKEY to visualize the results. Check the `results.json` in the ${outputFolder()} until then.")</ID>
-        <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$MutationTest$println("certoraMutate currently does not support --send_only. Please remove it from the conf file or runscript and try again.")</ID>
+        <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$MutationTest$println("certoraMutate currently does not support --wait_for_results. Please remove it from the conf file or runscript and try again.")</ID>
         <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$MutationTest$println(CVT_ERR)</ID>
         <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$MutationTest$startsWith(EMV)</ID>
         <ID>ForbiddenMethodCall:MutationTestEntryPoint.kt$println("An error occurred while executing the mutation tester.")</ID>

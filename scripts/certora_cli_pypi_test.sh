@@ -13,7 +13,7 @@ PACKAGE_NAME="$1"
 VERSION="$2"
 INTERVAL=10 # seconds
 MAX_ATTEMPTS=30
-ENTRY_POINTS=("certoraRun" "certoraMutate" "certoraSolanaProver" "certoraSorobanProver" "certoraEVMProver" "certoraRanger")
+ENTRY_POINTS=("certoraRun" "certoraMutate" "certoraSolanaProver" "certoraSorobanProver" "certoraEVMProver" "certoraRanger" "certoraConcord" "certoraCVLFormatter")
 
 # Print package details
 echo "📦 Package name: $PACKAGE_NAME"

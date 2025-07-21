@@ -1,7 +1,11 @@
 methods {
     function callSummarizeMe(bool) external envfree;
+    function callSummarizeMeReturning(bool) external returns (uint) envfree;
+    function callSummarizeMeReturningInternal(bool) external returns (uint) envfree;
     function alwaysRevertContractFun() external envfree;
     function summarizeMe(bool b) external => cvlSummarizeMe(b);
+    function summarizeMeReturning(bool b) external returns (uint) => cvlSummarizeMeReturning(b);
+    function summarizeMeReturningInternal(bool b) internal returns (uint) => cvlSummarizeMeReturning(b);
 }
 
 function cvlCanRevert(bool b) {
@@ -10,6 +14,11 @@ function cvlCanRevert(bool b) {
 
 function cvlSummarizeMe(bool b) {
     cvlCanRevert(b);
+}
+
+function cvlSummarizeMeReturning(bool b) returns uint {
+    cvlCanRevert(b);
+    return 42;
 }
 
 rule cvlRevertCanRevert {
@@ -22,12 +31,36 @@ rule cvlRevertCanRevert {
 }
 
 rule goingThroughSummary {
+    require !currentContract.reachedAfterSummarized, "setting this to false before the call";
     bool b;
     callSummarizeMe@withrevert(b);
 
     satisfy lastReverted;
     satisfy !lastReverted;
     assert lastReverted <=> !b;
+    assert lastReverted <=> !currentContract.reachedAfterSummarized;
+}
+
+rule goingThroughSummaryWithReturnValue {
+    require !currentContract.reachedAfterSummarized, "setting this to false before the call";
+    bool b;
+    callSummarizeMeReturning@withrevert(b);
+
+    satisfy lastReverted;
+    satisfy !lastReverted;
+    assert lastReverted <=> !b;
+    assert lastReverted <=> !currentContract.reachedAfterSummarized;
+}
+
+rule goingThroughSummaryWithReturnValueInternal {
+    require !currentContract.reachedAfterSummarized, "setting this to false before the call";
+    bool b;
+    callSummarizeMeReturningInternal@withrevert(b);
+
+    satisfy lastReverted;
+    satisfy !lastReverted;
+    assert lastReverted <=> !b;
+    assert lastReverted <=> !currentContract.reachedAfterSummarized;
 }
 
 rule withoutWithRevertCannotRevert {

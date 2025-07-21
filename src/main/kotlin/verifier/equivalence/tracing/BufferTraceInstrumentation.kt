@@ -22,28 +22,28 @@ import analysis.controlflow.MustPathInclusionAnalysis
 import analysis.dataflow.StrictDefAnalysis
 import analysis.numeric.IntValue
 import analysis.pta.LoopCopyAnalysis
+import bridge.SourceLanguage
 import com.certora.collect.*
 import compiler.applyKeccak
 import evm.EVM_WORD_SIZE
 import evm.MASK_SIZE
-import scene.ITACMethod
 import utils.*
 import vc.data.*
 import vc.data.tacexprutil.ExprUnfolder
 import java.math.BigInteger
 import java.util.stream.Collectors
 import datastructures.stdcollections.*
+import scene.ContractClass
 import scene.IContractWithSource
-import scene.TACMethod
 import spec.cvlast.QualifiedMethodSignature
 import tac.*
 import vc.data.tacexprutil.getFreeVars
 import java.util.concurrent.atomic.AtomicInteger
 import vc.data.TACProgramCombiners.andThen
+import vc.data.TACProgramCombiners.flatten
 import verifier.equivalence.DefiniteBufferConstructionAnalysis
-import verifier.equivalence.summarization.CommonPureInternalFunction
+import verifier.equivalence.summarization.ScalarEquivalenceSummary
 import verifier.equivalence.tracing.BufferTraceInstrumentation.ContextSymbols.Companion.lift
-import kotlin.streams.toList
 
 @Suppress("FunctionName")
 /**
@@ -55,17 +55,22 @@ import kotlin.streams.toList
  * understood that this always means "in some concrete execution" or "in some concrete counter example".
  */
 class BufferTraceInstrumentation private constructor(
+    private val code: CoreTACProgram,
     private val readToInstrumentation: Map<LongRead, LongReadInstrumentation>,
     private val isGarbageCollectionFor: Map<CmdPointer, List<LongRead>>,
-    private val m: TACMethod,
+    private val context: InstrumentationContext,
     val options: InstrumentationControl
 ) {
+
+    interface InstrumentationContext {
+        val containingContract: ContractClass
+        val storageVariable: TACSymbol.Var
+    }
     private val callTraceLog: TraceArray
     private val functionExit : ExitLogger
     private val logTraceLog: TraceArray
     private val isRevertingPath: TACSymbol.Var
     private val callCoreOutputVars: Map<CmdPointer, TACSymbol.Var>
-    private val code = m.code as CoreTACProgram
     private val g get() = code.analysisCache.graph
 
     private val reach get() = g.cache.reachability
@@ -98,7 +103,7 @@ class BufferTraceInstrumentation private constructor(
     private val globalStateAccumulator: TACSymbol.Var = globalStateInstrumentationVar("stateAccumulator").withMeta(
         GLOBAL_STATE_ACCUM
     )
-    val storageVar: TACSymbol.Var get() = m.getContainingContract().storage.stateVars().single()
+    val storageVar: TACSymbol.Var get() = context.storageVariable
 
     private val globalStateVars get() = listOf(globalStateAccumulator, storageVar) + staticInstrumentationVars
 
@@ -181,7 +186,7 @@ class BufferTraceInstrumentation private constructor(
             ),
             TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
                 lhs = bufferHash,
-                memBaseMap = TACKeyword.MEMORY.toVar(),
+                memBaseMap = longRead.baseMap,
                 op1 = sourceOffset,
                 op2 = nativeLength
             )
@@ -319,6 +324,7 @@ class BufferTraceInstrumentation private constructor(
         val id: Int
         val isNullRead: Boolean
         val traceEventInfo: TraceEventWithContext?
+        val baseMap: TACSymbol.Var
     }
 
     /**
@@ -332,6 +338,7 @@ class BufferTraceInstrumentation private constructor(
         override val length: TACSymbol,
         override val id: Int,
         override val isNullRead: Boolean,
+        override val baseMap: TACSymbol.Var
     ) : LongRead {
         override val traceEventInfo: TraceEventWithContext?
             get() = null
@@ -348,7 +355,8 @@ class BufferTraceInstrumentation private constructor(
         override val id: Int,
         override val isNullRead: Boolean,
         override val traceEventInfo: TraceEventWithContext,
-        val explicitReadId: Int?
+        val explicitReadId: Int?,
+        override val baseMap: TACSymbol.Var
     ) : LongRead
 
     private fun LongRead.instrumentationInfo() = readToInstrumentation[this]!!
@@ -502,8 +510,6 @@ class BufferTraceInstrumentation private constructor(
                 ), this)
         }
 
-        fun List<CommandWithRequiredDecls<TACCmd.Simple>>.flatten() = CommandWithRequiredDecls.mergeMany(this)
-
 
         context(TACExprFact)
         infix fun TACSymbol.Var.`=`(other: ToTACExpr) = TACCmd.Simple.AssigningCmd.AssignExpCmd(
@@ -512,7 +518,7 @@ class BufferTraceInstrumentation private constructor(
         )
 
         private fun LoopCopyAnalysis.LoopCopySummary.isMemoryByteCopy() : Boolean {
-            return this.sourceMap == TACKeyword.MEMORY.toVar() && this.assumedSize == BigInteger.ONE
+            return TACMeta.EVM_MEMORY in this.sourceMap.meta && this.assumedSize == BigInteger.ONE
         }
 
         private val freePointerLoad =
@@ -612,10 +618,11 @@ class BufferTraceInstrumentation private constructor(
         )
 
         /**
-         * Instrument [m] according to [options]
+         * Instrument [code] according to [options]. [code] must have been "derived" (in some fuzzy sense) from the body
+         * of [context]. That is, [context] is relied upon for information about, e.g., the codedata accessed
+         * in [code] or the storage.
          */
-        fun instrument(m: ITACMethod, options: InstrumentationControl) : InstrumentationResults {
-            val code = m.code as CoreTACProgram
+        fun instrument(code: CoreTACProgram, context: InstrumentationContext, options: InstrumentationControl) : InstrumentationResults {
             val g = code.analysisCache.graph
             val mca = MustBeConstantAnalysis(
                 graph = g
@@ -656,7 +663,7 @@ class BufferTraceInstrumentation private constructor(
                 it.ptr.block !in loopWrites
             }.mapNotNull {
                 if(it.cmd is TACCmd.Simple.SummaryCmd) {
-                    if(it.cmd.summ is CommonPureInternalFunction) {
+                    if(it.cmd.summ is ScalarEquivalenceSummary) {
                         /**
                          * Include summaries of pure internal functions into the call trace by pretending
                          * all internal functions summaries consume a null buffer.
@@ -675,12 +682,10 @@ class BufferTraceInstrumentation private constructor(
                             isNullRead = true,
                             explicitReadId = null,
                             traceEventInfo = TraceEventWithContext(
-                                TraceEventSort.INTERNAL_SUMMARY_CALL,
-                                context = Context.InternalCall(
-                                    it.cmd.summ.qualifiedMethodSignature,
-                                    it.cmd.summ.argSymbols.toTreapList()
-                                )
-                            )
+                                it.cmd.summ.sort,
+                                it.cmd.summ.asContext,
+                            ),
+                            baseMap = TACKeyword.MEMORY.toVar() // it's a FAAAAKE
                         )
                     }
                     if(it.cmd.summ !is LoopCopyAnalysis.LoopCopySummary) {
@@ -695,7 +700,8 @@ class BufferTraceInstrumentation private constructor(
                         loc =  it.cmd.summ.inPtr.first(),
                         length = lenVar,
                         id = idCounter.getAndIncrement(),
-                        isNullRead = isNullRead(lenVar, it.ptr)
+                        isNullRead = isNullRead(lenVar, it.ptr),
+                        baseMap = it.cmd.summ.sourceMap
                     )
                 } else if(it.cmd !is TACCmd.Simple.LongAccesses) {
                     // anything else that's not a long access is, by definition, not a long read
@@ -706,7 +712,7 @@ class BufferTraceInstrumentation private constructor(
                  * is a read from memory, skipping if there isn't one
                  */
                 val read = it.cmd.accesses.singleOrNull { la ->
-                    !la.isWrite && la.base == TACKeyword.MEMORY.toVar()
+                    !la.isWrite && TACMeta.EVM_MEMORY in la.base.meta
                 } ?: return@mapNotNull null
 
                 /**
@@ -715,7 +721,7 @@ class BufferTraceInstrumentation private constructor(
                 val traceInfo = getTraceEvent(it.cmd)
                 val nullRead = isNullRead(read.length, it.ptr)
                 if(traceInfo == null) {
-                    BasicLongRead(where = it.ptr, loc = read.offset, length = read.length, id = idCounter.getAndIncrement(), isNullRead = nullRead)
+                    BasicLongRead(where = it.ptr, loc = read.offset, length = read.length, id = idCounter.getAndIncrement(), isNullRead = nullRead, baseMap = read.base)
                 } else {
                     EventLongRead(
                         where = it.ptr,
@@ -724,7 +730,8 @@ class BufferTraceInstrumentation private constructor(
                         id = idCounter.getAndIncrement(),
                         isNullRead = nullRead,
                         traceEventInfo = traceInfo,
-                        explicitReadId = it.cmd.meta.find(DefiniteBufferConstructionAnalysis.LONG_READ_ID)
+                        explicitReadId = it.cmd.meta.find(DefiniteBufferConstructionAnalysis.LONG_READ_ID),
+                        baseMap = read.base
                     )
                 }
 
@@ -739,7 +746,8 @@ class BufferTraceInstrumentation private constructor(
                     where = it.key,
                     id = idCounter.getAndIncrement(),
                     length = EVM_WORD_SIZE.asTACSymbol(),
-                    isNullRead = false
+                    isNullRead = false,
+                    baseMap = mload.cmd.base
                 )
             }
             val patternMatcher = PatternMatcher.compilePattern(graph = g, patt = scratchPattern)
@@ -763,16 +771,18 @@ class BufferTraceInstrumentation private constructor(
                 } && (longSource as? EventLongRead)?.explicitReadId == null && !longSource.isNullRead
             }.toSet()
 
+            val sourceLanguage = (context.containingContract as? IContractWithSource)?.src?.lang
+
             /**
              * In addition to the above, we also treat an update of the free pointer as GC point. The utility of this particular
              * heuristic is debatable, but why not
              */
             val garbageCollectionPoints = mayConsumeScratch.mapToSet { it.where } + code.parallelLtacStream().filter { lc ->
                 lc.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()?.takeIf {
-                    it.cmd.base == TACKeyword.MEMORY.toVar()
+                    TACMeta.EVM_MEMORY in it.cmd.base.meta
                 }?.cmd?.loc?.let { loc ->
                     mca.mustBeConstantAt(where = lc.ptr, v = loc)
-                } == 0x40.toBigInteger()
+                } == 0x40.toBigInteger() && sourceLanguage == SourceLanguage.Solidity
             }.map { it.ptr }.collect(Collectors.toSet())
             val reach = code.analysisCache.reachability
 
@@ -846,10 +856,11 @@ class BufferTraceInstrumentation private constructor(
              * Package up this information we've precomputed, and actually do the work in the [BufferTraceInstrumentation] object
              */
             val worker = BufferTraceInstrumentation(
-                sourceToInstrumentation,
-                isGarbageCollectionFor,
+                code = code,
+                readToInstrumentation = sourceToInstrumentation,
+                isGarbageCollectionFor = isGarbageCollectionFor,
                 options = options,
-                m = m as TACMethod
+                context = context
             )
 
             val instrumented = worker.instrumentInContext()
@@ -1072,12 +1083,14 @@ class BufferTraceInstrumentation private constructor(
             }, setOfNotNull(bufferHash, sourceOffset as? TACSymbol.Var, sourceLength as? TACSymbol.Var, sourceInstrumentation.allAlignedVar, sourceInstrumentation.hashVar), listOf(
                 TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
                     lhs = bufferHash,
-                    memBaseMap = TACKeyword.MEMORY.toVar(),
+                    memBaseMap = baseMap,
                     op1 = sourceOffset,
                     op2 = sourceLength
                 )
             ))
         }
+
+        val baseMap: TACSymbol.Var
     }
 
     /**
@@ -1140,7 +1153,8 @@ class BufferTraceInstrumentation private constructor(
     private class LoopCopy(
         override val sourceOffset: TACSymbol,
         override val sourceLength: TACSymbol,
-        override val sourceInstrumentation: LongReadInstrumentation
+        override val sourceInstrumentation: LongReadInstrumentation,
+        override val baseMap: TACSymbol.Var
     ) : WriteFromLongRead, IWriteSource.LongMemCopy {
         override val sort: WriteSort
             get() = WriteSort.LOOP_COPY
@@ -1156,6 +1170,7 @@ class BufferTraceInstrumentation private constructor(
         override val sourceInstrumentation: LongReadInstrumentation,
         override val sourceOffset: TACSymbol,
         override val sourceLength: TACSymbol,
+        override val baseMap: TACSymbol.Var
     ) : WriteFromLongRead, IWriteSource.LongMemCopy {
         override val sort: WriteSort
             get() = WriteSort.BUFFER_COPY
@@ -1183,6 +1198,7 @@ class BufferTraceInstrumentation private constructor(
         val where: CmdPointer,
         val loc: TACSymbol,
         val length: TACSymbol = EVM_WORD_SIZE.asTACSymbol(),
+        val buffer: TACSymbol.Var,
         /**
          * Indicates whether the instrumentation for this command should be inserted before or after the command.
          * For all updates besides callcopy, this is true.
@@ -1279,6 +1295,7 @@ class BufferTraceInstrumentation private constructor(
             with(TACExprFactTypeCheckedOnlyPrimitives) {
                 CommandWithRequiredDecls(
                     listOf(
+                        TACCmd.Simple.LabelCmd("Starting setup for ${it.id}"),
                         isFreshSym `=` (gcInfo.seenGCVar eq TACExpr.zeroExpr),
                         gcInfo.hashBackupVar `=` ite(
                             isFreshSym,
@@ -1290,7 +1307,8 @@ class BufferTraceInstrumentation private constructor(
                             isFreshSym,
                             gcInfo.gcInitHashVar,
                             readInfo.hashVar
-                        )
+                        ),
+                        TACCmd.Simple.LabelCmd("End setup for ${it.id}"),
                     ), setOf(isFreshSym)
                 )
             }
@@ -1313,17 +1331,18 @@ class BufferTraceInstrumentation private constructor(
                 val thisCopySource = sources.find {
                     it.where == lc.ptr
                 }!!
-                return BufferUpdate(where = lc.ptr, loc = lc.cmd.summ.outPtr.first(), length = lc.cmd.summ.lenVars.first(), source = LoopCopy(
+                return BufferUpdate(where = lc.ptr, loc = lc.cmd.summ.outPtr.first(), length = lc.cmd.summ.lenVars.first(), buffer = lc.cmd.summ.destMap, source = LoopCopy(
                     sourceOffset = lc.cmd.summ.inPtr.first(),
                     sourceLength = lc.cmd.summ.lenVars.first(),
-                    sourceInstrumentation = readToInstrumentation[thisCopySource]!!
+                    sourceInstrumentation = readToInstrumentation[thisCopySource]!!,
+                    baseMap = lc.cmd.summ.sourceMap,
                 ))
             }
             is TACCmd.Simple.AssigningCmd.ByteStore -> {
-                return BufferUpdate(where = lc.ptr, loc = lc.cmd.loc, source = ByteStore(lc.cmd.value))
+                return BufferUpdate(where = lc.ptr, loc = lc.cmd.loc, buffer = lc.cmd.base, source = ByteStore(lc.cmd.value))
             }
             is TACCmd.Simple.AssigningCmd.ByteStoreSingle -> {
-                return BufferUpdate(where = lc.ptr, loc = lc.cmd.loc, length = TACSymbol.One, source = ByteStoreSingle(lc.cmd.value))
+                return BufferUpdate(where = lc.ptr, loc = lc.cmd.loc, length = TACSymbol.One, buffer = lc.cmd.base, source = ByteStoreSingle(lc.cmd.value))
             }
             is TACCmd.Simple.LongAccesses -> {
                 return when(lc.cmd) {
@@ -1335,7 +1354,7 @@ class BufferTraceInstrumentation private constructor(
                     is TACCmd.Simple.ReturnCmd,
                     is TACCmd.Simple.RevertCmd -> null
                     is TACCmd.Simple.ByteLongCopy -> {
-                        if(lc.cmd.dstBase != TACKeyword.MEMORY.toVar()) {
+                        if(TACMeta.EVM_MEMORY !in lc.cmd.dstBase.meta) {
                             return null
                         }
                         /**
@@ -1346,6 +1365,7 @@ class BufferTraceInstrumentation private constructor(
                                 where = lc.ptr,
                                 loc = lc.cmd.dstOffset,
                                 length = lc.cmd.length,
+                                buffer = lc.cmd.dstBase,
                                 source = CopyFromCalldata(lc.cmd.srcOffset)
                             )
                         } else if(lc.cmd.srcBase == TACKeyword.RETURNDATA.toVar()) {
@@ -1353,6 +1373,7 @@ class BufferTraceInstrumentation private constructor(
                                 where = lc.ptr,
                                 loc = lc.cmd.dstOffset,
                                 length = lc.cmd.length,
+                                buffer = lc.cmd.dstBase,
                                 source = CopyFromReturnBuffer(
                                     sourceOffset = lc.cmd.srcOffset,
                                     accumulatorVar = globalStateAccumulator
@@ -1384,14 +1405,16 @@ class BufferTraceInstrumentation private constructor(
                                 where = lc.ptr,
                                 loc = lc.cmd.dstOffset,
                                 length = lc.cmd.length,
+                                buffer = lc.cmd.dstBase,
                                 source = McopyBufferRead(
                                     sourceOffset = definingCopy.loc,
                                     sourceLength = definingCopy.length,
-                                    sourceInstrumentation = shadowCopySource
+                                    sourceInstrumentation = shadowCopySource,
+                                    baseMap = definingCopy.baseMap
                                 )
                             )
                         } else if(TACMeta.CODEDATA_KEY in lc.cmd.srcBase.meta) {
-                            val src = (m.getContainingContract() as? IContractWithSource)?.src
+                            val src = (context.containingContract as? IContractWithSource)?.src
                             val where = (lc.cmd.srcOffset as? TACSymbol.Const)?.value
                             val length = (lc.cmd.length as? TACSymbol.Const)?.value
                             if(src == null || where == null || length == null || ((where + length) * BigInteger.TWO).intValueExact() > src.bytecode.length) {
@@ -1399,6 +1422,7 @@ class BufferTraceInstrumentation private constructor(
                                     where = lc.ptr,
                                     loc = lc.cmd.dstOffset,
                                     length = lc.cmd.length,
+                                    buffer = lc.cmd.dstBase,
                                     source = UnknownEnvCopy(
                                         TACKeyword.TMP(Tag.Bit256, "!unknownCopy")
                                     )
@@ -1414,12 +1438,13 @@ class BufferTraceInstrumentation private constructor(
                                 where = lc.ptr,
                                 loc = lc.cmd.dstOffset,
                                 length = lc.cmd.length,
+                                buffer = lc.cmd.dstBase,
                                 source = CodeCopy(
                                     codeKeccak
                                 )
                             )
                         } else {
-                            throw UnsupportedOperationException("Don't know how to model copy from ${lc.cmd.srcBase}")
+                            throw UnsupportedOperationException("Don't know how to model copy from ${lc.cmd.srcBase}: $lc")
                         }
                     }
                     is TACCmd.Simple.CallCore -> {
@@ -1431,7 +1456,8 @@ class BufferTraceInstrumentation private constructor(
                             lc.ptr,
                             lc.cmd.outOffset,
                             length = callCoreOutputVars[lc.ptr]!!,
-                            false,
+                            buffer = lc.cmd.outBase,
+                            isBefore = false,
                             CopyFromReturnBuffer(sourceOffset = TACSymbol.Zero, accumulatorVar = globalStateAccumulator)
                         )
                     }
@@ -1493,7 +1519,7 @@ class BufferTraceInstrumentation private constructor(
          * Add the sanity constraints w.r.t. callee codesize, returncode etc.
          */
         val returnSizeConstraint = CommandWithRequiredDecls(listOf(
-            TACCmd.Simple.AssigningCmd.ByteLoad(
+            TACCmd.Simple.AssigningCmd.WordLoad(
                 lhs = calleeCodesize,
                 base = EthereumVariables.extcodesize,
                 loc = origCommand.to
@@ -1574,7 +1600,7 @@ class BufferTraceInstrumentation private constructor(
                     bufferLength = origCommand.inSize,
                     ordinal = stateCopy,
                     bufferStart = origCommand.inOffset,
-                    memoryCapture = TACKeyword.MEMORY.toVar(),
+                    memoryCapture = origCommand.inBase,
                     calleeCodeSize = calleeCodesize,
                     returnCode = TACKeyword.RETURNCODE.toVar(),
                     returnDataSize = TACKeyword.RETURN_SIZE.toVar(),
@@ -1583,7 +1609,7 @@ class BufferTraceInstrumentation private constructor(
             )
         // update memory with the copy amount
         ).merge(TACCmd.Simple.ByteLongCopy(
-            dstBase = TACKeyword.MEMORY.toVar(),
+            dstBase = origCommand.outBase,
             length = copyAmount,
             dstOffset = origCommand.outOffset,
             srcOffset = TACSymbol.Zero,
@@ -1916,12 +1942,14 @@ class BufferTraceInstrumentation private constructor(
                  */
                 val reach = c.analysisCache.reachability
                 val isRelevant = sources.filter {
-                    it.where != this.which && reach.canReach(it.where, this.which) && it.traceEventInfo == null
+                    it.where !in this.which && this.which.any { e ->
+                        reach.canReach(it.where, e)
+                    } && it.traceEventInfo == null
                 }.mapToSet { it.where }
                 return object : TraceInclusionManager(eventSiteOverride, logLevel) {
                     // any event which isn't the target, ignore
                     override fun includeInTracePred(v: EventLongRead): InclusionAnswer {
-                        return InclusionAnswer.Definite(v.where == which)
+                        return InclusionAnswer.Definite(v.where in which)
                     }
 
                     /**
@@ -1935,7 +1963,7 @@ class BufferTraceInstrumentation private constructor(
                          * XXX: I don't know why we have this traceEventInfo check here, it seems that v.where is only
                          * included in isRelevant if traceEventInfo is null...
                          */
-                        return if((v.where in isRelevant && v.traceEventInfo == null) || v.where == this@toTraceManager.which) {
+                        return if((v.where in isRelevant && v.traceEventInfo == null) || v.where in this@toTraceManager.which) {
                             InclusionAnswer.Definite(true)
                         } else {
                             InclusionAnswer.Definite(false)
@@ -1949,11 +1977,11 @@ class BufferTraceInstrumentation private constructor(
                         patcher: SimplePatchingProgram,
                         ls: LongRead
                     ): CommandWithRequiredDecls<TACCmd.Simple> {
-                        if(ls.where != this@toTraceManager.which && ls.where !in isRelevant) {
+                        if(ls.where !in this@toTraceManager.which && ls.where !in isRelevant) {
                             /**
                              * If this is irrelevant but we could still reach the target, do nothing
                              */
-                            if(reach.canReach(ls.where, which)) {
+                            if(which.any { exit -> reach.canReach(ls.where, exit ) }) {
                                 return CommandWithRequiredDecls(TACCmd.Simple.NopCmd)
                             }
                             /**
@@ -1966,7 +1994,7 @@ class BufferTraceInstrumentation private constructor(
                         /**
                          * force exiting if we've reached our target.
                          */
-                        } else if(ls.where == this@toTraceManager.which) {
+                        } else if(ls.where in this@toTraceManager.which) {
                             if(ls.traceEventInfo == null) {
                                 return patcher.earlyReturnAt(ls.where)
                             }
@@ -1989,7 +2017,7 @@ class BufferTraceInstrumentation private constructor(
                     override fun getTraceSiteReport(ls: EventLongRead): TraceSiteReport {
                         return TraceSiteReport(
                             heuristicDifficulty = ls.traceEventInfo.eventSort.ordinal,
-                            traceInclusion = if(ls.where == this@toTraceManager.which) {
+                            traceInclusion = if(ls.where in this@toTraceManager.which) {
                                 InclusionSort.DEFINITELY_INCLUDED
                             } else {
                                 InclusionSort.DEFINITELY_EXCLUDED
@@ -2361,9 +2389,11 @@ class BufferTraceInstrumentation private constructor(
          */
         data class Until(val traceNumber: Int) : TraceInclusionMode
         /**
-         * Only include the event at [which]. Forces control flow to reach [which] and then early exits from the program.
+         * Only include the event at [which]. Forces control flow to reach any of [which] and then early exits from the program.
          */
-        data class UntilExactly(val which: CmdPointer) : TraceInclusionMode
+        data class UntilExactly(val which: Set<CmdPointer>) : TraceInclusionMode {
+            constructor(which: CmdPointer) : this(setOf(which))
+        }
     }
 
     /**
@@ -2881,7 +2911,7 @@ class BufferTraceInstrumentation private constructor(
                     indexVar = it,
                     eventSort = eventSort,
                     lengthVar = source.instrumentationInfo().lengthProphecy,
-                    bufferBase = TACKeyword.MEMORY.toVar(),
+                    bufferBase = source.baseMap,
                     bufferStart = source.instrumentationInfo().baseProphecy,
                     numCalls = globalStateAccumulator,
                     bufferHash = eventSignature.bufferHash,
@@ -2908,6 +2938,9 @@ class BufferTraceInstrumentation private constructor(
         targetBuffer: LongRead,
         write: BufferUpdate<*>
     ) : CommandWithRequiredDecls<TACCmd.Simple> {
+        if(targetBuffer.baseMap != write.buffer) {
+            return CommandWithRequiredDecls()
+        }
         val offs: TACSymbol = write.loc
         val length: TACSymbol = write.length
         val updateGenerator: WriteSource = write.openSource()

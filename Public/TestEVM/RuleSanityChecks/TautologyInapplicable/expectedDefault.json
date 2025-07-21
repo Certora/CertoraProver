@@ -1,0 +1,10 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "trivial": "SUCCESS",
+        "trivialTautologyPasses": "SUCCESS",
+        "trivialTautologyFails": "SANITY_FAIL",
+        "multipleAssertsPass": "SUCCESS",
+        "multipleAssertsFailure": "SANITY_FAIL"
+    }
+}

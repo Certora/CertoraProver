@@ -123,6 +123,7 @@ enum class LoggerTypes : LoggerName {
     REPORT_UTILS,
     SBF,
     WASM,
+    WASM_ANALYSIS,
     CVLR,
     CONTRACT_CREATION,
     VM_INTEROP,
@@ -130,10 +131,12 @@ enum class LoggerTypes : LoggerName {
     TWOSTAGE,
     FOUNDRY,
     DEBUG_SYMBOLS,
+    CPI,
     EQUIVALENCE,
     OVERFLOW_PATTERN_REWRITER,
     BOUNDED_MODEL_CHECKER,
-    REQUIRE_REASON_CHECKER
+    REQUIRE_REASON_CHECKER,
+    MOVE,
     ;
 }
 

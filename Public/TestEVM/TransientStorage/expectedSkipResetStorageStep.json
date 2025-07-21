@@ -1,0 +1,21 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "trivialInvariant": {
+      "Induction base: After the constructor": "SANITY_FAIL",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SUCCESS": [],
+          "SANITY_FAIL": [
+            "borrow(int256)",
+            "getDelta(uint256)",
+            "repay(int256)"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    }
+  }
+}

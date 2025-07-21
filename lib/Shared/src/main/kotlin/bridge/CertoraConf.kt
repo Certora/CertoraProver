@@ -108,10 +108,6 @@ object CertoraConf {
             && verificationQuery.primary_contract.isBlank()
         ) {
             logger.error("Primary contract for spec verification query $verificationQuery is blank")
-        } else if (verificationQuery.type == VerificationQueryType.assertion
-            && (verificationQuery.primaryContracts.isNullOrEmpty() || verificationQuery.primaryContracts.all { it.isBlank() })
-        ) {
-            logger.error("No primary contracts for assertion verification query $verificationQuery")
         }
     }
 

@@ -19,6 +19,7 @@ package instrumentation
 
 import analysis.CommandWithRequiredDecls
 import analysis.storage.*
+import analysis.storage.StorageAnalysis.Base.Companion.toBase
 import com.certora.collect.*
 import config.ReportTypes
 import datastructures.stdcollections.*
@@ -66,7 +67,7 @@ object StoragePathAnnotation {
                 }
                 is TACCmd.Simple.StorageAccessCmd -> {
                     when (val l = v.loc) {
-                        is TACSymbol.Const -> l.toAccessPath()?.paths
+                        is TACSymbol.Const -> l.toAccessPath(v.base.meta.toBase())?.paths
                         is TACSymbol.Var -> extractPaths(l)
                     } ?: "?"
                 }
@@ -77,13 +78,13 @@ object StoragePathAnnotation {
         fun readResolve(): Any = StoragePathPrinter
     }
 
-    fun annotateClass(c: IContractClass, res: Map<MethodRef, StorageAnalysisResult>) {
+    fun annotateClass(c: IContractClass, res: Map<MethodRef, StorageAnalysisResults>) {
         val transformers = mutableListOf<MethodToCoreTACTransformer<ITACMethod>>()
         transformers.add(
             MethodToCoreTACTransformer(ReportTypes.STORAGE_ANALYSIS) { m ->
                 val code = m.code as CoreTACProgram
                 when (val storageResult = res[m.toRef()]!!) {
-                    is StorageAnalysisResult.SkippedLibrary -> {
+                    is StorageAnalysisResults.SkippedLibrary -> {
                         code.prependToBlock0(
                             CommandWithRequiredDecls(
                                 TACCmd.Simple.AnnotationCmd(
@@ -92,43 +93,20 @@ object StoragePathAnnotation {
                             )
                         )
                     }
-                    is StorageAnalysisResult.Failure -> {
-                        val reasonException = storageResult.reason
-                        val locOfFail = (reasonException as? StorageAnalysisFailedException)?.loc
-                        val addendum = locOfFail?.let { " @ $it" }.orEmpty()
-                        val msg = "Storage analysis failed with message: ${storageResult.reason.message}${addendum}"
-                        val graph = code.analysisCache.graph
-                        val rangeWithMsgDetails = locOfFail
-                            ?.let { getSourceHintWithRange(graph.elab(it), graph, m) }
-                            ?: FailureInfo.NoFailureInfo
-
-                        val userMsg = UserFailMessage.StorageAnalysisFailureMessage(
-                            m.getContainingContract().name,
-                            m.soliditySignature ?: m.name,
-                            CertoraException.getErrorCodeForException(reasonException),
-                            rangeWithMsgDetails.additionalUserFacingMessage
-                        )
-                        CVTAlertReporter.reportAlert(
-                            type = CVTAlertType.STORAGE_ANALYSIS,
-                            severity = CVTAlertSeverity.WARNING,
-                            jumpToDefinition = rangeWithMsgDetails.range,
-                            message = userMsg.getFullMessage(),
-                            url = CheckedUrl.ANALYSIS_OF_STORAGE
-                        )
+                    is StorageAnalysisResults.CompleteFailure -> {
+                        val failures = reportFailuresAndGenerateAnnotations(storageResult.reasons, m)
                         code.prependToBlock0(
-                            CommandWithRequiredDecls(
-                                TACCmd.Simple.AnnotationCmd(
-                                    STORAGE_ANALYSIS_FAILURE,
-                                    StorageAnalysisFailureInfo(
-                                        msg,
-                                        userMsg
-                                    )
-                                )
-                            )
+                            failures
                         )
                     }
-                    is StorageAnalysisResult.Complete -> {
-                        instrumentAccessPaths(code, storageResult)
+                    is StorageAnalysisResults.MergedResults -> {
+                        val instrumented = instrumentAccessPaths(code, storageResult)
+                        if (storageResult.failures.isNotEmpty()) {
+                            val failures = reportFailuresAndGenerateAnnotations(storageResult.failures, m)
+                            instrumented.prependToBlock0(failures)
+                        } else {
+                            instrumented
+                        }
                     }
                 }
             },
@@ -139,6 +117,43 @@ object StoragePathAnnotation {
             if (m.toRef() in res) {
                 ContractUtils.transformMethodInPlace(method = m, transformers = transformer)
             }
+        }
+    }
+
+    private fun reportFailuresAndGenerateAnnotations(failures: Map<StorageAnalysis.Base, StorageAnalysisResult.Failure>, m: ITACMethod): List<TACCmd.Simple> {
+        val code = m.code as CoreTACProgram
+        return failures.map { (base, failure) ->
+            val reasonException = failure.reason
+            val locOfFail = (reasonException as? StorageAnalysisFailedException)?.loc
+            val addendum = locOfFail?.let { " @ $it" }.orEmpty()
+            val msg = "Storage analysis for $base failed with message: ${failure.reason.message}${addendum}"
+            val graph = code.analysisCache.graph
+            val rangeWithMsgDetails = locOfFail
+                ?.let { getSourceHintWithRange(graph.elab(it), graph, m) }
+                ?: FailureInfo.NoFailureInfo
+
+            val userMsg = UserFailMessage.StorageAnalysisFailureMessage(
+                m.getContainingContract().name,
+                m.soliditySignature ?: m.name,
+                CertoraException.getErrorCodeForException(reasonException),
+                rangeWithMsgDetails.additionalUserFacingMessage,
+                base.toString()
+            )
+            CVTAlertReporter.reportAlert(
+                type = CVTAlertType.STORAGE_ANALYSIS,
+                severity = CVTAlertSeverity.WARNING,
+                jumpToDefinition = rangeWithMsgDetails.range,
+                message = userMsg.getFullMessage(),
+                url = CheckedUrl.ANALYSIS_OF_STORAGE
+            )
+            TACCmd.Simple.AnnotationCmd(
+                STORAGE_ANALYSIS_FAILURE,
+                StorageAnalysisFailureInfo(
+                    msg,
+                    userMsg,
+                    base
+                )
+            )
         }
     }
 
@@ -171,7 +186,7 @@ object StoragePathAnnotation {
         override val parentPath: StorageAnalysis.AnalysisPath
     ) : HashInputStep
 
-    private fun instrumentAccessPaths(ctp: CoreTACProgram, storageResult: StorageAnalysisResult.Complete) : CoreTACProgram {
+    private fun instrumentAccessPaths(ctp: CoreTACProgram, storageResult: StorageAnalysisResults.MergedResults) : CoreTACProgram {
         val commandGraph = ctp.analysisCache.graph
         val newVariables = mutableSetOf<TACSymbol.Var>()
 
@@ -256,71 +271,76 @@ object StoragePathAnnotation {
         for ((where, repl) in mutations) {
             patching.replaceCommand(where, repl)
         }
-        for ((toSet, flags) in storageResult.joinInstrumentation.flagSet) {
-            val cmds = flags.map { (k, v) ->
-                patching.addVarDecl(k)
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    lhs = k,
-                    rhs = v.asSym()
+        for ((_, joinInstrumentation) in storageResult.joinInstrumentations) {
+            for ((toSet, flags) in joinInstrumentation.flagSet) {
+                val cmds = flags.map { (k, v) ->
+                    patching.addVarDecl(k)
+                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                        lhs = k,
+                        rhs = v.asSym()
+                    )
+                }
+                patching.insertAlongEdge(
+                    toSet.first,
+                    toSet.second,
+                    cmds
                 )
             }
-            patching.insertAlongEdge(
-                toSet.first,
-                toSet.second,
-                cmds
-            )
         }
-        for ((where, sc) in storageResult.sideConditions) {
-            val rangeOK = TACExpr.BinBoolOp.LAnd(
-                TACExpr.BinRel.Le(sc.range.lb.asTACExpr, sc.v.asSym()),
-                TACExpr.BinRel.Le(sc.v.asSym(), sc.range.ub.asTACExpr),
-                Tag.Bool,
-            )
+        for ((_, sideConditions) in storageResult.sideConditions) {
+            for ((where, sc) in sideConditions) {
+                val rangeOK = TACExpr.BinBoolOp.LAnd(
+                    TACExpr.BinRel.Le(sc.range.lb.asTACExpr, sc.v.asSym()),
+                    TACExpr.BinRel.Le(sc.v.asSym(), sc.range.ub.asTACExpr),
+                    Tag.Bool,
+                )
 
-            val unfold = ExprUnfolder.unfoldPlusOneCmd("storageSideCondition", rangeOK) { x ->
-               TACCmd.Simple.AssertCmd(x.s, "Side condition on written storage")
+                val unfold = ExprUnfolder.unfoldPlusOneCmd("storageSideCondition", rangeOK) { x ->
+                    TACCmd.Simple.AssertCmd(x.s, "Side condition on written storage")
+                }
+
+                patching.addVarDecls(unfold.varDecls)
+                patching.insertAfter(where, unfold.cmds)
             }
-
-            patching.addVarDecls(unfold.varDecls)
-            patching.insertAfter(where, unfold.cmds)
         }
         // Add our hash result variables. The special case
         // is when we create a hash as a result of a BytesKeyHash summary,
         // which is the last command in the block and hence requires the
         // addition of a new block to perform the assignment to the result var.
-        val byLocation = storageResult.hashInstrumentation.hashResults.entries.flatMap { (locSym, tmp) ->
-            locSym.first.mapToSet { ptr ->
-                Triple(ptr, locSym.second, tmp)
-            }
-        }.groupBy(
+
+            val byLocation = storageResult.hashInstrumentations.values.flatMap { hashInstrumentation ->  hashInstrumentation.hashResults.entries.flatMap { (locSym, tmp) ->
+                locSym.first.mapToSet { ptr ->
+                    Triple(ptr, locSym.second, tmp)
+                }
+            }}.groupBy(
                 keySelector = { (ptr, _, _) -> ptr },
                 valueTransform = { (_, sym, new) -> Pair(sym, new) }
-        )
-        for((where, entries) in byLocation) {
-            val newCmds = entries.map { (sym, new) ->
-                patching.addVarDecl(new)
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    lhs = new,
-                    rhs = sym.asSym(),
-                )
-            }
-
-            val lastCmd = patching.originalCode[where.block]?.last()
-            if (lastCmd is TACCmd.Simple.SummaryCmd && lastCmd.summ is BytesKeyHash) {
-                val assignHashBlock = patching.addBlock(
-                    where.block,
-                    newCmds +
-                    listOf(
-                        TACCmd.Simple.JumpCmd(lastCmd.summ.skipTarget)
+            )
+            for ((where, entries) in byLocation) {
+                val newCmds = entries.map { (sym, new) ->
+                    patching.addVarDecl(new)
+                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                        lhs = new,
+                        rhs = sym.asSym(),
                     )
-                )
-                patching.reroutePredecessorsTo(lastCmd.summ.skipTarget, assignHashBlock) {
-                    it != assignHashBlock
                 }
-            } else {
-                patching.insertAfter(where, newCmds)
+
+                val lastCmd = patching.originalCode[where.block]?.last()
+                if (lastCmd is TACCmd.Simple.SummaryCmd && lastCmd.summ is BytesKeyHash) {
+                    val assignHashBlock = patching.addBlock(
+                        where.block,
+                        newCmds +
+                            listOf(
+                                TACCmd.Simple.JumpCmd(lastCmd.summ.skipTarget)
+                            )
+                    )
+                    patching.reroutePredecessorsTo(lastCmd.summ.skipTarget, assignHashBlock) {
+                        it != assignHashBlock
+                    }
+                } else {
+                    patching.insertAfter(where, newCmds)
+                }
             }
-        }
         return patching.toCode(ctp)
     }
 
@@ -545,7 +565,7 @@ object StoragePathAnnotation {
                     f((it as StorageTree.Type.Mapping).codomain)
                 }
                 is StorageAnalysis.AnalysisPath.Root -> f(contractTree.firstOrNull {
-                    it.slot == p.slot
+                    it.slot == p.slot && it.base == p.base
                 }?.types!!)
                 is StorageAnalysis.AnalysisPath.StructAccess -> traverse(p.base) {
                     // make sure to access [elements] with a `word` value

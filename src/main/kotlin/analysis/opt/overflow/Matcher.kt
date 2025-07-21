@@ -362,7 +362,7 @@ class Matcher<T : OverflowContext>(
     }
 
     companion object {
-        private val revertAnnotations = setOf(TACMeta.REVERT_PATH, TACMeta.THROW_PATH, TACMeta.RETURN_PATH)
+        private val revertAnnotations = setOf(TACMeta.REVERT_PATH, TACMeta.RETURN_PATH)
 
         private fun TACCommandGraph.isRevertBlock(b: NBId) =
             lcmdSequence(b).any { (_, cmd) ->

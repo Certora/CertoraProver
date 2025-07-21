@@ -105,7 +105,7 @@ class DelegateCallInLoop(
 
     private fun getUnresolvedDelegateCalls(): List<LTACCmdView<TACCmd.Simple.SummaryCmd>> =
         tacProgram.parallelLtacStream().filter {
-            it.snarrowOrNull<CallSummary>()?.origCallcore?.callType == TACCallType.DELEGATE
+            it.snarrowOrNull<CallSummary>()?.callType == TACCallType.DELEGATE
         }.map { cmd -> LTACCmdView<TACCmd.Simple.SummaryCmd>(cmd) }.collect(Collectors.toList())
 
     /**

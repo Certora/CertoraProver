@@ -131,7 +131,7 @@ if __name__ == '__main__':
         VERSION = f"{TIMESTAMP}+{COMMIT}"
         URL = f"https://pypi.org/project/{NAME}"
 
-    MIN_PYTHON_VERSION = '3.8'
+    MIN_PYTHON_VERSION = '3.9'
 
     # Read dependencies from the requirements file
     REQUIREMENTS_FILE = (Path(__file__).parent / "certora_cli_requirements.txt")
@@ -168,6 +168,7 @@ if __name__ == '__main__':
     copytree(SCRIPTS / EQ_DIR, CERTORA_CLI_DIR / EQ_DIR, dirs_exist_ok=True)
     copytree(SCRIPTS / "Shared", CERTORA_CLI_DIR / "Shared", dirs_exist_ok=True)
     copy(DEFAULT_DIR / "Typechecker.jar" if args.type_checker_path is None else args.type_checker_path, CERTORA_JARS)
+    copy(DEFAULT_DIR / "ASTExtraction.jar", CERTORA_JARS)
     copy(SCRIPTS / "certoraRun.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraMutate.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraEqCheck.py", CERTORA_CLI_DIR)
@@ -176,6 +177,8 @@ if __name__ == '__main__':
     copy(SCRIPTS / "certoraSorobanProver.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraEVMProver.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraRanger.py", CERTORA_CLI_DIR)
+    copy(SCRIPTS / "certoraConcord.py", CERTORA_CLI_DIR)
+    copy(SCRIPTS / "certoraCVLFormatter.py", CERTORA_CLI_DIR)
 
     # write inputs
     INIT_PY = "__init__.py"
@@ -252,7 +255,8 @@ setuptools.setup(
             "certoraSolanaProver = certora_cli.certoraSolanaProver:entry_point",
             "certoraSorobanProver = certora_cli.certoraSorobanProver:entry_point",
             "certoraEVMProver = certora_cli.certoraEVMProver:entry_point",
-            "certoraRanger = certora_cli.certoraRanger:entry_point"
+            "certoraRanger = certora_cli.certoraRanger:entry_point",
+            "certoraCVLFormatter = certora_cli.certoraCVLFormatter:entry_point"
         ]
     }},
     python_requires='>={MIN_PYTHON_VERSION}',

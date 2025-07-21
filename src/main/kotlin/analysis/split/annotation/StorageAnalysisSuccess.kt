@@ -75,14 +75,14 @@ class StorageAnalysisSuccess(patcher: SimplePatchingProgram, contId: BigInteger,
     ) {
         if (loc !is TACSymbol.Var) {
             // we have no display path since there is no meta in this case --> make a raw snippet
-            addEVMStorageSnippetCmd(newCmdsIndex, ptr, rawStorageAccessSnippet(loadCmd, loc, value, storageType, range))
+            addEVMStorageSnippetCmd(newCmdsIndex, ptr, rawStorageAccessSnippet(contId, loadCmd, loc, value, storageType, range))
             return
         }
 
         val disPath: DisplayPath? = loc.singleDisplayPathOrNull()
 
         if (disPath == null) {
-            addEVMStorageSnippetCmd(newCmdsIndex, ptr, rawStorageAccessSnippet(loadCmd, loc, value, storageType, range))
+            addEVMStorageSnippetCmd(newCmdsIndex, ptr, rawStorageAccessSnippet(contId, loadCmd, loc, value, storageType, range))
             return
         }
 

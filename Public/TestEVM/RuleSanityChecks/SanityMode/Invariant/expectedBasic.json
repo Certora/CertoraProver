@@ -1,0 +1,19 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"Inv": {
+			"Induction base: After the constructor": "SANITY_FAIL",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [
+						"one()"
+					],
+					"SUCCESS": [],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		}
+	}
+}

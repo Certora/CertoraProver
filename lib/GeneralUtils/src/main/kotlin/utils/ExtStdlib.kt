@@ -19,9 +19,7 @@ package utils
 
 import com.certora.collect.*
 import datastructures.stdcollections.*
-import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.sync.*
 import utils.Color.Companion.bBlack
 import utils.Color.Companion.bRed
 import utils.Color.Companion.bRedBg
@@ -917,6 +915,16 @@ operator fun Int.times(other : BigInteger) = this.toBigInteger() * other
 operator fun BigInteger.div(other : Int) = this / other.toBigInteger()
 operator fun Int.div(other : BigInteger) = this.toBigInteger() / other
 
+fun Byte.toBigInteger() = this.toLong().toBigInteger()
+fun UByte.toBigInteger() = this.toLong().toBigInteger()
+fun Short.toBigInteger() = this.toLong().toBigInteger()
+fun UShort.toBigInteger() = this.toLong().toBigInteger()
+fun UInt.toBigInteger() = this.toLong().toBigInteger()
+fun ULong.toBigInteger() = when {
+    this <= Long.MAX_VALUE.toULong() -> this.toLong().toBigInteger()
+    else -> BigInteger(this.toString())
+}
+
 /** N.B. the resulting list is the length of the smallest of the three input lists */
 fun <T1, T2, T3> zip(a: Iterable<T1>, b: Iterable<T2>, c: Iterable<T3>): List<Triple<T1, T2, T3>> {
     val it1 = a.iterator()
@@ -1211,6 +1219,14 @@ inline fun <T> List<T>.forWithNext(action : (T, T) -> Unit) {
     }
 }
 
+fun <T> repeatedMap(times : Int, init : T, transform : (T) -> T) : T {
+    var result = init
+    repeat(times) {
+        result = transform(result)
+    }
+    return result
+}
+
 infix fun <T: Comparable<T>> ClosedRange<T>.overlaps(that: ClosedRange<T>): Boolean {
     return this.start <= that.endInclusive && this.endInclusive >= that.start
 }
@@ -1220,6 +1236,20 @@ infix fun <T: Comparable<T>> ClosedRange<T>.subsumes(that: ClosedRange<T>): Bool
 }
 
 fun <K, V> Stream<Pair<K, V>>.toMap(): Map<K, V> = this.collect(Collectors.toMap({it.first}, {it.second}))
+
+/**
+ * tries to split [this] at the first occurence of [delimiter], and returns the string before and after
+ * on success, or null on failure. neither of the returned strings will contain [delimiter].
+ */
+fun String.splitOnce(delimiter: String): Pair<String, String>? {
+    @Suppress("ForbiddenMethodCall")
+    val split = this.split(delimiter, limit = 2)
+
+    val before = split[0]
+    val after = split.getOrNull(1) ?: return null
+
+    return Pair(before, after)
+}
 
 /**
     Returns a sequence of elements from this sequence, skipping adjacent duplicates.

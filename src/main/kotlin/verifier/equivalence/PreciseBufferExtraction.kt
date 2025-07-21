@@ -143,7 +143,7 @@ class PreciseBufferExtraction private constructor(
                     if(k !in targetRelativeStart ..< relativeEnd) {
                         return acc[k]
                     }
-                    val relativeInRange = targetRelativeStart - k
+                    val relativeInRange = k - targetRelativeStart
                     return copied[srcRelativeStart + relativeInRange]
                 }
             }.toLeft()

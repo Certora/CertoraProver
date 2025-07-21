@@ -662,6 +662,8 @@ object Summarizer {
             }
         }
 
+        fun CallSummary.getSighashExpr() = TACExpr.Select(this.inBase.asSym(), this.inOffset.asSym())
+
         fun extendDispatchChain(m: ITACMethod) {
                 check(m.attribute == MethodAttribute.Unique.Fallback || callSumm.sigResolution.singleOrNull()?.let { it == m.sigHash!!.n } != false) {
                     "If call summary has a resolved sigResolution, it must match callees sigResolution. " +
@@ -724,11 +726,11 @@ object Summarizer {
                 val patchingBlock = MutableCommandWithRequiredDecls<TACCmd.Simple>()
                 val contractAddress = m.getContainingContract().addressSym as TACSymbol
                 val funcCond: TACExpr = TACExpr.BinRel.Eq(
-                    callSumm.origCallcore.to.asSym(),
+                    callSumm.toVar.asSym(),
                     contractAddress.asSym()
                 ).letIf(callSumm.sigResolution.size != 1 && m.sigHash != null) {
                     val firstWord = TACExpr.BinOp.ShiftRightLogical(
-                        callSumm.origCallcore.getSigHashExpr(),
+                        callSumm.getSighashExpr(),
                         (EVM_BITWIDTH256 - (DEFAULT_SIGHASH_SIZE.toInt() * EVM_BYTE_SIZE.toInt())).asTACExpr
                     )
                     TACExpr.BinBoolOp.LAnd(
@@ -1083,7 +1085,7 @@ object Summarizer {
             Logger.alwaysError("Bad configuration used in presence of unresolved calls summarization", error)
             throw error
         }
-        logger.info { "Applying dispatch list summarization to unresolved call @ ${callSumm.origCallcore.metaSrcInfo}" }
+        logger.info { "Applying dispatch list summarization to unresolved call @ ${callSumm.origCallcore?.metaSrcInfo}" }
 
         val defaultHavocType =
             Havocer.resolveHavocType(scene, caller, callSumm, appliedSummary.specCallSumm.default)
@@ -1096,7 +1098,7 @@ object Summarizer {
                 methods.filter { m ->
                     decisionManager.shouldInline(where, m)
                 }.also { kept ->
-                    val source = callSumm.origCallcore.metaSrcInfo?.getSourceCode() ?: "unknown source"
+                    val source = callSumm.origCallcore?.metaSrcInfo?.getSourceCode() ?: "unknown source"
                     val callingContract = scene.getContract(caller).name
                     if (kept.isEmpty()) {
                         CVLWarningLogger.generalWarning("Dispatch list summary for delegate call only considers " +
@@ -1288,8 +1290,8 @@ object Summarizer {
                         )
                         val generatedSummary = if (Config.CvlFunctionRevert.get()) {
                             // The RC of the summary depends on the whether the summary reverted or has thrown. To handle
-                            // summaries that don't call into Solidity functions (so don't explicitly set lastReverted or
-                            // lastHasThrown), we set them to false before entering the summary.
+                            // summaries that don't call into Solidity functions (so don't explicitly set lastReverted),
+                            // we set them to false before entering the summary.
                             // We also remove any toplevel RevertConfluences in the summary,
                             // since we do not want the RevertPathGenerator to generate jumps here,
                             // but rather use the return code to return to the surrounding contract code solidity-style.
@@ -1306,10 +1308,7 @@ object Summarizer {
                                     }
                             }
                             .prependToBlock0(
-                                EthereumVariables.setLastRevertedAndLastHasThrown(
-                                    lastReverted = false,
-                                    lastHasThrown = false
-                                )
+                                EthereumVariables.setLastReverted(lastReverted = false)
                             )
                                 .appendToSinks(
                                     CommandWithRequiredDecls(
@@ -1317,10 +1316,7 @@ object Summarizer {
                                         lhs = EthereumVariables.rc.at(callIndex = where.wrapped.ptr.block.calleeIdx),
                                         rhs = cvlCompiler.exprFact {
                                             Ite(
-                                                i = LOr(
-                                                    CVLKeywords.lastReverted.toVar().asSym(),
-                                                    CVLKeywords.lastHasThrown.toVar().asSym()
-                                                ),
+                                                i = CVLKeywords.lastReverted.toVar().asSym(),
                                                 t = TACSymbol.Zero.asSym(),
                                                 e = TACSymbol.One.asSym()
                                             )
@@ -1348,6 +1344,8 @@ object Summarizer {
                             decisionManager = DelegateDecisionManager(getCallersAtPointer, inliningDecisionManager),
                             getCallersAtPointer
                         )
+
+                    is SpecCallSummary.Reroute -> throw CertoraInternalException(internalMsg = "Should have replaced Reroute summaries way earlier in the pipeline", type = CertoraInternalErrorType.SUMMARY_INLINING)
                 }
             }
         inlineSummary(
@@ -1727,7 +1725,7 @@ object Summarizer {
         val receiver = if (call.callType == TACCallType.DELEGATE) {
             TACKeyword.ADDRESS.toVar(block)
         } else {
-            call.origCallcore.to
+            call.toVar
         }
         val caller = TACKeyword.ADDRESS.toVar(block)
         return CommandWithRequiredDecls(
@@ -1954,11 +1952,34 @@ object Summarizer {
         where: CmdPointer,
         summaryName: String,
     ): CoreTACProgram {
+        val augmentedSetup = if (Config.CvlFunctionRevert.get()) {
+            setup.merge(EthereumVariables.setLastReverted(lastReverted = false))
+        } else {
+            setup
+        }
 
         val ret = summary
             .let { p -> CVLToSimpleCompiler.compileVMParamAssignments(p, convertIns) }
-            .prependToBlock0(setup).let {
-                mergeCodes(it, assignOuts)
+            .prependToBlock0(augmentedSetup).let {
+                if (Config.CvlFunctionRevert.get()) {
+                    val revertNode = CommandWithRequiredDecls(
+                        listOf(
+                            TACCmd.Simple.NopCmd
+                        ), listOf()
+                    ).toProg("no return data assignment on revert path", where.block.getCallId().toContext())
+                    mergeIfCodes(
+                        it,
+                        jumpiCmd = TACCmd.Simple.JumpiCmd(
+                            dst = revertNode.getStartingBlock(),
+                            elseDst = assignOuts.getStartingBlock(),
+                            cond = CVLKeywords.lastReverted.toVar()
+                        ),
+                        thenCode = revertNode,
+                        elseCode = assignOuts
+                    )
+                } else {
+                    mergeCodes(it, assignOuts)
+                }
             }.transformToCore(scene)
 
         /** collect a list of [MethodRef]s that were inlined in this summary */

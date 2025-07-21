@@ -96,14 +96,7 @@ object DirectPassingTestPipeline {
 
     /* check that we see [expect] non-serialization inline records */
     fun checkExpectedPushRecordCount(scene: Scene, contractName: String, methodName: String, expect: Int, msg: () -> String) {
-        IntegrativeChecker.runInitialTransformations(
-            scene,
-            ProverQuery.AssertionQuery(
-                listOf(
-                    SolidityContract(contractName)
-                )
-            )
-        )
+        IntegrativeChecker.runInitialTransformations(scene)
         val pushes = DirectPassingTest.getPushRecordsFrom(scene, contractName, methodName)
 
         Assertions.assertEquals(expect, pushes.size)

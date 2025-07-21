@@ -49,7 +49,6 @@ import utils.*
 import vc.data.*
 import java.math.BigInteger
 import java.util.stream.Collectors
-import kotlin.streams.toList
 
 private val logger = Logger(LoggerTypes.POINTS_TO)
 
@@ -1416,17 +1415,18 @@ private interface SerializationCodeFinder<T, U> {
                 if(l.body.all {
                         graph.elab(it).commands.all {
                             it.cmd is TACCmd.Simple.JumpdestCmd ||
-                                    it.cmd is TACCmd.Simple.LabelCmd ||
-                                    it.cmd is TACCmd.Simple.NopCmd ||
-                                    it.cmd is TACCmd.Simple.AnnotationCmd ||
-                                    singletonId usedAt it.ptr ||
-                                    it.ptr in unusedGroup ||
-                                    (it.cmd is TACCmd.Simple.JumpiCmd && listOf(it.cmd.dst, it.cmd.elseDst).all {
-                                        it == loopSucc || it in l.body
-                                    }) ||
-                                    (it.cmd is TACCmd.Simple.AssigningCmd && (it.cmd.lhs !in postLoopLive || useSitesOf(it.cmd.lhs, postLoopPtr).all {
-                                        singletonId usedAt it || it in unusedGroup
-                                    }))
+                                it.cmd is TACCmd.Simple.LabelCmd ||
+                                it.cmd is TACCmd.Simple.NopCmd ||
+                                it.cmd is TACCmd.Simple.AnnotationCmd ||
+                                (it.cmd is TACCmd.Simple.JumpCmd && it.cmd.dst in l.body) ||
+                                singletonId usedAt it.ptr ||
+                                it.ptr in unusedGroup ||
+                                (it.cmd is TACCmd.Simple.JumpiCmd && listOf(it.cmd.dst, it.cmd.elseDst).all {
+                                    it == loopSucc || it in l.body
+                                }) ||
+                                (it.cmd is TACCmd.Simple.AssigningCmd && (it.cmd.lhs !in postLoopLive || useSitesOf(it.cmd.lhs, postLoopPtr).all {
+                                    singletonId usedAt it || it in unusedGroup
+                                }))
                         }
                     }) {
 

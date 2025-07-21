@@ -139,7 +139,7 @@ class IntervalsRewriter(
             return patcher.toCode()
         }
 
-        patcher.limitTACProgramTo(intervals.g.successors, intervals.g.vertices)
+        intervals.eraseUnreachableBlocks(patcher)
 
         // Goes over all command and simplifies them using `handleCmd`, or erases them if we can.
         intervals.g.vertices.forEach { nbid ->

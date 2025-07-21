@@ -21,13 +21,12 @@ package analysis.storage
 import analysis.CmdPointer
 import analysis.numeric.IntValue
 import analysis.storage.StorageAnalysis.AnalysisPath
+import analysis.storage.StorageAnalysisResult.AccessPaths
 import analysis.storage.StorageAnalysisResult.NonIndexedPath
 import com.certora.collect.*
+import datastructures.stdcollections.*
 import tac.NBId
-import utils.AmbiSerializable
-import utils.KSerializable
-import utils.`impossible!`
-import utils.unsupported
+import utils.*
 import vc.data.TACSymbol
 import vc.data.TransformableSymEntityWithRlxSupport
 import java.math.BigInteger
@@ -119,8 +118,9 @@ sealed class StorageAnalysisResult {
     @Treapable
     sealed class NonIndexedPath: AmbiSerializable {
         @KSerializable
-        data class Root(val slot: BigInteger) : NonIndexedPath() {
-            override fun toString(): String = "Root_slot$slot"
+        data class Root(val slot: BigInteger, val base: StorageAnalysis.Base) : NonIndexedPath() {
+            override fun toString(): String = "${base.prefixChar}_Root_slot$slot"
+            override fun hashCode() = hash { it + slot + base }
         }
         @KSerializable
         data class MapAccess(val base: NonIndexedPath) : NonIndexedPath() {
@@ -142,6 +142,14 @@ sealed class StorageAnalysisResult {
         sealed interface ArrayLikePath {
             val base: NonIndexedPath
         }
+
+        fun storageBase() : StorageAnalysis.Base = when(this) {
+                is Root -> this.base
+                is ArrayAccess -> this.base.storageBase()
+                is MapAccess -> this.base.storageBase()
+                is StaticArrayAccess -> this.base.storageBase()
+                is StructAccess -> this.base.storageBase()
+            }
     }
 
     data class JoinInstrumentation(
@@ -167,8 +175,77 @@ sealed class StorageAnalysisResult {
     data class Failure(val reason: Throwable) : StorageAnalysisResult()
 }
 
+sealed class StorageAnalysisResults {
+
+    data class MergedResults(
+        val failures: Map<StorageAnalysis.Base, StorageAnalysisResult.Failure>,
+        val unreachable: Set<NBId>,
+        val contractTree: Set<StorageTree.Root>,
+        val accessedPaths: Map<CmdPointer, StorageAnalysisResult.AccessPaths>,
+        val joinInstrumentations: Map<StorageAnalysis.Base, StorageAnalysisResult.JoinInstrumentation>,
+        val hashInstrumentations: Map<StorageAnalysis.Base, StorageAnalysisResult.HashInstrumentation>,
+        val sideConditions: Map<StorageAnalysis.Base, Map<CmdPointer, StorageAnalysisResult.SideCondition>>
+    ) : StorageAnalysisResults()
+
+    /* The analysis was skipped because the contract is a library */
+    data object SkippedLibrary : StorageAnalysisResults()
+
+    data class CompleteFailure(val reasons: Map<StorageAnalysis.Base, StorageAnalysisResult.Failure>) : StorageAnalysisResults()
+
+    companion object {
+        fun fromResultsMap(baseToRes: Map<StorageAnalysis.Base, StorageAnalysisResult>) : StorageAnalysisResults {
+            if (baseToRes.all { (_,r) -> r is StorageAnalysisResult.SkippedLibrary } ) {
+                return SkippedLibrary
+            }
+            if (baseToRes.all { (_,r) -> r is StorageAnalysisResult.Failure }) {
+                return CompleteFailure(baseToRes.mapValues { (_,r) -> r as StorageAnalysisResult.Failure })
+            }
+            val failures = baseToRes.mapValuesNotNull { e -> e.value as? StorageAnalysisResult.Failure }
+            // merge unreachables by considering the intersection when we have a success on all bases,
+            // and conservatively assume nothing is unreachable if we had any failure
+            val unreachable =
+                if (baseToRes.any { e -> e.value !is StorageAnalysisResult.Complete }) {
+                    setOf()
+                } else {
+                    baseToRes.values.map { (it as StorageAnalysisResult.Complete).unreachable }
+                        .foldFirstOrNull { acc, next -> acc.intersect(next) } ?: setOf()
+                }
+            // merge contract trees, these should have distinct elements
+            val contractTree = baseToRes.values.flatMapToSet { r ->
+                (r as? StorageAnalysisResult.Complete)?.contractTree ?: setOf()
+            }
+            val expectedSizeOfContractTree = baseToRes.values.fold(0) { acc, r ->
+                (r as? StorageAnalysisResult.Complete)?.contractTree?.size?.plus(acc) ?: acc
+            }
+            check(contractTree.size == expectedSizeOfContractTree) { "Expected contract trees of different storage bases to not overlap, " +
+                "since the base should be encoded in the elements. " +
+                "Found ${contractTree.size} elements after merging, expected $expectedSizeOfContractTree." }
+            // merge accessed paths, each command should only access one type of storage
+            val accessedPaths: MutableMap<CmdPointer, AccessPaths> = mutableMapOf()
+            for (r in baseToRes.values) {
+                if(r is StorageAnalysisResult.Complete) {
+                    accessedPaths += r.accessedPaths
+                }
+            }
+            // the rest is instrumentation we just keep per base
+            val joinInstrumentations = baseToRes.mapValuesNotNull { (_, r) -> (r as? StorageAnalysisResult.Complete)?.joinInstrumentation }
+            val hashInstrumentations = baseToRes.mapValuesNotNull { (_, r) -> (r as? StorageAnalysisResult.Complete)?.hashInstrumentation }
+            val sideConditions = baseToRes.mapValuesNotNull { (_, r) -> (r as? StorageAnalysisResult.Complete)?.sideConditions }
+            return MergedResults(
+                failures,
+                unreachable,
+                contractTree,
+                accessedPaths,
+                joinInstrumentations,
+                hashInstrumentations,
+                sideConditions
+            )
+        }
+    }
+}
+
 object StorageTree {
-    data class Root(val slot: BigInteger, val types: Type)
+    data class Root(val slot: BigInteger, val base: StorageAnalysis.Base, val types: Type)
 
     sealed class Type {
         object Word : Type()
@@ -192,7 +269,7 @@ fun AnalysisPath.toNonIndexed() : NonIndexedPath = when(this) {
         base = this.base.toNonIndexed()
     )
     is AnalysisPath.MapAccess -> NonIndexedPath.MapAccess(base = this.base.toNonIndexed())
-    is AnalysisPath.Root -> NonIndexedPath.Root(this.slot)
+    is AnalysisPath.Root -> NonIndexedPath.Root(this.slot, this.base)
     is AnalysisPath.StructAccess -> NonIndexedPath.StructAccess(
         base = this.base.toNonIndexed(),
         offset = this.offset.words
@@ -266,13 +343,16 @@ sealed class StoragePath {
 
     sealed class Root : StoragePath() {
         abstract val slot: BigInteger
+        abstract val base: StorageAnalysis.Base
 
         class NonIndexed(val path: NonIndexedPath.Root) : Root() {
             override val slot get() = path.slot
+            override val base get() = path.base
         }
 
         class Analysis(val path: AnalysisPath.Root) : Root() {
             override val slot get() = path.slot
+            override val base get() = path.base
         }
     }
 

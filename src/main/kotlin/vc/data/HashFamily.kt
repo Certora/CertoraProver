@@ -78,4 +78,25 @@ sealed class HashFamily: Serializable, HasKSerializable {
         override val isContractCreation: Boolean get() = true
     }
 
+    @KSerializable
+    object MoveVectorDigest : HashFamily() {
+        override fun hashCode(): Int = hashObject(this)
+        override fun toString(): String = "mvVecDigest"
+        private fun readResolve(): Any = MoveVectorDigest
+        override val isContractCreation: Boolean get() = false
+    }
+
+    @KSerializable
+    object MoveVectorElemHash : HashFamily() {
+        override fun hashCode(): Int = hashObject(this)
+        override fun toString(): String = "mvVecElem"
+        private fun readResolve(): Any = MoveVectorElemHash
+        override val isContractCreation: Boolean get() = false
+    }
+
+    @KSerializable
+    abstract class CvlmHashFamily : HashFamily() {
+        override val requiresLargeGaps get() = false
+        override val isContractCreation get() = false
+    }
 }

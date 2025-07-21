@@ -412,6 +412,25 @@ class StructStateAnalysis(
             return toMaybeConst(o1, v, target, whole, where)
         }
 
+        override fun toStaticArrayInitPointer(
+            av1: InitializationPointer.BlockInitPointer,
+            o1: TACSymbol.Var,
+            target: StructStateDomain,
+            whole: PointsToDomain,
+            where: ExprView<TACExpr.Vec.Add>
+        ): StructStateDomain {
+            return target[o1]?.let {
+                Value(
+                    base = it.base,
+                    indexVars = setOf(),
+                    untilEndVars = setOf(),
+                    sort = ValueSort.ConstArray
+                )
+            }?.let { av ->
+                whole.structState + (where.cmd.lhs to av)
+            } ?: nondeterministicInteger(where = where, target = target, s = whole)
+        }
+
         override fun toAddedStaticArrayInitPointer(av1: InitializationPointer.StaticArrayInitPointer, o1: TACSymbol.Var, target: StructStateDomain, whole: PointsToDomain, where: ExprView<TACExpr.Vec.Add>): StructStateDomain {
             return target[o1]?.let {
                 Value(

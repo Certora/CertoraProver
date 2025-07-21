@@ -179,6 +179,8 @@ class CertoraBuildCacheManager:
             trg = trg_path_with_additional_included_files / post_autofinder_dir.name
             if post_autofinder_dir != trg:
                 if post_autofinder_dir.is_dir():
+                    if trg.exists():
+                        shutil.rmtree(trg)
                     Util.safe_copy_folder(post_autofinder_dir, trg, shutil.ignore_patterns())
                 else:
                     # highly unlikely .post_autofinder.[digit] will be a file and not a directory,

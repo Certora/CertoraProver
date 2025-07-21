@@ -25,6 +25,7 @@ import sbf.cfg.SbfCFG
 import sbf.tac.sbfCFGsToTAC
 import kotlinx.coroutines.runBlocking
 import report.DummyLiveStatsReporter
+import sbf.callgraph.SolanaFunction
 import sbf.disassembler.*
 import sbf.domains.*
 import scene.SceneFactory
@@ -69,6 +70,7 @@ fun toTAC (cfg: SbfCFG,
     val prog = MutableSbfCallGraph(mutableListOf(cfg), setOf(cfg.getName()), globals)
     val memSummaries = MemorySummaries.readSpecFile(summaryFileContents,"unknown")
     CVTFunction.addSummaries(memSummaries)
+    SolanaFunction.addSummaries(memSummaries)
     val memAnalysis = WholeProgramMemoryAnalysis(prog, memSummaries)
     memAnalysis.inferAll()
     return sbfCFGsToTAC(prog, memSummaries, globalsSymbolTable, memAnalysis.getResults())

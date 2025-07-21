@@ -339,7 +339,11 @@ sealed class InstantiatedDisplayPath : AmbiSerializable, Comparable<Instantiated
          */
         fun compareTo(other: GhostAccess): Int {
             if (this.indices.size != other.indices.size) {
-                error("expected the length of both indices to agree, but got this = ${this.indices}, other = ${other.indices}")
+                /** This can happen in the case we compare two GhostAccesses that are generated
+                 * by the sum or usum syntax in CVL, the indices may not have the
+                 * same length.
+                 */
+                return this.indices.size.compareTo(other.indices.size)
             }
 
             for (idx in 0 until this.indices.size) {

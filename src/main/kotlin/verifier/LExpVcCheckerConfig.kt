@@ -259,7 +259,7 @@ data class LExpVcCheckerConfig(
                 }
             }
 
-            val configSolverChoice = filterByHashingScheme(Config.ActualSolverProgramChoice, hashingScheme, usedFeatures)
+            val configSolverChoice = filterByHashingScheme(SolverChoice(Config.SolverProgramChoice.get().toList()), hashingScheme, usedFeatures)
             check(configSolverChoice.isNotEmpty()) { "No solvers found when trying to check a rule ($vcName)." }
             LExpVcChecker.logSolverChoice(configSolverChoice, SolverChoice.AllCommonAvailableSolversWithClOptions)
 
@@ -471,7 +471,7 @@ data class LExpVcCheckerConfig(
                 fromGlobalConfigWithTACConfig(vcName, usedFeatures, containsStorageComparisons, timeout, tacVerifierSettings)
             }
 
-            val configSolverChoice = filterByHashingScheme(Config.ActualSolverProgramChoice,
+            val configSolverChoice = filterByHashingScheme(SolverChoice(Config.SolverProgramChoice.get().toList()),
                 config.hashingScheme, usedFeatures)
 
             val niaSolvers = usersSolversOrDefault(

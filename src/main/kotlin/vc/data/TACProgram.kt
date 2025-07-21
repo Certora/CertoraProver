@@ -63,7 +63,6 @@ import spec.converters.repr.WithCVLProgram
 import spec.cvlast.typedescriptors.IProgramOutput
 import spec.CVLCompiler
 import spec.CVLKeywords
-import spec.toVar
 import statistics.GeneralKeyValueStats
 import statistics.IStatsJson
 import statistics.IStatsJson.Companion.collect
@@ -1378,7 +1377,6 @@ class CoreTACProgram private constructor(
             TACMeta.STORAGE_READ_TRACKER in v.meta ||
             TACMeta.SUMMARY_GLOBAL in v.meta ||
             v.meta[TACSymbol.Var.KEYWORD_ENTRY]?.name == CVLKeywords.lastReverted.keyword ||
-            v.meta[TACSymbol.Var.KEYWORD_ENTRY]?.name == CVLKeywords.lastHasThrown.keyword ||
             v.meta[TACSymbol.Var.KEYWORD_ENTRY]?.name == CVLKeywords.lastStorage.keyword
 
 
@@ -1776,20 +1774,6 @@ class CoreTACProgram private constructor(
                 }
             }
         }
-    }
-
-    fun addNotThrownInTheBeginning(): CoreTACProgram {
-        return prependToBlock0(
-            CommandWithRequiredDecls(
-                listOf(
-                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                        CVLKeywords.lastHasThrown.toVar(),
-                        TACSymbol.Const(BigInteger.ZERO, Tag.Bool)
-                    )
-                ),
-                CVLKeywords.lastHasThrown.toVar()
-            )
-        )
     }
 
     fun prependCodeToCodeBlock(entry: NBId, codeToPrepend: CommandWithRequiredDecls<TACCmd.Simple>): CoreTACProgram {

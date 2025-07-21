@@ -89,6 +89,9 @@ class ErrorCollector<E> private constructor(private val errors : MutableList<E>)
     private fun returnErrors(errors : List<E>) : Nothing
         = collectErrors(errors).run { throw StopCollecting() }
 
+    /** TODO CERT-9281 don't use this - it's a kludge for a temporary workaround. */
+    fun returnAnyway() : Nothing = returnErrors(emptyList())
+
     /**
      * Continue execution but save [error] for return by the enclosing [collectingErrors].  Useful for functions that return
      * multiple errors.

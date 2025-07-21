@@ -25,6 +25,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import move.MoveTag
 import solver.CounterexampleModel
 import utils.Range
 import spec.cvlast.CVLType
@@ -1736,6 +1737,10 @@ sealed class TACCmd : Serializable, ITACCmd {
             paramName = "sighash",
             generator = SighashBinder::class
         )
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         data class CallCmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
             @OpcodeParameter("gas") val o1: TACSymbol, // gas
@@ -1770,6 +1775,10 @@ sealed class TACCmd : Serializable, ITACCmd {
         @OpcodeEnvironmentParam(
             paramName = "sighash",
             generator = SighashBinder::class
+        )
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
         )
         @HookableOpcode("CALLCODE", additionalInterfaces = [CallOpcodeSummary::class])
         data class CallcodeCmd(
@@ -1808,6 +1817,10 @@ sealed class TACCmd : Serializable, ITACCmd {
             paramName = "sighash",
             generator = SighashBinder::class
         )
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         @HookableOpcode("DELEGATECALL", additionalInterfaces = [CallOpcodeSummary::class])
         data class DelegatecallCmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
@@ -1842,6 +1855,10 @@ sealed class TACCmd : Serializable, ITACCmd {
             paramName = "sighash",
             generator = SighashBinder::class
         )
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         @HookableOpcode("STATICCALL", additionalInterfaces = [CallOpcodeSummary::class])
         data class StaticcallCmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
@@ -1873,6 +1890,10 @@ sealed class TACCmd : Serializable, ITACCmd {
         }
 
         @HookableOpcode("CREATE1")
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         data class CreateCmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
             @OpcodeParameter override val value: TACSymbol,
@@ -1892,6 +1913,10 @@ sealed class TACCmd : Serializable, ITACCmd {
         }
 
         @HookableOpcode("CREATE2")
+        @OpcodeEnvironmentParam(
+            paramName = "pc",
+            generator = PCBinder::class
+        )
         data class Create2Cmd(
             @OpcodeOutput override val lhs: TACSymbol.Var,
             @OpcodeParameter override val value: TACSymbol,
@@ -2108,7 +2133,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         }
 
         // TRANSIENT STORAGE
-        @HookableOpcode("ALL_TLOAD", "AllTload", false)
+        @HookableOpcode("ALL_TLOAD", "AllTload", true)
         data class TloadCmd(
             @OpcodeOutput val lhs: TACSymbol.Var,
             @OpcodeParameter("loc") val loc: TACSymbol,
@@ -2119,7 +2144,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             override fun toString(): String = super.toString() // opt out of generated toString
         }
 
-        @HookableOpcode("ALL_TSTORE", "AllTstore", false)
+        @HookableOpcode("ALL_TSTORE", "AllTstore", true)
         data class TstoreCmd(
             @OpcodeParameter("loc") val loc: TACSymbol,
             @OpcodeParameter("rhs") val rhs: TACSymbol,
@@ -2342,6 +2367,235 @@ sealed class TACCmd : Serializable, ITACCmd {
         }
     }
 
+    sealed class Move : TACCmd() {
+        sealed interface Borrow
+
+        companion object {
+            protected fun refTag(ref: TACSymbol.Var): Tag {
+                val refTag = ref.tag as? MoveTag.Ref
+                require(refTag != null)
+                return refTag.refType.toTag()
+            }
+        }
+
+        data class BorrowLocCmd(
+            val ref: TACSymbol.Var,
+            val loc: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move(), Borrow {
+            override fun argString(): String = "$ref $loc"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                require(loc.tag == refTag(ref))
+            }
+        }
+
+        data class ReadRefCmd(
+            val dst: TACSymbol.Var,
+            val ref: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dst $ref"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                require(dst.tag == refTag(ref))
+            }
+        }
+
+        data class WriteRefCmd(
+            val ref: TACSymbol.Var,
+            val src: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$ref $src"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                require(src.tag == refTag(ref))
+            }
+        }
+
+        data class PackStructCmd(
+            val dst: TACSymbol.Var,
+            val srcs: List<TACSymbol.Var>,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dst $srcs"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val structTag = dst.tag as? MoveTag.Struct
+                require(structTag != null)
+                structTag.type.fields!!.forEachIndexed { i, field ->
+                    require(srcs[i].tag == field.type.toTag())
+                }
+            }
+        }
+
+        data class UnpackStructCmd(
+            val dsts: List<TACSymbol.Var>,
+            val src: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dsts $src"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val structTag = src.tag as? MoveTag.Struct
+                require(structTag != null)
+                structTag.type.fields!!.forEachIndexed { i, field ->
+                    require(dsts[i].tag == field.type.toTag())
+                }
+            }
+        }
+
+        data class BorrowFieldCmd(
+            val dstRef: TACSymbol.Var,
+            val srcRef: TACSymbol.Var,
+            val fieldIndex: Int,
+            override val meta: MetaMap = MetaMap()
+        ) : Move(), Borrow {
+            override fun argString(): String = "$dstRef $srcRef $fieldIndex"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val structTag = refTag(srcRef)
+                require(structTag is MoveTag.Struct)
+                require(dstRef.tag == MoveTag.Ref(structTag.type.fields!![fieldIndex].type))
+            }
+        }
+
+        data class VecPackCmd(
+            val dst: TACSymbol.Var,
+            val srcs: List<TACSymbol.Var>,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dst $srcs"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val vecTag = dst.tag as? MoveTag.Vec
+                require(vecTag != null)
+                val elemTag = vecTag.elemType.toTag()
+                srcs.forEach { src ->
+                    require(src.tag == elemTag)
+                }
+            }
+        }
+
+        data class VecUnpackCmd(
+            val dsts: List<TACSymbol.Var>,
+            val src: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dsts $src"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val vecTag = src.tag as? MoveTag.Vec
+                require(vecTag != null)
+                val elemTag = vecTag.elemType.toTag()
+                dsts.forEach { dst ->
+                    require(dst.tag == elemTag)
+                }
+            }
+        }
+
+        data class VecLenCmd(
+            val dst: TACSymbol.Var,
+            val ref: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dst $ref"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                require(refTag(ref) is MoveTag.Vec)
+                require(dst.tag == Tag.Bit256)
+            }
+        }
+
+        data class VecBorrowCmd(
+            val dstRef: TACSymbol.Var,
+            val srcRef: TACSymbol.Var,
+            val index: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move(), Borrow {
+            override fun argString(): String = "$dstRef $srcRef $index"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val vecTag = refTag(srcRef)
+                require(vecTag is MoveTag.Vec)
+                require(dstRef.tag == MoveTag.Ref(vecTag.elemType))
+                require(index.tag == Tag.Bit256)
+            }
+        }
+
+        data class VecPushBackCmd(
+            val ref: TACSymbol.Var,
+            val src: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$ref $src"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val vecTag = refTag(ref)
+                require(vecTag is MoveTag.Vec)
+                require(src.tag == vecTag.elemType.toTag())
+            }
+        }
+
+        data class VecPopBackCmd(
+            val dst: TACSymbol.Var,
+            val ref: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dst $ref"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val vecTag = refTag(ref)
+                require(vecTag is MoveTag.Vec)
+                require(dst.tag == vecTag.elemType.toTag())
+            }
+        }
+
+        data class GhostArrayBorrowCmd(
+            val dstRef: TACSymbol.Var,
+            val arrayRef: TACSymbol.Var,
+            val index: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move(), Borrow {
+            override fun argString(): String = "$dstRef $arrayRef $index"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                val arrayTag = refTag(arrayRef)
+                require(arrayTag is MoveTag.GhostArray)
+                require(dstRef.tag == MoveTag.Ref(arrayTag.elemType))
+                require(index.tag == Tag.Bit256)
+            }
+        }
+
+        data class HashCmd(
+            val dst: TACSymbol.Var,
+            val loc: TACSymbol.Var,
+            val hashFamily: HashFamily,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dst $loc $hashFamily"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                require(dst.tag == Tag.Bit256)
+            }
+        }
+
+        data class EqCmd(
+            val dst: TACSymbol.Var,
+            val a: TACSymbol.Var,
+            val b: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dst $a $b"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            init {
+                require(dst.tag == Tag.Bool)
+                require(a.tag == b.tag)
+            }
+        }
+    }
+
     @JvmName("getLhs1")
     fun getLhs(): TACSymbol.Var? {
         return when (this) {
@@ -2419,6 +2673,7 @@ sealed class TACCmd : Serializable, ITACCmd {
                 is EVM.EVMLog3Cmd -> null
                 is EVM.EVMLog4Cmd -> null
             }
+            is Move -> error("Move commands not yet simplified")
         }
     }
 
@@ -2450,6 +2705,7 @@ sealed class TACCmd : Serializable, ITACCmd {
                 is EVM.TstoreCmd -> transientStorageBaseMap
                 else -> getLhs()
             }
+            is Move -> error("Move commands not yet simplified")
         }
     }
 
@@ -2568,6 +2824,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is CVL.ArrayCopy -> this.dst.getReferencedSyms() + this.src.getReferencedSyms()
             is CVL.LocalAlloc -> treapSetOf(this.arr)
             is CVL.CompareBytes1Array -> treapSetOf(this.left, this.right)
+            is Move -> error("Move commands not yet simplified")
         }
         return rhsSymbols.filterIsInstance<TACSymbol.Var>()
     }
@@ -2707,6 +2964,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is CVL.ArrayCopy -> this.src.getReferencedSyms() + this.dst.getReferencedSyms()
             is CVL.LocalAlloc -> treapSetOf(this.arr)
             is CVL.CompareBytes1Array ->  treapSetOf(this.left, this.right)
+            is Move -> error("Move commands not yet simplified")
         }
     }
 }

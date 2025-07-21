@@ -20,6 +20,7 @@ package config
 import annotations.PollutesGlobalState
 import cache.CachePolicy
 import cli.*
+import config.Config.Smt.PreciseBitwiseOps
 import datastructures.stdcollections.*
 import evm.MAX_EVM_UINT256
 import kotlinx.serialization.encodeToString
@@ -208,7 +209,6 @@ object Config {
                 true,
                 "Allow calls to Solidity quantifier functions. [default:false]"
             ),
-            pythonName = "--allow_solidity_calls_in_quantifiers"
     ) {}
 
     // TODO(sg): consider grouping in sub-objects?
@@ -653,12 +653,6 @@ object Config {
         Option("regressionOutputFile", true, "RegressionTest output file")
     ) {}
 
-    @Deprecated("Remove in next major version v8")
-    val OutputJSONForHTMLFile =
-        object : ConfigType.StringCmdLine(
-            "data.json",
-            Option("dataJson", true, "JSON for HTML data output file")
-        ) {}
     val OutputFinalResultsHTML =
         object : ConfigType.StringCmdLine(
             "FinalResults.html",
@@ -866,6 +860,38 @@ object Config {
             pythonName = "--bytecode_jsons"
         ) {}
 
+    val MoveModulePath =
+        object : ConfigType.StringCmdLine(
+            null,
+            Option("movePath", true, "Directory to search for Move modules")
+        ) {}
+
+    val CvlmAddress =
+        object : ConfigType.BigIntCmdLine(
+            0x436572746f7261.toBigInteger(),
+            Option("cvlmAddress", true, "The address of the CVLM Move modules")
+        ) {}
+
+    val MoveRuleModuleIncludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("includeMoveRuleModules", true, "List of Move modules to include in the rule set.  Default is all modules with rules.")
+    ) {}
+
+    val MoveRuleModuleExcludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("excludeMoveRuleModules", true, "List of Move modules to exclude from the rule set.  Default is none.")
+    ) {}
+
+    val MoveRuleNameIncludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("includeMoveRules", true, "List of Move rule names to include in the rule set.  Default is all rules in included modules.")
+    ) {}
+
+    val MoveRuleNameExcludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("excludeMoveRules", true, "List of Move rule names to exclude from the rule set.  Default is none.")
+    ) {}
+
     val SubContract = object : ConfigType.StringCmdLine(
         null,
         Option("subContract", true, "A contract from a Solidity file to be verified")
@@ -878,7 +904,7 @@ object Config {
     ) {}
 
     val DoSanityChecksForRules = object : ConfigType.SanityMode(
-        SanityValues.NONE,
+        SanityValues.BASIC,
         Option(
             "ruleSanityChecks",
             true,
@@ -954,16 +980,6 @@ object Config {
             "Run CVT in Coinbase features' verification mode [default: false]"
         ),
         pythonName = "--coinbase_mode"
-    ) {}
-
-    @Deprecated("Remove in next major version v8")
-    val DoReturnSizeChecksInCVL = object : ConfigType.BooleanCmdLine(
-        true,
-        Option(
-            "enableReturnSizeChecksInCVL",
-            true,
-            "In every CVL invocation will check that number of returned words is as expected [default: true]"
-        )
     ) {}
 
     val EnforceRequireReason = object : ConfigType.BooleanCmdLine(
@@ -1045,7 +1061,7 @@ object Config {
 
     // TODO(CERT-7707): We plan to switch to this for good and remove this flag entirely in the future once supported,
     val CvlFunctionRevert = object : ConfigType.BooleanCmdLine(
-        false,
+        true,
         Option(
             "cvlFunctionRevert",
             true,
@@ -1504,12 +1520,12 @@ object Config {
     )
 
     val RequireInvariantsPreRuleSemantics = ConfigType.BooleanCmdLine(
-        default = false,
+        default = true,
         option = Option(
             "requireInvariantsPreRuleSemantics",
             true,
             "Collect all requireInvariant commands used in a rule and assume them in the rule setup " +
-                "instead of assuming them at the location where they are in the spec [default: false]."
+                "instead of assuming them at the location where they are in the spec [default: true]."
         )
     )
 
@@ -2120,6 +2136,15 @@ object Config {
         )
     ) {}
 
+    val globalInliner = object : ConfigType.IntCmdLine(
+        default = 1,
+        option = Option(
+            "globalInliner",
+            true,
+            "The number of times to run globalInliner in sequence [default : 1]"
+        )
+    ) {}
+
 
     val LastIntervalsRewriter = object : ConfigType.IntCmdLine(
         default = 1,
@@ -2312,15 +2337,6 @@ object Config {
         )
     ) {}
 
-    @Deprecated("unneeded, now that SolverProgramConfig takes a collection of solvers")
-    val CheckAllSolvers = object : ConfigType.BooleanCmdLine(
-        false,
-        Option(
-            "checkAllSolvers", true, "set whether to execute all SMT solvers; " +
-                "overrides \"solver\" (aliases: \"s\", \"solvers\") option [default: false]"
-        )
-    ) {}
-
     val EmitSoliditySourceAnnotations = object : ConfigType.BooleanCmdLine(
         false,
         Option(
@@ -2406,15 +2422,6 @@ object Config {
             override fun illegalArgMessage(newValue: Int): String =
                 "Argument to -summaryRecursionLimit should be a non-negative integer"
         }
-    }
-
-    /** The solvers we actually used, based on user input and defaults, and availability of each solver executable on
-     * the machine we're running on. */
-    val ActualSolverProgramChoice: SolverChoice by lazy {
-        SolverChoice.fromFlags(
-            @Suppress("DEPRECATION") CheckAllSolvers.get(),
-            SolverProgramChoice.get().toList()
-        )
     }
 
     val HashingScheme = Smt.HashingScheme
@@ -2521,59 +2528,17 @@ object Config {
                 "chooses the backend solving strategy: adaptive, cegar or singlerace. [default: adaptive]"
             )
         ), TransformationAgnosticConfig {
-            @Suppress("DEPRECATION")
-            override fun get(): BackendStrategyEnum {
-                if (!CEGAR.UseCEGAR.isDefault()) {
-                    logger.warn { "Using deprecated option -${CEGAR.UseCEGAR.name}. Please use -${this.name}=cegar instead." }
-                }
-                if (!AdaptiveSolverConfig.isDefault()) {
-                    logger.warn { "Using deprecated option -${AdaptiveSolverConfig.name}. Please use -${this.name}=adaptive instead." }
-                }
-
-                return when {
-                    !isDefault() -> super.get()
-                    CEGAR.UseCEGAR.get() -> BackendStrategyEnum.CEGAR
-                    SingleRaceSolverConfig.get() -> BackendStrategyEnum.SINGLE_RACE
-                    // if we leave adaptive on in the PreciseBitwiseOps case, we run LIA, which leads to suprising behavior
-                    // (surprising results can happen since LIA is not an overapproximation of BV, due to mathints)
-                    AdaptiveSolverConfig.isDefault() && AdaptiveSolverConfig.get() &&
-                        @OptIn(PreciseBitwiseOpsOption::class) PreciseBitwiseOps.get() -> BackendStrategyEnum.SINGLE_RACE
-                    !AdaptiveSolverConfig.isDefault() && AdaptiveSolverConfig.get() -> BackendStrategyEnum.ADAPTIVE
-                    !AdaptiveSolverConfig.isDefault() && !AdaptiveSolverConfig.get() -> BackendStrategyEnum.SINGLE_RACE
-                    else -> super.get()
-                }.also {
-                    if (it == BackendStrategyEnum.SINGLE_RACE) {
-                        check(UseLIA.get() != UseLIAEnum.WITHOUT_VERIFIER || !UseNIA.get()) {
-                            "We shouldn't run NIA solvers and non-verifying LIA solvers at the same time, as they can produce conflicting results."
-                        }
-                        check(!UseBV.get() || (UseLIA.get() == UseLIAEnum.NONE && !UseNIA.get())) {
-                            "We shouldn't run BV solvers and (LN)IA solvers at the same time, as they can produce conflicting results."
-                        }
+            override fun get() = super.get().also {
+                if (it == BackendStrategyEnum.SINGLE_RACE) {
+                    checkNot(UseLIA.get() == UseLIAEnum.WITHOUT_VERIFIER && UseNIA.get()) {
+                        "We shouldn't run NIA solvers and non-verifying LIA solvers at the same time, as they can produce conflicting results."
+                    }
+                    check(!UseBV.get() || (UseLIA.get() == UseLIAEnum.NONE && !UseNIA.get())) {
+                        "We shouldn't run BV solvers and (LN)IA solvers at the same time, as they can produce conflicting results."
                     }
                 }
             }
         }
-
-        @Deprecated("Use Config.Smt.BackendStrategy instead.")
-        val SingleRaceSolverConfig: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
-            false,
-            Option(
-                "singleRaceSolverConfig", true,
-                "set whether CVT should run solvers using multiple encodings (linear, non-linear, bit vector) " +
-                    "in a single race." +
-                    " [default: false]"
-            )
-        ), TransformationAgnosticConfig {}
-
-        @Deprecated("Use Config.Smt.BackendStrategy instead.")
-        val AdaptiveSolverConfig: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
-            true,
-            Option(
-                "adaptiveSolverConfig", true,
-                "chooses the backend solving strategy. True will use our default strategy, false is an alias for -singleRaceSolverConfig true" +
-                    " [default: true]"
-            )
-        ), TransformationAgnosticConfig {}
 
         val UseLIA: ConfigType.CmdLine<UseLIAEnum> = object : ConfigType.CmdLine<UseLIAEnum>(
             UseLIAEnum.WITH_VERIFIER,
@@ -2585,7 +2550,7 @@ object Config {
                     "will be included. [default: true, unless -preciseBitwiseOps is set]"
             )
         ), TransformationAgnosticConfig {
-            @OptIn(PreciseBitwiseOpsOption::class)
+            @OptIn(Smt.PreciseBitwiseOpsOption::class)
             override fun get(): UseLIAEnum = when {
                 !isDefault() -> super.get()
                 PreciseBitwiseOps.get() -> UseLIAEnum.NONE
@@ -3000,16 +2965,6 @@ object Config {
     val CEGARModelDiffThreshold = CEGAR.ModelDiffThreshold
 
     object CEGAR {
-        @Deprecated("Use Config.Smt.BackendStrategy instead.")
-        val UseCEGAR: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
-            false,
-            Option(
-                "cegar",
-                true,
-                "Use CEGAR instead of the adaptive (or non-adaptve) mode. [default: false]"
-            )
-        ), TransformationAgnosticConfig {}
-
         val ConstraintChooser: ConfigType.ConstraintChooserCmdLine = object : ConfigType.ConstraintChooserCmdLine(
             ConstraintChooserEnum.justBools,
             Option(
@@ -3177,16 +3132,6 @@ object Config {
             "divideNoRemainder",
             true,
             "Constrain divisions to have no remainder"
-        )
-    ) {}
-
-    @Deprecated("Remove in next major version v8")
-    val RelaxedFunctionFinders = object : ConfigType.RelaxedFinders(
-        default = false,
-        option = Option(
-            "functionFinderMode",
-            true,
-            "The function finder mode; possible values are `default`, `extended`, and `relaxed`. `relaxed` will relax some restrictions of the function finder."
         )
     ) {}
 
@@ -3474,11 +3419,11 @@ object Config {
 
 
     val SorobanConcreteObjectVals = object : ConfigType.BooleanCmdLine(
-        false,
+        true,
         Option(
             "useConcreteObjectVals",
             true,
-            "Enable (EXPERIMENTAL) optimization for Soroban handle allocations"
+            "Enable optimization for Soroban handle allocations"
         )
     ) {}
 
@@ -3511,10 +3456,3 @@ fun main() {
         writer.write(str)
     }
 }
-
-@Suppress("ForbiddenMethodCall")
-private fun String.splitOnce(delimiter: String): Pair<String, String>? =
-    this
-        .split(delimiter, limit = 2)
-        .takeIf { it.size > 1 }
-        ?.let { it[0] to it[1] }

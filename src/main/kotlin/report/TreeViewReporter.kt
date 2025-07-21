@@ -325,7 +325,6 @@ class TreeViewReporter(
         }
     }
 
-
     data class TreeViewNodeResult(
         val nodeType: NodeType,
         val rule: IRule?,
@@ -339,13 +338,19 @@ class TreeViewReporter(
         val highestNotificationLevel: RuleAlertReport? = null,
         val location: TreeViewLocation? = null,
         val displayName: String,
-        val childrenTotalNum: Int? = null,
-        val childrenFinishedNum: Int? = null,
+        val childrenNumbers: ChildrenNumbers? = null,
         /**
          *  The uuid is a unique Id for the node as Integer type. It's used in the rule report for tracking points
          *  and expanding the tree when switching between tabs or during polling.
          */
         val uuid: Int) {
+            data class ChildrenNumbers(
+                val total: Int,
+                val finished: Int
+            ) {
+                constructor(total: Int) : this(total, 0)
+            }
+
         fun printForErrorLog(): String = listOf(
             "nodeType" to nodeType.toString(),
             "status" to status.toString(),
@@ -443,8 +448,7 @@ class TreeViewReporter(
                     status = TreeViewStatusEnum.REGISTERED,
                     isRunning = false,
                     displayName = child.displayName,
-                    childrenTotalNum = childrenTotalNum,
-                    childrenFinishedNum = childrenTotalNum?.let { 0 },
+                    childrenNumbers = childrenTotalNum?.let { TreeViewNodeResult.ChildrenNumbers(it) },
                     uuid = Allocator.getFreshId(Allocator.Id.TREE_VIEW_NODE_ID)
                 )
                 val children = parentToChild[parent] ?: mutableSetOf()
@@ -482,11 +486,11 @@ class TreeViewReporter(
 
         fun updateFinishedChildren(node: RuleIdentifier, numFinished: Int) {
             updateStatus(node) {
-                check(it.childrenFinishedNum != null) { "can't update finished children" }
+                check(it.childrenNumbers != null) { "can't update finished children" }
                 require(numFinished >= 0)
-                val newVal = it.childrenFinishedNum + numFinished
-                check(newVal <= it.childrenTotalNum!!) { "Range $node: can't have more children finished ($newVal) than the total num of children (${it.childrenTotalNum})" }
-                it.copy(childrenFinishedNum = newVal)
+                val newVal = it.childrenNumbers.finished + numFinished
+                check(newVal <= it.childrenNumbers.total) { "Range $node: can't have more children finished ($newVal) than the total num of children (${it.childrenNumbers.total})" }
+                it.copy(childrenNumbers = it.childrenNumbers.copy(finished = newVal))
             }
         }
 
@@ -645,8 +649,8 @@ class TreeViewReporter(
                 status = statusString,
                 duration = duration,
                 isRunning = isRunning,
-                childrenTotalNum = currTreeViewResult.childrenTotalNum,
-                childrenFinishedNum = currTreeViewResult.childrenFinishedNum,
+                childrenTotalNum = currTreeViewResult.childrenNumbers?.total,
+                childrenFinishedNum = currTreeViewResult.childrenNumbers?.finished,
             )
         }
 
@@ -732,7 +736,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                     updateStatus(di) { res -> res.copy(status = newStatus, isRunning = newIsRunning, verifyTime = newVerifyTime, highestNotificationLevel = highestNotificationLevel) }
                 } else {
                     val newStatus = childrenTreeViewResults.maxBy { it.status }.status
-                    val newIsRunning = childrenTreeViewResults.any { it.isRunning }
+                    val newIsRunning = childrenTreeViewResults.any { it.isRunning } || currTreeViewResult.childrenNumbers?.let { it.finished < it.total } == true
                     val newVerifyTime =
                         childrenTreeViewResults.map { it.verifyTime }.reduce { acc, y -> acc.join(y) }
 

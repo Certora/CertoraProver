@@ -20,7 +20,6 @@ package tac
 import java.math.BigInteger
 
 object TACBasicMeta {
-    val LAST_HAS_THROWN = MetaKey.Nothing("tac.last.has.thrown")
     val LAST_REVERTED = MetaKey.Nothing("tac.last.reverted")
     val STACK_HEIGHT = MetaKey<Int>("tac.stack.height")
     val IS_IMMUTABLE = MetaKey.Nothing("tac.is-immutable")

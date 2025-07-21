@@ -80,7 +80,7 @@ def read_from_conf_file(context: CertoraContext) -> None:
             try:
                 check_conf_content(context)
             except Util.CertoraUserInputError as e:
-                raise Util.CertoraUserInputError(f"Error when reading {conf_file_path}: {str(e)}", e) from None
+                raise Util.CertoraUserInputError(f"Error when reading {conf_file_path}: {e}") from None
             context.conf_file = str(conf_file_path)
     except FileNotFoundError:
         raise Util.CertoraUserInputError(f"read_from_conf_file: {conf_file_path}: not found") from None
@@ -97,22 +97,24 @@ def handle_override_base_config(context: CertoraContext) -> None:
     """
 
     if context.override_base_config:
-        with Path(context.override_base_config).open() as conf_file:
-            try:
-                override_base_config_attrs = json5.load(conf_file, allow_duplicate_keys=False)
+        try:
+            with Path(context.override_base_config).open() as conf_file:
+                override_base_config_attrs = json5.load(conf_file, allow_duplicate_keys=False,
+                                                        object_pairs_hook=OrderedDict)
                 context.conf_file_attr = {**override_base_config_attrs, **context.conf_file_attr}
 
                 if 'override_base_config' in override_base_config_attrs:
                     raise Util.CertoraUserInputError("base config cannot include 'override_base_config'")
-            except Exception as e:
-                raise Util.CertoraUserInputError(f"Cannot load base config: {context.override_base_config}\n{e}")
-            for attr in override_base_config_attrs:
-                if hasattr(context, attr):
-                    value = getattr(context, attr, False)
-                    if not value:
-                        setattr(context, attr, override_base_config_attrs.get(attr))
-                else:
-                    raise Util.CertoraUserInputError(f"{attr} appears in the base conf file {context.override_base_config} but is not a known attribute.")
+        except Exception as e:
+            raise Util.CertoraUserInputError(f"Cannot load base config: {context.override_base_config}\n{e}")
+
+        for attr in override_base_config_attrs:
+            if hasattr(context, attr):
+                value = getattr(context, attr, False)
+                if not value:
+                    setattr(context, attr, override_base_config_attrs.get(attr))
+            else:
+                raise Util.CertoraUserInputError(f"{attr} appears in the base conf file {context.override_base_config} but is not a known attribute.")
 
 
 def check_conf_content(context: CertoraContext) -> None:

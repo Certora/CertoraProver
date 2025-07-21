@@ -32,6 +32,7 @@ import com.certora.collect.*
 import compiler.*
 import datastructures.stdcollections.*
 import disassembler.EVMMetaInfo
+import disassembler.EVMPC
 import log.Logger
 import log.LoggerTypes
 import scene.ITACMethod
@@ -42,6 +43,7 @@ import java.math.BigInteger
 private val logger = Logger(LoggerTypes.COMMON)
 
 /**
+ * [pc] the original program counter of the command
  * [source] the original solc-assigned source index
  * [begin] the offset in the matching source file, determined by solc
  * [len] the length of the matching source code, determined by solc
@@ -52,6 +54,10 @@ private val logger = Logger(LoggerTypes.COMMON)
 @KSerializable
 @Treapable
 data class TACMetaInfo(
+    // this is nullable purely for backwards compatibility with unit tests that have existing metas for which it is
+    // too painful/annoing to update; any "real" TACMetaInfo generated *not* in these unit tests will have a non-null
+    // pc field
+    val pc_: EVMPC? = null,
     val source: Int,
     val begin: Int,
     val len: Int,
@@ -59,7 +65,9 @@ data class TACMetaInfo(
     val address: BigInteger,
     val sourceContext: SourceContext,
 ): AmbiSerializable {
-    override fun hashCode() = hash { it + source + begin + len + jumpType + address + sourceContext }
+    override fun hashCode() = hash { it + source + begin + len + jumpType + address + sourceContext + pc_ }
+
+    val pc: EVMPC get() = pc_!!
 
     fun sourceIdentifier(): SourceIdentifier = SourceIdentifier(this.source, this.begin, this.len)
 
@@ -82,8 +90,8 @@ data class TACMetaInfo(
     fun getSourceDetails(): SourceSegment? = SourceSegment.resolveFromContext(sourceContext, sourceIdentifier())
 
     companion object {
-        operator fun invoke(evmInfo: EVMMetaInfo, address: BigInteger, sourceContext: SourceContext): TACMetaInfo {
-            return TACMetaInfo(evmInfo.source, evmInfo.begin, evmInfo.end - evmInfo.begin, evmInfo.jumpType, address, sourceContext)
+        operator fun invoke(pc: EVMPC, evmInfo: EVMMetaInfo, address: BigInteger, sourceContext: SourceContext): TACMetaInfo {
+            return TACMetaInfo(pc, evmInfo.source, evmInfo.begin, evmInfo.end - evmInfo.begin, evmInfo.jumpType, address, sourceContext)
         }
     }
 }

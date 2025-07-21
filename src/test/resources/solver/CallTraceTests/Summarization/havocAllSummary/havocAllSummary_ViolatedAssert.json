@@ -15,7 +15,7 @@
         "type": "vc.data.TACCmd.Simple.AssertCmd",
         "o": {
             "type": "vc.data.TACSymbol.Var.Full",
-            "namePrefix": "CANON77!!124",
+            "namePrefix": "CANON53!!120",
             "tag": {
                 "type": "tac.Tag.Bool"
             },
@@ -58,7 +58,7 @@
                     "type": "java.lang.Integer",
                     "erasureStrategy": "Canonical"
                 },
-                "value": 2
+                "value": 87
             },
             {
                 "key": {

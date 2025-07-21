@@ -1,0 +1,6 @@
+{
+  "rules": {
+    "test": "SUCCESS",
+    "testVoidVersion": "SUCCESS"
+  }
+}

@@ -52,6 +52,16 @@ object SolanaConfig {
         )
     ) {}
 
+    val EnableCpiAnalysis = object : ConfigType.BooleanCmdLine(
+        // This feature is experimental for the moment, so we turn it off by default
+        false,
+        Option(
+            "solanaCpiAnalysis",
+            true,
+            "Enable CPI calls analysis. [default: false]"
+        )
+    ) {}
+
 
     // Disassembling options
     val StackFrameSize = object : ConfigType.IntCmdLine(
@@ -92,6 +102,16 @@ object SolanaConfig {
             "solanaOptimisticJoin",
             true,
             "Optimistic join in the pointer analysis in presence of Rust dangling pointers. [default: false]"
+        )
+    ) {}
+
+    val OptimisticPTAJoinWithStackPtr = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "solanaOptimisticJoinWithStackPtr",
+            true,
+            "At a joint point, if a field might point to either a stack pointer or non-stack pointer then it chooses the stack pointer. " +
+                      "The flag ${OptimisticPTAJoin.name} must be enabled [default: false]"
         )
     ) {}
 

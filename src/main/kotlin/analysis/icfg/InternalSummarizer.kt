@@ -273,7 +273,10 @@ abstract class InternalSummarizer<K, S> {
                          * If this is a mismatch in a revert block ignore this mismatch,
                          * solidity loves to share revert blocks...
                          */
-                        if(currStart.id != end.id && lc.ptr.block in code.analysisCache.revertBlocks) {
+                        if (currStart.id != end.id && (
+                            lc.ptr.block in code.analysisCache.revertBlocks ||
+                            RevertBlockAnalysis.mustReachRevert(lc.ptr.block, code.analysisCache.graph)
+                        )) {
                             return this.cont(listOf())
                         }
                         check(currStart.id == end.id) {

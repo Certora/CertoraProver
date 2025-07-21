@@ -23,4 +23,11 @@ import java.math.BigInteger
  * A wrapper around a contract that contains state links information (as resolved with `contract.getContractStateLinks` when it's not null)
  * The map [stateLinks] maps storage slot numbers to the address linked.
  */
-data class ContractWithStateLinkInfo(val contract: IContractClass, val stateLinks: Map<BigInteger, BigInteger>)
+data class ContractWithStateLinkInfo(
+    val contract: IContractClass,
+    val stateLinks: Map<BigInteger, BigInteger>,
+    val legacyStructLinking: Map<BigInteger, BigInteger>,
+    val structLinkingInfo: Map<String, BigInteger>
+) {
+    fun isEmpty() = stateLinks.isEmpty() && legacyStructLinking.isEmpty() && structLinkingInfo.isEmpty()
+}

@@ -316,7 +316,7 @@ object MemoryPartition {
                     check(summ.outBase == mem && summ.inBase == mem && mem !in listOf(
                         summ.gasVar, summ.inSize, summ.inOffset, summ.outOffset, summ.outSize,
                         summ.toVar, summ.valueVar
-                    ) && summ.origCallcore.inBase == mem && summ.origCallcore.outBase == mem) {
+                    ) && (summ.origCallcore == null || (summ.origCallcore!!.inBase == mem && summ.origCallcore!!.outBase == mem))) {
                         "Unexpected (non)occurrence of memory in $lc: memory must appear only in basemaps"
                     }
                     val inBaseId = (summ.inBase as TACSymbol.Var).meta.find(UNINDEXED_PARTITION)!!.id
@@ -328,7 +328,7 @@ object MemoryPartition {
                             summ.copy(
                                 inBase = inBase,
                                 outBase = outBase,
-                                origCallcore = summ.origCallcore.copy(
+                                origCallcore = summ.origCallcore?.copy(
                                     inBase = inBase,
                                     outBase = outBase
                                 ),

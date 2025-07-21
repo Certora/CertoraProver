@@ -2081,7 +2081,7 @@
     },
     "ruleGenerationMeta": {
         "type": "spec.rules.SingleRuleGenerationMeta.WithMethodInstantiations",
-        "sanity": "DISABLED_SANITY_CHECK",
+        "sanity": "PRE_SANITY_CHECK",
         "range": {
             "type": "utils.Range.Range",
             "specFile": "Restore.sol",

@@ -17,7 +17,6 @@
 
 package decompiler
 
-import analysis.ip.warnIfNull
 import com.certora.collect.*
 import compiler.SourceSegment
 import config.Config
@@ -233,8 +232,13 @@ class StackMapping(
     }
 
     private fun previousSlotVariable(offset: Int): StackSlotData.Variable? {
-        val previous = atOffsetFromTop(offset)
-            .warnIfNull { "Attempt to access element at invalid position ${top - offset}" }
+        val previous = atOffsetFromTop(offset).also {
+            if(it == null) {
+                logger.warn {
+                    "Attempt to access element at invalid position ${top - offset}"
+                }
+            }
+        }
 
         return previous as? StackSlotData.Variable
     }

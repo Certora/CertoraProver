@@ -1,124 +1,110 @@
 {
-  "assertMessages": {},
-  "rules": {
-    "storageValueIsConstant_default": {
-      "Induction base: After the constructor": "SUCCESS",
-      "Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
-        "Using general requirements": {
-          "FAIL": [
-            "StrongInvariants.beforeHavocALL(address)",
-            "StrongInvariants.beforeHavocECF(address)",
-            "StrongInvariants.shouldFail_beforeExternalCallSummarizedHavocAll(address)",
-            "StrongInvariants.shouldFail_butOnlyAfterDelegateCall(address)",
-            "StrongInvariants.shouldFail_dueToHavocedAllContractDelegateCall(address)",
-            "StrongInvariants.shouldFinallyFail_beforeExternalCallSummarizedHavocAll(address)"
-          ],
-          "SANITY_FAIL": [],
-          "SUCCESS": [
-            "Dummy.havocAllContracts()",
-            "Dummy.havocOnlyReturn()",
-            "Dummy.repay()",
-            "StrongInvariants.shouldSucceed_addOne(uint256)",
-            "StrongInvariants.shouldSucceed_beforeExternalCallSummarizedNonDet(address)",
-            "StrongInvariants.shouldSucceed_beforeExternalCallWithLinking()",
-            "StrongInvariants.shouldSucceed_dueToHavocedAllContract(address)",
-            "StrongInvariants.shouldSucceed_dueToHavocedAllContractCall(address)",
-            "StrongInvariants.shouldSucceed_repayNoDelegate(address)",
-            "StrongInvariants.shouldSucceed_repayNoDelegateWithBreakingInvariantUndetected(address)"
-          ],
-          "TIMEOUT": [],
-          "UNKNOWN": []
-        }
-      }
-    },
-    "storageValueIsConstant_strong": {
-      "Induction base: After the constructor": "SUCCESS",
-      "Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
-        "Using general requirements": {
-          "FAIL": [
-            "StrongInvariants.beforeHavocALL(address)",
-            "StrongInvariants.beforeHavocECF(address)",
-            "StrongInvariants.shouldFail_beforeExternalCallSummarizedHavocAll(address)",
-            "StrongInvariants.shouldFail_butOnlyAfterDelegateCall(address)",
-            "StrongInvariants.shouldFail_dueToHavocedAllContractDelegateCall(address)",
-            "StrongInvariants.shouldFinallyFail_beforeExternalCallSummarizedHavocAll(address)"
-          ],
-          "SANITY_FAIL": [],
-          "SUCCESS": [
-            "Dummy.havocAllContracts()",
-            "Dummy.havocOnlyReturn()",
-            "Dummy.repay()",
-            "StrongInvariants.shouldSucceed_addOne(uint256)",
-            "StrongInvariants.shouldSucceed_beforeExternalCallSummarizedNonDet(address)",
-            "StrongInvariants.shouldSucceed_beforeExternalCallWithLinking()",
-            "StrongInvariants.shouldSucceed_dueToHavocedAllContract(address)",
-            "StrongInvariants.shouldSucceed_dueToHavocedAllContractCall(address)",
-            "StrongInvariants.shouldSucceed_repayNoDelegate(address)",
-            "StrongInvariants.shouldSucceed_repayNoDelegateWithBreakingInvariantUndetected(address)"
-          ],
-          "TIMEOUT": [],
-          "UNKNOWN": []
-        }
-      }
-    },
-    "storageValueIsConstant_weak": {
-      "Induction base: After the constructor": "SUCCESS",
-      "Induction step: after external (non-view) methods": {
-        "Using general requirements": {
-          "FAIL": [
-            "StrongInvariants.shouldFail_butOnlyAfterDelegateCall(address)",
-            "StrongInvariants.shouldFail_dueToHavocedAllContractDelegateCall(address)"
-          ],
-          "SANITY_FAIL": [],
-          "SUCCESS": [
-            "Dummy.havocAllContracts()",
-            "Dummy.havocOnlyReturn()",
-            "Dummy.repay()",
-            "StrongInvariants.beforeHavocALL(address)",
-            "StrongInvariants.beforeHavocECF(address)",
-            "StrongInvariants.shouldFail_beforeExternalCallSummarizedHavocAll(address)",
-            "StrongInvariants.shouldFinallyFail_beforeExternalCallSummarizedHavocAll(address)",
-            "StrongInvariants.shouldSucceed_addOne(uint256)",
-            "StrongInvariants.shouldSucceed_beforeExternalCallSummarizedNonDet(address)",
-            "StrongInvariants.shouldSucceed_beforeExternalCallWithLinking()",
-            "StrongInvariants.shouldSucceed_dueToHavocedAllContract(address)",
-            "StrongInvariants.shouldSucceed_dueToHavocedAllContractCall(address)",
-            "StrongInvariants.shouldSucceed_repayNoDelegate(address)",
-            "StrongInvariants.shouldSucceed_repayNoDelegateWithBreakingInvariantUndetected(address)"
-          ],
-          "TIMEOUT": [],
-          "UNKNOWN": []
-        }
-      }
-    },
-    "trivialInvariant": {
-      "Induction base: After the constructor": "SUCCESS",
-      "Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
-        "Using general requirements": {
-          "FAIL": [],
-          "SANITY_FAIL": [],
-          "SUCCESS": [
-            "Dummy.havocAllContracts()",
-            "Dummy.havocOnlyReturn()",
-            "Dummy.repay()",
-            "StrongInvariants.beforeHavocALL(address)",
-            "StrongInvariants.beforeHavocECF(address)",
-            "StrongInvariants.shouldFail_beforeExternalCallSummarizedHavocAll(address)",
-            "StrongInvariants.shouldFail_butOnlyAfterDelegateCall(address)",
-            "StrongInvariants.shouldFail_dueToHavocedAllContractDelegateCall(address)",
-            "StrongInvariants.shouldFinallyFail_beforeExternalCallSummarizedHavocAll(address)",
-            "StrongInvariants.shouldSucceed_addOne(uint256)",
-            "StrongInvariants.shouldSucceed_beforeExternalCallSummarizedNonDet(address)",
-            "StrongInvariants.shouldSucceed_beforeExternalCallWithLinking()",
-            "StrongInvariants.shouldSucceed_dueToHavocedAllContract(address)",
-            "StrongInvariants.shouldSucceed_dueToHavocedAllContractCall(address)",
-            "StrongInvariants.shouldSucceed_repayNoDelegate(address)",
-            "StrongInvariants.shouldSucceed_repayNoDelegateWithBreakingInvariantUndetected(address)"
-          ],
-          "TIMEOUT": [],
-          "UNKNOWN": []
-        }
-      }
-    }
-  }
+	"rules": {
+		"storageValueIsConstant_default": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+				"Using general requirements": {
+					"FAIL": [
+						"StrongInvariants.beforeHavocALL(address)",
+						"StrongInvariants.beforeHavocECF(address)",
+						"StrongInvariants.shouldFail_beforeExternalCallSummarizedHavocAll(address)",
+						"StrongInvariants.shouldFail_butOnlyAfterDelegateCall(address)",
+						"StrongInvariants.shouldFail_dueToHavocedAllContractDelegateCall(address)",
+						"StrongInvariants.shouldFinallyFail_beforeExternalCallSummarizedHavocAll(address)"
+					],
+					"SUCCESS": [
+						"Dummy.havocAllContracts()",
+						"Dummy.havocOnlyReturn()",
+						"Dummy.repay()",
+						"StrongInvariants.shouldSucceed_addOne(uint256)",
+						"StrongInvariants.shouldSucceed_beforeExternalCallSummarizedNonDet(address)",
+						"StrongInvariants.shouldSucceed_beforeExternalCallWithLinking()",
+						"StrongInvariants.shouldSucceed_dueToHavocedAllContract(address)",
+						"StrongInvariants.shouldSucceed_dueToHavocedAllContractCall(address)",
+						"StrongInvariants.shouldSucceed_repayNoDelegate(address)",
+						"StrongInvariants.shouldSucceed_repayNoDelegateWithBreakingInvariantUndetected(address)"
+					]
+				}
+			}
+		},
+		"storageValueIsConstant_strong": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+				"Using general requirements": {
+					"FAIL": [
+						"StrongInvariants.beforeHavocALL(address)",
+						"StrongInvariants.beforeHavocECF(address)",
+						"StrongInvariants.shouldFail_beforeExternalCallSummarizedHavocAll(address)",
+						"StrongInvariants.shouldFail_butOnlyAfterDelegateCall(address)",
+						"StrongInvariants.shouldFail_dueToHavocedAllContractDelegateCall(address)",
+						"StrongInvariants.shouldFinallyFail_beforeExternalCallSummarizedHavocAll(address)"
+					],
+					"SUCCESS": [
+						"Dummy.havocAllContracts()",
+						"Dummy.havocOnlyReturn()",
+						"Dummy.repay()",
+						"StrongInvariants.shouldSucceed_addOne(uint256)",
+						"StrongInvariants.shouldSucceed_beforeExternalCallSummarizedNonDet(address)",
+						"StrongInvariants.shouldSucceed_beforeExternalCallWithLinking()",
+						"StrongInvariants.shouldSucceed_dueToHavocedAllContract(address)",
+						"StrongInvariants.shouldSucceed_dueToHavocedAllContractCall(address)",
+						"StrongInvariants.shouldSucceed_repayNoDelegate(address)",
+						"StrongInvariants.shouldSucceed_repayNoDelegateWithBreakingInvariantUndetected(address)"
+					]
+				}
+			}
+		},
+		"storageValueIsConstant_weak": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [
+						"StrongInvariants.shouldFail_butOnlyAfterDelegateCall(address)",
+						"StrongInvariants.shouldFail_dueToHavocedAllContractDelegateCall(address)"
+					],
+					"SUCCESS": [
+						"Dummy.havocAllContracts()",
+						"Dummy.havocOnlyReturn()",
+						"Dummy.repay()",
+						"StrongInvariants.beforeHavocALL(address)",
+						"StrongInvariants.beforeHavocECF(address)",
+						"StrongInvariants.shouldFail_beforeExternalCallSummarizedHavocAll(address)",
+						"StrongInvariants.shouldFinallyFail_beforeExternalCallSummarizedHavocAll(address)",
+						"StrongInvariants.shouldSucceed_addOne(uint256)",
+						"StrongInvariants.shouldSucceed_beforeExternalCallSummarizedNonDet(address)",
+						"StrongInvariants.shouldSucceed_beforeExternalCallWithLinking()",
+						"StrongInvariants.shouldSucceed_dueToHavocedAllContract(address)",
+						"StrongInvariants.shouldSucceed_dueToHavocedAllContractCall(address)",
+						"StrongInvariants.shouldSucceed_repayNoDelegate(address)",
+						"StrongInvariants.shouldSucceed_repayNoDelegateWithBreakingInvariantUndetected(address)"
+					]
+				}
+			}
+		},
+		"trivialInvariant": {
+			"Induction base: After the constructor": "SANITY_FAIL",
+			"Induction step (strong invariant): after external (non-view) methods and before unresolved calls": {
+				"Using general requirements": {
+					"SANITY_FAIL": [
+						"Dummy.havocAllContracts()",
+						"Dummy.havocOnlyReturn()",
+						"Dummy.repay()",
+						"StrongInvariants.beforeHavocALL(address)",
+						"StrongInvariants.beforeHavocECF(address)",
+						"StrongInvariants.shouldFail_beforeExternalCallSummarizedHavocAll(address)",
+						"StrongInvariants.shouldFail_butOnlyAfterDelegateCall(address)",
+						"StrongInvariants.shouldFail_dueToHavocedAllContractDelegateCall(address)",
+						"StrongInvariants.shouldFinallyFail_beforeExternalCallSummarizedHavocAll(address)",
+						"StrongInvariants.shouldSucceed_addOne(uint256)",
+						"StrongInvariants.shouldSucceed_beforeExternalCallSummarizedNonDet(address)",
+						"StrongInvariants.shouldSucceed_beforeExternalCallWithLinking()",
+						"StrongInvariants.shouldSucceed_dueToHavocedAllContract(address)",
+						"StrongInvariants.shouldSucceed_dueToHavocedAllContractCall(address)",
+						"StrongInvariants.shouldSucceed_repayNoDelegate(address)",
+						"StrongInvariants.shouldSucceed_repayNoDelegateWithBreakingInvariantUndetected(address)"
+					]
+				}
+			}
+		}
+	}
 }

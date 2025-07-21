@@ -21,6 +21,7 @@ import allocator.Allocator
 import allocator.SuppressRemapWarning
 import analysis.*
 import analysis.alloc.AllocationAnalysis
+import analysis.icfg.ABIValue
 import analysis.ip.*
 import analysis.pta.*
 import analysis.pta.TypedSetVisitor.Companion.OK
@@ -32,6 +33,7 @@ import config.Config
 import config.ReportTypes
 import datastructures.stdcollections.*
 import evm.EVM_WORD_SIZE_INT
+import instrumentation.transformers.InternalFunctionRerouter
 import log.*
 import log.regression
 import optimizer.OptimizeBasedOnPointsToAnalysis.AccessAnnotation.*
@@ -54,7 +56,6 @@ import verifier.ContractUtils.transformMethod
 import java.math.BigInteger
 import java.util.stream.Collectors
 import java.util.stream.Stream
-import kotlin.streams.toList
 
 private val logger = Logger(LoggerTypes.ALIAS_ANALYSIS)
 
@@ -88,11 +89,13 @@ object OptimizeBasedOnPointsToAnalysis {
     /**
      * ABI Annotations to apply
      *
-     * @param annotations the actual annotations to insert, such as encode and decode complete points
+     * @param completionAnnotations the actual annotations to insert, such as encode and decode complete points
+     * @param rerouteAnnotations [instrumentation.transformers.InternalFunctionRerouter.RerouteToMaterialize] annotations to update with partition info
      * @param ranges groups of contiguous program locations involved in some encode/decode/direct read operation
      */
     private class ABIAnnotations(
-        val annotations: Map<CmdPointer, TACCmd.Simple.AnnotationCmd.Annotation<*>>,
+        val completionAnnotations: Map<CmdPointer, TACCmd.Simple.AnnotationCmd.Annotation<*>>,
+        val rerouteAnnotations: Map<CmdPointer, InternalFunctionRerouter.RerouteToMaterialize>,
         val ranges: GroupedCodeSearchResult<ABICodeFinder.Source>
     )
 
@@ -121,6 +124,7 @@ object OptimizeBasedOnPointsToAnalysis {
         val encodePoints: Map<CmdPointer, ABIEncodeComplete>,
         val directReads: Map<CmdPointer, ABIDirectRead>,
         val ranges: GroupedCodeSearchResult<ABICodeFinder.Source>,
+        val internalReroutes: Map<CmdPointer, InternalFunctionRerouter.RerouteToMaterialize>,
         val ctp: CoreTACProgram,
         val pta: IPointsToInformation
     ) {
@@ -181,6 +185,23 @@ object OptimizeBasedOnPointsToAnalysis {
                 "${code.name} $ranges"
             }
 
+            val reroutes = internalReroutes.mapValues { (where, r) ->
+                val newVals = r.abiValues.mapValues avMap@{ (_, av) ->
+                    val (sym, encodedVar) = when(av) {
+                        is ABIValue.Constant -> return@avMap av
+                        is ABIValue.Symbol -> when(av.sym) {
+                            is ObjectPathAnalysis.ObjectRoot.CalldataRoot -> return@avMap av
+                            is ObjectPathAnalysis.ObjectRoot.V -> av to av.sym.v
+                        }
+                    }
+                    val partGen = encodedVar.fieldRelationAt(where, ty = sym.type) ?: return@avMap av
+                    sym.copy(
+                        partitionRelation = partGen.invoke()
+                    )
+                }
+                r.copy(abiValues = newVals)
+            }
+
 
             // cast is not useless at all! build fails without it
             val complete = decodePoints.mapValuesTo(
@@ -212,7 +233,7 @@ object OptimizeBasedOnPointsToAnalysis {
                 TACCmd.Simple.AnnotationCmd.Annotation(ABIDirectRead.META_KEY, v)
             }
             return ABIAnnotations(
-                complete, ranges
+                complete, reroutes, ranges
             )
         }
     }
@@ -537,13 +558,21 @@ object OptimizeBasedOnPointsToAnalysis {
             logger.debug { "ABICodeFinder failed ${code.name}"}
             return null
         }
+
+        val reroutes = code.parallelLtacStream().mapNotNull {
+            it.annotationView(InternalFunctionRerouter.RerouteToMaterialize.META_KEY)
+        }.map {
+            it.ptr to it.annotation
+        }.toMap()
+
         return ABIAnnotationInformation(
             decodePoints = decodePoints,
             encodePoints = encodePoints,
             directReads = directReads,
             pta = abi,
             ctp = code,
-            ranges = codeFinder
+            ranges = codeFinder,
+            internalReroutes = reroutes
         )
     }
 
@@ -556,12 +585,13 @@ object OptimizeBasedOnPointsToAnalysis {
             return code
         }
         val codeFinder = staged.ranges
-        val complete = staged.annotations.mapValues { it.value }
+        val complete = staged.completionAnnotations.mapValues { it.value }
         val annotator = ABIAnnotator(
             completionPoints = complete,
             relatedCommands = codeFinder.foundCommands,
             blocks = codeFinder.foundBlocks,
-            boundaries = codeFinder.boundary
+            boundaries = codeFinder.boundary,
+            reroutes = staged.rerouteAnnotations
         )
         return code.patching { p ->
             annotator.annotate(p)

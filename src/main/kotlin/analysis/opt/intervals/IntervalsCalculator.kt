@@ -44,6 +44,7 @@ import utils.*
 import utils.Color.Companion.blue
 import vc.data.*
 import vc.data.TACExpr.UnaryExp.LNot
+import verifier.PatchingProgramWrapper
 import java.math.BigInteger
 import analysis.opt.intervals.Intervals as S
 
@@ -183,6 +184,10 @@ class IntervalsCalculator(
 
     /** The current graph */
     val g = DynamicDag(origGraph.rootBlockIds, origGraph.blockSucc)
+
+    fun eraseUnreachableBlocks(patcher : PatchingProgramWrapper, assumeFalseOnDroppedLeaves : Boolean = false) {
+        patcher.limitTACProgramTo(g.successors, g.vertices, assumeFalseOnDroppedLeaves)
+    }
 
     /** The starting pos where commands may be erased in each block (if relevant) */
     val erasedFrom = mutableMapOf<NBId, Int>()

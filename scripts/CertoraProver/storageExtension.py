@@ -32,8 +32,6 @@ from CertoraProver.certoraBuildDataClasses import ContractInSDC
 from CertoraProver import erc7201
 from Shared import certoraUtils as Util
 from CertoraProver.certoraBuildDataClasses import SDC
-from CertoraProver.Compiler.CompilerCollectorFactory import get_relevant_compiler
-from CertoraProver.certoraContextClass import CertoraContext
 
 NameSpacedStorage: TypeAlias = Tuple[str, str]
 NewStorageFields = List[Dict[str, Any]]
@@ -351,36 +349,3 @@ def validate_new_fields(
         raise Util.CertoraUserInputError(f"Slot {slot} added to {target_contract.name} by {ext} is already mapped by {target_contract.name}")
     if var in target_vars:
         raise Util.CertoraUserInputError(f"Var '{var}' added to {target_contract.name} by {ext} is already declared by {target_contract.name}")
-
-
-def add_harness_to_compiler_map(original_file: str, harness_file: Any, context: CertoraContext) -> None:
-    """
-    Associates the generated harness file with the same compiler version as the original file.
-
-    This ensures the harness contract is compiled with the same Solidity compiler version
-    as the contract it's extending, maintaining compatibility.
-
-    Args:
-        original_file (str): Path to the original source file
-        harness_file (Any): File-like object representing the generated harness file
-        context (CertoraContext): The context object containing compiler mapping information
-
-    Returns:
-        None
-    """
-    # Validate prerequisites before updating compiler map
-    if context.compiler_map is None:
-        storage_extension_logger.debug("Cannot add compiler for harness: compiler_map is None (not a dict). Using the default compiler")
-        return
-
-    # Get the compiler version used for the original file
-    compiler_version = get_relevant_compiler(Path(original_file), context)
-
-    # Extract just the filename from the harness file path
-    harness_filename = Path(harness_file.name).name
-
-    # Add the compiler version to the context using glob pattern for the harness file
-    map_key = f"*{harness_filename}"
-    context.compiler_map[map_key] = compiler_version
-
-    storage_extension_logger.debug(f"Added compiler mapping: {map_key} -> {compiler_version}")

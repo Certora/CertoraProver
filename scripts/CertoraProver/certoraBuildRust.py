@@ -13,16 +13,45 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
+sys.path.insert(0, str(scripts_dir_path))
+
 import glob
 import shutil
+import time
+import logging
 from pathlib import Path
-from typing import Set
+from typing import Set, Dict
 
 from CertoraProver.certoraBuild import build_source_tree
 from CertoraProver.certoraContextClass import CertoraContext
 from CertoraProver.certoraParseBuildScript import run_rust_build
 import CertoraProver.certoraContextAttributes as Attrs
 from Shared import certoraUtils as Util
+
+
+log = logging.getLogger(__name__)
+
+
+def build_rust_project(context: CertoraContext, timings: Dict) -> None:
+    """
+    Compile the Rust artefact and record elapsed time in *timings*.
+
+    Args:
+        context: The CertoraContext object containing the configuration.
+        timings: A dictionary to store timing information.
+    """
+    log.debug("Build Rust target")
+    start = time.perf_counter()
+    set_rust_build_directory(context)
+    timings["buildTime"] = round(time.perf_counter() - start, 4)
+    if context.test == str(Util.TestValue.AFTER_BUILD):
+        raise Util.TestResultsReady(context)
 
 
 def set_rust_build_directory(context: CertoraContext) -> None:
@@ -40,6 +69,7 @@ def set_rust_build_directory(context: CertoraContext) -> None:
 
     except Exception as e:
         raise Util.CertoraUserInputError(f"Collecting build files failed with the exception: {e}")
+
 
 def build_rust_app(context: CertoraContext) -> None:
     assert not context.files, "build_rust_app: expecting files to be empty"
@@ -61,24 +91,6 @@ def build_rust_app(context: CertoraContext) -> None:
         raise Util.TestResultsReady(build_command)
 
     run_rust_build(context, build_command)
-
-def add_solana_files_from_prover_args(context: CertoraContext) -> None:
-    if context.prover_args:
-        inlining_file = False
-        summaries_file = False
-        for prover_arg in context.prover_args:
-            for arg in prover_arg.split(' '):
-                if inlining_file:
-                    context.solana_inlining = context.solana_inlining or [Path(arg)]
-                    inlining_file = False
-                if summaries_file:
-                    context.solana_summaries = context.solana_summaries or [Path(arg)]
-                    summaries_file = False
-
-                if arg == '-solanaInlining':
-                    inlining_file = True
-                elif arg == '-solanaSummaries':
-                    summaries_file = True
 
 
 def add_solana_files_to_sources(context: CertoraContext, sources: Set[Path]) -> None:
@@ -126,7 +138,6 @@ def collect_files_from_rust_sources(context: CertoraContext, sources: Set[Path])
     if getattr(context, 'conf_file', None) and Path(context.conf_file).exists():
         sources.add(Path(context.conf_file).absolute())
 
-    add_solana_files_from_prover_args(context)
     add_solana_files_to_sources(context, sources)
 
 

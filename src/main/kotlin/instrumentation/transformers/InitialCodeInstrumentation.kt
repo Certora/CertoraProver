@@ -94,12 +94,11 @@ object InitialCodeInstrumentation {
                  */
                 object : Pruner(ctp) {
                     // If ghosts are assigned in the body of a CVL rule to constants, they might be reassigned as a side effect of other functions.
-                    // Therefore we stop at a ghost. Similarly, lastReverted and lastHasThrown are set as a side effect of function calls,
+                    // Therefore we stop at a ghost. Similarly, lastReverted is set as a side effect of function calls,
                     // so we don't want to prune paths that depend on them either.
                     override val stopAt: ((TACSymbol.Var) -> Boolean) = {
                         it.meta.containsKey(TACMeta.CVL_GHOST) ||
-                            (Config.CvlFunctionRevert.get() &&
-                                (it.meta.containsKey(TACBasicMeta.LAST_REVERTED) || it.meta.containsKey(TACBasicMeta.LAST_HAS_THROWN)))
+                            (Config.CvlFunctionRevert.get() && it.meta.containsKey(TACBasicMeta.LAST_REVERTED))
                     }
 
                     override val simplifier: ExpressionSimplifier =

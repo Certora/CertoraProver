@@ -110,6 +110,10 @@ object TACProgramCombiners {
         prog.appendToSinks(other)
     }
 
+    infix fun <T: TACCmd, V: CommandWithRequiredDecls<T>> T.andThen(v: V) = v.copy(
+        cmds = listOf(this) + v.cmds
+    )
+
     /**
      * Prepend `this` onto the commands held in [other].
      */
@@ -125,9 +129,7 @@ object TACProgramCombiners {
         cmdsWithDecls = this
     )
 
-    infix fun <T: TACCmd, U: CommandWithRequiredDecls<T>> T.andThen(crd: U) : CommandWithRequiredDecls<T> = crd.copy(
-        cmds = listOf(this) + crd.cmds
-    )
+    fun <T: TACCmd> List<CommandWithRequiredDecls<T>>.flatten() = CommandWithRequiredDecls.mergeMany(this)
 }
 
 /** Another apt name would be "sequentialComposition" (for [CoreTACProgram]s) */

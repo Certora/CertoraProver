@@ -43,8 +43,11 @@ import java.util.concurrent.ConcurrentHashMap
  * The [followIdentities] "unwraps" the usually opaque [vc.data.TACBuiltInFunction.OpaqueIdentity] function
  * and builds equivalences between the rhs and lhs symbols. By default, this is false, and should almost certainly
  * be kept that way unless you're very certain this is what you want.
+ *
+ * [groupByConst] will include variables in the same equivalenc class if they share the same constant value. This is *usually*
+ * what you want, unless you only want equvialent variables that are created through explicit assignments
  */
-class GlobalValueNumbering(graph: TACCommandGraph, val followIdentities: Boolean = false) :
+class GlobalValueNumbering(graph: TACCommandGraph, val followIdentities: Boolean = false, val groupByConst: Boolean = true) :
         TACCommandDataflowAnalysis<StrongEquivalenceDAG>(
                 graph = graph,
                 lattice = JoinLattice.ofJoin { p1, p2 -> p1.join(p2) },
@@ -198,7 +201,11 @@ class GlobalValueNumbering(graph: TACCommandGraph, val followIdentities: Boolean
                 //  - add x@L to y's class
                 c is TACCmd.Simple.AssigningCmd.AssignExpCmd
                         && c.rhs is TACExpr.Sym -> {
-                    sed.assign(Version(cmd.ptr), c.lhs, c.rhs.s)
+                    if(c.rhs is TACExpr.Sym.Const && !groupByConst) {
+                        fresh(sed, cmd.ptr, c.lhs)
+                    } else {
+                        sed.assign(Version(cmd.ptr), c.lhs, c.rhs.s)
+                    }
                 }
 
                 // Create a fresh expression class for assignments we can't or don't want to handle

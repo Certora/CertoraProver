@@ -378,6 +378,9 @@ sealed class Tag : AmbiSerializable {
 //        }
     }
 
+    // Move tags (only allowed in MoveTACProgram)
+    @KSerializable
+    abstract class Move : Tag(), TransientTag
 
     override fun toString(): String {
         return when (this) {
@@ -386,6 +389,7 @@ sealed class Tag : AmbiSerializable {
             ByteMap -> "bytemap"
             WordMap -> "wordmap"
             Int -> "int"
+            is Move -> this.toString()
             is UserDefined -> this.toString()
             is GhostMap -> GhostMap.namePrefix +
                     "(" +

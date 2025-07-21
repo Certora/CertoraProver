@@ -38,7 +38,10 @@ import org.jetbrains.annotations.TestOnly
 import report.CVTAlertReporter
 import report.CVTAlertSeverity
 import report.CVTAlertType
+import sbf.analysis.cpis.getCpiCalls
+import sbf.callgraph.replaceCpis
 import sbf.cfg.*
+import sbf.domains.ConstantSet
 import utils.Range
 import spec.cvlast.RuleIdentifier
 import spec.rules.EcosystemAgnosticRule
@@ -193,55 +196,21 @@ private fun solanaRuleToTAC(rule: EcosystemAgnosticRule,
     }
 
     // 3. Perform memory analysis to map each memory operation to a memory partitioning
-    val analysisResults =
-        if (SolanaConfig.UsePTA.get()) {
-            sbfLogger.info { "[$target] Started whole-program memory analysis " }
+    val programAnalysis = getMemoryAnalysis(target, analyzedProg, memSummaries)
 
-            val start = System.currentTimeMillis()
-            val analysis = WholeProgramMemoryAnalysis(analyzedProg, memSummaries)
-            try {
-                analysis.inferAll()
-            } catch (e: PointerAnalysisError) {
-                when (e) {
-                    // These are the PTA errors for which we can run some analysis to help debugging them
-                    is UnknownStackPointerError,
-                    is UnknownPointerDerefError,
-                    is UnknownPointerStoreError,
-                    is UnknownGlobalDerefError,
-                    is UnknownStackContentError,
-                    is UnknownMemcpyLenError,
-                    is DerefOfAbsoluteAddressError -> explainPTAError(e, analyzedProg, memSummaries)
+    // 4. Substitute CPI calls if required
+    val (progAfterCPICallSubstitution, analysisResults) =
+        runCpisSubstitution(programAnalysis, target, inliningConfig, start0, memSummaries, analyzedProg)
 
-                    else -> {}
-                }
-                // we throw again the exception for the user to see
-                throw e
-            }
-            val end = System.currentTimeMillis()
-            sbfLogger.info { "[$target] Finished whole-program memory analysis in ${(end - start) / 1000}s" }
-            if (SolanaConfig.PrintResultsToStdOut.get()) {
-                sbfLogger.info { "[$target] Whole-program memory analysis results:\n${analysis}" }
-            }
-            if (SolanaConfig.PrintResultsToDot.get()) {
-                sbfLogger.info { "[$target] Writing CFGs annotated with invariants to .dot files" }
-                // Print CFG + invariants (only PTA graphs)
-                analysis.toDot(printInvariants = true)
-                analysis.dumpPTAGraphsSelectively(target)
-            }
-            analysis.getResults()
-        } else {
-            null
-        }
-
-    // 4. Convert to TAC
+    // 5. Convert to TAC
     sbfLogger.info { "[$target] Started translation to CoreTACProgram" }
     val start2 = System.currentTimeMillis()
-    val coreTAC = sbfCFGsToTAC(analyzedProg, memSummaries, globalsSymbolTable, analysisResults)
+    val coreTAC = sbfCFGsToTAC(progAfterCPICallSubstitution, memSummaries, globalsSymbolTable, analysisResults)
     val isSatisfyRule = hasSatisfy(coreTAC)
     val end2 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished translation to CoreTACProgram in ${(end2 - start2) / 1000}s" }
 
-    // 5. Unroll loops and perform optionally some TAC-to-TAC optimizations
+    // 6. Unroll loops and perform optionally some TAC-to-TAC optimizations
     sbfLogger.info { "[$target] Started TAC optimizations" }
     val start3 = System.currentTimeMillis()
     val optCoreTAC = if (SolanaConfig.UseLegacyTACOpt.get()) {
@@ -253,6 +222,87 @@ private fun solanaRuleToTAC(rule: EcosystemAgnosticRule,
     sbfLogger.info { "[$target] Finished TAC optimizations in ${(end0 - start3) / 1000}s" }
 
     return attachRangeToRule(rule, optCoreTAC, isSatisfyRule)
+}
+
+private fun runCpisSubstitution(
+    programAnalysis: WholeProgramMemoryAnalysis?,
+    target: CfgName,
+    inliningConfig: InlinerConfig,
+    start0: Long,
+    memSummaries: MemorySummaries,
+    analyzedProg: SbfCallGraph
+): Pair<SbfCallGraph, Map<String, MemoryAnalysis<ConstantSet, ConstantSet>>?> {
+    if (!SolanaConfig.EnableCpiAnalysis.get() || programAnalysis == null) {
+        return (analyzedProg to programAnalysis?.getResults())
+    }
+    val newCallGraph = substituteCpiCalls(programAnalysis, target, inliningConfig, start0)
+    val analysis = getMemoryAnalysis(target, newCallGraph, memSummaries)
+    if (analysis == null) {
+        return (analyzedProg to programAnalysis.getResults())
+    }
+    return (newCallGraph to analysis.getResults())
+}
+
+private fun getMemoryAnalysis(
+    target: String,
+    analyzedProg: SbfCallGraph,
+    memSummaries: MemorySummaries
+): WholeProgramMemoryAnalysis? = if (SolanaConfig.UsePTA.get()) {
+    sbfLogger.info { "[$target] Started whole-program memory analysis " }
+
+    val start = System.currentTimeMillis()
+    val analysis = WholeProgramMemoryAnalysis(analyzedProg, memSummaries)
+    try {
+        analysis.inferAll()
+    } catch (e: PointerAnalysisError) {
+        when (e) {
+            // These are the PTA errors for which we can run some analysis to help debugging them
+            is UnknownStackPointerError,
+            is UnknownPointerDerefError,
+            is UnknownPointerStoreError,
+            is UnknownGlobalDerefError,
+            is UnknownStackContentError,
+            is UnknownMemcpyLenError,
+            is DerefOfAbsoluteAddressError -> explainPTAError(e, analyzedProg, memSummaries)
+
+            else -> {}
+        }
+        // we throw again the exception for the user to see
+        throw e
+    }
+    val end = System.currentTimeMillis()
+    sbfLogger.info { "[$target] Finished whole-program memory analysis in ${(end - start) / 1000}s" }
+    if (SolanaConfig.PrintResultsToStdOut.get()) {
+        sbfLogger.info { "[$target] Whole-program memory analysis results:\n${analysis}" }
+    }
+    if (SolanaConfig.PrintResultsToDot.get()) {
+        sbfLogger.info { "[$target] Writing CFGs annotated with invariants to .dot files" }
+        // Print CFG + invariants (only PTA graphs)
+        analysis.toDot(printInvariants = true)
+        analysis.dumpPTAGraphsSelectively(target)
+    }
+    analysis
+} else {
+    null
+}
+
+private fun substituteCpiCalls(
+    analysis: WholeProgramMemoryAnalysis,
+    target: String,
+    inliningConfig: InlinerConfig,
+    start0: Long
+): SbfCallGraph {
+    val cpiCalls = getCpiCalls(analysis)
+    val p1 = replaceCpis(analysis.program, cpiCalls)
+    // We need to inline the code of the mocks for the CPI calls
+    val p2 = inline(target, target, p1, analysis.memSummaries, inliningConfig)
+    val p3 = annotateWithTypes(p2, analysis.memSummaries)
+    // Since we injected new code, this might create new unreachable blocks
+    val p4 = sliceAndPTAOptLoop(target, p3, analysis.memSummaries, start0)
+    if (SolanaConfig.PrintAnalyzedToDot.get()) {
+        p4.toDot(ArtifactManagerFactory().outputDir, true)
+    }
+    return p4
 }
 
 /**

@@ -17,13 +17,14 @@
 
 package verifier.equivalence.summarization
 
+import com.certora.collect.*
 import datastructures.stdcollections.plus
 import datastructures.stdcollections.toSet
 import spec.cvlast.QualifiedMethodSignature
 import tac.MetaKey
 import utils.KSerializable
-import vc.data.TACSummary
 import vc.data.TACSymbol
+import verifier.equivalence.tracing.BufferTraceInstrumentation
 
 /**
  * Summary inserted by [SharedPureSummarization] to include the summarized functions
@@ -34,7 +35,7 @@ data class CommonPureInternalFunction(
     val argSymbols: List<TACSymbol.Var>,
     val qualifiedMethodSignature: QualifiedMethodSignature,
     val rets: List<TACSymbol.Var>
-) : TACSummary {
+) : ScalarEquivalenceSummary {
     override val variables: Set<TACSymbol.Var>
         get() = argSymbols.toSet() + rets
     override val annotationDesc: String
@@ -51,4 +52,12 @@ data class CommonPureInternalFunction(
     companion object {
         val ANNOTATION_META = MetaKey<CommonPureInternalFunction>("pure.function.annotation")
     }
+
+    override val sort: BufferTraceInstrumentation.TraceEventSort
+        get() = BufferTraceInstrumentation.TraceEventSort.INTERNAL_SUMMARY_CALL
+    override val asContext: BufferTraceInstrumentation.Context
+        get() = BufferTraceInstrumentation.Context.InternalCall(
+            qualifiedMethodSignature,
+            argSymbols.toTreapList()
+        )
 }

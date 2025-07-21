@@ -1,0 +1,6 @@
+{
+	"rules": {
+		"easier_test": "SUCCESS",
+		"easier_negative_test": "FAIL"
+	}
+}

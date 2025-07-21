@@ -25,7 +25,7 @@ import vc.data.tacexprutil.asConstOrNull
 import java.math.BigInteger
 
 /**
- * Returns true iff there is a path in [tac] from a root to a sink that does not go through any C where
+ * Returns true iff there is _no_ path in [tac] from a root to a sink that does not go through any C where
  * C is either "lastReverted true", "assume false", or "loop condition assert false" command.
  * NB: this is just a static check on the graph level, i.e. we are not checking if there is a "feasible"
  * non-reverting path.

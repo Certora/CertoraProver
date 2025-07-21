@@ -27,6 +27,7 @@ import analysis.numeric.linear.TermMatching.matches
 import analysis.opt.ConstantComputationInliner
 import analysis.pta.AnalysisFailureException
 import analysis.pta.ITERATION_VARIABLE_BOUND
+import analysis.storage.StorageAnalysisResult.AccessPaths
 import analysis.worklist.*
 import com.certora.collect.*
 import config.Config
@@ -43,6 +44,7 @@ import scene.IContractWithSource
 import scene.MethodAttribute
 import statistics.ANALYSIS_STORAGE_SUBKEY
 import statistics.ANALYSIS_SUCCESS_STATS_KEY
+import statistics.ANALYSIS_TRANSIENT_STORAGE_SUBKEY
 import statistics.recordSuccess
 import tac.*
 import utils.*
@@ -192,10 +194,27 @@ data class BytesKeyHash(
         get() = setOfNotNull(keyHash, slot as? TACSymbol.Var)
 }
 
+fun TACSymbol.Var.isStorageOrTransientStorage() = TACMeta.STORAGE_KEY in this.meta || TACMeta.TRANSIENT_STORAGE_KEY in this.meta
 
-class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private val contractClass: IContractClass?) {
+class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private val contractClass: IContractClass?, private val base: Base) {
 
-    constructor(contractClass: IContractClass) : this(contractClass.getStorageLayout(), contractClass)
+    enum class Base(val prefixChar: String, val storageKey: MetaKey<BigInteger>, val isStorageAccessKey: MetaKey<Nothing>, val statisticsKey: String) {
+        STORAGE("S", TACMeta.STORAGE_KEY, TACMeta.IS_STORAGE_ACCESS, ANALYSIS_STORAGE_SUBKEY),
+        TRANSIENT_STORAGE("T", TACMeta.TRANSIENT_STORAGE_KEY, TACMeta.IS_TRANSIENT_STORAGE_ACCESS, ANALYSIS_TRANSIENT_STORAGE_SUBKEY);
+
+        fun storageLayout(contractClass: IContractClass) = when(this) {
+            STORAGE -> contractClass.getStorageLayout()
+            TRANSIENT_STORAGE -> contractClass.getTransientStorageLayout()
+        }
+
+        companion object {
+            fun MetaMap.toBase(): Base =
+                entries.firstOrNull { it.storageKey in this }
+                    ?: throw IllegalArgumentException("Could not find storage key or transient storage key in meta map, cannot create Base")
+        }
+    }
+
+    constructor(contractClass: IContractClass, base: Base) : this(base.storageLayout(contractClass), contractClass, base)
 
     sealed class Storage {
         /**
@@ -630,11 +649,11 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
        that can possibly be _extended_ by adding implicit 0 offsets
      */
     private sealed interface HasAnalysisPaths {
-        fun accessPaths(storage: Map<Storage, Value>?): AnalysisPaths
+        fun accessPaths(storage: Map<Storage, Value>?, storageBase: Base): AnalysisPaths
     }
 
     private sealed interface Indexable: HasAnalysisPaths {
-        fun usesVar(storage: Map<Storage, Value>?, v: TACSymbol.Var) : Boolean = (accessPaths(storage) as? AnalysisPaths.PathSet)?.paths?.any {
+        fun usesVar(storage: Map<Storage, Value>?, v: TACSymbol.Var, storageBase: Base) : Boolean = (accessPaths(storage, storageBase) as? AnalysisPaths.PathSet)?.paths?.any {
             it.contains(v)
         } == true
     }
@@ -749,7 +768,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 it.factored.values.asSequence().map { it.x }
             }.filterNotNull().toTreapSet()
 
-            override fun usesVar(storage: Map<Storage, Value>?, v: TACSymbol.Var) = v in usedVars
+            override fun usesVar(storage: Map<Storage, Value>?, v: TACSymbol.Var, storageBase: Base) = v in usedVars
 
             init {
                 check(stride.size == 1 || Stride.Top !in stride) {
@@ -1116,10 +1135,10 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                             onBase = { _: Storage, p, _ -> p }
                     )?.ifEmpty { null }
 
-            override fun accessPaths(storage: Map<Storage, Value>?): AnalysisPaths =
+            override fun accessPaths(storage: Map<Storage, Value>?, storageBase: Base): AnalysisPaths =
                     gatherPossibleStorage(
                             storage,
-                            onRoot = { v -> AnalysisPath.Root(v)  },
+                            onRoot = { v -> AnalysisPath.Root(v, storageBase)  },
                             onStruct = { base, _, _, fld -> AnalysisPath.StructAccess(base, fld) },
                             onStaticArray = { base, _, _, idx ->
                                 val idxSymbol = if (idx.v.isConstant) {
@@ -1174,7 +1193,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 get() = parentPath.map {
                     AnalysisPath.WordOffset(constOffset, it)
                 }
-            override fun accessPaths(storage: Map<Storage, Value>?): AnalysisPaths = accessPaths
+            override fun accessPaths(storage: Map<Storage, Value>?, storageBase: Base): AnalysisPaths = accessPaths
 
             override fun join(j: SValue, ourState: TreapMap<TACSymbol.Var, SValue>, theirState: TreapMap<TACSymbol.Var, SValue>, arrayContext: Map<Storage, BigInteger>, storage: Map<Storage, Value>?): SValue {
                 return when(j) {
@@ -1266,7 +1285,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                             Nondet
                         }
 
-                override fun accessPaths(storage: Map<Storage, Value>?): AnalysisPaths = accessPaths
+                override fun accessPaths(storage: Map<Storage, Value>?, storageBase: Base): AnalysisPaths = accessPaths
             }
 
             data class FieldPointer(override val base: Set<Storage>, val offset: BigInteger, val accessPaths: AnalysisPaths) : StoragePointer() {
@@ -1286,7 +1305,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                             Nondet
                         }
 
-                override fun accessPaths(storage: Map<Storage, Value>?): AnalysisPaths = accessPaths
+                override fun accessPaths(storage: Map<Storage, Value>?, storageBase: Base): AnalysisPaths = accessPaths
             }
 
             data class MappingPointer(override val base: Set<Storage>, val accessPaths: AnalysisPaths) : StoragePointer() {
@@ -1304,7 +1323,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                             Nondet
                         }
 
-                override fun accessPaths(storage: Map<Storage, Value>?): AnalysisPaths = accessPaths
+                override fun accessPaths(storage: Map<Storage, Value>?, storageBase: Base): AnalysisPaths = accessPaths
             }
         }
 
@@ -1335,7 +1354,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                         Nondet
                     }
 
-            override fun accessPaths(storage: Map<Storage, Value>?): AnalysisPaths {
+            override fun accessPaths(storage: Map<Storage, Value>?, storageBase: Base): AnalysisPaths {
                 unused(storage)
                 return accessPaths
             }
@@ -1453,12 +1472,22 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             val index: TACSymbol?
         }
 
+        fun storageBase() : Base = when(this) {
+            is Root -> this.base
+            is ArrayAccess -> this.base.storageBase()
+            is MapAccess -> this.base.storageBase()
+            is StaticArrayAccess -> this.base.storageBase()
+            is StructAccess -> this.base.storageBase()
+            is WordOffset -> this.parent.storageBase()
+        }
+
         @KSerializable
-        data class Root(val slot: BigInteger) : AnalysisPath(), HashBase {
+        data class Root(val slot: BigInteger, val base: Base) : AnalysisPath(), HashBase {
             override fun contains(v: TACSymbol.Var) = false
             override fun getUsedVariables(): Set<TACSymbol.Var> = setOf()
-            override fun toString(): String = "0x${slot.toString(16)}"
+            override fun toString(): String = "${base.prefixChar}0x${slot.toString(16)}"
             override fun killVar(v: TACSymbol.Var): AnalysisPath = this
+            override fun hashCode() = hash { it + slot + base }
         }
         @KSerializable
         data class MapAccess(val base: AnalysisPath, val key: TACSymbol, val baseSlot: TACSymbol, val hashResult: TACSymbol) : AnalysisPath(), HashResult {
@@ -1675,7 +1704,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
 
                 when (sValue) {
                     is SValue.I -> {
-                        if (sValue.usesVar(storage, where.cmd.lhs)) {
+                        if (sValue.usesVar(storage, where.cmd.lhs, base)) {
                             sValue.killVar(where.cmd.lhs)
                         } else {
                             sValue
@@ -1685,11 +1714,11 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                         sValue
                     }
                     is SValue.StoragePointer -> {
-                        if(!sValue.usesVar(storage, where.cmd.lhs)) {
+                        if(!sValue.usesVar(storage, where.cmd.lhs, base)) {
                             sValue
                         } else {
                             sValue.withPaths(
-                                accessPaths = updateAccessPaths(sValue.accessPaths(getStorageHint()))
+                                accessPaths = updateAccessPaths(sValue.accessPaths(getStorageHint(), base))
                             )
                         }
                     }
@@ -1732,7 +1761,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
         // hashing 0x40 bytes i.e. 2 words
         val lhsVal = mutableSetOf<Storage>()
         val accessPaths = indexableBase
-            .accessPaths(getStorageHint()).map { p ->
+            .accessPaths(getStorageHint(), base).map { p ->
                 AnalysisPath.MapAccess(
                     base = if (p !is HashBase) {
                         AnalysisPath.StructAccess(offset = Offset.Words(BigInteger.ZERO), base = p)
@@ -1954,17 +1983,16 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 is Indexable -> {
                     val invariants = linearInvariants.getBeforeLocation(where)
                     val refinedPtr = refineValWithInvariants(sym, this, invariants, state)
-                    return refinedPtr.accessPaths(getStorageHint())
+                    return refinedPtr.accessPaths(getStorageHint(), base)
                 }
                 else ->
-                    return accessPaths(getStorageHint())
+                    return accessPaths(getStorageHint(), base)
             }
         }
 
         private fun stepCommandStorage(where: LTACCmd, state: TreapMap.Builder<TACSymbol.Var, SValue>, boundedRead: StorageAnalysisObjectReference<SValue>) {
 
-            if (where.cmd is TACCmd.Simple.WordStore &&
-                    where.cmd.base.meta.containsKey(TACMeta.STORAGE_KEY)) {
+            if (where.cmd is TACCmd.Simple.WordStore && base.storageKey in where.cmd.base.meta) {
                 state.interp(where.cmd.loc).let { ptr ->
                     when {
                         where.cmd.loc is TACSymbol.Var && ptr is SValue.ArrayStart -> {
@@ -1998,7 +2026,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                     SValue.I.Constant(slot)
                 } ?: SValue.Nondet
             } else if (where.cmd is TACCmd.Simple.AssigningCmd.WordLoad &&
-                    where.cmd.base.meta.containsKey(TACMeta.STORAGE_KEY)) {
+                base.storageKey in where.cmd.base.meta) {
                 state.interp(where.cmd.loc).let { ptr ->
                     when {
                         where.cmd.loc is TACSymbol.Var && ptr is SValue.ArrayStart -> {
@@ -2104,7 +2132,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                         }
                     }?.let { lhsValue ->
 
-                        val accessPaths = (state.interp(indexVar) as Indexable).accessPaths(getStorageHint()).map { path ->
+                        val accessPaths = (state.interp(indexVar) as Indexable).accessPaths(getStorageHint(), base).map { path ->
                             AnalysisPath.ArrayAccess(
                                 base = if (path !is HashBase) {
                                     AnalysisPath.StructAccess(offset = Offset.Words(BigInteger.ZERO), base = path)
@@ -2647,7 +2675,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                     // Guaranteed unique by above check
                     val off = staticArrays.map { it.offset }.uniqueOrNull()!!
 
-                    val accessPaths = v1.accessPaths(getStorageHint()).map {
+                    val accessPaths = v1.accessPaths(getStorageHint(), base).map {
                         val p = if (it is HashBase) {
                             it
                         } else {
@@ -2938,7 +2966,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 if(v !is Indexable) {
                     return@updateValues v
                 }
-                val paths = (v.accessPaths(getStorageHint()) as? AnalysisPaths.PathSet) ?: return@updateValues v
+                val paths = (v.accessPaths(getStorageHint(), base) as? AnalysisPaths.PathSet) ?: return@updateValues v
                 if(paths.paths.size <= 1) {
                     return@updateValues v
                 }
@@ -2949,13 +2977,13 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 // great, can we collapse?
                 if(!preds.all { p -> outState[p]!![k]?.takeIf {
                             it.javaClass == v.javaClass
-                        }?.let { it as? Indexable}?.accessPaths(getStorageHint())?.let {
+                        }?.let { it as? Indexable}?.accessPaths(getStorageHint(), base)?.let {
                             it as? AnalysisPaths.PathSet
                         }?.paths?.size == 1 }) {
                     return@updateValues v
                 }
                 val predToPaths = preds.associateWith {
-                    ((outState[it]!![k]!! as Indexable).accessPaths(getStorageHint()) as AnalysisPaths.PathSet).paths.single()
+                    ((outState[it]!![k]!! as Indexable).accessPaths(getStorageHint(), base) as AnalysisPaths.PathSet).paths.single()
                 }
                 /**
                  * Collapse multiple paths from predecessors that are equivalent modulo indices/keys into a single
@@ -3592,7 +3620,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                             )
                         } else {
                             val remapped = pathRemapper[currBlock to succ]?.let { remap ->
-                                (nextStateValue as? Indexable)?.accessPaths(getStorageHint())?.let { currPaths ->
+                                (nextStateValue as? Indexable)?.accessPaths(getStorageHint(), base)?.let { currPaths ->
                                     remap[k to currPaths]
                                 }?.let { newPath ->
                                     when(nextStateValue) {
@@ -3839,7 +3867,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 }
                 var state: TreapMap<TACSymbol.Var, SValue> = initialState
                 for(c in b.commands) {
-                    if(c.cmd is TACCmd.Simple.StorageAccessCmd && c.cmd.base.meta.find(TACMeta.STORAGE_KEY) != null) {
+                    if(c.cmd is TACCmd.Simple.StorageAccessCmd && base.storageKey in c.cmd.base.meta) {
                         boundedIntegerAssertions[c.ptr]?.let { spec ->
                             check (c.cmd is TACCmd.Simple.WordStore) {
                                 "Bounded integer assertion recorded for $c which is not a WordStore"
@@ -3853,7 +3881,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                             // In the presence of static arrays,
                             // we can't assume that a constant is simply a Root access path:
                             is TACSymbol.Const ->
-                                SValue.fromConstant(l).accessPaths(getStorageHint())
+                                SValue.fromConstant(l).accessPaths(getStorageHint(), base)
 
                             is TACSymbol.Var -> {
                                 (state[l] as? HasAnalysisPaths)?.refineAndGetAnalysisPaths(c.cmd.loc, c.ptr, state)
@@ -3888,10 +3916,10 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             return iterStateLTACCmd to sideConditions
         }
 
-        private fun markUnreachableCommands(b: TACBlock, iterStateLTACCmd: MutableMap<CmdPointer, StorageAnalysisResult.AccessPaths>) {
+        private fun markUnreachableCommands(b: TACBlock, iterStateLTACCmd: MutableMap<CmdPointer, AccessPaths>) {
             for(c in b.commands) {
-                if (c.cmd is TACCmd.Simple.StorageAccessCmd && c.cmd.base.meta.find(TACMeta.STORAGE_KEY) != null) {
-                    iterStateLTACCmd[c.ptr] = StorageAnalysisResult.AccessPaths(
+                if (c.cmd is TACCmd.Simple.StorageAccessCmd && base.storageKey in c.cmd.base.meta) {
+                    iterStateLTACCmd[c.ptr] = AccessPaths(
                         paths = setOf()
                     )
                 }
@@ -4044,6 +4072,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
         return storage.keysMatching { storage, _ -> storage is Storage.Root }.map {
              StorageTree.Root(
                  slot = (it as Storage.Root).v,
+                 base = base,
                  types = extractType(it)
              )
         }.toSet()
@@ -4090,10 +4119,10 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 rollback = false
             } catch (x: StorageAnalysisFailedException) {
                 logger.warn {
-                    "Storage Analysis Failed on method ${g.name}: ${x.s}\n" +
+                    "Storage Analysis $base Failed on method ${g.name}: ${x.s}\n" +
                             "This will only be an error if the analysis is consumed further on in the workflow"
                 }
-                recordSuccess(g.name, STATISTICS_KEY,ANALYSIS_STORAGE_SUBKEY,  false)
+                recordSuccess(g.name, STATISTICS_KEY, base.statisticsKey,  false)
                 result[k] = StorageAnalysisResult.Failure(
                     reason = x
                 )
@@ -4102,7 +4131,7 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                     "failed analyzing ${g.name}"
                 }
                 result[k] = StorageAnalysisResult.Failure(x)
-                recordSuccess(g.name, STATISTICS_KEY, ANALYSIS_STORAGE_SUBKEY, false)
+                recordSuccess(g.name, STATISTICS_KEY, base.statisticsKey, false)
             }
             if(rollback) {
                 heapLoc = savedLoc
@@ -4123,16 +4152,16 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 worker.toResult()
             } catch (x: StorageAnalysisFailedException) {
                 logger.warn {
-                    "Storage Analysis Failed while finalizing results for ${worker.graph.name}: ${x.s}\n" +
+                    "Storage Analysis $base Failed while finalizing results for ${worker.graph.name}: ${x.s}\n" +
                         "This will only be an error if the analysis is consumed further on in the workflow"
                 }
-                recordSuccess(worker.graph.name, STATISTICS_KEY, ANALYSIS_STORAGE_SUBKEY, false)
+                recordSuccess(worker.graph.name, STATISTICS_KEY, base.statisticsKey, false)
                 StorageAnalysisResult.Failure(x)
             } catch(x: Throwable) {
                 logger.error(x) {
                      "failed finalizing results for ${worker.graph.name}"
                 }
-                recordSuccess(worker.graph.name, STATISTICS_KEY, ANALYSIS_STORAGE_SUBKEY, false)
+                recordSuccess(worker.graph.name, STATISTICS_KEY, base.statisticsKey, false)
                 StorageAnalysisResult.Failure(x)
             }
         }
@@ -4140,22 +4169,29 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
     }
 
     companion object {
-        fun doAnalysis(g: TACCommandGraph, storage: TACStorageLayout? = null): StorageAnalysisResult {
-            val storageAnalysis = StorageAnalysis(storage, null)
+        fun doAnalysis(g: TACCommandGraph, storage: TACStorageLayout?, base: Base): StorageAnalysisResult {
+            val storageAnalysis = StorageAnalysis(storage, null, base)
             val worker = storageAnalysis.MethodWorker(g, getLinearInvariants(g))
             storageAnalysis.finalize()
             return worker.toResult()
         }
 
 
-        fun runAnalysis(c: IContractClass): Map<MethodRef, StorageAnalysisResult> {
-            val storage = StorageAnalysis(c)
-            val toAnnotate = c.getDeclaredMethods().filter {
-                it.attribute != MethodAttribute.Unique.Whole /*&& it.attribute != MethodAttribute.Unique.Constructor*/
+        fun runAnalysis(c: IContractClass): Map<MethodRef, StorageAnalysisResults> {
+            val allResults = mutableMapOf<MethodRef, MutableMap<Base, StorageAnalysisResult>>()
+            Base.entries.map { base ->
+                val storage = StorageAnalysis(c, base)
+                val toAnnotate = c.getDeclaredMethods().filter {
+                    it.attribute != MethodAttribute.Unique.Whole /*&& it.attribute != MethodAttribute.Unique.Constructor*/
+                }
+                toAnnotate.associate {
+                    it.toRef() to (it.code as CoreTACProgram)
+                }.let(storage::analyze).forEachEntry { (m, res) ->
+                    allResults.getOrPut(m) { mutableMapOf() }[base] = res
+                }
             }
-            return toAnnotate.associate {
-                it.toRef() to (it.code as CoreTACProgram)
-            }.let(storage::analyze)
+
+            return allResults.mapValues { (_, baseToRes) -> StorageAnalysisResults.fromResultsMap(baseToRes)}
         }
 
         fun getLinearInvariants(graph: TACCommandGraph): GlobalInvariantAnalysisResult {
@@ -4266,8 +4302,11 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
 @Treapable
 data class StorageAnalysisFailureInfo(
     val lowLevelMsg: String,
-    val userFacingMsg: UserFailMessage.StorageAnalysisFailureMessage
-) : Serializable
+    val userFacingMsg: UserFailMessage.StorageAnalysisFailureMessage,
+    val base: StorageAnalysis.Base
+) : Serializable {
+    override fun hashCode(): Int = hash { it + lowLevelMsg + userFacingMsg + base }
+}
 
 val STORAGE_ANALYSIS_FAILURE = MetaKey<StorageAnalysisFailureInfo>("storage.analysis.failure", erased = true)
 val STORAGE_ANALYSIS_SKIPPED_LIBRARY = MetaKey.Nothing("storage.analysis.skipped.library")

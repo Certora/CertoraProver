@@ -1,0 +1,6 @@
+{
+	"rules": {
+		"expected_to_fail": "FAIL",
+		"expected_to_pass": "SUCCESS"
+	}
+}

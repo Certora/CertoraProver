@@ -83,6 +83,7 @@ object TACDSA {
                     is Tag.GhostMap -> `impossible!`
                     Tag.BlockchainState -> "BS"
                     is Tag.CVLArray -> "A"
+                    is Tag.Move -> `impossible!`
                 }
             }
         }

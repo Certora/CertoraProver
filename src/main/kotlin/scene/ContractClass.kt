@@ -79,6 +79,7 @@ class ContractClass(
     override val src: ContractInstanceInSDC,
     decompiledResult: ContractUtils.SimplifiedDecompiledContract,
     storageLayout: TACStorageLayout?,
+    transientStorageLayout: TACStorageLayout?,
     bytecode: DisassembledEVMBytecode,
     constructorBytecode: DisassembledEVMBytecode,
     perContract: IPerContractClassCache,
@@ -89,7 +90,8 @@ class ContractClass(
     name = src.name,
     bytecode = bytecode,
     constructorBytecode = constructorBytecode,
-    storageLayout = storageLayout
+    storageLayout = storageLayout,
+    transientStorageLayout = transientStorageLayout
 ), IContractWithSource {
 
     // constructor whole-contract flow
@@ -224,6 +226,19 @@ class ContractClass(
                 // if we have internal summaries, let's apply those early on and save time
                 transforms.add(ReportTypes.EARLY_SUMMARIZATION) { c: CoreTACProgram ->
                     InternalCVLSummarizer.EarlySummarization.applyEarlyInternalSummarization(c, cvl)
+                }
+                /**
+                 * It may seem odd that we are inlining reroute summaries so early in the pipeline, when almost all other internal
+                 * summaries are done later in the [rules.CompiledRule] flow.
+                 *
+                 * There are two reasons for this:
+                 * 1. Unlike expression summaries, which require the scene and CVL compilation, reroute summaries can be
+                 * inlined immediately; similar to nondet/havoc, and more importantly
+                 * 2. The rerouting encoding/decoding touches memory and allocations, and thus must be added here so it
+                 * is properly processed by [OptimizeBasedOnPointsToAnalysis] and the [analysis.pta.SimpleInitializationAnalysis].
+                 */
+                transforms.add(ReportTypes.REROUTE_SUMMARIES) { c: CoreTACProgram ->
+                    InternalFunctionRerouter.reroute(c, cvlQuery = cvl)
                 }
             }
 
@@ -364,7 +379,7 @@ class ContractClass(
             }
 
             transforms.addExpensive(ReportTypes.INITIALIZATION) { c: CoreTACProgram ->
-                if (Config.EnabledInitializationAnalysis.get()) {
+                if (Config.EnabledInitializationAnalysis.get() && !Config.EquivalenceCheck.get()) {
                     InitAnnotation.annotateInitializationWindows(c)
                 } else {
                     c
@@ -385,9 +400,11 @@ class ContractClass(
                 }
             }
 
-            transforms.addExpensive(ReportTypes.MEMORY_SPLITTER_AND_BRANCH_PRUNER) { m: ITACMethod ->
-                OptimizeBasedOnPointsToAnalysis.doWork(m)
-            };
+            if(!Config.EquivalenceCheck.get()) {
+                transforms.addExpensive(ReportTypes.MEMORY_SPLITTER_AND_BRANCH_PRUNER) { m: ITACMethod ->
+                    OptimizeBasedOnPointsToAnalysis.doWork(m)
+                };
+            }
 
             cb@{ sighash: BigInteger? ->
                 if(cvl != null) {
@@ -503,6 +520,7 @@ class ContractClass(
             constructorCode = this.constructorMethod.fork(),
             methods = this.methods.values.map { it.fork() },
             storageLayout = this.getStorageLayout(),
+            transientStorageLayout = this.getTransientStorageLayout(),
             storageInfoField = this.storageInfoField,
             transientStorageInfoField = this.transientStorageInfoField,
             bytecode = this.bytecode,

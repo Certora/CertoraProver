@@ -34,44 +34,49 @@ import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.HasRange
 import utils.Range
 
 // This file contains the "Java" AST nodes that are used in many places, such as parameters and method signatures.
 // See README.md for a description of the Java AST.
 
-interface Kotlinizable<T> {
+sealed interface Kotlinizable<T> : HasRange {
     fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<T, CVLError>
 }
 
 fun <T> List<Kotlinizable<T>>.kotlinize(resolver : TypeResolver, scope : CVLScope) : CollectingResult<List<T>, CVLError>
     = this.map { it.kotlinize(resolver, scope) }.flatten()
 
-/**
- * The location associated with the Param (e.g. "memory" or "calldata"), or `null` if no location is specified.
- * NOTE: we currently only allow you to write one location specifier per parameter; we don't support something like
- * `function foo((C.S calldata)[] memory)`.  If we do, we would need to move the `location` to the type.  My
- * understanding is that this is not currently possible in Solidity but that the Solidity team is actively working
- * on supporting it.
- */
-sealed class VMParam(val type: TypeOrLhs, val location: String?, val range: Range) : Kotlinizable<spec.cvlast.VMParam>
+sealed interface Param : HasRange {
+    val type: TypeOrLhs
+}
 
-class UnnamedVMParam(type: TypeOrLhs, loc: String?, range: Range) : VMParam(type, loc, range) {
+sealed interface VMParam : Kotlinizable<spec.cvlast.VMParam>, Param {
+    /**
+     * The location associated with the Param (e.g. "memory" or "calldata"), or `null` if no location is specified.
+     * NOTE: we currently only allow you to write one location specifier per parameter; we don't support something like
+     * `function foo((C.S calldata)[] memory)`.  If we do, we would need to move the `location` to the type.  My
+     * understanding is that this is not currently possible in Solidity but that the Solidity team is actively working
+     * on supporting it.
+     */
+    val location: String?
+}
+
+data class UnnamedVMParam(override val type: TypeOrLhs, override val location: String?, override val range: Range) : VMParam {
     override fun toString() = "UnnamedVMParam($type)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<Unnamed, CVLError>
         = type.toVMType(resolver, location, scope).map { Unnamed(it, range) }
 }
 
-
-class NamedVMParam(type: TypeOrLhs, loc: String?, val id: String, range: Range) : VMParam(type, loc, range) {
+data class NamedVMParam(override val type: TypeOrLhs, override val location: String?, val id: String, override val range: Range) : VMParam {
     override fun toString() = "NamedVMParam($type,$id)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<spec.cvlast.VMParam.Named, CVLError>
         = type.toVMType(resolver, location, scope).map { spec.cvlast.VMParam.Named(id, it, range, id) }
 }
 
-
-class CVLParam(val type: TypeOrLhs, val id: String, val range: Range) : Kotlinizable<CVLParam> {
+data class CVLParam(override val type: TypeOrLhs, val id: String, override val range: Range) : Kotlinizable<CVLParam>, Param {
     override fun toString() = "CVLParam($type,$id)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLParam, CVLError> =
@@ -79,11 +84,16 @@ class CVLParam(val type: TypeOrLhs, val id: String, val range: Range) : Kotliniz
             .map(checkIdValidity(id, range, "CVL parameter")) { type, id -> CVLParam(type, id, range) }
 }
 
-class LocatedToken internal constructor(val range: Range, val value: String) {
+data class LocatedToken(override val range: Range, val value: String) : HasRange {
     override fun toString() = value
 }
 
-class MethodParamFilterDef(private val range: Range, private val methodParam: VariableExp, private val filterExp: Exp) : Kotlinizable<MethodParamFilter> {
+/** a ranged list of [Cmd]. we should use a [BlockCmd] here instead, but that's a pretty involved change, so for now we don't. */
+data class CmdList(override val range: Range.Range, val cmds: List<Cmd>) : Kotlinizable<List<CVLCmd>> {
+    override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<List<CVLCmd>, CVLError> = this.cmds.kotlinize(resolver, scope)
+}
+
+data class MethodParamFilterDef(override val range: Range, internal val methodParam: VariableExp, internal val filterExp: Exp) : Kotlinizable<MethodParamFilter> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<MethodParamFilter, CVLError> = collectingErrors {
         val _methodParam = methodParam.kotlinize(resolver, scope)
         val _filterExp   = filterExp.kotlinize(resolver, scope)
@@ -92,7 +102,7 @@ class MethodParamFilterDef(private val range: Range, private val methodParam: Va
 }
 
 
-class MethodParamFiltersMap(private val range: Range, private val methodParamFilters: Map<String, MethodParamFilterDef>?) : Kotlinizable<MethodParamFilters> {
+data class MethodParamFiltersMap(override val range: Range, internal val methodParamFilters: Map<String, MethodParamFilterDef>?) : Kotlinizable<MethodParamFilters> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<MethodParamFilters, CVLError> = collectingErrors {
         if (methodParamFilters == null) { return@collectingErrors noFilters(Range.Empty(), scope) }
 
@@ -111,7 +121,7 @@ class MethodParamFiltersMap(private val range: Range, private val methodParamFil
  * @param method   the name of the method
  * @param range the location of the method reference
  */
-class MethodReferenceExp(@JvmField var contract: VariableExp?, val method: String, val range: Range) {
+data class MethodReferenceExp(@JvmField val contract: VariableExp?, val method: String, override val range: Range) : HasRange {
     override fun toString() = "${contract?.id?.let { "$it." }.orEmpty()}$method"
 
     fun baseContract() = contract?.id
@@ -125,38 +135,43 @@ class MethodReferenceExp(@JvmField var contract: VariableExp?, val method: Strin
     }
 }
 
-class MethodSig @JvmOverloads constructor(
-    val range: Range,
+data class MethodSig @JvmOverloads constructor(
+    override val range: Range,
     val id: MethodReferenceExp,
     val params: List<VMParam>,
-    val resParams: List<VMParam>?, // null for no returns specified
+    val resParams: List<VMParam>,
     @JvmField val methodQualifiers: MethodQualifiers? = null
 ) : Kotlinizable<QualifiedMethodParameterSignature> {
-
     override fun toString() = "$id${params.joinToString(prefix = "(", postfix = ")")}"
 
     private fun generateSig(name: ContractFunctionIdentifier, resolver: TypeResolver, scope: CVLScope): CollectingResult<QualifiedMethodParameterSignature, CVLError> = collectingErrors {
         val _params =    params.map  { it.kotlinize(resolver, scope) }.flatten()
-        val _return = resParams?.map { it.kotlinize(resolver, scope) }?.flatten() ?: null.lift()
+        val _return = resParams.map { it.kotlinize(resolver, scope) }.flatten()
         map(_params, _return) { params, returnParams ->
-            returnParams?.let { QualifiedMethodSignature.invoke(name, params, returnParams) }
-                ?: QualifiedMethodParameterSignature.invoke(name, params)
+            if (!returnParams.isEmpty()) {
+                QualifiedMethodSignature(name, params, returnParams)
+            } else {
+                QualifiedMethodParameterSignature(name, params)
+            }
         }
     }
 
     fun kotlinizeNamed(target: MethodEntryTargetContract, resolver: TypeResolver, scope: CVLScope): CollectingResult<MethodParameterSignature, CVLError> = collectingErrors {
         val _params    =     params.map { it.kotlinize(resolver, scope) }.flatten()
-        val _resParams = resParams?.map { it.kotlinize(resolver, scope) }?.flatten() ?: null.lift()
+        val _resParams = resParams.map { it.kotlinize(resolver, scope) }.flatten()
 
         val (params, resParams) = map(_params, _resParams) { params, resParams -> params to resParams }
 
         when (target) {
             is MethodEntryTargetContract.WildcardTarget ->
-                resParams?.let { MethodSignature.invoke(id.method, params, resParams) }
-                    ?: MethodParameterSignature.invoke(id.method, params)
+                if (!resParams.isEmpty()) {
+                    MethodSignature.invoke(id.method, params, resParams)
+                } else {
+                    MethodParameterSignature.invoke(id.method, params)
+                }
 
             is MethodEntryTargetContract.SpecificTarget ->
-                QualifiedMethodSignature.invoke(QualifiedFunction(target.contract, id.method), params, resParams.orEmpty())
+                QualifiedMethodSignature.invoke(QualifiedFunction(target.contract, id.method), params, resParams)
         }
     }
 

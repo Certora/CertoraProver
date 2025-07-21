@@ -53,9 +53,9 @@ sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 
      * (Note that if the const is actually a dynamic type's location (as it could be a hash result), this can be unsound.
      * This would make our entire storage modelling fail anyway though, so we happily assume it's not happening.)
      */
-    fun toAccessPath() = when (this) {
+    fun toAccessPath(base: StorageAnalysis.Base) = when (this) {
         is Var -> this.meta.find(TACMeta.ACCESS_PATHS)
-        is Const -> StorageAnalysisResult.AccessPaths(setOf(StorageAnalysis.AnalysisPath.Root(this.value)))
+        is Const -> StorageAnalysisResult.AccessPaths(setOf(StorageAnalysis.AnalysisPath.Root(this.value, base)))
     }
 
     @KSerializable

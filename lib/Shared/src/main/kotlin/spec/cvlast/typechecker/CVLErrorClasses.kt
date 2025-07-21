@@ -28,6 +28,8 @@ import datastructures.stdcollections.*
 import java_cup.runtime.ComplexSymbolFactory
 import spec.CVLKeywords
 import spec.cvlast.*
+import spec.cvlast.typedescriptors.PrintingContext
+import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.genericrulegenerators.BuiltInRuleId
 import utils.*
 
@@ -164,21 +166,21 @@ private const val dollar = "\${'\$'}"
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-                 #ghost int ${dollar}x#;
+                 #ghost int ${dollar}x;#
              """,
     exampleMessage = "${dollar}x is not a valid name for a ghost. " +
         "Names must start with a letter or underscore and may only contain letters, numbers, underscores and dollar signs.",
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-                 #ghost ${dollar}x() returns bool#;
+                 #ghost ${dollar}x() returns bool;#
              """,
     exampleMessage = "${dollar}x is not a valid name for a ghost function. " +
         "Names must start with a letter or underscore and may only contain letters, numbers, underscores and dollar signs.",
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-                 #using PrimaryContract as ${dollar}c#;
+                 #using PrimaryContract as ${dollar}c;#
              """,
     exampleMessage = "${dollar}c is not a valid name for a contract alias. " +
         "Names must start with a letter or underscore and may only contain letters, numbers, underscores and dollar signs.",
@@ -671,12 +673,12 @@ class DispatcherSummaryNoImplementation(override val location: Range) : CVLError
 @CVLErrorExample("ghost uint g; rule shadowing { #bool g = true;# assert g; }")  // Check that ghosts cannot be shadowed by definitions
 @CVLErrorExample("ghost uint g; function f(#uint g#) {}")                        // Shadowing by a function argument
 @CVLErrorExample("ghost uint g; invariant i(#uint g#) true;")                    // Shadowing by an invariant argument
-@CVLErrorExample("ghost uint g; #ghost uint g#;")                                // Duplicate ghost variables
-@CVLErrorExample("ghost uint g; #ghost g() returns uint#;")                      // Ghost function and variable with same name [CERT-3312]
+@CVLErrorExample("ghost uint g; #ghost uint g;#")                                // Duplicate ghost variables
+@CVLErrorExample("ghost uint g; #ghost g() returns uint;#")                      // Ghost function and variable with same name [CERT-3312]
 @CVLErrorExample("ghost uint g; hook Sstore uint_field #uint g# { uint ignore; }")     // Simple hook param shadows ghost
 @CVLErrorExample("ghost uint g; hook Sstore array_field[INDEX #uint g#] uint v { uint ignore; }") // shadowing in hook pattern
 @CVLErrorExample("ghost uint g; definition f(#uint g#) returns bool = false;")   // shadowing with definition argument
-@CVLErrorExample("ghost g() returns uint; #ghost uint g#;")                      // Ghost function and variable with same name [CERT-3312]
+@CVLErrorExample("ghost g() returns uint; #ghost uint g;#")                      // Ghost function and variable with same name [CERT-3312]
 @CVLErrorExample("function f() { mathint x; { #mathint x = 0;# } }")             // Shadowing inside a block
 @CVLErrorExample("function f() { mathint x; if (_) { #mathint x = 0;# } }")      // Shadowing inside an `if` block
 @CVLErrorExample("invariant i(env e) true { preserved with(#env e#) {} }")       // Shadowing by preserved argument over invariant argument
@@ -1110,19 +1112,21 @@ class AtOnNonContractCall private constructor(override val location: Range, over
 
 // LastRevertWithNonContractCall ///////////////////////////////////////////////////////////////////////////////////////
 
+// TODO(CERT-7707): Remove this once cvlFunctionRevert config is removed
 @KSerializable
 @CVLErrorType(
     category = CVLErrorCategory.SYNTAX,
     description = "Only contract functions can be called `@withrevert`; see {ref}`call-expr`."
 )
-@CVLErrorExample(
-    exampleCVLWithRange =
-        """
-        function f() {}
-        function g() { #f@withrevert()#; }
-        """,
-    exampleMessage = "`@withrevert` may only be used for calls to contract functions; `f` is a CVL function.",
-)
+// Leaving the example just for documentation purposes - it would need -cvlFunctionRevert false to throw the error now
+//@CVLErrorExample(
+//    exampleCVLWithRange =
+//        """
+//        function f() {}
+//        function g() { #f@withrevert()#; }
+//        """,
+//    exampleMessage = "`@withrevert` may only be used for calls to contract functions; `f` is a CVL function.",
+//)
 class WithrevertOnNonContractCall private constructor(override val location: Range, override val message : String) : CVLError() {
     constructor(app : CVLExp.UnresolvedApplyExp, func : SpecFunction)
         : this(app.getRangeOrEmpty(), "`@withrevert` may only be used for calls to contract functions; `${app.callableName}` is a ${func.typeDescription}.")
@@ -2360,20 +2364,19 @@ class DoesNotEndWithReturn private constructor(override val location: Range, ove
         """,
     exampleMessage = "Unreachable statement after `return`: `assert true`"
 )
-// TODO(CERT-7707) once we default to new revert semantics we can add this example
-//@CVLErrorExample(
-//    exampleCVLWithRange =
-//    """
-//            function cvlFun(bool b) returns bool {
-//                {
-//                    revert();
-//                    #assert true;#
-//                }
-//                return true;
-//            }
-//        """,
-//    exampleMessage = "Unreachable statement after `revert`: `assert true`"
-//)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+            function cvlFun(bool b) returns bool {
+                {
+                    revert();
+                    #assert true;#
+                }
+                return true;
+            }
+        """,
+    exampleMessage = "Unreachable statement after `revert`: `assert true`"
+)
 class UnreachableStatement private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(cmd: CVLCmd, reason: CVLCmd.Simple.HaltingCVLCmd) : this(
         cmd.range, "Unreachable statement after `${reason.cmdName}`: `${cmd.toPrintString()}`"
@@ -2636,7 +2639,7 @@ class NoFoundryTestsLeft private constructor(override val location: Range, overr
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-        #using Extension as extension#;
+        #using Extension as extension;#
     """
 )
 class AliasingExtensionContract private constructor(override val location: Range, override val message: String) : CVLError() {
@@ -2834,7 +2837,7 @@ class SumNonBasicParamExpression private constructor(override val location: Rang
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-        #ghost mapping(mathint => uint) summable#;
+        #ghost mapping(mathint => uint) summable;#
         function f {
             mathint m1 = sum mathint a. summable[a];
             mathint m2 = usum mathint a. summable[a];
@@ -2843,7 +2846,7 @@ class SumNonBasicParamExpression private constructor(override val location: Rang
 )
 @CVLErrorExample(
     exampleCVLWithRange = """
-        #ghost mapping(mathint => mapping(mathint => uint)) summable#;
+        #ghost mapping(mathint => mapping(mathint => uint)) summable;#
         function f {
             mathint m;
             mathint m1 = sum mathint a. summable[m][a];
@@ -2867,7 +2870,7 @@ class SumSignedAndUnsignedNotSupported private constructor(override val location
     exampleCVLWithRange = """
         ghost mapping(uint => int) g;
         function f() {
-            assert (#usum uint u. g[u]#) >= 0;
+            assert #(usum uint u. g[u])# >= 0;
         }
     """
 )
@@ -2883,20 +2886,19 @@ class UnsignedSumOnSignedGhostType private constructor(override val location: Ra
     category = CVLErrorCategory.TYPECHECKING,
     description = "revert statements are only allowed inside function definitions"
 )
-// TODO(CERT-7707) once we default to new revert semantics we can add this example
-//@CVLErrorExample(
-//    exampleCVLWithRange =
-//    """
-//    rule cannotUseRevertOutsideOfFunction {
-//        bool b;
-//        if (!b) {
-//            #revert();# // not allowed
-//        }
-//        assert b;
-//    }
-//    """,
-//    exampleMessage = "Revert statement is not allowed outside a CVL function."
-//)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+    rule cannotUseRevertOutsideOfFunction {
+        bool b;
+        if (!b) {
+            #revert();# // not allowed
+        }
+        assert b;
+    }
+    """,
+    exampleMessage = "Revert statement is not allowed outside a CVL function."
+)
 class RevertCmdOutsideOfFunction private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(range: Range) : this(
         range,
@@ -2914,4 +2916,65 @@ class RequireWithoutReason private constructor(override val location: Range, ove
         range,
         "No reason provided for assumption of $exp."
     )
+}
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.METHODS_BLOCK,
+    description = "Reroute target must be compatible with summarized function"
+)
+class IllegalRerouteSummary(
+    override val location: Range,
+    private val errorType: ErrorSort
+) : CVLError() {
+    @KSerializable
+    sealed class ErrorSort : AmbiSerializable {
+        @KSerializable
+        data class ParameterTypeMismatch(val tgt: QualifiedFunction, val params: List<VMTypeDescriptor>) : ErrorSort()
+
+        @KSerializable
+        data class NotALibrary(val tgt: QualifiedFunction) : ErrorSort()
+
+        @KSerializable
+        data class ReturnTypeMismatch(val tgt: QualifiedMethodSignature, val expected: List<VMTypeDescriptor>) : ErrorSort()
+
+        @KSerializable
+        data class NoWithClause(val withRange: Range) : ErrorSort()
+
+        @KSerializable
+        data class IllegalArgument(val exp: CVLExp) : ErrorSort()
+        @KSerializable
+        data class NoMatchingFunction(val missingFunctionName: QualifiedFunction) : ErrorSort()
+    }
+
+    private fun List<VMTypeDescriptor>.formatAsLibrary() = this.joinToString(", ", prefix = "(", postfix = ")") {
+        it.canonicalString(PrintingContext(isLibrary = true))
+    }
+
+    private fun List<VMTypeDescriptor>.returnDescription() = when(this.size) {
+        0 -> "returns no values"
+        else -> "returns ${
+            this.joinToString(", ", prefix = "(", postfix = ")") {
+                it.canonicalString(PrintingContext(isLibrary = true))
+            }
+        }"
+    }
+
+    private val caveat get() = "(If you are not attempting to use a reroute summary, remember that you cannot invoke external library functions or bind storage parameters outside of rerouting summaries.)"
+
+    override val message: String get() = when(errorType) {
+        is ErrorSort.ReturnTypeMismatch -> "Found matching declaration for ${errorType.tgt.qualifiedMethodName}${errorType.tgt.paramTypes.formatAsLibrary()}," +
+            " but it ${errorType.tgt.resType.returnDescription()} where the summarized function ${errorType.expected.returnDescription()}"
+
+        is ErrorSort.IllegalArgument -> {
+            "Illegal argument ${errorType.exp} for reroute summary; only parameters bound by the method block declaration can be used as reroute arguments. $caveat"
+        }
+        is ErrorSort.NoWithClause -> "Reroute summaries cannot have `with` clauses: found a `with` clause at ${errorType.withRange}. $caveat"
+        is ErrorSort.NotALibrary -> "Selected reroute target function ${errorType.tgt} is not an external library function. $caveat"
+        is ErrorSort.ParameterTypeMismatch -> "No external library function ${errorType.tgt.methodId}${errorType.params.joinToString(prefix = "(", postfix = ")", separator = ", ") {
+            it.prettyPrint()
+        }} exists in reroute host contract ${errorType.tgt.host.name}. $caveat"
+
+        is ErrorSort.NoMatchingFunction -> "No external functions with name ${errorType.missingFunctionName.methodId} in reroute host contract ${errorType.missingFunctionName.host.name}. $caveat"
+    }
 }

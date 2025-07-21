@@ -218,7 +218,7 @@ object AutosummarizedMonitor {
                 CVTAlertSeverity.INFO,
                 null,
                 "No internal pure/view functions were auto-summarized as NONDET, you may wish to re-run" +
-                    " with an adjusted difficulty using `--auto_nondet_minimal_difficulty`.",
+                    " with an adjusted difficulty using `--nondet_minimal_difficulty`.",
                 "Current difficulty is set to ${Config.AutoNondetMinimalDifficulty.get()}"
             )
         }

@@ -61,6 +61,9 @@ value class NonEmptyList<out T> internal constructor(
         )
     }
 
+    /** returns the first element. can't throw, since the list isn't empty */
+    fun first(): T = this.head
+
     /** returns the last element. can't throw, since the list isn't empty */
     fun last(): T = this.tail.lastOrNull() ?: this.head
 
@@ -68,11 +71,15 @@ value class NonEmptyList<out T> internal constructor(
 }
 
 /**
- * Converts this list to a [NonEmptyList].
+ * Converts this list to a [NonEmptyList], shallow-copying its contents.
  * Returns null if this list is empty.
  */
-fun <T> List<T>.toNonEmptyList(): NonEmptyList<T>? =
-    takeIf { it.isNotEmpty() }?.let(::NonEmptyList)
+fun <T> List<T>.toNonEmptyList(): NonEmptyList<T>? = if (this.isEmpty()) {
+    null
+} else {
+    val backing = this.toList()
+    NonEmptyList(backing)
+}
 
 /** returns a new [NonEmptyList] of given elements. this function works like [listOf], but cannot be called with no parameters. */
 fun <T> nonEmptyListOf(head: T, vararg tail: T): NonEmptyList<T> = NonEmptyList(head, tail.toList())

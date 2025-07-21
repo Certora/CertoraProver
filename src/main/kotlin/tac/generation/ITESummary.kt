@@ -41,28 +41,37 @@ abstract class ITESummary : AssignmentSummary() {
     protected abstract fun onFalse(): CommandWithRequiredDecls<TACCmd.Simple>
 
     companion object {
-        fun materialize(prog: CoreTACProgram) = prog.patching { patch ->
+        fun materialize(prog: CoreTACProgram): CoreTACProgram {
             val replacements = prog.parallelLtacStream().mapNotNull { lcmd ->
                 lcmd.ptr `to?` lcmd.snarrowOrNull<ITESummary>()
-            }.asSequence()
+            }.toList()
 
-            for ((ptr, op) in replacements) {
-                val continuation = patch.splitBlockAfter(ptr)
-
-                val thenCmds = op.onTrue().merge(TACCmd.Simple.JumpCmd(continuation))
-                val elseCmds = op.onFalse().merge(TACCmd.Simple.JumpCmd(continuation))
-
-                val thenBlock = patch.addBlock(ptr.block, thenCmds)
-                val elseBlock = patch.addBlock(ptr.block, elseCmds)
-
-                val ifCmds = op.cond.letVar(Tag.Bool) {
-                    TACCmd.Simple.JumpiCmd(thenBlock, elseBlock, it.s).withDecls()
-                }
-
-                patch.replaceCommand(ptr, ifCmds.cmds, treapSetOf(thenBlock, elseBlock))
-
-                patch.addVarDecls(ifCmds.varDecls + thenCmds.varDecls + elseCmds.varDecls)
+            if (replacements.isEmpty()) {
+                return prog
             }
+
+            val patched = prog.patching { patch ->
+                for ((ptr, op) in replacements) {
+                    val continuation = patch.splitBlockAfter(ptr)
+
+                    val thenCmds = op.onTrue().merge(TACCmd.Simple.JumpCmd(continuation))
+                    val elseCmds = op.onFalse().merge(TACCmd.Simple.JumpCmd(continuation))
+
+                    val thenBlock = patch.addBlock(ptr.block, thenCmds)
+                    val elseBlock = patch.addBlock(ptr.block, elseCmds)
+
+                    val ifCmds = op.cond.letVar(Tag.Bool) {
+                        TACCmd.Simple.JumpiCmd(thenBlock, elseBlock, it.s).withDecls()
+                    }
+
+                    patch.replaceCommand(ptr, ifCmds.cmds, treapSetOf(thenBlock, elseBlock))
+
+                    patch.addVarDecls(ifCmds.varDecls + thenCmds.varDecls + elseCmds.varDecls)
+                }
+            }
+
+            // Recursively transform the program to allow nested ITEs
+            return materialize(patched)
         }
     }
 }

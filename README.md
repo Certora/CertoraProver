@@ -1,3 +1,9 @@
+<div align="center">
+
+[![GitMCP](https://img.shields.io/endpoint?url=https://gitmcp.io/badge/Certora/CertoraProver)](https://gitmcp.io/Certora/CertoraProver)
+[![Twitter Follow](https://img.shields.io/twitter/follow/certorainc?style=social)](https://x.com/certorainc)
+</div>
+
 # Certora Prover
 
 The Certora Prover is a tool for formally verifying smart contracts.
@@ -9,7 +15,7 @@ we recommend following the documentation here: https://docs.certora.com/en/lates
 The instructions here are for users on Mac OS and Linux.
 
 ## Dependencies
-* JDK 11+
+* JDK 19+
 * SMT solvers:
   * [required] Z3 -- https://github.com/Z3Prover/z3/releases
   * [required] CVC5 -- https://github.com/cvc5/cvc5/releases

@@ -249,7 +249,6 @@ object TACMeta {
     val SUMMARY_GLOBAL = MetaKey.Nothing("tac.summary.global-value")
 
     val REVERT_PATH = MetaKey.Nothing("tac.revert.path")
-    val THROW_PATH = MetaKey.Nothing("tac.throw.path")
     val RETURN_PATH = MetaKey.Nothing("tac.return.path")
 
     // CVL related

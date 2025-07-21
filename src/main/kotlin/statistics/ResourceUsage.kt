@@ -62,7 +62,7 @@ private class CPUMetric: Metric() {
     private val threadBean = ManagementFactory.getThreadMXBean()
     init { put("cpu-num-cores", numCores) }
     override fun tick() {
-        put("cpu-load", osBean.systemCpuLoad * numCores)
+        put("cpu-load", osBean.cpuLoad * numCores)
         put("num-threads", threadBean.threadCount)
         put("num-threads-started", threadBean.totalStartedThreadCount)
     }
@@ -76,30 +76,30 @@ private class MemMetric: Metric() {
     fun Long.toMB() = this / (1024 * 1024)
     private val osBean = ManagementFactory.getPlatformMXBean(com.sun.management.OperatingSystemMXBean::class.java)
     private val memBean = ManagementFactory.getMemoryMXBean()
-    private val totalMemSize = osBean.totalPhysicalMemorySize
+    private val totalMemSize = osBean.totalMemorySize
     private val warnThreshold = minOf(totalMemSize / 128, 64*1024*1024)
     private var inWarningMode = false
     init {
         put("mem-total-mb", totalMemSize.toMB())
-        put("mem-initial-mb", (totalMemSize - osBean.freePhysicalMemorySize).toMB())
+        put("mem-initial-mb", (totalMemSize - osBean.freeMemorySize).toMB())
     }
     override fun tick() {
-        put("system-mem", (totalMemSize - osBean.freePhysicalMemorySize).toMB())
+        put("system-mem", (totalMemSize - osBean.freeMemorySize).toMB())
         put("vm-mem", (memBean.heapMemoryUsage.used + memBean.nonHeapMemoryUsage.used).toMB())
 
-        if (!inWarningMode && osBean.freePhysicalMemorySize < warnThreshold) {
+        if (!inWarningMode && osBean.freeMemorySize < warnThreshold) {
             inWarningMode = true
             CVTAlertReporter.reportAlert(
                 CVTAlertType.OUT_OF_RESOURCES,
                 CVTAlertSeverity.WARNING,
                 null,
-                "Extremely low available memory: ${osBean.freePhysicalMemorySize.toMB()}MB out of a total of ${totalMemSize.toMB()}MB are left. The prover likely crashes soon and results will be incomplete.",
+                "Extremely low available memory: ${osBean.freeMemorySize.toMB()}MB out of a total of ${totalMemSize.toMB()}MB are left. The prover likely crashes soon and results will be incomplete.",
                 null,
                 CheckedUrl.OUT_OF_MEMORY,
             )
-        } else if (inWarningMode && osBean.freePhysicalMemorySize > warnThreshold * 8) {
+        } else if (inWarningMode && osBean.freeMemorySize > warnThreshold * 8) {
             inWarningMode = false
-            val msg = "Available memory has recovered: ${osBean.freePhysicalMemorySize.toMB()}MB out of a total of ${totalMemSize.toMB()}MB are left."
+            val msg = "Available memory has recovered: ${osBean.freeMemorySize.toMB()}MB out of a total of ${totalMemSize.toMB()}MB are left."
             Logger.always(msg, false)
         }
     }

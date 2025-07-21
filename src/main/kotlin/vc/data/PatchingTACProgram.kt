@@ -1207,6 +1207,11 @@ private fun <T : TACCmd> PatchingTACProgram<T>.addCodeUnsafe(code: TACProgram<T>
     val root = code.getStartingBlock()
     code.code.forEach { b ->
         if (b.key in leaves) {
+            if(b.value.last().isHalting()) {
+                addCodeToGraph(b.key, b.value)
+                blockgraph[b.key] = treapSetOf()
+                return@forEach
+            }
             addCodeToGraph(b.key, b.value.plus(TACCmd.Simple.JumpCmd(sink)).uncheckedAs())
             blockgraph[b.key] = treapSetOf(sink)
         } else {

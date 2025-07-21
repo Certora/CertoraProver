@@ -53,7 +53,7 @@ import java.math.BigInteger
 class InliningCalculator(code: CoreTACProgram) : DagDefExprDataFlow<Inlinee>(code) {
 
     private val reachable = code.analysisCache.reachability
-    private val intervals = IntervalsCalculator(code, preserve = { false })
+    val intervals = IntervalsCalculator(code, preserve = { false })
 
 
     /**

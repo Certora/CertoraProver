@@ -805,7 +805,7 @@ class DecoderAnalysis(
     }
 
     companion object {
-        private fun VMTypeDescriptor.toHeapType(): HeapType = if(this is VMStaticArrayType) {
+        fun VMTypeDescriptor.toHeapType(): HeapType = if(this is VMStaticArrayType) {
             val elemTy = this.elementType.toHeapType()
             (0 until this.numElements.toIntOrNull()!!).associate {
                 (it * EVM_WORD_SIZE_INT).toBigInteger() to elemTy
@@ -819,7 +819,9 @@ class DecoderAnalysis(
         } else if(this is EVMTypeDescriptor.EVMStructDescriptor) {
             this.fields.mapIndexed { index, entry ->
                 (index * EVM_WORD_SIZE_INT).toBigInteger() to entry.fieldType.toHeapType()
-            }.toMap().let { HeapType.OffsetMap(it, this.fields.size.toBigInteger() * EVM_WORD_SIZE , true) }
+            }.toMap().let { HeapType.OffsetMap(it, this.fields.size.toBigInteger() * EVM_WORD_SIZE, true) }
+        } else if(this is VMReferenceTypeDescriptor && this.location == EVMLocationSpecifier.storage) {
+            HeapType.Int
         } else if(this !is VMValueTypeDescriptor) {
             throw UnsupportedOperationException("Do not know how to represent type $this as a heap type")
         } else {

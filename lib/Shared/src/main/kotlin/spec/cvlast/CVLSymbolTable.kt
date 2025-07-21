@@ -58,6 +58,7 @@ import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.CollectingResult.Companion.ok
 import utils.ErrorCollector.Companion.collectingErrors
+import utils.HasRange
 import utils.Range
 import utils.VoidResult
 import utils.`impossible!`

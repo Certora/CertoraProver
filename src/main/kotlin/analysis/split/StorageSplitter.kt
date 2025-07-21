@@ -20,18 +20,16 @@ package analysis.split
 import analysis.LTACCmd
 import analysis.icfg.Inliner
 import analysis.snarrowOrNull
+import analysis.split.annotation.StorageSnippetInserter
 import analysis.split.arrays.PackedArrayRewriter
+import analysis.storage.StorageAnalysis
 import analysis.storage.StorageAnalysisResult
 import datastructures.stdcollections.*
 import log.*
 import report.CVTAlertSeverity
 import report.CVTAlertType
 import report.CVTAlertReporter
-import scene.IContractClass
-import scene.IContractWithSource
-import scene.IMutableStorageInfo
-import scene.ITACMethod
-import statistics.ANALYSIS_STORAGE_SUBKEY
+import scene.*
 import statistics.ANALYSIS_SUCCESS_STATS_KEY
 import statistics.recordSuccess
 import utils.*
@@ -42,23 +40,33 @@ import java.util.stream.Collectors
 
 /**
  * Calculates how to split storage vars (but may also split normal vars) into a few vars in order to save in packing and
- * unpacking operations. See the Storage Splitting design document [https://certora.atlassian.net/l/c/xnzCHTuJ] for
- * high level details.
+ * unpacking operations. See the Storage Splitting design document [https://www.notion.so/certora/Storage-Splitting-2-1-432dd60ee7ee44dcadd3f2a158972dd6]
+ * for high level details.
  */
-class StorageSplitter(val contract: IContractClass) {
+class StorageSplitter(val contract: IContractClass, val base: StorageAnalysis.Base) {
 
-    /** entry point */
-    fun splitStorage() {
+    /**
+     * Entry point.
+     * Returns true if anything was done (even if only annotations).
+     */
+    private fun splitStorage() : Boolean {
 
-        if (contract !is IMutableStorageInfo) {
-            return
+        when(base) {
+            StorageAnalysis.Base.STORAGE ->
+                if (contract !is IMutableStorageInfo) {
+                    return false
+                }
+            StorageAnalysis.Base.TRANSIENT_STORAGE ->
+                if (contract !is IMutableTransientStorageInfo) {
+                    return false
+                }
         }
 
         if((contract as? IContractWithSource)?.src?.isLibrary == true) {
             Logger(LoggerTypes.STORAGE_SPLITTING).info {
                 "${contract.name} is a library, so we don't run storage splitting on it."
             }
-            return
+            return false
         }
 
         var storageAddress: BigInteger? = null
@@ -69,7 +77,7 @@ class StorageSplitter(val contract: IContractClass) {
                 "0x${contract.instanceId.toString(16)}",
                 m.toRef().toString(),
                 ANALYSIS_SUCCESS_STATS_KEY,
-                ANALYSIS_STORAGE_SUBKEY
+                base.statisticsKey
             )
 
             val graph = (m.code as CoreTACProgram).analysisCache.graph
@@ -79,18 +87,19 @@ class StorageSplitter(val contract: IContractClass) {
                 type = CVTAlertType.STORAGE_SPLITTING,
                 severity = CVTAlertSeverity.WARNING,
                 jumpToDefinition = rangeWithMsgDetails.range,
-                message = "Storage splitting failed in contract ${m.getContainingContract().name}, " +
+                message = "Storage splitting for $base failed in contract ${m.getContainingContract().name}, " +
                     "function ${m.soliditySignature ?: m.name}. ${rangeWithMsgDetails.additionalUserFacingMessage} This might have an impact on running times",
                 url = CheckedUrl.ANALYSIS_OF_STORAGE,
             )
         }
 
-        val cx = SplitContext(contract)
+        val cx = SplitContext(contract, base)
 
-        val unresolvedToAnnotate = mutableMapOf<MethodRef, List<LTACCmd>>()
 
         for (method in cx.methods) {
-            val code = method.code as? CoreTACProgram ?: return
+            if (method.code !is CoreTACProgram) {
+                return false
+            }
 
             fun recordFailure(lcmd: LTACCmd?, log: () -> String) {
                 recordFailure(method, lcmd)
@@ -99,16 +108,12 @@ class StorageSplitter(val contract: IContractClass) {
 
             fun recordFailure(log: () -> String) = recordFailure(null, log)
 
-            val unresolvedDelegateCalls = code.parallelLtacStream().filter {
-                it.snarrowOrNull<CallSummary>()?.origCallcore?.callType == TACCallType.DELEGATE
-            }.collect(Collectors.toList())
-
             val entries = cx.storageCommands(method)
             if (entries.isEmpty()) {
                 continue
             }
             val storageVarSet = entries.asIterable().mapToSet {
-                when (it.cmd) {
+                when(it.cmd) {
                     is TACCmd.Simple.WordStore -> it.cmd.base
                     is TACCmd.Simple.AssigningCmd.WordLoad -> it.cmd.base
                     else -> `impossible!`
@@ -118,15 +123,16 @@ class StorageSplitter(val contract: IContractClass) {
                 recordFailure {
                     "Multiple storage variables (${storageVarSet}) found in method $method of $contract"
                 }
-                return
+                return false
             }
 
-            val address = storageVar.meta.find(TACMeta.STORAGE_KEY) ?: run {
-                recordFailure {
-                    "Didn't find address on variable $storageVar in $method of contract $contract"
+            val address =
+                storageVar.meta.find(base.storageKey) ?: run {
+                    recordFailure {
+                        "Didn't find address on variable $storageVar in $method of contract $contract"
+                    }
+                    return false
                 }
-                return
-            }
 
             if (storageAddress == null) {
                 storageAddress = address
@@ -134,7 +140,7 @@ class StorageSplitter(val contract: IContractClass) {
                 recordFailure {
                     "Inconsistent address in storage: $storageAddress vs $address for $storageVar in $method of $contract"
                 }
-                return
+                return false
             }
 
             entries.firstOrNull { cx.storagePathsOrNull(it.cmd) == null }?.let {
@@ -146,11 +152,9 @@ class StorageSplitter(val contract: IContractClass) {
                 // [DisplayPath]s for the [CallTrace].
                 cx.storageAnalysisFail = true
             }
-
-            unresolvedToAnnotate[method.toRef()] = unresolvedDelegateCalls
         }
 
-        val contractAddress = storageAddress ?: return
+        val contractAddress = storageAddress ?: return false
         check(contractAddress == contract.instanceId) { "Conflicting addresses: $contractAddress and ${contract.instanceId}" }
 
         cx.logger.debug {
@@ -191,49 +195,89 @@ class StorageSplitter(val contract: IContractClass) {
                 newStorageVars += newVars
                 SplitDebugger(cx, method, varSplits[method]!!, changes).log()
             }
-            /*
-              Here we mark any remaining delegate calls as being illegal to inline to a "real" contract method from
-              contracts other than `contract`. This is conservative: the splitting/unpacking done here is sound only
-              because we assume that we have seen all possible storage accesses, and further, that we have validated
-              that the splitting/unpacking is sound to do in the presence of all of those accesses. If later inlining
-              introduces code that is incompatible with these assumptions, then we will be unsound.
 
-              NB: checking that the inlined callee respects the splitting decisions made here would be one way to do it,
-              but this is hard.
-             */
-            unresolvedToAnnotate[method.toRef()]?.let { toAnnot ->
-                for (lc in toAnnot) {
-                    patcher.update(lc.ptr) {
-                        check(it is TACCmd.Simple.SummaryCmd && it.summ is CallSummary && it.summ.callType == TACCallType.DELEGATE) {
-                            "At $lc, asked to invalidate a delegate call, but it isn't the right command"
-                        }
-                        it.copy(
-                            summ = it.summ.copy(
-                                cannotBeInlined = Inliner.IllegalInliningReason.DELEGATE_CALL_POST_STORAGE
-                            )
-                        )
-                    }
-                }
-            }
             method.updateCode(patcher)
         }
 
         if (!cx.storageAnalysisFail) {
-            check(cx.contract is IMutableStorageInfo) {
-                "Expected the contract ${cx.contract.name} to be [IMutableStorageInfo], " +
-                    "but it is actually ${cx.contract::class}"
+            when(base) {
+                StorageAnalysis.Base.STORAGE -> {
+                    check(cx.contract is IMutableStorageInfo) {
+                        "Expected the contract ${cx.contract.name} to be [IMutableStorageInfo], " +
+                            "but it is actually ${cx.contract::class}"
+                    }
+                    cx.contract.setStorageInfo(
+                        StorageInfoWithReadTracker((cx.contract.storage as StorageInfoWithReadTracker).storageVariables + newStorageVars.map {
+                                it to null
+                        })
+                    )
+                }
+                StorageAnalysis.Base.TRANSIENT_STORAGE -> {
+                    check(cx.contract is IMutableTransientStorageInfo) {
+                        "Expected the contract ${cx.contract.name} to be [IMutableTransientStorageInfo], " +
+                            "but it is actually ${cx.contract::class}"
+                    }
+                    cx.contract.setTransientStorageInfo(
+                        StorageInfo((cx.contract.transientStorage as StorageInfo).storageVariables + newStorageVars)
+                    )
+                }
             }
-            cx.contract.setStorageInfo(
-                StorageInfoWithReadTracker((cx.contract.storage as StorageInfoWithReadTracker).storageVariables + newStorageVars.map {
-                    it to null
-                })
-            )
+
             arrayRewriter.finalLog(badArrays)
             // Currently we record success anyway... not sure this is what we want to see.
-            recordSuccess("0x${contract.instanceId.toString(16)}", "ALL", ANALYSIS_STORAGE_SUBKEY, true)
+            recordSuccess("0x${contract.instanceId.toString(16)}", "ALL", base.statisticsKey, true)
         }
+        return true
     }
 
+    companion object {
+        fun splitStorage(contract: IContractClass) {
+            val processedBases = StorageAnalysis.Base.entries.filter {
+                StorageSplitter(contract, it).splitStorage()
+            }
+            if (processedBases.isNotEmpty()) {
+                markUnresolvedDelegateCalls(contract)
+                StorageSnippetInserter.Companion.addSnippetsToRemainingAccesses(contract, processedBases.toSet())
+            }
+        }
+
+        /**
+         * Here we mark any remaining delegate calls as being illegal to inline to a "real" contract method from
+         * contracts other than `contract`. This is conservative: the splitting/unpacking done here is sound only
+         * because we assume that we have seen all possible storage accesses, and further, that we have validated
+         * that the splitting/unpacking is sound to do in the presence of all of those accesses. If later inlining
+         * introduces code that is incompatible with these assumptions, then we will be unsound.
+         *
+         * NB: checking that the inlined callee respects the splitting decisions made here would be one way to do it,
+         * but this is hard.
+         */
+        private fun markUnresolvedDelegateCalls(contract: IContractClass) {
+            for (method in contract.getDeclaredMethods()) {
+                val code = method.code as CoreTACProgram
+                val patcher = code.toPatchingProgram()
+                val unresolvedDelegateCalls = code.parallelLtacStream().filter {
+                    it.snarrowOrNull<CallSummary>()?.origCallcore?.callType == TACCallType.DELEGATE
+                }.collect(Collectors.toList())
+                unresolvedDelegateCalls?.let { toAnnot ->
+                    for (lc in toAnnot) {
+                        patcher.update(lc.ptr) {
+                            check(it is TACCmd.Simple.SummaryCmd &&
+                                it.summ is CallSummary &&
+                                it.summ.callType == TACCallType.DELEGATE) {
+                                "At $lc, asked to invalidate a delegate call, but it isn't the right command"
+                            }
+                            it.copy(
+                                summ = it.summ.copy(
+                                    cannotBeInlined = Inliner.IllegalInliningReason.DELEGATE_CALL_POST_STORAGE
+                                )
+                            )
+                        }
+                    }
+                }
+                method.updateCode(patcher)
+            }
+        }
+    }
 
 }
 

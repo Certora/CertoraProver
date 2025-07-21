@@ -216,4 +216,20 @@ class TACSymbolAllocation private constructor(
             .withMeta(metaMap)
         return freshParam to this.extend(freshParam.id, symbol, currentScope)
     }
+
+    /**
+     * generates a new [TACSymbol.Var] based on [param]
+     * with meta from [metaMap] and adds the symbol to [currentScope].
+     */
+    fun generateTacVarFromParam(
+        param: CVLParam,
+        metaMap: MetaMap = MetaMap(),
+    ): TACSymbol.Var {
+        val symbol = TACSymbol
+            .Var(param.id, param.type.toTag())
+            .toUnique()
+            .withMeta(TACMeta.CVL_TYPE, param.type)
+            .withMeta(metaMap)
+        return this.extend(param.id, symbol, currentScope)
+    }
 }

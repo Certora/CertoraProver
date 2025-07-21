@@ -23,7 +23,7 @@ import spec.cvlast.EVMBuiltinTypes
 import spec.cvlast.Function
 import spec.cvlast.typedescriptors.*
 import spec.isWildcard
-import utils.CollectingResult
+import utils.*
 import utils.CollectingResult.Companion.asError
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
@@ -31,7 +31,7 @@ import utils.ErrorCollector.Companion.collectingErrors
 import java.math.BigInteger
 
 class CVLMethodsBlockTypeChecker(
-    private val expTypeChecker : CVLExpTypeChecker
+    private val expTypeChecker : CVLExpTypeChecker,
 ) {
     /**
      * @return a type-checked copy of [methodsBlock].
@@ -167,7 +167,47 @@ class CVLMethodsBlockTypeChecker(
             is SpecCallSummary.HavocSummary.Nondet -> typeCheckNondetSummary(summary, res, entry)
             is SpecCallSummary.HavocSummary -> summary.lift()
             is SpecCallSummary.DispatchList -> typeCheckDispatchListSummary(symbolTable, summary)
+            is SpecCallSummary.Reroute -> typeCheckRerouteSummary(symbolTable, entry, summary)
         }
+    }
+
+    private fun typeCheckRerouteSummary(
+        symbolTable: CVLSymbolTable,
+        entry: ConcreteMethodBlockAnnotation,
+        summary: SpecCallSummary.Reroute
+    ): CollectingResult<SpecCallSummary.ExpressibleInCVL?, CVLError> {
+        val expectedReturns = when(entry.methodParameterSignature) {
+            is MethodSignature -> entry.methodParameterSignature.resType
+            else -> listOf()
+        }
+
+        val rerouteHost = symbolTable.getContractScope(summary.target.host) ?: throw CertoraInternalException(
+            CertoraInternalErrorType.CVL_TYPE_CHECKER, "Rerouter told us ${summary.target.host} was a contract: it doesn't exists"
+        )
+
+        val match = symbolTable.lookUpFunctionLikeSymbol(summary.target.methodId, rerouteHost)?.let { info ->
+            info as? CVLSymbolTable.SymbolInfo.CVLFunctionInfo
+        }?.impFuncs?.mapNotNull { f ->
+            f as? ContractFunction
+        }?.singleOrNull { cf ->
+            cf.evmExternalMethodInfo?.sigHash == summary.sighash && cf.methodSignature.qualifiedMethodName.methodId == summary.target.methodId
+        } ?: throw CertoraInternalException(
+            CertoraInternalErrorType.CVL_TYPE_CHECKER, "Rerouter claimed ${summary.target.methodId} with sighash ${summary.sighash} should exist in ${summary.target.host}: it doesn't"
+        )
+
+        if(!match.methodSignature.resType.zipPred(expectedReturns) { a, b ->
+            a.mergeWith(b).isResult()
+        }) {
+            return IllegalRerouteSummary(
+                errorType = IllegalRerouteSummary.ErrorSort.ReturnTypeMismatch(
+                    expected = expectedReturns,
+                    tgt = match.methodSignature
+                ),
+                location = summary.range
+            ).asError()
+        }
+
+        return summary.lift()
     }
 
     private fun typeCheckNondetSummary(

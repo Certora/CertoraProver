@@ -25,6 +25,7 @@ import datastructures.stdcollections.*
 import evm.SighashInt
 import log.Logger
 import log.LoggerTypes
+import scene.CONSTRUCTOR
 import scene.MethodAttribute
 import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
@@ -707,7 +708,7 @@ class GenerateRulesForInvariantsAndEnvFree(
                 val declId = "Induction base: After the constructor"
                 CVLSingleRule(
                     inv.uniqueRuleIdentifier.freshDerivedIdentifier(declId),
-                    inv.range,
+                    this@GenerateRulesForInvariantsAndEnvFree.mainContract.allMethods.find { it.name == CONSTRUCTOR }?.sourceSegment()?.range ?: inv.range,
                     newParams,
                     "Initial state does not instate invariant",
                     "Initial state instates invariant",
@@ -845,10 +846,9 @@ class GenerateRulesForInvariantsAndEnvFree(
                     invariantIdentifier, inv.range,
                     listOfNotNull(initstateInvariantScenario(inv), resetTransientStorageRule(inv)) +
                         invScope.extendIn(CVLScope.Item::RuleScopeItem) { inductionStepScope ->
-                            val inductionStepDisplayName = if(inv.invariantType == StrongInvariantType) {
-                                "Induction step (strong invariant): after external (non-view) methods and before unresolved calls"
-                            } else {
-                                "Induction step: after external (non-view) methods"
+                            val inductionStepDisplayName = when (inv.invariantType) {
+                                StrongInvariantType -> "Induction step (strong invariant): after external (non-view) methods and before unresolved calls"
+                                WeakInvariantType -> "Induction step: after external (non-view) methods"
                             }
                             val inductionStepId = invariantIdentifier.freshDerivedIdentifier(inductionStepDisplayName)
                             GroupRule(

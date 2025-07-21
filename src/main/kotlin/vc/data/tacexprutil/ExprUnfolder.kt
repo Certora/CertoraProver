@@ -20,7 +20,7 @@ package vc.data.tacexprutil
 import analysis.CommandWithRequiredDecls
 import analysis.TACTypeChecker
 import datastructures.stdcollections.*
-import tac.Tag
+import tac.*
 import vc.data.*
 
 
@@ -31,7 +31,7 @@ import vc.data.*
  * There are a few variants of the public functions, some result in an expression and the preceding commands
  * (defining the new variables), some result in only a single variable and the preceding command.
  */
-class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var) {
+class ExprUnfolder private constructor(val meta: MetaMap, val varGenerator: (Tag) -> TACSymbol.Var) {
 
     companion object {
 
@@ -46,26 +46,26 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
 
 
         /** Returns the final [TACExpr] and the list of new commands that should precede it. */
-        fun unfold(e: TACExpr, varGenerator: (Tag) -> TACSymbol.Var) =
-            ExprUnfolder(varGenerator).let {
+        fun unfold(e: TACExpr, meta: MetaMap = MetaMap(), varGenerator: (Tag) -> TACSymbol.Var) =
+            ExprUnfolder(meta, varGenerator).let {
                 UnfolderResult(it.unfold(type(e)), it.list)
             }
 
 
         /** Returns a single var corresponding to [e] and the list of new commands that should precede it. */
-        fun unfoldToSingleVar(e: TACExpr, varGenerator: (Tag) -> TACSymbol.Var) =
-            ExprUnfolder(varGenerator).let {
+        fun unfoldToSingleVar(e: TACExpr, meta: MetaMap = MetaMap(), varGenerator: (Tag) -> TACSymbol.Var) =
+            ExprUnfolder(meta, varGenerator).let {
                 UnfolderResult(it.flat(type(e)), it.list)
             }
 
-        fun unfold(tempVarPrefix: String, expr: TACExpr) =
-            unfold(expr) { tag ->
+        fun unfold(tempVarPrefix: String, expr: TACExpr, meta: MetaMap = MetaMap()) =
+            unfold(expr, meta) { tag ->
                 tempVar(tempVarPrefix, tag)
             }
 
 
-        fun unfoldToSingleVar(tempVarPrefix: String, expr: TACExpr) =
-            unfoldToSingleVar(expr) { tag ->
+        fun unfoldToSingleVar(tempVarPrefix: String, expr: TACExpr, meta: MetaMap = MetaMap()) =
+            unfoldToSingleVar(expr, meta) { tag ->
                 tempVar(tempVarPrefix, tag)
             }
 
@@ -73,9 +73,10 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
         fun unfoldPlusOneCmd(
             tempVarPrefix: String,
             expr: TACExpr,
+            meta: MetaMap = MetaMap(),
             last: (TACExpr.Sym) -> TACCmd.Simple
         ): CommandWithRequiredDecls<TACCmd.Simple> {
-            val unfoldRes = unfoldToSingleVar(tempVarPrefix, expr)
+            val unfoldRes = unfoldToSingleVar(tempVarPrefix, expr, meta)
             return CommandWithRequiredDecls(
                 unfoldRes.cmds + last(unfoldRes.e),
                 unfoldRes.newVars.toSet()
@@ -89,19 +90,20 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
         fun unfoldToExprPlusOneCmd(
             tempVarPrefix: String,
             expr: TACExpr,
+            meta: MetaMap = MetaMap(),
             last: (TACExpr) -> TACCmd.Simple
         ): CommandWithRequiredDecls<TACCmd.Simple> {
-            val unfoldRes = unfold(tempVarPrefix, expr)
+            val unfoldRes = unfold(tempVarPrefix, expr, meta)
             return CommandWithRequiredDecls(
                 unfoldRes.cmds + last(unfoldRes.e),
                 unfoldRes.newVars.toSet()
             )
         }
 
-        fun unfoldTo(expr: TACExpr, resultVar: TACSymbol.Var): CommandWithRequiredDecls<TACCmd.Simple> {
-            val unfoldRes = unfold("t", expr)
+        fun unfoldTo(expr: TACExpr, resultVar: TACSymbol.Var, meta: MetaMap = MetaMap()): CommandWithRequiredDecls<TACCmd.Simple> {
+            val unfoldRes = unfold("t", expr, meta)
             return CommandWithRequiredDecls(
-                unfoldRes.cmds + TACCmd.Simple.AssigningCmd.AssignExpCmd(resultVar, unfoldRes.e),
+                unfoldRes.cmds + TACCmd.Simple.AssigningCmd.AssignExpCmd(resultVar, unfoldRes.e, meta),
                 unfoldRes.newVars.toSet()
             )
         }
@@ -151,7 +153,7 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
 
         is TACExpr.Unconstrained -> {
             val v = varGenerator(e.tagAssumeChecked)
-            list += TACCmd.Simple.AssigningCmd.AssignHavocCmd(v)
+            list += TACCmd.Simple.AssigningCmd.AssignHavocCmd(v, meta)
             v.asSym()
         }
 
@@ -175,7 +177,7 @@ class ExprUnfolder private constructor(val varGenerator: (Tag) -> TACSymbol.Var)
         }
         val tag = r.tagAssumeChecked
         val v = varGenerator(tag)
-        list += TACCmd.Simple.AssigningCmd.AssignExpCmd(v, r)
+        list += TACCmd.Simple.AssigningCmd.AssignExpCmd(v, r, meta = meta)
         flatCache[e] = v
         return v.asSym()
     }

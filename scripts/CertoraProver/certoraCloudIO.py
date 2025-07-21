@@ -43,7 +43,6 @@ from tqdm import tqdm
 
 import logging
 
-
 cloud_logger = logging.getLogger("cloud")
 
 MAX_FILE_SIZE = 25 * 1024 * 1024
@@ -74,11 +73,12 @@ class EcoEnum(Util.NoValEnum):
     EVM = Util.auto()
     SOROBAN = Util.auto()
     SOLANA = Util.auto()
+    SUI = Util.auto()
 
 class ProductEnum(Util.NoValEnum):
     PROVER = Util.auto()
     RANGER = Util.auto()
-    SOPHY = Util.auto()
+    CONCORD = Util.auto()
 
 
 class TimeError(Exception):
@@ -587,7 +587,7 @@ class CloudVerification:
         """
 
         auth_data = {
-            "process": self.context.process, "runName": self.runName,
+            "runName": self.runName,
             "run_source": self.context.run_source,
             "group_id": self.context.group_id,
             "branch": self.context.prover_version if self.context.prover_version else '',
@@ -624,6 +624,13 @@ class CloudVerification:
                     rust_jar_settings.append(paths_in_source_dir(self.context.solana_inlining))
 
             auth_data["jarSettings"] = rust_jar_settings + jar_settings
+
+        elif Attrs.is_sui_app():
+            sui_jar_settings = ['-movePath', Path(self.context.move_path).name]
+            auth_data["jarSettings"] = sui_jar_settings + jar_settings
+
+        elif Attrs.is_concord_app():
+            auth_data["jarSettings"] = jar_settings + ["-equivalenceCheck", "true"]
         else:
             auth_data["jarSettings"] = jar_settings
 
@@ -645,13 +652,15 @@ class CloudVerification:
             auth_data["ecosystem"] = EcoEnum.SOLANA.name
         elif Attrs.is_soroban_app():
             auth_data["ecosystem"] = EcoEnum.SOROBAN.name
+        elif Attrs.is_sui_app():
+            auth_data["ecosystem"] = EcoEnum.SUI.name
         else:
             auth_data["ecosystem"] = EcoEnum.EVM.name
 
         if Attrs.is_ranger_app():
             auth_data["product"] = ProductEnum.RANGER.name
-        elif Attrs.is_sophy_app():
-            auth_data["product"] = ProductEnum.SOPHY.name
+        elif Attrs.is_concord_app():
+            auth_data["product"] = ProductEnum.CONCORD.name
         else:
             auth_data["product"] = ProductEnum.PROVER.name
 
@@ -686,12 +695,12 @@ class CloudVerification:
 
     def print_output_links(self) -> None:
         print(f"Manage your jobs at {self.get_domain()}")
-        print(f"Follow your job and see verification results at {self.reportUrl}", flush=True)
+        print(f"Follow your job and see verification results at {self.url_print_format()}", flush=True)
 
     def print_verification_summary(self) -> None:
         report_exists = self.check_file_exists(params={"filename": "index.html", "certoraKey": self.context.key})
         if report_exists:
-            print(f"Job is completed! View the results at {self.reportUrl}")
+            print(f"Job is completed! View the results at {self.url_print_format()}")
         print("Finished verification request", flush=True)
 
     def __send_verification_request(self, cl_args: str) -> bool:
@@ -774,6 +783,16 @@ class CloudVerification:
 
             result = compress_files(self.ZipFilePath, *files_list,
                                     short_output=Ctx.is_minimal_cli_output(self.context))
+        elif Attrs.is_sui_app():
+            files_list = [Util.get_certora_metadata_file(),
+                          Util.get_configuration_layout_data_file(),
+                          Util.get_build_dir() / Path(self.context.move_path).name]
+
+            if Util.get_certora_sources_dir().exists():
+                files_list.append(Util.get_certora_sources_dir())
+
+            result = compress_files(self.ZipFilePath, *files_list,
+                                    short_output=Ctx.is_minimal_cli_output(self.context))
 
         else:
             # Zip the log file first separately and again with the rest of the files, so it will not be decompressed
@@ -851,7 +870,7 @@ class CloudVerification:
             self.runName, self.reportUrl, self.msg, self.get_domain(), str(self.userId), self.anonymousKey)
 
         # Generate a json file for the VS Code extension with the relevant url
-        self.vscode_extension_info_writer.add_field("verification_report_url", self.reportUrl)
+        self.vscode_extension_info_writer.add_field("verification_report_url", self.url_print_format())
         self.vscode_extension_info_writer.write_file()
 
         if not wait_for_results or wait_for_results == str(Vf.WaitForResultOptions.NONE):
@@ -1140,6 +1159,12 @@ class CloudVerification:
         Util.remove_file(self.ZipFilePath)
         Util.remove_file(self.logZipFilePath)
 
+    def url_print_format(self) -> str:
+        if self.reportUrl and self.context.url_visibility == str(Vf.UrlVisibilityOptions.PRIVATE):
+            return self.privatize_url()
+        else:
+            return self.reportUrl
+
     @lru_cache(maxsize=1, typed=False)
     def get_domain(self) -> str:
         """
@@ -1155,3 +1180,7 @@ class CloudVerification:
             domain = Util.SupportedServers.PRODUCTION.value
 
         return domain
+
+    @lru_cache(maxsize=1)
+    def privatize_url(self) -> str:
+        return self.reportUrl.split('?anonymousKey=')[0]

@@ -27,7 +27,6 @@ import spec.cvlast.parser.GeneratedOpcodeParsers
 import spec.cvlast.typechecker.CVLError
 import utils.CollectingResult
 import utils.CollectingResult.Companion.asError
-import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
 import utils.ErrorCollector.Companion.collectingErrors
@@ -38,12 +37,12 @@ import java.math.BigInteger
 
 // TODO CERT-3751: this whole hierarchy is much more complicated than it needs to be
 
-class Hook(private val range: Range, private val pattern: HookPattern, private val commands: List<Cmd>) : Kotlinizable<CVLHook> {
+data class Hook(override val range: Range.Range, internal val pattern: HookPattern, internal val commands: CmdList) : TopLevel<CVLHook> {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLHook, CVLError> {
         return scope.extendInCollecting(::HookScopeItem) { hookScope: CVLScope ->
             collectingErrors {
                 val pattern_  = pattern.kotlinize(resolver, hookScope)
-                val commands_ = commands.map { it.kotlinize(resolver, hookScope) }.flatten()
+                val commands_ = commands.kotlinize(resolver, hookScope)
                 map(pattern_, commands_) { pattern, commands -> CVLHook(pattern, commands, range, hookScope) }
             }
         }
@@ -51,25 +50,23 @@ class Hook(private val range: Range, private val pattern: HookPattern, private v
 }
 
 // TODO CERT-3751: This should have a more refined hierarchy
-class HookPattern(
-    private val range: Range,
-    private val hookType: HookType,
-    private val value: NamedVMParam?,
-    private val oldValue: NamedVMParam?,
-    private val slot: SlotPattern?,
-    private val params: List<NamedVMParam>?,
+data class HookPattern(
+    override val range: Range,
+    internal val hookType: HookType,
+    internal val value: NamedVMParam?,
+    internal val oldValue: NamedVMParam?,
+    internal val slot: SlotPattern?,
+    internal val params: List<NamedVMParam>?,
 ) : Kotlinizable<CVLHookPattern> {
 
-    enum class Base { NONE, STORAGE }
-
-    constructor(range: Range, hookType: HookType, value: NamedVMParam?, slot: SlotPattern?)
+    constructor(range: Range, hookType: HookType, value: NamedVMParam, slot: SlotPattern)
         : this(range, hookType, value, null, slot, null)
 
-    constructor(range: Range, hookType: HookType, value: NamedVMParam?, oldValue: NamedVMParam?, slot: SlotPattern?)
+    constructor(range: Range, hookType: HookType, value: NamedVMParam, oldValue: NamedVMParam, slot: SlotPattern)
         : this(range, hookType, value, oldValue, slot, null)
 
     /** Constructor for non-storage hooks (e.g., hooks on create) */
-    constructor(range: Range, hookType: HookType, value: NamedVMParam?)
+    constructor(range: Range, hookType: HookType, value: NamedVMParam)
         : this(range, hookType, value, null, null, null)
 
     // Constructors for opcode hooks
@@ -89,8 +86,10 @@ class HookPattern(
         val slot     = bind(slot?.kotlinize(resolver, scope) ?: null.lift())
         val oldValue = bind(oldValue?.kotlinize(resolver,scope) ?: null.lift())
         return@collectingErrors when(hookType) {
-            HookType.SLOAD  -> CVLHookPattern.StoragePattern.Load(kvalue!!, slot!!, base())
-            HookType.SSTORE -> CVLHookPattern.StoragePattern.Store(kvalue!!, slot!!, base(), oldValue)
+            HookType.SLOAD  -> CVLHookPattern.StoragePattern.Load(kvalue!!, slot!!, base(false))
+            HookType.SSTORE -> CVLHookPattern.StoragePattern.Store(kvalue!!, slot!!, base(false), oldValue)
+            HookType.TLOAD  -> CVLHookPattern.StoragePattern.Load(kvalue!!, slot!!, base(true))
+            HookType.TSTORE -> CVLHookPattern.StoragePattern.Store(kvalue!!, slot!!, base(true), oldValue)
             HookType.CREATE -> CVLHookPattern.Create(kvalue!!)
             else -> {
                 check(hookType.lowLevel) { "Did not expect a non-opcode low-level hook type ${hookType.name}" }
@@ -100,15 +99,18 @@ class HookPattern(
         }
     }
 
-    private fun base(): CVLHookPattern.StoragePattern.Base {
-        // Currently we only support STORAGE base
+    private fun base(transient: Boolean): CVLHookPattern.StoragePattern.Base {
+        if (transient) {
+            return CVLHookPattern.StoragePattern.Base.TRANSIENT_STORAGE
+        }
         return CVLHookPattern.StoragePattern.Base.STORAGE
     }
 }
 
 
 
-class ArrayAccessSlotPattern(private val base: SlotPattern, private val key: NamedVMParam) : SlotPattern(base.range) {
+data class ArrayAccessSlotPattern(internal val base: SlotPattern, internal val key: NamedVMParam) : SlotPattern() {
+    override val range: Range get() = base.range
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError> = collectingErrors {
         val base_ = base.kotlinize(resolver, scope)
         val key_  = key.kotlinize(resolver, scope)
@@ -130,9 +132,9 @@ enum class HookType(val lowLevel: Boolean, @Suppress("Unused") val numInputs: In
     ALL_SLOAD(true, 1, 1),
     @OpcodeHookType(withOutput = false, params = ["uint256 loc", "uint256 v"], onlyNoStorageSplitting = true)
     ALL_SSTORE(true, 2, 0),
-    @OpcodeHookType(withOutput = true, valueType = "uint256", params = ["uint256 loc"], onlyNoStorageSplitting = false)
+    @OpcodeHookType(withOutput = true, valueType = "uint256", params = ["uint256 loc"], onlyNoStorageSplitting = true)
     ALL_TLOAD(true, 1, 1),
-    @OpcodeHookType(withOutput = false, params = ["uint256 loc", "uint256 v"], onlyNoStorageSplitting = false)
+    @OpcodeHookType(withOutput = false, params = ["uint256 loc", "uint256 v"], onlyNoStorageSplitting = true)
     ALL_TSTORE(true, 2, 0),
     @OpcodeHookType(withOutput = true, valueType = "address")
     ADDRESS(true, 0, 1),
@@ -192,19 +194,19 @@ enum class HookType(val lowLevel: Boolean, @Suppress("Unused") val numInputs: In
     LOG3(true, 5, 0),
     @OpcodeHookType(withOutput = false, params = ["uint256 offset", "uint256 size", "bytes32 topic1", "bytes32 topic2", "bytes32 topic3", "bytes32 topic4"], extraInterfaces = [CVLHookPattern.LogHookPattern::class])
     LOG4(true, 6, 0),
-    @OpcodeHookType(withOutput = true, params = ["uint256 callValue", "uint256 offset", "uint256 len"], valueType = "address")
+    @OpcodeHookType(withOutput = true, params = ["uint256 callValue", "uint256 offset", "uint256 len"], valueType = "address", envParams = ["uint16 pc"])
     CREATE1(true, 3, 1),
 
     // not to be confused with legacy CREATE
-    @OpcodeHookType(withOutput = true, params = ["uint256 callValue", "uint256 offset", "uint256 len", "bytes32 salt"], valueType = "address")
+    @OpcodeHookType(withOutput = true, params = ["uint256 callValue", "uint256 offset", "uint256 len", "bytes32 salt"], valueType = "address", envParams = ["uint16 pc"])
     CREATE2(true, 4, 1),
-    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 callValue", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
+    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 callValue", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector", "uint16 pc"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
     CALL(true, 7, 1),
-    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 callValue", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
+    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 callValue", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector", "uint16 pc"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
     CALLCODE(true, 7, 1),
-    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
+    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector", "uint16 pc"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
     DELEGATECALL(true, 6, 1),
-    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
+    @OpcodeHookType(withOutput = true, params = ["uint256 gas", "address addr", "uint256 argsOffset", "uint256 argsLength", "uint256 retOffset", "uint256 retLength"], envParams = ["uint32 selector", "uint16 pc"], extraInterfaces = [CVLHookPattern.CallHookPattern::class])
     STATICCALL(true, 6, 1),
     @OpcodeHookType(withOutput = false, params = ["uint256 offset", "uint256 size"])
     REVERT(true, 2, 0),
@@ -214,9 +216,21 @@ enum class HookType(val lowLevel: Boolean, @Suppress("Unused") val numInputs: In
     RETURNDATASIZE(true, 0, 1)
 }
 
-sealed class SlotPattern(val range: Range) : Kotlinizable<CVLSlotPattern>
+sealed class SlotPattern : Kotlinizable<CVLSlotPattern> {
+    abstract override val range: Range
 
-class SlotPatternError(override val error : CVLError) : SlotPattern(error.location), ErrorASTNode<CVLSlotPattern>
+    // the parser currently tokenizes these as identifiers instead of reserved words
+    companion object {
+        const val SLOT = "slot"
+        const val OFFSET = "offset"
+        const val INDEX = "INDEX"
+        const val KEY = "KEY"
+    }
+}
+
+data class SlotPatternError(override val error : CVLError) : SlotPattern(), ErrorASTNode<CVLSlotPattern> {
+    override val range: Range get() = error.location
+}
 
 /**
  * This class represents an arbitrary sequence of '(id number)', '(id number, id number)' or id each separated by a '.'
@@ -232,8 +246,8 @@ class SlotPatternError(override val error : CVLError) : SlotPattern(error.locati
  *
  * [elements] contains the sequence of elements as described above
  */
-class StaticSlotPattern(_range: Range) : SlotPattern(_range) {
-    private val elements: MutableList<StaticSlotPatternElement> = mutableListOf()
+data class StaticSlotPattern(override val range: Range) : SlotPattern() {
+    internal val elements: MutableList<StaticSlotPatternElement> = mutableListOf()
 
     fun add(e: StaticSlotPatternElement) {
         elements.add(e)
@@ -354,21 +368,18 @@ class StaticSlotPattern(_range: Range) : SlotPattern(_range) {
     private fun getSolidityContract(resolver: TypeResolver): SolidityContract {
         return SolidityContract(resolver.resolveContractName(Current.name))
     }
-
-    companion object {
-        private const val SLOT = "slot"
-        private const val OFFSET = "offset"
-    }
 }
 
 
-class FieldAccessSlotPattern(private val base: SlotPattern, private val fieldName: String) : SlotPattern(base.range) {
+data class FieldAccessSlotPattern(internal val base: SlotPattern, internal val fieldName: String) : SlotPattern() {
+    override val range: Range get() = base.range
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError>
         = base.kotlinize(resolver, scope).map { base -> CVLSlotPattern.FieldAccess(base, fieldName) }
 }
 
 
-class MapAccessSlotPattern(private val base: SlotPattern, private val key: NamedVMParam) : SlotPattern(base.range) {
+data class MapAccessSlotPattern(internal val base: SlotPattern, internal val key: NamedVMParam) : SlotPattern() {
+    override val range: Range get() = base.range
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError> = collectingErrors {
         map(base.kotlinize(resolver, scope), key.kotlinize(resolver, scope))
             { base, key -> CVLSlotPattern.MapAccess(base, key) }
@@ -377,11 +388,11 @@ class MapAccessSlotPattern(private val base: SlotPattern, private val key: Named
 
 
 sealed interface StaticSlotPatternElement
-class StaticSlotPatternNamed(val name: String) : StaticSlotPatternElement
-class StaticSlotPatternNumber(val prefix: String, val number: NumberExp) : StaticSlotPatternElement
-class StaticSlotPatternTwoNumbers(val prefix1: String, val number1: NumberExp, val prefix2: String, val number2: NumberExp) : StaticSlotPatternElement
-
-class StructAccessSlotPattern(val base: SlotPattern, val offset: NumberExp) : SlotPattern(base.range) {
+data class StaticSlotPatternNamed(val name: String) : StaticSlotPatternElement
+data class StaticSlotPatternNumber(val prefix: String, val number: NumberExp) : StaticSlotPatternElement
+data class StaticSlotPatternTwoNumbers(val prefix1: String, val number1: NumberExp, val prefix2: String, val number2: NumberExp) : StaticSlotPatternElement
+data class StructAccessSlotPattern(val base: SlotPattern, val offset: NumberExp) : SlotPattern() {
+    override val range: Range get() = base.range
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLSlotPattern, CVLError> = collectingErrors {
         map(base.kotlinize(resolver, scope), offset.kotlinize(resolver, scope))
             { base, offset -> CVLSlotPattern.StructAccess(base, (offset as NumberLit).n) }

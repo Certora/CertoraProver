@@ -30,13 +30,17 @@ import datastructures.stdcollections.*
 import evm.EVM_WORD_SIZE
 import evm.MASK_SIZE
 import evm.twoToThe
+import instrumentation.calls.CalldataEncoding
 import log.Logger
 import log.LoggerTypes
 import scene.PrecompiledContractCode
+import scene.TACMethod
 import tac.MetaMap
 import tac.Tag
+import tac.generation.letVar
 import utils.*
 import vc.data.*
+import vc.data.TACProgramCombiners.andThen
 import java.math.BigInteger
 
 private val logger = Logger(LoggerTypes.OPTIMIZE)
@@ -50,8 +54,38 @@ object DisciplinedHashModel {
         val lenSymbol: TACSymbol,
         val ptr: CmdPointer,
         val fieldVar: TACSymbol.Var,
-        val rewrite: ((TACSymbol.Var) -> CommandWithRequiredDecls<TACCmd.Simple>) -> CommandWithRequiredDecls<TACCmd.Simple>
+        val rewrite: Rewriter
     )
+
+    /**
+     * Basic interface for rewriting a hash application.
+     */
+    private fun interface Rewriter {
+        /**
+         * Rewrite the original hash application. [cb] is invoked with a variable into which the rewritten hash should
+         * be placed, and is expected to return the code that effects the rewritten hash. This hashing code is then
+         * incorporated into the rewrite.
+         */
+        fun fullRewrite(
+            cb: (TACSymbol.Var) -> CommandWithRequiredDecls<TACCmd.Simple>
+        ) : CommandWithRequiredDecls<TACCmd.Simple>
+    }
+
+    /**
+     * A rewriter that allows conditionally rewriting the hash.
+     */
+    private interface ConditionalRewriter : Rewriter {
+        /**
+         * Conditionall rewrite the original hash application. [cb] receives two arguments. The first is the variable which
+         * is expected to hold the hash application. The second is function which provides access to the original hash;
+         * it returns the original hashing command, rewritten to place its results into the variable provided
+         * as an argument. [cb] is expected to return code that conditionally
+         * rewrites the hash, placing it into the first argument.
+         */
+        fun conditionalRewrite(
+            cb: (TACSymbol.Var, (TACSymbol.Var) -> TACCmd.Simple.AssigningCmd) -> CommandWithRequiredDecls<TACCmd.Simple>
+        ) : CommandWithRequiredDecls<TACCmd.Simple>
+    }
 
     private fun IPointsToInformation.constantValueAt(where: CmdPointer, sym: TACSymbol) = when(sym) {
         is TACSymbol.Const -> sym.value
@@ -63,10 +97,11 @@ object DisciplinedHashModel {
      * Relies on availability of a memory map [memoryModel] and points-to information [pta].
      */
     fun disciplinedHashModel(
-        code: CoreTACProgram,
+        method: TACMethod,
         memoryModel: MemoryMap,
         pta: IPointsToInformation
     ): CoreTACProgram {
+        val code = method.code as CoreTACProgram
         // for testing only: we check if the disciplined hash model is disabled
         // this allows to test Test/ECRecover/runBV check4 rule using encodePacked
         if (!Config.EnabledDisciplinedHashModel.get()) {
@@ -74,14 +109,42 @@ object DisciplinedHashModel {
         }
 
         val patch = code.toPatchingProgram()
-        applyDisciplinedHashModelOnPatch(patch, code, memoryModel, pta)
+        val eff = applyDisciplinedHashModelOnPatch(patch, method, memoryModel, pta)
+        eff.applyOnPatch(patch)
         return patch.toCode(code)
+    }
+
+    private fun HashRewriteEffect.applyOnPatch(p: SimplePatchingProgram) {
+        for((staged, target) in stagedSave) {
+            p.addBefore(staged.ptr, listOf(
+                TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                    lhs = target,
+                    rhs = staged.v.asSym()
+                )
+            ))
+            p.addVarDecl(target)
+        }
+    }
+
+    /**
+     * The effects of hash rewriting. [rewrittenCores] have been rewritten by the hash model, and should be ignored by
+     * [analysis.icfg.ExtCallSummarization]. [stagedSave] are staged instrumentations which saves the value
+     * of [LTACVar] v@L to some temp variable t (the key and value of the map resp)
+     *
+     */
+    data class HashRewriteEffect(
+        val stagedSave: Map<LTACVar, TACSymbol.Var>,
+        val rewrittenCores: Set<CmdPointer>
+    ) {
+        companion object {
+            val empty = HashRewriteEffect(mapOf(), rewrittenCores = setOf())
+        }
     }
 
     fun fallbackHashModel(
         patch: SimplePatchingProgram,
         code: CoreTACProgram
-    ) : Set<CmdPointer> {
+    ) : HashRewriteEffect {
         handleBytesKeyHashes(code, object : BytesKeyIndexLogic {
             override fun isFinalWordWrite(
                 ctp: CoreTACProgram,
@@ -112,18 +175,18 @@ object DisciplinedHashModel {
                 return PatternMatcher.compilePattern(ctp.analysisCache.graph, pattern).query(hashLoc.cmd.op2 as TACSymbol.Var, hashLoc.wrapped) is PatternMatcher.ConstLattice.Match
             }
         }, patcher = patch)
-        return emptySet()
+        return HashRewriteEffect.empty
     }
 
     fun applyDisciplinedHashModelOnPatch(
         patch: SimplePatchingProgram,
-        code: CoreTACProgram,
+        method: TACMethod,
         pointsTo: PointsTo?
-    ) : Set<CmdPointer> {
+    ) : HashRewriteEffect {
         return if(pointsTo?.pta is FlowPointsToInformation && pointsTo.pta.isCompleteSuccess) {
-            applyDisciplinedHashModelOnPatch(patch, code, pointsTo.memoryMap, pointsTo.pta)
+            applyDisciplinedHashModelOnPatch(patch, method, pointsTo.memoryMap, pointsTo.pta)
         } else {
-            fallbackHashModel(patch, code)
+            fallbackHashModel(patch, method.code as CoreTACProgram)
         }
     }
 
@@ -132,14 +195,15 @@ object DisciplinedHashModel {
      * but just updates the [patch] without returning a new program.
      * @return the set of hash commands that were updated that actually came from [TACCmd.Simple.CallCore] commands
      */
-    fun applyDisciplinedHashModelOnPatch(
+    private fun applyDisciplinedHashModelOnPatch(
         patch: SimplePatchingProgram,
-        code: CoreTACProgram,
+        method: TACMethod,
         memoryModel: MemoryMap,
         pta: IPointsToInformation
-    ): Set<CmdPointer> {
+    ): HashRewriteEffect {
+        val code = method.code as CoreTACProgram
         // this only rewrites callcores calling the hash precompiled, and AssignSha3Cmd with constant length
-        val updatedHashCallCoreCmds = adjustHashesToWritePatterns(code, memoryModel, pta, patch)
+        val updatedHashCallCoreCmds = adjustHashesToWritePatterns(method, memoryModel, pta, patch)
 
         if (pta is WithSummaryInformation) {
             // this rewrites [AssignSha3Cmd] commands with non-constant length, and some associated [ByteStore]s
@@ -201,13 +265,29 @@ object DisciplinedHashModel {
     }
 
     /**
+     * Holder class for deciding how to rewrite a hash. [length] is the (potentially assumed) constant length
+     * of the buffer being hashed. [expectedStart] is where the hash is expected to start. This is always zero,
+     * but this could be relaxed later.
+     *
+     * [generateUpdate] expects to receive a function that generates the rewritten hash; it returns the code to
+     * replace the original hash operation with.
+     */
+    private data class HashSizes(
+        val length: BigInteger,
+        val expectedStart: BigInteger,
+        val generateUpdate: ((TACSymbol.Var) -> CommandWithRequiredDecls<TACCmd.Simple>) -> CommandWithRequiredDecls<TACCmd.Simple>
+    )
+
+    /**
      * Does the classic "disciplined hash model" which adjusts the hash to see the write patterns based on the [memoryModel] and [pta]
      * @return the set of updated [CmdPointer]s that are CallCores
      */
-    private fun adjustHashesToWritePatterns(code: CoreTACProgram, memoryModel: MemoryMap, pta: IPointsToInformation, patch: SimplePatchingProgram): Set<CmdPointer> {
+    private fun adjustHashesToWritePatterns(method: TACMethod, memoryModel: MemoryMap, pta: IPointsToInformation, patch: SimplePatchingProgram): HashRewriteEffect {
+        val code = method.code as CoreTACProgram
         val g = code.analysisCache.graph
         val updated = mutableSetOf<CmdPointer>()
-        g.commands.mapNotNull {
+        val stagedSaves = mutableMapOf<LTACVar, TACSymbol.Var>()
+        val hashesToRewrite = g.commands.mapNotNull {
             if(it.ptr !in memoryModel) {
                 return@mapNotNull null
             }
@@ -216,8 +296,16 @@ object DisciplinedHashModel {
                     lenSymbol = it.cmd.op2,
                     fieldVar = it.cmd.op1 as? TACSymbol.Var ?: return@mapNotNull null,
                     ptr = it.ptr,
-                    rewrite = { gen ->
-                        gen(it.cmd.lhs)
+                    rewrite = object : ConditionalRewriter {
+                        override fun conditionalRewrite(cb: (TACSymbol.Var, (TACSymbol.Var) -> TACCmd.Simple.AssigningCmd) -> CommandWithRequiredDecls<TACCmd.Simple>): CommandWithRequiredDecls<TACCmd.Simple> {
+                            return cb(it.cmd.lhs) { newLhs ->
+                                it.cmd.copy(lhs = newLhs)
+                            }
+                        }
+
+                        override fun fullRewrite(cb: (TACSymbol.Var) -> CommandWithRequiredDecls<TACCmd.Simple>): CommandWithRequiredDecls<TACCmd.Simple> {
+                            return cb(it.cmd.lhs)
+                        }
                     }
                 )
             } else if(it.cmd is TACCmd.Simple.CallCore && it.cmd.inBase == TACKeyword.MEMORY.toVar() &&
@@ -261,10 +349,74 @@ object DisciplinedHashModel {
             } else {
                 null
             }
-        }.forEach { hashCmd ->
-
-            val length = pta.constantValueAt(hashCmd.ptr, hashCmd.lenSymbol) ?: return@forEach logger.info {
-                "Length of hash $hashCmd in ${code.name} is non-constant, cannot handle this case"
+        }
+        hashesToRewrite.forEach { hashCmd ->
+            val constLen = pta.constantValueAt(hashCmd.ptr, hashCmd.lenSymbol)
+            val (length, expectedStart, rewriter) = if(constLen != null) {
+                HashSizes(
+                    constLen, BigInteger.ZERO, generateUpdate = hashCmd.rewrite::fullRewrite
+                )
+            } else if(hashCmd.lenSymbol is TACSymbol.Var && (!pta.query(QueryInvariants(hashCmd.ptr) {
+                hashCmd.lenSymbol `=` TACKeyword.CALLDATASIZE.toVar()
+            /**
+             * Because nothing is every easy, when doing these hashes, solidity will do this:
+             * v1 = fp
+             * v3 = v1 + theCalldatasize
+             * v2 = fp
+             * len = v3 - v2
+             *
+             * Because the linear invariant domain (intentionally) forgets about equalities via the FP, we don't end up with
+             * len == theCalldatasize, but instead `v1 - v2 + theCalldataSize = len`. We match this pattern explicitly
+             * and use the GVN to "cancel" the equal terms...
+             */
+            }).isNullOrEmpty() || pta.query(QueryInvariants(hashCmd.ptr) {
+                hashCmd.lenSymbol + v("v1") { it is LVar.PVar } `=` v("v2") { it is LVar.PVar } + TACKeyword.CALLDATASIZE.toVar()
+            }).orEmpty().any { m ->
+                val v1 = (m.symbols["v1"] as LVar.PVar).v
+                val v2 = (m.symbols["v2"] as LVar.PVar).v
+                v1 in g.cache.gvn.equivBefore(hashCmd.ptr, v2)
+            }) && hashCmd.rewrite is ConditionalRewriter) {
+                /**
+                 * If we are hashing a buffer of the length of calldata, AND we have a good guess as to what calldata *should*
+                 * be, we can generate a rewrite conditional on the calldata buffer being the expected (constant) size.
+                 *
+                 * NB it is *not* sound to just use this constant size, as someone could pass along extra junk past the
+                 * expected args.
+                 */
+                val cd = method.calldataEncoding as CalldataEncoding
+                if(!cd.valueTypesArgsOnly || cd.expectedCalldataSize == null) {
+                    return@forEach logger.info {
+                        "Length of hash $hashCmd in ${code.name} is calldatasize without a reasonable guess for its size; skipping"
+                    }
+                }
+                HashSizes(cd.expectedCalldataSize, BigInteger.ZERO) { gen ->
+                    hashCmd.rewrite.conditionalRewrite { lhs, originalGen ->
+                        val orig = TACKeyword.TMP(Tag.Bit256, "!orig")
+                        val origAssign = originalGen(orig)
+                        val newHash = TACKeyword.TMP(Tag.Bit256, "rewrite")
+                        val newAssign = gen(newHash)
+                        TXF {
+                            TACKeyword.CALLDATASIZE.toVar() eq cd.expectedCalldataSize
+                        }.letVar(Tag.Bool) { decider ->
+                            origAssign andThen newAssign andThen CommandWithRequiredDecls(listOf(
+                                TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                                    lhs = lhs,
+                                    rhs = TXF {
+                                        ite(
+                                            decider,
+                                            newHash,
+                                            orig
+                                        )
+                                    }
+                                )
+                            ), lhs, orig, newHash)
+                        }
+                    }
+                }
+            } else {
+                return@forEach logger.info {
+                    "Length of hash $hashCmd in ${code.name} is non-constant, cannot handle this case"
+                }
             }
             val nodes = memoryModel[hashCmd.ptr]!!.nodes
             val baseNode = (pta.fieldNodesAt(
@@ -279,9 +431,9 @@ object DisciplinedHashModel {
             /* do not support hashing within arrays.
                We could, but the logic isn't implemented yet
              */
-            if(!baseNode.index.isConstant || baseNode.index.c != BigInteger.ZERO) {
+            if(!baseNode.index.isConstant || baseNode.index.c != expectedStart) {
                 logger.info {
-                    "Within ${code.name}, found hash command $hashCmd which does not begin at the start of the array. Not dealing with this case"
+                    "Within ${code.name}, found hash command $hashCmd which does not begin at expected start $expectedStart. Not dealing with this case"
                 }
                 return@forEach
             }
@@ -303,21 +455,56 @@ object DisciplinedHashModel {
             }
             val useWordAlignedHashing = startPoints.all { start ->
                 start.mod(EVM_WORD_SIZE) == BigInteger.ZERO
-                } && !Config.AggressiveHashDecomposition.get()
+            } && !Config.AggressiveHashDecomposition.get()
 
             // hole-free, continuous blocks:
             val args = deconstruction
-                .mapValues {
-                    (it.value.writeCmdPtrSet as? CmdPointerSet.CSet)?.cs?.singleOrNull()
-                        ?.let { (where, range) ->
-                            g.elab(where).maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()?.to(range)
-                        }
-                }
+                .mapValues { (it.value.writeCmdPtrSet as? CmdPointerSet.CSet)?.cs?.singleOrNull() }
                 .mapKeys { it.key.start }
-            if (args.values.monadicMap { it.first.ptr.block }?.toSet()?.size != 1) {
-                logger.warn { "If not all assignments to the memory string are from the block of hash ${hashCmd.ptr} in ${code.name}, writes symbols may be stale" }
+            if(args.values.any { it == null }) {
+                logger.warn { "Could not extract definite writes for buffer for hash at ${hashCmd.ptr} in ${code.name}" }
                 return@forEach
             }
+
+            /**
+             * Get the value of the symbol. If not a constant or global, use a special "save" variable which captures the value
+             * of the symbol at the location it is written.
+             *
+             * Q: What about loops; is the saving still sound?
+             * A: Yes. The concern to address here is whether by saving a value within a loop iteration, we end up saving
+             * the value of a variable _v_ at iteration _i_, when the actual value in the buffer is _v_ at iteration _j_
+             * where j < i.
+             *
+             * It turns out this can't happen from the soundness of the CGB analysis and the [CmdPointerSet] abstraction.
+             * The [CmdPointerSet] abstraction attached to a heap location is a [CmdPointerSet.CSet] iff the heap location
+             * was populated by a strong update. Further, we insist that this [CmdPointerSet.CSet] is singleton. The assignment
+             * that is our singleton member must therefore:
+             * a. reach our hash location
+             * b. Be the only such defining write that reaches the hash location
+             * c. definitely occurs
+             *
+             * In other words, when we reach the hash location, the value in the buffer *must* have been written at the
+             * most recent execution of L. Thus, if L is in a loop, it must have been the last iteration.
+             */
+            fun CmdPointerSet.CSet.BufferSymbol.resolve() = when(this) {
+                is CmdPointerSet.CSet.BufferSymbol.Global -> this.v
+                is CmdPointerSet.CSet.BufferSymbol.WrittenAt -> {
+                    when(this.what) {
+                        is TACSymbol.Var -> {
+                            val toRet = LTACVar(where, what)
+                            val repl = stagedSaves.getOrPut(toRet) {
+                                TACSymbol.Var(
+                                    what.namePrefix + "!saved",
+                                    what.tag
+                                ).toUnique("!")
+                            }
+                            repl
+                        }
+                        is TACSymbol.Const -> this.what
+                    }
+                }
+            }
+
             // SimpleHash should be used instead of HashStringLen in certain cases - if it could still happen here, we want to throw an exception
             if (Config.MatchStorageLikeHashesInUnreservedSlots.get() &&
                 ((length == EVM_WORD_SIZE && startPoints.size == 1 && startPoints.containsAll(
@@ -335,12 +522,12 @@ object DisciplinedHashModel {
                 }
                 patch.replaceCommand(
                     hashCmd.ptr,
-                    hashCmd.rewrite { lhs ->
+                    rewriter { lhs ->
                         CommandWithRequiredDecls(listOf(
                             TACCmd.Simple.AssigningCmd.AssignSimpleSha3Cmd(
                                 lhs,
                                 length = length.asTACSymbol(),
-                                startPoints.sorted().map { sp -> args[sp]!!.first.cmd.value }
+                                startPoints.sorted().map { sp -> args[sp]!!.first.resolve() }
                             )
                         ), lhs)
                     }
@@ -384,7 +571,7 @@ object DisciplinedHashModel {
                  * the latter looks initially reasonable, until you realize it's describing bytes in a 32 byte word...)
                  */
                 check(intersected is CallGraphBuilder.ByteRange.OverlapEffect.Containment)
-                val seedExpr : TACSymbol = when(val sym = store.cmd.value) {
+                val seedExpr : TACSymbol = when(val sym = store.resolve()) {
                     is TACSymbol.Const -> {
                         sym
                     }
@@ -405,7 +592,7 @@ object DisciplinedHashModel {
                     }
                 }
                 if(intersected is CallGraphBuilder.ByteRange.OverlapEffect.Contains) {
-                    check(range == CmdPointerSet.fullWord)
+                    check(range == CmdPointerSet.fullWord || isLast)
                     instArgs.add(seedExpr)
                 } else {
                     check(intersected is CallGraphBuilder.ByteRange.OverlapEffect.StrictlyContainedWithin)
@@ -427,7 +614,7 @@ object DisciplinedHashModel {
             }
             patch.replaceCommand(
                 hashCmd.ptr,
-                hashCmd.rewrite { lhs ->
+                rewriter { lhs ->
                     CommandWithRequiredDecls(
                         argInstrumentation + TACCmd.Simple.AssigningCmd.AssignSimpleSha3Cmd(lhs, length.asTACSymbol(), instArgs).mapMeta {
                             it.plus(TACMeta.DECOMPOSED_USER_HASH)
@@ -437,7 +624,7 @@ object DisciplinedHashModel {
                 }
             )
         }
-        return updated
+        return HashRewriteEffect(rewrittenCores = updated, stagedSave = stagedSaves)
     }
 
     private interface BytesKeyIndexLogic {

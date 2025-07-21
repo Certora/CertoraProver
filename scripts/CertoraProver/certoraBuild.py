@@ -39,8 +39,6 @@ from CertoraProver.certoraSourceFinders import add_source_finders
 from CertoraProver.certoraVerifyGenerator import CertoraVerifyGenerator
 from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes
 
-from Shared.certoraUtils import is_relative_to
-
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 from CertoraProver.Compiler.CompilerCollector import CompilerLang, CompilerCollector
@@ -454,8 +452,8 @@ def convert_pathname_to_posix(json_dict: Dict[str, Any], entry: str, smart_contr
                 # protecting against long strings
                 if len(json_dict_str) > 200:
                     json_dict_str = json_dict_str[:200] + '...'
-                fatal_error(compiler_logger, f"The path of the source file {file_path}"
-                                             f"in the standard json file {json_dict_str} does not exist")
+                fatal_error(compiler_logger, f"The path of the source file {file_path} "
+                                             f"in the standard json file does not exist!\n{json_dict_str} ")
         json_dict[entry] = json_dict_posix_paths
 
 
@@ -1432,8 +1430,11 @@ class CertoraBuildGenerator:
                 compiler_version = compiler_collector.compiler_version
                 major, minor, patch = compiler_version
 
-                err_msg = "--finder_friendly_optimizer option supports solc versions 0.6.7 - 0.8.25 only, " \
-                          f"got {major}.{minor}.{patch}"
+                err_msg = \
+                    f"Unsupported solc version {major}.{minor}.{patch} for `solc_via_ir`. " \
+                    f"Supported versions: 0.6.7 – 0.8.25.\n" \
+                    f"Use `solc_via_ir_map` to disable `solc_via_ir` for specific files with older compiler versions."
+
                 yul_optimizer_steps = None
                 if major != 0:
                     raise Util.CertoraUserInputError(err_msg)
@@ -2690,7 +2691,7 @@ class CertoraBuildGenerator:
             self.handle_erc7201_annotations()
         self.handle_storage_extension_harnesses()
 
-    def extract_slayout(self, original_file: str, ns_storage: Set[NameSpacedStorage]) -> NewStorageInfo:
+    def extract_slayout(self, original_file: str, ns_storage: Set[NameSpacedStorage], compiler_version: str) -> NewStorageInfo:
         """
         Given a file containing a contract with namespaced storage, extract the storage information
         corresponding to the namespaced types.
@@ -2715,7 +2716,9 @@ class CertoraBuildGenerator:
             # original file is accessed also in the actual code, and compiling it
             # directly can cause issues.
             tmp_file.write(f"import \"{original_file}\";\n\n")
-
+            rel_path = os.path.relpath(tmp_file.name, Path.cwd())
+            if self.context.compiler_map:
+                self.context.compiler_map.update({rel_path: compiler_version}, last=False)
             # Write the harness contract with dummy fields for each namespaced storage
             var_to_slot = storageExtension.write_harness_contract(tmp_file, harness_name, ns_storage)
             tmp_file.flush()
@@ -2727,13 +2730,6 @@ class CertoraBuildGenerator:
                     Path(tmp_file.name),
                     build_dir / f"{Path(original_file).stem}_storage_extension.sol"
                 )
-
-            # Add harness to compiler map
-            storageExtension.add_harness_to_compiler_map(
-                original_file,
-                tmp_file,
-                self.context
-            )
 
             # normalize the path exactly the way collect_for_file expects it:
             abs_path = Util.abs_posix_path(tmp_file.name)
@@ -2802,7 +2798,8 @@ class CertoraBuildGenerator:
                         continue
 
                     # Now that we have all the storage layout information, extract it once
-                    slayouts[key] = self.extract_slayout(imported_file, ns_storage)
+                    slayouts[key] = self.extract_slayout(imported_file, ns_storage,
+                                                         get_relevant_compiler(Path(target_file), self.context))
 
         if self.context.test == str(Util.TestValue.STORAGE_EXTENSION_LAYOUT):
             raise Util.TestResultsReady(slayouts)
@@ -3583,7 +3580,11 @@ class CertoraBuildGenerator:
         return sources
 
     def __del__(self) -> None:
-        self.cleanup()
+        try:
+            self.cleanup()
+        except ImportError:
+            # Avoiding Python interpreter shutdown exceptions which are safe to ignore
+            pass
 
 
 # make sure each source file exists and its path is in absolute format
@@ -3698,7 +3699,7 @@ def build_from_scratch(context: CertoraContext,
         # the contract files in SDCs are relative to .certora_sources. Which isn't good for us here.
         # Need to be relative to original paths
         for f in paths_set:
-            if is_relative_to(f, absolute_sources_dir):
+            if f.is_relative_to(absolute_sources_dir):
                 rel_f = f.relative_to(absolute_sources_dir)
             else:
                 # may be an absolute path already outside .certora_sources, so we can keep it.

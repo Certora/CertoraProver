@@ -20,6 +20,7 @@
 package report.calltrace.formatter
 
 import datastructures.stdcollections.*
+import evm.MASK_SIZE
 import report.BigIntPretty.bigIntPretty
 import report.calltrace.formatter.AlternativeRepresentations.Representations
 import report.calltrace.formatter.AlternativeRepresentations.RepresentationsMap
@@ -156,7 +157,10 @@ internal class ValueFormattingJob(val tacValueIn: TACValue,
                 } else {
                     AlternativeRepresentations.matchingDescriptions(num, type.toMeta())
                         ?: bigIntPretty(num)
-                        ?: run {
+                        ?: if (num.abs() <= MASK_SIZE(32)) {
+                            truncatable = true
+                            num.toString(10)
+                        } else {
                             truncatable = true
                             num.toHexString()
                         }

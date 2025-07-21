@@ -37,7 +37,6 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     REPORT(LoggerTypes.COMMON),
     INTERNAL_FUNCTION_FINDER(LoggerTypes.COMMON),
     RULE(LoggerTypes.SPEC),
-    SOL_METHOD_WITH_ASSERTS(LoggerTypes.SPEC),
     // Last TAC before calling solvers in usual Prover mode
     PRESOLVER_RULE(LoggerTypes.SPEC),
     // TAC at the beginning of `EntryPoint.handleGenericFlow` (what we get from solana/wasm frontends)
@@ -108,7 +107,6 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     RETURN_SYMBOL_OPTIMIZE1(LoggerTypes.OPTIMIZE),
     RETURN_SYMBOL_OPTIMIZE2(LoggerTypes.OPTIMIZE),
     HASH_OPTIMIZE(LoggerTypes.OPTIMIZE),
-    PATH_OPTIMIZE_FOR_ASSERTIONS_PASS(LoggerTypes.OPTIMIZE),
     PATH_OPTIMIZE1(LoggerTypes.OPTIMIZE),
     PATH_OPTIMIZE2(LoggerTypes.OPTIMIZE),
     PATH_OPTIMIZE_BEFORE_PTA(LoggerTypes.OPTIMIZE),
@@ -274,7 +272,11 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     LOG_FP_REUSE_NORMALIZATION(LoggerTypes.ALLOC),
     BMC_FUNC(LoggerTypes.BOUNDED_MODEL_CHECKER),
     DEFINITE_BUFFER_ANALYSIS(LoggerTypes.EQUIVALENCE),
-    OPTIMISTIC_SPILL_REWRITE(LoggerTypes.PER_FUNCTION_SIMPLIFICATION)
+    REROUTE_SUMMARIES(LoggerTypes.SUMMARIZATION),
+    REROUTE_SUMMARIES_MATERIALIZE(LoggerTypes.SUMMARIZATION),
+    OPTIMISTIC_SPILL_REWRITE(LoggerTypes.PER_FUNCTION_SIMPLIFICATION),
+    NORMALIZE_MASK(LoggerTypes.OPTIMIZE),
+    PROPAGATE_STRINGS(LoggerTypes.COMMON),
     ;
 
     override fun isEnabled(): Boolean = this == NONE || Config.isEnabledLogger(this.loggerCategory) || Config.isEnabledReport(this)

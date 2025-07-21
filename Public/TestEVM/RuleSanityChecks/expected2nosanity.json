@@ -1,0 +1,33 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"checkSanityParametric": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"require_nothing()",
+				"always_revert()",
+				"i()",
+				"require_i_lowerthan_10()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"insane": {
+			"Induction base: After the constructor": "FAIL",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"require_nothing()",
+						"always_revert()",
+						"require_i_lowerthan_10()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		}
+	}
+}
