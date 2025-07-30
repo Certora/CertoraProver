@@ -2908,8 +2908,8 @@ class CVLExpressionCompiler(
             when (lhs) {
                 is CVLLhs.Id -> {
                     val ghost = cvlCompiler.fetchGhostDeclaration(lhs.id)
-                    val cmd = buildTACFromCommand(
-                        if (ghost is CVLGhostDeclaration.Variable) {
+                    if(ghost is CVLGhostDeclaration.Variable){
+                        lhs to buildTACFromCommand(
                             SnippetCmd.CVLSnippetCmd.GhostAssignment(
                                 lhs = allocatedTACSymbols.get(lhs.id),
                                 rhsExp = exp,
@@ -2917,12 +2917,36 @@ class CVLExpressionCompiler(
                                 sort = GhostSort.Variable,
                                 persistent = ghost.persistent,
                             ).toAnnotation()
+                        ).toSimple()
+                    } else {
+                        /**
+                         * In the case of a CVL function that assigns a value, the variable
+                         * that is assigned to should _not_ be within the two commands
+                         * [SnippetCmd.CVLSnippetCmd.CVLFunctionStart] and [SnippetCmd.CVLSnippetCmd.CVLFunctionEnd].
+                         * Therefore, we introduce temp variables that [compileCVLFunctionApplication] will assign to.
+                         *
+                         */
+                        if(exp is CVLExp.ApplyExp.CVLFunction){
+                            val lhsType = (exp.tag.type as? CVLType.PureCVLType.TupleType)?.elements?.get(idx) ?: exp.tag.type as CVLType.PureCVLType
+                            val (cvlParam, tmpOutVar) = allocatedTACSymbols.generateTransientUniqueCVLParam(
+                                cvlCompiler.cvl.symbolTable,
+                                CVLParam(lhsType, "tmpVariableToAssignTo", lhs.getRangeOrEmpty())
+                            ).mapSecond {
+                                it.withMeta(CVL_VAR, true)
+                                    .withMeta(CVL_TYPE, lhsType)
+                            }
+                            val tmpOutCVLExp = CVLExp.VariableExp(cvlParam.id, CVLExpTag.transient(lhsType))
+                            val outputVar = allocatedTACSymbols.get(lhs.id, tmpOutVar.tag)
+                            tmpOutCVLExp.toLhs() as CVLLhs.Id to buildTACFromCommand(
+                                TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                                    outputVar,
+                                    tmpOutVar
+                                ),
+                            ).toSimple()
                         } else {
-                            TACCmd.Simple.NopCmd
+                            lhs to buildTACFromCommand(TACCmd.Simple.NopCmd).toSimple()
                         }
-                    ).toSimple()
-
-                    lhs to cmd
+                    }
                 }
                 is CVLLhs.Array -> {
                     compileArrayAssignment(lhs,allocatedTACSymbols)

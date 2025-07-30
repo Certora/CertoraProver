@@ -48,7 +48,8 @@ enum class TreeViewReportAttribute(private val repString: String) {
     LINK("link"),
     LIVE_CHECK_INFO("LiveCheckInfo"),
     CHILDREN_TOTAL_NUM("childrenTotalNum"),
-    CHILDREN_FINISHED_NUM("childrenFinishedNum")
+    CHILDREN_FINISHED_NUM("childrenFinishedNum"),
+    DAP_CALLTRACE_FILE_NAME("debugAdapterCallTraceFileName")
     ;
 
     operator fun invoke(): String = repString

@@ -55,7 +55,7 @@ internal class StorageState(
     private val scene: ISceneIdentifiers,
     private val formatter: CallTraceValueFormatter,
     private val variablesState: VariablesState
-) {
+) : DebugAdapterVariableState{
     /** Continuously updated snapshot of the storage, including [TACValue]s and [ComputationalTypes]. */
     private var storageMap: AllStorage = mutableMapOf()
 
@@ -388,5 +388,11 @@ internal class StorageState(
         if (storageCallInstance.children.isNotEmpty()) {
             currCallInstance.addChild(storageCallInstance)
         }
+    }
+
+    override fun toInstantiateDisplayWithValue(): Map<InstantiatedDisplayPath, TACValue> {
+        return storageMap.flatMap { e ->
+            e.value.map { InstantiatedDisplayPath.Root(scene.getContract(e.key).name, it.key) to (it.value.value ?: TACValue.Uninitialized)}
+        }.toMap()
     }
 }

@@ -264,20 +264,31 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
                     callee.sigHash,
                     callee.attribute
                 )
+                val evmExternalMethodInfo = methodRef.resolveIn(callee.getContainingContract())?.toIdentifiers()?.evmExternalMethodInfo
+
                 g.roots.forEach(
                     Inliner.CallStack.stackPusher(
                         patching,
                         Inliner.CallStack.PushRecord(
-                            methodRef,
-                            null,
-                            Inliner.CallConventionType.FromCVL,
-                            callId,
-                            isNoRevert = isNoRevert
+                            callee = methodRef,
+                            summary = null,
+                            convention = Inliner.CallConventionType.FromCVL,
+                            calleeId = callId,
+                            evmExternalMethodInfo = evmExternalMethodInfo,
+                            isNoRevert = isNoRevert,
                         )
                     )
                 )
 
-                g.sinks.forEach(Inliner.CallStack.stackPopper(patching, Inliner.CallStack.PopRecord(methodRef, callId)))
+                g.sinks.forEach(
+                    Inliner.CallStack.stackPopper(
+                        patching,
+                        Inliner.CallStack.PopRecord(
+                            callee = methodRef,
+                            calleeId = callId
+                        )
+                    )
+                )
             }
         }
     }

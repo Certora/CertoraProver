@@ -23,6 +23,7 @@ import report.RuleAlertReport
 import report.calltrace.CallInstance.InvokingInstance.CVLRootInstance
 import report.calltrace.generator.generateCallTrace
 import report.calltrace.printer.CallTracePrettyPrinter
+import report.calltrace.printer.DebugAdapterProtocolStackMachine
 import spec.cvlast.*
 import utils.*
 import vc.data.*
@@ -85,11 +86,12 @@ enum class CallTraceAttribute(private val repString: String) {
 sealed class CallTrace {
     abstract val callHierarchyRoot: CVLRootInstance
     abstract val alertReport: RuleAlertReport?
+    abstract val debugAdapterCallTrace: DebugAdapterProtocolStackMachine?
 
     /** For usage in JUnit tests (for now at least). */
     val formatter get() = callHierarchyRoot.formatter
 
-    data class ViolationFound(override val callHierarchyRoot: CVLRootInstance, val violatedAssert: LTACCmd) : CallTrace() {
+    data class ViolationFound(override val callHierarchyRoot: CVLRootInstance, val violatedAssert: LTACCmd, override val debugAdapterCallTrace: DebugAdapterProtocolStackMachine?) : CallTrace() {
 
         override val alertReport: RuleAlertReport?
             get() = null
@@ -104,7 +106,7 @@ sealed class CallTrace {
             }
     }
 
-    class Failure(override val callHierarchyRoot: CVLRootInstance, val exception: CallTraceException, printer: CallTracePrettyPrinter?) : CallTrace() {
+    class Failure(override val callHierarchyRoot: CVLRootInstance, val exception: CallTraceException, printer: CallTracePrettyPrinter?, override val debugAdapterCallTrace: DebugAdapterProtocolStackMachine?) : CallTrace() {
         init {
             val instance = CallInstance.ErrorInstance.EarlyExit()
             callHierarchyRoot.addChild(instance)
@@ -120,6 +122,8 @@ sealed class CallTrace {
             get() = RuleAlertReport.Warning(
                 "CallTrace generation was disabled through the command-line (flag: ${conf.name})"
             )
+        override val debugAdapterCallTrace: DebugAdapterProtocolStackMachine?
+            get() = null
     }
 }
 

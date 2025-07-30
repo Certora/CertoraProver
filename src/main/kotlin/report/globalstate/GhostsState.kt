@@ -60,7 +60,7 @@ internal class GhostsState(
     private val seqGen: SequenceGenerator,
     private val model: CounterexampleModel,
     private val variablesState: VariablesState,
-) {
+) : DebugAdapterVariableState{
     /* contains data of non-persistent ghosts, and may change from snapshot loads */
     private val idToNonPersistent = AllKnownValues(mutableMapOf())
     /* contains data of persistent ghosts, does not change from snapshots loads */
@@ -338,6 +338,21 @@ internal class GhostsState(
                 null -> logger.warn { "for ghost $ghostId: ghost exists in storage snapshot but was not detected during initialization" }
             }
         }
+    }
+
+    override fun toInstantiateDisplayWithValue(): Map<InstantiatedDisplayPath, TACValue> {
+        return (idToPersistent + idToNonPersistent.map).entries.flatMap {(id, kvp) ->
+            kvp.entries.map {idpToState ->
+                when(id.sort){
+                    is GhostSort.Variable -> InstantiatedDisplayPath.Root(id.name)
+                    is GhostSort.Mapping,
+                    is GhostSort.Function -> idpToState.key
+                } to when (val v = idpToState.value) {
+                    is State.WithValue -> v.tv
+                    is State.DontCare -> TACValue.Uninitialized
+                }
+            }
+        }.toMap()
     }
 }
 

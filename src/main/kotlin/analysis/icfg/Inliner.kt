@@ -29,6 +29,7 @@ import analysis.pta.HeapType
 import analysis.pta.abi.*
 import analysis.worklist.StepResult
 import analysis.worklist.VisitingWorklistIteration
+import bridge.EVMExternalMethodInfo
 import com.certora.collect.*
 import config.Config
 import config.ReportTypes
@@ -41,6 +42,9 @@ import instrumentation.calls.*
 import kotlinx.serialization.UseSerializers
 import java.io.Serializable
 import log.*
+import report.calltrace.printer.DebugAdapterPopAction
+import report.calltrace.printer.DebugAdapterPushAction
+import report.calltrace.printer.StackEntry
 import scene.*
 import tac.*
 import utils.*
@@ -149,13 +153,18 @@ object Inliner {
             val convention: CallConventionType,
             @GeneratedBy(Allocator.Id.CALL_ID, source = true)
             val calleeId: Int,
-            val isNoRevert: Boolean = true
-        ) : AmbiSerializable, TransformableVarEntityWithSupport<PushRecord>, RemapperEntity<PushRecord> {
+            val evmExternalMethodInfo: EVMExternalMethodInfo?,
+            val isNoRevert: Boolean = true,
+        ) : AmbiSerializable, TransformableVarEntityWithSupport<PushRecord>, RemapperEntity<PushRecord>, DebugAdapterPushAction {
             override val support: Set<TACSymbol.Var>
                 get() = summary?.variables?: setOf()
 
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): PushRecord =
                 this.copy(summary = summary?.transformSymbols(f))
+
+            override val stackElement: StackEntry
+                get() = StackEntry.SolidityFunction(evmExternalMethodInfo?.toExternalABINameWithContract() ?: "unknown method", evmExternalMethodInfo?.sourceSegment?.range)
+
         }
 
         @GenerateRemapper
@@ -163,8 +172,8 @@ object Inliner {
         data class PopRecord(
             val callee: MethodRef,
             @GeneratedBy(Allocator.Id.CALL_ID)
-            val calleeId: Int
-        ) : AmbiSerializable, RemapperEntity<PopRecord>
+            val calleeId: Int,
+        ) : AmbiSerializable, RemapperEntity<PopRecord>, DebugAdapterPopAction
 
         fun stackPusher(p: PatchingTACProgram<in TACCmd.Simple>, r: PushRecord) : (LTACCmdGen<*>) -> Unit {
             return { l ->
@@ -1402,7 +1411,8 @@ object Inliner {
                             calleeId = callId,
                             callee = tgt.toRef(),
                             convention = CallConventionType.Constructor,
-                            summary = null
+                            summary = null,
+                            evmExternalMethodInfo = tgt.toIdentifiers().evmExternalMethodInfo
                         )))
                         it.procedures.add(Procedure(
                             callId = callId,
@@ -2177,14 +2187,22 @@ object Inliner {
                         MethodToCoreTACTransformer(ReportTypes.TRACE_PUSH_POP) { m: ITACMethod ->
                             val code = m.code as CoreTACProgram
                             code.patching { patching ->
-                                code.analysisCache.graph.sinks.forEach(CallStack.stackPopper(patching, CallStack.PopRecord(call.toRef(), calleeId)))
+                                code.analysisCache.graph.sinks.forEach(
+                                    CallStack.stackPopper(
+                                        patching, CallStack.PopRecord(
+                                            callee = call.toRef(),
+                                            calleeId = calleeId
+                                        )
+                                    )
+                                )
                                 code.analysisCache.graph.roots.forEach(
                                     CallStack.stackPusher(
                                         patching, CallStack.PushRecord(
-                                            call.toRef(),
-                                            summary,
-                                            callConvention.convention,
-                                            calleeId
+                                            callee = call.toRef(),
+                                            summary = summary,
+                                            convention = callConvention.convention,
+                                            calleeId = calleeId,
+                                            evmExternalMethodInfo = call.toIdentifiers().evmExternalMethodInfo
                                         )
                                     )
                                 )

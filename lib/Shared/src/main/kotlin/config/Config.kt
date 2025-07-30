@@ -2388,6 +2388,16 @@ object Config {
         )
     ) {}
 
+    val CallTraceDebugAdapterProtocol = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "callTraceDebugAdapterProtocol",
+            true,
+            "Dumps a JSON file that can be read by our Certora Debug Extension (VSCode extension)" +
+                "[default: true]"
+        )
+    ) {}
+
     val UnusedSummaryHardFail = object : ConfigType.HardFailCmdLine(
         HardFailMode.OFF,
         Option(

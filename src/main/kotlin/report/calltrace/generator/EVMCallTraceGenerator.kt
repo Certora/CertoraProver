@@ -20,11 +20,13 @@ package report.calltrace.generator
 import analysis.CmdPointer
 import analysis.icfg.Summarization
 import config.Config
+import datastructures.stdcollections.*
 import evm.EVM_BITWIDTH256
 import log.*
 import report.calltrace.*
 import report.calltrace.formatter.CallTraceValue
 import report.calltrace.formatter.CallTraceValueFormatter
+import report.calltrace.printer.VariableType
 import report.calltrace.sarif.FmtArg
 import report.calltrace.sarif.Sarif
 import report.calltrace.sarif.SarifBuilder
@@ -38,6 +40,7 @@ import spec.cvlast.SpecCallSummary
 import spec.cvlast.StorageBasis
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
+import spec.rules.IRule
 import tac.NBId
 import utils.*
 import vc.data.CoreTACProgram
@@ -52,13 +55,13 @@ private val logger = Logger(LoggerTypes.CALLTRACE)
  * It specifically handles EVM and CVL-related commands, delegating the ones it cannot process to its superclass.
  */
 internal class EVMCallTraceGenerator(
-    ruleName: String,
+    rule: IRule,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
     ruleCallString: String,
-) : CallTraceGenerator(ruleName, model, program, formatter, scene, ruleCallString) {
+) : CallTraceGenerator(rule, model, program, formatter, scene, ruleCallString) {
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {
             is TACCmd.Simple.AnnotationCmd -> {
@@ -114,7 +117,10 @@ internal class EVMCallTraceGenerator(
                                          */
                                         HandleCmdResult.Continue
                                     }
-
+                                    is SnippetCmd.CVLSnippetCmd.Start, is SnippetCmd.CVLSnippetCmd.End -> {
+                                        //These snippets are handled by DebugAdapterProtocol
+                                        HandleCmdResult.Continue
+                                    }
                                 }
                             }
 
@@ -125,6 +131,27 @@ internal class EVMCallTraceGenerator(
                 }
             }
             else -> super.handleCmd(cmd, cmdIdx, currBlock, blockIdx)
+        }.also {
+            /**
+             * If we also generate the call trace for the debug adapter, we pass on all
+             * (global) variable information at each step to further consume it by
+             * [report.calltrace.printer.DebugAdapterProtocolStackMachine]
+             */
+            debugAdapter?.let { da ->
+                globalState?.let { gs ->
+                    gs.balancesState.toInstantiateDisplayWithValue().forEachEntry {
+                        da.updateVariables(it.key, it.value, VariableType.BALANCES_CALLTRACE)
+                    }
+
+                    gs.ghostsState.toInstantiateDisplayWithValue().forEachEntry {
+                        da.updateVariables(it.key, it.value, VariableType.GHOST_STATE_CALLTRACE)
+                    }
+
+                    gs.storageState.toInstantiateDisplayWithValue().forEachEntry {
+                        da.updateVariables(it.key, it.value, VariableType.STORAGE_STATE_CALLTRACE)
+                    }
+                }
+            }
         }
     }
 

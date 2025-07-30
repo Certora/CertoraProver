@@ -1120,9 +1120,11 @@ object FunctionFlowAnnotator {
         for(toInst in toInstrument) {
             toPrefix.computeIfAbsent(toInst.entryAnnot.first) {
                 mutableListOf()
-            }.add(TACCmd.Simple.AnnotationCmd(
-                INTERNAL_FUNC_START, toInst.entryAnnot.second
-            ))
+            }.addAll(listOfNotNull(
+                toInst.entryAnnot.second.callSiteSrc?.getSourceDetails()?.range?.let { SnippetCmd.ExplicitDebugStep(it).toAnnotation() },
+                TACCmd.Simple.AnnotationCmd(
+                    INTERNAL_FUNC_START, toInst.entryAnnot.second
+                )))
             for((where, exit) in toInst.exit) {
                 toPrefix.computeIfAbsent(where) {
                     mutableListOf()

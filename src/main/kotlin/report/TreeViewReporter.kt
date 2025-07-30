@@ -338,6 +338,7 @@ class TreeViewReporter(
         val highestNotificationLevel: RuleAlertReport? = null,
         val location: TreeViewLocation? = null,
         val displayName: String,
+        val debugAdapterCallTraceFileName: String? = null,
         val childrenNumbers: ChildrenNumbers? = null,
         /**
          *  The uuid is a unique Id for the node as Integer type. It's used in the rule report for tracking points
@@ -374,6 +375,7 @@ class TreeViewReporter(
         val nodeType: String,
         val splitProgress: Int?,
         val status: String,
+        val debugAdapterCallTraceFileName: String?,
         val duration: Long,
         val isRunning: Boolean,
         val childrenTotalNum: Int?,
@@ -404,6 +406,9 @@ class TreeViewReporter(
 
             put(TreeViewReportAttribute.CHILDREN_TOTAL_NUM(), childrenTotalNum)
             put(TreeViewReportAttribute.CHILDREN_FINISHED_NUM(), childrenFinishedNum)
+            if(debugAdapterCallTraceFileName != null) {
+                put(TreeViewReportAttribute.DAP_CALLTRACE_FILE_NAME(), debugAdapterCallTraceFileName)
+            }
         }
     }
 
@@ -651,6 +656,7 @@ class TreeViewReporter(
                 isRunning = isRunning,
                 childrenTotalNum = currTreeViewResult.childrenNumbers?.total,
                 childrenFinishedNum = currTreeViewResult.childrenNumbers?.finished,
+                debugAdapterCallTraceFileName = currTreeViewResult.debugAdapterCallTraceFileName
             )
         }
 
@@ -1028,6 +1034,8 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                                         .writeToFile()
                                         ?: return@mapNotNull null
 
+                                    val debugAdapterCallTrace = example.callTrace?.debugAdapterCallTrace?.writeToFile()
+
                                     tree.addChildNode(assertMeta.identifier, node, nodeType = NodeType.VIOLATED_ASSERT, rule = null)
                                     tree.updateStatus(assertMeta.identifier) {
                                         it.copy(
@@ -1036,7 +1044,8 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                                             status = computeFinalStatus(results.result, results.rule),
                                             outputFiles = listOf(outputFileName),
                                             location = assertMeta.range as? TreeViewLocation,
-                                            verifyTime = results.verifyTime
+                                            verifyTime = results.verifyTime,
+                                            debugAdapterCallTraceFileName = debugAdapterCallTrace
                                         )
                                     }
 

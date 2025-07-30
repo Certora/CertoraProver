@@ -21,6 +21,7 @@ import report.calltrace.*
 import report.calltrace.formatter.CallTraceValueFormatter
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
+import spec.rules.IRule
 import tac.NBId
 import utils.*
 import vc.data.*
@@ -31,13 +32,13 @@ import wasm.impCfg.*
  * It specifically handles Wasm-related commands, delegating the ones it cannot process to its superclass.
  */
 internal class WasmCallTraceGenerator(
-    ruleName: String,
+    rule: IRule,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
     ruleCallString: String,
-) : CvlrCallTraceGenerator(ruleName, model, program, formatter, scene, ruleCallString) {
+) : CvlrCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString) {
 
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {

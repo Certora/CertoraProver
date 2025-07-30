@@ -20,12 +20,13 @@ package analysis.icfg
 import analysis.CmdPointer
 import analysis.LTACCmd
 import analysis.TACCommandGraph
+import bridge.EVMExternalMethodInfo
 import datastructures.topOrNull
 import tac.CallId
 import vc.data.*
 
 
-data class StackPushRecord(val ref: CallableRef, val ptr: CmdPointer, val callType: TACCallType?, val isNoRevert: Boolean, val callId: CallId)
+data class StackPushRecord(val ref: CallableRef, val ptr: CmdPointer, val callType: TACCallType?, val isNoRevert: Boolean, val callId: CallId, val evmExternalMethodInfo: EVMExternalMethodInfo?)
 
 class InlinedMethodCallStack(graph: TACCommandGraph, includeCVLFunctions: Boolean = false):
     AnalysisStack<StackPushRecord>(graph, { cmd, _ -> handleCmd(cmd, includeCVLFunctions)} ) {
@@ -35,7 +36,7 @@ class InlinedMethodCallStack(graph: TACCommandGraph, includeCVLFunctions: Boolea
                 when (cmd.cmd.annot.k) {
                     Inliner.CallStack.STACK_PUSH -> {
                         val annot = cmd.cmd.annot.v as Inliner.CallStack.PushRecord
-                        return PushAction(StackPushRecord(annot.callee, cmd.ptr, annot.summary?.callType, annot.isNoRevert, annot.calleeId))
+                        return PushAction(StackPushRecord(annot.callee, cmd.ptr, annot.summary?.callType, annot.isNoRevert, annot.calleeId, annot.evmExternalMethodInfo))
                     }
                     Inliner.CallStack.STACK_POP -> {
                         return PopAction()
@@ -43,7 +44,7 @@ class InlinedMethodCallStack(graph: TACCommandGraph, includeCVLFunctions: Boolea
                     TACMeta.SNIPPET -> {
                         if (includeCVLFunctions && cmd.cmd.annot.v is SnippetCmd.CVLSnippetCmd.CVLFunctionStart) {
                             val annot = cmd.cmd.annot.v
-                            return PushAction(StackPushRecord(CVLFunctionRef(annot.name), cmd.ptr, TACCallType.REGULAR_CALL, annot.isNoRevert, annot.callIndex))
+                            return PushAction(StackPushRecord(CVLFunctionRef(annot.name), cmd.ptr, TACCallType.REGULAR_CALL, annot.isNoRevert, annot.callIndex, null))
                         } else if (includeCVLFunctions && cmd.cmd.annot.v is SnippetCmd.CVLSnippetCmd.CVLFunctionEnd) {
                             return PopAction()
                         }

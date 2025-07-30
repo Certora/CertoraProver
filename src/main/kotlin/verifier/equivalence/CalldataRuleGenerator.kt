@@ -61,7 +61,6 @@ class CalldataRuleGenerator(queryContext: EquivalenceQueryContext) : AbstractRul
             )
         }).merge(theCalldata, theCalldataSize)
     }
-
     override fun <T : MethodMarker> annotateInOut(
         inlined: CoreTACProgram,
         callingConv: TACMethod,
@@ -84,7 +83,8 @@ class CalldataRuleGenerator(queryContext: EquivalenceQueryContext) : AbstractRul
                         calleeId = callId,
                         summary = null,
                         isNoRevert = false,
-                        convention = Inliner.CallConventionType.Serialization
+                        convention = Inliner.CallConventionType.Serialization,
+                        evmExternalMethodInfo = callingConv.toIdentifiers().evmExternalMethodInfo
                     )
                 )
             )

@@ -1181,7 +1181,7 @@ data class CVLFunction(
 
     override val functionIdentifier = SpecDeclaration(declarationId)
     override val paramTypes: List<CVLType.PureCVLType> = params.map { arg -> arg.type }
-    override fun toString(): String = "function ${super.toString()}"
+    override fun toString(): String = "function $declarationId"
     override val typeDescription: String = "CVL function"
 }
 

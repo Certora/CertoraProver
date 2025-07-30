@@ -53,6 +53,7 @@ import normalizer.CanonicalTranslationTable
 import normalizer.forEachAxiom
 import parallel.ParallelPool
 import report.calltrace.CVLReportLabel
+import report.calltrace.printer.StackEntry
 import report.dumps.DumpGraphHTML
 import report.dumps.DumpGraphHTML.generateHTML
 import report.dumps.generateCodeMap
@@ -942,6 +943,12 @@ data class CVLTACProgram(
         val labelId = Allocator.getFreshId(Allocator.Id.CVL_EVENT)
         val start = TACCmd.Simple.AnnotationCmd(CVL_LABEL_START, label).plusMeta(CVL_LABEL_START_ID, labelId)
         val end = TACCmd.Simple.AnnotationCmd(CVL_LABEL_END, labelId)
+        return this.wrapWith(start, end)
+    }
+
+    fun wrapWithStackEntry(stackEntry: StackEntry): CVLTACProgram {
+        val start = CommandWithRequiredDecls(SnippetCmd.CVLSnippetCmd.Start(stackEntry).toAnnotation())
+        val end = CommandWithRequiredDecls(SnippetCmd.CVLSnippetCmd.End.toAnnotation())
         return this.wrapWith(start, end)
     }
 

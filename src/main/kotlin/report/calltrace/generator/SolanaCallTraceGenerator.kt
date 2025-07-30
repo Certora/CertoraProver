@@ -26,6 +26,7 @@ import sbf.tac.*
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
 import spec.cvlast.CVLType
+import spec.rules.IRule
 import tac.NBId
 import vc.data.CoreTACProgram
 import vc.data.SnippetCmd
@@ -37,13 +38,13 @@ import vc.data.TACMeta
  * It specifically handles Solana-related commands, delegating the ones it cannot process to its superclass.
  */
 internal class SolanaCallTraceGenerator(
-    ruleName: String,
+    rule: IRule,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
     ruleCallString: String,
-) : CvlrCallTraceGenerator(ruleName, model, program, formatter, scene, ruleCallString) {
+) : CvlrCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString) {
 
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {

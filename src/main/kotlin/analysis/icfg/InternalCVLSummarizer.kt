@@ -497,21 +497,25 @@ class InternalCVLSummarizer private constructor(
             val body = result.result
             when(result) {
                 is Materialized -> {
-                    body.prependToBlock0(listOf(
+                    val appliedSummary = Summarization.AppliedSummary.MethodsBlock(specCallSumm, summSignature)
+                    body.prependToBlock0(listOfNotNull(
+                        callSite.callSiteSrc?.getSourceDetails()?.range?.let {
+                            // Adding the call site explicitly as the debug step.
+                            SnippetCmd.ExplicitDebugStep(it).toAnnotation() },
                         TACCmd.Simple.AnnotationCmd(
                             SummaryStack.START_INTERNAL_SUMMARY,
                             SummaryStack.SummaryStart.Internal(
                                 callSiteSrc = callSite.callSiteSrc,
                                 methodSignature = callSite.methodSignature,
                                 callResolutionTableInfo = result.summarizationInfo,
-                                appliedSummary = Summarization.AppliedSummary.MethodsBlock(specCallSumm, summSignature)
+                                appliedSummary = appliedSummary
                             )
                         )
                     )).appendToSinks(
                         listOf(
                             TACCmd.Simple.AnnotationCmd(
                                 SummaryStack.END_INTERNAL_SUMMARY,
-                                SummaryStack.SummaryEnd.Internal(retAnnot.rets, callSite.methodSignature)
+                                SummaryStack.SummaryEnd.Internal(appliedSummary, retAnnot.rets, callSite.methodSignature)
                             )
                         ).withDecls()
                     )

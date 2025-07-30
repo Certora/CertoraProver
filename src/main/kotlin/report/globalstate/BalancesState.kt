@@ -18,6 +18,7 @@
 package report.globalstate
 
 import analysis.CmdPointer
+import analysis.storage.InstantiatedDisplayPath
 import datastructures.stdcollections.*
 import report.calltrace.CallInstance
 import report.calltrace.CallTrace
@@ -42,7 +43,7 @@ internal class BalancesState(
     private val seqGen: SequenceGenerator,
     private val model: CounterexampleModel,
     private val formatter: CallTraceValueFormatter
-) {
+) : DebugAdapterVariableState{
     private var printCounter = 0 // counter for UI purpose
 
     private val balances: Balances = mutableMapOf()
@@ -187,4 +188,10 @@ internal class BalancesState(
             currCallInstance.addChild(balancesCallInstance)
         }
     }
+    override fun toInstantiateDisplayWithValue(): Map<InstantiatedDisplayPath, TACValue> {
+        return balances.mapKeys {
+            InstantiatedDisplayPath.Root(it.key.toSarif(formatter, "").prettyPrint())
+        }
+    }
+
 }
