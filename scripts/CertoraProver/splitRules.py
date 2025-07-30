@@ -85,7 +85,7 @@ class SplitRulesHandler():
                 args += ['-rule', jar_list_value(self.context.split_rules)]
 
             try:
-                Ctx.run_local_spec_check(False, self.context, args)
+                Ctx.run_local_spec_check(False, self.context, args, print_errors=False)
                 lines = tmp_file.read().split("\n")
                 return set(lines)
 

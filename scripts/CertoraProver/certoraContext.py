@@ -531,7 +531,7 @@ def should_run_local_speck_check(context: CertoraContext) -> bool:
     return not (context.disable_local_typechecking or Util.is_ci_or_git_action())
 
 
-def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[str]) -> None:
+def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[str], print_errors: bool) -> None:
     """
     Runs a spec typechecker or syntax checker
 
@@ -539,6 +539,7 @@ def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[s
     @param with_typechecking: True if we want full typechecking including build (Solidity outputs) file,
                                 False if we run only the leaner syntax checking.
     @param args: A list of strings of additional arguments to the typechecker jar.
+    @param print_errors: Toggles printing the typechecker's errors to stderr.
     """
     # Find path to typechecker jar
     path_to_typechecker = Util.find_jar(typechecker_name)
@@ -557,7 +558,8 @@ def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[s
                                  custom_error_message="Failed to run Certora Prover locally. Please check the errors "
                                                       "below for problems in the specifications (.spec files) or the "
                                                       "prover_args defined in the .conf file.",
-                                 logger_topic="type_check")
+                                 logger_topic="type_check",
+                                 print_err=print_errors)
     if exit_code != 0:
         raise Util.CertoraUserInputError(
             "CVL syntax or type check failed.\n Please fix the issue. "
@@ -567,7 +569,7 @@ def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[s
             "simple syntax failures will be visible only on the cloud run.")
 
 
-def run_local_spec_check(with_typechecking: bool, context: CertoraContext, extra_args: List[str] = list()) -> None:
+def run_local_spec_check(with_typechecking: bool, context: CertoraContext, extra_args: List[str] = list(), print_errors: bool = True) -> None:
     """
     Runs the local type checker
 
@@ -577,11 +579,13 @@ def run_local_spec_check(with_typechecking: bool, context: CertoraContext, extra
     @param context: The `CertoraContext`.
 
     @param extra_args: a list of additional arguments that should be sent to the typechecker.
+
+    @param print_errors: Toggles printing the typechecker's errors to stderr. Default: True
     """
 
     args = collect_jar_args(context)
     if Util.is_java_installed(context.java_version):
-        run_typechecker("Typechecker.jar", with_typechecking, args + extra_args)
+        run_typechecker("Typechecker.jar", with_typechecking, args + extra_args, print_errors)
     else:
         raise Util.CertoraUserInputError("Cannot run local checks because of missing a suitable java installation. "
                                          "To skip local checks run with the --disable_local_typechecking flag")

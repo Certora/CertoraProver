@@ -2673,7 +2673,7 @@ class CertoraBuildGenerator:
         if context.verify and not context.disallow_internal_function_calls:
             with tempfile.NamedTemporaryFile("r", dir=Util.get_build_dir()) as tmp_file:
                 try:
-                    Ctx.run_local_spec_check(False, self.context, ["-listCalls",  tmp_file.name])
+                    Ctx.run_local_spec_check(False, context, ["-listCalls",  tmp_file.name], print_errors=False)
                     specCalls = tmp_file.read().split("\n")
                 except Exception as e:
                     instrumentation_logger.warning(f"Failed to get calls from spec\n{e}")
