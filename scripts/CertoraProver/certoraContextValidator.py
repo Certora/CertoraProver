@@ -473,7 +473,7 @@ def check_contract_name_arg_inputs(context: CertoraContext) -> None:
         context.spec_file = spec
 
     contract_to_address = dict()
-    if context.address:
+    if getattr(context, 'address', None):
         for address_str in context.address:
             contract = address_str.split(':')[0]
             if contract not in contract_names:
@@ -489,7 +489,7 @@ def check_contract_name_arg_inputs(context: CertoraContext) -> None:
                 all_warnings.add(f'address {number} for contract {contract} defined twice')
     context.address = contract_to_address
 
-    if context.struct_link:
+    if getattr(context, 'struct_link', None):
         contract_slot_to_contract = dict()
         for link in context.struct_link:
             location = link.split('=')[0]

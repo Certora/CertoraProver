@@ -54,6 +54,7 @@ from Mutate import mutateAttributes as MutAttrs
 import CertoraProver.certoraContextAttributes as Attrs
 from CertoraProver.certoraContextClass import CertoraContext
 from rustMutator import run_universal_mutator
+from CertoraProver import certoraContextValidator as Cv
 
 class RunTimedout(Exception):
     pass
@@ -1186,6 +1187,7 @@ class MutateApp:
         if solc:
             compiler = solc
         elif compiler_map:
+            Cv.check_contract_name_arg_inputs(self.prover_context)
             compiler = get_relevant_compiler(path_to_file, self.prover_context)
             if not compiler:
                 raise Util.CertoraUserInputError(f"Cannot resolve Solidity compiler for {path_to_file}: "
@@ -1921,7 +1923,9 @@ class MutateApp:
         if not self.manual_mutants:
             return
 
-        solc = self.get_solc_version(trg_dir)
+        solc = self.get_solc_version(Path(mutant.original_filename))
+        if not solc:
+            raise Util.CertoraUserInputError(f"Unable to find a compiler for manual mutant {mutant.original_filename}")
 
         via_ir_flag = []
         if getattr(self.prover_context, MConstants.SOLC_VIA_IR, '') or \
