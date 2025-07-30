@@ -45,7 +45,7 @@ private val logger = Logger(LoggerTypes.WASM)
  * - if `permission(a)` is ReadOnly, then [ctp] *must not* write the address `a`
  */
 class MemoryPartitionAnalysis private constructor(graph: TACCommandGraph): IMemoryPartitions {
-    companion object : AnalysisCache.Key<MemoryPartitionAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, MemoryPartitionAnalysis> {
         override fun createCached(graph: TACCommandGraph) = MemoryPartitionAnalysis(graph)
     }
     private val intervalAnalysis = graph.cache[IntervalAnalysis]

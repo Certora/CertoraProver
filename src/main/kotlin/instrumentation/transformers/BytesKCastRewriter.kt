@@ -342,18 +342,18 @@ object BytesKCastRewriter {
                          */
                         return graph.pathConditionsOf(workBlock).entries.monadicMap { (happyPath, cond) ->
                             val sequel = scriptBuilder.fork()
-                            if(cond !is TACCommandGraph.PathCondition.ConditionalOn) {
+                            if(cond !is PathCondition.ConditionalOn) {
                                 return@monadicMap debugFail {
                                     "Unrecognized condition to happy path $happyPath: $cond"
                                 }
                             }
                             when(cond) {
-                                is TACCommandGraph.PathCondition.EqZero -> {
+                                is PathCondition.EqZero -> {
                                     sequel.assert {
                                         eq(const(0), toIdent(cond.v.namePrefix))
                                     }
                                 }
-                                is TACCommandGraph.PathCondition.NonZero -> {
+                                is PathCondition.NonZero -> {
                                     sequel.assert {
                                         lnot(eq(const(0), toIdent(cond.v.namePrefix)))
                                     }

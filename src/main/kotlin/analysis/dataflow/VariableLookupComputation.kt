@@ -24,7 +24,7 @@ import vc.data.TACSymbol
 import java.util.stream.Collectors
 import java.util.stream.Stream
 
-object VariableLookupComputation : AnalysisCache.Key<Map<NBId, Set<TACSymbol.Var>>> {
+object VariableLookupComputation : AnalysisCache.Key<TACCommandGraph, Map<NBId, Set<TACSymbol.Var>>> {
     override fun createCached(graph: TACCommandGraph) = compute(
         graph.blocks.stream().flatMap {
             it.commands.stream()

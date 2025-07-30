@@ -36,7 +36,7 @@ package verifier.equivalence.summarization
 
 import analysis.CmdPointer
 import analysis.LTACCmd
-import analysis.TACCommandGraph
+import analysis.PathCondition
 import com.certora.collect.*
 import datastructures.LinkedArrayHashMap
 import datastructures.stdcollections.*
@@ -259,17 +259,17 @@ class SimpleCanonicalization private constructor(
             }
             if(nxtPc.size == 1) {
                 val nxt = nxtPc.findEntry { _, pc ->
-                    pc is TACCommandGraph.PathCondition.TRUE
+                    pc is PathCondition.TRUE
                 }!!.first
                 worklist.add(nxt to false)
                 blockGraph[itStart.block.forwardMap()] = setOf(nxt.block.forwardMap())
                 return@consume
             }
             val trueTarget = nxtPc.findEntry { _, pc ->
-                pc is TACCommandGraph.PathCondition.NonZero
+                pc is PathCondition.NonZero
             }!!.first
             val falseTarget = nxtPc.findEntry { _, pc ->
-                pc is TACCommandGraph.PathCondition.EqZero
+                pc is PathCondition.EqZero
             }!!.first
             worklist.add(trueTarget to false)
             worklist.add(falseTarget to false)
@@ -318,8 +318,8 @@ class SimpleCanonicalization private constructor(
         val outPc = graph.pathConditionsOf(start.block)
         val succ = graph.succ(start.block).singleOrNull {
             outPc[it]?.let { pc ->
-                pc == TACCommandGraph.PathCondition.TRUE ||
-                    (pc is TACCommandGraph.PathCondition.Summary && pc.s is ConditionalBlockSummary &&
+                pc == PathCondition.TRUE ||
+                    (pc is PathCondition.Summary && pc.s is ConditionalBlockSummary &&
                         pc.s.originalBlockStart == it)
             } == true && graph.pred(it) == setOf(start.block)
         } ?: return graph.elab(start.block).commands.last().ptr

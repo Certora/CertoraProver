@@ -36,17 +36,17 @@ class SimpleQualifiedIntPathSemantics<T: Any>(
 ): BoundedQIntPropagationSemantics<SimpleQualifiedInt, SimpleIntQualifier, ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>, Any>(propagator) {
 
     override fun assignVar(
-            toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
-            lhs: TACSymbol.Var, toWrite: SimpleQualifiedInt, where: LTACCmd
+        toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
+        lhs: TACSymbol.Var, toWrite: SimpleQualifiedInt, where: LTACCmd
     ): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
         return manager.assign(toStep, lhs, toWrite, where)
     }
 
     override fun propagateSummary(
-            summary: TACSummary,
-            s: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
-            w: Any,
-            l: LTACCmd
+        summary: TACSummary,
+        s: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
+        w: Any,
+        l: LTACCmd
     ): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
         return s
     }
@@ -72,9 +72,9 @@ class SimpleQualifiedIntExpressionInterpreter<T: Any>(val g: TACCommandGraph, va
                         return SimpleQualifiedInt(IntValue.Constant(BigInteger.ZERO), setOf())
                     }
                     return SimpleQualifiedInt(
-                        IntValue(v1.x.lb/k, v1.x.ub/k),
+                        IntValue(v1.x.lb / k, v1.x.ub / k),
                         v1.qual.mapNotNullToSet {
-                            when(it) {
+                            when (it) {
                                 is SimpleIntQualifier.MultipleOf -> {
                                     val (q, rem) = it.factor.divideAndRemainder(k)
                                     if (rem == BigInteger.ZERO) {
@@ -83,6 +83,7 @@ class SimpleQualifiedIntExpressionInterpreter<T: Any>(val g: TACCommandGraph, va
                                         null
                                     }
                                 }
+
                                 else -> null
                             }
                         }
@@ -120,7 +121,7 @@ class SimpleQualifiedIntExpressionInterpreter<T: Any>(val g: TACCommandGraph, va
 
 
     override fun liftConstant(value: BigInteger): SimpleQualifiedInt {
-        return SimpleQualifiedInt(IntValue.Interval(value,value), setOf())
+        return SimpleQualifiedInt(IntValue.Interval(value, value), setOf())
     }
 
     fun interp(s: TACSymbol, state: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>, where: CmdPointer): SimpleQualifiedInt {
@@ -148,11 +149,11 @@ class SimpleQualifiedIntExpressionInterpreter<T: Any>(val g: TACCommandGraph, va
     }
 
     override fun interp(
-            o1: TACSymbol,
-            toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
-            input: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
-            whole: Any,
-            l: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>
+        o1: TACSymbol,
+        toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
+        input: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
+        whole: Any,
+        l: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>
     ): SimpleQualifiedInt {
         return interp(o1, toStep, l.ptr)
     }

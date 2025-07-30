@@ -17,9 +17,11 @@
 
 package analysis.worklist
 
+import algorithms.SimpleDominanceAnalysis
 import algorithms.mapTransitiveClosure
-import analysis.TACCommandGraph
-import analysis.getNaturalLoops
+import analysis.GenericTACCommandGraph
+import analysis.HasDominanceAnalysis
+import analysis.getNaturalLoopsGeneric
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import tac.NBId
@@ -38,10 +40,16 @@ import vc.data.AnalysisCache
 // the loop.  Any dependency from outside of a loop, into the body of the loop, gets replaced with a dependency on the
 // loop header.  Finally, we precompute the transitive closures of the nodes in the dependency graph.
 //
-class NaturalBlockScheduler private constructor(graph: TACCommandGraph) : IWorklistScheduler<NBId> {
-    companion object : AnalysisCache.Key<NaturalBlockScheduler> {
-        override fun createCached(graph: TACCommandGraph) = NaturalBlockScheduler(graph)
+class NaturalBlockScheduler private constructor(graph: GenericTACCommandGraph<*,*,*>, dom: SimpleDominanceAnalysis<NBId>) : IWorklistScheduler<NBId> {
+    companion object {
+        fun <G> makeKey()
+            where
+            G : HasDominanceAnalysis,
+            G : GenericTACCommandGraph<*, *, *> = object : AnalysisCache.Key<G, NaturalBlockScheduler> {
+            override fun createCached(graph: G): NaturalBlockScheduler = NaturalBlockScheduler(graph, graph.domination)
+        }
     }
+
 
     private data class DependencyNode(val block: NBId, val isLoopHeaderDependency: Boolean) : Comparable<DependencyNode> {
         override fun compareTo(other: DependencyNode): Int {
@@ -57,7 +65,7 @@ class NaturalBlockScheduler private constructor(graph: TACCommandGraph) : IWorkl
 
     private val dependencies: Map<NBId, TreapSet<NBId>>
     init {
-        val l = getNaturalLoops(graph)
+        val l = getNaturalLoopsGeneric(graph, dom)
 
         // L relation (pg 185)
         val loopToBody = l.flatMap {loop ->

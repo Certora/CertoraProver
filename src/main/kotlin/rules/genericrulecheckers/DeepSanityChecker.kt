@@ -111,7 +111,7 @@ object DeepSanityChecker : InstrumentingBuiltinRuleChecker<DeepSanityGenerator>(
                 override val ptr: CmdPointer,
                 override val graph: TACCommandGraph,
                 val parent: NBId,
-                val pathCond: TACCommandGraph.PathCondition,
+                val pathCond: PathCondition,
                 val dominatingSize: Int
             ) : ShouldBeReachablePoint() {
                 override fun computeAssertMsgCore(): String =

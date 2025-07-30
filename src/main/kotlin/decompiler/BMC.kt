@@ -1184,7 +1184,7 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
             }
 
         // Get the TACSymbol.Var that is checked in the condition
-        val underlyingVar = (cond as? TACCommandGraph.PathCondition.ConditionalOn)?.v ?: return null
+        val underlyingVar = (cond as? PathCondition.ConditionalOn)?.v ?: return null
 
         // Get the CmdPointer that points to the initial definition site of our variable
         val defPtrOfCond = def.defSitesOf(underlyingVar, condBlock.commands.last().ptr)

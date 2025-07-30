@@ -163,7 +163,7 @@ object SymbolType : BufferType() {
 
         override fun gen(
             simplifiedInputs: List<TACExpr>,
-            analysisCache: AnalysisCache
+            analysisCache: TACCommandGraphAnalysisCache
         ): CommandWithRequiredDecls<TACCmd.Simple> = simplifiedInputs.let { (sym, slices, len) ->
             val staticData = analysisCache[StaticMemoryAnalysis]
             val havoc by lazy {
@@ -242,7 +242,7 @@ object SymbolType : BufferType() {
 
         override fun gen(
             simplifiedInputs: List<TACExpr>,
-            analysisCache: AnalysisCache
+            analysisCache: TACCommandGraphAnalysisCache
         ): CommandWithRequiredDecls<TACCmd.Simple> = simplifiedInputs.let { (ptr, len) ->
             val staticData = analysisCache[StaticMemoryAnalysis]
 

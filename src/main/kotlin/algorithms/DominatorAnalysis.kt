@@ -31,9 +31,10 @@ import vc.data.AnalysisCache
 //     http://www.hipersoft.rice.edu/grads/publications/dom14.pdf
 //
 class SimpleDominanceAnalysis<@Treapable T : Any>(g: Map<T, Set<T>>) {
-    companion object : AnalysisCache.Key<SimpleDominanceAnalysis<NBId>> {
-        override fun createCached(graph: TACCommandGraph) = SimpleDominanceAnalysis(graph.toBlockGraph())
+     companion object : AnalysisCache.Key<GenericTACCommandGraph<*,*,*>, SimpleDominanceAnalysis<NBId>> {
+         override fun createCached(graph: GenericTACCommandGraph<*,*,*>) = SimpleDominanceAnalysis(graph.toBlockGraph())
     }
+
 
     private val nodeCount: Int
     private val nodes: Array<T>

@@ -188,7 +188,7 @@ open class LooseDefAnalysis protected constructor(
     graph,
     initialUndefinedVars = treapSetOf()
 ), IDefAnalysis {
-    companion object : AnalysisCache.Key<LooseDefAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, LooseDefAnalysis> {
         override fun createCached(graph: TACCommandGraph) = LooseDefAnalysis(graph)
     }
 
@@ -250,7 +250,7 @@ open class StrictDefAnalysis protected constructor(
         it.commands.flatMapToSet { it.cmd.freeVars() }.stream()
     }.collect(Collectors.toCollection { treapSetBuilderOf() }).build()
 ) {
-    companion object : AnalysisCache.Key<StrictDefAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, StrictDefAnalysis> {
         override fun createCached(graph: TACCommandGraph) = StrictDefAnalysis(graph)
     }
 

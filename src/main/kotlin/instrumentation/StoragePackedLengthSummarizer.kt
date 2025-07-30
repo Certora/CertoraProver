@@ -529,14 +529,14 @@ object StoragePackedLengthSummarizer {
               If our jump is not a eqzero or nonzero, or we don't have a summary of how the condition variable is defined,
               give up
              */
-            if(nonRevertCond !is TACCommandGraph.PathCondition.ConditionalOn || TACSummaryVar(nonRevertCond.v) !in summarization.transFormula.outVars) {
+            if(nonRevertCond !is PathCondition.ConditionalOn || TACSummaryVar(nonRevertCond.v) !in summarization.transFormula.outVars) {
                 return null
             }
             /*
               Assume the non-revert path condition
              */
             val condVar = summarization.transFormula.outVars[TACSummaryVar(nonRevertCond.v)]!!
-            if(nonRevertCond is TACCommandGraph.PathCondition.EqZero) {
+            if(nonRevertCond is PathCondition.EqZero) {
                 revertCondCheck.assert {
                     eq(
                         toIdent(condVar.s.smtRep),
@@ -544,7 +544,7 @@ object StoragePackedLengthSummarizer {
                     )
                 }
             } else {
-                check(nonRevertCond is TACCommandGraph.PathCondition.NonZero)
+                check(nonRevertCond is PathCondition.NonZero)
                 revertCondCheck.assert {
                     lnot(eq(
                         toIdent(condVar.s.smtRep),

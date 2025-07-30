@@ -1131,7 +1131,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                     markTop.add(it)
                 }
 
-                val unreachable = mutableMapOf<CmdPointer, TACCommandGraph.PathCondition>()
+                val unreachable = mutableMapOf<CmdPointer, PathCondition>()
 
                 val completeResults = mutableListOf<AnalysisIR.InitClose>()
 
@@ -1262,7 +1262,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                                 }
                             }
                             val result = specialClose ?: AnalysisIR.InitClose(
-                                    v = succ, pred = it, pathInducedClose = path != TACCommandGraph.PathCondition.TRUE, zeroWritePoint = null
+                                    v = succ, pred = it, pathInducedClose = path != PathCondition.TRUE, zeroWritePoint = null
                             )
                             completeResults.add(result)
                             null
@@ -1284,10 +1284,10 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                 if(unreachable.isNotEmpty() && unreachable.size == 1 && state.constSize != null) {
                     val (where, cond) = unreachable.entries.first()
                     val condVar = when(cond) {
-                        is TACCommandGraph.PathCondition.NonZero -> {
+                        is PathCondition.NonZero -> {
                             cond.v
                         }
-                        is TACCommandGraph.PathCondition.EqZero -> {
+                        is PathCondition.EqZero -> {
                             cond.v
                         }
                         else -> null

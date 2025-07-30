@@ -29,11 +29,9 @@ import com.certora.collect.*
 import datastructures.stdcollections.*
 import net.jqwik.api.*
 import net.jqwik.kotlin.api.*
-import org.junit.jupiter.api.Assertions
 import utils.foldFirst
 import java.math.BigInteger
 import org.junit.jupiter.api.Assertions.*
-import vc.data.TACSymbol
 import vc.data.asTACSymbol
 
 @Tag(EXPENSIVE)

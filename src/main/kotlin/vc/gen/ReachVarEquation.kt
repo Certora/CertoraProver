@@ -17,6 +17,7 @@
 
 package vc.gen
 
+import analysis.PathCondition
 import analysis.TACCommandGraph
 import datastructures.stdcollections.*
 import smt.solverscript.LExpressionFactory
@@ -83,7 +84,7 @@ data class ReachVarEquation(
         operator fun invoke(
             predsOfBlock: Set<NBId>,
             txf: TACExprFactTypeChecked,
-            pathConditions: Map<NBId, Map<NBId, TACCommandGraph.PathCondition>>,
+            pathConditions: Map<NBId, Map<NBId, PathCondition>>,
             blockId: NBId,
             toLExpAction: (ToLExpression, LExpression) -> Unit
         ): ReachVarEquation {
@@ -95,7 +96,7 @@ data class ReachVarEquation(
                 val pathCondFromPred =
                     pathConditions[pred]?.let { pathConditionsFromPred ->
                         if (pathConditionsFromPred.size == 1 &&
-                            pathConditionsFromPred.values.first() == TACCommandGraph.PathCondition.TRUE &&
+                            pathConditionsFromPred.values.first() == PathCondition.TRUE &&
                             blockId !in pathConditionsFromPred
                         ) {
                             throw UnsupportedOperationException("Invalid predecessor $pred of $blockId, pred cannot reach the block")
@@ -108,16 +109,16 @@ data class ReachVarEquation(
                     )
                 val predReachIdent = LeinoWP.genReachabilityVar(pred).asSym()
                 when (pathCondFromPred) {
-                    TACCommandGraph.PathCondition.TRUE -> {
+                    PathCondition.TRUE -> {
                         predReachIdent
                     }
 
-                    is TACCommandGraph.PathCondition.EqZero,
-                    is TACCommandGraph.PathCondition.NonZero -> {
+                    is PathCondition.EqZero,
+                    is PathCondition.NonZero -> {
                         txf.and(predReachIdent, pathCondFromPred.getAsExpression())
                     }
 
-                    is TACCommandGraph.PathCondition.Summary -> throw UnsupportedOperationException(
+                    is PathCondition.Summary -> throw UnsupportedOperationException(
                         "Cannot handle summary ${pathCondFromPred.s} in SMT"
                     )
                 }

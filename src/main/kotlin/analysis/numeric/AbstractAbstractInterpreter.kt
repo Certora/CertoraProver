@@ -19,7 +19,7 @@ package analysis.numeric
 
 import analysis.LTACCmd
 import analysis.LTACCmdView
-import analysis.TACCommandGraph
+import analysis.PathCondition
 import analysis.narrow
 import vc.data.TACCmd
 import vc.data.TACSymbol
@@ -61,7 +61,7 @@ abstract class AbstractAbstractInterpreter<in W, S> : IAbstractInterpreter<W, S>
 
     abstract fun project(l: LTACCmd, w: W): S
 
-    override fun propagate(l: LTACCmd, w: W, pathCondition: TACCommandGraph.PathCondition): S? {
+    override fun propagate(l: LTACCmd, w: W, pathCondition: PathCondition): S? {
         val s = project(l, w)
         return pathSemantics.propagate(l, s, w, pathCondition)
     }

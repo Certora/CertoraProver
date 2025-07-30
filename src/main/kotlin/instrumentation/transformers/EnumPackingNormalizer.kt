@@ -68,13 +68,13 @@ object EnumPackingNormalizer {
                     synthAssign = mapOf()
                 ) { env ->
                     val exp = when (pc) {
-                        is TACCommandGraph.PathCondition.EqZero -> {
+                        is PathCondition.EqZero -> {
                             eq(
                                 const(0),
                                 toIdent(env[pc.v] ?: return@blastCode false)
                             )
                         }
-                        is TACCommandGraph.PathCondition.NonZero -> {
+                        is PathCondition.NonZero -> {
                             lnot(
                                 eq(
                                     const(0),
@@ -82,8 +82,8 @@ object EnumPackingNormalizer {
                                 )
                             )
                         }
-                        is TACCommandGraph.PathCondition.Summary,
-                        TACCommandGraph.PathCondition.TRUE -> return@blastCode false
+                        is PathCondition.Summary,
+                        PathCondition.TRUE -> return@blastCode false
                     }
                     val tgt = env[mult.second] ?: return@blastCode false
                     assert {

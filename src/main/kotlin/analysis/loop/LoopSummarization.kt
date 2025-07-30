@@ -375,10 +375,10 @@ class LoopSummarization(private val g: TACCommandGraph, private val blaster: IBl
                             return null
                         }
                         when (val eCond = exit.first().value) {
-                            is TACCommandGraph.PathCondition.NonZero -> {
+                            is PathCondition.NonZero -> {
                                 exitCond = interpSym(eCond.v)
                             }
-                            is TACCommandGraph.PathCondition.EqZero -> {
+                            is PathCondition.EqZero -> {
                                 exitCond = TACExpr.UnaryExp.LNot(interpSym(eCond.v))
                             }
                             else -> {}

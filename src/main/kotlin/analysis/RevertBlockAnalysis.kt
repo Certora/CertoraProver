@@ -32,7 +32,7 @@ private val logger = Logger(LoggerTypes.COMMON)
 
 
 // What does this match exactly?
-object RevertBlockAnalysis : AnalysisCache.Key<Set<NBId>> {
+object RevertBlockAnalysis : AnalysisCache.Key<TACCommandGraph, Set<NBId>> {
     override fun createCached(graph: TACCommandGraph) = findRevertBlocks(graph)
 
     fun findRevertBlocks(graph: TACCommandGraph) : Set<NBId> =

@@ -29,7 +29,7 @@ abstract class TACCommandDataflowAnalysis<T: Any>(
     lattice: JoinLattice<T>,
     bottom: T,
     dir: Direction
-): CommandDataflowAnalysis<TACCommandGraph, TACBlock, NBId, LTACCmd, CmdPointer, T>(graph, lattice, bottom, dir, TACBlockView, TACBlockCommandView) {
+): CommandDataflowAnalysis<TACCommandGraph, TACBlock, NBId, LTACCmd, CmdPointer, T>(graph, lattice, bottom, dir, TACBlockView(), TACBlockCommandView) {
     protected abstract inner class Finalizer : CommandDataflowAnalysis<TACCommandGraph, TACBlock, NBId, LTACCmd, CmdPointer, T>.Finalizer()
 }
 

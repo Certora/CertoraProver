@@ -614,7 +614,7 @@ object FunctionFlowAnnotator {
         ) : GenerationResult
     }
 
-    private val NonConstGvn = object : AnalysisCache.Key<GlobalValueNumbering> {
+    private val NonConstGvn = object : AnalysisCache.Key<TACCommandGraph, GlobalValueNumbering> {
         override fun createCached(graph: TACCommandGraph): GlobalValueNumbering {
             return GlobalValueNumbering(
                 graph = graph,

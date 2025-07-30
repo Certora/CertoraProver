@@ -166,7 +166,7 @@ abstract class TACProgram<T : TACCmd>(entry: NBId? = null) : NamedCode<ReportTyp
      */
     abstract val name: String
 
-    abstract val analysisCache: AnalysisCache?
+    abstract val analysisCache: TACCommandGraphAnalysisCache?
 
     protected val entryBlockIdInternal: NBId? by lazy {
         entry ?: run {
@@ -566,7 +566,7 @@ data class CanonicalTACProgram<T : TACCmd.Spec, E : ShouldErase>(
     override val ufAxioms: UfAxioms
         get() = instrumentationTAC.ufAxioms
 
-    override val analysisCache: AnalysisCache?
+    override val analysisCache: TACCommandGraphAnalysisCache?
         get() = null
 
     override fun myName(): String = name
@@ -733,7 +733,7 @@ data class EVMTACProgram(
 
     override fun myName(): String = name
 
-    override val analysisCache: AnalysisCache?
+    override val analysisCache: TACCommandGraphAnalysisCache?
         get() = null
 
     override fun getNodeCode(n: NBId): List<TACCmd> {
@@ -806,7 +806,7 @@ data class CVLTACProgram(
         return f(this)
     }
 
-    override val analysisCache: AnalysisCache?
+    override val analysisCache: TACCommandGraphAnalysisCache?
         get() = null
 
     override fun getNodeCode(n: NBId): List<TACCmd.Spec> {
@@ -1240,7 +1240,7 @@ class CoreTACProgram private constructor(
      * start the cache from scratch
      */
     @Transient
-    private var _analysisCache: AnalysisCache? = null
+    private var _analysisCache: TACCommandGraphAnalysisCache? = null
 
     sealed class DelegateContext : Serializable {
         abstract fun mapStorage(v: TACSymbol.Var): TACSymbol.Var
@@ -1261,10 +1261,10 @@ class CoreTACProgram private constructor(
         }
     }
 
-    override val analysisCache: AnalysisCache
+    override val analysisCache: TACCommandGraphAnalysisCache
         get() {
             if (_analysisCache == null) {
-                _analysisCache = AnalysisCache(
+                _analysisCache = TACCommandGraphAnalysisCache(
                     lazy {
                         TACCommandGraph(
                             blockgraph,

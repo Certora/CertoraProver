@@ -28,7 +28,7 @@ import vc.data.TACExpr
 import java.io.Serializable
 
 /**
- * Used for [LExpression]s that represent the definition of a [TACCommandGraph.PathCondition] that has been pulled
+ * Used for [LExpression]s that represent the definition of a [PathCondition] that has been pulled
  * out as a top-level conjunction due to [Config.UnsatCoreFriendlyLeino] being set to true.
  */
 @KSerializable

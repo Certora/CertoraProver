@@ -17,6 +17,7 @@
 
 package wasm.analysis.intervals
 
+import analysis.PathCondition
 import analysis.TACCommandGraph
 import analysis.numeric.*
 import analysis.smtblaster.*
@@ -234,10 +235,10 @@ class IntervalAnalysisPropertyTest {
 
         val interp = IntervalInterpreter(graph)
         val outTrue = interp.pathSemantics.propagate(
-            graph.elab(block, 0), s, s, TACCommandGraph.PathCondition.NonZero(0.bool())
+            graph.elab(block, 0), s, s, PathCondition.NonZero(0.bool())
         )
         val outFalse = interp.pathSemantics.propagate(
-            graph.elab(block, 0), s, s, TACCommandGraph.PathCondition.EqZero(0.bool())
+            graph.elab(block, 0), s, s, PathCondition.EqZero(0.bool())
         )
         val tm = SmtExpIntTermBuilder
         val sem = SimpleQualifiedIntSMTSemantics(tm)

@@ -43,7 +43,7 @@ import kotlin.let
  *  possible [Val.Tag]s of other variables 'y'.
  */
 class ValTagAnalysis private constructor(val graph: TACCommandGraph) {
-    companion object : AnalysisCache.Key<ValTagAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, ValTagAnalysis> {
         override fun createCached(graph: TACCommandGraph) = ValTagAnalysis(graph)
     }
 

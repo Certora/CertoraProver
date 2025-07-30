@@ -51,7 +51,7 @@ public abstract class PostUnrollAssignmentSummary<T: MaterializePhase<T>> : Assi
     /** Materialize this summary, given the simplified inputs. */
     abstract protected fun gen(
         simplifiedInputs: List<TACExpr>,
-        analysisCache: AnalysisCache,
+        analysisCache: TACCommandGraphAnalysisCache,
     ): CommandWithRequiredDecls<TACCmd.Simple>
 
     companion object {

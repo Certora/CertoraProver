@@ -18,12 +18,13 @@
 package analysis
 
 import tac.NBId
+import vc.data.TACCmd
 
-object TACBlockView : GraphBlockView<TACCommandGraph, TACBlock, NBId> {
-    override fun succ(g: TACCommandGraph, src: TACBlock): Collection<TACBlock> = g.succ(src)
-    override fun pred(g: TACCommandGraph, src: TACBlock): Collection<TACBlock> = g.pred(src)
-    override fun blockGraph(g: TACCommandGraph): Map<NBId, Set<NBId>> = g.toBlockGraph()
-    override fun elab(g: TACCommandGraph, l: NBId): TACBlock = g.elab(l)
+class TACBlockView<G: GenericTACCommandGraph<TACCmd.Simple, LTACCmd, TACBlock>> : GraphBlockView<G, TACBlock, NBId> {
+    override fun succ(g: G, src: TACBlock): Collection<TACBlock> = g.succ(src)
+    override fun pred(g: G, src: TACBlock): Collection<TACBlock> = g.pred(src)
+    override fun blockGraph(g: G): Map<NBId, Set<NBId>> = g.toBlockGraph()
+    override fun elab(g: G, l: NBId): TACBlock = g.elab(l)
     override fun blockId(b: TACBlock): NBId = b.id
 }
 
@@ -32,7 +33,7 @@ abstract class TACBlockDataflowAnalysis<T: Any>(
     lattice: JoinLattice<T>,
     bottom: T,
     direction: Direction
-): BlockDataflowAnalysis<TACCommandGraph, TACBlock, NBId, T>(graph, lattice, bottom, direction, TACBlockView) {
+): BlockDataflowAnalysis<TACCommandGraph, TACBlock, NBId, T>(graph, lattice, bottom, direction, TACBlockView()) {
     protected abstract inner class Finalizer : BlockDataflowAnalysis<TACCommandGraph, TACBlock, NBId, T>.Finalizer()
 }
 

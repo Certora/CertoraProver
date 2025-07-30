@@ -28,7 +28,7 @@ class MustBeConstantAnalysis(
     private val wrapped: NonTrivialDefAnalysis = NonTrivialDefAnalysis(graph)
 ) : MustBeAnalysis(graph, wrapped) {
 
-    companion object : AnalysisCache.Key<MustBeConstantAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, MustBeConstantAnalysis> {
         override fun createCached(graph: TACCommandGraph): MustBeConstantAnalysis {
             return MustBeConstantAnalysis(graph)
         }

@@ -36,7 +36,7 @@ private val logger = Logger(LoggerTypes.ABSTRACT_INTERPRETATION)
 
 /** A worklist-based interval analysis */
 class IntervalAnalysis private constructor(private val graph: TACCommandGraph) {
-    companion object : AnalysisCache.Key<IntervalAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, IntervalAnalysis> {
         override fun createCached(graph: TACCommandGraph) = IntervalAnalysis(graph)
     }
 

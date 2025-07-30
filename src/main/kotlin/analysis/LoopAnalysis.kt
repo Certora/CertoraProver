@@ -17,6 +17,7 @@
 
 package analysis
 
+import algorithms.SimpleDominanceAnalysis
 import algorithms.topologicalOrder
 import com.certora.collect.*
 import tac.Edge
@@ -46,47 +47,47 @@ data class Loop(val head: NBId, val body: Set<NBId>, val tail: NBId) {
     }
 }
 
-fun getBackEdges(g: TACCommandGraph) : Set<Edge> {
-    val dom = g.cache.domination
+fun getBackEdges(g: GenericTACCommandGraph<*,*,*>, dom: SimpleDominanceAnalysis<NBId>) : Set<Edge> {
     return g.blockSucc.flatMap { (u, vs) ->
         vs.filter { v -> dom.dominates(v, u) }
                 .map {v -> Edge(u, v) }
     }.toSet()
 }
 
+fun getNaturalLoops(g: TACCommandGraph): Set<Loop> {
+    return getNaturalLoopsGeneric(g, g.cache.domination)
+}
 /**
  * @param g a TAC CFG
  * @return a set of every natural loop in g
  */
-fun getNaturalLoops(g: TACCommandGraph) : Set<Loop> {
-    val backEdges = getBackEdges(g)
-    return g.scope {
-        backEdges.map{ (tail, head) ->
-            val body = mutableSetOf<NBId>()
-            // backward search for all nodes that are part of the natural loop
-            // TODO: do we want the loop head to be part of the body?, the tail?
-            var curr = mutableSetOf(tail)
-            var nxt = mutableSetOf<NBId>()
-            while(curr.isNotEmpty()) {
-                for(nb in curr) {
-                    body.add(nb)
-                    if(nb == head) {
-                        continue
-                    }
-                    for(p in nb.pred()) {
-                        if(p !in body) {
-                            nxt.add(p)
-                        }
+fun getNaturalLoopsGeneric(g: GenericTACCommandGraph<*,*,*>, dom: SimpleDominanceAnalysis<NBId>) : Set<Loop> {
+    val backEdges = getBackEdges(g, dom)
+    return backEdges.map { (tail, head) ->
+        val body = mutableSetOf<NBId>()
+        // backward search for all nodes that are part of the natural loop
+        // TODO: do we want the loop head to be part of the body?, the tail?
+        var curr = mutableSetOf(tail)
+        var nxt = mutableSetOf<NBId>()
+        while (curr.isNotEmpty()) {
+            for (nb in curr) {
+                body.add(nb)
+                if (nb == head) {
+                    continue
+                }
+                for (p in g.pred(nb)) {
+                    if (p !in body) {
+                        nxt.add(p)
                     }
                 }
-                curr.clear()
-                val tmp = nxt
-                nxt = curr
-                curr = tmp
             }
-            Loop(head, body.toTreapSet(), tail)
-        }.toSet()
-    }
+            curr.clear()
+            val tmp = nxt
+            nxt = curr
+            curr = tmp
+        }
+        Loop(head, body.toTreapSet(), tail)
+    }.toSet()
 }
 
 /**

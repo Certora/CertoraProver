@@ -347,7 +347,7 @@ object Val {
 
         override fun gen(
             simplifiedInputs: List<TACExpr>,
-            analysisCache: AnalysisCache
+            analysisCache: TACCommandGraphAnalysisCache
         ): CommandWithRequiredDecls<TACCmd.Simple> {
             val tagArray = validTags.map { tagInt -> Tag.entries.first { it.value == tagInt } }.toTypedArray()
             val checkValid = getTag(v.asSym()).letVar { tag ->

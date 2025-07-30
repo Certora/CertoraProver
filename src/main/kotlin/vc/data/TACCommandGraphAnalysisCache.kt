@@ -57,21 +57,24 @@ import java.util.concurrent.ConcurrentHashMap
     val result = program.analysisCache[myKey]
     ```
  */
-class AnalysisCache(private val lazyGraph: Lazy<TACCommandGraph>) {
+abstract class AnalysisCache<out G> {
+    abstract val graph: G
 
     /** A cache key, which knows how to create the corresponding value */
-    interface Key<T> {
-        fun createCached(graph: TACCommandGraph): T
+    interface Key<in G, T> {
+        fun createCached(graph: G): T
     }
 
     /** The actual cache.  Note that values are wrapped in [Lazy], which avoids recursion issues in [computeIfAbsent] */
-    private val cache = ConcurrentHashMap<AnalysisCache.Key<*>, Lazy<*>>()
+    private val cache = ConcurrentHashMap<Key<*, *>, Lazy<*>>()
 
     /** Gets the value associated with [key] from the cache */
-    operator fun <T> get(key: AnalysisCache.Key<T>): T =
+    operator fun <T> get(key: Key<G, T>): T =
         cache.computeIfAbsent(key) { lazy { key.createCached(graph) } }.value.uncheckedAs()
+}
 
-    val graph by lazyGraph
+class TACCommandGraphAnalysisCache(private val lazyGraph: Lazy<TACCommandGraph>): AnalysisCache<TACCommandGraph>() {
+    override val graph by lazyGraph
 
     // Convenience properties to get some common analyses
     val def get() = this[LooseDefAnalysis]
@@ -82,17 +85,19 @@ class AnalysisCache(private val lazyGraph: Lazy<TACCommandGraph>) {
     val revertBlocks get() = this[RevertBlockAnalysis]
     val domination get() = this[SimpleDominanceAnalysis]
     val reachability get() = this[reachabilityKey]
-    val naturalBlockScheduler get() = this[NaturalBlockScheduler]
+    val naturalBlockScheduler get() = this[blockSchedulerKey]
+    private val blockSchedulerKey = NaturalBlockScheduler.makeKey<TACCommandGraph>()
 
     companion object {
         /**
             Simple way to create a cache key for a function
          */
-        fun <T> key(f: (TACCommandGraph) -> T): AnalysisCache.Key<T> =
-            object : AnalysisCache.Key<T> {
+        fun <T> key(f: (TACCommandGraph) -> T): Key<TACCommandGraph, T> =
+            object : Key<TACCommandGraph, T> {
                 override fun createCached(graph: TACCommandGraph): T = f(graph)
             }
 
-        private val reachabilityKey = AnalysisCache.key { transitiveClosure(it.blockSucc, reflexive = true) }
+        private val reachabilityKey = key { transitiveClosure(it.blockSucc, reflexive = true) }
     }
 }
+

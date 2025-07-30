@@ -2372,6 +2372,7 @@ sealed class TACCmd : Serializable, ITACCmd {
 
     sealed class Move : TACCmd() {
         sealed interface Borrow
+        abstract val modifiedVars: Collection<TACSymbol.Var>
 
         companion object {
             protected fun refTag(ref: TACSymbol.Var): Tag {
@@ -2388,6 +2389,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move(), Borrow {
             override fun argString(): String = "$ref $loc"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(ref)
             init {
                 require(loc.tag == refTag(ref))
             }
@@ -2400,6 +2402,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dst $ref"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dst)
             init {
                 require(dst.tag == refTag(ref))
             }
@@ -2412,6 +2415,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$ref $src"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf<TACSymbol.Var>()
             init {
                 require(src.tag == refTag(ref))
             }
@@ -2424,6 +2428,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dst $srcs"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dst)
             init {
                 val structTag = dst.tag as? MoveTag.Struct
                 require(structTag != null)
@@ -2440,6 +2445,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dsts $src"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = dsts
             init {
                 val structTag = src.tag as? MoveTag.Struct
                 require(structTag != null)
@@ -2457,6 +2463,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move(), Borrow {
             override fun argString(): String = "$dstRef $srcRef $fieldIndex"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dstRef)
             init {
                 val structTag = refTag(srcRef)
                 require(structTag is MoveTag.Struct)
@@ -2471,6 +2478,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dst $srcs"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dst)
             init {
                 val vecTag = dst.tag as? MoveTag.Vec
                 require(vecTag != null)
@@ -2488,6 +2496,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dsts $src"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = dsts
             init {
                 val vecTag = src.tag as? MoveTag.Vec
                 require(vecTag != null)
@@ -2505,6 +2514,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dst $ref"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dst)
             init {
                 require(refTag(ref) is MoveTag.Vec)
                 require(dst.tag == Tag.Bit256)
@@ -2519,6 +2529,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move(), Borrow {
             override fun argString(): String = "$dstRef $srcRef $index"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dstRef)
             init {
                 val vecTag = refTag(srcRef)
                 require(vecTag is MoveTag.Vec)
@@ -2534,6 +2545,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$ref $src"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf<TACSymbol.Var>()
             init {
                 val vecTag = refTag(ref)
                 require(vecTag is MoveTag.Vec)
@@ -2548,6 +2560,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dst $ref"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dst)
             init {
                 val vecTag = refTag(ref)
                 require(vecTag is MoveTag.Vec)
@@ -2563,6 +2576,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move(), Borrow {
             override fun argString(): String = "$dstRef $arrayRef $index"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dstRef)
             init {
                 val arrayTag = refTag(arrayRef)
                 require(arrayTag is MoveTag.GhostArray)
@@ -2579,6 +2593,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dst $loc $hashFamily"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dst)
             init {
                 require(dst.tag == Tag.Bit256)
             }
@@ -2592,6 +2607,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         ) : Move() {
             override fun argString(): String = "$dst $a $b"
             override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dst)
             init {
                 require(dst.tag == Tag.Bool)
                 require(a.tag == b.tag)
@@ -2827,7 +2843,21 @@ sealed class TACCmd : Serializable, ITACCmd {
             is CVL.ArrayCopy -> this.dst.getReferencedSyms() + this.src.getReferencedSyms()
             is CVL.LocalAlloc -> treapSetOf(this.arr)
             is CVL.CompareBytes1Array -> treapSetOf(this.left, this.right)
-            is Move -> error("Move commands not yet simplified")
+            is Move.BorrowFieldCmd -> treapSetOf(this.srcRef)
+            is Move.BorrowLocCmd -> treapSetOf(this.loc)
+            is Move.EqCmd -> treapSetOf(this.a, this.b)
+            is Move.GhostArrayBorrowCmd -> treapSetOf(this.index, this.arrayRef)
+            is Move.HashCmd -> treapSetOf(this.loc)
+            is Move.PackStructCmd -> this.srcs.toTreapSet()
+            is Move.ReadRefCmd -> treapSetOf(this.ref)
+            is Move.UnpackStructCmd -> treapSetOf(this.src)
+            is Move.VecBorrowCmd -> treapSetOf(this.index, this.srcRef)
+            is Move.VecLenCmd -> treapSetOf(this.ref)
+            is Move.VecPackCmd -> this.srcs.toTreapSet()
+            is Move.VecPopBackCmd -> treapSetOf(this.ref)
+            is Move.VecPushBackCmd -> treapSetOf(this.ref, this.src)
+            is Move.VecUnpackCmd -> treapSetOf(this.src)
+            is Move.WriteRefCmd -> treapSetOf(this.ref, this.src)
         }
         return rhsSymbols.filterIsInstance<TACSymbol.Var>()
     }

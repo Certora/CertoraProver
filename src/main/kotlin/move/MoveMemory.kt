@@ -117,8 +117,8 @@ class MoveMemory(val scene: MoveScene) {
     }
 
     fun transform(moveCode: MoveTACProgram): CoreTACProgram {
-        val refs = ReferenceAnalysis(moveCode)
-        val transformedBlocks = moveCode.blocks.associate { block ->
+        val refs = ReferenceAnalysis(moveCode.graph)
+        val transformedBlocks = moveCode.graph.blocks.associate { block ->
             block.id to mergeMany(
                 block.commands.map { transformCommand(it, refs) }
             )
@@ -1040,9 +1040,9 @@ class MoveMemory(val scene: MoveScene) {
         values in each location.
      */
     private class ReferenceAnalysis(
-        program: MoveTACProgram
+        graph: MoveTACCommandGraph
     ) : MoveTACProgram.CommandDataflowAnalysis<TreapMap<TACSymbol.Var, TreapSet<ReferenceAnalysis.RefTarget>>>(
-        program,
+        graph,
         JoinLattice.ofJoin { a, b ->
             a.merge(b) { _, aLocs, bLocs -> aLocs.orEmpty() + bLocs.orEmpty() }
         },

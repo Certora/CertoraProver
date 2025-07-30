@@ -18,13 +18,13 @@
 package analysis.numeric
 
 import analysis.LTACCmd
-import analysis.TACCommandGraph
+import analysis.PathCondition
 
 /**
  * Path semantics that ignore path information entirely.
  */
 class TrivialPathSemantics<T> : IPathSemantics<T, Any> {
-    override fun propagate(l: LTACCmd, s: T, w: Any, pathCondition: TACCommandGraph.PathCondition): T {
+    override fun propagate(l: LTACCmd, s: T, w: Any, pathCondition: PathCondition): T {
         return s
     }
 }

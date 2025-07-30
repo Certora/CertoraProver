@@ -125,7 +125,7 @@ object InfeasiblePathAnalysis {
                         is PrunedBranch -> listOf<PruneNode>(it)
                         is PrunedBlock -> g.pred(it.prunedBlock).mapNotNull { pred ->
                             val pc = g.pathConditionsOf(pred)[it.prunedBlock]!!
-                            if(pc is TACCommandGraph.PathCondition.EqZero || pc is TACCommandGraph.PathCondition.NonZero) {
+                            if(pc is PathCondition.EqZero || pc is PathCondition.NonZero) {
                                 PrunedBranch(
                                     conditionPtr = g.elab(pred).commands.last().ptr,
                                     infeasibleCondition = pc,
@@ -368,7 +368,7 @@ object InfeasiblePathAnalysis {
                     }
                     val solePred = pred.single()
                     val pc = g.pathConditionsOf(solePred)[curr]!!
-                    if(pc == TACCommandGraph.PathCondition.TRUE) {
+                    if(pc == PathCondition.TRUE) {
                         curr = solePred
                     } else {
                         return@fork tryPruneConditional(
@@ -387,7 +387,7 @@ object InfeasiblePathAnalysis {
 
         /**
          * Handle the current predecessors [preds] of [curr] depending on the [traceMode].
-         * If the path condition is [analysis.TACCommandGraph.PathCondition.TRUE], then
+         * If the path condition is [analysis.PathCondition.TRUE], then
          * the path from a predecessor p to [curr] is unconditional, and should be followed even in [TraceMode.TO_INITIAL_ASSIGN];
          * "by induction" if the path found from `p` to [infeasibleAssign] is unconditional, then the path from [infeasibleAssign]
          * to [curr] must also be unconditional.
@@ -404,7 +404,7 @@ object InfeasiblePathAnalysis {
         ) : Parallel<List<PruneNode>> {
             return preds.forkEvery { pred ->
                 val pc = g.pathConditionsOf(pred)[curr]!!
-                if(pc == TACCommandGraph.PathCondition.TRUE) {
+                if(pc == PathCondition.TRUE) {
                     traverseTo(
                         pred, infeasibleAssign, tracingVar, traceMode
                     )
@@ -623,7 +623,7 @@ object InfeasiblePathAnalysis {
                     /**
                      * Unconditinal jump from a single predecessor, no need to recurse, just loop
                      */
-                    } else if(preds.size == 1 && g.pathConditionsOf(preds.single())[curr] == TACCommandGraph.PathCondition.TRUE) {
+                    } else if(preds.size == 1 && g.pathConditionsOf(preds.single())[curr] == PathCondition.TRUE) {
                         curr = preds.single()
                         continue
                     } else {
@@ -649,18 +649,18 @@ object InfeasiblePathAnalysis {
          */
         private fun tryPruneConditional(
             pred: NBId,
-            pathCond: TACCommandGraph.PathCondition
+            pathCond: PathCondition
         ): Parallel<List<PruneNode>> {
             val last = g.elab(pred).commands.last()
             /**
              * If the path condition we know we cannot take is x == 0, then we need to prune assignments that make
              * `x == 0`.
              */
-            return if(pathCond is TACCommandGraph.PathCondition.EqZero) {
+            return if(pathCond is PathCondition.EqZero) {
                 pruneTransitive(last, pathCond.v) {
                     TACExpr.BinRel.Eq(it, TACSymbol.lift(0).asSym())
                 }
-            } else if(pathCond is TACCommandGraph.PathCondition.NonZero) {
+            } else if(pathCond is PathCondition.NonZero) {
                 /**
                  * Similarly, if this path condition (which we cannot take) is x != 0, find assignments
                  * that make `x != 0` true.
@@ -669,7 +669,7 @@ object InfeasiblePathAnalysis {
                     TACExpr.UnaryExp.LNot(TACExpr.BinRel.Eq(it, TACSymbol.lift(0).asSym()))
                 }
             } else {
-                check(pathCond is TACCommandGraph.PathCondition.Summary) {
+                check(pathCond is PathCondition.Summary) {
                     "unexpected pathCond $pathCond for pruning conditional"
                 }
                 complete(listOf())
@@ -687,7 +687,7 @@ object InfeasiblePathAnalysis {
      * that the pruning of B means A can be pruned as well. In an even simpler case, if A has a single successor B (unconditional) and B is pruned,
      * then A can be pruned as well).
      */
-    data class PrunedBranch(val infeasibleCondition: TACCommandGraph.PathCondition, val conditionPtr: CmdPointer, val targetBranch: NBId) : PruneNode()
+    data class PrunedBranch(val infeasibleCondition: PathCondition, val conditionPtr: CmdPointer, val targetBranch: NBId) : PruneNode()
 
     data class PrunedBlock(val prunedBlock: NBId) : PruneNode()
 

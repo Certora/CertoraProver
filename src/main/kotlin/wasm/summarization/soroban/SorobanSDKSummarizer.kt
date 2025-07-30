@@ -223,7 +223,7 @@ class SorobanSDKSummarizer(
 
         override fun gen(
             simplifiedInputs: List<TACExpr>,
-            analysisCache: AnalysisCache
+            analysisCache: TACCommandGraphAnalysisCache
         ): CommandWithRequiredDecls<TACCmd.Simple> {
             val decoded = TACKeyword.TMP(Tag.Bit256, "decoded")
 

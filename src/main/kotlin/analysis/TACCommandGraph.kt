@@ -17,12 +17,13 @@
 
 package analysis
 
+import algorithms.SimpleDominanceAnalysis
 import algorithms.findRoots
-import analysis.dataflow.*
 import annotations.PerformanceCriticalUsesOnly
 import com.certora.collect.*
 import datastructures.LinkedArrayHashMap
 import datastructures.stdcollections.*
+import datastructures.stdcollections.toMap
 import log.*
 import scene.ITACMethod
 import tac.MetaKey
@@ -33,6 +34,7 @@ import utils.*
 import vc.data.*
 import java.io.Serializable
 import java.math.BigInteger
+import kotlin.collections.last
 
 /*
     A "pointer" to a unique command within a TAC program. Effectively
@@ -143,9 +145,22 @@ data class LTACAnnotation<T: Serializable>(
 
 data class LTACExp(val ptr: ExpPointer, val exp: TACExpr) : Serializable
 
+inline fun <reified T : U, U: TACCmd> LTACCmdGen<U>.narrow(): GenericLTACCmdView<T> {
+    check(this.cmd is T) { "cmd ${this.cmd} is not ${T::class.java}" }
+    return GenericLTACCmdView(this.uncheckedAs())
+}
+
 inline fun <reified T : TACCmd> LTACCmd.narrow(): LTACCmdView<T> {
     check(this.cmd is T) { "cmd ${this.cmd} is not ${T::class.java}" }
     return LTACCmdView(this)
+}
+
+inline fun <reified T : U, U : TACCmd> LTACCmdGen<U>.maybeNarrow(): GenericLTACCmdView<T>? {
+   return if (cmd !is T) {
+       null
+   } else {
+       this.narrow()
+   }
 }
 
 inline fun <reified T : TACCmd.Simple> LTACCmd.maybeNarrow(): LTACCmdView<T>? {
@@ -219,6 +234,17 @@ value class TACSymbolView<out T : TACSymbol>(val wrapped: LTACSymbol) {
 }
 
 @JvmInline
+value class GenericLTACCmdView<out T : TACCmd>(val wrapped: LTACCmdGen<T>) {
+    val ptr: CmdPointer get() = wrapped.ptr
+
+    val cmd: T
+        get() = wrapped.cmd.uncheckedAs<T>()
+
+    operator fun component1() = ptr
+    operator fun component2() = cmd
+}
+
+@JvmInline
 value class LTACCmdView<out T : TACCmd>(val wrapped: LTACCmd) {
     val ptr: CmdPointer get() = wrapped.ptr
 
@@ -276,7 +302,7 @@ interface TACBlockGen<out T: TACCmd, out U: LTACCmdGen<T>> {
     val commands: List<U>
 }
 
-data class GenericLTACCmd<T: TACCmd>(override val ptr: CmdPointer, override val cmd: T) : LTACCmdGen<T>, Serializable {
+data class GenericLTACCmd<out T: TACCmd>(override val ptr: CmdPointer, override val cmd: T) : LTACCmdGen<T>, Serializable {
     fun toLTACCmd() =
         if(this.cmd is TACCmd.Simple) {
             LTACCmd(ptr, cmd)
@@ -545,6 +571,93 @@ abstract class GenericTACCommandGraph<T: TACCmd, U: LTACCmdGen<T>, V: TACBlockGe
     fun toRevBlockGraph(): BlockGraph = blockPred
 }
 
+sealed class PathCondition : ToLExpression {
+
+    /**
+     * A path condition that relies on the value of [v]
+     */
+    sealed interface ConditionalOn {
+        val v: TACSymbol.Var
+    }
+
+    object TRUE : PathCondition() {
+        override fun toString(): String = "TRUE"
+
+        override fun toLExpression(
+            conv: ToLExpression.Conv,
+            meta: MetaMap?,
+        ): LExpression =
+            conv.lxf.litBool(true)
+    }
+
+    data class EqZero(override val v: TACSymbol.Var) : PathCondition(), ConditionalOn {
+
+        override fun toLExpression(
+            conv: ToLExpression.Conv,
+            meta: MetaMap?,
+        ): LExpression = conv.lxf {
+            if (v.tag == Tag.Bool) {
+                not(const(v.toSMTRep(), Tag.Bool, meta))
+            } else {
+                ZERO eq const(v.toSMTRep(), v.tag, meta)
+            }
+        }
+    }
+
+    data class NonZero(override val v: TACSymbol.Var) : PathCondition(), ConditionalOn {
+
+        override fun toLExpression(
+            conv: ToLExpression.Conv,
+            meta: MetaMap?,
+        ): LExpression =
+            if (v.tag == Tag.Bool) {
+                conv.lxf.const(v.toSMTRep(), Tag.Bool, meta)
+            } else {
+                conv.lxf.not(
+                    conv.lxf.eq(
+                        conv.lxf.litInt(0),
+                        conv.lxf.const(v.toSMTRep(), v.tag, meta)
+                    )
+                )
+            }
+    }
+
+    data class Summary(val s: TACSummary) : PathCondition() {
+        override fun toLExpression(
+            conv: ToLExpression.Conv,
+            meta: MetaMap?,
+        ): LExpression =
+            throw java.lang.UnsupportedOperationException("Cannot support summary condition $this in vc gen")
+    }
+
+    fun getAsAssumeCmd() : TACCmd.Simple = when (this) {
+        is Summary, TRUE -> TACCmd.Simple.AssumeCmd(TACSymbol.True, "path condition assume")
+        is EqZero -> TACCmd.Simple.AssumeNotCmd(this.v)
+        is NonZero -> TACCmd.Simple.AssumeCmd(this.v, "path condition assume")
+    }
+
+    fun getAsExpression() = when (this) {
+        TRUE -> TACSymbol.True.asSym()
+        is EqZero -> {
+            if (this.v.tag == Tag.Bool) {
+                TACExpr.UnaryExp.LNot(this.v.asSym())
+            } else {
+                TACExpr.BinRel.Eq(this.v.asSym(), TACSymbol.lift(0).asSym())
+            }
+        }
+        is NonZero -> {
+            if (this.v.tag == Tag.Bool) {
+                v.asSym()
+            } else {
+                TACExpr.UnaryExp.LNot(TACExpr.BinRel.Eq(this.v.asSym(), TACSymbol.lift(0).asSym()))
+            }
+        }
+        else -> throw UnsupportedOperationException("Cannot get path condition $this as an expression")
+    }
+
+}
+
+
 class CVLTACCommandGraph(
         override val blockGraph: BlockGraph,
         override val code: BlockNodes<TACCmd.Spec>,
@@ -579,18 +692,64 @@ class EVMTACCommandGraph(
  */
 data class TACBlock(override val id: NBId, override val commands: List<LTACCmd>): TACBlockGen<TACCmd.Simple, LTACCmd>
 
+
+interface GraphPathConditions {
+    fun pathConditionsOf(blockId: NBId): Map<NBId, PathCondition>
+}
+
+object SimplePathConditionReasoning {
+    fun pathConditions(last: LTACCmdGen<TACCmd.Simple>, s: Set<NBId>): Map<NBId, PathCondition> {
+        val cmd = last.cmd
+        return if (s.isEmpty()) {
+            mapOf()
+        } else if (s.size == 1) {
+            mapOf(s.first() to PathCondition.TRUE)
+        } else if (cmd is TACCmd.Simple.SummaryCmd && cmd.summ is ConditionalBlockSummary) {
+            cmd.summ.successors.map {
+                it to PathCondition.Summary(cmd.summ)
+            }.toMap()
+        } else if (cmd is TACCmd.Simple.JumpiCmd) {
+            check(s.size == 2)
+            if (cmd.cond !is TACSymbol.Var) {
+                check(cmd.cond is TACSymbol.Const)
+                if (cmd.cond.value != BigInteger.ZERO) {
+                    mapOf(cmd.dst to PathCondition.TRUE)
+                } else {
+                    check(cmd.elseDst in s)
+                    mapOf(cmd.elseDst to PathCondition.TRUE)
+                }
+            } else {
+                check(cmd.dst in s) { "Expected to have ${cmd.dst} in $s" }
+                check(cmd.elseDst in s)
+                mapOf(
+                    cmd.dst to PathCondition.NonZero(cmd.cond),
+                    cmd.elseDst to PathCondition.EqZero(cmd.cond)
+                )
+            }
+        } else {
+            s.map { it to PathCondition.TRUE }.toMap()
+        }
+    }
+}
+
+interface HasDominanceAnalysis {
+    val domination : SimpleDominanceAnalysis<NBId>
+}
+
 class TACCommandGraph(
     override val blockGraph: BlockGraph,
     override val code: BlockNodes<TACCmd.Simple>,
     override val symbolTable: TACSymbolTable,
-    cache: AnalysisCache? = null,
+    cache: TACCommandGraphAnalysisCache? = null,
     val name: String
-): GenericTACCommandGraph<TACCmd.Simple, LTACCmd, TACBlock>() {
+): GenericTACCommandGraph<TACCmd.Simple, LTACCmd, TACBlock>(), GraphPathConditions, HasDominanceAnalysis {
 
     companion object {
         // If building a TACCommandGraph from a CoreTACProgram, just use the pre-cached object.
         operator fun invoke(program: CoreTACProgram) = program.analysisCache.graph
     }
+
+    override val domination get() = cache.domination
 
     override val blocks: List<TACBlock> = code.keys.map {
         TACBlock(it, commands = code[it]!!.mapIndexed { idx, simple ->
@@ -709,93 +868,7 @@ class TACCommandGraph(
                     "path ${ep.path}")
     }
 
-    val cache: AnalysisCache = cache ?: AnalysisCache(lazyOf(this))
-
-    sealed class PathCondition : ToLExpression {
-
-        /**
-         * A path condition that relies on the value of [v]
-         */
-        sealed interface ConditionalOn {
-            val v: TACSymbol.Var
-        }
-
-        object TRUE : PathCondition() {
-            override fun toString(): String = "TRUE"
-
-            override fun toLExpression(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?,
-            ): LExpression =
-                conv.lxf.litBool(true)
-        }
-
-        data class EqZero(override val v: TACSymbol.Var) : PathCondition(), ConditionalOn {
-
-            override fun toLExpression(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?,
-            ): LExpression = conv.lxf {
-                if (v.tag == Tag.Bool) {
-                    not(const(v.toSMTRep(), Tag.Bool, meta))
-                } else {
-                    ZERO eq const(v.toSMTRep(), v.tag, meta)
-                }
-            }
-        }
-
-        data class NonZero(override val v: TACSymbol.Var) : PathCondition(), ConditionalOn {
-
-            override fun toLExpression(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?,
-            ): LExpression =
-                if (v.tag == Tag.Bool) {
-                    conv.lxf.const(v.toSMTRep(), Tag.Bool, meta)
-                } else {
-                    conv.lxf.not(
-                        conv.lxf.eq(
-                            conv.lxf.litInt(0),
-                            conv.lxf.const(v.toSMTRep(), v.tag, meta)
-                        )
-                    )
-                }
-        }
-
-        data class Summary(val s: TACSummary) : PathCondition() {
-            override fun toLExpression(
-                conv: ToLExpression.Conv,
-                meta: MetaMap?,
-            ): LExpression =
-                throw java.lang.UnsupportedOperationException("Cannot support summary condition $this in vc gen")
-        }
-
-        fun getAsAssumeCmd() : TACCmd.Simple = when (this) {
-            is Summary, TRUE -> TACCmd.Simple.AssumeCmd(TACSymbol.True, "path condition assume")
-            is EqZero -> TACCmd.Simple.AssumeNotCmd(this.v)
-            is NonZero -> TACCmd.Simple.AssumeCmd(this.v, "path condition assume")
-        }
-
-        fun getAsExpression() = when (this) {
-            TRUE -> TACSymbol.True.asSym()
-            is EqZero -> {
-                if (this.v.tag == Tag.Bool) {
-                    TACExpr.UnaryExp.LNot(this.v.asSym())
-                } else {
-                    TACExpr.BinRel.Eq(this.v.asSym(), TACSymbol.lift(0).asSym())
-                }
-            }
-            is NonZero -> {
-                if (this.v.tag == Tag.Bool) {
-                    v.asSym()
-                } else {
-                    TACExpr.UnaryExp.LNot(TACExpr.BinRel.Eq(this.v.asSym(), TACSymbol.lift(0).asSym()))
-                }
-            }
-            else -> throw UnsupportedOperationException("Cannot get path condition $this as an expression")
-        }
-
-    }
+    val cache: TACCommandGraphAnalysisCache = cache ?: TACCommandGraphAnalysisCache(lazyOf(this))
 
     fun pathConditionsOf(x: CmdPointer): Map<CmdPointer, PathCondition> {
         return elab(x.block).let {
@@ -811,47 +884,16 @@ class TACCommandGraph(
         }
     }
 
-    fun pathConditionsOf(blockId: NBId): Map<NBId, PathCondition> {
+    override fun pathConditionsOf(blockId: NBId): Map<NBId, PathCondition> {
         return elab(blockId).let {
-            succ(blockId).let { s ->
-                val last = it.commands.last()
-                if (s.isEmpty()) {
-                    mapOf()
-                } else if (s.size == 1) {
-                    mapOf(s.first() to PathCondition.TRUE)
-                } else if (last.cmd is TACCmd.Simple.SummaryCmd && last.cmd.summ is ConditionalBlockSummary) {
-                    last.cmd.summ.successors.map {
-                        it to PathCondition.Summary(last.cmd.summ)
-                    }.toMap()
-                } else if (last.cmd is TACCmd.Simple.JumpiCmd) {
-                    check(s.size == 2)
-                    if (last.cmd.cond !is TACSymbol.Var) {
-                        check(last.cmd.cond is TACSymbol.Const)
-                        if (last.cmd.cond.value != BigInteger.ZERO) {
-                            mapOf(last.cmd.dst to PathCondition.TRUE)
-                        } else {
-                            check(last.cmd.elseDst in s)
-                            mapOf(last.cmd.elseDst to PathCondition.TRUE)
-                        }
-                    } else {
-                        check(last.cmd.dst in s) { "Expected to have ${last.cmd.dst} in $s" }
-                        check(last.cmd.elseDst in s)
-                        mapOf(
-                            last.cmd.dst to PathCondition.NonZero(last.cmd.cond),
-                            last.cmd.elseDst to PathCondition.EqZero(last.cmd.cond)
-                        )
-                    }
-                } else {
-                    s.map { it to PathCondition.TRUE }.toMap()
-                }
-            }
+            SimplePathConditionReasoning.pathConditions(it.commands.last(), succ(blockId))
         }
     }
 
 
     /**
      * Maps pairs of a block, and its successor to the path condition between them.
-     * ([NBId] B) -> ([NBId] -> [TACCommandGraph.PathCondition])
+     * ([NBId] B) -> ([NBId] -> [PathCondition])
      * (Just a convenience field on top of [pathConditionsOf])
      */
     val pathConditions: Map<NBId, Map<NBId, PathCondition>>  by lazy {

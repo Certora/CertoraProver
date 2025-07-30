@@ -19,6 +19,7 @@ package instrumentation
 
 import analysis.CmdPointer
 import analysis.LTACCmd
+import analysis.PathCondition
 import analysis.TACCommandGraph
 import analysis.getNaturalLoops
 import analysis.loop.AbstractArraySummaryExtractor
@@ -277,7 +278,7 @@ class StorageAllocationDecoder private constructor(
                  * If we have a non-trivial path condition, add that to our constraints
                  */
                 when(val path = pc[nxt]) {
-                    is TACCommandGraph.PathCondition.EqZero -> {
+                    is PathCondition.EqZero -> {
                         val curr = state.variableMap[path.v]
                         if(curr != null) {
                             withPc.script.assert {
@@ -288,7 +289,7 @@ class StorageAllocationDecoder private constructor(
                             }
                         }
                     }
-                    is TACCommandGraph.PathCondition.NonZero -> {
+                    is PathCondition.NonZero -> {
                         val curr = state.variableMap[path.v]
                         if(curr != null) {
                             withPc.script.assert {
@@ -298,10 +299,10 @@ class StorageAllocationDecoder private constructor(
                             }
                         }
                     }
-                    is TACCommandGraph.PathCondition.Summary -> {
+                    is PathCondition.Summary -> {
                         return "Did not expect to see a block with a summary ${path.s.annotationDesc} at $seed".toRight()
                     }
-                    TACCommandGraph.PathCondition.TRUE,
+                    PathCondition.TRUE,
                     null -> { }
                 }
                 /**
