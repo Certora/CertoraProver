@@ -664,7 +664,7 @@ class StorageAccessCompiler(
                  * folded the base case into a sub-case of one of the general recursive cases; not ideal, but not the worst
                  * thing to be done in this codebase.
                  */
-                if (expression.isArrayLengthExp()) {
+                if (expression.isDynamicArrayLengthExp()) {
                     compileInternal(expression.structExp) { invariants, acc ->
                         if(acc.storageType !is TACStorageType.Array) {
                             compilationException {

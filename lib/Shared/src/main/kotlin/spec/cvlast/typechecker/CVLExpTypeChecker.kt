@@ -1589,7 +1589,7 @@ class CVLExpTypeCheckerWithContext(
                 exp,
                 vmTypeHandler = vm@{ ty ->
                     ty.getOrInferPureCVLType(exp.structExp).bind {
-                        if (exp.isArrayLengthExp()) {
+                        if (exp.isDynamicArrayLengthExp()) {
                             if(ty.context == FromVMContext.StateValue && ty.descriptor !is VMDynamicArrayTypeDescriptor) {
                                 CVLError.Exp(
                                     exp = exp,
@@ -1638,7 +1638,7 @@ class CVLExpTypeCheckerWithContext(
                     if (ty !is CVLType.PureCVLType.CVLArrayType) {
                         CVLError.Exp(exp, "Expected operand of array length to have an array type, instead got: $ty")
                             .asError()
-                    } else if (!exp.isArrayLengthExp()) {
+                    } else if (!exp.isArrayLengthFieldAccess()) {
                         ExpectedArrayLengthAccess(exp)
                             .asError()
                     } else {

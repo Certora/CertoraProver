@@ -3318,8 +3318,10 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
             return null
         }
 
-        fun isArrayLengthExp(): Boolean {
-            if (fieldName != CVLType.PureCVLType.CVLArrayType.lengthFieldName) {
+        fun isArrayLengthFieldAccess() = fieldName == CVLType.PureCVLType.CVLArrayType.lengthFieldName
+
+        fun isDynamicArrayLengthExp(): Boolean {
+            if (!isArrayLengthFieldAccess()) {
                 return false
             }
 

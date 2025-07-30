@@ -2302,7 +2302,7 @@ class CVLExpressionCompiler(
             return when(exp) {
                 is CVLExp.FieldSelectExp -> {
                     traversal(exp.structExp, null) { r, ap, structInput ->
-                        if(exp.isArrayLengthExp()) {
+                        if(exp.isDynamicArrayLengthExp()) {
                             structInput.dynamicArray { len, _, _ ->
                                 /**
                                  * This must be non-null, because no "later" accesses can occur after `length`,
