@@ -2522,6 +2522,11 @@ class CertoraBuildGenerator:
                 if f"{sdc.primary_contract}.{f.name}" not in specCalls:
                     continue
 
+                if f.fromLib:
+                    # Even external library functions can't be called directly from spec,
+                    # so skip harnessing internal ones.
+                    continue
+
                 if f.isConstructor:
                     continue
 
@@ -2665,7 +2670,7 @@ class CertoraBuildGenerator:
         context = self.context
 
         specCalls: List[str] = []
-        if not context.disallow_internal_function_calls:
+        if context.verify and not context.disallow_internal_function_calls:
             with tempfile.NamedTemporaryFile("r", dir=Util.get_build_dir()) as tmp_file:
                 try:
                     Ctx.run_local_spec_check(False, self.context, ["-listCalls",  tmp_file.name])
