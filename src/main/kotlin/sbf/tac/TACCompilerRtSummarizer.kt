@@ -61,22 +61,66 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
         )
     }
 
+    /**
+     * ```
+     * int __unorddf2(double arg1, double arg2) {
+     *    return (isnan(arg1) || isnan(arg2)) ? 1 : 0;
+     * }
+     * ```
+     * Any number with all ones for exponent bits and non-zero mantissa bits is a NaN.
+     *
+     * In SBF, `arg1` and `arg2` are stored in `r1` and `r2` and the result `res` in `r0`.
+     */
+     context(SbfCFGToTAC<TNum, TOffset>)
+        private fun summarizeUnorddf2(inst: SbfInstruction.Call,
+                                      res: TACSymbol.Var,
+                                      arg1: TACSymbol.Var,
+                                      arg2: TACSymbol.Var): List<TACCmd.Simple> {
+
+        // Bit pattern `0x7FF0000000000000` (exponent is 7FF, all 1's)
+        val nan = exprBuilder.mkConst(2047L shl 52).asSym()
+        return listOf(
+            Debug.externalCall(inst),
+            assign(res, TACExpr.TernaryExp.Ite(
+                                TACExpr.BinBoolOp.LOr(TACExpr.BinRel.Gt(arg1.asSym(), nan),
+                                                      TACExpr.BinRel.Gt(arg2.asSym(), nan)),
+                                exprBuilder.ONE.asSym(),
+                                exprBuilder.ZERO.asSym()
+                        )
+            )
+        )
+    }
+
     context(SbfCFGToTAC<TNum, TOffset>)
     operator fun invoke(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call) { "summarizeCompilerRt expects a call instruction instead of $inst" }
 
         val function = CompilerRtFunction.from(inst.name) ?: return listOf()
-        val args = getCompilerRtArgs(locInst) ?: return listOf()
         return when (function) {
-            CompilerRtFunction.MULTI3 -> summarizeMulti3(inst, args)
-            CompilerRtFunction.UDIVTI3 -> summarizeUDivti3(inst, args)
-            CompilerRtFunction.DIVTI3 -> summarizeDivti3(inst, args)
+            CompilerRtFunction.MULTI3 -> {
+                val args = getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
+                summarizeMulti3(inst, args)
+            }
+            CompilerRtFunction.UDIVTI3 -> {
+                val args = getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
+                summarizeUDivti3(inst, args)
+            }
+            CompilerRtFunction.DIVTI3 -> {
+                val args = getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
+                summarizeDivti3(inst, args)
+            }
+            CompilerRtFunction.UNORDDF2 -> {
+                val res = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+                val arg1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
+                val arg2 = exprBuilder.mkVar(SbfRegister.R2_ARG)
+                summarizeUnorddf2(inst, res, arg1, arg2)
+            }
         }
     }
 
     context(SbfCFGToTAC<TNum, TOffset>)
-    private fun getCompilerRtArgs(locInst: LocatedSbfInstruction): U128Operands? {
+    private fun getArgsFromU128BinaryCompilerRt(locInst: LocatedSbfInstruction): U128Operands? {
         val (resLow, resHigh) = getLowAndHighFromU128(locInst) ?: return null
         val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
         val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3_ARG))
