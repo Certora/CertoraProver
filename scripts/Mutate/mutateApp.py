@@ -1382,7 +1382,7 @@ class MutateApp:
         for mutant in self.universal_mutator:
             file_to_mutate = Path(os.path.normpath(mutant[MConstants.FILE_TO_MUTATE]))
             mutants_location = Path(mutant[MConstants.MUTANTS_LOCATION])
-            num_of_mutants = mutant[MConstants.NUM_MUTANTS]
+            num_of_mutants = int(mutant[MConstants.NUM_MUTANTS])
             run_universal_mutator(file_to_mutate, self.prover_context.build_script, mutants_location, num_of_mutants)
             self.add_dir_to_mutants(ret_mutants, mutants_location, file_to_mutate)
         return ret_mutants
