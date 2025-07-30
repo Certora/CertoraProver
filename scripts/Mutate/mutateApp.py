@@ -1262,6 +1262,8 @@ class MutateApp:
         for gambit_obj in self.gambit:
             if MConstants.NUM_MUTANTS not in gambit_obj:
                 gambit_obj[MConstants.NUM_MUTANTS] = DEFAULT_NUM_MUTANTS
+            else:
+                gambit_obj[MConstants.NUM_MUTANTS] = int(gambit_obj[MConstants.NUM_MUTANTS])
             gambit_obj[MConstants.SOLC] = self.get_solc_version(Path(gambit_obj[MConstants.FILENAME]))
             gambit_obj.update(shared_attributes)
         with MConstants.TMP_GAMBIT_PATH.open('w') as f:

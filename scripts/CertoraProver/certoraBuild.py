@@ -2566,6 +2566,7 @@ class CertoraBuildGenerator:
                 def get_local_type_name(ty: CT.TypeInstance) -> str:
                     # Handles imports that use 'as'. E.g. `import {A as B} from "A.sol";`
                     ret = ty.get_source_str()
+                    assert orig_file
                     for node in self.asts[sdc.sdc_origin_file][orig_file].values():
                         if node["nodeType"] != "ImportDirective":
                             continue

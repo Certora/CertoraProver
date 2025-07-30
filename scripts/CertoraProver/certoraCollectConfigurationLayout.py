@@ -212,7 +212,7 @@ def split_and_sort_arg_list_value(args_list: List[str]) -> List[str]:
     Assumes each flag starts with '-' and its value follows immediately, if exists.
     Lines are sorted alphabetically.
     """
-    unified_args = ''.join(args_list)
+    unified_args = ' '.join(str(arg) for arg in args_list)
 
     if not unified_args.strip():
         return []
