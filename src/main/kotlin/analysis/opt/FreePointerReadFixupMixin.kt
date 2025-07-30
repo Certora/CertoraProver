@@ -64,7 +64,9 @@ interface FreePointerReadFixupMixin<T: FreePointerReadFixupMixin.ReplacementCand
         infix fun CmdPointer.dominates(x: CmdPointer) = dom.dominates(this, x)
 
         val rewrite = this.map {
-            it to p.analysisCache.use.useSitesAfter(pointer = it.rewriteUseAfter, v = it.fpAlias)
+            it to p.analysisCache.use.useSitesAfter(pointer = it.rewriteUseAfter, v = it.fpAlias).filter { u ->
+                u != it.rewriteUseAfter
+            }
         }.flatMap { (exp, useSites) ->
             // is the value in these use sites definitely observing the value being written at exp
             val dominatedUseSites = useSites.filter {
