@@ -194,13 +194,22 @@ object Config {
     ) {}
 
     val ListRules = object :
-        ConfigType.BooleanCmdLine(
-            false, Option(
-            "listRules", false,
-            "Prints a list of rules to the command line after type checking succeeded. " +
-                "This option is only used by the TypeChecker.jar"
-        )
-    ) {}
+        ConfigType.StringCmdLine(
+            null, Option(
+                "listRules", true,
+                "Writes to the provided file a list of all rules in the spec after type checking succeeded. " +
+                    "This option is only used by the TypeChecker.jar"
+            )
+        ) {}
+
+    val ListCalls = object :
+        ConfigType.StringCmdLine(
+            null, Option(
+                "listCalls", true,
+                "Writes to the provided file a list of all unresolved calls that exist in the spec after syntax checking succeeded. " +
+                    "This option is only used by the TypeChecker.jar in non `-typecheck` mode."
+            )
+        ) {}
 
     val AllowSolidityQuantifierCalls = object : ConfigType.BooleanCmdLine(
             false,

@@ -163,6 +163,7 @@ class ContractInSDC:
         self.local_assignments = local_assignments
         self.branches = branches
         self.requires = requires
+        self.internal_function_harnesses: Dict[str, str] = {}
 
     def as_dict(self) -> Dict[str, Any]:
         """
@@ -196,7 +197,8 @@ class ContractInSDC:
             "sourceBytes": None if self.source_bytes is None else self.source_bytes.as_dict(),
             "extensionContracts": [e.as_dict() for e in self.extension_contracts],
             "localAssignments": {k: v.as_dict() for k, v in self.local_assignments.items()},
-            "internalFunctionStarts": self.internal_starts
+            "internalFunctionStarts": self.internal_starts,
+            "internalFunctionHarnesses": self.internal_function_harnesses
         }
         # "sourceHints": {"localAssignments": {k: v.as_dict() for k, v in self.local_assignments.items()},
         #                 "branches": {k: v.as_dict() for k, v in self.branches.items()},

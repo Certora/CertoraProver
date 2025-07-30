@@ -1,0 +1,3 @@
+Error in spec file (CannotHarness.spec:3:5): could not type expression "_storageInput(e,s)", message: Cannot call internal function _storageInput from spec because input parameter 's' has storage location
+Error in spec file (CannotHarness.spec:4:5): could not type expression "_storageOutput(e)", message: Cannot call internal function _storageOutput from spec because output parameter #0 has storage location
+Error in spec file (CannotHarness.spec:5:5): could not type expression "freeFunc(e)", message: Cannot call internal function freeFunc from spec

@@ -104,14 +104,17 @@ class CompilerLangYul(CompilerLangSol, metaclass=Singleton):
                         notpayable=notpayable,
                         fromLib=False,
                         isConstructor=False,
+                        is_free_func=False,
                         stateMutability=state_mutability,
                         visibility=visibility,
                         implemented=True,
                         overrides=False,
+                        virtual=False,
                         contractName=contract_name,
                         source_bytes=None,
                         ast_id=None,
                         original_file=None,
+                        location=None,
                         body_location=None,
                     )
                     funcs.append(func)

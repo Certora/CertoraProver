@@ -74,6 +74,9 @@ data class LocalAssignmentSourceHint(
     val lhs: String
 )
 
+typealias InternalFuncName = String
+typealias InternalFuncExternalHarnessName = String
+
 /**
  * NB: (alex:) don't change field names or types here unless you know what you're doing, apparently they're tied to
  * some external (as in: from solidity compiler or so) serialization convention.
@@ -118,6 +121,7 @@ data class ContractInstanceInSDC(
     val immutables: List<ImmutableReference> = listOf(),
     val allMethods: List<Method> = listOf(),
     val internalFunctions: Map<String, MethodInContract> = mapOf(),
+    val internalFunctionHarnesses: Map<InternalFuncName, InternalFuncExternalHarnessName> = mapOf(),
     /**
      * If any `create()` call in the EVM bytecode has any element of [prototypeFor] as its prefix,
      * then treat that create call as creating an instance of this contract
@@ -206,6 +210,8 @@ data class ContractInstanceInSDC(
             declaredMethods
         }
     }
+
+    fun isInternalFunctionHarness(name: String) = name in internalFunctionHarnesses.values
 
     /** instantiate this contract with data of the parent SDC, since some of this preprocessing currently isn't done in the build script */
     fun withDataOfSDC(singleDeployedContract: SingleDeployedContract): ContractInstanceInSDC {

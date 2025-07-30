@@ -1115,6 +1115,15 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False,
     )
 
+    DISALLOW_INTERNAL_FUNCTION_CALLS = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+    )
+
     @classmethod
     def hide_attributes(cls) -> List[str]:
         # do not show these attributes in the help message

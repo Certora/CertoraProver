@@ -527,14 +527,18 @@ def __rename_key(context: CertoraContext, old_key: str, new_key: str) -> None:
         context.delete_key(old_key)
 
 
+def should_run_local_speck_check(context: CertoraContext) -> bool:
+    return not (context.disable_local_typechecking or Util.is_ci_or_git_action())
+
+
 def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[str]) -> None:
     """
     Runs a spec typechecker or syntax checker
-    @param typechecker_name - the name of the jar that we should run for running typechecking
-    @param with_typechecking - True if we want full typechecking including build (Solidity outputs) file,
+
+    @param typechecker_name: the name of the jar that we should run for running typechecking
+    @param with_typechecking: True if we want full typechecking including build (Solidity outputs) file,
                                 False if we run only the leaner syntax checking.
     @param args: A list of strings of additional arguments to the typechecker jar.
-
     """
     # Find path to typechecker jar
     path_to_typechecker = Util.find_jar(typechecker_name)
@@ -563,17 +567,21 @@ def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[s
             "simple syntax failures will be visible only on the cloud run.")
 
 
-def run_local_spec_check(with_typechecking: bool, context: CertoraContext) -> None:
+def run_local_spec_check(with_typechecking: bool, context: CertoraContext, extra_args: List[str] = list()) -> None:
     """
-    Runs the local type checker in one of two modes: (1) syntax only,
-        and (2) including full typechecking after building the contracts
+    Runs the local type checker
+
+    @param with_typechecking: If `True` will perform a full typecheck pass which requires Solidity build information.
+                              Otherwise performs only a syntax check.
+
+    @param context: The `CertoraContext`.
+
+    @param extra_args: a list of additional arguments that should be sent to the typechecker.
     """
 
-    if context.disable_local_typechecking or Util.is_ci_or_git_action():
-        return
     args = collect_jar_args(context)
     if Util.is_java_installed(context.java_version):
-        run_typechecker("Typechecker.jar", with_typechecking, args)
+        run_typechecker("Typechecker.jar", with_typechecking, args + extra_args)
     else:
         raise Util.CertoraUserInputError("Cannot run local checks because of missing a suitable java installation. "
                                          "To skip local checks run with the --disable_local_typechecking flag")

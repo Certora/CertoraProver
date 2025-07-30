@@ -192,6 +192,11 @@ class CalculateMethodParamFilters(
                         }
                     }
 
+                    if (contract.isInternalFunctionHarness(method.name)) {
+                        // ignore internal function harnesses
+                        return@methods null
+                    }
+
                     // Replace the methodArg variables within the filter expression with a SignatureLiteralExp that represents
                     // [method], so that we can statically evaluate the filter right here.
                     val symbolicMethodReplacer = SymbolicMethodReplacer(methodArg.id, method, contract)

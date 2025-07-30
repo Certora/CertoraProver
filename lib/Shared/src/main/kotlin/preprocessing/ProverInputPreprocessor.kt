@@ -28,7 +28,6 @@ import disassembler.DisassembledEVMBytecode
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.*
-import log.*
 import scene.*
 import spec.CVL
 import spec.CVLAstBuilder
@@ -157,9 +156,39 @@ object ProverInputPreprocessor {
     }
 
     private fun printFilteredRules(rules: Set<String>) {
-        if (Config.ListRules.get()) {
-            Config.getRuleChoices(rules).forEach { Logger.always(it, false) }
+        val outFile = Config.ListRules.getOrNull() ?: return
+
+        val chosenRules = Config.getRuleChoices(rules).joinToString("\n")
+
+        File(outFile).writeText(chosenRules)
+    }
+
+    private fun printFunctionCalls(ast: CVLAst, primaryContract: String) {
+        val outFile = Config.ListCalls.getOrNull() ?: return
+
+        val unresolvedCallsCollector = object : CVLCmdFolder<Set<String>>() {
+            override fun cvlExp(acc: Set<String>, exp: CVLExp): Set<String> {
+                val unresolvedCalls = exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().mapToSet { unresolved ->
+                    val base = (unresolved.base as? CVLExp.VariableExp)?.id?.let { baseContract ->
+                        ast.importedContracts.find { it.alias == baseContract }?.solidityContractName?.name
+                    } ?: primaryContract
+
+                    "$base.${unresolved.methodId}"
+                }
+
+                return acc + unresolvedCalls
+            }
+
+            override fun lhs(acc: Set<String>, lhs: CVLLhs): Set<String> = acc
+
+            override fun message(acc: Set<String>, message: String): Set<String> = acc
         }
+
+        val calls = ast.getAllBlocks().fold(setOf<String>()) { acc, cmd ->
+            unresolvedCallsCollector.cmd(acc, cmd)
+        }.joinToString("\n")
+
+        File(outFile).writeText(calls)
     }
 
     /**
@@ -213,6 +242,7 @@ object ProverInputPreprocessor {
                             ast.invs.mapToSet { it.id } +
                             ast.useDeclarations.builtInRulesInUse.mapToSet { it.id }
                         )
+                        printFunctionCalls(ast, verify.primary_contract)
                         astCb(ast)
                     }
                 } else {
