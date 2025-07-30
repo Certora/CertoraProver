@@ -39,6 +39,8 @@ import datastructures.stdcollections.*
  * also never replaces other variables.
  *
  * For reasons that are not yet clear, we need [strict] to also imply that we consider only intra-block replacements.
+ * Without it, `WeeklyTests/MakerDAO/DAITeleport/TeleportOracleAuth/TeleportOracleAuth.conf` rule `requestMint_revert`
+ * fails instead of being verified.
  */
 class AssignmentInliner(
     private val code: CoreTACProgram,
@@ -67,7 +69,9 @@ class AssignmentInliner(
             fun def(ptr: CmdPointer, v: TACSymbol.Var): Set<CmdPointer?>? =
                 blockDef[v]
                     ?.let { setOf(it) }
-                    ?: fullDef.defSitesOf(v, ptr)
+                    ?: runIf(!strict) {
+                        fullDef.defSitesOf(v, ptr)
+                    }
 
             val mapper = object : DefaultTACCmdMapper() {
                 override fun mapSymbol(t: TACSymbol) =
