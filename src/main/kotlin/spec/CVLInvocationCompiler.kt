@@ -963,7 +963,7 @@ class CVLInvocationCompiler(private val compiler: CVLCompiler, private val compi
                 vars.add(scalar)
             }
 
-            return CommandWithRequiredDecls(bindingCode, vars).toProgWithCurrEnv("calldata binding") merge meth
+            return CommandWithRequiredDecls(bindingCode, vars).toProg("calldata binding", callId.toContext()) merge meth
         }
     }
 

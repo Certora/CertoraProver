@@ -403,7 +403,13 @@ object ContractUtils {
                 ) { p: CoreTACProgram -> BlockMerger.mergeBlocks(p) },
                 CoreToCoreTransformer(
                     ReportTypes.PATH_OPTIMIZE_TAC_OPTIMIZATIONS
-                ) { c: CoreTACProgram -> Pruner(c).prune() },
+                ) { c: CoreTACProgram ->
+                    object : Pruner(c) {
+                        override val stopAt: ((TACSymbol.Var) -> Boolean) = { v ->
+                            TACMeta.TRANSIENT_STORAGE_KEY in v.meta || TACMeta.STORAGE_KEY in v.meta
+                        }
+                    }.prune()
+                  },
 
                 CoreToCoreTransformer(ReportTypes.MERGED) { p: CoreTACProgram -> BlockMerger.mergeBlocks(p) },
                 CoreToCoreTransformer(ReportTypes.REMOVE_UNREACHABLE, ContractUtils::removeUnreachable),

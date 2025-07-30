@@ -98,7 +98,8 @@ object InitialCodeInstrumentation {
                     // so we don't want to prune paths that depend on them either.
                     override val stopAt: ((TACSymbol.Var) -> Boolean) = {
                         it.meta.containsKey(TACMeta.CVL_GHOST) ||
-                            (Config.CvlFunctionRevert.get() && it.meta.containsKey(TACBasicMeta.LAST_REVERTED))
+                            (Config.CvlFunctionRevert.get() && it.meta.containsKey(TACBasicMeta.LAST_REVERTED)) ||
+                            (TACMeta.STORAGE_KEY in it.meta || TACMeta.TRANSIENT_STORAGE_KEY in it.meta)
                     }
 
                     override val simplifier: ExpressionSimplifier =

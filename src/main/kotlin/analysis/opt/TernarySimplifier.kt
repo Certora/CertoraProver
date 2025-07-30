@@ -71,8 +71,24 @@ object TernarySimplifier {
             code.internalFuncExitVars
         }
 
+        /**
+         * Before summarization, we won't see havocs of storage/transient storage, or
+         * inlinings of functions that might mutate storage variables. This will mean that
+         * if scalarized storage variables are assigned constant, expected to be mutated in calls,
+         * and then read out later, the ternary optimizer will only see the constant value and incorrectly
+         * optimize the program. The solution is to just have the ternary optimizer treat scalarized
+         * storage variables as opaque.
+         */
+        val isStorage : (TACSymbol.Var) -> Boolean = if(!afterSummarization) {
+            { v: TACSymbol.Var ->
+                TACMeta.STORAGE_KEY in v.meta || TACMeta.TRANSIENT_STORAGE_KEY in v.meta
+            }
+        } else {
+            { _ -> false }
+        }
+
         fun isForbidden(v: TACSymbol.Var) =
-            v.namePrefix in forbiddenVars || v in mentionedVars
+            v.namePrefix in forbiddenVars || v in mentionedVars || isStorage(v)
 
         val logger = Logger(LoggerTypes.TERNARY_SIMPLIFIER)
 
