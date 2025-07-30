@@ -43,6 +43,9 @@ object CmdsFolder {
             if (cmd !is TACCmd.Simple.AssigningCmd || cmd.lhs !in varsToResolve) {
                 return@filter false
             }
+            if (cmd is TACCmd.Simple.AssigningCmd.AssignHavocCmd) {
+                return@filter false
+            }
             if (cmd !is TACCmd.Simple.AssigningCmd.AssignExpCmd) {
                 // can't fold other types of assignments
                 return null

@@ -2470,6 +2470,8 @@ class CVLCompiler(
             ).merge(
                 wrapWithCVL(initializeReadTracking(), "setup read tracking instrumentation")
             ).merge(
+                wrapWithCVL(countSetup(), "record starting nonces")
+            ).merge(
                 // process storage for all contracts and balance
                 wrapWithCVL(
                     ruleLastStorageInitialize(), "last storage initialize"
@@ -2504,8 +2506,6 @@ class CVLCompiler(
             ).merge(
                 // Add linking connections
                 wrapWithCVL(resolveLinks(), "static links")
-            ).merge(
-                wrapWithCVL(countSetup(), "record starting nonces")
             ).merge(
                 wrapWithCVL(ensureZeroBalancesForClones(), "cloned contracts have no balances")
             ).merge(

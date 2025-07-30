@@ -19,7 +19,10 @@ package rules
 
 import allocator.Allocator
 import analysis.LTACCmd
-import analysis.opt.*
+import analysis.controlflow.checkIfAllPathsAreLastReverted
+import analysis.opt.PatternRewriter
+import analysis.opt.basicPatternsList
+import analysis.opt.earlyPatternsList
 import cache.CacheManager
 import cache.VerifyingCacheManager
 import cli.SanityValues
@@ -45,7 +48,9 @@ import report.calltrace.CallTrace
 import rules.IsFromCache.*
 import rules.RuleCheckResult.Single.RuleCheckInfo
 import rules.RuleCheckResult.Single.RuleCheckInfo.WithExamplesData
+import rules.genericrulecheckers.collectRequireWithoutReasonNotifications
 import rules.sanity.generatedRulesForSpecChecks
+import rules.sanity.sorts.SanityCheckSort
 import scene.IScene
 import scene.ISceneIdentifiers
 import scene.SceneIdentifiers
@@ -54,10 +59,10 @@ import smt.CoverageInfoEnum
 import solver.SolverResult
 import spec.CVL
 import spec.CVLCompiler
+import spec.cvlast.SpecType
 import spec.rules.CVLSingleRule
 import spec.rules.IRule
 import spec.rules.SingleRuleGenerationMeta
-import spec.cvlast.SpecType
 import statistics.SDCollector
 import statistics.SDCollectorFactory
 import tac.DumpTime
@@ -67,13 +72,13 @@ import vc.data.*
 import vc.data.ParametricMethodInstantiatedCode.toCheckableTACs
 import vc.data.parser.serializeTAC
 import vc.data.tacexprutil.DefaultTACExprTransformer
-import verifier.*
+import verifier.AbstractTACChecker
+import verifier.CTPOptimizationPass
+import verifier.TACVerifier
+import verifier.Verifier
 import java.io.IOException
 import java.util.*
 import java.util.stream.Collectors
-import analysis.controlflow.checkIfAllPathsAreLastReverted
-import rules.genericrulecheckers.collectRequireWithoutReasonNotifications
-import rules.sanity.sorts.SanityCheckSort
 
 
 private val logger = Logger(LoggerTypes.COMMON)
@@ -347,6 +352,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
             with(CTPOptimizationPass) {
                 listOf(
                     snippetRemoval,
+                    initByteMaps,
                     constantPropagatorAndSimplifier(mergeBlocks = true),
                     // we don't fold diamonds with assumes in them, because it creates assumes with disjunctions, and
                     // `IntervalsCalculator` can't work well with those.
@@ -366,15 +372,16 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
                     constantPropagatorAndSimplifier(mergeBlocks = false),
                     negationNormalizer,
                     patternRewriter(PatternRewriter::earlyPatternsList),
+                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
                     negationNormalizer,
-                    globalInliner(1),
+                    bytemapOptimizer(1, bmcAware = bmcMode, cheap = true),
                     constantPropagatorAndSimplifier(mergeBlocks = true),
                     optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
                     overflowPatternRewriter,
                     patternRewriter(PatternRewriter::basicPatternsList),
-                    globalInliner(2),
                     ternarySimplifier,
                     intervalsRewriter,
+                    bytemapOptimizer(2, bmcAware = bmcMode),
                     simplifyDiamonds(iterative = false),
                     constantPropagator(2, mergeBlocks = false),
                     pruner(2),
@@ -390,7 +397,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
                     optimizeAssignments(keepRevertManagement = true, bmcAware = false),
                     infeasiblePaths,
                     intervalsRewriter,
-                    globalInliner(2),
+                    bytemapOptimizer(3, bmcAware = false),
                     ternarySimplifier,
                     constantPropagatorAndSimplifier(mergeBlocks = true)
                 ).runOn(tacToCheck)

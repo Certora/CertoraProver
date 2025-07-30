@@ -21,7 +21,7 @@ import analysis.controlflow.InfeasiblePaths
 import analysis.icfg.SummaryStack
 import analysis.maybeAnnotation
 import analysis.opt.*
-import analysis.opt.inliner.GlobalInliner
+import analysis.opt.bytemaps.optimizeBytemaps
 import analysis.opt.intervals.IntervalsRewriter
 import analysis.opt.overflow.OverflowPatternRewriter
 import analysis.split.BoolOptimizer
@@ -42,7 +42,7 @@ interface CTPOptimizationPass {
     fun optimize(ctp: CoreTACProgram): CoreTACProgram
 
     companion object {
-        private fun make(reportType: ReportTypes, optimize: (CoreTACProgram) -> CoreTACProgram) =
+        fun make(reportType: ReportTypes, optimize: (CoreTACProgram) -> CoreTACProgram) =
             object : CTPOptimizationPass {
                 override val reportType = reportType
                 override fun optimize(ctp: CoreTACProgram) = optimize(ctp)
@@ -50,7 +50,7 @@ interface CTPOptimizationPass {
 
         fun Iterable<CTPOptimizationPass>.runOn(tacToCheck : CoreTACProgram) =
             fold(CoreTACProgram.Linear(tacToCheck)) { acc, opt ->
-                acc.mapIfAllowed(CoreToCoreTransformer(opt.reportType) { c -> opt.optimize(c) })
+                acc.mapIfAllowed(CoreToCoreTransformer(opt.reportType, opt::optimize))
             }.ref
 
         val snippetRemoval = make(SNIPPET_REMOVAL, SnippetRemover::rewrite)
@@ -106,7 +106,7 @@ interface CTPOptimizationPass {
 
         fun optimizeAssignments(keepRevertManagement: Boolean = false, bmcAware: Boolean = false) =
             make(UNUSED_ASSIGNMENTS) { ctp ->
-                optimizeAssignments(ctp, FilteringFunctions.default(ctp, keepRevertManagement, bmcAware))
+                optimizeAssignments(ctp, FilteringFunctions.default(ctp, keepRevertManagement, bmcAware), strict = false)
                     .let(BlockMerger::mergeBlocks)
             }
 
@@ -135,14 +135,16 @@ interface CTPOptimizationPass {
                 PatternRewriter.rewrite(ctp, patternList)
             }
 
-        fun globalInliner(reportNum: Int) = make(
-            reportType = when (reportNum) {
-                1 -> GLOBAL_INLINER1
-                2 -> GLOBAL_INLINER2
+        fun bytemapOptimizer(reportNum: Int, bmcAware: Boolean, cheap: Boolean = false) = make(
+            when (reportNum) {
+                1 -> BYTEMAP_OPTIMIZER1
+                2 -> BYTEMAP_OPTIMIZER2
+                3 -> BYTEMAP_OPTIMIZER3
                 else -> error("Invalid report num $reportNum")
-            },
-            optimize = { GlobalInliner.inlineAll(it, cutExcessBlocks = true) }
-        )
+            }
+        ) {
+            optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true, bmcAware), cheap)
+        }
 
         val overflowPatternRewriter = make(OPTIMIZE_OVERFLOW) { ctp -> OverflowPatternRewriter(ctp).go() }
 
@@ -156,5 +158,7 @@ interface CTPOptimizationPass {
         val blockMerger = make(OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks)
 
         val quantifierAnnotator = make(QUANTIFIER_POLARITY) { ctp -> QuantifierAnnotator(ctp).annotate() }
+
+        val initByteMaps = make(INIT_VARS, InsertMapDefinitions::transform)
     }
 }

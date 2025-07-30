@@ -41,10 +41,9 @@ data class ReducedLinearTerm<@Treapable E> private constructor(
 
     val isConst get() = literals.isEmpty()
     val asConstOrNull get() = c.takeIf { isConst }
-    val asVarOrNull
-        get() = runIf(c == BigInteger.ZERO) {
-            literals.entries.singleOrNull()?.takeIf { it.value == BigInteger.ONE }?.key
-        }
+    val asConst get() = asConstOrNull!!
+    val isVar get() = c == BigInteger.ZERO && literals.entries.singleOrNull()?.value == BigInteger.ONE
+    val asVarOrNull get() = runIf(isVar) { literals.entries.single().key }
 
     val support get() = literals.keys
 

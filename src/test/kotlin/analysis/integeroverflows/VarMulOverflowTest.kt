@@ -157,12 +157,12 @@ class VarMulOverflowTest {
     @Test
     fun justOneTest() {
         TestConfig(
-            compiler = EVMCompiler.Solidity("solc8.9"),
+            compiler = EVMCompiler.Vyper("vyper0.3.10"),
             signed = false,
-            optimize = true,
-            viaIR = true,
+            optimize = false,
+            viaIR = false,
             withRevert = false,
-            width = 240
+            width = 8
         ).let {
             with(it) {
                 test(simpleBinarySpecAndContract("*"), { checkMul(it, binMulMeta) })

@@ -486,6 +486,11 @@ val TACExpr.isVar get() = this is TACExpr.Sym.Var
 val TACExpr.asVarOrNull get() = (this as? TACExpr.Sym.Var)?.s
 val TACExpr.asVar get() = asVarOrNull!!
 
+val TACExpr.isSym get() = this is TACExpr.Sym
+val TACExpr.asSymOrNull get() = (this as? TACExpr.Sym)?.s
+val TACExpr.asSym get() = asSymOrNull!!
+
+
 val TACSymbol.isConst get() = this is TACSymbol.Const
 val TACSymbol.asConstOrNull get() = (this as? TACSymbol.Const)?.value
 val TACSymbol.asConst get() = asConstOrNull!!

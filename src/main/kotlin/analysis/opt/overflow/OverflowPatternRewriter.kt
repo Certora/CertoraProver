@@ -22,11 +22,12 @@ import analysis.maybeExpr
 import analysis.numeric.MAX_UINT
 import analysis.opt.ConstantPropagatorAndSimplifier
 import analysis.opt.NegationNormalizer
-import analysis.opt.PatternRewriter
-import analysis.opt.inliner.GlobalInliner
+import analysis.opt.bytemaps.BytemapInliner
+import analysis.opt.earlyPatternsList
 import analysis.opt.intervals.IntervalsCalculator
 import analysis.split.BoolOptimizer
 import com.certora.collect.*
+import instrumentation.transformers.AssignmentInliner
 import tac.MetaKey
 import utils.*
 import vc.data.CoreTACProgram
@@ -36,13 +37,12 @@ import vc.data.getOperands
 import verifier.BlockMerger
 import java.math.BigInteger
 
-
 /**
  * Detects and rewrites overflow checks via pattern matching. It assumes normalization of the TAC via
- * [BoolOptimizer], [ConstantPropagatorAndSimplifier], [BlockMerger], [PatternRewriter.earlyPatternsList] (needs only some of the
- * patterns there), [GlobalInliner] (needed for renaming all aliasing variables with the same name, and for getting
- * vyper memory read-writes out of the way), and [NegationNormalizer]. It then also needs just a bit more of
- * normalization via [JumpLeNormalizer].
+ * [BoolOptimizer], [ConstantPropagatorAndSimplifier], [BlockMerger], [earlyPatternsList] (needs only
+ * some of the patterns there), [AssignmentInliner] (needed for renaming all aliasing variables with the same name),
+ * [BytemapInliner] for getting vyper memory read-writes out of the way, and [NegationNormalizer].
+ * It then also needs just a bit more of normalization via [JumpLeNormalizer].
  *
  * The rewrite of the no-overflow condition has some subtle points explained here. Examples are with unsigned
  * multiplication, but it's the same with technical differences for the other cases.
@@ -169,6 +169,7 @@ class OverflowPatternRewriter(code1: CoreTACProgram) {
     private val intervals = IntervalsCalculator(code, preserve = { false }, calcJumpPostConditions = true)
 
     companion object {
+        @Suppress("EqualsOrHashCode")
         @KSerializable
         @Treapable
         data class OverflowMetaData(

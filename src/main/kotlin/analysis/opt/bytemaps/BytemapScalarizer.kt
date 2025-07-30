@@ -14,8 +14,7 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-package analysis.opt.scalarizer
+package analysis.opt.bytemaps
 
 import analysis.CmdPointer
 import analysis.LTACCmd
@@ -46,7 +45,7 @@ private val logger = Logger(LoggerTypes.BYTEMAP_SCALARIZER)
  * Detects bytemaps which are accessed only at constant locations (the whole bytemap assignments chain), and
  * replaces them with simple variables standing for specific locations of these maps.
  */
-class ByteMapScalarizer private constructor(code: CoreTACProgram, private val goodBases: Set<TACSymbol.Var>) {
+class BytemapScalarizer private constructor(code: CoreTACProgram, private val goodBases: Set<TACSymbol.Var>) {
     private val g = code.analysisCache.graph
     private val patcher = ConcurrentPatchingProgram(code)
 
@@ -294,17 +293,19 @@ class ByteMapScalarizer private constructor(code: CoreTACProgram, private val go
             if (goodBases.isEmpty()) {
                 return code
             }
-            logger.info {
-                "Bytemap bases to scalarize: $goodBases"
-            }
-
             // [ScalarizerCalculator] works well even if the program is not in 3-address-form, but the actual
             // rewriting doesn't (it can be, but that would complicate the code). So we first unfold the parts
             // we are interested in into 3-address-form.
             val unfoldedCode = unfoldAll(code) {
                 it.lhs in goodBases || it.rhs.subs.any { it is TACExpr.Sym.Var && it.s in goodBases }
             }
-            val s = ByteMapScalarizer(unfoldedCode, goodBases)
+            val s = BytemapScalarizer(unfoldedCode, goodBases)
+            logger.info {
+                "Scalarized ${goodBases.size} maps"
+            }
+            logger.debug {
+                "Bytemaps to scalarize: $goodBases"
+            }
             logger.trace {
                 s.patcher.debugPrinter().toString(unfoldedCode, "BytemapScalarizer")
             }

@@ -14,8 +14,7 @@
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-package analysis.opt.scalarizer
+package analysis.opt.bytemaps
 
 import algorithms.UnionFind
 import datastructures.stdcollections.minus
@@ -25,7 +24,13 @@ import datastructures.stdcollections.setOf
 import tac.Tag
 import utils.flatMapToSet
 import utils.mapToSet
-import vc.data.*
+import vc.data.CoreTACProgram
+import vc.data.TACCmd
+import vc.data.TACExpr
+import vc.data.TACSymbol
+import vc.data.destructiveOptimizations
+import vc.data.freeVars
+import vc.data.getOperands
 import vc.data.tacexprutil.getFreeVars
 import vc.data.tacexprutil.isConst
 

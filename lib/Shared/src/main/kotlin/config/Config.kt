@@ -2409,6 +2409,15 @@ object Config {
         )
     ) {}
 
+    val BytemapOptimizations = object : ConfigType.BooleanCmdLine(
+        default = true,
+        option = Option(
+            "bytemapOptimizations",
+            true,
+            "Enables a few bytemap optimizations [default: true]"
+        )
+    ) {}
+
     val SummaryRecursionLimit = "Choose number of times to unroll loops".let { desc ->
         object : ConfigType.IntCmdLine(
             0,

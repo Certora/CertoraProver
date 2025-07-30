@@ -17,7 +17,6 @@
 
 package verifier
 
-import analysis.opt.scalarizer.ByteMapScalarizer
 import analysis.skeyannotation.AnnotateSkeyBifs
 import config.Config
 import config.ConfigType
@@ -144,8 +143,8 @@ abstract class AbstractTACChecker {
             val simpleSimpleObj = CoreTACProgram.Linear(tacObject)
                 .map(CoreToCoreTransformer(ReportTypes.SIMPLE_SUMMARIES2) { it.simpleSummaries() })
                 .map(CoreToCoreTransformer(ReportTypes.SIMPLE_SIMPLE) { TACSimpleSimple.toSimpleSimple(it) })
-                .map(CoreToCoreTransformer(ReportTypes.LONG_COPY_HAVOC_INSTRUMENTATION) { TACSimpleSimple.longCopySimple(it) })
-                .map(CoreToCoreTransformer(ReportTypes.INIT_VARS) { DefaultValueInitializer.initVarsAtRoot(it) })
+                .map(CoreToCoreTransformer(ReportTypes.INIT_MAPS, InsertMapDefinitions::transform))
+                .map(CoreToCoreTransformer(ReportTypes.INIT_VARS, DefaultValueInitializer::initVarsAtRoot))
                 .map(CoreToCoreTransformer(ReportTypes.FOLD_SPLIT_STORES) { HeuristicalFolding.foldSplitStores(it) })
                 .map(CoreToCoreTransformer(ReportTypes.REMOVE_UNUSED) {
                     removeUnusedAssignments(it, expensive = false, it.destructiveOptimizations)
@@ -227,10 +226,6 @@ abstract class AbstractTACChecker {
          */
         private fun lastOptimizations(ssaTAC: CoreTACProgram, enableHeuristicalFolding: Boolean): CoreTACProgram {
             val linear = CoreTACProgram.Linear(ssaTAC)
-                .map(CoreToCoreTransformer(ReportTypes.INSERT_MAP_DEFINITION, InsertMapDefinitions::transform))
-                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_SCALARIZER) {
-                    ByteMapScalarizer.go(it)
-                })
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
                     optimizeAssignments(it, default(it)).let(BlockMerger::mergeBlocks)
                 })

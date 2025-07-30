@@ -35,6 +35,7 @@ import utils.ModZm.Companion.inBounds
 import vc.data.TACMeta.CONTRACT_ADDR_KEY
 import vc.data.TACMeta.CONTRACT_ADDR_KEY_NAME
 import vc.data.TACSymbol.Var.Companion.invoke
+import vc.data.tacexprutil.asVarOrNull
 import java.io.Serializable
 import java.math.BigInteger
 
@@ -299,6 +300,9 @@ sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 
 
             fun MetaMap.hasKeyword(k : TACKeyword) =
                 get(KEYWORD_ENTRY)?.let { it.name == k.getName() } == true
+
+            fun TACSymbol.hasKeyword(k : TACKeyword) =
+                asVarOrNull?.meta?.hasKeyword(k) == true
         }
 
         @KSerializable

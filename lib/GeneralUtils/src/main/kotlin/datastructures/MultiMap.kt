@@ -17,14 +17,9 @@
 
 package datastructures
 
-import com.certora.collect.TreapMap
-import com.certora.collect.TreapSet
-import com.certora.collect.Treapable
-import com.certora.collect.treapSetOf
-import com.certora.collect.union
+import com.certora.collect.*
 import datastructures.stdcollections.*
-import utils.flatMapToSet
-import utils.mapToSet
+import utils.*
 
 /**
  * Map that maps each key to a set of values.
@@ -166,6 +161,16 @@ typealias TreapMultiMap<K, V> = TreapMap<K, TreapSet<V>>
 
 fun <@Treapable K, @Treapable V> TreapMultiMap<K, V>.add(k : K, v : V) =
     put(k, get(k)?.add(v) ?: treapSetOf(v))
+
+fun <@Treapable K, @Treapable V> TreapMultiMap<K, V>.delete(k : K, v : V) =
+    get(k)?.remove(v).let {
+        if (it.isNullOrEmpty()) {
+            remove(k)
+        } else {
+            put(k, it)
+        }
+    }
+
 
 infix fun <K, V> TreapMultiMap<K, V>.treapMultiMapUnion(map2 : TreapMultiMap<K, V>) =
     this.union(map2) { _, set1, set2 ->

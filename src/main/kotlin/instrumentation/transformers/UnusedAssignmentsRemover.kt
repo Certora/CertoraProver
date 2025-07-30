@@ -188,13 +188,12 @@ private class AssignmentRemover(
     }
 
 
-    @Suppress("SwallowedException")
     fun go(): CoreTACProgram {
         if (expensive) {
             try {
                 logger.info { "Starting the expensive version on ${code.name}" }
                 expensive()
-            } catch (e: TopologicalOrderException) {
+            } catch (_: TopologicalOrderException) {
                 logger.info { "Graph has loops, so starting the cheap version on ${code.name}" }
                 cheap()
             }
@@ -242,8 +241,9 @@ fun removeUnusedAssignments(
 /** transforms via [inlineAssignments] and then via [removeUnusedAssignments] */
 fun optimizeAssignments(
     code: CoreTACProgram,
-    filtering: FilteringFunctions
+    filtering: FilteringFunctions,
+    strict : Boolean = false,
 ) =
     removeUnusedAssignments(code, expensive = false, filtering::isErasable, isTypechecked = true)
-        .let { inlineAssignments(it, filtering::isInlineable) }
+        .let { inlineAssignments(it, filtering, strict) }
         .let { removeUnusedAssignments(it, expensive = true, filtering::isErasable, isTypechecked = true) }

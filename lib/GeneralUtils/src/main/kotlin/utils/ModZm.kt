@@ -208,6 +208,18 @@ interface ModZm {
         /** bits are 1 from bit [start] up to bit [end] (non-inclusive) */
         fun onesRange(start: Int, end: Int) = lowOnes(end) - lowOnes(start)
 
+        /**
+         * returns <2, 5> for the [c] = 11100.
+         * Returns `null` if [c] is not of this form.
+         */
+        fun onesZerosMask(c: BigInteger): Pair<Int, Int>? {
+            val lowOne = c.lowestSetBit
+            val highOne = c.bitLength()
+            return runIf(onesRange(lowOne, highOne) == c) {
+                lowOne to highOne
+            }
+        }
+
         fun shr(a: BigInteger, b: BigInteger): BigInteger =
             b.toIntOrNull()?.takeIf { it < a.bitLength() }
                 ?.let { a shr it }
