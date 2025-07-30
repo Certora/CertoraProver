@@ -431,7 +431,6 @@ object ContractUtils {
                                 }
                             }
                         }
-                        add(TACKeyword.MEM64.toVar())
                     }.toTreapSet()
 
                     optimizeAssignments(
@@ -440,13 +439,16 @@ object ContractUtils {
                             private val TACSymbol.Var.foundryPreserved get() =
                                 hasKeyword(TACKeyword.CALLER) || hasKeyword(TACKeyword.ADDRESS)
 
+                            private val TACSymbol.Var.isPreserved get() =
+                                this in preservedVars || this.hasKeyword(TACKeyword.MEM64)
+
                             override fun isInlineable(v: TACSymbol.Var) =
-                                v !in preservedVars && !v.foundryPreserved
+                                !v.isPreserved && !v.foundryPreserved
 
                             override fun isErasable(cmd: TACCmd.Simple.AssigningCmd) =
                                 cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd &&
                                     TACBasicMeta.STACK_HEIGHT in cmd.lhs.meta &&
-                                    !cmd.getRhs().containsAny(preservedVars) &&
+                                    cmd.getRhs().none { it is TACSymbol.Var && it.isPreserved } &&
                                     cmd.freeVars().none { it.foundryPreserved } &&
                                     REVERT_MANAGEMENT !in cmd.meta
                         },
