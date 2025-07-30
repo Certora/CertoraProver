@@ -18,8 +18,8 @@
 package analysis.opt.bytemaps
 
 
+import algorithms.DeRecursor
 import analysis.CmdPointer
-import analysis.TACProgramPrinter
 import analysis.forwardVolatileDagDataFlow
 import analysis.opt.bytemaps.TermFactory.Query
 import analysis.opt.intervals.IntervalsCalculator
@@ -28,7 +28,6 @@ import com.certora.collect.TreapMap.MergeMode
 import datastructures.TreapMultiMap
 import datastructures.add
 import datastructures.delete
-import datastructures.memoized
 import datastructures.stdcollections.*
 import log.*
 import tac.Tag
@@ -69,7 +68,7 @@ private val logger: Logger = Logger(LoggerTypes.BYTEMAP_INLINER)
 class BytemapInliner private constructor(
     private val code: CoreTACProgram,
     private val isInlineable: (TACSymbol.Var) -> Boolean,
-    cheap : Boolean,
+    cheap: Boolean,
 ) {
     private val g = code.analysisCache.graph
     private val def = code.analysisCache.strictDef
@@ -102,99 +101,101 @@ class BytemapInliner private constructor(
                     null
                 }
 
-            /** Called on a load command */
-            override fun load(lhs: TACSymbol.Var, base: TACSymbol.Var, loc: TACSymbol) =
-                loadAtRhs(ptr, base, Query(ptr, tf.rhsTerm(ptr, loc)!!))
-
             /**
-             * Returns the term associated with the querying of map [base] defined at [currentPtr] with location
+             * Called on a load command.
+             * Returns the term associated with the querying of map [base] defined at [ptr] with location
              * described by [Query].
-             * [Query] holds the term associated with the original location the bytemap was queried at (possibly
-             * shifted because of long-stores), and the ptr where that query happened. This ptr is needed for more
-             * precise comparisons of terms.
-             *
-             * [loadAtLhs] and [loadAtRhs] mutually recurse backwards in the store-chain.
              */
-            private fun loadAtRhs(currentPtr: CmdPointer, base: TACSymbol.Var, query: Query): Term? =
-                def.defSitesOf(base, currentPtr)
-                    .map { loadAtLhs(it ?: run {
-                        TACProgramPrinter.standard().highlight { it.ptr == currentPtr }.print(code)
-                        error("weird? - $ptr : $cmd, ${base.tag}")
-                    }, query) }
-                    .sameValueOrNull()
+            override fun load(lhs: TACSymbol.Var, base: TACSymbol.Var, loc: TACSymbol): Term? {
+                val query = Query(ptr, tf.rhsTerm(ptr, loc)!!)
+                return def.defSitesOf(base, ptr)
+                    .map { loadAtLhs(it!!, query) }
+                    .uniqueOrNull()
+            }
 
             /**
-             * Returns the term associated with the querying of map `base` appearing in the rhs of `currentPtr`.
-             * Memoized because the store-chain may have a "diamond" shape.
+             * Returns the term associated with the querying of map appearing in the lhs of `currentPtr`.
+             * It goes backwards in the store chain, looking for a store whose location matches that of `query`.
+             * If found, then the term corresponding to the value stored is returned. If none is found, null is returned.
+             *
+             * Using recursion caused a stack overflow, so we have to [DeRecursor] this. Note that the [DeRecursor]'s
+             * instance memoization cache is shared for all usages within this `handleCmd` call, but not between
+             * different commands. I believe that different load commands will rarely result in the same queries, and
+             * the memory usage can be quite large if we cache all of these.
              */
-            private val loadAtLhs = memoized(reentrant = true) { currentPtr: CmdPointer, query: Query ->
-                fun rhsTermOf(s: TACSymbol) = tf.rhsTerm(currentPtr, s)!!
+            private val loadAtLhsFun = DeRecursor(
+                memoize = true,
+                reduce = { it.uniqueOrNull() },
+                nextsOrResult = { (currentPtr, query) : Pair<CmdPointer, Query> ->
+                    fun rhsTermOf(s: TACSymbol) = tf.rhsTerm(currentPtr, s)!!
 
-                val handler = object : ByteMapCmdHandler<Term?> {
-                    override fun simpleAssign(lhs: TACSymbol.Var, rhs: TACSymbol.Var) =
-                        loadAtRhs(currentPtr, rhs, query)
+                    fun loadAtRhs(base: TACSymbol.Var, query: Query) =
+                        def.defSitesOf(base, currentPtr).map { it!! to query }.toLeft()
 
-                    override fun store(
-                        lhs: TACSymbol.Var,
-                        rhsBase: TACSymbol.Var,
-                        loc: TACSymbol,
-                        value: TACSymbol
-                    ) =
-                        when (tf.areEqual(currentPtr, rhsTermOf(loc), query.ptr, query.t)) {
-                            true -> rhsTermOf(value)
-                            false -> loadAtRhs(currentPtr, rhsBase, query)
-                            null -> null
+                    val handler = object : ByteMapCmdHandler<Either<List<Pair<CmdPointer, Query>>, Term?>> {
+                        override fun simpleAssign(lhs: TACSymbol.Var, rhs: TACSymbol.Var) =
+                            loadAtRhs(rhs, query)
+
+                        override fun store(
+                            lhs: TACSymbol.Var,
+                            rhsBase: TACSymbol.Var,
+                            loc: TACSymbol,
+                            value: TACSymbol
+                        ) =
+                            when (tf.areEqual(currentPtr, rhsTermOf(loc), query.ptr, query.t)) {
+                                true -> rhsTermOf(value).toRight()
+                                false -> loadAtRhs(rhsBase, query)
+                                null -> null
+                            }
+
+                        override fun longstore(
+                            lhs: TACSymbol.Var,
+                            srcOffset: TACSymbol,
+                            dstOffset: TACSymbol,
+                            srcMap: TACSymbol.Var,
+                            dstMap: TACSymbol.Var,
+                            length: TACSymbol
+                        ): Either<List<Pair<CmdPointer, Query>>, Term?>? {
+                            val lengthTerm = rhsTermOf(length)
+                            if (lengthTerm.asConstOrNull == BigInteger.ZERO) {
+                                return loadAtRhs(dstMap, query)
+                            }
+                            val dstOffsetTerm = rhsTermOf(dstOffset)
+                            val srcOffsetTerm = rhsTermOf(srcOffset)
+                            return when (tf.isInside(
+                                queryPtr = query.ptr,
+                                query = query.t,
+                                rangeQuery = currentPtr,
+                                low = dstOffsetTerm,
+                                high = dstOffsetTerm + lengthTerm
+                            )) {
+                                true -> loadAtRhs(srcMap, query.shift(srcOffsetTerm - dstOffsetTerm))
+                                false -> loadAtRhs(dstMap, query)
+                                null -> null
+                            }
                         }
 
-                    override fun longstore(
-                        lhs: TACSymbol.Var,
-                        srcOffset: TACSymbol,
-                        dstOffset: TACSymbol,
-                        srcMap: TACSymbol.Var,
-                        dstMap: TACSymbol.Var,
-                        length: TACSymbol
-                    ): Term? {
-                        val lengthTerm = rhsTermOf(length)
-                        if (lengthTerm.asConstOrNull == BigInteger.ZERO) {
-                            return loadAtRhs(currentPtr, dstMap, query)
-                        }
-                        val dstOffsetTerm = rhsTermOf(dstOffset)
-                        val srcOffsetTerm = rhsTermOf(srcOffset)
-                        return when (tf.isInside(
-                            queryPtr = query.ptr,
-                            query = query.t,
-                            rangeQuery = currentPtr,
-                            low = dstOffsetTerm,
-                            high = dstOffsetTerm + lengthTerm
-                        )) {
-                            true -> loadAtRhs(
-                                currentPtr,
-                                srcMap,
-                                query.shift(srcOffsetTerm - dstOffsetTerm)
-                            )
+                        override fun ite(lhs: TACSymbol.Var, i: TACSymbol, t: TACSymbol.Var, e: TACSymbol.Var) =
+                            when (rhsTermOf(i).asConstOrNull) {
+                                BigInteger.ONE -> loadAtRhs(t, query)
+                                BigInteger.ZERO -> loadAtRhs(e, query)
+                                else -> listOf(
+                                    loadAtRhs(t, query),
+                                    loadAtRhs(e, query)
+                                ).sameValueOrNull()
+                            }
 
-                            false -> loadAtRhs(currentPtr, dstMap, query)
-                            null -> null
-                        }
+                        override fun mapDefinition(lhs: TACSymbol.Var, param: TACSymbol.Var, definition: TACExpr) =
+                            definition.asConstOrNull?.let { Term(it).toRight() }
                     }
 
-                    override fun ite(lhs: TACSymbol.Var, i: TACSymbol, t: TACSymbol.Var, e: TACSymbol.Var): Term? =
-                        when(rhsTermOf(i).asConstOrNull) {
-                            BigInteger.ONE -> loadAtRhs(currentPtr, t, query)
-                            BigInteger.ZERO -> loadAtRhs(currentPtr, e, query)
-                            else -> listOf(
-                                loadAtRhs(currentPtr, t, query),
-                                loadAtRhs(currentPtr, e, query)
-                            ).sameValueOrNull()
-                        }
-
-
-                    override fun mapDefinition(lhs: TACSymbol.Var, param: TACSymbol.Var, definition: TACExpr) =
-                        definition.asConstOrNull?.let { Term(it) }
-
+                    handler.handle(g.toCommand(currentPtr)) ?: null.toRight()
                 }
-                handler.handle(g.toCommand(currentPtr))
-            }
+            )
+
+            private fun loadAtLhs(currentPtr: CmdPointer, query: Query): Term? =
+                loadAtLhsFun.go(currentPtr to query)
+
         }.handle(cmd)
 
 
@@ -330,7 +331,7 @@ class BytemapInliner private constructor(
     }
 
     companion object {
-        fun go(code: CoreTACProgram, isInlineable: (TACSymbol.Var) -> Boolean, cheap : Boolean) =
+        fun go(code: CoreTACProgram, isInlineable: (TACSymbol.Var) -> Boolean, cheap: Boolean) =
             BytemapInliner(code, isInlineable, cheap).rewrite()
     }
 

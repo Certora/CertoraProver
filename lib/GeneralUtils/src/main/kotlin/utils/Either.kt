@@ -90,7 +90,7 @@ fun <T, R, U, V> Either<T, R>.bind(l: (T) -> Either<U, V>, r: (R) -> Either<U, V
             is Either.Left -> l(this.d)
         }
 
-fun <T, R, U> Either<T, R>.toValue(l: (T) -> U, r: (R) -> U): U =
+inline fun <T, R, U> Either<T, R>.toValue(l: (T) -> U, r: (R) -> U): U =
         when(this) {
             is Either.Left -> l(this.d)
             is Either.Right -> r(this.d)
