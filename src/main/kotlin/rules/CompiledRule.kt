@@ -45,6 +45,7 @@ import report.*
 import report.callresolution.CallResolutionTable
 import report.callresolution.CallResolutionTableBase
 import report.calltrace.CallTrace
+import report.cexanalysis.CounterExampleAnalyser
 import rules.IsFromCache.*
 import rules.RuleCheckResult.Single.RuleCheckInfo
 import rules.RuleCheckResult.Single.RuleCheckInfo.WithExamplesData
@@ -56,6 +57,7 @@ import scene.ISceneIdentifiers
 import scene.SceneIdentifiers
 import scene.source.StandardCache
 import smt.CoverageInfoEnum
+import solver.SMTCounterexampleModel
 import solver.SolverResult
 import spec.CVL
 import spec.CVLCompiler
@@ -168,7 +170,14 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
             }
             val sanityAlerts = computeSanityAlerts(compiledRule.rule, res)
             val requireWithoutReasonAlerts = collectRequireWithoutReasonNotifications(compiledRule)
-            val alerts = listOfNotNull(isSolverResultFromCacheAlert, isEmptyCodeAlert, isAlwaysRevertingAlert) + requireWithoutReasonAlerts + sanityAlerts
+            val imprecisions = res.examplesInfo?.mapIndexedNotNull { i, model ->
+                (model.model as? SMTCounterexampleModel)?.let {
+                    val cexAnalyser = CounterExampleAnalyser(i, res.simpleSimpleSSATAC, it)
+                    cexAnalyser.alerts
+                }
+            }?.flatten().orEmpty()
+            val alerts = listOfNotNull(isSolverResultFromCacheAlert, isEmptyCodeAlert, isAlwaysRevertingAlert) +
+                requireWithoutReasonAlerts + sanityAlerts + imprecisions
             if (generateReport && !Config.CoinbaseFeaturesMode.get()) {
                 generateSingleResult(scene, compiledRule.rule, res, time, isOptimizedRuleFromCache, isSolverResultFromCache, alerts)
             } else {

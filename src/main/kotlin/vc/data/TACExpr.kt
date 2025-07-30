@@ -90,6 +90,13 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
 
     abstract fun eval(cs : List<BigInteger>) : BigInteger?
 
+    @Suppress("SwallowedException")
+    fun safeEval(cs: List<BigInteger>) = try {
+        eval(cs)
+    } catch (_: ArithmeticException) {
+        null
+    }
+
     /**
      * [cb] is a custom handler for [TACSymbol.Var]s, which by default just takes the SMT-rep
      */

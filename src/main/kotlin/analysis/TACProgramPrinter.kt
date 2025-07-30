@@ -60,6 +60,9 @@ class TACProgramPrinter {
     private val dontShowCmds = mutableListOf<CmdFilter>()
     private fun shouldShowCmd(lcmd: LTACCmd) = !dontShowCmds.any { it(lcmd) }
 
+    private val dontShowBlocks = mutableListOf<(NBId) -> Boolean>()
+    private fun shouldShowBlock(b: NBId) = dontShowBlocks.none { it(b) }
+
     private val showMetaFor = mutableListOf<CmdFilter>()
     private fun shouldShowMetaFor(lcmd: LTACCmd) = showMetaFor.any { it(lcmd) }
 
@@ -81,6 +84,9 @@ class TACProgramPrinter {
 
     fun dontShowCmds(f: CmdFilter) =
         this.also { dontShowCmds += f }
+
+    fun dontShowBlocks(f: (NBId) -> Boolean) =
+        this.also { dontShowBlocks += f }
 
     inline fun <reified T : TACCmd.Simple> dontShowCmds() =
         dontShowCmds { it.cmd is T }
@@ -173,10 +179,13 @@ class TACProgramPrinter {
     }
 
     fun toString(block: TACBlock, succ: Set<NBId>): String {
+        val bid = block.id
+        if (!shouldShowBlock(bid)) {
+            return ""
+        }
         val sb = StringBuilder()
         fun line(l: String = "") = sb.appendLine(l)
 
-        val bid = block.id
         val cmds = block.commands
         val blockInfo =
             if (extraBlockInfo.isEmpty()) {

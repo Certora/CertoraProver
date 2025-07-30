@@ -174,6 +174,9 @@ inline fun <reified T : TACExpr> T.rebuild(f : (TACExpr) -> TACExpr): T =
 fun TACExpr.postTransform(f : (TACExpr) -> TACExpr): TACExpr =
     f(rebuild(getOperands().map { it.postTransform(f) }))
 
+fun <T> TACExpr.postFold(f : (TACExpr, List<T>) -> T): T =
+    f(this, getOperands().map { it.postFold(f) })
+
 
 fun TACExpr.evalAsExprOrNull(vararg args : BigInteger) = eval(args.toList())?.asTACExpr(tag ?: defaultTag)
 fun TACExpr.evalAsExpr(vararg args : BigInteger) = evalAsExprOrNull(*args)!!

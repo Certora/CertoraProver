@@ -77,6 +77,7 @@ enum class LoggerTypes : LoggerName {
     EXT_CALL_ANALYSIS,
     INTERNAL_TYPE_CHECKER,
     DSA,
+    CEX_ANALYSER,
     PATTERN,
     REQUIRE_INVARIANT,
     STORAGE_ANALYSIS,

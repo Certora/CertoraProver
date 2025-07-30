@@ -89,6 +89,8 @@ sealed class TACCmd : Serializable, ITACCmd {
 
     fun sourceRange(): Range.Range? = metaSrcInfo?.getSourceDetails()?.range
 
+    val sourceOrCVLRange get() = sourceRange() ?: meta[TACMeta.CVL_RANGE]
+
     open fun nameString(): String {
         return this.javaClass.simpleName
     }

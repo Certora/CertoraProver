@@ -17,13 +17,12 @@
 
 package verifier
 
-import annotations.PollutesGlobalState
 import analysis.opt.intervals.IntervalsRewriter
+import annotations.PollutesGlobalState
 import config.Config
 import config.Config.EnableResplitting
-
-import config.LocalSettings
 import config.Config.UnderApproxStartDepth
+import config.LocalSettings
 import config.ReportTypes
 import datastructures.EnumSet
 import datastructures.nonEmptyListOf
@@ -52,7 +51,10 @@ import smtlibutils.statistics.PreExecutionStatistics
 import solver.ConfigStatistics
 import solver.SMTCounterexampleModel
 import solver.SolverResult
-import spec.cvlast.*
+import spec.cvlast.CVLCmd
+import spec.cvlast.CVLExpDeclaredSymbolsCollector
+import spec.cvlast.RuleIdentifier
+import spec.cvlast.SpecType
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.rules.CVLSingleRule
 import spec.rules.IRule
