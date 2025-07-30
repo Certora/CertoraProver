@@ -1936,10 +1936,11 @@ class MutateApp:
         if self.test == str(Util.TestValue.CHECK_MANUAL_COMPILATION):
             raise Util.TestResultsReady(' '.join(args))
         with Util.change_working_directory(find_cwd(trg_dir)):
-            result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         if result.returncode:
             mutation_logger.debug(f"mutation compilation failed: cmd: {' '.join(args)}\n cwd: {os.getcwd()}")
-            raise Util.CertoraUserInputError(f"mutation file {mutant.filename} failed to compile")
+            raise Util.CertoraUserInputError(f"mutation file {mutant.filename} failed to compile\n\n"
+                                             f"{result.stderr.decode()}")
 
 
 def rec_collect_statuses_children(rule: Dict[str, Any], statuses: List[str]) -> None:

@@ -50,9 +50,9 @@ def get_relevant_compiler(contract_file_path: Path, context: CertoraContext) -> 
         contract_file_path = Path(os.path.relpath(contract_file_path, cwd_in_source))
 
     if context.compiler_map:
-        match = str(Ctx.get_map_attribute_value(context, contract_file_path, 'compiler'))
+        match = Ctx.get_map_attribute_value(context, contract_file_path, 'compiler')
         if match:
-            return match
+            return str(match)
         else:
             raise RuntimeError(f'cannot match compiler to {contract_file_path} from compiler_map')
 
