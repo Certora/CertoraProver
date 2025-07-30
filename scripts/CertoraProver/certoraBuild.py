@@ -1377,7 +1377,9 @@ class CertoraBuildGenerator:
 
     def get_solc_optimize_value(self, contract_file_path: Path) -> Optional[str]:
         match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_optimize')
-        assert isinstance(match, (str, type(None))), f"Expected solc_optimize to be string or None, got {type(match)}"
+        assert isinstance(match, (str, int, type(None))), f"Expected solc_optimize to be string, integer , got {type(match)}"
+        if isinstance(match, int):
+            match = str(match)
         return match
 
     def _handle_via_ir(self, contract_file_path: Path, settings_dict: Dict[str, Any]) -> None:

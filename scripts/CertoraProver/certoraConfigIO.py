@@ -13,11 +13,9 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import json5
 import logging
 from pathlib import Path
-from typing import Dict, Any
-from collections import OrderedDict
+from typing import Dict, Any, cast
 
 import CertoraProver.certoraContext as Ctx
 import CertoraProver.certoraContextAttributes as Attrs
@@ -51,6 +49,7 @@ def current_conf_to_file(context: CertoraContext) -> Dict[str, Any]:
         return v is not None and v is not False and k in all_conf_names
 
     context_to_save = {k: v for k, v in vars(context).items() if input_arg_with_value(k, v)}
+    context_to_save = cast(Dict[str, Any], Util.convert_str_ints(context_to_save))
     all_conf_names = Attrs.get_attribute_class().all_conf_names()
     context_to_save = dict(sorted(context_to_save.items(), key=lambda x: all_conf_names.index(x[0])))
     context_to_save.pop('build_dir', None)  # build dir should not be saved, each run should define its own build_dir
@@ -76,7 +75,7 @@ def read_from_conf_file(context: CertoraContext) -> None:
 
     try:
         with conf_file_path.open() as conf_file:
-            context.conf_file_attr = json5.load(conf_file, allow_duplicate_keys=False, object_pairs_hook=OrderedDict)
+            context.conf_file_attr = Util.read_conf_file(conf_file)
             try:
                 check_conf_content(context)
             except Util.CertoraUserInputError as e:
@@ -98,9 +97,9 @@ def handle_override_base_config(context: CertoraContext) -> None:
 
     if context.override_base_config:
         try:
-            with Path(context.override_base_config).open() as conf_file:
-                override_base_config_attrs = json5.load(conf_file, allow_duplicate_keys=False,
-                                                        object_pairs_hook=OrderedDict)
+            with (Path(context.override_base_config).open() as conf_file):
+                override_base_config_attrs = Util.read_conf_file(conf_file)
+
                 context.conf_file_attr = {**override_base_config_attrs, **context.conf_file_attr}
 
                 if 'override_base_config' in override_base_config_attrs:

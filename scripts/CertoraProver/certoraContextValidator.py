@@ -160,9 +160,9 @@ class CertoraContextValidator:
 
         if value is None:
             raise RuntimeError(f"calling validate_type_string with null value {conf_key}")
-        if not isinstance(value, str):
-            raise Util.CertoraUserInputError(f"value of {conf_key} {value} is not a string")
-        attr.validate_value(value)
+        if not isinstance(value, (str, int)):
+            raise Util.CertoraUserInputError(f"value of {conf_key} {value} is not a string or an integer")
+        attr.validate_value(str(value))
 
     def validate_type_boolean(self, attr: AttrUtil.AttributeDefinition) -> None:
         conf_key, value = self.__get_key_and_value(attr)

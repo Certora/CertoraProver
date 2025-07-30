@@ -16,6 +16,7 @@
 import csv
 import json
 import os
+import io
 import subprocess
 from abc import ABCMeta
 from enum import Enum, unique, auto
@@ -30,8 +31,9 @@ import urllib3.util
 from collections import defaultdict
 from types import SimpleNamespace
 
-from typing import Any, Callable, Dict, List, Optional, Set, Union, Generator, Tuple, Iterable, Sequence, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Set, Union, Generator, Tuple, Iterable, Sequence, TypeVar, OrderedDict
 from pathlib import Path
+import json5
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
@@ -1455,3 +1457,20 @@ def file_in_source_tree(file_path: Path) -> bool:
         return True
     except ValueError:
         return False
+
+def parse_int_as_str(val: str) -> str:
+    return str(val)
+
+def read_conf_file(file: io.TextIOWrapper) -> OrderedDict:
+    res = json5.load(file, allow_duplicate_keys=False, object_pairs_hook=OrderedDict, parse_int=parse_int_as_str)
+    return res
+
+def convert_str_ints(obj: Union[dict, list, str, int]) -> Union[dict, list, str, int]:
+    if isinstance(obj, dict):
+        return {k: convert_str_ints(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_str_ints(v) for v in obj]
+    elif isinstance(obj, str) and re.fullmatch(r"-?\d+", obj):
+        return int(obj)
+    else:
+        return obj

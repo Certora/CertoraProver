@@ -28,7 +28,6 @@ from typing import Optional, Any, List, Dict, Tuple, Set, Union
 import logging
 from types import SimpleNamespace
 import tarfile
-import json5
 import csv
 import time
 import requests
@@ -1880,7 +1879,7 @@ class MutateApp:
 
         with open(self.conf, 'r') as conf_file:
             try:
-                self.prover_context = CertoraContext(**json5.load(conf_file, allow_duplicate_keys=False))
+                self.prover_context = CertoraContext(**Util.read_conf_file(conf_file))
                 self.check_prover_context()
             except Exception as e:
                 raise Util.CertoraUserInputError(f"Failed to parse {self.conf} as JSON", e)
