@@ -346,7 +346,14 @@ open class CodeRemapper<T> (
      * Remap ids in [procedure] according to [state].
      */
     fun remapProcedure(state: T, procedure: Procedure): Procedure {
-        return procedure.mapId(idRemapper.createRemapper(state))
+        val f: (Any, Int, () -> Int) -> Int = idRemapper.createRemapper(state)
+        return procedure.mapId { k, curr, gen ->
+            if(k == Allocator.Id.CALL_ID) {
+                callIndexStrategy.remapCallIndex(state, curr, f.forId(Allocator.Id.CALL_ID))
+            } else {
+                f(k, curr, gen)
+            }
+        }
     }
 
 
