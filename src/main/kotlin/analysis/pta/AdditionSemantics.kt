@@ -25,6 +25,7 @@ import analysis.numeric.IntQualifier
 import analysis.numeric.IntValue
 import analysis.numeric.linear.LVar
 import analysis.numeric.linear.LinearEquality
+import analysis.numeric.linear.TermMatching.matches
 import analysis.pta.abi.EncoderAnalysis.EncodingState.Companion.variablesEqualTo
 import analysis.ptaInvariant
 import com.certora.collect.*
@@ -33,8 +34,7 @@ import evm.EVM_WORD_SIZE
 import evm.MAX_EVM_UINT256
 import log.Logger
 import log.LoggerTypes
-import utils.monadicFold
-import utils.monadicMap
+import utils.*
 import vc.data.TACExpr
 import vc.data.TACSymbol
 import java.math.BigInteger
@@ -250,7 +250,7 @@ abstract class AdditionSemantics<S> {
                     /*
                       Case 1.b.i
                      */
-                    if(resolvedI2.x.ub != MAX_EVM_UINT256 && arrayElemSize != null) {
+                    if (resolvedI2.x.ub != MAX_EVM_UINT256 && arrayElemSize != null) {
                         val lowerBound = resolvedI2.x.getLowerBound().takeIf { it >= BIGINT_32 }?.let {
                             (it - BIGINT_32) / arrayElemSize
                         } ?: BigInteger.ZERO
@@ -264,7 +264,7 @@ abstract class AdditionSemantics<S> {
                             whole = p,
                             where = where
                         )
-                    /*
+                        /*
                        Case 1.b.ii
                      */
                     } else {
@@ -278,19 +278,37 @@ abstract class AdditionSemantics<S> {
                             indexVar = indices
                         )
                     }
+                /**
+                 * See if this value is safe to add to the base pointer of an array
+                 */
+                } else if(
+                    arrayElemSize != null &&
+                    isSafeRawAddition(resolvedI2, o1, arrayElemSize) &&
+                    isArrayStep(resolvedI2, arrayElemSize)
+                ) {
+                    val lowerBound = (resolvedI2.x.getLowerBound() - BIGINT_32) / arrayElemSize
+                    val upperBound = (resolvedI2.x.getUpperBound() - BIGINT_32) / arrayElemSize
+                    toArrayElementPointer(
+                        av1.v.filterIsInstance(ArrayAbstractLocation.A::class.java).toSet(),
+                        setOf(o1),
+                        IntValue.Interval(lowerBound, upperBound),
+                        target = target,
+                        whole = p,
+                        where = where
+                    )
                 /*
                    case 1.c
                  */
                 } else if(resolvedI2.x.getUpperBound() != MAX_EVM_UINT256 &&
                     arrayElemSize != null &&
                     resolvedI2.x.getLowerBound() >= BIGINT_32 &&
-                    p.indexProvablyWithinArrayBounds(
+                    (p.indexProvablyWithinArrayBounds(
                             (resolvedI2.x.getUpperBound() - BIGINT_32) / arrayElemSize,
                             o1
-                        ) &&
+                        )) &&
                     isArrayStep(resolvedI2, arrayElemSize)) {
-                            val lowerBound = (resolvedI2.x.getLowerBound() - BIGINT_32) / arrayElemSize
-                            val upperBound = (resolvedI2.x.getUpperBound() - BIGINT_32) / arrayElemSize
+                    val lowerBound = (resolvedI2.x.getLowerBound() - BIGINT_32) / arrayElemSize
+                    val upperBound = (resolvedI2.x.getUpperBound() - BIGINT_32) / arrayElemSize
                     toArrayElementPointer(
                         av1.v.filterIsInstance(ArrayAbstractLocation.A::class.java).toSet(),
                         setOf(o1),
@@ -555,7 +573,7 @@ abstract class AdditionSemantics<S> {
                     toBlockElemPointer(av1.blockAddr, op2Constant, av1.blockSize, o1, target, p, where)
                 } else if (o2 is TACSymbol.Var && numericAnalysis.isSafeMultiplierFor(p, av1.blockSize, o2) &&
                         isTupleSafe(av1, p.pointsToState.h)) {
-                    toConstArrayElemPointer(av1.blockAddr, o1, target, p, where)
+                    toConstArrayElemPointer(av1.blockAddr, o1, target, p, where, ConstArraySafetyProof.OffsetFromBase(o2))
                 } else {
                     nondeterministicInteger(where, p, target)
                 }
@@ -570,7 +588,7 @@ abstract class AdditionSemantics<S> {
                     toBlockElemPointer(av1.blockAddr, op2Constant, av1.blockSize, o1, target, p, where)
                 } else if (o2 is TACSymbol.Var && numericAnalysis.isSafeMultiplierFor(p, av1.blockSize, o2) &&
                     isTupleSafe(av1, p.pointsToState.h)) {
-                    toConstArrayElemPointer(av1.blockAddr, o1, target, p, where)
+                    toConstArrayElemPointer(av1.blockAddr, o1, target, p, where, ConstArraySafetyProof.OffsetFromBase(o2))
                 } else {
                     nondeterministicInteger(where, p, target)
                 }
@@ -588,7 +606,61 @@ abstract class AdditionSemantics<S> {
                 if(op2Constant != EVM_WORD_SIZE) {
                     nondeterministicInteger(where, p, target)
                 } else {
-                    toAddedConstArrayElemPointer(av1.v, o1, target, p, where)
+                    val fallback by lazy {
+                        toAddedConstArrayElemPointer(av1.v, o1, target, p, where)
+                    }
+
+                    /**
+                     * If we have that `o1 + 32` where `o1` is a constant array element with index `i`, and we have
+                     * that there exists some `j = i + 1` where `j < const-array-length`, then `o1 + 32` yields
+                     * a constant array element (with index `j`).
+                     *
+                     * First, infer the length of the constant array from the size of the block in the heap.
+                     * This is not a great way to do this, but we don't include the block size in const elem pointers
+                     * for some reason...
+                     */
+                    val blockSize = av1.blockAddr.monadicMap {
+                        p.pointsToState.h[it]?.block?.sz
+                    }?.sameValueOrNull() ?: return fallback
+
+                    /**
+                     * Get the current abstraction of `o1` as a constant array elem. NB we don't actually check the sort
+                     * here, but the **assumed** coherence of the abstract domains means the sort should be right...
+                     */
+                    val currOp = p.structState[o1] ?: return fallback
+
+                    /**
+                     * Find the `j = i + 1` where `j < blockSize / EVM_WORD_SIZE`.
+                     */
+                    val safeIndices = currOp.indexVars.let { currIndex ->
+                        (p.invariants matches {
+                            v("i") { v -> v is LVar.PVar && v.v in currIndex } + 1 `=` v("j") {
+                                it is LVar.PVar && (p.boundsAnalysis[it.v] as? QualifiedInt)?.x?.ub?.let { ub ->
+                                    /**
+                                     * blockSize / EVM_WORD_SIZE is the constant array length, so this
+                                     * means j < constantArrayLength
+                                     */
+                                    ub < (blockSize / EVM_WORD_SIZE)
+                                } == true
+                            }
+                        }).mapToSet {
+                            (it.symbols["j"] as LVar.PVar).v
+                        }
+                    }
+                    /**
+                     * No index found, fall back on "couldn't prove safe" representation via [toAddedConstArrayElemPointer]
+                     */
+                    if(safeIndices.isEmpty()) {
+                        return fallback
+                    }
+                    toConstArrayElemPointer(
+                        blockBase = currOp.base,
+                        target = target,
+                        v = av1.v,
+                        where = where,
+                        whole = p,
+                        indexingProof = ConstArraySafetyProof.IndexOfNew(safeIndices)
+                    )
                 }
 
             }
@@ -664,6 +736,23 @@ abstract class AdditionSemantics<S> {
                     nondeterministicInteger(where, p, target)
                 }
             }
+        }
+    }
+    /**
+     * For Byte arrays:
+     * If we have 32 <= resolvedI2 <= v where v is LengthOf(o1), then there must exist some value y such that
+     * y + 32 = resolvedI2 and thus y < LengthOf(a). But then we have that y is a SafeIndexOf(o1), which means
+     * that `o1 + 32 + y` is safe, and thus `a + resolvedI2` is also safe.
+     *
+     * For word size arrays:
+     * Same reasoning but size of array block instead of LengthOf.
+     */
+    private fun isSafeRawAddition(resolvedI2: QualifiedInt, o1: TACSymbol.Var, elemSize: BigInteger): Boolean {
+        return resolvedI2.x.lb >= EVM_WORD_SIZE && resolvedI2.qual.any {
+            it is IntQualifier.HasUpperBound && (
+                (elemSize == BigInteger.ONE && (it.other == IntQualifier.LengthOfArray(o1) || it.other == IntQualifier.SizeOfArrayBlock(o1))) ||
+                    (elemSize == EVM_WORD_SIZE && it.other == IntQualifier.SizeOfArrayBlock(o1))
+            )
         }
     }
 
@@ -781,9 +870,35 @@ abstract class AdditionSemantics<S> {
     ) : S
 
     /**
-     * Assign a pointer for *any* field in the block pointers [v] whose value is stored in [o1]
+     * Representation of why we think a constant array element addition is safe.
      */
-    abstract fun toConstArrayElemPointer(v: Set<L>, o1: TACSymbol.Var, target: S, whole: PointsToDomain, where: ExprView<TACExpr.Vec.Add>) : S
+    sealed interface ConstArraySafetyProof {
+        /**
+         * We are adding [x] to the base of the struct, where [x] is known to be
+         * within bounds of the static array (and also word aligned)
+         */
+        data class OffsetFromBase(val x: TACSymbol.Var) : ConstArraySafetyProof
+
+        /**
+         * We found indices held in [idx] which witness the safety of the addition (and which
+         * represent the index of the newly created constant array element).
+         */
+        data class IndexOfNew(
+            val idx: Set<TACSymbol.Var>
+        ) : ConstArraySafetyProof
+    }
+
+    /**
+     * Assign a pointer for *any* field in the block pointers [v] whose value is stored in [blockBase]
+     */
+    abstract fun toConstArrayElemPointer(
+        v: Set<L>,
+        blockBase: TACSymbol.Var,
+        target: S,
+        whole: PointsToDomain,
+        where: ExprView<TACExpr.Vec.Add>,
+        indexingProof: ConstArraySafetyProof
+    ) : S
 
     /**
      * Assign a pointer for the field with offset [offset] within the block [av1] stored in [op1]

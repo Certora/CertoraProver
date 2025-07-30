@@ -1885,25 +1885,41 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
             constSize: BigInteger?,
             isLengthRead: ((LTACCmdView<TACCmd.Simple.AssigningCmd>) -> LengthReadResult)? = null
     ): State {
+        val constantTerms = inv.mapNotNull p@{
+            val (k,f) = it.term.singleOrNull() ?: return@p null
+            if(k !is LVar.PVar) {
+                return@p null
+            }
+            val v = k.v
+            if(v in nondetInts || v in quals) {
+                return@p null
+            }
+            if(f.abs() != BigInteger.ONE) {
+                return@p null
+            }
+            v to IQ(IntValue.Constant(f.negate() * it.k), setOf())
+        }
+
+        val num = (nondetInts.map {
+            it to IQ(IntValue.Nondet, quals[it]?.let(::setOf).orEmpty())
+        } + quals.filter {
+            it.key !in nondetInts
+        }.map {
+            it.key to IQ(IntValue.Nondet, setOf(it.value))
+        } + constantTerms).toTreapMap()
         return State(
-                inv = inv + if(eSz == null) {
-                    LinearEquality.build { !TACKeyword.MEM64.toVar() `=` WRITE }
-                } else {
-                    LinearEquality.build { !TACKeyword.MEM64.toVar() + 0x20 `=` WRITE }
-                },
-                num = (nondetInts.map {
-                    it to IQ(IntValue.Nondet, quals[it]?.let(::setOf).orEmpty())
-                } + quals.filter {
-                    it.key !in nondetInts
-                }.map {
-                    it.key to IQ(IntValue.Nondet, setOf(it.value))
-                }).toTreapMap(),
-                seenLengthWrite = eSz?.let { false },
-                elemSize = eSz,
-                constSize = constSize,
-                mustScratch = setOf(),
-                seenAllocClose = false,
-                isLengthAssign = isLengthRead
+            inv = inv + if(eSz == null) {
+                LinearEquality.build { !TACKeyword.MEM64.toVar() `=` WRITE }
+            } else {
+                LinearEquality.build { !TACKeyword.MEM64.toVar() + 0x20 `=` WRITE }
+            },
+            num = num,
+            seenLengthWrite = eSz?.let { false },
+            elemSize = eSz,
+            constSize = constSize,
+            mustScratch = setOf(),
+            seenAllocClose = false,
+            isLengthAssign = isLengthRead
         )
     }
 

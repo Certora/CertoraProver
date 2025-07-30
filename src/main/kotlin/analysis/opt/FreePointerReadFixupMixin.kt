@@ -52,7 +52,11 @@ interface FreePointerReadFixupMixin<T: FreePointerReadFixupMixin.ReplacementCand
     )
 
 
-    fun Stream<T>.doRewrite(p: CoreTACProgram) : CoreTACProgram {
+    /**
+     * [requireLiveAlias] means we require that the alias of the free pointer must be live;
+     * if it isn't live we generate a fresh read (or there is no such alias).
+     */
+    fun Stream<T>.doRewrite(p: CoreTACProgram, requireLiveAlias: Boolean = false) : CoreTACProgram {
         val dom by lazy {
             p.analysisCache.domination
         }
@@ -106,7 +110,10 @@ interface FreePointerReadFixupMixin<T: FreePointerReadFixupMixin.ReplacementCand
                  * free pointer? If so, just replace `v` with that variable.
                  */
                 val otherAlias = gvn.findCopiesAt(useSite, source = write.rewriteUseAfter to src).firstOrNull { alias ->
-                    alias != src && isFreshReadAlias.query(alias, src = p.analysisCache.graph.elab(useSite)).toNullableResult() != null && alias != TACKeyword.MEM64.toVar()
+                    alias != src && isFreshReadAlias.query(alias, src = p.analysisCache.graph.elab(useSite)).toNullableResult() != null && alias != TACKeyword.MEM64.toVar() &&
+                        (!requireLiveAlias || p.analysisCache.lva.isLiveBefore(
+                            useSite, alias
+                        ))
                 }
                 if(otherAlias != null) {
                     useSite to (src to otherAlias)

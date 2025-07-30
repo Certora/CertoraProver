@@ -34,6 +34,7 @@ import com.certora.collect.*
 import datastructures.stdcollections.*
 import evm.EVM_WORD_SIZE
 import evm.MAX_EVM_UINT256
+import instrumentation.transformers.BytesKCastRewriter
 import log.*
 import spec.cvlast.typedescriptors.EVMLocationSpecifier
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
@@ -1491,16 +1492,20 @@ sealed class Pointer : ReferenceValue() {
             state: PointsToDomain,
             where: LTACCmd,
             relaxedChecks: Boolean
-        ): ReadablePointer? =
-            if (state.indexProvablyWithinBounds(BigInteger.ZERO, pointerName) || isSmallStringRead(pointerName, state) || where.cmd.meta.containsKey(SighashBinder.SAFE_INSTRUMENTED_READ)) {
+        ): ReadablePointer? {
+            return if (state.indexProvablyWithinBounds(BigInteger.ZERO, pointerName) ||
+                isSmallStringRead(pointerName, state) ||
+                where.cmd.meta.containsKey(SighashBinder.SAFE_INSTRUMENTED_READ) ||
+                where.cmd.meta.containsKey(BytesKCastRewriter.BYTESK_CAST)) {
                 ArrayElemPointer(this.v)
             } else if(relaxedChecks && v.any {
-                it.addr.getElementSize() == ElementSize.Concrete(BigInteger.ONE)
+                    it.addr.getElementSize() == ElementSize.Concrete(BigInteger.ONE)
                 }) {
                 ArrayElemPointer(this.v)
             } else {
                 null
             }
+        }
 
         override fun writableIfSafe(
             pointerName: TACSymbol.Var,
@@ -2906,7 +2911,14 @@ class PointerSemantics(
                 }
             }
 
-            override fun toConstArrayElemPointer(v: Set<L>, o1: TACSymbol.Var, target: PointsToGraph, whole: PointsToDomain, where: ExprView<TACExpr.Vec.Add>): PointsToGraph {
+            override fun toConstArrayElemPointer(
+                v: Set<L>,
+                blockBase: TACSymbol.Var,
+                target: PointsToGraph,
+                whole: PointsToDomain,
+                where: ExprView<TACExpr.Vec.Add>,
+                indexingProof: ConstArraySafetyProof
+            ): PointsToGraph {
                 return target.updateVariable(where.lhs) { ->
                     Pointer.ConstSizeArrayElemPointer(v)
                 }
@@ -4329,14 +4341,16 @@ private fun VPointsToValue.join(other: VPointsToValue): VPointsToValue {
                                         } else {
                                             Pointer.ArrayElemPointer(v = resolvB.v.union(a.v))
                                         }
-                                        is Pointer.BlockPointerField -> if (resolvB !is Pointer.BlockPointerField || resolvB.offset != a.offset || resolvB.blockSize != a.blockSize) {
-                                            intResult
-                                        } else {
-                                            Pointer.BlockPointerField(
-                                                blockAddr = a.blockAddr.union(resolvB.blockAddr),
-                                                blockSize = a.blockSize,
-                                                offset = resolvB.offset
-                                            )
+                                        is Pointer.BlockPointerField -> {
+                                            if (resolvB !is Pointer.BlockPointerField || resolvB.offset != a.offset || resolvB.blockSize != a.blockSize) {
+                                                intResult
+                                            } else {
+                                                Pointer.BlockPointerField(
+                                                    blockAddr = a.blockAddr.union(resolvB.blockAddr),
+                                                    blockSize = a.blockSize,
+                                                    offset = resolvB.offset
+                                                )
+                                            }
                                         }
                                     }
                                 }

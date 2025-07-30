@@ -822,8 +822,11 @@ sealed class TACCmd : Serializable, ITACCmd {
             }
         }
 
+        // marker interface for "commands that don't actually do anything
+        sealed interface TransientCmd
+
         @KSerializable
-        data class LabelCmd(val _msg: String, override val meta: MetaMap = MetaMap()) : Simple() {
+        data class LabelCmd(val _msg: String, override val meta: MetaMap = MetaMap()) : Simple(), TransientCmd {
             // _msg is original msg without "" and no conversion of hyphens ('-')
             val msg = "\"${_msg}\"" // one for tac files with ''
 
@@ -1026,7 +1029,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         }
 
         @KSerializable
-        data class JumpdestCmd(val startPC: NBId, override val meta: MetaMap = MetaMap()) : Simple() {
+        data class JumpdestCmd(val startPC: NBId, override val meta: MetaMap = MetaMap()) : Simple(), TransientCmd {
             override fun argString(): String = "$startPC"
             override fun toString(): String = super.toString() // opt out of generated toString
             override fun withMeta(metaMap: MetaMap) = this.copy(meta = metaMap)
@@ -1051,8 +1054,8 @@ sealed class TACCmd : Serializable, ITACCmd {
 
         @KSerializable
         data class SummaryCmd(
-                val summ: TACSummary,
-                override val meta : MetaMap = MetaMap()
+            val summ: TACSummary,
+            override val meta : MetaMap = MetaMap()
         ) : Simple() {
             override fun toString(): String = super.toString() // opt out of generated toString
             override fun withMeta(metaMap: MetaMap): SummaryCmd {
@@ -1063,7 +1066,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         @KSerializable
         data class AnnotationCmd(
                 val annot: Annotation<*>, override val meta: MetaMap = MetaMap()
-        ) : Simple() {
+        ) : Simple(), TransientCmd {
 
             constructor(metaKey: MetaKey<Nothing>) : this(annot = Annotation(metaKey))
 
@@ -1351,7 +1354,7 @@ sealed class TACCmd : Serializable, ITACCmd {
         }
 
         @KSerializable
-        object NopCmd : Simple() {
+        object NopCmd : Simple(), TransientCmd {
             override fun hashCode() = hashObject(this)
 
             override fun withMeta(metaMap: MetaMap): Simple {

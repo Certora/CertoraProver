@@ -96,9 +96,15 @@ class CanonicalSum private constructor(val ops: List<TACSymbol.Var>, val c: BigI
         }
     }
 
+    /**
+     * Returns true if the sum S represented by this object satisfies: (S - v) > 0.
+     * That is, `S` is strictly greater than [v]. If S represents how many bytes remain
+     * from a current element until the end of the array, that means we can add [v] to said
+     * element and get a safe element for reading/writing.
+     */
     fun providesStrongBound(v: TACSymbol) = when(v) {
         is TACSymbol.Const -> this.c > v.value
-        is TACSymbol.Var -> false
+        is TACSymbol.Var -> v in this.ops && this.c > BigInteger.ZERO
     }
 
     override fun toString(): String {

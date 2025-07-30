@@ -110,6 +110,28 @@ class StructStateAnalysis(
                 return@updateValues v
             }
 
+            val pathInfo = path[k]
+            if(pathInfo != null) {
+                /**
+                 * `MaybeConstArray(v) < ConstArray(v)` means that the maybe const array is in fact a const array
+                 */
+                if(pathInfo.any {
+                    it is PathInformation.UpperBound && it.sym?.let { ub ->
+                        structState[ub]?.let { upperV ->
+                            upperV.base == v.base && upperV.sort != ValueSort.MaybeConstArray
+                        }
+                    } == true
+                }) {
+                    conv.add(ValidBlock(
+                        base = v.base,
+                        block = k
+                    ))
+                    return@updateValues v.copy(
+                        sort = ValueSort.ConstArray
+                    )
+                }
+            }
+
             val baseBlockSize = pts.store[v.base]?.let {
                 (it as? Pointer.BlockPointerBase)?.blockSize ?: (it as? InitializationPointer.BlockInitPointer)?.takeIf {
                     it.offset == BigInteger.ZERO
@@ -560,16 +582,36 @@ class StructStateAnalysis(
         ): StructStateDomain = nondeterministicInteger(where, whole, target)
 
         override fun toConstArrayElemPointer(
-                v: Set<L>,
-                o1: TACSymbol.Var,
-                target: StructStateDomain,
-                whole: PointsToDomain,
-                where: ExprView<TACExpr.Vec.Add>
+            v: Set<L>,
+            blockBase: TACSymbol.Var,
+            target: StructStateDomain,
+            whole: PointsToDomain,
+            where: ExprView<TACExpr.Vec.Add>,
+            indexingProof: ConstArraySafetyProof
         ): StructStateDomain {
             return target + (where.lhs to Value.ConstArrayPointer(
-                    base = o1,
-                    untilEndVar = setOf(),
-                    indexVar = setOf()
+                base = blockBase,
+                untilEndVar = setOf(),
+                indexVar = when(indexingProof) {
+                    /**
+                     * Find indexed vars if possible: we know that
+                     * lhs of [where] is defined as `b + x`
+                     * where `x` is the field of [indexingProof], if we can find some
+                     * variable k * 32 = x then `k` is the index of this constant array element
+                     */
+                    is ConstArraySafetyProof.OffsetFromBase -> {
+                        (whole.invariants matches {
+                            indexingProof.x `=` v("idx") {
+                                it is LVar.PVar
+                            } * 32
+                        }).mapToSet { (it.symbols["idx"] as LVar.PVar).v }
+                    }
+                    /**
+                     * In this case, the addition semantics proved this addition safe by finding
+                     * indices that are witnesses to safety of the operation, so just use that.
+                     */
+                    is ConstArraySafetyProof.IndexOfNew -> indexingProof.idx
+                }
             ))
         }
 

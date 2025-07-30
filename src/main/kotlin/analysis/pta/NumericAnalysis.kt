@@ -1149,10 +1149,11 @@ class NumericAnalysis(
 
             override fun toConstArrayElemPointer(
                 v: Set<L>,
-                o1: TACSymbol.Var,
+                blockBase: TACSymbol.Var,
                 target: NumericDomain,
                 whole: PointsToDomain,
-                where: ExprView<TACExpr.Vec.Add>
+                where: ExprView<TACExpr.Vec.Add>,
+                indexingProof: ConstArraySafetyProof
             ): NumericDomain =
                 target + (where.lhs to ANY_POINTER)
 
@@ -1584,8 +1585,10 @@ class NumericAnalysis(
             val symQuals = symInt.qual.orEmpty()
 
             symQuals
-                .filterIsInstance<IntQualifier.EndOfArraySegment>()
-                .forEach {
+                .filter { q ->
+                    q is IntQualifier.SizeOfElementSegment || q is IntQualifier.LengthOfArray || q is IntQualifier.SizeOfArrayBlock ||
+                        q is IntQualifier.EndOfArraySegment
+                }.forEach {
                     v.add(PathInformation.Qual(IntQualifier.HasUpperBound(it, true)))
                 }
 
@@ -1689,9 +1692,11 @@ class NumericAnalysis(
                             if(arraySize == BigInteger.ONE) {
                                 vQuals.add(PathInformation.Qual(IntQualifier.ElementOffsetFor(q.arrayVar, index = null)))
                             }
+                            vQuals.add(PathInformation.Qual(IntQualifier.HasUpperBound(q, false)))
                         }
+                        is IntQualifier.SizeOfArrayBlock,
                         is IntQualifier.EndOfArraySegment -> {
-                            vQuals.add(PathInformation.Qual(IntQualifier.HasUpperBound(q, true)))
+                            vQuals.add(PathInformation.Qual(IntQualifier.HasUpperBound(q, false)))
                         }
                         is IntQualifier.SizeOfElementSegment -> {
                             val op1Int = s[v]?.tryResolve() as? QualifiedInt ?: continue@outer

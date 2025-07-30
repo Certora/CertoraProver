@@ -22,6 +22,7 @@ import analysis.alloc.AllocationAnalysis
 import analysis.dataflow.IMustEqualsAnalysis
 import analysis.numeric.*
 import analysis.numeric.linear.LVar
+import analysis.numeric.linear.LinearEquality
 import analysis.numeric.linear.TermMatching.matches
 import analysis.pta.abi.DecoderAnalysis
 import com.certora.collect.*
@@ -33,6 +34,7 @@ import utils.*
 import vc.data.*
 import java.math.BigInteger
 import java.util.*
+import kotlin.collections.ArrayList
 
 typealias ArrayStateDomain = TreapMap<TACSymbol.Var, ArrayStateAnalysis.Value>
 
@@ -363,11 +365,12 @@ class ArrayStateAnalysis(
         }
 
         override fun toConstArrayElemPointer(
-                v: Set<L>,
-                o1: TACSymbol.Var,
-                target: ArrayStateDomain,
-                whole: PointsToDomain,
-                where: ExprView<TACExpr.Vec.Add>
+            v: Set<L>,
+            blockBase: TACSymbol.Var,
+            target: ArrayStateDomain,
+            whole: PointsToDomain,
+            where: ExprView<TACExpr.Vec.Add>,
+            indexingProof: ConstArraySafetyProof
         ): ArrayStateDomain {
             return target.remove(where.lhs)
         }
@@ -808,6 +811,31 @@ class ArrayStateAnalysis(
         } == true
     }
 
+    private fun WithIndexVars.toElement(
+        k: TACSymbol.Var,
+        conv: MutableList<ValidElemPointer>,
+        f: (Value.ElementPointer) -> Value.ElementPointer
+    ) : Value.ElementPointer {
+        return when(this) {
+            is Value.ElementPointer -> {
+                f(this)
+            }
+            is Value.MaybeElementPointer -> {
+                conv.add(ValidElemPointer(
+                    k, this.arrayPtr
+                ))
+                f(
+                    Value.ElementPointer(
+                        index = IntValue.Interval(lb = this.indexLowerBound),
+                        arrayPtr = this.arrayPtr,
+                        untilEnd = this.untilEnd,
+                        indexVars = indexVars
+                    )
+                )
+            }
+        }
+    }
+
     /**
        Consumes path constraints as follows
        1) [x < y] AND if x is a MaybeElementPointer (i.e., it is the result of adding a value to an element pointer) AND if
@@ -829,6 +857,10 @@ class ArrayStateAnalysis(
        10) [x < y] where x is a MaybeElemPointer and y is a ElemPointer for the same array, then x is an ElemPointer
        11) [x >= y] or [x > y] where x is the end of an array A, and y = ElementPointer(A, I) + k, then A's length lower bound
        is I.lb + k or I.lb + k - 1 depending on whether the bound is strict
+       12) [x >= k] where x = end_of_array - e - s1  ... sj - c. If e is an ElementPointer (or MaybeElementPointer),
+           then there must be `s1 + ... + sj + (c + k)` bytes until the end of the array. +1 if we have [x > k] instead
+       12.a) As a corollary, if there exists some `y` where y - e < (c + k), then from `y` there are s1 + ... + sj + (c + k) - (y - x)
+           bytes until the end of the array.
      */
     fun consumePath(
         path: Map<TACSymbol.Var, List<PathInformation<IntQualifier>>>,
@@ -851,8 +883,21 @@ class ArrayStateAnalysis(
 
         val elementConversion = mutableListOf<ValidElemPointer>()
         for((k, pi) in path) {
+
+            // 12
+            for(p in pi) {
+                // not a numeric lower bound? not our problem
+                if(p !is PathInformation.LowerBound || p.num == null || p.num == BigInteger.ZERO) {
+                    continue
+                }
+                val boundedVar = LVar.PVar(k)
+                val tInv = s.invariants.filter {
+                    boundedVar in it.term
+                }
+                provideEndTrackingBound(tInv, boundedVar, s, arrayState, p, mut, elementConversion)
+            }
             /*
-              Case 1 and 10
+              Case 1 and 9
              */
             arrayState[k]?.let { it as? Value.MaybeElementPointer }?.let { maybeElem ->
                 for(i in pi) {
@@ -1187,6 +1232,182 @@ class ArrayStateAnalysis(
         return mut.build() to elementConversion
     }
 
+    /**
+     * Implements 12 in the rules of [consumePath]. That is, within the invariants [tInv] which relate [boundedVar],
+     * which has a lower bound [p] with numeric lower bound, find those invariants which match:
+     * `boundedVar = end_of_array - e - si - ... - k
+     * where `e` is a [analysis.pta.ArrayStateAnalysis.Value.MaybeElementPointer] or [analysis.pta.ArrayStateAnalysis.Value.ElementPointer]
+     * in [arrayState].
+     * Then record that `e` has `si + ... k + c` elements remaining until the end of the array,
+     * updating [mut]. If this promotes `e` to a safe [analysis.pta.ArrayStateAnalysis.Value.ElementPointer],
+     * record this fact in [elementConversion]
+     */
+    private fun provideEndTrackingBound(
+        tInv: List<LinearEquality>,
+        boundedVar: LVar.PVar,
+        s: PointsToDomain,
+        arrayState: TreapMap<TACSymbol.Var, Value>,
+        p: PathInformation.LowerBound,
+        mut: TreapMap.Builder<TACSymbol.Var, Value>,
+        elementConversion: MutableList<ValidElemPointer>
+    ) {
+        /**
+         * try to reuse some memory, this is maybe a pointless optimization... This holds the si
+         * terms we find
+         */
+        val seBuffer = ArrayList<TACSymbol.Var>()
+        /**
+         * Remember we are looking for x = end_of_array - e - si ... - k.
+         * However, when represented as a linear invariant, that could be either:
+         * `0 = end_of_array - e - si - ... - k - x` OR
+         * `0 = e + si + ... + k + k - end_of_array`.
+         * However, we do know that that `x` (as well as `e` and `si`) must have the opposite
+         * sign to our `end_of_array` variable. This gives us a way to
+         * quickly match for the type of invariant we're looking (we can't use
+         * the matcher because it doesn't support variadic addition...). NB that all
+         * the factors here must be either positive or negative one.
+         */
+        outer@ for (inv in tInv) {
+            seBuffer.clear()
+            val boundFact = inv.term[boundedVar]!!
+            /**
+             * Not plus/minus 1? Not the invariant we're looking for
+             */
+            if (boundFact.abs() != BigInteger.ONE) {
+                continue@outer
+            }
+            /**
+             * `endVar` is the `end_of_array` term
+             */
+            var endVar: TACSymbol.Var? = null
+
+            /**
+             * The array variables for `endVar`
+             */
+            var arrayVar: Set<TACSymbol.Var>? = null
+            for ((pv, fact) in inv.term) {
+                if (pv == boundedVar) {
+                    continue
+                }
+                if (pv !is LVar.PVar) {
+                    continue@outer
+                }
+                /**
+                 * wrong factor, bail
+                 */
+                if (fact.abs() != BigInteger.ONE) {
+                    continue@outer
+                }
+                /**
+                 * Is this our `end_of_array` candidate?
+                 */
+                val end = s.boundsAnalysis[pv.v]?.let { it as? QualifiedInt }?.qual?.mapNotNullToSet {
+                    (it as? IntQualifier.EndOfArraySegment)?.arrayVar
+                }?.takeIf { it.isNotEmpty() }
+                if (end == null) {
+                    /**
+                     * If not, then the sign of this term needs to match the sign
+                     * of `x` (per the argument above); if not, skip
+                     */
+                    if (boundFact != fact) {
+                        continue@outer
+                    }
+                    /**
+                     * we found an si term OR the `e` term
+                     */
+                    seBuffer.add(pv.v)
+                } else {
+                    /**
+                     * We can't have two `end_of_array` variables get out of here with that
+                     */
+                    if (endVar != null) {
+                        continue@outer
+                    }
+                    /**
+                     * `end_of_array` doesn't have the opposite sign of `x`: no match
+                     */
+                    if (boundFact.negate() != fact) {
+                        continue@outer
+                    }
+                    /**
+                     * Save what we have
+                     */
+                    endVar = pv.v
+                    arrayVar = end
+                }
+            }
+            /**
+             * Didn't find an `end_of_array`, no match
+             */
+            if (endVar == null) {
+                continue@outer
+            }
+            /**
+             * At this point, we have our `end_of_array` term.
+             * Let's see if `k` is either 0 or of a different sign from
+             * `x` (in which case, no match).
+             */
+            if (inv.k != BigInteger.ZERO && inv.k.signum() != boundFact.signum()) {
+                continue@outer
+            }
+            /**
+             * Find the `e` variable (which is a [analysis.pta.ArrayStateAnalysis.Value.MaybeElementPointer]
+             * or [analysis.pta.ArrayStateAnalysis.Value.ElementPointer])
+             */
+            val e = seBuffer.firstOrNull {
+                arrayState[it]?.let {
+                    it as? WithIndexVars
+                }?.arrayPtr?.containsAny(arrayVar!!) == true
+            } ?: continue@outer
+
+            /**
+             * Compute the `k + c` value, adding 1 if the bound on `x` is strict
+             */
+            val totalBound = inv.k.abs() + p.num!!.letIf(p is PathInformation.StrictLowerBound) {
+                it + BigInteger.ONE
+            }
+            // couldn't prove a safe access
+            if (totalBound == BigInteger.ZERO) {
+                continue@outer
+            }
+            val newEndTerm = CanonicalSum(
+                ops = seBuffer.filter { it != e } + totalBound.asTACSymbol()
+            )
+            mut[e] = (arrayState[e] as WithIndexVars).toElement(
+                e,
+                elementConversion
+            ) {
+                it.copy(
+                    untilEnd = it.untilEnd + newEndTerm
+                )
+            }
+            /**
+             * 12.a
+             * Now, find our `y` such that `y = e + j` where j < totalBound.
+             */
+            s.invariants.matches {
+                e + k("f") { c ->
+                    BigInteger.ZERO < c && c < totalBound
+                } `=` v("otherVar") { it ->
+                    it is LVar.PVar && (arrayState[it.v] as? WithIndexVars)?.arrayPtr?.containsAny(arrayVar!!) == true
+                }
+            }.forEach { m ->
+                val d = (m.symbols["otherVar"] as LVar.PVar).v
+                val otherTerm = CanonicalSum(
+                    ops = seBuffer.filter { it != e } + (totalBound - m.factors["f"]!!).asTACSymbol()
+                )
+                mut[d] = (arrayState[d] as WithIndexVars).toElement(
+                    d,
+                    elementConversion
+                ) {
+                    it.copy(
+                        untilEnd = it.untilEnd + otherTerm
+                    )
+                }
+            }
+        }
+    }
+
     fun endBlock(arrayState: ArrayStateDomain, last: LTACCmd, liveVars: Set<TACSymbol.Var>): ArrayStateDomain {
         return arrayState.mutate { mut ->
             outer@for((k, v) in arrayState) {
@@ -1383,7 +1604,7 @@ class ArrayStateAnalysis(
         }
    }
 
-   interface WithIndexVars : WithIndexing<Value> {
+   sealed interface WithIndexVars : WithIndexing<Value> {
        override val untilEndVars: Set<TACSymbol.Var>
            get() = setOf()
        val arrayPtr: Set<TACSymbol.Var>
