@@ -1,0 +1,9 @@
+{
+	"rules": {
+		"sanity": {
+			"SUCCESS": [
+				"returnTypes()"
+			]
+		}
+	}
+}

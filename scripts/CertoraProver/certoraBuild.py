@@ -959,6 +959,8 @@ class CertoraBuildGenerator:
                             ret = solc_type == "address"
                         elif isinstance(ct_type, CT.StructType):
                             ret = solc_type == "tuple"
+                        elif isinstance(ct_type, CT.EnumType):
+                            ret = solc_type == "uint8"
                     return ret
 
                 fs = [f for f in fs if all(compareTypes(a.type, i)
@@ -979,7 +981,7 @@ class CertoraBuildGenerator:
                 assert len(f.returns) == len(fabi["outputs"]), \
                     f"function collected for {fabi['name']} has the wrong number of return values"
                 assert all(compareTypes(a.type, i) for a, i in zip(f.returns, fabi["outputs"])), \
-                    f"function collected for {fabi['name']} has the wrong types of return values"
+                    f"function collected for {fabi['name']} has the wrong types of return values. {[t.type.type_string for t in f.returns]} vs {fabi['outputs']}"
 
         verify_collected_all_abi_funcs(
             [f for f in data["abi"] if f["type"] == "function"],
