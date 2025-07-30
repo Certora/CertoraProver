@@ -667,7 +667,7 @@ object Summarization {
          * A prover internally resolved inlining dispatcher due to call graph resolution.
          * See also [analysis.icfg.Summarization.AppliedSummary.LateInliningDispatcher]
          */
-        data class LateInliningDispatcher(val summ: SpecCallSummary.Dispatcher, val sigHash: BigInteger?) : DispatchSummary()
+        data class LateInliningDispatcher(val summ: SpecCallSummary.Dispatcher) : DispatchSummary()
 
         /**
          * Dispatch according to [summ]
@@ -847,7 +847,7 @@ object Summarization {
                             ))
                         }
                     }
-                } else if(callSumm.callTarget.all { it is CallGraphBuilder.CalledContract.FullyResolved } && sigHash != null && callSumm.callType != TACCallType.DELEGATE) {
+                } else if(callSumm.callTarget.all { it is CallGraphBuilder.CalledContract.FullyResolved } && callSumm.sigResolution.isNotEmpty() && callSumm.callType != TACCallType.DELEGATE) {
                     /**
                      * In the case that no summary was applied (no config summary and no summary in spec),
                      * but all call targets (i.e. all callee addresses) are statically known, we inline
@@ -860,7 +860,7 @@ object Summarization {
                     dispatchQueue.add(QueuedSummary(
                         summaryCmd = summ,
                         currAddress = currAddress,
-                        selectedSummary = DispatchSummary.LateInliningDispatcher(AppliedSummary.LateInliningDispatcher.specCallSumm, sigHash)
+                        selectedSummary = DispatchSummary.LateInliningDispatcher(AppliedSummary.LateInliningDispatcher.specCallSumm)
                     ))
                 } else {
                     havocQueue.add(QueuedSummary(

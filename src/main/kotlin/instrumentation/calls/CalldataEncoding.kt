@@ -20,6 +20,7 @@ package instrumentation.calls
 import analysis.*
 import analysis.icfg.CallInput
 import analysis.icfg.CalldataDeterminismHelper
+import analysis.icfg.DecomposedCallInputArg
 import bridge.EVMExternalMethodInfo
 import com.certora.collect.*
 import config.Config
@@ -329,7 +330,8 @@ data class CalldataEncoding(
         ExprUnfolder.unfoldTo(TACExprFactoryExtensions.run { input.offset add start }, inputStartVar).let(ret::extend)
         ExprUnfolder.unfoldTo(TACExprFactoryExtensions.run { input.size sub sighashSize }, totalSize).let(ret::extend)
 
-        ret.extend(inputStartVar, totalSize, calldataBase.s, input.baseVar.s, input.offset.s, input.size.s)
+        ret.extend(inputStartVar, totalSize, calldataBase.s, input.baseVar.s, input.offset.s, input.size.s, )
+        ret.extend(input.rangeToDecomposedArg.values.mapNotNull { (it as? DecomposedCallInputArg.Variable)?.v })
         ret.extend(TACCmd.Simple.ByteLongCopy(
             dstBase = calldataBase.s,
             dstOffset = sighashSize.asTACSymbol(),
