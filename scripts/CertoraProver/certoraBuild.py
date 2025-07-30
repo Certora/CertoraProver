@@ -3268,7 +3268,7 @@ class CertoraBuildGenerator:
             build_arg_contract_file]
 
         # add generated file to map attributes
-        for map_attr in Attrs.get_attribute_class().all_map_attrs():
+        for map_attr in self.context.app.attr_class.all_map_attrs():
             map_attr_value = getattr(self.context, map_attr)
             if map_attr_value and build_arg_contract_file in map_attr_value:
                 map_attr_value[new_file] = map_attr_value[build_arg_contract_file]

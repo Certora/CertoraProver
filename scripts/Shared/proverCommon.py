@@ -36,7 +36,6 @@ sys.path.insert(0, str(scripts_dir_path))
 from CertoraProver.certoraCloudIO import validate_version_and_branch
 from Shared.certoraLogging import LoggingManager
 from Shared import certoraUtils as Util
-from Shared.certoraAttrUtil import Attributes
 import CertoraProver.certoraContext as Ctx
 from CertoraProver.certoraContextClass import CertoraContext
 import CertoraProver.certoraContextAttributes as Attrs
@@ -44,6 +43,7 @@ from CertoraProver.certoraCollectRunMetadata import collect_run_metadata
 from CertoraProver.certoraCollectConfigurationLayout import collect_configuration_layout
 from CertoraProver import certoraContextValidator as Cv
 from CertoraProver.certoraCloudIO import CloudVerification
+import CertoraProver.certoraApp as App
 
 log = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class CertoraFoundViolations(Exception):
 # --------------------------------------------------------------------------- #
 # Setup Environment
 # --------------------------------------------------------------------------- #
-def build_context(args: List[str], attributes: Type[Attributes]) -> Tuple[CertoraContext, LoggingManager]:
+def build_context(args: List[str], app: Type[App.CertoraApp]) -> Tuple[CertoraContext, LoggingManager]:
     """
     Build the context for the Certora Prover.
     This function is responsible for setting up the context and logging manager
@@ -76,11 +76,11 @@ def build_context(args: List[str], attributes: Type[Attributes]) -> Tuple[Certor
 
     Args:
         args: The command line arguments to parse.
-        attributes: The attributes class to use for the context. (e.g., SolanaProverAttributes or SorobanProverAttributes)
+        app: The application
     Returns:
         A tuple containing the CertoraContext object and the LoggingManager object.
     """
-    Attrs.set_attribute_class(attributes)
+    Attrs.set_attribute_class(app.attr_class)
     non_str_els = [x for x in args if not isinstance(x, str)]
     if non_str_els:
         print(f"args for run_certora that are not strings: {non_str_els}")
@@ -98,8 +98,8 @@ def build_context(args: List[str], attributes: Type[Attributes]) -> Tuple[Certor
         Util.safe_create_dir(Util.get_build_dir())
         logging_manager = LoggingManager()
 
-    Ctx.handle_flags_in_args(args)
-    context = Ctx.get_args(args)  # Parse arguments
+    Ctx.handle_flags_in_args(args, app)
+    context = Ctx.get_args(args, app)  # Parse arguments
 
     assert logging_manager, "logging manager was not set"
     logging_manager.set_log_level_and_format(is_quiet=Ctx.is_minimal_cli_output(context),

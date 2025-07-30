@@ -21,7 +21,7 @@ from pathlib import Path
 scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 
-import CertoraProver.certoraContextAttributes as Attrs
+import CertoraProver.certoraApp as App
 from certoraRun import run_certora
 from Shared.proverCommon import CertoraRunResult, catch_exits
 
@@ -29,7 +29,7 @@ from typing import List, Optional
 
 
 def run_concord(args: List[str]) -> Optional[CertoraRunResult]:
-    return run_certora(args, Attrs.ConcordAttributes, prover_cmd=sys.argv[0])
+    return run_certora(args, App.ConcordApp, prover_cmd=sys.argv[0])
 
 @catch_exits
 def entry_point() -> None:

@@ -25,6 +25,7 @@ from typing import List, Set, Optional
 
 import CertoraProver.certoraContext as Ctx
 import CertoraProver.certoraContextAttributes as Attrs
+import CertoraProver.certoraApp as App
 from CertoraProver.certoraContextClass import CertoraContext
 from Shared import certoraUtils as Util
 
@@ -122,7 +123,7 @@ class SplitRulesHandler():
             if called as library then if running in local mode we use certoraRun.py otherwise certoraRun (from package)
             :return:
             """
-            assert Attrs.is_evm_app(), "Split rules is supported only for EVM apps"
+            assert self.context.app == App.EvmApp, "Split rules is supported only for EVM apps"
             if hasattr(self.context, 'prover_cmd'):
                 return self.context.prover_cmd
             if self.context.local:

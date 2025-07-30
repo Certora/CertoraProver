@@ -24,7 +24,7 @@ scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 
 
-import CertoraProver.certoraContextAttributes as Attrs
+import CertoraProver.certoraApp as App
 from CertoraProver.certoraBuildRust import build_rust_project
 from Shared.proverCommon import (
     build_context,
@@ -50,7 +50,7 @@ def run_solana_prover(args: List[str]) -> Optional[CertoraRunResult]:
     1. Parse program arguments
     2. Run the necessary steps (build/ cloud verification/ local verification)
     """
-    context, logging_manager = build_context(args, Attrs.SolanaProverAttributes)
+    context, logging_manager = build_context(args, App.SolanaApp)
 
     timings: Dict[str, float] = {}
     exit_code = 0  # The exit code of the script. 0 means success, any other number is an error.

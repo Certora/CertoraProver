@@ -28,10 +28,10 @@ from CertoraProver.certoraCloudIO import CloudVerification
 
 from CertoraProver.certoraBuild import build
 import CertoraProver.certoraContext as Ctx
+import CertoraProver.certoraApp as App
 
 from CertoraProver import certoraContextValidator as Cv
-import CertoraProver.certoraContextAttributes as Attrs
-from Shared import certoraAttrUtil as AttrUtil
+
 from Shared.proverCommon import (
     build_context,
     collect_and_dump_metadata,
@@ -51,7 +51,7 @@ BUILD_SCRIPT_PATH = Path("CertoraProver/certoraBuild.py")
 # Also serves as the default logger for errors originating from unexpected places.
 run_logger = logging.getLogger("run")
 
-def run_certora(args: List[str], attrs_class: Type[AttrUtil.Attributes] = Attrs.EvmProverAttributes,
+def run_certora(args: List[str], app: Type[App.CertoraApp] = App.EvmApp,
                 prover_cmd: Optional[str] = None) -> Optional[CertoraRunResult]:
     """
     The main function that is responsible for the general flow of the script.
@@ -60,7 +60,7 @@ def run_certora(args: List[str], attrs_class: Type[AttrUtil.Attributes] = Attrs.
     2. Run the necessary steps (type checking/ build/ cloud verification/ local verification)
 
     """
-    context, logging_manager = build_context(args, attrs_class)
+    context, logging_manager = build_context(args, app)
 
     if prover_cmd:
         context.prover_cmd = prover_cmd

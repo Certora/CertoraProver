@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, Any, cast
 
 import CertoraProver.certoraContext as Ctx
-import CertoraProver.certoraContextAttributes as Attrs
+import CertoraProver.certoraApp as App
 from CertoraProver.certoraContextClass import CertoraContext
 from Shared import certoraUtils as Util
 
@@ -45,12 +45,12 @@ def current_conf_to_file(context: CertoraContext) -> Dict[str, Any]:
     4. Parsing the .conf file is simpler, as we can ignore the null case
     """
     def input_arg_with_value(k: Any, v: Any) -> Any:
-        all_conf_names = Attrs.get_attribute_class().all_conf_names()
+        all_conf_names = context.app.attr_class.all_conf_names()
         return v is not None and v is not False and k in all_conf_names
 
     context_to_save = {k: v for k, v in vars(context).items() if input_arg_with_value(k, v)}
     context_to_save = cast(Dict[str, Any], Util.convert_str_ints(context_to_save))
-    all_conf_names = Attrs.get_attribute_class().all_conf_names()
+    all_conf_names = context.app.attr_class.all_conf_names()
     context_to_save = dict(sorted(context_to_save.items(), key=lambda x: all_conf_names.index(x[0])))
     context_to_save.pop('build_dir', None)  # build dir should not be saved, each run should define its own build_dir
     context_to_save.pop('mutation_test_id', None)  # mutation_test_id should be recreated for every run
@@ -141,10 +141,10 @@ def check_conf_content(context: CertoraContext) -> None:
 
     handle_override_base_config(context)
 
-    if Attrs.is_evm_app() and not context.files and not context.project_sanity and not context.foundry:
+    if Ctx.is_evm_app_class(context) and not context.files and not context.project_sanity and not context.foundry:
         raise Util.CertoraUserInputError("Mandatory 'files' attribute is missing from the configuration")
     context.files = context.conf_file_attr.get('files')
-    if Attrs.is_soroban_app() and not context.files and not context.build_script:
+    if context.app == App.SorobanApp and not context.files and not context.build_script:
         raise Util.CertoraUserInputError("'files' or 'build script' must be set for Soroban runs")
 
     context.files = context.conf_file_attr.get('files')
