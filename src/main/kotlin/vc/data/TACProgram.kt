@@ -1070,7 +1070,11 @@ class CoreTACProgram private constructor(
                     ReportTypes.INTERVALS_OPTIMIZE,
                     ReportTypes.GLOBAL_INLINER1,
                     ReportTypes.GLOBAL_INLINER2,
-                    ReportTypes.OPTIMIZE_OVERFLOW
+                    ReportTypes.OPTIMIZE_OVERFLOW,
+                    ReportTypes.BYTEMAP_SCALARIZER,
+                    ReportTypes.BYTEMAP_OPTIMIZER1,
+                    ReportTypes.BYTEMAP_OPTIMIZER2,
+                    ReportTypes.BYTEMAP_OPTIMIZER3,
                 ))
             }
 
