@@ -478,20 +478,27 @@ class LeinoWP(
                 // see [constantsFromFixedModel]
                 constantsFromFixedModel.add(valAsInt)
             }
-            val valAsExpr: LExpression = when {
+            val valAsExpr = when {
                 // TACValue is properly encoded as SKey
                 value is TACValue.SKey -> ToLExpression(value.asConstantTacExpr(), lxf, tyScope)
                 // TACValue should be SKey but isn't, e.g., for plain injectivity encoding
                 acmd.lhs.tag == skeySort -> lxf.applyExp(NonSMTInterpretedFunctionSymbol.Hash.ToSkey, ToLExpression(valAsInt.asTACExpr, lxf, tyScope))
                 // TACValue is something normal
-                value is ConcreteTacValue -> ToLExpression(value.asConstantTacExpr(), lxf, tyScope)
+                value is ConcreteTacValue ->
+                    value.asBigIntOrNull()
+                        ?.let { lxf.lit(it, acmd.lhs.tag) }
+                        ?: run {
+                            logger.warn { "Fixed model ${acmd.lhs} = ${value}, but the value could not be turned into an expression" }
+                            return@letIf blk
+                        }
+
                 else -> {
                     logger.warn { "Fixed model ${acmd.lhs} = ${value}, but the value could not be turned into an expression" }
                     return@letIf blk
                 }
             }
 
-            logger.debug { "Adding ${acmd.lhs.asSym()} == ${valAsExpr} to leino encoding" }
+            logger.debug { "Adding ${acmd.lhs.asSym()} == $valAsExpr to leino encoding" }
             blk.withDefinitions(listOf(
                 lxf { eq(ToLExpression(acmd.lhs.asSym(), lxf, tyScope), valAsExpr) }
             ))
