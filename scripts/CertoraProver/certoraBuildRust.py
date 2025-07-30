@@ -85,7 +85,7 @@ def build_rust_app(context: CertoraContext) -> None:
 
     if context.cargo_features is not None:
         build_command.append(feature_flag)
-        build_command.extend(context.cargo_features)
+        build_command.append(' '.join(context.cargo_features))
 
     if context.test == str(Util.TestValue.SOLANA_BUILD_CMD):
         raise Util.TestResultsReady(build_command)
