@@ -1637,6 +1637,9 @@ class CVLExpTypeCheckerWithContext(
                     if (ty !is CVLType.PureCVLType.CVLArrayType) {
                         CVLError.Exp(exp, "Expected operand of array length to have an array type, instead got: $ty")
                             .asError()
+                    } else if (!exp.isArrayLengthExp()) {
+                        ExpectedArrayLengthAccess(exp)
+                            .asError()
                     } else {
                         val isComplex = exp.structExp.tag.annotation == ComplexMarker
                         updateType(exp, CVLType.PureCVLType.CVLArrayType.lengthType).markComplex(isComplex)

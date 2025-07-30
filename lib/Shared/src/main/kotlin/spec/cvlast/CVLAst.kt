@@ -3296,7 +3296,7 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
         }
 
         fun isArrayLengthExp(): Boolean {
-            if (fieldName != "length") {
+            if (fieldName != CVLType.PureCVLType.CVLArrayType.lengthFieldName) {
                 return false
             }
 

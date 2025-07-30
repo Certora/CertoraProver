@@ -694,6 +694,8 @@ sealed class CVLType : AmbiSerializable {
                 val indexType = Primitive.UIntK(256)
 
                 val lengthType = Primitive.UIntK(256)
+
+                const val lengthFieldName = "length"
             }
             abstract val elementType: PureCVLType
 
