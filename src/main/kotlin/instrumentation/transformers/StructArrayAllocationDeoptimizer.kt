@@ -17,6 +17,7 @@
 package instrumentation.transformers
 
 import analysis.*
+import analysis.alloc.lower32BitMask
 import datastructures.stdcollections.*
 import analysis.dataflow.IGlobalValueNumbering
 import evm.EVM_WORD_SIZE
@@ -58,11 +59,27 @@ object StructArrayAllocationDeoptimizer {
     private data class DeoptimizeCandidate(
         val fpReadLoc: CmdPointer,
         val structSize: BigInteger,
-        val lengthSym: LTACVar
+        val lengthSym: LTACVar,
+        val elemSize: BigInteger
     )
 
     private val pattern = PatternDSL.build {
         commuteThree(
+            TACKeyword.MEM64.toVar().withLocation,
+            Const { it ->
+                it > EVM_WORD_SIZE
+            },
+            (((Var.withLocation + 31()).commute.first / EVM_WORD_SIZE()).first * EVM_WORD_SIZE()).commute.first `^`
+                ((Var.withLocation + 31()).commute.first and lower32BitMask()).commute.first,
+            PatternDSL.CommutativeCombinator.add
+        ) { fpReadLoc, structSize, lSym ->
+            DeoptimizeCandidate(
+                fpReadLoc = fpReadLoc,
+                structSize = structSize,
+                lengthSym = LTACVar(lSym.first, lSym.second),
+                elemSize = BigInteger.ONE
+            )
+        } lor commuteThree(
             TACKeyword.MEM64.toVar().withLocation,
             Const { it ->
                 it > EVM_WORD_SIZE
@@ -73,7 +90,8 @@ object StructArrayAllocationDeoptimizer {
             DeoptimizeCandidate(
                 fpReadLoc = fpReadLoc,
                 structSize = structSize,
-                lengthSym = LTACVar(lSym.first, lSym.second)
+                lengthSym = LTACVar(lSym.first, lSym.second),
+                elemSize = EVM_WORD_SIZE
             )
         }
     }
@@ -92,7 +110,8 @@ object StructArrayAllocationDeoptimizer {
         val structSize: BigInteger,
         val arrayBase: Set<TACSymbol.Var>,
         val structBase: TACSymbol.Var,
-        val lenSym: TACSymbol.Var
+        val lenSym: TACSymbol.Var,
+        val elemSize: BigInteger
     )
 
     fun rewrite(c: CoreTACProgram) : CoreTACProgram {
@@ -150,7 +169,8 @@ object StructArrayAllocationDeoptimizer {
                     arrayBase = arrayBaseAliases,
                     structBase = structBase,
                     lengthWritePoint = lc.ptr,
-                    lenSym = lc.cmd.value
+                    lenSym = lc.cmd.value,
+                    elemSize = opt.elemSize
                 )
             }
             null
@@ -194,7 +214,11 @@ object StructArrayAllocationDeoptimizer {
              * Now synthesize an update for the free pointer to hold the array.
              */
             val prefix = CommandWithRequiredDecls(toAdd) andThen ExprUnfolder.unfoldPlusOneCmd("fpUpdate", TXF {
-                ((r.lenSym mul EVM_WORD_SIZE) add EVM_WORD_SIZE) add baseAliases[0]
+                if(r.elemSize == EVM_WORD_SIZE) {
+                    ((r.lenSym mul EVM_WORD_SIZE) add EVM_WORD_SIZE) add baseAliases[0]
+                } else {
+                    (((r.lenSym add 31) bwAnd lower32BitMask) add EVM_WORD_SIZE) add baseAliases[0]
+                }
             }) {
                 TACCmd.Simple.AssigningCmd.AssignExpCmd(
                     lhs = TACKeyword.MEM64.toVar(),
