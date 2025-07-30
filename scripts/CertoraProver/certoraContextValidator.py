@@ -102,7 +102,6 @@ class CertoraContextValidator:
         for attr_def in self.context.app.attr_class.attribute_list():
             conf_key = attr_def.get_conf_key()
             attr = getattr(self.context, conf_key, None)
-            print(f"Validating attribute {conf_key} with value {attr}", flush=True)
             if attr_def.deprecation_msg and attr:
                 validation_logger.warning(attr_def.deprecation_msg)
             if attr is None or (attr is False and attr_def.arg_type == AttrUtil.AttrArgType.BOOLEAN):
