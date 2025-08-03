@@ -24,7 +24,7 @@ import analysis.dataflow.IDefAnalysis
 import analysis.numeric.*
 import analysis.numeric.linear.*
 import analysis.numeric.linear.TermMatching.matches
-import analysis.numeric.SimpleQualifiedInt
+import analysis.numeric.simplequalifiedint.SimpleQualifiedInt
 import analysis.opt.ConstantComputationInliner
 import analysis.pta.AnalysisFailureException
 import analysis.pta.ITERATION_VARIABLE_BOUND

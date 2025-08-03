@@ -517,7 +517,7 @@ class NumericAnalysis(
             }
         }
 
-        override fun assignVar(toStep: NumericDomain, lhs: TACSymbol.Var, toWrite: QualifiedInt, where: LTACCmd): NumericDomain {
+        override fun assignVar(toStep: NumericDomain, lhs: TACSymbol.Var, toWrite: QualifiedInt, where: CmdPointer): NumericDomain {
             return toStep + (lhs to toWrite)
         }
 
@@ -1288,7 +1288,7 @@ class NumericAnalysis(
 
     private fun assignResult(result: IntDomain, where: LTACCmd, target: NumericDomain, c: TACSymbol.Var): NumericDomain {
         return when (result) {
-            is QualifiedInt -> this.qualifierManager.assign(target, c, result, where)
+            is QualifiedInt -> this.qualifierManager.assign(target, c, result, where.ptr)
             else -> target.updateLoc(c, result)
         }
     }
@@ -1323,7 +1323,7 @@ class NumericAnalysis(
     override fun killLhsRelations(lhs: TACSymbol.Var, init: NumericDomain, pstate: PointsToDomain,
                                   where: LTACCmd): NumericDomain {
         return (this.interpSymbol(where, init, lhs) as? QualifiedInt)?.let {
-            return this.qualifierManager.killLHS(lhs, lhsVal = it, narrow = where.narrow(), s = init)
+            return this.qualifierManager.killLHS(lhs, lhsVal = it, where = where.ptr, s = init)
         } ?: init
     }
 

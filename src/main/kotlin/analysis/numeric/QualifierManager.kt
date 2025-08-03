@@ -17,11 +17,9 @@
 
 package analysis.numeric
 
-import analysis.LTACCmd
-import analysis.LTACCmdView
+import analysis.CmdPointer
 import analysis.dataflow.IMustEqualsAnalysis
 import utils.*
-import vc.data.TACCmd
 import vc.data.TACSymbol
 
 /**
@@ -31,9 +29,9 @@ import vc.data.TACSymbol
  * [Q] is the type of qualifiers and [I] is an abstract value with these qualifiers. [S] is assumed to map
  * variables (among other things) to instances of type [I]
  */
-abstract class QualifierManager<Q: SelfQualifier<Q>, I: WithQualifiers<Q, I>, S>(val me: IMustEqualsAnalysis) {
-    fun killLHS(lhs: TACSymbol.Var, lhsVal: I?, s: S, narrow: LTACCmdView<TACCmd.Simple.AssigningCmd>) : S {
-        val (lhsEquiv, equiv) = mkEquiv(narrow.wrapped, lhs)
+abstract class QualifierManager<Q: SelfQualifier<Q>, I: WithQualifiers<Q, I>, S>(val me: IMustEqualsAnalysis?) {
+    fun killLHS(lhs: TACSymbol.Var, lhsVal: I?, s: S, where: CmdPointer) : S {
+        val (lhsEquiv, equiv) = mkEquiv(where, lhs)
         val toPropagate = lhsVal?.qual?.flatMap {
             if(!it.relates(lhs)) {
                 listOf(it)
@@ -83,8 +81,8 @@ abstract class QualifierManager<Q: SelfQualifier<Q>, I: WithQualifiers<Q, I>, S>
         }
     }
 
-    private fun mkEquiv(narrow: LTACCmd, lhs: TACSymbol.Var): Pair<Set<TACSymbol.Var>, (TACSymbol.Var) -> Set<TACSymbol.Var>> {
-        val lhsEquiv = me.equivBefore(narrow.ptr, lhs) - lhs
+    private fun mkEquiv(where: CmdPointer, lhs: TACSymbol.Var): Pair<Set<TACSymbol.Var>, (TACSymbol.Var) -> Set<TACSymbol.Var>> {
+        val lhsEquiv = me?.let { it.equivBefore(where, lhs) - lhs }.orEmpty()
         val equiv = { v: TACSymbol.Var ->
             if (v == lhs) {
                 lhsEquiv
@@ -101,7 +99,7 @@ abstract class QualifierManager<Q: SelfQualifier<Q>, I: WithQualifiers<Q, I>, S>
      */
     protected abstract fun mapValues(s: S, mapper: (TACSymbol.Var, I) -> I) : S
 
-    fun assign(toStep: S, lhs: TACSymbol.Var, newValue: I, where: LTACCmd): S {
+    fun assign(toStep: S, lhs: TACSymbol.Var, newValue: I, where: CmdPointer): S {
         val eq by lazy {
             mkEquiv(where, lhs).second
         }
@@ -125,5 +123,5 @@ abstract class QualifierManager<Q: SelfQualifier<Q>, I: WithQualifiers<Q, I>, S>
     /**
      * Assign the value [toWrite] to [lhs] in the state [toStep], in context [where]
      */
-    protected abstract fun assignVar(toStep: S, lhs: TACSymbol.Var, toWrite: I, where: LTACCmd) : S
+    protected abstract fun assignVar(toStep: S, lhs: TACSymbol.Var, toWrite: I, where: CmdPointer) : S
 }

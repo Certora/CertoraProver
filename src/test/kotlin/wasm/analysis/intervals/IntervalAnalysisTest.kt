@@ -17,22 +17,12 @@
 
 package wasm.analysis.intervals
 
-import analysis.TACCommandGraph
 import analysis.numeric.*
-import analysis.smtblaster.*
-import annotations.TestTags
-import com.certora.collect.*
+import analysis.numeric.simplequalifiedint.SimpleQualifiedInt
+import analysis.numeric.simplequalifiedint.SimpleQualifiedIntValueSemantics
 import evm.*
 import net.jqwik.api.*
-import net.jqwik.api.arbitraries.*
-import net.jqwik.kotlin.api.*
 import org.junit.jupiter.api.Assertions.*
-import smtlibutils.data.SmtExp
-import tac.NBId
-import tac.Tag
-import testing.ttl.TACMockLanguage
-import utils.*
-import vc.data.*
 import java.math.BigInteger
 
 class IntervalAnalysisTest {
@@ -71,7 +61,7 @@ class IntervalAnalysisTest {
         @ForAll("numeratorIntervals") numerator: SimpleQualifiedInt,
         @ForAll("denominatorIntervals") denominator: SimpleQualifiedInt
     ) {
-        val result = IntervalValueSemantics().mod(numerator, denominator)
+        val result = SimpleQualifiedIntValueSemantics.mod(numerator, denominator)
 
         for (n in numerator.x.lb..numerator.x.ub) {
             for (d in denominator.x.lb..denominator.x.ub) {

@@ -19,6 +19,7 @@ package analysis.storage
 
 import analysis.*
 import analysis.numeric.*
+import analysis.numeric.simplequalifiedint.SimpleQualifiedInt
 import com.certora.collect.*
 import config.Config
 import datastructures.stdcollections.*
@@ -39,7 +40,7 @@ class SimpleQualifiedIntPathSemantics<T: Any>(
         toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>,
         lhs: TACSymbol.Var, toWrite: SimpleQualifiedInt, where: LTACCmd
     ): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
-        return manager.assign(toStep, lhs, toWrite, where)
+        return manager.assign(toStep, lhs, toWrite, where.ptr)
     }
 
     override fun propagateSummary(
@@ -159,7 +160,7 @@ class SimpleQualifiedIntExpressionInterpreter<T: Any>(val g: TACCommandGraph, va
     }
 
     override fun assign(toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>, lhs: TACSymbol.Var, newValue: SimpleQualifiedInt, input: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>, whole: Any, wrapped: LTACCmd): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
-        return qualifierManager.assign(toStep, lhs, newValue, wrapped)
+        return qualifierManager.assign(toStep, lhs, newValue, wrapped.ptr)
     }
 }
 
@@ -187,7 +188,7 @@ class SimpleQualifiedIntAbstractInterpreter<T: Any> private constructor (
                     return s.mapValues { mapper(it.key, it.value) }
                 }
 
-                override fun assignVar(toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>, lhs: TACSymbol.Var, toWrite: SimpleQualifiedInt, where: LTACCmd): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
+                override fun assignVar(toStep: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>, lhs: TACSymbol.Var, toWrite: SimpleQualifiedInt, where: CmdPointer): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
                     if(toWrite == SimpleQualifiedInt.nondet) {
                         return toStep - lhs
                     }
@@ -308,7 +309,7 @@ class SimpleQualifiedIntAbstractInterpreter<T: Any> private constructor (
     }
 
     override fun killLHS(lhs: TACSymbol.Var, s: ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt>, w: SimpleQualifiedIntAbstractInterpreterState<T>, narrow: LTACCmdView<TACCmd.Simple.AssigningCmd>): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {
-        return qualifierManager.killLHS(lhs = lhs, lhsVal = s[lhs], narrow = narrow, s = s)
+        return qualifierManager.killLHS(lhs = lhs, lhsVal = s[lhs], where = narrow.ptr, s = s)
     }
 
     override fun project(l: LTACCmd, w: SimpleQualifiedIntAbstractInterpreterState<T>): ProjectedMap<TACSymbol.Var, T, SimpleQualifiedInt> {

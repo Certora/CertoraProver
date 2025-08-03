@@ -23,7 +23,6 @@ import com.certora.collect.*
 import config.*
 import java.math.BigInteger
 import java.nio.ByteBuffer
-import log.*
 import move.MoveModule.*
 import tac.*
 import tac.generation.*
@@ -48,7 +47,7 @@ private const val moduleManifestName = "cvlm_manifest"
     `cvlr::manifest` is a special module that defines functions for describing rules, summaries, etc.
  */
 class CvlmManifest(val scene: MoveScene) {
-    val rules: Iterable<MoveFunctionName> get() = rulesBuilder
+    private val rules: Iterable<MoveFunctionName> get() = rulesBuilder
 
     context(SummarizationContext)
     fun summarize(call: MoveCall) = summarizers[call.callee.name]?.invoke(this@SummarizationContext, call)
@@ -58,6 +57,18 @@ class CvlmManifest(val scene: MoveScene) {
     private val rulesBuilder = mutableSetOf<MoveFunctionName>()
     private val shadowedTypes = mutableMapOf<MoveStructName, (MoveType.Struct) -> MoveType.Value>()
     private val summarizers = mutableMapOf<MoveFunctionName, context(SummarizationContext) (MoveCall) -> MoveBlocks>()
+
+    val selectedRules by lazy {
+        rules.filter {
+            Config.MoveRuleModuleIncludes.getOrNull()?.contains(it.module.name) ?: true
+        }.filterNot {
+            Config.MoveRuleModuleExcludes.getOrNull()?.contains(it.module.name) ?: false
+        }.filter {
+            Config.MoveRuleNameIncludes.getOrNull()?.contains(it.simpleName) ?: true
+        }.filterNot {
+            Config.MoveRuleNameExcludes.getOrNull()?.contains(it.simpleName) ?: false
+        }
+    }
 
     private fun addRule(rule: MoveFunctionName) {
         if (!rulesBuilder.add(rule)) {

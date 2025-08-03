@@ -2145,7 +2145,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
             }
 
             override fun assign(toStep: NumericState, lhs: TACSymbol.Var, newValue: IQ, input: NumericState, whole: Any, wrapped: LTACCmd): NumericState {
-                return qualifierManager.assign(toStep, lhs, newValue, wrapped)
+                return qualifierManager.assign(toStep, lhs, newValue, wrapped.ptr)
             }
 
             override fun interp(o1: TACSymbol, toStep: NumericState, input: NumericState, whole: Any, l: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>): IQ {
@@ -2187,7 +2187,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                 ) {
                     override fun assignVar(toStep: NumericState, lhs: TACSymbol.Var, toWrite: IQ, where: LTACCmd): NumericState {
                         return qualifierManager.assign(
-                                toStep, lhs, toWrite, where
+                                toStep, lhs, toWrite, where.ptr
                         )
                     }
 
@@ -2213,7 +2213,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                 return s.updateValues { k, v -> mapper(k, v) }
             }
 
-            override fun assignVar(toStep: TreapMap<TACSymbol.Var, IQ>, lhs: TACSymbol.Var, toWrite: IQ, where: LTACCmd): TreapMap<TACSymbol.Var, IQ> {
+            override fun assignVar(toStep: TreapMap<TACSymbol.Var, IQ>, lhs: TACSymbol.Var, toWrite: IQ, where: CmdPointer): TreapMap<TACSymbol.Var, IQ> {
                 return toStep + (lhs to toWrite)
             }
 
@@ -2221,7 +2221,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
 
         override val statementInterpreter: IStatementInterpreter<NumericState, State> = object : AbstractStatementInterpreter<NumericState, State>() {
             override fun forget(lhs: TACSymbol.Var, toStep: NumericState, input: NumericState, whole: State, l: LTACCmd): NumericState {
-                return qualifierManager.assign(toStep, lhs, newValue = top, where = l)
+                return qualifierManager.assign(toStep, lhs, newValue = top, where = l.ptr)
             }
 
             override fun stepExpression(lhs: TACSymbol.Var, rhs: TACExpr, toStep: NumericState, input: NumericState, whole: State, l: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>): NumericState {
@@ -2235,7 +2235,7 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
 
         override fun killLHS(lhs: TACSymbol.Var, s: NumericState, w: State, narrow: LTACCmdView<TACCmd.Simple.AssigningCmd>): TreapMap<TACSymbol.Var, IQ> {
             return s[lhs]?.let { iq ->
-                qualifierManager.killLHS(lhs = lhs, lhsVal = iq, narrow = narrow, s = s)
+                qualifierManager.killLHS(lhs = lhs, lhsVal = iq, where = narrow.ptr, s = s)
             } ?: s
         }
 

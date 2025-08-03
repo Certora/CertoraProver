@@ -20,7 +20,7 @@ package analysis.storage
 import datastructures.stdcollections.*
 import analysis.numeric.IntValue
 import analysis.numeric.SimpleIntQualifier
-import analysis.numeric.SimpleQualifiedInt
+import analysis.numeric.simplequalifiedint.SimpleQualifiedInt
 import analysis.storage.StorageAnalysis.SValue.I
 import utils.flatMapToSet
 import utils.mapToSet

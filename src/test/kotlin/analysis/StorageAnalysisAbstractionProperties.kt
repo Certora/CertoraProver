@@ -19,7 +19,7 @@ package analysis
 
 import analysis.numeric.IntValue
 import analysis.numeric.SimpleIntQualifier
-import analysis.numeric.SimpleQualifiedInt
+import analysis.numeric.simplequalifiedint.SimpleQualifiedInt
 import analysis.storage.*
 import analysis.storage.StorageAnalysis.SValue.I
 import analysis.storage.StorageAnalysis.Storage

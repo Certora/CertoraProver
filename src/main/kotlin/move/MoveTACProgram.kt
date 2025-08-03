@@ -28,6 +28,7 @@ import datastructures.stdcollections.mapValues
 import log.*
 import move.MoveTACProgram.Block
 import move.MoveTACProgram.LCmd
+import move.analysis.ReferenceAnalysis
 import tac.*
 import utils.*
 import vc.data.*
@@ -42,6 +43,7 @@ class MoveAnalysisCache(private val lazyGraph: Lazy<MoveTACCommandGraph>)
     override val domination get() = this[SimpleDominanceAnalysis]
     val lva get() = this[MoveLiveVariableAnalysis]
     val naturalBlockScheduler get() = this[blockSchedulerKey]
+    val references get() = this[ReferenceAnalysis]
     private val blockSchedulerKey = NaturalBlockScheduler.makeKey<MoveTACCommandGraph>()
 }
 

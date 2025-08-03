@@ -23,7 +23,7 @@ import utils.*
 import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
 import java.math.BigInteger
-
+import analysis.numeric.simplequalifiedint.SimpleQualifiedIntState
 /**
  * Given an analysis that can bound the value of tac symbols,
  * try to replace:
@@ -48,7 +48,7 @@ object IntervalBasedExprSimplifier {
         }
     }
 
-    private fun tryRewriteExpr(e: TACExpr, state: State): TACExpr? {
+    private fun tryRewriteExpr(e: TACExpr, state: SimpleQualifiedIntState): TACExpr? {
         return when (e) {
             is TACExpr.TernaryExp.AddMod -> {
                 val a = state.interpret(e.a) ?: return null

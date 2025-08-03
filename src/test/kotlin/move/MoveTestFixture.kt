@@ -224,6 +224,26 @@ abstract class MoveTestFixture() {
         return false
     }
 
+    protected fun compileToMoveTAC(
+        assumeNoTraps: Boolean = true,
+        recursionLimit: Int = 3,
+        recursionLimitIsError: Boolean = false,
+        loopIter: Int = 1,
+        optimize: Boolean = false
+    ): MoveTACProgram {
+        maybeEnableReportGeneration()
+        ConfigScope(Config.TrapAsAssert, !assumeNoTraps)
+            .extend(Config.QuietMode, true)
+            .extend(Config.RecursionErrorAsAssertInAllCases, recursionLimitIsError)
+            .extend(Config.RecursionEntryLimit, recursionLimit)
+            .extend(Config.LoopUnrollConstant, loopIter)
+            .use {
+                val moveScene = buildScene(optimize)
+                val selected = moveScene.cvlmManifest.selectedRules.singleOrNull() ?: error("Expected exactly one rule")
+                return MoveToTAC.compileMoveTAC(selected, moveScene) ?: error("Couldn't get MoveTAC for $selected")
+            }
+    }
+
     /**
         Verifies the rules in the current set of modules.
 
