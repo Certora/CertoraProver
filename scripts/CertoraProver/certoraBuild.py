@@ -3698,6 +3698,15 @@ class CertoraBuildGenerator:
             add_to_sources(Util.PACKAGE_FILE)
         if Util.REMAPPINGS_FILE.exists():
             add_to_sources(Util.REMAPPINGS_FILE)
+        foundry_toml = Util.find_nearest_foundry_toml()
+        if foundry_toml:
+            # if we find foundry.toml we add it to source tree and, if exists, the remappings.txt file from the
+            # root directory
+            foundry_root = foundry_toml.parent
+            add_to_sources(foundry_root / Util.FOUNDRY_TOML_FILE)
+            remappings_file_in_root = foundry_root / Util.REMAPPINGS_FILE
+            if remappings_file_in_root.exists():
+                add_to_sources(remappings_file_in_root)
         if context.bytecode_jsons:
             for file in context.bytecode_jsons:
                 add_to_sources(Path(file))
