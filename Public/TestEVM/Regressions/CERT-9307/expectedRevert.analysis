@@ -1,0 +1,53 @@
+{
+  "CALLGRAPH": {
+    "constructor()": [
+      false,
+      false
+    ],
+    "delegateAndGet()": false,
+    "delegateAndRevert(uint256)": false,
+    "ownCall()": true,
+    "doGet()": true,
+    "doSet()": true,
+    "test()": true
+  },
+  "INIT": {
+    "LHarness-doGet()": true,
+    "LHarness-ownCall()": true,
+    "LHarness-doSet()": true,
+    "LTest-test()": true
+  },
+  "NonLinearStats": {
+    "foo": [
+      true,
+      true
+    ]
+  },
+  "POINTSTO": {
+    "LTest-delegateAndGet()": false,
+    "LTest-delegateAndRevert(uint256)": false,
+    "LHarness-ownCall()": true,
+    "LHarness-doGet()": true,
+    "LHarness-doSet()": true,
+    "LTest-test()": true,
+    "constructor()": [
+      false,
+      false
+    ],
+    "delegateAndGet()": false,
+    "delegateAndRevert(uint256)": false,
+    "ownCall()": true,
+    "doGet()": true,
+    "doSet()": true,
+    "test()": true
+  },
+  "PathCountStats": {
+    "foo": [
+      true,
+      true
+    ]
+  },
+  "SKeyDetection": {
+    "foo": true
+  }
+}

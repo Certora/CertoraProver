@@ -391,7 +391,7 @@ object IntegrativeChecker {
     }
 
     fun runLoopUnrolling(scene: IScene) {
-        scene.mapContractMethodsInPlace(IScene.MapSort.PARALLEL, "unroll") { theScene, method ->
+        scene.mapContractMethodsInPlace(IScene.MapSort.PARALLEL, "unroll") { _, method ->
             val isLibrary = (method.getContainingContract() as? IContractWithSource)?.src?.isLibrary == true
             if (isLibrary) {
                 return@mapContractMethodsInPlace
@@ -399,10 +399,6 @@ object IntegrativeChecker {
             ContractUtils.transformMethodInPlace(
                 method, ChainedMethodTransformers(
                     listOf(
-                        // materialize revert annotations to actual TAC commands that update or restore the state
-                        CoreToCoreTransformer(ReportTypes.REVERT_MATERIALIZATION) { prog: CoreTACProgram ->
-                            Inliner.materializeRevertManagement(prog, theScene)
-                        }.lift(),
                         CoreToCoreTransformer(ReportTypes.UNROLL, ContractUtils::unroll).lift(),
                         // adding branch snippets relies currently on having a topological order on the nodes,
                         // thus requiring it to run after loop unrolling

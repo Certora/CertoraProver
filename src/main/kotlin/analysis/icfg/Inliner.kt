@@ -1436,7 +1436,7 @@ object Inliner {
             Tag.Bool -> TACSymbol.False.asSym()
             else -> `impossible!`
         },
-        meta = MetaMap(TACMeta.DYANMIC_STORAGE_MANAGEMENT)
+        meta = MetaMap(TACMeta.DYNAMIC_STORAGE_MANAGEMENT)
     )
 
     fun initializeFreshStorage(parentContract: IContractClass) =

@@ -174,7 +174,7 @@ sealed interface StorageRewriteStrategy {
                         return listOf(c.cmd)
                     }
                     // don't rewrite dynamic storage commands, they are manipulating the right storage
-                    if(TACMeta.DYANMIC_STORAGE_MANAGEMENT in c.cmd.meta) {
+                    if(TACMeta.DYNAMIC_STORAGE_MANAGEMENT in c.cmd.meta) {
                         return listOf(c.cmd)
                     }
                     return listOf(remapper(c.cmd))

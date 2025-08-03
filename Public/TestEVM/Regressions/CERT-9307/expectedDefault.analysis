@@ -1,0 +1,34 @@
+{
+  "CALLGRAPH": {
+    "constructor()": [
+      false,
+      false,
+      false
+    ],
+    "yolo(uint256[])": [
+      true,
+      true
+    ],
+    "test(uint256[],uint256[])": true
+  },
+  "INIT": {
+    "L-yolo(uint256[])": true,
+    "LHarness-yolo(uint256[])": true,
+    "Test-test(uint256[],uint256[])": true
+  },
+  "POINTSTO": {
+    "L-yolo(uint256[])": true,
+    "LHarness-yolo(uint256[])": true,
+    "Test-test(uint256[],uint256[])": false,
+    "constructor()": [
+      false,
+      false,
+      false
+    ],
+    "yolo(uint256[])": [
+      true,
+      true
+    ],
+    "test(uint256[],uint256[])": false
+  }
+}
