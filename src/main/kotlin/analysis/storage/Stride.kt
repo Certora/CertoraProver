@@ -24,6 +24,7 @@ import evm.inEVMRange
 import utils.*
 import vc.data.TACSymbol
 import java.math.BigInteger
+import kotlin.math.absoluteValue
 
 /**
  * A [Stride] is an abstract value that denotes the access pattern of some integral value used as a pointer.
@@ -244,13 +245,13 @@ sealed class Stride {
         }
 
         private fun BigInteger.ceilDiv(x: BigInteger): BigInteger =
-                divideAndRemainder(x).let { res ->
-                    res[0] + if (res[1] == BigInteger.ZERO) {
-                        BigInteger.ZERO
-                    } else {
-                        BigInteger.ONE
-                    }
+            divideAndRemainder(x).let { (q, r) ->
+                if (r.signum() == 0 || signum()*x.signum() >= 0) {
+                    q + r.signum().absoluteValue
+                } else {
+                    q
                 }
+            }
 
         /**
          * Refines this SumOfTerms if it contains exactly one factor

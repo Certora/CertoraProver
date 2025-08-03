@@ -85,6 +85,35 @@ class StorageAnalysisAbstractionProperties {
         }
     }
 
+    @Example
+    fun ceilDivBug() {
+        val i1 = I(
+            cs = null,
+            i = SimpleQualifiedInt(IntValue(151.toBigInteger(),676.toBigInteger())),
+            stride = treapSetOf(
+                Stride.SumOfTerms(
+                    treapMapOf(BigInteger.ONE to Stride.SymValue(null, IntValue(0.toBigInteger(), 5.toBigInteger()))),
+                    BigInteger.ONE
+                ),
+                Stride.SumOfTerms(
+                    treapMapOf(BigInteger.TWO to Stride.SymValue(null, IntValue(0.toBigInteger(), 5.toBigInteger()))),
+                    152.toBigInteger()
+                )
+            )
+        )
+        val i2 = I(
+            cs = null,
+            i = SimpleQualifiedInt(IntValue(151.toBigInteger(), 226.toBigInteger())),
+            stride = treapSetOf(
+                Stride.SumOfTerms(
+                    treapMapOf(BigInteger.ONE to Stride.SymValue(null, IntValue(0.toBigInteger(), 5.toBigInteger()))),
+                    BigInteger.ONE
+                )
+            )
+        )
+       sValueIJoinCorrect(i1, i2)
+    }
+
     @Property(tries = 1000)
     fun sValueIJoinCorrect(
         @ForAll("storagePtrIdx") idx1: I,
