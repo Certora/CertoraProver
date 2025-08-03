@@ -288,5 +288,16 @@ class BytemapInlinerTest : TACBuilderAuxiliaries() {
         prog.checkRhs("query") { Mul(aS, 32.asTACExpr) }
     }
 
+    @Test
+    fun calculateConsts() {
+        val prog = TACProgramBuilder {
+            a assign b
+            c assign Sub(aS, bS)
+            label("query")
+            d assign TACExpr.BinOp.Exponent(3.asTACExpr, cS)
+            assert(False)
+        }
+        prog.checkRhs("query") { 1.asTACExpr }
+    }
 
 }

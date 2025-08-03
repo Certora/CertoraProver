@@ -19,6 +19,7 @@ package analysis.opt.bytemaps
 
 import analysis.CmdPointer
 import analysis.numeric.linear.ReducedLinearTerm
+import analysis.opt.ConstantPropagatorAndSimplifier
 import analysis.opt.intervals.ExtBig.Companion.asExtBig
 import analysis.opt.intervals.Intervals
 import analysis.opt.intervals.IntervalsCalculator
@@ -218,7 +219,15 @@ class TermFactory(val code: CoreTACProgram, val intervals: IntervalsCalculator?)
      * Note that this does not handle bytemap operations at all.
      */
     fun expr(ptr: CmdPointer, e: TACExpr): Term? = with(e) {
-        fun rec() = getOperands().monadicMap { expr(ptr, it) }
+        val recIncludingNulls = getOperands().map { expr(ptr, it) }
+
+        // maybe enough of the operands are known to be constant, and we can calculate the result constant.
+        recIncludingNulls.takeIf { it.isNotEmpty() }
+            ?.map { it?.asConstOrNull }
+            ?.let { ConstantPropagatorAndSimplifier.calculateOrNull(e, it) }
+            ?.let { return Term(it.mod(Tag.Bit256.modulus)) }
+
+        val rec = recIncludingNulls.monadicMap { it } ?: return null
 
         /** returns t % m, but only if the result is a constant (otherwise null) */
         fun modIfConstant(t: Term, m: BigInteger) =
@@ -228,11 +237,11 @@ class TermFactory(val code: CoreTACProgram, val intervals: IntervalsCalculator?)
             is TACExpr.Sym -> rhsTerm(ptr, this.s)
 
             is TACExpr.Vec.Add,
-            is TACExpr.Vec.IntAdd -> rec()?.reduce(Term::plus)?.mod(Tag.Bit256.modulus)
+            is TACExpr.Vec.IntAdd -> rec.reduce(Term::plus).mod(Tag.Bit256.modulus)
 
             is TACExpr.Vec.Mul,
-            is TACExpr.Vec.IntMul -> rec()
-                ?.let { subTerms ->
+            is TACExpr.Vec.IntMul -> rec
+                .let { subTerms ->
                     val (consts, nonConsts) = subTerms.partition { it.isConst }
                     val coef = consts.map { it.asConst }.reduceOrNull(BigInteger::multiply) ?: BigInteger.ONE
                     when(nonConsts.size) {
@@ -245,20 +254,20 @@ class TermFactory(val code: CoreTACProgram, val intervals: IntervalsCalculator?)
 
             is TACExpr.BinOp.Sub,
             is TACExpr.BinOp.IntSub ->
-                rec()?.let { it[0] - it[1] }?.mod(Tag.Bit256.modulus)
+                rec.let { it[0] - it[1] }.mod(Tag.Bit256.modulus)
 
-            is TACExpr.BinOp.ShiftLeft -> rec()?.let { (t1, t2) ->
+            is TACExpr.BinOp.ShiftLeft -> rec.let { (t1, t2) ->
                 t2.asConstOrNull?.toIntOrNull()?.takeIf { it <= 256 }?.let {
                     (t1 * twoToThe(it)).mod(Tag.Bit256.modulus)
                 }
             }
 
-            is TACExpr.BinOp.Mod -> rec()?.let { (t1, t2) ->
+            is TACExpr.BinOp.Mod -> rec.let { (t1, t2) ->
                 t2.asConstOrNull?.takeIf { it.isPowOf2 }
                     ?.let { modIfConstant(t1, it) }
             }
 
-            is TACExpr.BinOp.BWAnd -> rec()?.let { (t1, t2) ->
+            is TACExpr.BinOp.BWAnd -> rec.let { (t1, t2) ->
                 val (term, mask) = when (t1.isConst to t2.isConst) {
                     true to true -> return@let Term(t1.asConst and t2.asConst)
                     true to false -> t2 to t1.asConst
@@ -284,7 +293,7 @@ class TermFactory(val code: CoreTACProgram, val intervals: IntervalsCalculator?)
                 is TACBuiltInFunction.SafeMathPromotion,
                 is TACBuiltInFunction.SafeMathNarrow,
                 is TACBuiltInFunction.UnsignedPromotion,
-                is TACBuiltInFunction.SafeUnsignedNarrow -> rec()?.single()
+                is TACBuiltInFunction.SafeUnsignedNarrow -> rec.single()
 
                 else -> null
             }
