@@ -478,7 +478,7 @@ class DebugAdapterProtocolStackMachine(
                     persist = true
                 } else {
                     if (range !in currScopeRange) {
-                        logger.warn { "Range of command $cmd is out of $currScopeRange" }
+                        logger.debug { "Range of command $cmd is out of $currScopeRange" }
                     }
                 }
             }
