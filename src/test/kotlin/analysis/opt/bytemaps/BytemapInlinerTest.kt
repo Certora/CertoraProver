@@ -17,6 +17,7 @@
 
 package analysis.opt.bytemaps
 
+import evm.EVM_MOD_GROUP256
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -299,5 +300,17 @@ class BytemapInlinerTest : TACBuilderAuxiliaries() {
         }
         prog.checkRhs("query") { 1.asTACExpr }
     }
+
+    @Test
+    fun calculateConstsBug() {
+        val prog = TACProgramBuilder {
+            i assign IntMod(aS, EVM_MOD_GROUP256.asTACExpr)
+            label("query")
+            b assign safeMathNarrow(iS, Tag.Bit256)
+            assert(False)
+        }
+        prog.checkRhs("query") { safeMathNarrow(iS, Tag.Bit256) }
+    }
+
 
 }

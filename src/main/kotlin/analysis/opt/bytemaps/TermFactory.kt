@@ -33,8 +33,11 @@ import evm.MAX_EVM_INT256
 import evm.twoToThe
 import tac.Tag
 import utils.*
+import utils.ModZm.Companion.inBounds
 import utils.ModZm.Companion.onesZerosMask
 import vc.data.*
+import vc.data.tacexprutil.asConst
+import vc.data.tacexprutil.isConst
 import java.math.BigInteger
 
 /**
@@ -224,6 +227,17 @@ class TermFactory(val code: CoreTACProgram, val intervals: IntervalsCalculator?)
         // maybe enough of the operands are known to be constant, and we can calculate the result constant.
         recIncludingNulls.takeIf { it.isNotEmpty() }
             ?.map { it?.asConstOrNull }
+            ?.let {
+                // since terms are the mod 2^256 of the actual values, we have to make sure that they
+                // are actually equal to the value if we want to use standard constant propagation.
+                // See the unit test `calculateConstsBug()`
+                getOperands().zip(it).map { (opExpr, opVal) ->
+                    opVal?.takeIf {
+                        opExpr.tagAssumeChecked is Tag.Bit256 ||
+                            (opExpr.isConst && opExpr.asConst.inBounds(Tag.Bit256))
+                    }
+                }
+            }
             ?.let { ConstantPropagatorAndSimplifier.calculateOrNull(e, it) }
             ?.let { return Term(it.mod(Tag.Bit256.modulus)) }
 
