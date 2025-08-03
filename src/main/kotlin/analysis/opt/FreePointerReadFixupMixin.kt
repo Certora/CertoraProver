@@ -150,24 +150,30 @@ interface FreePointerReadFixupMixin<T: FreePointerReadFixupMixin.ReplacementCand
             }
             h1
         }))
-
+        val g = p.analysisCache.graph
         return p.patching { patch ->
-            rewrite.newRead.forEachEntry { (where, newVar) ->
-                patch.replace(where) { orig ->
-                    listOf(
-                        orig,
+            val work = rewrite.newRead.keys + rewrite.rewrites.keys
+            for(w in work) {
+                val replacement = mutableListOf<TACCmd.Simple>()
+                val c = g.elab(w).cmd
+                if(w in rewrite.rewrites) {
+                    replacement.add(TACVariableSubstitutor(rewrite.rewrites[w]!!).map(c))
+                } else {
+                    replacement.add(c)
+                }
+                rewrite.newRead[w]?.let {newVar ->
+                    patch.addVarDecl(newVar)
+                    replacement.add(
                         TACCmd.Simple.AssigningCmd.AssignExpCmd(
                             lhs = newVar,
                             rhs = TACKeyword.MEM64.toVar().asSym()
                         )
                     )
                 }
-                patch.addVarDecl(newVar)
-            }
-            rewrite.rewrites.forEachEntry { (where, subst) ->
-                patch.replace(where) { c ->
-                    listOf(TACVariableSubstitutor(subst).map(c))
+                check(replacement.isNotEmpty()) {
+                    "Have empty replacement despite having work to do?"
                 }
+                patch.replaceCommand(w, replacement)
             }
         }
     }
