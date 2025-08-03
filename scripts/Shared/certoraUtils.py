@@ -1465,7 +1465,7 @@ def eq_by(f: Callable[[T, T], bool], a: Sequence[T], b: Sequence[T]) -> bool:
     return len(a) == len(b) and all(map(f, a, b))
 
 
-def find_file_in_parents(file_name: str | Path) -> Optional[Path]:
+def find_file_in_parents(file_name: Union[Path, str]) -> Optional[Path]:
     """
     find file_name in current directory or in one of its parent directories
     """
