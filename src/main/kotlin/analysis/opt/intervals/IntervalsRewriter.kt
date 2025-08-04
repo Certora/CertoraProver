@@ -18,6 +18,7 @@
 package analysis.opt.intervals
 
 import analysis.CmdPointer
+import analysis.maybeNarrow
 import analysis.opt.ConstantPropagatorAndSimplifier
 import analysis.opt.intervals.Intervals.Companion.unionOf
 import analysis.opt.intervals.IntervalsCalculator.Companion.goodTag
@@ -155,7 +156,18 @@ class IntervalsRewriter(
 
         stats.add("erased-blocks", graph.blocks.size - intervals.g.vertices.size)
 
+        graph.commands
+            .mapNotNull { it.maybeNarrow<TACCmd.Simple.AssigningCmd.AssignHavocCmd>() }
+            .filter { it.cmd.lhs.let { it.tag.isPrimitive() && !preserve(it) } }
+            .forEach { (ptr, cmd) ->
+                intervals.getLhs(ptr).asConstOrNull?.let {
+                    patcher.replace(ptr, AssignExpCmd(cmd.lhs, it.asTACExpr(cmd.lhs.tag), cmd.meta))
+                    stats.plusOne("havoc->assign")
+                }
+            }
+
         finalLog()
+
         return patcher.toCode(handleLeinoVars)
     }
 

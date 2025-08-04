@@ -111,7 +111,7 @@ object RedundantStorageReadOptimizer {
                     if(dst in graph.cache.revertBlocks) {
                         continue
                     }
-                    val s = if(cond is TACCommandGraph.PathCondition.Summary && cond.s is StoragePackedLengthSummarizer.StorageLengthReadSummary) {
+                    val s = if(cond is PathCondition.Summary && cond.s is StoragePackedLengthSummarizer.StorageLengthReadSummary) {
                         val finalCmd = block.commands.last()
                         check(finalCmd.snarrowOrNull<StoragePackedLengthSummarizer.StorageLengthReadSummary>() == cond.s) {
                             "Impossible path condition, have summary condition: ${cond.s} but the final command of the block is $finalCmd"

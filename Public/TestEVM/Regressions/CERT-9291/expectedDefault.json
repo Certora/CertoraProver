@@ -1,0 +1,16 @@
+{
+	"rules": {
+		"trivial": {
+			"SUCCESS": [
+				"bytesCast(bytes)",
+				"copyFromStorage()",
+				"customCall((uint256,uint256)[2],(uint256[2],uint256[2])[2])",
+				"customIteration(bytes)",
+				"decoder()",
+				"doAbiDecode(bytes)",
+				"hasher(uint256,uint256,bytes)",
+				"selfGetter()"
+			]
+		}
+	}
+}

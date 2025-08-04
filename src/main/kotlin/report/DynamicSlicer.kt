@@ -19,6 +19,7 @@ package report
 
 import analysis.CmdPointer
 import analysis.LTACCmdView
+import analysis.PathCondition
 import analysis.TACCommandGraph
 import analysis.dataflow.*
 import analysis.narrow
@@ -595,17 +596,17 @@ class DynamicSlicer(
                     "Expected to find the path condition of the edge $reachablePred --> $block"
                 )
             }
-            is TACCommandGraph.PathCondition.EqZero, is TACCommandGraph.PathCondition.NonZero -> {
+            is PathCondition.EqZero, is PathCondition.NonZero -> {
                 val lastCmdOfPred = g.elab(reachablePred).commands.last()
                 check(lastCmdOfPred.cmd is TACCmd.Simple.JumpiCmd && lastCmdOfPred.cmd.cond is TACSymbol.Var)
                 NextBoolExprAnalysisStep(
                     def.reachableDefSiteOf(
                         lastCmdOfPred.cmd.cond,
                         lastCmdOfPred.ptr
-                    ), (pathCond !is TACCommandGraph.PathCondition.EqZero), lastCmdOfPred.narrow()
+                    ), (pathCond !is PathCondition.EqZero), lastCmdOfPred.narrow()
                 )
             }
-            is TACCommandGraph.PathCondition.TRUE -> {
+            is PathCondition.TRUE -> {
                 blockIsConditionalOn(reachablePred)
             }
             else -> throw UnsupportedOperationException(

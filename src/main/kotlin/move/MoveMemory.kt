@@ -17,18 +17,19 @@
 
 package move
 
-import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
-import com.certora.collect.*
-import datastructures.*
+import analysis.SimpleCmdsWithDecls
+import datastructures.PersistentStack
+import datastructures.persistentStackOf
 import datastructures.stdcollections.*
-import java.math.BigInteger
 import log.*
-import move.MoveModule.*
-import tac.*
+import move.analysis.ReferenceAnalysis
+import tac.MetaMap
+import tac.Tag
 import tac.generation.*
 import utils.*
 import vc.data.*
+import java.math.BigInteger
 
 private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
 
@@ -72,7 +73,7 @@ private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
     identifying a referenced location variable, and the offset is the start offset of the referenced item in the map (or
     0 if the referenced variable is a primitive).
 
-    Location IDs are assigned by [MoveMemory.ReferenceAnalysis], which also tracks the set of location IDs that might be
+    Location IDs are assigned by [move.analysis.ReferenceAnalysis], which also tracks the set of location IDs that might be
     reachable by each reference at each point in the program.  This is used to implement dereferencing: we simply
     "switch" over the possible locations for that reference at the point of the deference.  (Typically we can determine
     statically that only one location is reachable, so this does not really lead to much overhead.)
@@ -117,8 +118,8 @@ class MoveMemory(val scene: MoveScene) {
     }
 
     fun transform(moveCode: MoveTACProgram): CoreTACProgram {
-        val refs = ReferenceAnalysis(moveCode)
-        val transformedBlocks = moveCode.blocks.associate { block ->
+        val refs = moveCode.graph.cache.references
+        val transformedBlocks = moveCode.graph.blocks.associate { block ->
             block.id to mergeMany(
                 block.commands.map { transformCommand(it, refs) }
             )
@@ -1035,82 +1036,4 @@ class MoveMemory(val scene: MoveScene) {
         return StructLayout(size = offset, fieldOffsets = fieldOffsets)
     }
 
-    /**
-        For each reference, finds all the locations that might be referenced by it, and the paths to the referenced
-        values in each location.
-     */
-    private class ReferenceAnalysis(
-        program: MoveTACProgram
-    ) : MoveTACProgram.CommandDataflowAnalysis<TreapMap<TACSymbol.Var, TreapSet<ReferenceAnalysis.RefTarget>>>(
-        program,
-        JoinLattice.ofJoin { a, b ->
-            a.merge(b) { _, aLocs, bLocs -> aLocs.orEmpty() + bLocs.orEmpty() }
-        },
-        treapMapOf(),
-        Direction.FORWARD
-    ) {
-        /**
-            Represents a part of a "path" to reach an internal reference inside of a location.  The path is a sequence
-            of field accesses or vector/ghost array element accesses.
-        */
-        sealed class PathComponent {
-            data class Field(val fieldIndex: Int) : PathComponent()
-            object VecElem : PathComponent()
-            object GhostArrayElem : PathComponent()
-        }
-
-        data class RefTarget(
-            val locId: Long,
-            val path: PersistentStack<PathComponent>
-        )
-
-        private var nextId: Long = 0
-        val varToId = mutableMapOf<TACSymbol.Var, Long>()
-        val idToVar = mutableMapOf<Long, TACSymbol.Var>()
-
-        private fun TACSymbol.Var.toId() = varToId.getOrPut(this) {
-            val id = nextId++
-            idToVar[id] = this
-            id
-        }
-
-        override fun transformCmd(
-            inState: TreapMap<TACSymbol.Var, TreapSet<RefTarget>>,
-            cmd: MoveTACProgram.LCmd
-        ) = when (val c = cmd.cmd) {
-            is TACCmd.Simple.AssigningCmd.AssignExpCmd -> {
-                // If we're copying a reference, then the new reference will point to the same location as the old one.
-                val rhsVar = (c.rhs as? TACExpr.Sym.Var)?.s
-                check(c.lhs.tag is MoveTag.Ref == rhsVar?.tag is MoveTag.Ref) {
-                    "Illegal reference assignment: $cmd"
-                }
-                when {
-                    rhsVar?.tag is MoveTag.Ref -> inState + (c.lhs to inState[rhsVar]!!)
-                    else -> inState
-                }
-            }
-            is TACCmd.Simple.AssigningCmd -> {
-                check(c.lhs.tag !is MoveTag.Ref) { "Illegal reference assignment: $cmd" }
-                inState
-            }
-            is TACCmd.Move.Borrow -> when (c) {
-                is TACCmd.Move.BorrowLocCmd -> inState + (c.ref to treapSetOf(RefTarget(c.loc.toId(), persistentStackOf())))
-                is TACCmd.Move.BorrowFieldCmd -> inState + (c.dstRef to inState[c.srcRef]!!.borrowField(c.fieldIndex))
-                is TACCmd.Move.VecBorrowCmd -> inState + (c.dstRef to inState[c.srcRef]!!.borrowVecElem())
-                is TACCmd.Move.GhostArrayBorrowCmd -> inState + (c.dstRef to inState[c.arrayRef]!!.borrowGhostArrayElem())
-            }
-            else -> inState
-        }
-
-        private fun TreapSet<RefTarget>.borrowField(fieldIndex: Int) =
-            mapToTreapSet { it.copy(path = it.path.push(PathComponent.Field(fieldIndex))) }
-
-        private fun TreapSet<RefTarget>.borrowVecElem() =
-            mapToTreapSet { it.copy(path = it.path.push(PathComponent.VecElem)) }
-
-        private fun TreapSet<RefTarget>.borrowGhostArrayElem() =
-            mapToTreapSet { it.copy(path = it.path.push(PathComponent.GhostArrayElem)) }
-
-        init { runAnalysis() }
-    }
 }

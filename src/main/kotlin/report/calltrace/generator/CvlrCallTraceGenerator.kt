@@ -28,6 +28,7 @@ import scene.ISceneIdentifiers
 import solver.CounterexampleModel
 import utils.Range
 import spec.cvlast.CVLType
+import spec.rules.IRule
 import tac.NBId
 import tac.Tag
 import utils.*
@@ -42,13 +43,13 @@ import java.math.RoundingMode
 val cvlrLogger = Logger(LoggerTypes.CVLR)
 
 internal open class CvlrCallTraceGenerator(
-    ruleName: String,
+    rule: IRule,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
     ruleCallString: String,
-) : CallTraceGenerator(ruleName, model, program, formatter, scene, ruleCallString) {
+) : CallTraceGenerator(rule, model, program, formatter, scene, ruleCallString) {
 
     /**
      * [SnippetCmd.CvlrSnippetCmd.CexAttachLocation] can set the range for the next element in the calltrace that will

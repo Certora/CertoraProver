@@ -15,8 +15,11 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package analysis.numeric
+package analysis.numeric.simplequalifiedint
 
+import analysis.numeric.ConditionQualifier
+import analysis.numeric.LogicalConnectiveQualifier
+import analysis.numeric.SimpleIntQualifier
 import datastructures.stdcollections.*
 import analysis.smtblaster.ISMTTermBuilder
 import smtlibutils.data.SmtExp

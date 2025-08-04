@@ -210,7 +210,7 @@ object TACMeta {
 
     // Marker that a command is explicitly manipulating another contract's storage due to
     // contract creation
-    val DYANMIC_STORAGE_MANAGEMENT = MetaKey.Nothing("tac.dynamic-scene.storage-reset")
+    val DYNAMIC_STORAGE_MANAGEMENT = MetaKey.Nothing("tac.dynamic-scene.storage-reset")
 
     val REVERT_MANAGEMENT = MetaKey.Nothing("tac.is.revert.management")
     val LAST_STORAGE_UPDATE = MetaKey.Nothing("tac.is.last.storage.update")

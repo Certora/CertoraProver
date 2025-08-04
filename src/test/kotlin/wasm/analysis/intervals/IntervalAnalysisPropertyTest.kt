@@ -17,8 +17,12 @@
 
 package wasm.analysis.intervals
 
+import analysis.PathCondition
 import analysis.TACCommandGraph
 import analysis.numeric.*
+import analysis.numeric.simplequalifiedint.SimpleQualifiedInt
+import analysis.numeric.simplequalifiedint.SimpleQualifiedIntSMTSemantics
+import analysis.numeric.simplequalifiedint.SimpleQualifiedIntState
 import analysis.smtblaster.*
 import annotations.TestTags
 import com.certora.collect.*
@@ -61,14 +65,14 @@ class IntervalAnalysisPropertyTest {
         LogicalConnectiveQualifier.LBinOp.OR
     )
 
-    private fun qual(x: TACSymbol.Var, iv: IntValue, s: State): Arbitrary<SimpleIntQualifier>? {
-        val ints = s.keys.filter { it.tag == Tag.Bit256 }
-        val bools = s.keys.filter { it.tag == Tag.Bool }
-        val canBeEqual = s.entries
+    private fun qual(x: TACSymbol.Var, iv: IntValue, s: SimpleQualifiedIntState): Arbitrary<SimpleIntQualifier>? {
+        val ints = s.s.keys.filter { it.tag == Tag.Bit256 }
+        val bools = s.s.keys.filter { it.tag == Tag.Bool }
+        val canBeEqual = s.s.entries
             .filter { (_, av) -> av.x.mayIntersect(iv) }
             .map { it.key }
         val multiples = (BigInteger.ONE.max(iv.lb).safeAsInt()..iv.ub.safeAsInt())
-        val canBeGreater = s.entries.filter { (_, av) -> iv.lb < av.x.ub }.map { it.key }
+        val canBeGreater = s.s.entries.filter { (_, av) -> iv.lb < av.x.ub }.map { it.key }
 
         val qualGen = listOf<Arbitrary<SimpleIntQualifier>>()
             // Add MustEqual(other) for all possibile equalities
@@ -108,7 +112,7 @@ class IntervalAnalysisPropertyTest {
             .addIf(x.tag == Tag.Bit256 && canBeGreater.isNotEmpty()) {
                 Arbitraries.of(canBeGreater).flatMap { y ->
                     Boolean.any().flatMap { strong ->
-                        val yv = s[y]!!
+                        val yv = s.s[y]!!
                         val maxDiff = yv.x.ub - iv.x.lb
                         val minDiff = yv.x.lb - iv.x.ub
                         val mults = BigInteger.ONE.max(minDiff).safeAsInt()..maxDiff.safeAsInt()
@@ -131,7 +135,7 @@ class IntervalAnalysisPropertyTest {
 
     private fun qualifiedIntInState(
         x: TACSymbol.Var,
-        s: State,
+        s: SimpleQualifiedIntState,
         nonEmptyQuals: Boolean = false
     ): Arbitrary<SimpleQualifiedInt> {
         val iv = if (x.tag == Tag.Bit256) {
@@ -155,7 +159,7 @@ class IntervalAnalysisPropertyTest {
     fun Int.bv() = TACSymbol.Var("x$this", tag = Tag.Bit256)
     fun Int.bool() = TACSymbol.Var("b$this", tag = Tag.Bool)
 
-    fun state(size: Int, s: State): Arbitrary<State> {
+    fun state(size: Int, s: SimpleQualifiedIntState): Arbitrary<SimpleQualifiedIntState> {
         if (size == 0) {
             return Arbitraries.of(s)
         }
@@ -163,15 +167,15 @@ class IntervalAnalysisPropertyTest {
         val b = size.bool()
 
         return combine(qualifiedIntInState(x, s), qualifiedIntInState(b, s)) { xv, bv ->
-            s + treapMapOf(x to xv, b to bv)
+            SimpleQualifiedIntState(s.s + treapMapOf(x to xv, b to bv))
         }.flatMap {
             state(size - 1, it)
         }
     }
 
     @Provide
-    fun state(): Arbitrary<State> {
-        return state(3, treapMapOf())
+    fun state(): Arbitrary<SimpleQualifiedIntState> {
+        return state(3, SimpleQualifiedIntState(treapMapOf()))
     }
 
     // Returns an AssignExpCmd whose rhs is simple arithmetic
@@ -190,7 +194,7 @@ class IntervalAnalysisPropertyTest {
     // Returns an arbitrary state with a distinguished bool [0.bool()]
     // that has at least one qualifier on it and whose truth value is unknown
     @Provide
-    fun propagationState(): Arbitrary<State> {
+    fun propagationState(): Arbitrary<SimpleQualifiedIntState> {
         return state().flatMap { s ->
             val iv = IntValue(BigInteger.ZERO, BigInteger.ONE)
             qual(0.bool(), iv, s)
@@ -198,8 +202,9 @@ class IntervalAnalysisPropertyTest {
                 ?.ofMinSize(1)
                 ?.ofMaxSize(2)
                 ?.map {
-                    s + (0.bool() to SimpleQualifiedInt(iv, it))
-                } ?: Arbitraries.of(s + (0.bool() to SimpleQualifiedInt(iv, treapSetOf())))
+                    SimpleQualifiedIntState(s.s + (0.bool() to SimpleQualifiedInt(iv, it)))
+                } ?: Arbitraries.of(SimpleQualifiedIntState(s.s + (0.bool() to SimpleQualifiedInt(iv, treapSetOf()))))
+
         }
     }
 
@@ -216,8 +221,8 @@ class IntervalAnalysisPropertyTest {
         return TACCommandGraph(blocks, code, TACSymbolTable.withTags(dom), name = "test")
     }
 
-    private fun State.declareVars(script: SmtExpScriptBuilder) {
-        keys.forEach {
+    private fun SimpleQualifiedIntState.declareVars(script: SmtExpScriptBuilder) {
+        s.keys.forEach {
             script.declare(it.toSMTRep())
         }
     }
@@ -228,16 +233,16 @@ class IntervalAnalysisPropertyTest {
      * Propagate the state s assuming [0.bool()] is nonzero/zero
      * and check the soundness of the resulting state
      */
-    private fun runPropagationTest(s: State) {
-        val graph = testGraph(listOf(TACCmd.Simple.NopCmd), s.keys)
+    private fun runPropagationTest(s: SimpleQualifiedIntState) {
+        val graph = testGraph(listOf(TACCmd.Simple.NopCmd), s.s.keys)
         val block = graph.blocks.first().id
 
         val interp = IntervalInterpreter(graph)
         val outTrue = interp.pathSemantics.propagate(
-            graph.elab(block, 0), s, s, TACCommandGraph.PathCondition.NonZero(0.bool())
+            graph.elab(block, 0), s, s, PathCondition.NonZero(0.bool())
         )
         val outFalse = interp.pathSemantics.propagate(
-            graph.elab(block, 0), s, s, TACCommandGraph.PathCondition.EqZero(0.bool())
+            graph.elab(block, 0), s, s, PathCondition.EqZero(0.bool())
         )
         val tm = SmtExpIntTermBuilder
         val sem = SimpleQualifiedIntSMTSemantics(tm)
@@ -310,8 +315,8 @@ class IntervalAnalysisPropertyTest {
      * Starting in state [inState] generate [outState] from [cmd] that assigns to, [0.bv()]
      * and check the soundness of the abstract value for [0.bv()] in the resulting state
      */
-    private fun runBinExpTest(inState: State, cmd: TACCmd.Simple.AssigningCmd.AssignExpCmd) {
-        val graph = testGraph(listOf(cmd), inState.keys)
+    private fun runBinExpTest(inState: SimpleQualifiedIntState, cmd: TACCmd.Simple.AssigningCmd.AssignExpCmd) {
+        val graph = testGraph(listOf(cmd), inState.s.keys)
         val block = graph.blocks.single().id
         val interp = IntervalInterpreter(graph)
         val outState = interp.step(graph.elab(block, 0), inState)
@@ -356,13 +361,13 @@ class IntervalAnalysisPropertyTest {
     }
 
     @Property(tries = 1000)
-    fun testPropagation(@ForAll("propagationState") s: State) {
+    fun testPropagation(@ForAll("propagationState") s: SimpleQualifiedIntState) {
         runPropagationTest(s)
     }
 
     @Property(tries = 1000)
     fun testBinExp(
-        @ForAll("state") s: State,
+        @ForAll("state") s: SimpleQualifiedIntState,
         @ForAll("assignBinExp") binExp: TACCmd.Simple.AssigningCmd.AssignExpCmd
     ) {
         runBinExpTest(s, binExp)
@@ -370,7 +375,7 @@ class IntervalAnalysisPropertyTest {
 }
 
 context(SimpleQualifiedIntSMTSemantics)
-private val State.denotation: List<SmtExp>
-    get() = entries.map { (x, a) ->
+private val SimpleQualifiedIntState.denotation: List<SmtExp>
+    get() = s.entries.map { (x, a) ->
         a.smtRep(x.asSMT)
     }

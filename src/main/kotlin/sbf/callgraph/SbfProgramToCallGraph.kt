@@ -229,11 +229,17 @@ private fun postProcessCFG(cfg: MutableSbfCFG, globalsMap: GlobalVariableMap) {
  */
 private fun relinkAbort(prog: SbfCallGraph, inlinerConfig: InlinerConfig, memSummaries: MemorySummaries): SbfCallGraph {
     val newCFGs = mutableListOf<MutableSbfCFG>()
+    val abortFunctions = mutableSetOf<String>()
     prog.getCFGs().forEach {
         if (!memSummaries.isKnownAbortFn(it.getName())) {
             val newCFG = it.clone(it.getName())
-            relinkAbort(newCFG, inlinerConfig, memSummaries)
+            relinkAbort(newCFG, memSummaries, abortFunctions)
             newCFGs.add(newCFG)
+        }
+    }
+    abortFunctions.forEach {
+        if (inlinerConfig.getInlineSpec(it) is InlineSpec.DoInline) {
+            sbfLogger.warn { "$it will not be inlined because it is marked as an abort function" }
         }
     }
     return MutableSbfCallGraph(
@@ -246,18 +252,16 @@ private fun relinkAbort(prog: SbfCallGraph, inlinerConfig: InlinerConfig, memSum
 }
 
 private fun relinkAbort(cfg: MutableSbfCFG,
-                        inlinerConfig: InlinerConfig,
-                        memSummaries: MemorySummaries) {
+                        memSummaries: MemorySummaries,
+                        abortFunctions: MutableSet<String>) {
     var changed = false
     for (b in cfg.getMutableBlocks().values) {
         for (locInst in b.getLocatedInstructions()) {
             val inst = locInst.inst
             if (inst is SbfInstruction.Call) {
                 val fname = inst.name
-                if (inlinerConfig.getInlineSpec(fname) is InlineSpec.DoInline) {
-                    sbfLogger.warn {"$fname will not be inlined because it is marked as an abort function"}
-                }
                 if (memSummaries.getSummary(fname)?.isAbort == true) {
+                    abortFunctions.add(fname)
                     val abortInst = SolanaFunction.toCallInst(
                         SolanaFunction.ABORT,
                         MetaData(SbfMeta.COMMENT to fname)

@@ -31,7 +31,7 @@ import vc.data.TACSymbol
 import kotlin.collections.removeLast
 
 class OnDemandUseAnalysis private constructor(private val graph: TACCommandGraph) : IUseAnalysis {
-    companion object : AnalysisCache.Key<OnDemandUseAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, OnDemandUseAnalysis> {
         override fun createCached(graph: TACCommandGraph) = OnDemandUseAnalysis(graph)
     }
 

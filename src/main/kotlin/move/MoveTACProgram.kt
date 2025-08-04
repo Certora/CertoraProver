@@ -17,18 +17,79 @@
 
 package move
 
+import algorithms.SimpleDominanceAnalysis
 import analysis.*
+import analysis.worklist.NaturalBlockScheduler
 import com.certora.collect.*
 import config.*
 import datastructures.*
 import datastructures.stdcollections.*
+import datastructures.stdcollections.mapValues
 import log.*
+import move.MoveTACProgram.Block
+import move.MoveTACProgram.LCmd
+import move.analysis.ReferenceAnalysis
 import tac.*
 import utils.*
 import vc.data.*
 
 typealias MoveCmdsWithDecls = CommandWithRequiredDecls<TACCmd>
 typealias MoveBlocks = TreapMap<NBId, MoveCmdsWithDecls>
+
+class MoveAnalysisCache(private val lazyGraph: Lazy<MoveTACCommandGraph>)
+    : AnalysisCache<MoveTACCommandGraph>(), HasDominanceAnalysis {
+    override val graph by lazyGraph
+
+    override val domination get() = this[SimpleDominanceAnalysis]
+    val lva get() = this[MoveLiveVariableAnalysis]
+    val naturalBlockScheduler get() = this[blockSchedulerKey]
+    val references get() = this[ReferenceAnalysis]
+    private val blockSchedulerKey = NaturalBlockScheduler.makeKey<MoveTACCommandGraph>()
+}
+
+class MoveTACCommandGraph(
+    override val blockGraph: BlockGraph,
+    override val code: BlockNodes<TACCmd>,
+    override val symbolTable: TACSymbolTable,
+): GenericTACCommandGraph<TACCmd, LCmd, Block>(), GraphPathConditions, HasDominanceAnalysis {
+    override fun elab(p: CmdPointer): LCmd {
+        return LCmd(p, toCommand(p))
+    }
+
+    override val domination get() = cache.domination
+    val cache: MoveAnalysisCache = MoveAnalysisCache(lazyOf(this))
+
+    val successors get() = blockGraph
+    val predecessors by lazy { reverse(blockGraph) }
+
+    private val blocksById by lazy {
+        code.mapValues { (nbid, cmds) ->
+            Block(nbid, cmds.mapIndexed { i, cmd -> LCmd(CmdPointer(nbid, i), cmd) })
+        }
+    }
+
+    override val blocks get() = blocksById.values.toList()
+
+    override fun pathConditionsOf(blockId: NBId): Map<NBId, PathCondition> {
+        return elab(blockId).let {
+            val (ptr, cmd) = it.commands.last()
+            check (cmd is TACCmd.Simple)
+            SimplePathConditionReasoning.pathConditions(
+                LTACCmd(ptr, cmd),
+                succ(blockId)
+            )
+        }
+    }
+}
+
+object MoveBlockView : GraphBlockView<MoveTACCommandGraph, Block, NBId> {
+    override fun succ(g: MoveTACCommandGraph, src: Block) = g.succ(src)
+    override fun pred(g: MoveTACCommandGraph, src: Block) = g.pred(src)
+    override fun blockGraph(g: MoveTACCommandGraph): Map<NBId, Set<NBId>> = g.blockGraph
+    override fun elab(g: MoveTACCommandGraph, l: NBId) = g.elab(l)
+    override fun blockId(b: Block): NBId = b.id
+}
+
 
 /**
     Intermediate representation of a Move program, prior to transformation by [MoveMemory.transform].
@@ -60,6 +121,8 @@ data class MoveTACProgram(
         }
     }
 
+    val graph = MoveTACCommandGraph(blockgraph, code, symbolTable)
+
     override fun myName() = name
     override val analysisCache get() = null
     override fun getNodeCode(n: NBId) = code[n] ?: error("Node $n does not appear in graph")
@@ -77,12 +140,6 @@ data class MoveTACProgram(
         procedures: Set<Procedure>?,
     ) = this.copy(code = code, blockgraph = blockgraph, name = name, symbolTable = symbolTable)
 
-    val successors get() = blockgraph
-    val predecessors by lazy { reverse(blockgraph) }
-
-    fun succ(b: NBId) = successors[b] ?: error("Block $b is not in the graph")
-    fun pred(b: NBId) = predecessors[b] ?: error("Block $b is not in the graph")
-
     data class LCmd(
         override val ptr: CmdPointer,
         override val cmd: TACCmd
@@ -93,49 +150,20 @@ data class MoveTACProgram(
         override val commands: List<LCmd>
     ) : TACBlockGen<TACCmd, LCmd>
 
-    private val blocksById by lazy {
-        code.mapValues { (nbid, cmds) ->
-            Block(nbid, cmds.mapIndexed { i, cmd -> LCmd(CmdPointer(nbid, i), cmd) })
-        }
-    }
-
-    fun elab(l: NBId): Block = blocksById[l] ?: error("Block $l is not in the graph")
-    val blocks get() = blocksById.values
-
-    private val succBlocks by lazy {
-        successors.mapValues { (_, succs) ->
-            succs.map { blocksById[it]!! }
-        }
-    }
-
-    private val predBlocks by lazy {
-        predecessors.mapValues { (_, preds) ->
-            preds.map { blocksById[it]!! }
-        }
-    }
-
-    private inner class BlockView : GraphBlockView<MoveTACProgram, Block, NBId> {
-        override fun succ(g: MoveTACProgram, src: Block) = succBlocks[src.id]!!
-        override fun pred(g: MoveTACProgram, src: Block) = predBlocks[src.id]!!
-        override fun blockGraph(g: MoveTACProgram): Map<NBId, Set<NBId>> = g.blockgraph
-        override fun elab(g: MoveTACProgram, l: NBId) = g.elab(l)
-        override fun blockId(b: Block): NBId = b.id
-    }
-
     private class CommandView : BlockCommandView<Block, LCmd, CmdPointer> {
         override fun commands(b: Block) = b.commands
         override fun ptr(c: LCmd) = c.ptr
     }
 
     abstract class CommandDataflowAnalysis<T : Any>(
-        program: MoveTACProgram,
+        graph: MoveTACCommandGraph,
         lattice: JoinLattice<T>,
         bottom: T,
         dir: Direction
-    ): analysis.CommandDataflowAnalysis<MoveTACProgram, Block, NBId, LCmd, CmdPointer, T>(
-        program, lattice, bottom, dir, program.BlockView(), CommandView()
+    ): analysis.CommandDataflowAnalysis<MoveTACCommandGraph, Block, NBId, LCmd, CmdPointer, T>(
+        graph, lattice, bottom, dir, MoveBlockView, CommandView()
     ) {
         protected abstract inner class Finalizer
-            : analysis.CommandDataflowAnalysis<MoveTACProgram, Block, NBId, LCmd, CmdPointer, T>.Finalizer()
+            : analysis.CommandDataflowAnalysis<MoveTACCommandGraph, Block, NBId, LCmd, CmdPointer, T>.Finalizer()
     }
 }

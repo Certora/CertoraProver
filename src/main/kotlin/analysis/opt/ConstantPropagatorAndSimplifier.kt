@@ -31,6 +31,7 @@ import vc.data.tacexprutil.TACExprUtils.contains
 import vc.data.tacexprutil.TACExprUtils.eqTo
 import vc.data.tacexprutil.TACExprUtils.isFalse
 import vc.data.tacexprutil.TACExprUtils.isTrue
+import vc.data.tacexprutil.asConstOrNull
 import vc.data.tacexprutil.eval
 import vc.data.tacexprutil.getFreeVars
 import vc.data.tacexprutil.rebuild
@@ -227,6 +228,18 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
          * then call this).
          */
         fun simplifyTop(e: TACExpr) = simplifyTopOrNull(e) ?: e
+
+        /**
+         * Given a possibly partial list of constant values for the operands of [e], tries to calculate a constant
+         * value for [e]. If it can't, returns null.
+         */
+        fun calculateOrNull(e: TACExpr, opValues: List<BigInteger?>) =
+            e.rebuild(
+                e.getOperands().zip(opValues).map { (op, value) ->
+                    value?.asTACExpr(op.tagAssumeChecked) ?: op
+                }
+            ).let(::simplifyTopOrNull)?.asConstOrNull
+
 
         /** returns the simplified expression, or null if it is unchanged */
         fun simplifyTopOrNull(exp: TACExpr): TACExpr? {

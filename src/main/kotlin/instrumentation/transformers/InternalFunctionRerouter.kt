@@ -1985,11 +1985,17 @@ object InternalFunctionRerouter {
                  */
                 val encodeAndCall = encodeStart andThen enc.encodingProgram andThen encodeComplete andThen backupAndCall
 
+                val appliedSummary = Summarization.AppliedSummary.MethodsBlock(
+                    specCallSumm = r,
+                    summarizedMethod = summary
+                )
+
                 val endAnnotation = CommandWithRequiredDecls(TACCmd.Simple.AnnotationCmd(
                     SummaryStack.END_INTERNAL_SUMMARY,
                     SummaryStack.SummaryEnd.Internal(
                         methodSignature = summarizedSig,
-                        rets = rets
+                        rets = rets,
+                        appliedSummary = appliedSummary
                     )
                 ), rets.mapToSet { it.s })
 
@@ -2083,10 +2089,7 @@ object InternalFunctionRerouter {
                             d = SummaryStack.SummaryStart.Internal(
                                 methodSignature = summarizedSig,
                                 callSiteSrc = callSiteSrc,
-                                appliedSummary = Summarization.AppliedSummary.MethodsBlock(
-                                    specCallSumm = r,
-                                    summarizedMethod = summary
-                                ),
+                                appliedSummary = appliedSummary,
                                 callResolutionTableInfo = CallResolutionTableSummaryInfo.DefaultInfo(
                                     applicationReason = SummaryApplicationReason.Spec.reasonFor(
                                         summ = r,

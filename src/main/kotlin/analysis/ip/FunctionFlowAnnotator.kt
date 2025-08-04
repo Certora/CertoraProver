@@ -614,7 +614,7 @@ object FunctionFlowAnnotator {
         ) : GenerationResult
     }
 
-    private val NonConstGvn = object : AnalysisCache.Key<GlobalValueNumbering> {
+    private val NonConstGvn = object : AnalysisCache.Key<TACCommandGraph, GlobalValueNumbering> {
         override fun createCached(graph: TACCommandGraph): GlobalValueNumbering {
             return GlobalValueNumbering(
                 graph = graph,
@@ -1120,9 +1120,11 @@ object FunctionFlowAnnotator {
         for(toInst in toInstrument) {
             toPrefix.computeIfAbsent(toInst.entryAnnot.first) {
                 mutableListOf()
-            }.add(TACCmd.Simple.AnnotationCmd(
-                INTERNAL_FUNC_START, toInst.entryAnnot.second
-            ))
+            }.addAll(listOfNotNull(
+                toInst.entryAnnot.second.callSiteSrc?.getSourceDetails()?.range?.let { SnippetCmd.ExplicitDebugStep(it).toAnnotation() },
+                TACCmd.Simple.AnnotationCmd(
+                    INTERNAL_FUNC_START, toInst.entryAnnot.second
+                )))
             for((where, exit) in toInst.exit) {
                 toPrefix.computeIfAbsent(where) {
                     mutableListOf()
@@ -1444,6 +1446,20 @@ object FunctionFlowAnnotator {
                 )
             ).toLeft()
         }
+        fun finalizeObject(readLoc: CmdPointer, newObject: InitObject) : Either<AbstractState, String> {
+            return s.copy(
+                stack = s.stack.updateValues { _, v ->
+                    if(v !is AbstractValue.InitializingPointer || v.read != readLoc) {
+                        return@updateValues v
+                    }
+                    if(v.offset != BigInteger.ZERO) {
+                        return@updateValues AbstractValue.Const.nondet
+                    }
+                    AbstractValue.FinalizedPointer(readLoc)
+                },
+                heap = AbstractHeap(s.heap.backing + (readLoc to newObject))
+            ).toLeft()
+        }
         return when(lc.cmd) {
             is TACCmd.Simple.AssigningCmd.ByteStore -> {
                 if(lc.cmd.base != TACKeyword.MEMORY.toVar()) {
@@ -1528,18 +1544,67 @@ object FunctionFlowAnnotator {
                     ).toLeft()
                 }
                 // otherwise, this is now done "initializing" convert
-                return s.copy(
-                    stack = s.stack.updateValues { _, v ->
-                        if(v !is AbstractValue.InitializingPointer || v.read != loc.read) {
-                            return@updateValues v
-                        }
-                        if(v.offset != BigInteger.ZERO) {
-                            return@updateValues AbstractValue.Const.nondet
-                        }
-                        AbstractValue.FinalizedPointer(loc.read)
-                    },
-                    heap = AbstractHeap(s.heap.backing + (loc.read to newObject))
-                ).toLeft()
+                return finalizeObject(loc.read, newObject)
+            }
+            is TACCmd.Simple.ByteLongCopy -> {
+                // The specific case we are looking for is a copy from CALLDATA starting at CALLDATASIZE, which is a
+                // clever way to zero-initialize memory.  We expect this initialization to cover the entire object.
+                if (lc.cmd.srcBase != TACKeyword.CALLDATA.toVar()) {
+                    return err { "ByteLongCopy source base is not CALLDATA" }
+                }
+                if (lc.cmd.srcOffset !is TACSymbol.Var || TACKeyword.CALLDATASIZE.toVar() !in cache.gvn.equivBefore(lc.ptr, lc.cmd.srcOffset)) {
+                    return err { "ByteLongCopy from ${lc.cmd.srcOffset} is not valid" }
+                }
+                val length = cache[MustBeConstantAnalysis].mustBeConstantAt(lc.ptr, lc.cmd.length)
+                if (length == null) {
+                    return err { "ByteLongCopy length is not a constant" }
+                }
+                if (lc.cmd.dstBase != TACKeyword.MEMORY.toVar()) {
+                    return err { "ByteLongCopy destination base is not MEMORY" }
+                }
+                val loc = (lc.cmd.dstOffset as? TACSymbol.Var)?.let(s.stack::get) ?: return err {
+                    "ByteLongCopy destination offset is not a variable that is mapped"
+                }
+                if (loc !is AbstractValue.InitializingPointer) {
+                    return err {
+                        "ByteLongCopy destination is not an initializing pointer (it is $loc)"
+                    }
+                }
+                if (loc.offset != BigInteger.ZERO) {
+                    return err {
+                        "ByteLongCopy partial initialization? at $loc"
+                    }
+                }
+                val obj = s.heap.backing[loc.read] ?: return err {
+                    "Location ${loc.read} appears unbound in the heap"
+                }
+                if (obj.sz == null) {
+                    return err {
+                        "Object for ${loc.read} does not have a size yet"
+                    }
+                }
+                if (length != obj.sz) {
+                    return err {
+                        "ByteLongCopy length $length does not match object size ${obj.sz}"
+                    }
+                }
+                if (obj.initializedSlots.isNotEmpty()) {
+                    return err {
+                        "ByteLongCopy to an object that is already initialized: $obj"
+                    }
+                }
+                val objSz = obj.sz.toIntOrNull() ?: return err {
+                    "Implausible object size ${obj.sz}"
+                }
+                val newObject = obj.copy(
+                    initializedSlots = obj.initializedSlots + (0..objSz step EVM_WORD_SIZE_INT).map { it.toBigInteger() }
+                )
+                if (!newObject.fullyInitialized()) {
+                    return err {
+                        "ByteLongCopy did not fully initialize the object: $newObject"
+                    }
+                }
+                return finalizeObject(loc.read, newObject)
             }
             is TACCmd.Simple.AssigningCmd.AssignExpCmd -> {
                 val stepBasicExpression by lazy {

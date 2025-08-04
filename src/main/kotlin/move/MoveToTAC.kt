@@ -37,8 +37,8 @@ import instrumentation.transformers.*
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import log.*
-import move.MoveModule.*
 import optimizer.*
+import org.jetbrains.annotations.TestOnly
 import spec.cvlast.RuleIdentifier
 import spec.cvlast.SpecType
 import spec.rules.*
@@ -61,6 +61,17 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             scene: MoveScene,
             optimize: Boolean,
         ) = MoveToTAC(scene).compileRule(entryFunc, optimize)
+
+        @TestOnly
+        fun compileMoveTAC(
+            entryFunc: MoveFunctionName,
+            scene: MoveScene,
+        ) = scene.maybeDefinition(entryFunc)?.let {
+            with(scene) {
+                val fn = MoveFunction(it.function)
+                MoveToTAC(scene).compileMoveTACProgram(fn)
+            }
+        }
 
         val FUNC_START = MetaKey<FuncStartAnnotation>("move.func.start")
         val FUNC_END = MetaKey<FuncEndAnnotation>("move.func.end")
@@ -142,7 +153,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         )
     }
 
-    private fun compileRule(entryFunc: MoveFunction, optimize: Boolean): Pair<EcosystemAgnosticRule, CoreTACProgram> {
+    private fun compileMoveTACProgram (entryFunc: MoveFunction): MoveTACProgram {
         val args = entryFunc.params.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_arg_$i", it.toTag()) }
         val returns = entryFunc.returns.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_ret_$i", it.toTag()) }
 
@@ -204,6 +215,13 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             entryBlock = StartBlock,
             symbolTable = TACSymbolTable(allCode.values.flatMapToSet { it.varDecls })
         )
+        return moveTAC
+    }
+
+    private fun compileRule(entryFunc: MoveFunction, optimize: Boolean): Pair<EcosystemAgnosticRule, CoreTACProgram> {
+        val moveTAC = compileMoveTACProgram(entryFunc)
+        val ruleName = moveTAC.name
+
         ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
         val coreTAC = MoveMemory(scene).transform(moveTAC)

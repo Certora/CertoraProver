@@ -57,7 +57,7 @@ abstract class CommonBranchingFixupReasoning(zb: IBlaster, builder: AbstractSmtE
             }
             val smtCommandsPath =
                 when (cond) {
-                    is TACCommandGraph.PathCondition.EqZero -> {
+                    is PathCondition.EqZero -> {
                         smtCommandGen.bind { smtCommandsPath ->
                             smtCommandsPath.assert {
                                 eq(encodedPc, const(0))
@@ -65,7 +65,7 @@ abstract class CommonBranchingFixupReasoning(zb: IBlaster, builder: AbstractSmtE
                         }
                     }
 
-                    is TACCommandGraph.PathCondition.NonZero -> {
+                    is PathCondition.NonZero -> {
                         smtCommandGen.bind { smtCommandsPath ->
                             smtCommandsPath.assert {
                                 lnot(eq(encodedPc, const(0)))

@@ -1,0 +1,10 @@
+{
+	"rules": {
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"bwAnd(uint256,uint256)"
+			]
+		},
+		"imprecision": "FAIL"
+	}
+}

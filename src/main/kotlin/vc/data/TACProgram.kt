@@ -53,6 +53,7 @@ import normalizer.CanonicalTranslationTable
 import normalizer.forEachAxiom
 import parallel.ParallelPool
 import report.calltrace.CVLReportLabel
+import report.calltrace.printer.StackEntry
 import report.dumps.DumpGraphHTML
 import report.dumps.DumpGraphHTML.generateHTML
 import report.dumps.generateCodeMap
@@ -165,7 +166,7 @@ abstract class TACProgram<T : TACCmd>(entry: NBId? = null) : NamedCode<ReportTyp
      */
     abstract val name: String
 
-    abstract val analysisCache: AnalysisCache?
+    abstract val analysisCache: TACCommandGraphAnalysisCache?
 
     protected val entryBlockIdInternal: NBId? by lazy {
         entry ?: run {
@@ -565,7 +566,7 @@ data class CanonicalTACProgram<T : TACCmd.Spec, E : ShouldErase>(
     override val ufAxioms: UfAxioms
         get() = instrumentationTAC.ufAxioms
 
-    override val analysisCache: AnalysisCache?
+    override val analysisCache: TACCommandGraphAnalysisCache?
         get() = null
 
     override fun myName(): String = name
@@ -732,7 +733,7 @@ data class EVMTACProgram(
 
     override fun myName(): String = name
 
-    override val analysisCache: AnalysisCache?
+    override val analysisCache: TACCommandGraphAnalysisCache?
         get() = null
 
     override fun getNodeCode(n: NBId): List<TACCmd> {
@@ -805,7 +806,7 @@ data class CVLTACProgram(
         return f(this)
     }
 
-    override val analysisCache: AnalysisCache?
+    override val analysisCache: TACCommandGraphAnalysisCache?
         get() = null
 
     override fun getNodeCode(n: NBId): List<TACCmd.Spec> {
@@ -945,6 +946,12 @@ data class CVLTACProgram(
         return this.wrapWith(start, end)
     }
 
+    fun wrapWithStackEntry(stackEntry: StackEntry): CVLTACProgram {
+        val start = CommandWithRequiredDecls(SnippetCmd.CVLSnippetCmd.Start(stackEntry).toAnnotation())
+        val end = CommandWithRequiredDecls(SnippetCmd.CVLSnippetCmd.End.toAnnotation())
+        return this.wrapWith(start, end)
+    }
+
     override fun copyWith(
         code: BlockNodes<TACCmd.Spec>,
         blockgraph: BlockGraph,
@@ -1070,7 +1077,11 @@ class CoreTACProgram private constructor(
                     ReportTypes.INTERVALS_OPTIMIZE,
                     ReportTypes.GLOBAL_INLINER1,
                     ReportTypes.GLOBAL_INLINER2,
-                    ReportTypes.OPTIMIZE_OVERFLOW
+                    ReportTypes.OPTIMIZE_OVERFLOW,
+                    ReportTypes.BYTEMAP_SCALARIZER,
+                    ReportTypes.BYTEMAP_OPTIMIZER1,
+                    ReportTypes.BYTEMAP_OPTIMIZER2,
+                    ReportTypes.BYTEMAP_OPTIMIZER3,
                 ))
             }
 
@@ -1229,7 +1240,7 @@ class CoreTACProgram private constructor(
      * start the cache from scratch
      */
     @Transient
-    private var _analysisCache: AnalysisCache? = null
+    private var _analysisCache: TACCommandGraphAnalysisCache? = null
 
     sealed class DelegateContext : Serializable {
         abstract fun mapStorage(v: TACSymbol.Var): TACSymbol.Var
@@ -1250,10 +1261,10 @@ class CoreTACProgram private constructor(
         }
     }
 
-    override val analysisCache: AnalysisCache
+    override val analysisCache: TACCommandGraphAnalysisCache
         get() {
             if (_analysisCache == null) {
-                _analysisCache = AnalysisCache(
+                _analysisCache = TACCommandGraphAnalysisCache(
                     lazy {
                         TACCommandGraph(
                             blockgraph,

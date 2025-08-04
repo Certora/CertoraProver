@@ -24,8 +24,10 @@ import analysis.ip.InternalFuncRet
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import report.callresolution.CallResolutionTableSummaryInfo
+import report.calltrace.printer.DebugAdapterPopAction
+import report.calltrace.printer.DebugAdapterPushAction
+import report.calltrace.printer.StackEntry
 import scene.ISceneIdentifiers
-import spec.CVL
 import spec.cvlast.QualifiedMethodSignature
 import spec.cvlast.SpecCallSummary
 import tac.MetaKey
@@ -37,16 +39,14 @@ object SummaryStack {
     val START_EXTERNAL_SUMMARY = MetaKey<SummaryStart.External>("call.trace.external.summary.start", restore = true)
     val START_INTERNAL_SUMMARY = MetaKey<SummaryStart.Internal>("call.trace.internal.summary.start", restore = true)
 
-    sealed class SummaryStart : Serializable, TransformableVarEntityWithSupport<SummaryStart> {
+    sealed class SummaryStart : Serializable, TransformableVarEntityWithSupport<SummaryStart>, DebugAdapterPushAction {
         abstract val callResolutionTableInfo: CallResolutionTableSummaryInfo
 
         abstract val appliedSummary: Summarization.AppliedSummary
-        val summarySignature: CVL.SummarySignature?
-            get() = (appliedSummary as? Summarization.AppliedSummary.MethodsBlock)?.summarizedMethod
-
         val summary: SpecCallSummary
             get() = appliedSummary.specCallSumm
-        /**
+
+       /**
          * Call-site from the source of the underlined CallCore command.
          */
         abstract val callSiteSrc: TACMetaInfo?
@@ -63,7 +63,7 @@ object SummaryStack {
         data class External(
             val callNode: CallSummary,
             override val callResolutionTableInfo: CallResolutionTableSummaryInfo,
-            override val appliedSummary: Summarization.AppliedSummary
+            override val appliedSummary: Summarization.AppliedSummary,
         ) : SummaryStart(), UniqueIdEntity<External> {
 
             override fun mapId(f: (Any, Int, () -> Int) -> Int): External {
@@ -74,6 +74,9 @@ object SummaryStack {
             }
 
             override val callSiteSrc: TACMetaInfo? = this.callNode.origCallcore?.metaSrcInfo
+
+            override val stackElement: StackEntry
+                get() = StackEntry.Summary(appliedSummary)
 
             override fun toUIString(scene: ISceneIdentifiers): String {
                 val singleOrNullSigResolution = this.callNode.sigResolution.singleOrNull()
@@ -102,6 +105,9 @@ object SummaryStack {
 
             override val support: Set<TACSymbol.Var> = setOf()
 
+            override val stackElement: StackEntry
+                get() = StackEntry.Summary(appliedSummary)
+
             override fun toUIString(scene: ISceneIdentifiers): String = methodSignature.functionName.toString()
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): SummaryStart {
                 return this
@@ -110,24 +116,23 @@ object SummaryStack {
     }
 
     @Treapable
-    sealed class SummaryEnd : Serializable {
-
+    sealed class SummaryEnd : Serializable, DebugAdapterPopAction {
+        abstract val appliedSummary: Summarization.AppliedSummary
         data class External(
-            val appliedSummary: Summarization.AppliedSummary,
+            override val appliedSummary: Summarization.AppliedSummary,
             @GeneratedBy(Allocator.Id.CALL_SUMMARIES)
             val summaryId: Int
         ) : SummaryEnd(), UniqueIdEntity<External> {
             override fun mapId(f: (Any, Int, () -> Int) -> Int): External {
                 return External(appliedSummary, summaryId = f(Allocator.Id.CALL_SUMMARIES, summaryId) { Allocator.getFreshId(Allocator.Id.CALL_SUMMARIES) })
             }
-
         }
 
         /**
          * Marks the end of an internal summary - on the normal return path, [rets] should not be null, if there are no returns it should be an empty list.
          * It is nullable to encode undefined return values when we exit the summary with a revert.
          */
-        data class Internal(val rets: List<InternalFuncRet>?, val methodSignature: QualifiedMethodSignature) : SummaryEnd(),
+        data class Internal(override val appliedSummary: Summarization.AppliedSummary, val rets: List<InternalFuncRet>?, val methodSignature: QualifiedMethodSignature) : SummaryEnd(),
             TransformableVarEntityWithSupport<Internal> {
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): Internal = this.copy(rets = rets?.map { it.transformSymbols(f) })
 

@@ -19,6 +19,7 @@ package report.globalstate
 
 import analysis.CmdPointer
 import analysis.TACCommandGraph
+import analysis.storage.InstantiatedDisplayPath
 import report.calltrace.CallInstance
 import report.calltrace.CallTrace
 import report.calltrace.formatter.CallTraceValueFormatter
@@ -29,6 +30,12 @@ import vc.data.SnippetCmd
 import vc.data.TACCmd
 import vc.data.TACMeta
 import vc.data.TACSymbol
+import vc.data.state.TACValue
+
+
+interface DebugAdapterVariableState{
+    fun toInstantiateDisplayWithValue(): Map<InstantiatedDisplayPath, TACValue>
+}
 
 /**
  * One of the elements of the [CallTrace].
@@ -48,9 +55,9 @@ internal class GlobalState(
 ) {
     private val variablesState = VariablesState(model)
     private val seqGen = SequenceGenerator(graph, blocks, model)
-    private val storageState = StorageState(seqGen, model, scene, formatter, variablesState)
-    private val balancesState = BalancesState(seqGen, model, formatter)
-    private val ghostsState = GhostsState(seqGen, model, variablesState)
+    val storageState = StorageState(seqGen, model, scene, formatter, variablesState)
+    val balancesState = BalancesState(seqGen, model, formatter)
+    val ghostsState = GhostsState(seqGen, model, variablesState)
 
     fun handleAssignments(stmt: TACCmd.Simple.AssigningCmd) {
         variablesState.handleAssignments(stmt)

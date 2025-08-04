@@ -17,7 +17,7 @@
 
 package verifier
 
-import analysis.TACCommandGraph
+import analysis.PathCondition
 import config.ReportTypes
 import datastructures.stdcollections.*
 import log.*
@@ -25,7 +25,6 @@ import tac.DumpTime
 import tac.NBId
 import vc.data.*
 import vc.gen.LeinoWP
-import verifier.UniqueSuccessorRemover.ModelPostprocessor
 
 private val logger = Logger(LoggerTypes.UNIQUE_SUCCESSOR_REMOVER)
 
@@ -99,7 +98,7 @@ object UniqueSuccessorRemover {
         if (graph.succ(aid).singleOrNull() != bid) {
             return null
         }
-        if (graph.pathConditionsOf(aid)[bid] != TACCommandGraph.PathCondition.TRUE) {
+        if (graph.pathConditionsOf(aid)[bid] != PathCondition.TRUE) {
             return null
         }
 

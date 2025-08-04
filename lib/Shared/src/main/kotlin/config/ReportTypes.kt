@@ -101,6 +101,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     SIMPLE_SIMPLE(LoggerTypes.COMMON),
     LONG_COPY_HAVOC_INSTRUMENTATION(LoggerTypes.COMMON),
     INIT_VARS(LoggerTypes.COMMON),
+    INIT_MAPS(LoggerTypes.INIT_MAPS),
     FOLD_SPLIT_STORES(LoggerTypes.COMMON),
     REMOVE_UNUSED(LoggerTypes.COMMON),
     SINK_OPTIMIZER(LoggerTypes.COMMON),
@@ -190,7 +191,6 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     MATERIALIZE_DISJOINT_HASHES(LoggerTypes.INSTRUMENTATION),
     ASSUME_STRICT_MONOTONIC_FP(LoggerTypes.INSTRUMENTATION),
     ADD_BRANCH_SNIPPETS(LoggerTypes.INSTRUMENTATION),
-    INSERT_MAP_DEFINITION(LoggerTypes.WHOLE_CONTRACT_TRANSFORMATION),
     INSERT_SCALAR_DEFINITION(LoggerTypes.WHOLE_CONTRACT_TRANSFORMATION),
     HEURISTICAL_FOLDING_REMOVE_ANNOTATIONS(LoggerTypes.HEURISTICAL_FOLDING),
     HEURISTICAL_FOLDING_REWRITE(LoggerTypes.HEURISTICAL_FOLDING),
@@ -200,6 +200,9 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     TERNARY_OPTIMIZE(LoggerTypes.TERNARY_SIMPLIFIER),
     GLOBAL_INLINER1(LoggerTypes.GLOBAL_INLINER),
     GLOBAL_INLINER2(LoggerTypes.GLOBAL_INLINER),
+    BYTEMAP_OPTIMIZER1(LoggerTypes.BYTEMAP_CIF),
+    BYTEMAP_OPTIMIZER2(LoggerTypes.BYTEMAP_CIF),
+    BYTEMAP_OPTIMIZER3(LoggerTypes.BYTEMAP_CIF),
     INTERVALS_OPTIMIZE(LoggerTypes.INTERVALS_SIMPLIFIER),
     EQUALITY_CHECK_NORMALIZATION(LoggerTypes.NORMALIZER),
     INT32_SCRATCH_NORMALIZATION(LoggerTypes.NORMALIZER),
@@ -277,6 +280,8 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     OPTIMISTIC_SPILL_REWRITE(LoggerTypes.PER_FUNCTION_SIMPLIFICATION),
     NORMALIZE_MASK(LoggerTypes.OPTIMIZE),
     PROPAGATE_STRINGS(LoggerTypes.COMMON),
+    BYTESK_INSTRUMENTER(LoggerTypes.NORMALIZER),
+    HASH_FP_REUSE_NORMALIZATION(LoggerTypes.ALLOC),
     ;
 
     override fun isEnabled(): Boolean = this == NONE || Config.isEnabledLogger(this.loggerCategory) || Config.isEnabledReport(this)

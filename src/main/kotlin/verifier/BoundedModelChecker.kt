@@ -471,6 +471,10 @@ class BoundedModelChecker(
                 .filter { func ->
                     Config.contractChoice.get().let { it.isEmpty() || func.methodSignature.qualifiedMethodName.host.name in it }
                 }
+                .filterNot { func ->
+                    (scene.getContract(SolidityContract(func.methodSignature.qualifiedMethodName.host.name)) as? IContractWithSource)?.src
+                        ?.isInternalFunctionHarness(func.methodSignature.qualifiedMethodName.methodId) == true
+                }
                 .map { contractFunc ->
                     contractFunc to compileFunction(contractFunc)
                 }

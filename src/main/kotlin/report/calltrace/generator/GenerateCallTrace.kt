@@ -43,9 +43,9 @@ fun generateCallTrace(
     ruleCallString: String,
 ): CallTrace {
     val generator: CallTraceGenerator = when (Config.ActiveEcosystem.get()) {
-        Ecosystem.EVM -> EVMCallTraceGenerator(rule.declarationId, model, program, formatter, scene, ruleCallString)
-        Ecosystem.SOLANA -> SolanaCallTraceGenerator(rule.declarationId, model, program, formatter, scene, ruleCallString)
-        Ecosystem.SOROBAN -> WasmCallTraceGenerator(rule.declarationId, model, program, formatter, scene, ruleCallString)
+        Ecosystem.EVM -> EVMCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
+        Ecosystem.SOLANA -> SolanaCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
+        Ecosystem.SOROBAN -> WasmCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
     }
     return generator.safeGenerate()
 }

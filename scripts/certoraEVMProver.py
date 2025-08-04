@@ -21,14 +21,14 @@ from pathlib import Path
 scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 
-import CertoraProver.certoraContextAttributes as Attrs
+import CertoraProver.certoraApp as App
 from Shared.proverCommon import CertoraRunResult
 from certoraRun import run_certora
 from typing import List, Optional
 
 
 def run_evm_prover(args: List[str]) -> Optional[CertoraRunResult]:
-    return run_certora(args, Attrs.EvmProverAttributes)
+    return run_certora(args, App.EvmApp)
 
 def entry_point() -> None:
     run_evm_prover(sys.argv[1:])

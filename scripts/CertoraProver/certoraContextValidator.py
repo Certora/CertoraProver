@@ -32,7 +32,7 @@ from CertoraProver.certoraContextClass import CertoraContext
 from Shared import certoraUtils as Util
 from Shared import certoraAttrUtil as AttrUtil
 from CertoraProver.certoraProjectScanner import scan_project
-
+import CertoraProver.certoraApp as App
 
 scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
@@ -47,7 +47,7 @@ class CertoraContextValidator:
         self.context = context
 
     def handle_concord_attrs(self) -> None:
-        if Attrs.is_concord_app():
+        if self.context.app == App.ConcordApp:
             for attr in (Attrs.ConcordAttributes.unsupported_attributes()):
                 attr_name = attr.get_conf_key()
                 if getattr(self.context, attr_name):
@@ -66,7 +66,7 @@ class CertoraContextValidator:
 
     def handle_ranger_attrs(self) -> None:
         # unset unsupported attributes
-        if Attrs.is_ranger_app():
+        if self.context.app == App.RangerApp:
             for attr in Attrs.RangerAttributes.unsupported_attributes():
                 attr_name = attr.get_conf_key()
                 if getattr(self.context, attr_name):
@@ -99,7 +99,7 @@ class CertoraContextValidator:
 
     def validate(self) -> None:
 
-        for attr_def in Attrs.get_attribute_class().attribute_list():
+        for attr_def in self.context.app.attr_class.attribute_list():
             conf_key = attr_def.get_conf_key()
             attr = getattr(self.context, conf_key, None)
             if attr_def.deprecation_msg and attr:
@@ -160,9 +160,9 @@ class CertoraContextValidator:
 
         if value is None:
             raise RuntimeError(f"calling validate_type_string with null value {conf_key}")
-        if not isinstance(value, str):
-            raise Util.CertoraUserInputError(f"value of {conf_key} {value} is not a string")
-        attr.validate_value(value)
+        if not isinstance(value, (str, int)):
+            raise Util.CertoraUserInputError(f"value of {conf_key} {value} is not a string or an integer")
+        attr.validate_value(str(value))
 
     def validate_type_boolean(self, attr: AttrUtil.AttributeDefinition) -> None:
         conf_key, value = self.__get_key_and_value(attr)
@@ -226,7 +226,7 @@ class CertoraContextValidator:
         check_contract_name_arg_inputs(context)  # Here context.contracts is set
         Util.check_packages_arguments(context)
         convert_to_compiler_map(context)
-        if Attrs.is_evm_app():
+        if Ctx.is_evm_app_class(context):
             if context.compiler_map is None and context.bytecode_jsons is None:  # xxx - we would need to reiterate here
                 # once we allow combining raw bytecode with Solidity
                 context.solc = Vf.is_solc_file_valid(context.solc)
@@ -473,7 +473,7 @@ def check_contract_name_arg_inputs(context: CertoraContext) -> None:
         context.spec_file = spec
 
     contract_to_address = dict()
-    if context.address:
+    if getattr(context, 'address', None):
         for address_str in context.address:
             contract = address_str.split(':')[0]
             if contract not in contract_names:
@@ -489,7 +489,7 @@ def check_contract_name_arg_inputs(context: CertoraContext) -> None:
                 all_warnings.add(f'address {number} for contract {contract} defined twice')
     context.address = contract_to_address
 
-    if context.struct_link:
+    if getattr(context, 'struct_link', None):
         contract_slot_to_contract = dict()
         for link in context.struct_link:
             location = link.split('=')[0]
@@ -611,7 +611,7 @@ def check_mode_of_operation(context: CertoraContext) -> None:
     """
     context.is_verify = context.verify is not None and len(context.verify) > 0
     context.is_bytecode = context.bytecode_jsons is not None and len(context.bytecode_jsons) > 0
-    context.is_equivalence = context.equivalence_contracts is not None or context.is_concord_app
+    context.is_equivalence = context.equivalence_contracts is not None or context.app == App.ConcordApp
 
     if (context.project_sanity or context.foundry) and \
        (context.is_verify or context.is_bytecode or context.is_equivalence):
@@ -691,7 +691,7 @@ def check_mode_of_operation(context: CertoraContext) -> None:
                     f"No other files are allowed with a file of type {special_file_type}")
 
     if (
-        not Attrs.is_concord_app() and
+        not context.app == App.ConcordApp and
         not any([context.is_verify, context.is_bytecode,
                  context.equivalence_contracts, special_file_type]) and not context.build_only):
         raise Util.CertoraUserInputError("You must use 'verify' when running the Certora Prover")

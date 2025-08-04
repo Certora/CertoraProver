@@ -64,15 +64,7 @@ class MoveScene(
     val cvlmManifest by lazy { CvlmManifest(this) }
 
     val rules by lazy {
-        cvlmManifest.rules.filter {
-            Config.MoveRuleModuleIncludes.getOrNull()?.contains(it.module.name) ?: true
-        }.filterNot {
-            Config.MoveRuleModuleExcludes.getOrNull()?.contains(it.module.name) ?: false
-        }.filter {
-            Config.MoveRuleNameIncludes.getOrNull()?.contains(it.simpleName) ?: true
-        }.filterNot {
-            Config.MoveRuleNameExcludes.getOrNull()?.contains(it.simpleName) ?: false
-        }.map {
+        cvlmManifest.selectedRules.map {
             val def = maybeDefinition(it)
                 ?: error("No definition found for rule function $it")
             MoveToTAC.compileRule(MoveFunction(def.function), this, optimize)

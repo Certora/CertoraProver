@@ -194,13 +194,22 @@ object Config {
     ) {}
 
     val ListRules = object :
-        ConfigType.BooleanCmdLine(
-            false, Option(
-            "listRules", false,
-            "Prints a list of rules to the command line after type checking succeeded. " +
-                "This option is only used by the TypeChecker.jar"
-        )
-    ) {}
+        ConfigType.StringCmdLine(
+            null, Option(
+                "listRules", true,
+                "Writes to the provided file a list of all rules in the spec after type checking succeeded. " +
+                    "This option is only used by the TypeChecker.jar"
+            )
+        ) {}
+
+    val ListCalls = object :
+        ConfigType.StringCmdLine(
+            null, Option(
+                "listCalls", true,
+                "Writes to the provided file a list of all unresolved calls that exist in the spec after syntax checking succeeded. " +
+                    "This option is only used by the TypeChecker.jar in non `-typecheck` mode."
+            )
+        ) {}
 
     val AllowSolidityQuantifierCalls = object : ConfigType.BooleanCmdLine(
             false,
@@ -2379,6 +2388,16 @@ object Config {
         )
     ) {}
 
+    val CallTraceDebugAdapterProtocol = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "callTraceDebugAdapterProtocol",
+            true,
+            "Dumps a JSON file that can be read by our Certora Debug Extension (VSCode extension)" +
+                "[default: true]"
+        )
+    ) {}
+
     val UnusedSummaryHardFail = object : ConfigType.HardFailCmdLine(
         HardFailMode.OFF,
         Option(
@@ -2406,6 +2425,15 @@ object Config {
             "enableWholeContractProxyInlining",
             true,
             "When set to [true], unresolved sighashes in a contract's fallback function are replaced with the whole contract version of the callee. [default: false]"
+        )
+    ) {}
+
+    val BytemapOptimizations = object : ConfigType.BooleanCmdLine(
+        default = true,
+        option = Option(
+            "bytemapOptimizations",
+            true,
+            "Enables a few bytemap optimizations [default: true]"
         )
     ) {}
 

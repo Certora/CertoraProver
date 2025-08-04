@@ -834,6 +834,7 @@ class CertoraBuildGenerator:
                     body_location = body_node["src"]
                 elif body_node is None and func_def["implemented"]:
                     ast_logger.debug(f"No body for {func_def} but ast claims it is implemented")
+                location: Optional[str] = func_def.get("src", None)
 
                 if original_contract is not None:
                     if method := original_contract.find_method(func_name, solidity_type_args):
@@ -858,14 +859,17 @@ class CertoraBuildGenerator:
                     func_def[STATEMUT] in ["nonpayable", "view", "pure"],
                     c_is_lib,
                     is_constructor,
+                    func_def.get("kind") == CertoraBuildGenerator.FREEFUNCTION_STRING,
                     func_def[STATEMUT],
                     func_visibility,
                     func_def["implemented"],
                     func_def.get("overrides", None) is not None,
+                    func_def.get("virtual", False),
                     contract_name,
                     source_bytes,
                     ast_id=func_def.get("id", None),
                     original_file=original_file,
+                    location=location,
                     body_location=body_location,
                 )
 
@@ -917,15 +921,18 @@ class CertoraBuildGenerator:
                         notpayable=is_not_payable,
                         fromLib=c_is_lib,
                         isConstructor=False,
+                        is_free_func=False,
                         stateMutability=state_mutability,
                         implemented=True,
                         overrides=public_state_var.get("overrides", None) is not None,
+                        virtual=False,
                         # according to Solidity docs, getter functions have external visibility
                         visibility="external",
                         contractName=contract_name,
                         source_bytes=SourceBytes.from_ast_node(public_state_var),
                         ast_id=None,
                         original_file=c_file,
+                        location=None,
                         body_location=None,
                     )
                 )
@@ -959,6 +966,8 @@ class CertoraBuildGenerator:
                             ret = solc_type == "address"
                         elif isinstance(ct_type, CT.StructType):
                             ret = solc_type == "tuple"
+                        elif isinstance(ct_type, CT.EnumType):
+                            ret = solc_type == "uint8"
                     return ret
 
                 fs = [f for f in fs if all(compareTypes(a.type, i)
@@ -979,7 +988,7 @@ class CertoraBuildGenerator:
                 assert len(f.returns) == len(fabi["outputs"]), \
                     f"function collected for {fabi['name']} has the wrong number of return values"
                 assert all(compareTypes(a.type, i) for a, i in zip(f.returns, fabi["outputs"])), \
-                    f"function collected for {fabi['name']} has the wrong types of return values"
+                    f"function collected for {fabi['name']} has the wrong types of return values. {[t.type.type_string for t in f.returns]} vs {fabi['outputs']}"
 
         verify_collected_all_abi_funcs(
             [f for f in data["abi"] if f["type"] == "function"],
@@ -1375,7 +1384,9 @@ class CertoraBuildGenerator:
 
     def get_solc_optimize_value(self, contract_file_path: Path) -> Optional[str]:
         match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_optimize')
-        assert isinstance(match, (str, type(None))), f"Expected solc_optimize to be string or None, got {type(match)}"
+        assert isinstance(match, (str, int, type(None))), f"Expected solc_optimize to be string, integer , got {type(match)}"
+        if isinstance(match, int):
+            match = str(match)
         return match
 
     def _handle_via_ir(self, contract_file_path: Path, settings_dict: Dict[str, Any]) -> None:
@@ -2217,14 +2228,17 @@ class CertoraBuildGenerator:
                 notpayable=x.notpayable,
                 fromLib=x.fromLib,
                 isConstructor=x.isConstructor,
+                is_free_func=False,
                 stateMutability=x.stateMutability,
                 visibility=x.visibility,
                 implemented=x.implemented,
                 overrides=x.overrides,
+                virtual=False,
                 contractName=x.contractName,
                 ast_id=x.ast_id,
                 source_bytes=x.source_bytes,
                 original_file=x.original_file,
+                location=None,
                 body_location=x.body_location,
             ) for x in clfuncs]
         elif compiler_lang == CompilerLangYul():
@@ -2491,6 +2505,114 @@ class CertoraBuildGenerator:
                                                                 mut=InsertAfter())
         return function_finder_by_contract, function_finder_instrumentation
 
+    def add_internal_func_harnesses(self, contract_file: str, sdc: SDC, specCalls: List[str]) -> Optional[Tuple[Dict[str, str], Dict[str, Dict[int, Instrumentation]]]]:
+        # contract file -> byte offset -> to insert
+        harness_function_instrumentation: Dict[str, Dict[int, Instrumentation]] = defaultdict(dict)
+        # internal function name -> harness fuction name
+        harness_function_names: Dict[str, str] = {}
+
+        if not isinstance(sdc.compiler_collector, CompilerCollectorSol):
+            raise Exception(f"Encountered a compiler collector that is not solc for file {contract_file}"
+                            " when trying to add function autofinders")
+        instrumentation_logger.debug(f"Using {sdc.compiler_collector} compiler to "
+                                     f"add external function harnesses to contract {sdc.primary_contract}")
+
+        for c in sdc.contracts:
+            for f in c.internal_funcs:
+                if f"{sdc.primary_contract}.{f.name}" not in specCalls:
+                    continue
+
+                if f.fromLib:
+                    # Even external library functions can't be called directly from spec,
+                    # so skip harnessing internal ones.
+                    continue
+
+                if f.isConstructor:
+                    continue
+
+                if f.is_free_func:
+                    # Free functions (declared outside of any contract/library) don't have visibility modifiers
+                    continue
+
+                orig_file = f.original_file
+                if not orig_file:
+                    instrumentation_logger.debug(f"missing file location for {f.name}")
+                    continue
+
+                loc = f.location
+                if not loc:
+                    instrumentation_logger.debug(f"Found a function {f.name} in "
+                                                 f"{c.name} that doesn't have a location")
+                    continue
+
+                if f.implemented:
+                    expected_end_char = b"}"
+                else:
+                    # This is a virtual function with no implementation. Declare also a virtual harness so that when
+                    # Implementing a harness for the override we can just add the `override` keyword to the harness
+                    # function as well without needing to have any extra logic at that point.
+                    expected_end_char = b";"
+
+                if len(f.fullArgs) != len(f.paramNames):
+                    instrumentation_logger.debug(f"Do not have argument names for {f.name} in"
+                                                 f" {c.name}, giving up internal function harnessing")
+                    continue
+
+                if any(ty.location == CT.TypeLocation.STORAGE for ty in f.fullArgs + f.returns):
+                    instrumentation_logger.debug(f"Function {f.name} has input arguments with 'storage' location - cannot harness it")
+                    continue
+
+                instrumentation_path = str(Util.abs_norm_path(orig_file))
+                per_file_inst = harness_function_instrumentation[instrumentation_path]
+
+                start, size, _ = loc.split(":")
+                body_end_byte = int(start) + int(size) - 1
+
+                def get_local_type_name(ty: CT.TypeInstance) -> str:
+                    # Handles imports that use 'as'. E.g. `import {A as B} from "A.sol";`
+                    ret = ty.get_source_str()
+                    assert orig_file
+                    for node in self.asts[sdc.sdc_origin_file][orig_file].values():
+                        if node["nodeType"] != "ImportDirective":
+                            continue
+                        for alias in node["symbolAliases"]:
+                            if alias["foreign"]["name"] == ty.get_source_str() and "local" in alias:
+                                ret = alias["local"]
+                                break
+
+                    # Now add the location
+                    return ret + (f" {ty.location.value}" if ty.location != CT.TypeLocation.STACK else "")
+
+                harness_name = f"{f.name}_external_harness"
+                harness_string = f" function {harness_name}({', '.join(f'{get_local_type_name(ty)} {n}' for ty, n in zip(f.fullArgs, f.paramNames))}) external"
+
+                if f.stateMutability in ["pure", "view"]:
+                    harness_string += f" {f.stateMutability}"
+
+                if f.virtual:
+                    harness_string += " virtual"
+
+                if f.overrides:
+                    harness_string += " override"
+
+                if f.returns:
+                    harness_string += f" returns ({', '.join(get_local_type_name(r) for r in f.returns)})"
+
+                if f.implemented:
+                    harness_call = f"{f.name}({', '.join(f.paramNames)})"
+                    if f.returns:
+                        harness_string += f" {{ return {harness_call}; }}"
+                    else:
+                        harness_string += f" {{ {harness_call}; }}"
+                else:
+                    harness_string += ";"
+
+                per_file_inst[body_end_byte] = Instrumentation(expected=expected_end_char, to_ins=harness_string,
+                                                               mut=InsertAfter())
+                harness_function_names[f.name] = harness_name
+
+        return harness_function_names, harness_function_instrumentation
+
     def cleanup(self) -> None:
         for sdc_name, smart_contract_lang in self.__compiled_artifacts_to_clean:
             self.cleanup_compiler_outputs(sdc_name, smart_contract_lang)
@@ -2546,6 +2668,16 @@ class CertoraBuildGenerator:
 
     def build(self, certora_verify_generator: CertoraVerifyGenerator) -> None:
         context = self.context
+
+        specCalls: List[str] = []
+        if context.verify and not context.disallow_internal_function_calls:
+            with tempfile.NamedTemporaryFile("r", dir=Util.get_build_dir()) as tmp_file:
+                try:
+                    Ctx.run_local_spec_check(False, context, ["-listCalls",  tmp_file.name], print_errors=False)
+                    specCalls = tmp_file.read().split("\n")
+                except Exception as e:
+                    instrumentation_logger.warning(f"Failed to get calls from spec\n{e}")
+
         self.context.remappings = []
         for i, build_arg_contract_file in enumerate(sorted(self.input_config.sorted_files)):
             build_logger.debug(f"\nbuilding file {build_arg_contract_file}")
@@ -2597,7 +2729,7 @@ class CertoraBuildGenerator:
                 # We start by trying to instrument _all_ finders, both autofinders and source finders
                 added_finders, all_finders_success, src_finders_gen_success, post_backup_dir = self.finders_compilation_round(
                     build_arg_contract_file, i, ignore_patterns, path_for_compiler_collector_file, pre_backup_dir,
-                    sdc_pre_finders, not context.disable_source_finders)
+                    sdc_pre_finders, not context.disable_source_finders, specCalls)
 
                 # we could have a case where source finders failed but regular finders succeeded.
                 # e.g. if we processed the AST wrong and skipped source finders generation
@@ -2609,21 +2741,21 @@ class CertoraBuildGenerator:
                     # let's try just the function autofinders
                     added_finders, function_autofinder_success, _, post_backup_dir = self.finders_compilation_round(
                         build_arg_contract_file, i, ignore_patterns, path_for_compiler_collector_file, pre_backup_dir,
-                        sdc_pre_finders, False)
+                        sdc_pre_finders, False, specCalls)
 
                     if not function_autofinder_success:
                         self.auto_finders_failed = True
 
                 if not self.auto_finders_failed or not self.source_finders_failed:
                     # setup source_dir. note that post_backup_dir must include the finders in this case
-                    for _, _, sdc in added_finders:
+                    for _, _, _, sdc in added_finders:
                         sdc.source_dir = str(post_backup_dir.relative_to(Util.get_certora_sources_dir()))
                         sdc.orig_source_dir = str(pre_backup_dir.relative_to(Util.get_certora_sources_dir()))
             else:
                 # no point in running autofinders in vyper right now
-                added_finders = [({}, {}, sdc_pre_finder) for sdc_pre_finder in sdc_pre_finders]
+                added_finders = [({}, {}, {}, sdc_pre_finder) for sdc_pre_finder in sdc_pre_finders]
 
-            for added_func_finders, added_source_finders, sdc in added_finders:
+            for added_func_finders, added_source_finders, added_internal_function_harnesses, sdc in added_finders:
                 for contract in sdc.contracts:
                     all_functions: List[Func] = list()
                     for k, v in added_func_finders.items():
@@ -2631,6 +2763,8 @@ class CertoraBuildGenerator:
                         contract.function_finders[k] = v
                     for source_key, source_value in added_source_finders.items():
                         contract.local_assignments[source_key] = source_value
+                    if contract.name == sdc.primary_contract:
+                        contract.internal_function_harnesses = added_internal_function_harnesses
                     all_functions.extend(contract.methods)
                     all_functions.extend(contract.internal_funcs)
                     functions_unique_by_internal_rep = list()  # type: List[Func]
@@ -2954,12 +3088,13 @@ class CertoraBuildGenerator:
                                   path_for_compiler_collector_file: str,
                                   pre_backup_dir: Path,
                                   sdc_pre_finders: List[SDC],
-                                  with_source_finders: bool) -> Tuple[
-            List[Tuple[Dict[str, InternalFunc], Dict[str, UnspecializedSourceFinder], SDC]], bool, bool, Path]:
+                                  with_source_finders: bool,
+                                  specCalls: List[str]) -> Tuple[
+            List[Tuple[Dict[str, InternalFunc], Dict[str, UnspecializedSourceFinder], Dict[str, str], SDC]], bool, bool, Path]:
         added_finders_to_sdc, finders_compilation_success, source_finders_gen_success = \
             self.instrument_auto_finders(
                 build_arg_contract_file, i, sdc_pre_finders,
-                path_for_compiler_collector_file, with_source_finders)
+                path_for_compiler_collector_file, with_source_finders, specCalls)
         # successful or not, we backup current .certora_sources for either debuggability, or for availability
         # of sources.
         post_backup_dir = self.get_fresh_backupdir(Util.POST_AUTOFINDER_BACKUP_DIR)
@@ -3031,11 +3166,12 @@ class CertoraBuildGenerator:
     def instrument_auto_finders(self, build_arg_contract_file: str, i: int,
                                 sdc_pre_finders: List[SDC],
                                 path_for_compiler_collector_file: str,
-                                instrument_source_finders: bool) -> Tuple[
-            List[Tuple[Dict[str, InternalFunc], Dict[str, UnspecializedSourceFinder], SDC]], bool, bool]:
+                                instrument_source_finders: bool,
+                                specCalls: List[str]) -> Tuple[
+            List[Tuple[Dict[str, InternalFunc], Dict[str, UnspecializedSourceFinder], Dict[str, str], SDC]], bool, bool]:
 
         # initialization
-        ret = []  # type: List[Tuple[Dict[str, InternalFunc], Dict[str, UnspecializedSourceFinder], SDC]]
+        ret: List[Tuple[Dict[str, InternalFunc], Dict[str, UnspecializedSourceFinder], Dict[str, str], SDC]] = []
         instrumentation_logger.debug(f"Instrumenting auto finders in {build_arg_contract_file}")
         # all of the [SDC]s inside [sdc_pre_finders] have the same list of [ContractInSDC]s
         # (generated in the [collect_from_file] function).
@@ -3044,9 +3180,18 @@ class CertoraBuildGenerator:
         if added_function_finders_tuple is None:
             instrumentation_logger.warning(
                 f"Computing function finder instrumentation failed for {build_arg_contract_file}")
-            return [({}, {}, old_sdc) for old_sdc in sdc_pre_finders], False, False
+            return [({}, {}, {}, old_sdc) for old_sdc in sdc_pre_finders], False, False
 
         (added_function_finders, function_instr) = added_function_finders_tuple
+
+        instr = function_instr
+
+        added_internal_function_harnesses: Dict[str, str] = {}
+        if not self.context.disallow_internal_function_calls:
+            added_internal_func_harness_tuple = self.add_internal_func_harnesses(build_arg_contract_file, sdc_pre_finder, specCalls)
+            if added_internal_func_harness_tuple:
+                instr = CertoraBuildGenerator.merge_dicts_instrumentation(function_instr, added_internal_func_harness_tuple[1])
+                added_internal_function_harnesses = added_internal_func_harness_tuple[0]
 
         source_finders_gen_succeeded = False
         if instrument_source_finders:
@@ -3056,15 +3201,13 @@ class CertoraBuildGenerator:
                 (added_source_finders, source_instr) = added_source_finders_tuple
                 # Update instr with additional instrumentations. Recall it is a map file -> offset -> instr.
                 # Function finders take precedence
-                instr = CertoraBuildGenerator.merge_dicts_instrumentation(function_instr, source_instr)
+                instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, source_instr)
                 source_finders_gen_succeeded = True
             except:  # noqa: E722
                 instrumentation_logger.warning(
                     f"Computing source finder instrumentation failed for {build_arg_contract_file}")
-                instr = function_instr
                 added_source_finders = {}
         else:
-            instr = function_instr
             added_source_finders = {}
 
         abs_build_arg_contract_file = Util.abs_posix_path(build_arg_contract_file)
@@ -3084,7 +3227,7 @@ class CertoraBuildGenerator:
                 # instrumentation should be keyed only using absolute paths
                 instrumentation_logger.warning(f"Already generated autofinder for {new_name}, "
                                                f"cannot instrument again for {contract_file}")
-                return [({}, {}, old_sdc) for old_sdc in sdc_pre_finders], False, False
+                return [({}, {}, {}, old_sdc) for old_sdc in sdc_pre_finders], False, False
 
             autofinder_remappings[new_name] = contract_file
 
@@ -3113,7 +3256,7 @@ class CertoraBuildGenerator:
                                 instrumentation_logger.warning("Skipping source finder generation!")
                             else:
                                 instrumentation_logger.warning("Skipping internal function finder generation!")
-                            return [({}, {}, old_sdc) for old_sdc in sdc_pre_finders], False, False
+                            return [({}, {}, {}, old_sdc) for old_sdc in sdc_pre_finders], False, False
                         to_skip = to_insert.mut.insert(to_insert.to_ins, to_insert.expected, output)
                         if to_skip != 0:
                             in_file.read(to_skip)
@@ -3125,7 +3268,7 @@ class CertoraBuildGenerator:
             build_arg_contract_file]
 
         # add generated file to map attributes
-        for map_attr in Attrs.get_attribute_class().all_map_attrs():
+        for map_attr in self.context.app.attr_class.all_map_attrs():
             map_attr_value = getattr(self.context, map_attr)
             if map_attr_value and build_arg_contract_file in map_attr_value:
                 map_attr_value[new_file] = map_attr_value[build_arg_contract_file]
@@ -3151,7 +3294,7 @@ class CertoraBuildGenerator:
                                              fail_on_compilation_error=False,
                                              reroute_main_path=True)
             for new_sdc in new_sdcs:
-                ret.append((added_function_finders, added_source_finders, new_sdc))
+                ret.append((added_function_finders, added_source_finders, added_internal_function_harnesses, new_sdc))
 
         except Util.SolcCompilationException as e:
             print(f"Encountered an exception generating autofinder {new_file} ({e}), falling back to original "
@@ -3160,7 +3303,7 @@ class CertoraBuildGenerator:
                              f"falling back to the original file {Path(build_arg_contract_file).name}", exc_info=e)
             # clean up mutation
             self.function_finder_file_remappings = {}
-            return [({}, {}, sdc_pre_finder) for sdc_pre_finder in sdc_pre_finders], False, False
+            return [({}, {}, {}, sdc_pre_finder) for sdc_pre_finder in sdc_pre_finders], False, False
         return ret, True, source_finders_gen_succeeded
 
     def to_autofinder_file(self, contract_file: str) -> str:
@@ -3555,6 +3698,15 @@ class CertoraBuildGenerator:
             add_to_sources(Util.PACKAGE_FILE)
         if Util.REMAPPINGS_FILE.exists():
             add_to_sources(Util.REMAPPINGS_FILE)
+        foundry_toml = Util.find_nearest_foundry_toml()
+        if foundry_toml:
+            # if we find foundry.toml we add it to source tree and, if exists, the remappings.txt file from the
+            # root directory
+            foundry_root = foundry_toml.parent
+            add_to_sources(foundry_root / Util.FOUNDRY_TOML_FILE)
+            remappings_file_in_root = foundry_root / Util.REMAPPINGS_FILE
+            if remappings_file_in_root.exists():
+                add_to_sources(remappings_file_in_root)
         if context.bytecode_jsons:
             for file in context.bytecode_jsons:
                 add_to_sources(Path(file))
@@ -3811,11 +3963,11 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
 
         # Start by syntax checking, if we're in the right mode
         if Cv.mode_has_spec_file(context) and not context.build_only and not ignore_spec_syntax_check:
-            if context.disable_local_typechecking:
+            if Ctx.should_run_local_speck_check(context):
+                Ctx.run_local_spec_check(False, context)
+            else:
                 build_logger.warning(
                     "Local checks of CVL specification files disabled. It is recommended to enable the checks.")
-            else:
-                Ctx.run_local_spec_check(False, context)
 
         cache_hit, build_cache_enabled, cached_files = build_from_cache_or_scratch(context,
                                                                                    certora_build_generator,
@@ -3823,7 +3975,7 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
 
         # avoid running the same test over and over again for each split run, context.split_rules is true only for
         # the first run and is set to [] for split runs
-        if context.split_rules:
+        if Ctx.should_run_local_speck_check(context) and context.split_rules:
             Ctx.run_local_spec_check(True, context)
 
         # .certora_verify.json is always constructed even if build cache is enabled

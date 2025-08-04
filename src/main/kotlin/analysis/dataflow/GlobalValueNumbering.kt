@@ -56,7 +56,7 @@ class GlobalValueNumbering(graph: TACCommandGraph, val followIdentities: Boolean
         ),
         IGlobalValueNumbering {
 
-    companion object : AnalysisCache.Key<GlobalValueNumbering> {
+    companion object : AnalysisCache.Key<TACCommandGraph, GlobalValueNumbering> {
         override fun createCached(graph: TACCommandGraph) = GlobalValueNumbering(graph)
     }
 

@@ -16,6 +16,7 @@
 import csv
 import json
 import os
+import io
 import subprocess
 from abc import ABCMeta
 from enum import Enum, unique, auto
@@ -30,8 +31,9 @@ import urllib3.util
 from collections import defaultdict
 from types import SimpleNamespace
 
-from typing import Any, Callable, Dict, List, Optional, Set, Union, Generator, Tuple, Iterable, Sequence, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Set, Union, Generator, Tuple, Iterable, Sequence, TypeVar, OrderedDict
 from pathlib import Path
+import json5
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
@@ -90,6 +92,7 @@ CERTORA_RUN_SCRIPT = "certoraRun.py"
 CERTORA_RUN_APP = "certoraRun"
 PACKAGE_FILE = Path("package.json")
 REMAPPINGS_FILE = Path("remappings.txt")
+FOUNDRY_TOML_FILE = Path("foundry.toml")
 RECENT_JOBS_FILE = Path(".certora_recent_jobs.json")
 LAST_CONF_FILE = Path("run.conf")
 EMV_JAR = Path("emv.jar")
@@ -1350,25 +1353,49 @@ def is_local(object: Any) -> bool:
     default_jar_path = Path(certora_root_dir) / EMV_JAR
     return getattr(object, 'jar', None) or (default_jar_path.is_file() and not getattr(object, 'server', None))
 
+def get_mappings_from_forge_remappings() -> List[str]:
+    remappings_output = ""
+    try:
+        result = subprocess.run(['forge', 'remappings'], capture_output=True, text=True, check=True)
+        remappings_output = result.stdout
+    except Exception as e:
+        context_logger.debug(f"get_mappings_from_forge_remappings: forge failed to run\n{e}")
+
+    remappings = []
+    if remappings_output:
+        for line in remappings_output.strip().split('\n'):
+            if '=' in line:
+                remappings.append(line.strip())
+
+    return remappings
+
 
 def handle_remappings_file(context: SimpleNamespace) -> List[str]:
     """"
-    Tries to reach packages from remappings.txt
+    Tries to reach packages from remappings.txt.
+    If the file exists in cwd and foundry.toml does not exist in cwd we return the mappings in
+    the file (legacy implementation).
+    In all other cases we add the remappings returned from running the "forge remappings" command. Forge remappings
+    takes into consideration mappings in remappings.txt but also mappings in foundry.toml and mappings from auto scan
     :return:
     """
-    if REMAPPINGS_FILE.exists():
+    remappings = []
+    if REMAPPINGS_FILE.exists() and not FOUNDRY_TOML_FILE.exists():
         try:
             with REMAPPINGS_FILE.open() as remappings_file:
                 remappings = list(filter(lambda x: x != "", map(lambda x: x.strip(), remappings_file.readlines())))
                 keys = [s.split('=')[0] for s in remappings]
                 if len(set(keys)) < len(keys):
                     raise CertoraUserInputError(f"remappings.txt includes duplicated keys in: {keys}")
-                return remappings
         except CertoraUserInputError as e:
             raise e from None
         except Exception as e:
+            # create CertoraUserInputError from other exceptions
             raise CertoraUserInputError(f"Invalid remappings file: {REMAPPINGS_FILE}", e)
-    return []
+    elif find_nearest_foundry_toml():
+        remappings = get_mappings_from_forge_remappings()
+
+    return remappings
 
 
 def get_ir_flag(solc: str) -> str:
@@ -1437,13 +1464,32 @@ def eq_by(f: Callable[[T, T], bool], a: Sequence[T], b: Sequence[T]) -> bool:
     """
     return len(a) == len(b) and all(map(f, a, b))
 
-def find_nearest_cargo_toml() -> Optional[Path]:
+
+def find_file_in_parents(file_name: Union[Path, str]) -> Optional[Path]:
+    """
+    find file_name in current directory or in one of its parent directories
+    """
     current = Path.cwd()
     for parent in [current] + list(current.parents):
-        candidate = parent / CARGO_TOML_FILE
+        candidate = parent / str(file_name)
         if candidate.is_file():
             return candidate
     return None
+
+def find_nearest_cargo_toml() -> Optional[Path]:
+    """
+    Find the nearest Cargo.toml file in the current directory or its parent directories.
+    Returns the path to the Cargo.toml file if found, otherwise returns None.
+    """
+    return find_file_in_parents(CARGO_TOML_FILE)
+
+def find_nearest_foundry_toml() -> Optional[Path]:
+    """
+    Find the nearest foundry.toml file in the current directory or its parent directories.
+    Returns the path to the foundry.toml file if found, otherwise returns None.
+    """
+    return find_file_in_parents(FOUNDRY_TOML_FILE)
+
 
 def file_in_source_tree(file_path: Path) -> bool:
     # if the file is under .certora_source, return True
@@ -1455,3 +1501,20 @@ def file_in_source_tree(file_path: Path) -> bool:
         return True
     except ValueError:
         return False
+
+def parse_int_as_str(val: str) -> str:
+    return str(val)
+
+def read_conf_file(file: io.TextIOWrapper) -> OrderedDict:
+    res = json5.load(file, allow_duplicate_keys=False, object_pairs_hook=OrderedDict, parse_int=parse_int_as_str)
+    return res
+
+def convert_str_ints(obj: Union[dict, list, str, int]) -> Union[dict, list, str, int]:
+    if isinstance(obj, dict):
+        return {k: convert_str_ints(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_str_ints(v) for v in obj]
+    elif isinstance(obj, str) and re.fullmatch(r"-?\d+", obj):
+        return int(obj)
+    else:
+        return obj

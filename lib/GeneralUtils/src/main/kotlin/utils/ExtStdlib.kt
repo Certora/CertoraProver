@@ -464,7 +464,7 @@ fun <T> MutableCollection<T>.addMatching(other: Collection<T>, filter: (T) -> Bo
         }
     }
 
-fun <T> Iterable<T>.takeUntil(trigger: (T) -> Boolean) : Collection<T>? {
+fun <T> Iterable<T>.takeUntil(trigger: (T) -> Boolean) : List<T>? {
     val toReturn = mutableListOf<T>()
     for(i in this) {
         toReturn.add(i)

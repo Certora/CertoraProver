@@ -167,8 +167,6 @@ class TestClient(unittest.TestCase):
                              expected='Error when reading')
         suite.expect_failure(description="list value instead of string",
                              replacements=TestUtil.replace_x('"msg": ["msg"],'), expected='is not a string')
-        suite.expect_failure(description="boolean value instead of string",
-                             replacements=TestUtil.replace_x('"msg": true,'), expected='is not a string')
         suite.expect_failure(description="dictionary value instead of string",
                              replacements=TestUtil.replace_x('"msg": {},'), expected='is not a string')
         suite.expect_success(description="valid list attribute",

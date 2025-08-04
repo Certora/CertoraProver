@@ -41,9 +41,8 @@ import wasm.impCfg.WASM_HOST_FUNC_SUMMARY_START
 import wasm.impCfg.WASM_SDK_FUNC_SUMMARY_START
 import wasm.summarization.soroban.SorobanSDKSummarizer
 import tac.generation.ConditionalTrapRevert
-import wasm.analysis.intervals.interpret
 import wasm.host.soroban.ScalarSetTypeInference.PartitionedType.Base
-import wasm.analysis.intervals.State as IntervalState
+import analysis.numeric.simplequalifiedint.SimpleQualifiedIntState as IntervalState
 import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors

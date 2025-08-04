@@ -8,15 +8,19 @@
  *
  *     This program is distributed in the hope that it will be useful,
  *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *     GNU General Public License for more details.
  *
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package analysis.numeric
+package analysis.numeric.simplequalifiedint
 
+import analysis.numeric.BoundedQualifiedInt
+import analysis.numeric.IntValue
+import analysis.numeric.SimpleIntQualifier
+import analysis.numeric.WithUIntApproximation
 import datastructures.stdcollections.*
 import utils.*
 import vc.data.TACSymbol
@@ -27,14 +31,17 @@ data class SimpleQualifiedInt(override val x: IntValue, override val qual: Set<S
 
     constructor(x: IntValue): this(x, setOf())
 
-    fun meet(): SimpleQualifiedInt {
-        return meet(x, qual)
+    fun meet(o: SimpleQualifiedInt): SimpleQualifiedInt =
+        reduce(x.withLowerBound(o.x.lb).withUpperBound(o.x.ub), qual + o.qual)
+
+    fun reduce(): SimpleQualifiedInt {
+        return reduce(x, qual)
     }
 
     fun join(o: SimpleQualifiedInt, widen: Boolean = false): SimpleQualifiedInt {
         val x = if (widen) { x.widen(o.x) } else { x.join(o.x) }
         val qs = qual.intersect(o.qual)
-        return meet(x, qs)
+        return reduce(x, qs)
     }
 
     override fun withBoundAndQualifiers(lb: BigInteger, ub: BigInteger, quals: Iterable<SimpleIntQualifier>): SimpleQualifiedInt {
@@ -53,7 +60,7 @@ data class SimpleQualifiedInt(override val x: IntValue, override val qual: Set<S
         )
     }
 
-    private fun meet(x: IntValue, qual: Set<SimpleIntQualifier>): SimpleQualifiedInt {
+    private fun reduce(x: IntValue, qual: Set<SimpleIntQualifier>): SimpleQualifiedInt {
         return SimpleQualifiedInt(
             x = upperBoundFromQuals(qual)?.let { x.withUpperBound(it) } ?: x,
             qual = qual

@@ -137,7 +137,8 @@ class MultiBytecodeSource(bytecodeContractFilenames: List<String>) : IContractSo
             transientStorageLayout = StorageLayout(),
             srclist = mapOf(),
             immutables = listOf(),
-            solidityTypes = setOf()
+            solidityTypes = setOf(),
+            internalFunctionHarnesses = mapOf()
         )
     }.let { instances ->
         instances.map { origInstance ->

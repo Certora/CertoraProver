@@ -17,23 +17,42 @@
 
 package analysis.dataflow
 
-import analysis.*
-import com.certora.collect.*
+import utils.lazy
+import analysis.BlockDataflowAnalysis
+import analysis.CmdPointer
+import analysis.Direction
+import analysis.GenericTACCommandGraph
+import analysis.GraphBlockView
+import analysis.JoinLattice
+import analysis.LTACCmd
+import analysis.LTACCmdGen
+import analysis.TACBlock
+import analysis.TACBlockGen
+import analysis.TACBlockView
+import analysis.TACCommandGraph
+import com.certora.collect.TreapSet
+import com.certora.collect.minus
+import com.certora.collect.orEmpty
+import com.certora.collect.plus
+import com.certora.collect.treapSetOf
 import datastructures.stdcollections.*
 import tac.NBId
 import vc.data.AnalysisCache
 import vc.data.AssigningSummary
 import vc.data.TACCmd
 import vc.data.TACSymbol
+import kotlin.collections.associate
 
-class LiveVariableAnalysis(private val graph: TACCommandGraph, val cmdFilter: ((LTACCmd) -> Boolean) = {_ -> true}) {
-    companion object : AnalysisCache.Key<LiveVariableAnalysis> {
-        override fun createCached(graph: TACCommandGraph) = LiveVariableAnalysis(graph)
-    }
+abstract class GenericLiveVariableAnalysis<T: TACCmd, U: LTACCmdGen<T>, V: TACBlockGen<T, U>, G: GenericTACCommandGraph<T, U, V>>(
+    private val graph: G,
+    val cmdFilter: ((U) -> Boolean) = {_ -> true},
+    val blockView: GraphBlockView<G, V, NBId>
+) {
 
-    private val lvars: Map<CmdPointer, Pair<TreapSet<TACSymbol.Var>, TreapSet<TACSymbol.Var>>>
+    abstract fun reads(lcmd: U): Collection<TACSymbol.Var>
+    abstract fun writes(lcmd: U): Collection<TACSymbol.Var>
 
-    init {
+    private val lvars: Map<CmdPointer, Pair<TreapSet<TACSymbol.Var>, TreapSet<TACSymbol.Var>>> by lazy {
         // First, compute the net effect each block has on the set of live variables, independent of other blocks.
         // We do this once per block, so that we don't have to compute the sets for each instruction in the worklist
         // iteration below.
@@ -47,31 +66,27 @@ class LiveVariableAnalysis(private val graph: TACCommandGraph, val cmdFilter: ((
             var removes = treapSetOf<TACSymbol.Var>()
             for (c in blk.commands.asReversed()) {
                 if (cmdFilter(c)) {
-                    if (c.cmd is TACCmd.Simple.AssigningCmd) {
-                        adds -= c.cmd.lhs
-                        removes += c.cmd.lhs
-                    }
-                    if (c.cmd is TACCmd.Simple.SummaryCmd && c.cmd.summ is AssigningSummary) {
-                        adds -= c.cmd.summ.mustWriteVars
-                        removes += c.cmd.summ.mustWriteVars
-                    }
+                    val w = writes(c)
+                    adds -= w
+                    removes += w
 
-                    val rhs = c.cmd.getFreeVarsOfRhsExtended()
-                    adds += rhs
-                    removes -= rhs
+                    val r = reads(c)
+                    adds += r
+                    removes -= r
                 }
             }
             it.id to BlockSummary(adds, removes)
         }
 
         // Bubble each block's effects through its predecessors.
-        val blockPost = object : TACBlockDataflowAnalysis<TreapSet<TACSymbol.Var>>(
+        val blockPost = object : BlockDataflowAnalysis<G, V, NBId, TreapSet<TACSymbol.Var>>(
             graph = graph,
-            bottom = treapSetOf(),
-            lattice = JoinLattice.ofJoin { a, b -> a + b },
-            direction = Direction.BACKWARD
+            initial = treapSetOf(),
+            lattice = JoinLattice.Companion.ofJoin { a, b -> a + b },
+            direction = Direction.BACKWARD,
+            blockView = blockView
         ) {
-            override fun transform(inState: TreapSet<TACSymbol.Var>, block: TACBlock) =
+            override fun transform(inState: TreapSet<TACSymbol.Var>, block: V) =
                 blockSummaries[block.id]!!.let { (adds, removes) ->
                     (inState - removes) + adds
                 }
@@ -81,19 +96,14 @@ class LiveVariableAnalysis(private val graph: TACCommandGraph, val cmdFilter: ((
         }.blockIn
 
         // Now compute the live variables for each individual command.  Again, one pass per block.
-        lvars = buildMap {
+        buildMap {
             for (b in graph.blocks) {
                 var after = blockPost[b.id].orEmpty()
                 for (c in b.commands.asReversed()) {
                     var before = after
                     if (cmdFilter(c)) {
-                        if (c.cmd is TACCmd.Simple.AssigningCmd) {
-                            before -= c.cmd.lhs
-                        }
-                        if (c.cmd is TACCmd.Simple.SummaryCmd && c.cmd.summ is AssigningSummary) {
-                            before -= c.cmd.summ.mustWriteVars
-                        }
-                        before += c.cmd.getFreeVarsOfRhsExtended()
+                        before -= writes(c)
+                        before += reads(c)
                     }
                     put(c.ptr, before to after)
                     after = before
@@ -109,4 +119,29 @@ class LiveVariableAnalysis(private val graph: TACCommandGraph, val cmdFilter: ((
     fun isLiveAfter(ptr: CmdPointer, v: TACSymbol.Var): Boolean = (v in liveVariablesAfter(ptr))
     fun isLiveBefore(ptr: CmdPointer, v: TACSymbol.Var): Boolean = (v in liveVariablesBefore(ptr))
     fun isLiveBefore(block : NBId, v: TACSymbol.Var): Boolean = (v in liveVariablesBefore(block))
+}
+
+class LiveVariableAnalysis(
+    graph: TACCommandGraph,
+    cmdFilter: ((LTACCmd) -> Boolean) = { _ -> true },
+) : GenericLiveVariableAnalysis<TACCmd.Simple, LTACCmd, TACBlock, TACCommandGraph>(graph, cmdFilter, TACBlockView()) {
+
+    companion object : AnalysisCache.Key<TACCommandGraph, LiveVariableAnalysis> {
+        override fun createCached(graph: TACCommandGraph) = LiveVariableAnalysis(graph)
+    }
+
+    override fun writes(lcmd: LTACCmd): Collection<TACSymbol.Var> {
+        val cmd = lcmd.cmd
+        return when {
+            cmd is TACCmd.Simple.AssigningCmd -> setOf(cmd.lhs)
+
+            cmd is TACCmd.Simple.SummaryCmd && cmd.summ is AssigningSummary -> cmd.summ.mustWriteVars
+
+            else -> setOf()
+        }
+    }
+
+    override fun reads(lcmd: LTACCmd): Set<TACSymbol.Var> {
+        return lcmd.cmd.getFreeVarsOfRhsExtended()
+    }
 }

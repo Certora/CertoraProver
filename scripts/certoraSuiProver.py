@@ -24,7 +24,7 @@ sys.path.insert(0, str(scripts_dir_path))
 
 from typing import List, Optional, Dict
 
-import CertoraProver.certoraContextAttributes as Attrs
+import CertoraProver.certoraApp as App
 
 from CertoraProver.certoraBuildSui import build_sui_project
 from Shared.proverCommon import (
@@ -50,7 +50,7 @@ def run_sui_prover(args: List[str]) -> Optional[CertoraRunResult]:
     2. Run the necessary steps (build/ cloud verification/ local verification)
     """
 
-    context, logging_manager = build_context(args, Attrs.SuiProverAttributes)
+    context, logging_manager = build_context(args, App.SuiApp)
     timings: Dict[str, float] = {}
     exit_code = 0  # The exit code of the script. 0 means success, any other number is an error.
     return_value = None

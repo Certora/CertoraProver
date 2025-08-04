@@ -28,7 +28,6 @@ from typing import Optional, Any, List, Dict, Tuple, Set, Union
 import logging
 from types import SimpleNamespace
 import tarfile
-import json5
 import csv
 import time
 import requests
@@ -54,6 +53,7 @@ from Mutate import mutateAttributes as MutAttrs
 import CertoraProver.certoraContextAttributes as Attrs
 from CertoraProver.certoraContextClass import CertoraContext
 from rustMutator import run_universal_mutator
+from CertoraProver import certoraContextValidator as Cv
 
 class RunTimedout(Exception):
     pass
@@ -1186,6 +1186,7 @@ class MutateApp:
         if solc:
             compiler = solc
         elif compiler_map:
+            Cv.check_contract_name_arg_inputs(self.prover_context)
             compiler = get_relevant_compiler(path_to_file, self.prover_context)
             if not compiler:
                 raise Util.CertoraUserInputError(f"Cannot resolve Solidity compiler for {path_to_file}: "
@@ -1261,6 +1262,8 @@ class MutateApp:
         for gambit_obj in self.gambit:
             if MConstants.NUM_MUTANTS not in gambit_obj:
                 gambit_obj[MConstants.NUM_MUTANTS] = DEFAULT_NUM_MUTANTS
+            else:
+                gambit_obj[MConstants.NUM_MUTANTS] = int(gambit_obj[MConstants.NUM_MUTANTS])
             gambit_obj[MConstants.SOLC] = self.get_solc_version(Path(gambit_obj[MConstants.FILENAME]))
             gambit_obj.update(shared_attributes)
         with MConstants.TMP_GAMBIT_PATH.open('w') as f:
@@ -1379,7 +1382,7 @@ class MutateApp:
         for mutant in self.universal_mutator:
             file_to_mutate = Path(os.path.normpath(mutant[MConstants.FILE_TO_MUTATE]))
             mutants_location = Path(mutant[MConstants.MUTANTS_LOCATION])
-            num_of_mutants = mutant[MConstants.NUM_MUTANTS]
+            num_of_mutants = int(mutant[MConstants.NUM_MUTANTS])
             run_universal_mutator(file_to_mutate, self.prover_context.build_script, mutants_location, num_of_mutants)
             self.add_dir_to_mutants(ret_mutants, mutants_location, file_to_mutate)
         return ret_mutants
@@ -1878,7 +1881,7 @@ class MutateApp:
 
         with open(self.conf, 'r') as conf_file:
             try:
-                self.prover_context = CertoraContext(**json5.load(conf_file, allow_duplicate_keys=False))
+                self.prover_context = CertoraContext(**Util.read_conf_file(conf_file))
                 self.check_prover_context()
             except Exception as e:
                 raise Util.CertoraUserInputError(f"Failed to parse {self.conf} as JSON", e)
@@ -1921,7 +1924,9 @@ class MutateApp:
         if not self.manual_mutants:
             return
 
-        solc = self.get_solc_version(trg_dir)
+        solc = self.get_solc_version(Path(mutant.original_filename))
+        if not solc:
+            raise Util.CertoraUserInputError(f"Unable to find a compiler for manual mutant {mutant.original_filename}")
 
         via_ir_flag = []
         if getattr(self.prover_context, MConstants.SOLC_VIA_IR, '') or \
@@ -1932,10 +1937,11 @@ class MutateApp:
         if self.test == str(Util.TestValue.CHECK_MANUAL_COMPILATION):
             raise Util.TestResultsReady(' '.join(args))
         with Util.change_working_directory(find_cwd(trg_dir)):
-            result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         if result.returncode:
             mutation_logger.debug(f"mutation compilation failed: cmd: {' '.join(args)}\n cwd: {os.getcwd()}")
-            raise Util.CertoraUserInputError(f"mutation file {mutant.filename} failed to compile")
+            raise Util.CertoraUserInputError(f"mutation file {mutant.filename} failed to compile\n\n"
+                                             f"{result.stderr.decode()}")
 
 
 def rec_collect_statuses_children(rule: Dict[str, Any], statuses: List[str]) -> None:

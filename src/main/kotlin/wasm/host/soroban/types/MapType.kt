@@ -330,7 +330,7 @@ object MapType : MappingType() {
 
         protected override fun gen(
             simplifiedInputs: List<TACExpr>,
-            analysisCache: AnalysisCache
+            analysisCache: TACCommandGraphAnalysisCache
         ) = simplifiedInputs.let { (keysPos, valsPos, length) ->
             val staticData = analysisCache[StaticMemoryAnalysis]
 
@@ -416,7 +416,7 @@ object MapType : MappingType() {
 
         protected override fun gen(
             simplifiedInputs: List<TACExpr>,
-            analysisCache: AnalysisCache
+            analysisCache: TACCommandGraphAnalysisCache
         ) = simplifiedInputs.let { (_, keysPos, valsPos, length) ->
             val staticData = analysisCache[StaticMemoryAnalysis]
             val constLength = length.getAsConst()?.toIntOrNull()

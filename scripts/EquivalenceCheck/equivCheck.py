@@ -30,6 +30,7 @@ from CertoraProver.certoraBuild import InputConfig, CertoraBuildGenerator, Funct
 from CertoraProver.certoraVerifyGenerator import CertoraVerifyGenerator
 from CertoraProver.certoraContext import get_args
 from certoraRun import run_certora
+import CertoraProver.certoraApp as App
 
 LOG_PATH = Path('EqCheck_log.log')
 SANITY_PATH = Path('sanity.spec')
@@ -140,7 +141,7 @@ class EquivalenceChecker:
             tmp_conf = self.path / TMP_SANITY_CONF
             with tmp_conf.open('w') as temp_sanity:
                 json.dump(contents, temp_sanity, indent=4)
-            context = get_args([str(tmp_conf)])
+            context = get_args([str(tmp_conf)], App.EvmApp)
             config = InputConfig(context)
             cfb = CertoraBuildGenerator(config, context)
             certora_verify_generator = CertoraVerifyGenerator(context)

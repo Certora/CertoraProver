@@ -18,7 +18,7 @@
 package analysis.numeric
 
 import analysis.LTACCmd
-import analysis.TACCommandGraph
+import analysis.PathCondition
 
 /**
  * Basic interface for path-sensitivity
@@ -27,5 +27,5 @@ interface IPathSemantics<S, in W> {
     /**
      * Propagate a sub state [S] embedded in state [W] with path condition [pathCondition] to target [l]
      */
-    fun propagate(l: LTACCmd, s: S, w: W, pathCondition: TACCommandGraph.PathCondition) : S?
+    fun propagate(l: LTACCmd, s: S, w: W, pathCondition: PathCondition) : S?
 }

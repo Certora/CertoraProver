@@ -46,7 +46,7 @@ private val logger = Logger(LoggerTypes.CALLTRACE)
 class Initializer(
     private val blocks: List<NBId>,
     private val model: CounterexampleModel,
-    private val analysisCache: AnalysisCache,
+    private val analysisCache: TACCommandGraphAnalysisCache,
     private val scene: ISceneIdentifiers,
 ) {
     fun initialize(callIO: CallInputsAndOutputs) {

@@ -25,7 +25,7 @@ from wcmatch import glob
 
 
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Type
 from rich.console import Console
 
 scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
@@ -39,6 +39,8 @@ import CertoraProver.certoraContextAttributes as Attrs
 
 from Shared import certoraValidateFuncs as Vf
 from Shared import certoraAttrUtil as AttrUtil
+import CertoraProver.certoraApp as App
+
 
 context_logger = logging.getLogger("context")
 
@@ -55,6 +57,11 @@ def escape_string(string: str) -> str:
     else:
         return f"\"{string}\""
 
+def is_evm_app_class(context: CertoraContext) -> bool:
+    return issubclass(context.app, App.EvmAppClass)
+
+def is_rust_app_class(context: CertoraContext) -> bool:
+    return issubclass(context.app, App.RustAppClass)
 
 def get_attr_value(context: CertoraContext, attr: AttrUtil.AttributeDefinition) -> Any:
     conf_key = attr.get_conf_key()
@@ -62,18 +69,18 @@ def get_attr_value(context: CertoraContext, attr: AttrUtil.AttributeDefinition) 
 
 
 def collect_args_with_jar_flags(context: CertoraContext) -> List[AttrUtil.AttributeDefinition]:
-    attribute_list = Attrs.get_attribute_class().attribute_list()
+    attribute_list = context.app.attr_class.attribute_list()
     return [attr for attr in attribute_list if get_attr_value(context, attr) and attr.jar_flag]
 
 
 def collect_args_build_cache_affecting(context: CertoraContext) -> List[AttrUtil.AttributeDefinition]:
-    attribute_list = Attrs.get_attribute_class().attribute_list()
+    attribute_list = context.app.attr_class.attribute_list()
     return [attr for attr in attribute_list if get_attr_value(context, attr) and
             attr.affects_build_cache_key]
 
 
 def collect_args_build_cache_disabling(context: CertoraContext) -> List[AttrUtil.AttributeDefinition]:
-    attribute_list = Attrs.get_attribute_class().attribute_list()
+    attribute_list = context.app.attr_class.attribute_list()
     return [attr for attr in attribute_list if get_attr_value(context, attr) and
             attr.disables_build_cache]
 
@@ -122,11 +129,11 @@ def get_local_run_cmd(context: CertoraContext) -> List[str]:
     """
     run_args = []
 
-    if Attrs.is_sui_app():
+    if context.app == App.SuiApp:
         # For local runs, we want path to be relative to cwd instead of zip root.
         move_rel_path = os.path.relpath(Path(context.move_path), os.getcwd())
         run_args.extend(['-movePath', move_rel_path])
-    elif Attrs.is_rust_app():
+    elif is_rust_app_class(context):
         # For local runs, we want path to be relative to cwd instead of zip root.
         rust_rel_path = os.path.relpath(Path(context.files[0]), os.getcwd())
         run_args.append(rust_rel_path)
@@ -137,9 +144,9 @@ def get_local_run_cmd(context: CertoraContext) -> List[str]:
         except Exception:
             raise RuntimeError("get_local_run_cmd: cannot find context.files[0]")
 
-    if Attrs.is_evm_app() and context.cache is not None:
+    if is_evm_app_class(context) and context.cache is not None:
         run_args.extend(['-cache', context.cache])
-    if Attrs.is_concord_app():
+    if context.app == App.ConcordApp:
         run_args.extend(['-equivalenceCheck', 'true'])
     jar_args = collect_jar_args(context)
     run_args.extend(jar_args)
@@ -161,32 +168,33 @@ def get_local_run_cmd(context: CertoraContext) -> List[str]:
 
 
 class ProverParser(AttrUtil.ContextAttributeParser):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, app: Type[App.CertoraApp], *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.app = app
 
     def format_help(self) -> str:
         console = Console()
-        if Attrs.is_concord_app():
+        if self.app == App.ConcordApp:
             console.print("\n\nConcord - Certora’s equivalence checker for smart contracts")
-        elif Attrs.is_ranger_app():
+        elif self.app == App.RangerApp:
             console.print("\n\nRanger - Certora’s bounded model checker for smart contracts")
         else:
             console.print("\n\nThe Certora Prover - A formal verification tool for smart contracts")
         # Using sys.stdout.write() as print() would color some of the strings here
         sys.stdout.write(f"\n\nUsage: {sys.argv[0]} <Files> <Flags>\n\n")
-        if Attrs.is_concord_app():
+        if self.app == App.ConcordApp:
             sys.stdout.write("Concord supports only Solidity (.sol/.yul) and configuration (.conf) files.\n"
                              "Rust and Vyper contracts are not currently supported.\n\n")
-        if Attrs.is_ranger_app():
+        if self.app == App.RangerApp:
             sys.stdout.write("Ranger supports only Solidity (.sol) and configuration (.conf) files.\n"
                              "Rust and Vyper contracts are not currently supported.\n\n")
-        elif Attrs.is_evm_app():
+        elif isinstance(self.app, App.EvmAppClass):
             sys.stdout.write("Acceptable files for EVM projects are Solidity files (.sol suffix), "
                              "Vyper files (.vy suffix), or conf files (.conf suffix)\n\n")
-        elif Attrs.is_solana_app():
+        elif self.app == App.SolanaApp:
             sys.stdout.write("Acceptable files for Solana projects are RUST executables ('.so' suffix) or conf "
                              "files ('.conf' suffix')\n\n")
-        elif Attrs.is_soroban_app():
+        elif self.app == App.SorobanApp:
             sys.stdout.write("Acceptable files for Soroban projects are WASM executables ('.wasm' suffix) or conf "
                              "files ('.conf' suffix')\n\n")
         else:
@@ -205,34 +213,23 @@ class ProverParser(AttrUtil.ContextAttributeParser):
 
         return ''
 
-def __get_argparser() -> argparse.ArgumentParser:
+def __get_argparser(app: Type[App.CertoraApp]) -> argparse.ArgumentParser:
     def formatter(prog: Any) -> argparse.HelpFormatter:
         return argparse.HelpFormatter(prog, max_help_position=100, width=200)
 
-    parser = ProverParser(prog="certora-cli arguments and options", allow_abbrev=False,
+    parser = ProverParser(app, prog="certora-cli arguments and options", allow_abbrev=False,
                           formatter_class=formatter,
                           epilog="  -*-*-*   You can find detailed documentation of the supported options in "
                                  f"{CLI_DOCUMENTATION_URL}   -*-*-*")
 
-    for arg in Attrs.get_attribute_class().attribute_list():
+    for arg in app.attr_class.attribute_list():
         flag = arg.get_flag()
         parser.add_argument(flag, help=arg.help_msg, **arg.argparse_args)
     return parser
 
-
-def set_apps_members(context: CertoraContext) -> None:
-    # in many cases accessing context is simpler than accessing Attrs
-    context.is_solana_app = Attrs.is_solana_app()
-    context.is_soroban_app = Attrs.is_soroban_app()
-    context.is_rust_app = Attrs.is_rust_app()
-    context.is_evm_app = Attrs.is_evm_app()
-    context.is_ranger_app = Attrs.is_ranger_app()
-    context.is_concord_app = Attrs.is_concord_app()
-
-
-def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
+def get_args(args_list: List[str], app: Type[App.CertoraApp]) -> CertoraContext:
     """
-    Compiles an argparse.Namespace from the given list of command line arguments.
+    Compiles an CertoraContext object from the given list of command line arguments.
 
     Why do we handle --version before argparse?
     Because on some platforms, mainly CI tests, we cannot fetch the installed distribution package version of
@@ -240,15 +237,13 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
     We do it pre-argparse, because we do not care bout the input validity of anything else if we have a --version flag
     """
 
-    if not Attrs.ATTRIBUTES_CLASS:
-        Attrs.set_attribute_class(Attrs.EvmProverAttributes)  # for scripts that call get_args directly
     if args_list is None:
         args_list = sys.argv
 
     handle_version_flag(args_list)
 
     pre_arg_fetching_checks(args_list)
-    parser = __get_argparser()
+    parser = __get_argparser(app)
 
     # if there is a --help flag, we want to ignore all parsing errors, even those before it:
     if any(string in [arg.strip() for arg in args_list] for string in ['--help', '-h']):
@@ -263,8 +258,8 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
 
     args = parser.parse_args(args_list)
     context = CertoraContext(**vars(args))
+    context.app = app
     context.args_list = args_list
-    set_apps_members(context)
 
     __remove_parsing_whitespace(args_list)
     format_input(context)
@@ -277,13 +272,13 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
     context.is_tac = context.files and context.files[0].endswith('.tac')
     context.is_vyper = context.files and context.files[0].endswith('.vy')
 
-    if Attrs.is_evm_app():
+    if is_evm_app_class(context):
         Cv.check_mode_of_operation(context)  # Here boolean run characteristics are set
 
     validator = Cv.CertoraContextValidator(context)
 
     validator.validate()
-    if Attrs.is_evm_app() or Attrs.is_rust_app():
+    if is_evm_app_class(context) or is_rust_app_class(context):
         current_build_directory = Util.get_build_dir()
         if context.build_dir is not None and current_build_directory != context.build_dir:
             Util.reset_certora_internal_dir(context.build_dir)
@@ -295,12 +290,12 @@ def get_args(args_list: Optional[List[str]] = None) -> CertoraContext:
     if context.java_args is not None:
         context.java_args = ' '.join(context.java_args).replace('"', '').replace("'", '')
 
-    if Attrs.is_evm_app():
+    if is_evm_app_class(context) or context.app == App.ConcordApp:
         validator.check_args_post_argparse()
         setup_cache(context)  # Here context.cache, context.user_defined_cache are set
         validator.handle_ranger_attrs()
         validator.handle_concord_attrs()
-    if Attrs.is_rust_app():
+    if is_rust_app_class(context):
         validator.check_rust_args_post_argparse()
 
     attrs_to_relative(context)
@@ -381,7 +376,7 @@ def format_input(context: CertoraContext) -> None:
     :param context: Namespace containing all command line arguments, generated by get_args()
     """
     flatten_arg_lists(context)
-    if Attrs.is_evm_app():
+    if is_evm_app_class(context):
         __dedup_link(context)
 
 
@@ -460,7 +455,7 @@ def write_output_conf_to_path(json_content: Dict[str, Any], path: Path) -> None:
         json.dump(json_content, out_file, indent=4, sort_keys=True)
 
 
-def handle_flags_in_args(args: List[str]) -> None:
+def handle_flags_in_args(args: List[str], app: Type[App.CertoraApp]) -> None:
     """
     For argparse flags are strings that start with a dash. Some arguments get flags as value.
     The problem is that argparse will not treat the string as a value but rather as a new flag. There are different ways
@@ -476,7 +471,7 @@ def handle_flags_in_args(args: List[str]) -> None:
     Will all be converted to " -d"
 
     """
-    all_flags = list(map(lambda member: member.get_flag(), Attrs.get_attribute_class().attribute_list()))
+    all_flags = list(map(lambda member: member.get_flag(), app.attr_class.attribute_list()))
 
     def surrounded(string: str, char: str) -> bool:
         if len(string) < 2:
@@ -527,14 +522,19 @@ def __rename_key(context: CertoraContext, old_key: str, new_key: str) -> None:
         context.delete_key(old_key)
 
 
-def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[str]) -> None:
+def should_run_local_speck_check(context: CertoraContext) -> bool:
+    return not (context.disable_local_typechecking or Util.is_ci_or_git_action())
+
+
+def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[str], print_errors: bool) -> None:
     """
     Runs a spec typechecker or syntax checker
-    @param typechecker_name - the name of the jar that we should run for running typechecking
-    @param with_typechecking - True if we want full typechecking including build (Solidity outputs) file,
+
+    @param typechecker_name: the name of the jar that we should run for running typechecking
+    @param with_typechecking: True if we want full typechecking including build (Solidity outputs) file,
                                 False if we run only the leaner syntax checking.
     @param args: A list of strings of additional arguments to the typechecker jar.
-
+    @param print_errors: Toggles printing the typechecker's errors to stderr.
     """
     # Find path to typechecker jar
     path_to_typechecker = Util.find_jar(typechecker_name)
@@ -553,7 +553,8 @@ def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[s
                                  custom_error_message="Failed to run Certora Prover locally. Please check the errors "
                                                       "below for problems in the specifications (.spec files) or the "
                                                       "prover_args defined in the .conf file.",
-                                 logger_topic="type_check")
+                                 logger_topic="type_check",
+                                 print_err=print_errors)
     if exit_code != 0:
         raise Util.CertoraUserInputError(
             "CVL syntax or type check failed.\n Please fix the issue. "
@@ -563,17 +564,23 @@ def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[s
             "simple syntax failures will be visible only on the cloud run.")
 
 
-def run_local_spec_check(with_typechecking: bool, context: CertoraContext) -> None:
+def run_local_spec_check(with_typechecking: bool, context: CertoraContext, extra_args: List[str] = list(), print_errors: bool = True) -> None:
     """
-    Runs the local type checker in one of two modes: (1) syntax only,
-        and (2) including full typechecking after building the contracts
+    Runs the local type checker
+
+    @param with_typechecking: If `True` will perform a full typecheck pass which requires Solidity build information.
+                              Otherwise performs only a syntax check.
+
+    @param context: The `CertoraContext`.
+
+    @param extra_args: a list of additional arguments that should be sent to the typechecker.
+
+    @param print_errors: Toggles printing the typechecker's errors to stderr. Default: True
     """
 
-    if context.disable_local_typechecking or Util.is_ci_or_git_action():
-        return
     args = collect_jar_args(context)
     if Util.is_java_installed(context.java_version):
-        run_typechecker("Typechecker.jar", with_typechecking, args)
+        run_typechecker("Typechecker.jar", with_typechecking, args + extra_args, print_errors)
     else:
         raise Util.CertoraUserInputError("Cannot run local checks because of missing a suitable java installation. "
                                          "To skip local checks run with the --disable_local_typechecking flag")

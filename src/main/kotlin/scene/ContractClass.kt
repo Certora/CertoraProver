@@ -259,6 +259,7 @@ class ContractClass(
 
             // these passes are directed at helping PTA not fail
             transforms.add(ReportTypes.NOTE_MODIFIER_REWRITER, NoteModifierRewriter::transform)
+            transforms.add(ReportTypes.BYTESK_INSTRUMENTER, BytesKCastRewriter::rewrite)
             transforms.add(ReportTypes.DEOPTIMIZE_MULTI_STRUCTS, StructAllocationDeoptimizer::rewrite)
             transforms.add(ReportTypes.DEOPTIMIZE_STRUCT_ARRAYS, StructArrayAllocationDeoptimizer::rewrite)
             transforms.add(ReportTypes.OBJECT_REORDERING_FENCE, ReorderObjectInitialization::reorderingFenceInstrumentation)
@@ -315,6 +316,9 @@ class ContractClass(
             )
             transforms.add(
                 ReportTypes.LOG_FP_REUSE_NORMALIZATION, FreePointerAliasLogRewrites::rewrite
+            )
+            transforms.add(
+                ReportTypes.HASH_FP_REUSE_NORMALIZATION, FreePointerAliasHashRewrites::rewrite
             )
 
             transforms.add(ReportTypes.TRIVIAL_SHIFT_SIMPLIFY, MathPeepholeOptimizer::trivialShiftSimplifier)

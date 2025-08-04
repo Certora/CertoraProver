@@ -29,6 +29,8 @@ import sbf.domains.MemorySummary
 
 enum class CompilerRtFunction(val function: ExternalFunction) {
     /**
+     * Begin 128-bit arithmetic functions
+     *
      * Represent a 128-bit arithmetic operation `res := x op y` using 64-bit registers
      *  ```
      *  r2: low(x),
@@ -56,7 +58,14 @@ enum class CompilerRtFunction(val function: ExternalFunction) {
         writeRegisters = setOf(),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet()));
+            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
+    /** End 128-bit arithmetic functions **/
+
+    UNORDDF2(ExternalFunction(
+        name = "__unorddf2",
+        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
+    );
 
     companion object: ExternalLibrary<CompilerRtFunction>  {
         private val nameMap = values().associateBy { it.function.name }
@@ -70,6 +79,12 @@ enum class CompilerRtFunction(val function: ExternalFunction) {
                         val summaryArgs = listOf(
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM)
+                        )
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
+                    }
+                    UNORDDF2 -> {
+                        val summaryArgs = listOf(
+                            MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.NUM)
                         )
                         memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }

@@ -19,7 +19,7 @@ package analysis.controlflow
 
 import allocator.Allocator
 import analysis.CmdPointer
-import analysis.TACCommandGraph
+import analysis.PathCondition
 import analysis.narrow
 import com.certora.collect.*
 import datastructures.stdcollections.*
@@ -91,7 +91,7 @@ object InfeasibleBranchPruning {
                 is InfeasiblePathAnalysis.PrunedBranch -> {
                     logger.debug { "Working on pruned branch ${it}: ${g.elab(it.conditionPtr).cmd.metaSrcInfo?.getSourceCode()}" }
                     when (it.infeasibleCondition) {
-                        is TACCommandGraph.PathCondition.EqZero -> {
+                        is PathCondition.EqZero -> {
                             val last = g.elab(it.conditionPtr).narrow<TACCmd.Simple.JumpiCmd>()
                             check(last.cmd.elseDst == it.targetBranch)
                             val assumeExp = if (it.infeasibleCondition.v.tag == Tag.Bool) {
@@ -113,7 +113,7 @@ object InfeasibleBranchPruning {
                             )
                         }
 
-                        is TACCommandGraph.PathCondition.NonZero -> {
+                        is PathCondition.NonZero -> {
                             val last = g.elab(it.conditionPtr).narrow<TACCmd.Simple.JumpiCmd>()
                             check(last.cmd.dst == it.targetBranch)
                             val assumeExp = if (it.infeasibleCondition.v.tag == Tag.Bool) {

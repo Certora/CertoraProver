@@ -18,11 +18,14 @@ import sys
 import re
 from pathlib import Path
 import subprocess
+import tempfile
 import uuid
 
 from typing import List, Set, Optional
 
+import CertoraProver.certoraContext as Ctx
 import CertoraProver.certoraContextAttributes as Attrs
+import CertoraProver.certoraApp as App
 from CertoraProver.certoraContextClass import CertoraContext
 from Shared import certoraUtils as Util
 
@@ -71,26 +74,24 @@ class SplitRulesHandler():
         def jar_list_value(list_attr: List[str]) -> str:
             return ','.join(list_attr)
 
-        path_to_typechecker = Util.find_jar("Typechecker.jar")
+        with tempfile.NamedTemporaryFile("r", dir=Util.get_build_dir()) as tmp_file:
+            args = ["-listRules", tmp_file.name]
 
-        command = ["java", "-jar", str(path_to_typechecker), "-listRules", "-buildDirectory", str(Util.get_build_dir())]
+            if self.context.exclude_rule:
+                args += ['-excludeRule', jar_list_value(self.context.exclude_rule)]
 
-        if self.context.exclude_rule:
-            command += ['-excludeRule', jar_list_value(self.context.exclude_rule)]
+            if not split_rules and self.context.rule:
+                args += ['-rule',  jar_list_value(self.context.rule)]
+            elif split_rules and self.context.split_rules:
+                args += ['-rule', jar_list_value(self.context.split_rules)]
 
-        if not split_rules and self.context.rule:
-            command += ['-rule',  jar_list_value(self.context.rule)]
-        elif split_rules and self.context.split_rules:
-            command += ['-rule', jar_list_value(self.context.split_rules)]
-        try:
+            try:
+                Ctx.run_local_spec_check(False, self.context, args, print_errors=False)
+                lines = tmp_file.read().split("\n")
+                return set(lines)
 
-            result = subprocess.run(command, capture_output=True, text=True, check=True)
-            lines = result.stdout.strip().split("\n")
-            filtered_lines = [s for s in lines if not (s.startswith("Warning:") or " " in s)]
-            return set(filtered_lines)
-
-        except subprocess.CalledProcessError as e:
-            raise Util.CertoraUserInputError(f"Failed to get {'split ' if split_rules else ''}rules\ncommand: {command}\n{e}")
+            except Exception as e:
+                raise Util.CertoraUserInputError(f"Failed to get {'split ' if split_rules else ''}rules\n{e}")
 
     def run_commands(self) -> int:
         rule_flag = Attrs.EvmProverAttributes.RULE.get_flag()
@@ -122,7 +123,7 @@ class SplitRulesHandler():
             if called as library then if running in local mode we use certoraRun.py otherwise certoraRun (from package)
             :return:
             """
-            assert Attrs.is_evm_app(), "Split rules is supported only for EVM apps"
+            assert self.context.app == App.EvmApp, "Split rules is supported only for EVM apps"
             if hasattr(self.context, 'prover_cmd'):
                 return self.context.prover_cmd
             if self.context.local:

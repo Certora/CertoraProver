@@ -17,6 +17,7 @@
 
 package vc.gen
 
+import analysis.PathCondition
 import analysis.TACCommandGraph
 import datastructures.stdcollections.*
 import smt.solverscript.LExpressionFactory
@@ -55,23 +56,23 @@ class EdgeConditions(
             }
         }
 
-    private fun pathConditionToId(cond: TACCommandGraph.PathCondition): LExpression.Identifier {
+    private fun pathConditionToId(cond: PathCondition): LExpression.Identifier {
         val pathCondName = when (cond) {
-            TACCommandGraph.PathCondition.TRUE -> "TRUE"
-            is TACCommandGraph.PathCondition.EqZero -> "eqZero_${cond.v.smtRep}"
-            is TACCommandGraph.PathCondition.NonZero -> "nonZero_${cond.v.smtRep}"
-            is TACCommandGraph.PathCondition.Summary -> error("This PathCondition.Summary ($cond) should not appear " +
+            PathCondition.TRUE -> "TRUE"
+            is PathCondition.EqZero -> "eqZero_${cond.v.smtRep}"
+            is PathCondition.NonZero -> "nonZero_${cond.v.smtRep}"
+            is PathCondition.Summary -> error("This PathCondition.Summary ($cond) should not appear " +
                 "at this stage anymore (i.e. during VC generation).")
         }
         return lExprFact.const("path_cond_${pathCondName}", Tag.Bool, null)
     }
 
     /**
-     * Converts a [TACCommandGraph.PathCondition] to an [BlockBody].
-     * Since the [TACCommandGraph.PathCondition] does not know which control flow edge it is attached to, we need
+     * Converts a [PathCondition] to an [BlockBody].
+     * Since the [PathCondition] does not know which control flow edge it is attached to, we need
      * to pass the source and target of the edge as the parameters [source] and [target].
      */
-    private fun TACCommandGraph.PathCondition.toEdgeCondition(
+    private fun PathCondition.toEdgeCondition(
         source: NBId,
         target: NBId,
         lExprFact: LExpressionFactory,

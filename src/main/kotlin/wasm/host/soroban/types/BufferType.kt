@@ -29,7 +29,6 @@ import vc.data.*
 import wasm.WasmPipelinePhase
 import wasm.WasmPostUnrollSummary
 import wasm.analysis.memory.*
-import wasm.host.soroban.*
 
 const val BYTE_BITS = 8
 const val BIT256_BITS = 256
@@ -107,7 +106,7 @@ abstract class BufferType : ArrayType() {
 
         protected override fun gen(
             simplifiedInputs: List<TACExpr>,
-            analysisCache: AnalysisCache
+            analysisCache: TACCommandGraphAnalysisCache
         ) = simplifiedInputs.let { (pos, len) ->
             with(type) {
                 val staticData = analysisCache[StaticMemoryAnalysis]

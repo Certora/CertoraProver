@@ -43,7 +43,8 @@ class BytecodeContractSource(val inputFile: String): IContractSourceFull {
                 transientStorageLayout = StorageLayout(),
                 solidityTypes = setOf(),
                 srclist = mapOf(),
-                immutables = listOf()
+                immutables = listOf(),
+                internalFunctionHarnesses = mapOf()
             )
         )
     }

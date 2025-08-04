@@ -17,127 +17,144 @@
 
 package instrumentation.transformers
 
+import analysis.CmdPointer
 import datastructures.MutableReversibleMap
-import datastructures.stdcollections.*
-import log.*
 import tac.NBId
-import vc.data.*
-
-private val logger = Logger(LoggerTypes.UNUSED_ASSIGNMENTS_OPT)
+import utils.*
+import vc.data.CoreTACProgram
+import vc.data.DefaultTACCmdMapper
+import vc.data.TACCmd
+import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
+import vc.data.TACSymbol
+import vc.data.tacexprutil.asVar
+import vc.data.tacexprutil.isConst
+import vc.data.tacexprutil.isVar
+import datastructures.stdcollections.*
 
 /**
- * Does per block optimizations:
- *   1. removes loop assignments `x : = x`
- *   2. inlines simple assignments `b := a; c := b + 1` => `b := a; c := a + 1`.
+ * Removes loop assignments `x : = x`
+ * Inlines simple assignments `b := a; c := b + 1` => `b := a; c := a + 1`.
  *
- * If [isInlineable] of a variable is false, it is never replaced, and never replaces other variables.
+ * If [filteringFunctions] of a variable is false, it is never replaced, and if [strict] is true, then it
+ * also never replaces other variables.
+ *
+ * For reasons that are not yet clear, we need [strict] to also imply that we consider only intra-block replacements.
+ * Without it, `WeeklyTests/MakerDAO/DAITeleport/TeleportOracleAuth/TeleportOracleAuth.conf` rule `requestMint_revert`
+ * fails instead of being verified.
  */
 class AssignmentInliner(
     private val code: CoreTACProgram,
-    private val isInlineable: (TACSymbol.Var) -> Boolean
+    private val filteringFunctions: FilteringFunctions,
+    private val strict: Boolean,
 ) {
     private val g = code.analysisCache.graph
+    private val fullDef by lazy { code.analysisCache.strictDef }
     private val patcher = code.toPatchingProgram()
 
-    private fun simpleRhsOrNull(cmd: TACCmd.Simple): TACSymbol? =
-        ((cmd as? TACCmd.Simple.AssigningCmd.AssignExpCmd)?.rhs as? TACExpr.Sym)?.s
-
-    private var countReplacements = 0
-    private var countRemovals = 0
-
-    /**
-     * Goes forward in the block, updating which replacements are possible, and rewriting commands with them
-     * as we go.
-     */
-    private fun processBlock(b: NBId) {
-
-        /** `a := b` => `canBeReplacedWith.get(a) = b`  */
-        val canBeReplacedWith = MutableReversibleMap<TACSymbol.Var, TACSymbol>()
-
-        /** follow the replacements to the root to get the oldest replacement, which is our preference */
-        fun oldestReplacement(v: TACSymbol): TACSymbol =
-            canBeReplacedWith[v]?.let(::oldestReplacement) ?: v
-
-        /** Can [v] be replaced by [u] */
-        fun canBeReplacedWith(v: TACSymbol, u: TACSymbol): Boolean =
-            v == u || canBeReplacedWith[v]?.let { canBeReplacedWith(it, u) } == true
-
-        /**
-         * When [v] gets a new assignment, we first remove it from the graph, (later we may add it back in with its
-         * new roles). However, its children can still be replaced by [v]'s parent, i.e., in:
-         *    b := a
-         *    c := b
-         *    b := ...
-         *    x := c + 1
-         * Although the last `c` can't be replaced by `b`, it can still be replaced by `a`.
-         */
-        fun remove(v: TACSymbol.Var) {
-            val parent = canBeReplacedWith.remove(v)
-            for (u in canBeReplacedWith.keysOf(v).toList()) {
-                parent
-                    ?.let { canBeReplacedWith[u] = it }
-                    ?: canBeReplacedWith.remove(u)
-            }
-        }
-
-        val mapper = object : DefaultTACCmdMapper() {
-            override fun mapSymbol(t: TACSymbol) = oldestReplacement(t).also {
-                if (logger.isInfoEnabled && t != it) {
-                    countReplacements++
-                }
-            }
-        }
-
-        for ((ptr, cmd) in g.elab(b).commands) {
-            val lhs = cmd.getLhs()
-            val rhsSym = simpleRhsOrNull(cmd)
-
-            // For `a := b`, if `b` can be replaced by `a`, then we can remove this line.
-            if (rhsSym != null && canBeReplacedWith(rhsSym, lhs!!)) {
-                patcher.delete(ptr)
-                countRemovals++
-                // we don't register this in the graph so that it doesn't have cycles (and it can't help us anyway).
-                continue
-            }
-
-            // why only these I don't know...
-            if (cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd ||
-                cmd is TACCmd.Simple.AssigningCmd.ByteLoad ||
-                cmd is TACCmd.Simple.AssigningCmd.ByteStore
-            ) {
-                patcher.update(ptr, mapper.map(cmd))
-            }
-
-            if (lhs != null) {
-                remove(lhs)
-                if (rhsSym != null && isInlineable(lhs) &&
-                    (rhsSym is TACSymbol.Const || isInlineable(rhsSym as TACSymbol.Var))
-                ) {
-                    canBeReplacedWith[lhs] = rhsSym
-                }
-            }
-        }
-    }
-
-
     private fun go(): CoreTACProgram {
-        for (b in g.blockIds) {
-            processBlock(b)
-        }
-        logger.info {
-            "Inlined $countReplacements variables, and removed $countRemovals self assignments"
-        }
-        // this is the only way I know to use a patching program and avoid type checking.
-        val (newCode, blocks) = patcher.toCode(TACCmd.Simple.NopCmd)
-        return code.copy(
-            code = newCode,
-            blockgraph = blocks,
-        )
+        process()
+        return patcher.toCodeNoTypeCheck(code)
     }
+
+    private val canBeReplacedWith = MutableReversibleMap<CmdPointer, TACSymbol>()
+
+    private fun process() {
+        code.topoSortFw.forEach(::processBlock)
+    }
+
+    private fun processBlock(b: NBId) {
+        val blockDef = mutableMapOf<TACSymbol.Var, CmdPointer>()
+
+        g.lcmdSequence(b).forEach { (ptr, cmd) ->
+            fun def(ptr: CmdPointer, v: TACSymbol.Var): Set<CmdPointer?>? =
+                blockDef[v]
+                    ?.let { setOf(it) }
+                    ?: runIf(!strict) {
+                        fullDef.defSitesOf(v, ptr)
+                    }
+
+            val mapper = object : DefaultTACCmdMapper() {
+                override fun mapSymbol(t: TACSymbol) =
+                    when (t) {
+                        is TACSymbol.Const -> t
+                        is TACSymbol.Var ->
+                            def(ptr, t)
+                                ?.map { canBeReplacedWith[it] }
+                                ?.sameValueOrNull()
+                                ?.let {
+                                    if (it is TACSymbol.Var) {
+                                        // We keep the meta of the inlined variable, throwing away that of the
+                                        // original rhs var.
+                                        it.withMeta(::mapMeta)
+                                    } else {
+                                        it
+                                    }
+                                }
+                                ?: t
+                    }
+
+                override fun mapVar(t: TACSymbol.Var) =
+                    mapSymbol(t) as TACSymbol.Var
+
+                /** don't map the lhs */
+                override fun mapLhs(t: TACSymbol.Var) = t
+
+                /** can't map `base`, because it's also the implicit lhs */
+                override fun mapByteStore(t: TACCmd.Simple.AssigningCmd.ByteStore) =
+                    t.copy(loc = mapSymbol(t.loc), value = mapSymbol(t.value), meta = mapMeta(t.meta))
+            }
+
+            // why only these?
+            // possibly because other commands have metas attached to variables on the rhs, and inlining other variables
+            // will erase these metas.
+            val newCmd = when (cmd) {
+                is AssignExpCmd,
+                is TACCmd.Simple.AssigningCmd.ByteLoad,
+                is TACCmd.Simple.AssigningCmd.ByteStore ->
+                    mapper.map(cmd)
+
+                else -> null
+            }
+
+
+            cmd.getModifiedVar()?.let {
+                blockDef[it] = ptr
+                // lhs can't be used as a replacement now.
+                canBeReplacedWith.removeValue(it)
+            }
+
+            if (newCmd is AssignExpCmd && newCmd.rhs.isVar) {
+                val rhs = newCmd.rhs.asVar
+                val lhs = (cmd as AssignExpCmd).lhs
+
+                // remove `a := a`
+                if (rhs == lhs && filteringFunctions.isErasable(cmd)) {
+                    patcher.delete(ptr)
+                    return
+                }
+
+                // update the replacement map
+                if (filteringFunctions.isInlineable(lhs) &&
+                    (!strict || rhs.isConst || filteringFunctions.isInlineable(rhs))
+                ) {
+                    canBeReplacedWith[ptr] = rhs
+                }
+            }
+
+            if (newCmd != null && newCmd != cmd) {
+                patcher.update(ptr, newCmd)
+            }
+        }
+    }
+
 
     companion object {
-        fun inlineAssignments(code: CoreTACProgram, isInlineable: (TACSymbol.Var) -> Boolean) =
-            AssignmentInliner(code, isInlineable).go()
+        fun inlineAssignments(
+            code: CoreTACProgram,
+            filteringFunctions: FilteringFunctions,
+            strict: Boolean,
+        ) =
+            AssignmentInliner(code, filteringFunctions, strict).go()
     }
 }
 

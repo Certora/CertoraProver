@@ -52,6 +52,7 @@ import spec.cvlast.typedescriptors.VMDynamicArrayTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.isWildcard
+import spec.rules.CVLSingleRule
 import spec.rules.ICVLRule
 import utils.*
 import utils.CollectingResult.Companion.asError
@@ -93,7 +94,29 @@ data class CVLAst(
     val overrideDeclarations: OverrideDeclarations,
     /* The scope is guaranteed to be initialized after [CVLScope.addScopes] */
     val scope: CVLScope
-)
+) {
+    /**
+     * @return A sequence of all [CVLCmd]s that exist anywhere in the spec( rule, cvl-function, hook body, etc.)
+     */
+    fun getAllBlocks(): Sequence<CVLCmd> {
+        fun wrapExpWithApplyCmd(exp: CVLExp.UnresolvedApplyExp) =
+            CVLCmd.Simple.Apply(exp.getRangeOrEmpty(), exp, exp.getScope())
+
+        return (
+            rules.flatMap { rule -> (rule as CVLSingleRule).block } +
+            subs.flatMap { sub -> sub.block } +
+            invs.flatMap { inv ->
+                inv.exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().map(::wrapExpWithApplyCmd)
+            } +
+            hooks.flatMap { hook -> hook.block } +
+            ghosts.flatMap<CVLGhostDeclaration, CVLCmd> { ghost ->
+                (ghost as? CVLGhostWithAxiomsAndOldCopy)?.axioms?.flatMap {
+                    it.exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().map(::wrapExpWithApplyCmd)
+                } ?: listOf()
+            }
+        ).asSequence()
+    }
+}
 
 interface CreatesScope {
     val scope: CVLScope
@@ -1158,7 +1181,7 @@ data class CVLFunction(
 
     override val functionIdentifier = SpecDeclaration(declarationId)
     override val paramTypes: List<CVLType.PureCVLType> = params.map { arg -> arg.type }
-    override fun toString(): String = "function ${super.toString()}"
+    override fun toString(): String = "function $declarationId"
     override val typeDescription: String = "CVL function"
 }
 
@@ -3295,8 +3318,10 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
             return null
         }
 
-        fun isArrayLengthExp(): Boolean {
-            if (fieldName != "length") {
+        fun isArrayLengthFieldAccess() = fieldName == CVLType.PureCVLType.CVLArrayType.lengthFieldName
+
+        fun isDynamicArrayLengthExp(): Boolean {
+            if (!isArrayLengthFieldAccess()) {
                 return false
             }
 

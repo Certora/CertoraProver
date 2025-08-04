@@ -427,20 +427,20 @@ private interface RevertConditionalAnalysis {
         val (tgt, p) = noRevert.single()
         val where = graph.elab(b).commands.last()
         val st = pta.results[where.ptr] ?: return null
-        fun TACCommandGraph.PathCondition.ConditionalOn.extractAV() = st.extractReducedInt(this.v)
+        fun PathCondition.ConditionalOn.extractAV() = st.extractReducedInt(this.v)
         /**
          * The actual path information computation is entirely handled by the [pathConditionComputation]
          * field, see that class' documentation (it's not bad!)
          */
         return tgt `to?` when(p) {
-            is TACCommandGraph.PathCondition.EqZero -> pathConditionComputation.propagateFalse(
+            is PathCondition.EqZero -> pathConditionComputation.propagateFalse(
                 v = p.v,
                 av = p.extractAV() ?: return null,
                 l = where,
                 s = pta,
                 w = null
             )
-            is TACCommandGraph.PathCondition.NonZero -> pathConditionComputation.propagateTrue(
+            is PathCondition.NonZero -> pathConditionComputation.propagateTrue(
                 v = p.v,
                 av = p.extractAV() ?: return null,
                 l = where,
@@ -2403,14 +2403,14 @@ data object PrunablePaths : PointsToQuery<Collection<Pair<LTACCmdView<TACCmd.Sim
             val (_, pc) = pathConditions.entries.singleOrNull { (succ, _) ->
                 (it.id to succ) in pta.takenEdges
             } ?: return@mapNotNull null
-            check(pc is TACCommandGraph.PathCondition.ConditionalOn) {
+            check(pc is PathCondition.ConditionalOn) {
                 "At jumpi command, have successor whose path condition is not a conditional on a variable?"
             }
             when(pc) {
-                is TACCommandGraph.PathCondition.EqZero -> {
+                is PathCondition.EqZero -> {
                     jump to false
                 }
-                is TACCommandGraph.PathCondition.NonZero -> jump to true
+                is PathCondition.NonZero -> jump to true
             }
         }.toList()
     }

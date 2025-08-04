@@ -338,6 +338,7 @@ class TreeViewReporter(
         val highestNotificationLevel: RuleAlertReport? = null,
         val location: TreeViewLocation? = null,
         val displayName: String,
+        val debugAdapterCallTraceFileName: String? = null,
         val childrenNumbers: ChildrenNumbers? = null,
         /**
          *  The uuid is a unique Id for the node as Integer type. It's used in the rule report for tracking points
@@ -374,6 +375,7 @@ class TreeViewReporter(
         val nodeType: String,
         val splitProgress: Int?,
         val status: String,
+        val debugAdapterCallTraceFileName: String?,
         val duration: Long,
         val isRunning: Boolean,
         val childrenTotalNum: Int?,
@@ -404,6 +406,9 @@ class TreeViewReporter(
 
             put(TreeViewReportAttribute.CHILDREN_TOTAL_NUM(), childrenTotalNum)
             put(TreeViewReportAttribute.CHILDREN_FINISHED_NUM(), childrenFinishedNum)
+            if(debugAdapterCallTraceFileName != null) {
+                put(TreeViewReportAttribute.DAP_CALLTRACE_FILE_NAME(), debugAdapterCallTraceFileName)
+            }
         }
     }
 
@@ -651,6 +656,7 @@ class TreeViewReporter(
                 isRunning = isRunning,
                 childrenTotalNum = currTreeViewResult.childrenNumbers?.total,
                 childrenFinishedNum = currTreeViewResult.childrenNumbers?.finished,
+                debugAdapterCallTraceFileName = currTreeViewResult.debugAdapterCallTraceFileName
             )
         }
 
@@ -723,9 +729,28 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                 val childrenTreeViewResults = children.map { getResultForNode(it) }.toList()
                 val highestNotificationLevel = (childrenTreeViewResults.mapNotNull { it.highestNotificationLevel } + currTreeViewResult.ruleAlerts).maxOrNull()
 
-                if (children.isEmpty()) {
+
+                if (children.isEmpty() || childrenTreeViewResults.all { it.nodeType == NodeType.VIOLATED_ASSERT }) {
+                    /**
+                     * A [NodeType.VIOLATED_ASSERT] resembles to SAT, i.e, the node has a call trace. In that case we add
+                     * another child (see [report.TreeViewReporter.PerAssertReporter.addResults]). For this subnode, [isRunning] is already
+                     * false because solving completed.
+                     *
+                     * So if either the curr node has no children, or all children are of type [NodeType.VIOLATED_ASSERT], we want to update the
+                     * is running flag using the result at [di] itself.
+                     */
                     updateStatus(di) { res -> res.copy(isRunning = res.status.isRunning(), highestNotificationLevel = highestNotificationLevel) }
                 } else if (childrenTreeViewResults.any { it.nodeType == NodeType.SANITY }) {
+                    /**
+                     * If the node has any sanity children, then the tree looks as follows
+                     *
+                     * node of baseRule (TAC_program_1)
+                     * - node of rule_not_vacuous (TAC_program_rule_not_vacuous)
+                     * - ...
+                     *
+                     * and in particular there _is_ a TAC program associated to the current node _and_ to all their children.
+                     * [isRunning] is false iff the current node has terminated _and_ all their children too.
+                     */
                     val newStatus = (childrenTreeViewResults + currTreeViewResult).maxOf { it.status }
                     val newIsRunning = currTreeViewResult.status.isRunning() ||
                         childrenTreeViewResults.any { it.isRunning }
@@ -735,6 +760,17 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                             .reduce { acc, y -> acc.join(y) }
                     updateStatus(di) { res -> res.copy(status = newStatus, isRunning = newIsRunning, verifyTime = newVerifyTime, highestNotificationLevel = highestNotificationLevel) }
                 } else {
+                    /**
+                     * If the node has no sanity children, then the tree looks as follows (example exercised for a parametric rule):
+                     *
+                     * node of the parametric rule
+                     * - node for method foo (TAC_program_1)
+                     * - node for method bar (TAC_program_2)
+                     * - ...
+                     *
+                     * and in particular there is _no_ TAC program associated to the parametric rule node and thus [isRunning]
+                     * for the parametric rule node is true iff one of the children is running.
+                     */
                     val newStatus = childrenTreeViewResults.maxBy { it.status }.status
                     val newIsRunning = childrenTreeViewResults.any { it.isRunning } || currTreeViewResult.childrenNumbers?.let { it.finished < it.total } == true
                     val newVerifyTime =
@@ -1028,6 +1064,8 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                                         .writeToFile()
                                         ?: return@mapNotNull null
 
+                                    val debugAdapterCallTrace = example.callTrace?.debugAdapterCallTrace?.writeToFile()
+
                                     tree.addChildNode(assertMeta.identifier, node, nodeType = NodeType.VIOLATED_ASSERT, rule = null)
                                     tree.updateStatus(assertMeta.identifier) {
                                         it.copy(
@@ -1036,7 +1074,8 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                                             status = computeFinalStatus(results.result, results.rule),
                                             outputFiles = listOf(outputFileName),
                                             location = assertMeta.range as? TreeViewLocation,
-                                            verifyTime = results.verifyTime
+                                            verifyTime = results.verifyTime,
+                                            debugAdapterCallTraceFileName = debugAdapterCallTrace
                                         )
                                     }
 

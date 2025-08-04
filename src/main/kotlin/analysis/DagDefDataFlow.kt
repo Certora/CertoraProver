@@ -158,3 +158,9 @@ abstract class DagDefExprDataFlow<T : Any>(code: CoreTACProgram) : DagDefDataFlo
  */
 fun <D> forwardVolatileDagDataFlow(code : CoreTACProgram, calc: (NBId, List<D>) -> D) =
     volatileDagDataFlow(code.analysisCache.graph.blockPred, calc)
+
+/**
+ * A shorthand for [volatileDagDataFlow] where we are working on a tac program and we want a backward calculation
+ */
+fun <D> backwardVolatileDagDataFlow(code : CoreTACProgram, calc: (NBId, List<D>) -> D) =
+    volatileDagDataFlow(code.analysisCache.graph.blockSucc, calc)

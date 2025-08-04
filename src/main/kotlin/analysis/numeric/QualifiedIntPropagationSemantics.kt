@@ -18,7 +18,7 @@
 package analysis.numeric
 
 import analysis.LTACCmd
-import analysis.TACCommandGraph
+import analysis.PathCondition
 import vc.data.TACSummary
 import vc.data.TACSymbol
 
@@ -33,12 +33,12 @@ abstract class QualifiedIntPropagationSemantics<I: QualifiedInt<*, *, *>, S, W, 
     val propagator: QualifierPropagationComputation<I, S, W, Q>
 ) : IPathSemantics<S, W> {
 
-    override fun propagate(l: LTACCmd, s: S, w: W, pathCondition: TACCommandGraph.PathCondition): S? {
+    override fun propagate(l: LTACCmd, s: S, w: W, pathCondition: PathCondition): S? {
         return when(pathCondition) {
-            TACCommandGraph.PathCondition.TRUE -> s
-            is TACCommandGraph.PathCondition.EqZero -> this.propagateFalse(pathCondition.v, s, w, l)
-            is TACCommandGraph.PathCondition.NonZero -> this.propagateTrue(pathCondition.v, s, w, l)
-            is TACCommandGraph.PathCondition.Summary -> this.propagateSummary(pathCondition.s, s, w, l)
+            PathCondition.TRUE -> s
+            is PathCondition.EqZero -> this.propagateFalse(pathCondition.v, s, w, l)
+            is PathCondition.NonZero -> this.propagateTrue(pathCondition.v, s, w, l)
+            is PathCondition.Summary -> this.propagateSummary(pathCondition.s, s, w, l)
         }
     }
 

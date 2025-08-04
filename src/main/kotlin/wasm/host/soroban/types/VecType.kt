@@ -51,7 +51,7 @@ object VecType : ArrayType() {
 
         override fun gen(
             simplifiedInputs: List<TACExpr>,
-            analysisCache: AnalysisCache
+            analysisCache: TACCommandGraphAnalysisCache
         ): CommandWithRequiredDecls<TACCmd.Simple> = simplifiedInputs.let { (p, l) ->
             l.evalAsConst()?.safeAsInt()?.let { lengthLiteral ->
                 Val.setObjectDigest(tag, handle.asSym()) {

@@ -23,8 +23,7 @@ scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 
 from typing import List, Optional, Dict
-
-import CertoraProver.certoraContextAttributes as Attrs
+import CertoraProver.certoraApp as App
 
 from CertoraProver.certoraBuildRust import build_rust_project
 from Shared.proverCommon import (
@@ -49,7 +48,7 @@ def run_soroban_prover(args: List[str]) -> Optional[CertoraRunResult]:
     2. Run the necessary steps (build/ cloud verification/ local verification)
     """
 
-    context, logging_manager = build_context(args, Attrs.SorobanProverAttributes)
+    context, logging_manager = build_context(args, App.SorobanApp)
     timings: Dict[str, float] = {}
     exit_code = 0  # The exit code of the script. 0 means success, any other number is an error.
     return_value = None

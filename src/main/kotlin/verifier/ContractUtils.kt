@@ -37,7 +37,7 @@ import config.ReportTypes
 import datastructures.stdcollections.*
 import decompiler.Decompiler
 import decompiler.Disassembler
-import diagnostics.*
+import diagnostics.inCode
 import disassembler.DisassembledEVMBytecode
 import instrumentation.transformers.EnvironmentFixer
 import instrumentation.transformers.FilteringFunctions
@@ -56,14 +56,12 @@ import spec.CVL
 import statistics.*
 import tac.DumpTime
 import tac.TACBasicMeta
-import utils.CertoraException
-import utils.`impossible!`
-import utils.mapNotNull
-import utils.uncheckedAs
+import utils.*
 import vc.data.*
 import vc.data.TACMeta.ACCESS_PATHS
 import vc.data.TACMeta.REVERT_MANAGEMENT
 import vc.data.TACMeta.STORAGE_PATHS
+import vc.data.TACSymbol.Var.Companion.hasKeyword
 import java.math.BigInteger
 
 private val logger = Logger(LoggerTypes.WHOLE_CONTRACT_TRANSFORMATION)
@@ -405,7 +403,13 @@ object ContractUtils {
                 ) { p: CoreTACProgram -> BlockMerger.mergeBlocks(p) },
                 CoreToCoreTransformer(
                     ReportTypes.PATH_OPTIMIZE_TAC_OPTIMIZATIONS
-                ) { c: CoreTACProgram -> Pruner(c).prune() },
+                ) { c: CoreTACProgram ->
+                    object : Pruner(c) {
+                        override val stopAt: ((TACSymbol.Var) -> Boolean) = { v ->
+                            TACMeta.TRANSIENT_STORAGE_KEY in v.meta || TACMeta.STORAGE_KEY in v.meta
+                        }
+                    }.prune()
+                  },
 
                 CoreToCoreTransformer(ReportTypes.MERGED) { p: CoreTACProgram -> BlockMerger.mergeBlocks(p) },
                 CoreToCoreTransformer(ReportTypes.REMOVE_UNREACHABLE, ContractUtils::removeUnreachable),
@@ -427,20 +431,28 @@ object ContractUtils {
                                 }
                             }
                         }
-                        add(TACKeyword.MEM64.toVar())
                     }.toTreapSet()
 
                     optimizeAssignments(
                         code = c,
                         object : FilteringFunctions {
+                            private val TACSymbol.Var.foundryPreserved get() =
+                                hasKeyword(TACKeyword.CALLER) || hasKeyword(TACKeyword.ADDRESS)
+
+                            private val TACSymbol.Var.isPreserved get() =
+                                this in preservedVars || this.hasKeyword(TACKeyword.MEM64)
+
                             override fun isInlineable(v: TACSymbol.Var) =
-                                v !in preservedVars
+                                !v.isPreserved && !v.foundryPreserved
+
                             override fun isErasable(cmd: TACCmd.Simple.AssigningCmd) =
                                 cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd &&
                                     TACBasicMeta.STACK_HEIGHT in cmd.lhs.meta &&
-                                    !cmd.getRhs().containsAny(preservedVars) &&
+                                    cmd.getRhs().none { it is TACSymbol.Var && it.isPreserved } &&
+                                    cmd.freeVars().none { it.foundryPreserved } &&
                                     REVERT_MANAGEMENT !in cmd.meta
-                        }
+                        },
+                        strict = true
                     )
                 }
             )

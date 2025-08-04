@@ -17,82 +17,120 @@
 
 package instrumentation.transformers
 
-import analysis.maybeNarrow
+import analysis.CmdPointer
+import analysis.forwardVolatileDagDataFlow
+import com.certora.collect.*
 import config.Config
+import datastructures.stdcollections.*
+import log.*
 import tac.Tag
+import utils.*
+import utils.Color.Companion.blueBg
+import utils.Color.Companion.magentaBg
 import vc.data.*
+import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
+import vc.data.TACMeta.EVM_IMMUTABLE_ARRAY
+import vc.data.TACMeta.EVM_MEMORY
 import vc.data.tacexprutil.TACExprFactSimple
+import vc.data.tacexprutil.asConstOrNull
+import vc.data.tacexprutil.asVarOrNull
+import java.math.BigInteger
+
+
+private val logger = Logger(LoggerTypes.INIT_MAPS)
 
 /**
- * Replaces initial (freshly havocced) versions of certain maps (memory, codedata) with [MapDefinition]s that describe
- * their initial state (e.g. all 0s in the case of memory).
+ * Initializes unlinitialized bytemaps (memory, codedata) with havoc statements, or with [TACExpr.MapDefinition]s that
+ * describe their initial state (e.g. all 0s in the case of memory).
  */
 object InsertMapDefinitions {
-    fun transform(tacProgram: CoreTACProgram): CoreTACProgram {
-        val patching = tacProgram.toPatchingProgram()
 
-        // Hack: the metas of the havoc lhss aren't updated, it seems .. thus looking in the appearances of the symbol
-        // in rhss
-        val mapToBound = mutableMapOf<TACSymbol.Var, ImmutableBound>()
-        tacProgram.analysisCache.graph.commands.forEach { ltacCmd ->
-            ltacCmd.cmd.getFreeVarsOfRhs().forEach { mapVar ->
-                if (mapVar.tag is Tag.ByteMap &&
-                    mapVar.meta.find(TACMeta.EVM_IMMUTABLE_ARRAY) != null
-                ) {
-                    val bound: ImmutableBound = mapVar.meta.find(TACMeta.EVM_IMMUTABLE_ARRAY)!!
-                    check(!mapToBound.containsKey(mapVar) || mapToBound[mapVar] == bound)
-                    {
-                        "In ${tacProgram.name}: two occurrences of the same variable (in right hand sides) have a different meta annotation:" +
-                                "$mapVar is annotated with ${mapToBound[mapVar]} as well as $bound"
-                    }
-                    mapToBound[mapVar] = bound
+    fun transform(code: CoreTACProgram): CoreTACProgram {
+        val g = code.analysisCache.graph
+        val patcher = ConcurrentPatchingProgram(code)
+
+        val zeroMaps = mutableSetOf<TACSymbol.Var>()
+        val boundMaps = mutableMapOf<TACSymbol.Var, TACSymbol>()
+        val havocMaps = mutableSetOf<TACSymbol.Var>()
+
+        forwardVolatileDagDataFlow<TreapSet<TACSymbol.Var>>(code) { b, predSets ->
+            var initializedMaps = predSets.reduceOrNull { x, y -> x intersect y } ?: treapSetOf()
+
+            g.lcmdSequence(b).forEach { (ptr, cmd) ->
+                val rhsMaps = cmd.getFreeVarsOfRhsExtended()
+                    .filter { it.tag is Tag.ByteMap }
+                    .let { it.toTreapSet() - initializedMaps }
+                rhsMaps.forEach { map ->
+                    if (EVM_MEMORY in map.meta) {
+                        runIf(!Config.HavocInitEVMMemory.get()) {
+                            zeroMaps += map
+                        }
+                    } else {
+                        map.meta[EVM_IMMUTABLE_ARRAY]?.sym?.let { bound ->
+                            val oldBound = boundMaps.put(map, bound)
+                            check(oldBound == null || oldBound == bound) {
+                                "Map $map has two different bounds: $bound and $oldBound, new one is at $ptr, $cmd"
+                            }
+                        }
+                    } ?: havocMaps.add(map)
+                }
+                initializedMaps += rhsMaps
+                cmd.getLhs()?.takeIf { it.tag is Tag.ByteMap }?.let {
+                    initializedMaps += it
                 }
             }
+            initializedMaps
         }
 
-        tacProgram.analysisCache.graph.commands
-            .mapNotNull {
-                it.maybeNarrow<TACCmd.Simple.AssigningCmd.AssignHavocCmd>()
-                    ?.takeIf { havocCmdLTACCmdView -> havocCmdLTACCmdView.cmd.lhs.tag == Tag.ByteMap }
+        val newCmds =
+            zeroMaps.map {
+                AssignExpCmd(it, TACExprFactUntyped.resetStore(Tag.ByteMap))
+            } + boundMaps.map { (map, bound) ->
+                bound.asVarOrNull?.let(patcher::addVar)
+                val i = TACSymbol.Factory.getFreshAuxVar(
+                    TACSymbol.Factory.AuxVarPurpose.MAP_DEF_INSERTER,
+                    TACSymbol.Var("i", Tag.Bit256)
+                ).asSym()
+                val rhs = TACExpr.MapDefinition(
+                    listOf(i),
+                    TACExprFactSimple {
+                        if (bound.asConstOrNull == BigInteger.ZERO) {
+                            number(0)
+                        } else {
+                            ite(i lt bound.asSym(), unconstrained(Tag.Bit256), number(0))
+                        }
+                    },
+                    Tag.ByteMap
+                )
+                AssignExpCmd(map, rhs)
+            } + havocMaps.map { map ->
+                TACCmd.Simple.AssigningCmd.AssignHavocCmd(map)
             }
-            .forEach { ltacHavocCmd ->
-                val mapVar = ltacHavocCmd.cmd.lhs
-                val mapDef = if (mapVar.tag is Tag.ByteMap && mapVar.meta.containsKey(TACMeta.EVM_MEMORY)) {
-                    if (!Config.HavocInitEVMMemory.get()) {
-                        TACExprFactUntyped.resetStore(mapVar.tag as Tag.Map)
-                    } else {
-                        null
-                    }
-                } else if (mapVar.tag is Tag.ByteMap &&
-                    mapVar.meta.find(TACMeta.EVM_IMMUTABLE_ARRAY) != null
-                ) {
-                    val bound: ImmutableBound = mapToBound[mapVar]
-                        ?: mapVar.meta.find(TACMeta.EVM_IMMUTABLE_ARRAY) // uh, so hacky.. e.g. Test/StructPacking/DynamicStruct needs this line though
-                        ?: error("failed to lookup bound of EVM_IMMUTABLE_ARRAY $mapVar")
-                    if (bound.sym is TACSymbol.Var && !tacProgram.symbolTable.contains(bound.sym)) {
-                        // it's unclear to me why I need to do this; the symbol seems to be mentioned nowhere else ..
-                        //  - should there be a havoc for it? -- should I insert one? (under some conditions?)
-                        patching.addVarDecl(bound.sym)
-                    }
-                    val i = TACSymbol.Factory.getFreshAuxVar(
-                        TACSymbol.Factory.AuxVarPurpose.MAP_DEF_INSERTER,
-                        TACSymbol.Var("i", Tag.Bit256)
-                    ).asSym()
-                    TACExpr.MapDefinition(
-                        listOf(i),
-                        TACExprFactSimple {
-                            ite(i lt bound.sym.asSym(), unconstrained(Tag.Bit256), number(0))
-                        },
-                        Tag.ByteMap
-                    )
-                } else {
-                    null
+
+        patcher.insertBefore(
+            CmdPointer(g.rootBlockIds.single(), 0),
+            newCmds
+        )
+
+        logger.debug {
+            "zeroMaps = $zeroMaps\n" +
+                "havocMaps = $havocMaps\n" +
+                "boundMaps = $boundMaps\n"
+        }
+
+        logger.trace {
+            patcher.debugPrinter()
+                .extraLines {
+                    it.cmd.freeVars()
+                        .mapNotNull { it `to?` it.meta[EVM_IMMUTABLE_ARRAY] }
+                        .map { it.magentaBg } +
+                        it.cmd.freeVars()
+                            .filter { EVM_MEMORY in it.meta }
+                            .map { it.blueBg }
                 }
-                if (mapDef != null) {
-                    val newCmd = TACCmd.Simple.AssigningCmd.AssignExpCmd(mapVar, mapDef)
-                    patching.replaceCommand(ltacHavocCmd.ptr, listOf(newCmd))
-                }
-            }
-        return patching.toCode(tacProgram)
+                .toString(code, javaClass.simpleName)
+        }
+
+        return patcher.toCode()
     }
 }

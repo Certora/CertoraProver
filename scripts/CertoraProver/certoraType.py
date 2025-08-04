@@ -158,6 +158,15 @@ class Type(ABC):
             ast_logger.fatal(f"unexpected AST Type Name Node: {name}")
         return ret
 
+    def contains_mapping(self) -> bool:
+        if isinstance(self, MappingType):
+            return True
+        if isinstance(self, StructType):
+            return any(member.contains_mapping() for member in self.members)
+        if isinstance(self, ArrayType):
+            return self.elementType.contains_mapping()
+        return False
+
 
 class PrimitiveType(Type):
     allowed_primitive_type_names = {
@@ -204,7 +213,7 @@ class PrimitiveType(Type):
         return PrimitiveType.canonical_primitive_name(self.name)
 
     def get_source_str(self) -> str:
-        return self.name
+        return self.type_string  # this is different from `self.name` in the case of a payable address
 
 
 class StringType(Type):

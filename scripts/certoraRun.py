@@ -28,10 +28,10 @@ from CertoraProver.certoraCloudIO import CloudVerification
 
 from CertoraProver.certoraBuild import build
 import CertoraProver.certoraContext as Ctx
+import CertoraProver.certoraApp as App
 
 from CertoraProver import certoraContextValidator as Cv
-import CertoraProver.certoraContextAttributes as Attrs
-from Shared import certoraAttrUtil as AttrUtil
+
 from Shared.proverCommon import (
     build_context,
     collect_and_dump_metadata,
@@ -51,7 +51,7 @@ BUILD_SCRIPT_PATH = Path("CertoraProver/certoraBuild.py")
 # Also serves as the default logger for errors originating from unexpected places.
 run_logger = logging.getLogger("run")
 
-def run_certora(args: List[str], attrs_class: Type[AttrUtil.Attributes] = Attrs.EvmProverAttributes,
+def run_certora(args: List[str], app: Type[App.CertoraApp] = App.EvmApp,
                 prover_cmd: Optional[str] = None) -> Optional[CertoraRunResult]:
     """
     The main function that is responsible for the general flow of the script.
@@ -60,7 +60,7 @@ def run_certora(args: List[str], attrs_class: Type[AttrUtil.Attributes] = Attrs.
     2. Run the necessary steps (type checking/ build/ cloud verification/ local verification)
 
     """
-    context, logging_manager = build_context(args, attrs_class)
+    context, logging_manager = build_context(args, app)
 
     if prover_cmd:
         context.prover_cmd = prover_cmd
@@ -127,15 +127,15 @@ def run_certora(args: List[str], attrs_class: Type[AttrUtil.Attributes] = Attrs.
     else:  # Remote run
         # Syntax checking and typechecking
         if Cv.mode_has_spec_file(context):
-            if context.disable_local_typechecking:
-                run_logger.warning(
-                    "Local checks of CVL specification files disabled. It is recommended to enable "
-                    "the checks.")
-            else:
+            if Ctx.should_run_local_speck_check(context):
                 typechecking_start = time.perf_counter()
                 Ctx.run_local_spec_check(True, context)
                 typechecking_end = time.perf_counter()
                 timings['typecheckingTime'] = round(typechecking_end - typechecking_start, 4)
+            else:
+                run_logger.warning(
+                    "Local checks of CVL specification files disabled. It is recommended to enable "
+                    "the checks.")
 
         # Remove debug logger and run remote verification
         logging_manager.remove_debug_logger()

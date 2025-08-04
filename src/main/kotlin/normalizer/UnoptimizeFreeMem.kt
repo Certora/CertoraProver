@@ -108,19 +108,29 @@ object UnoptimizeFreeMem {
         }.forEach { cmd ->
             val fpPlusConst = matcher.queryFrom(cmd.narrow<TACCmd.Simple.AssigningCmd.AssignExpCmd>()).toNullableResult() ?: return@forEach
             val (rewriteC1, base) = findRewriteOffset(fpPlusConst) ?: return@forEach
+            /**
+             * If the alias we find to use here is the free pointer, make sure we generate a fresh read.
+             * On the other hand, if we are using an existing alias of the free pointer (which is not mem64 itself)
+             * avoid the spurious copy as it makes life harder for the PTA down the road
+             */
+            val (addBase, addBaseDef) = if(base == TACKeyword.MEM64.toVar()) {
+                val newRead = TACKeyword.TMP(Tag.Bit256, "!freshRead")
+                patch.addVarDecl(newRead)
+                newRead to TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                    lhs = newRead,
+                    rhs = base
+                )
+            } else {
+                base to null
+            }
             val lhs = g.elab(fpPlusConst.use).narrow<TACCmd.Simple.AssigningCmd.AssignExpCmd>().cmd.lhs
-            val tmp = TACKeyword.TMP(Tag.Bit256,"freemem").toUnique()
-            patch.addVarDecl(tmp)
             patch.replaceCommand(
                 fpPlusConst.use,
-                listOf(
-                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                        tmp,
-                        base.asSym()
-                    ),
+                listOfNotNull(
+                    addBaseDef,
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(
                         lhs,
-                        TACExpr.Vec.Add(tmp.asSym(), (fpPlusConst.c - rewriteC1).asTACSymbol().asSym())
+                        TACExpr.Vec.Add(addBase.asSym(), (fpPlusConst.c - rewriteC1).asTACSymbol().asSym())
                     )
                 )
             )

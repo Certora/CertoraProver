@@ -27,7 +27,6 @@ import solver.CounterexampleModel
 import tac.Tag
 import utils.*
 import vc.data.SnippetCmd
-import vc.data.TACExpr
 import vc.data.TACMeta
 import vc.data.TACSymbol
 import java.io.Closeable
@@ -222,11 +221,6 @@ class CallTracePrettyPrinter(
             else -> print("<- return data movement $returndataMovement", extraIndent = 1)
         }
     }
-}
-
-internal val TACExpr.asSym: TACSymbol.Var get() = run {
-    check(this is TACExpr.Sym.Var) { "expected this to be a var: $this" }
-    return this.s
 }
 
 fun CallInstance.prettyPrint(indent: Int): String {

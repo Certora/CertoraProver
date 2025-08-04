@@ -41,6 +41,12 @@ class MutableReversibleMap<K, V> private constructor(
         return oldV
     }
 
+    fun removeValue(v : V) {
+        back.remove(v)?.forEach { k ->
+            map -= k
+        }
+    }
+
     override fun putAll(from: Map<out K, V>) {
         from.forEach { (k, v) -> put(k, v) }
     }

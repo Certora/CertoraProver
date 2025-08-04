@@ -28,6 +28,9 @@ import datastructures.stdcollections.*
 import evm.MASK_SIZE
 import log.Logger
 import log.LoggerTypes
+import report.calltrace.printer.DebugAdapterPopAction
+import report.calltrace.printer.DebugAdapterPushAction
+import report.calltrace.printer.StackEntry
 import spec.cvlast.QualifiedMethodSignature
 import tac.MetaKey
 import utils.*
@@ -153,11 +156,13 @@ data class InternalFuncStartAnnotation(
     val stackOffsetToArgPos: Map<Int, Int>,
     override val callSiteSrc: TACMetaInfo?,
     override val calleeSrc: TACMetaInfo?
-) : TransformableVarEntityWithSupport<InternalFuncStartAnnotation>, RemapperEntity<InternalFuncStartAnnotation>, Serializable, InternalFunctionStartInfo, InternalFunctionStartAnnot {
+) : TransformableVarEntityWithSupport<InternalFuncStartAnnotation>, RemapperEntity<InternalFuncStartAnnotation>, Serializable, InternalFunctionStartInfo, DebugAdapterPushAction, InternalFunctionStartAnnot {
     override val which: QualifiedMethodSignature
         get() = methodSignature
 
     fun isSummarizable() = args.all { it.sort == InternalArgSort.SCALAR }
+
+    override val stackElement = StackEntry.SolidityFunction(methodSignature.prettyPrintFullyQualifiedName(), calleeSrc?.getSourceDetails()?.range)
 
     fun getArgPos(argOffset: Int): Int = stackOffsetToArgPos[argOffset] ?: run {
         val msg = "Unexpected requested argument offset $argOffset"
@@ -308,7 +313,7 @@ data class InternalFuncExitAnnotation(
     override val id: Int,
     val rets: List<InternalFuncRet>,
     val methodSignature: QualifiedMethodSignature
-) : TransformableVarEntityWithSupport<InternalFuncExitAnnotation>, RemapperEntity<InternalFuncExitAnnotation>, HasKSerializable, InternalFunctionExitAnnot {
+) : TransformableVarEntityWithSupport<InternalFuncExitAnnotation>, RemapperEntity<InternalFuncExitAnnotation>, HasKSerializable, DebugAdapterPopAction, InternalFunctionExitAnnot {
 
     override val support: Set<TACSymbol.Var>
         get() = rets.flatMapToSet { it.support }

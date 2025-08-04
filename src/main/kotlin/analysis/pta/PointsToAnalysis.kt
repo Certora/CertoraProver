@@ -794,7 +794,7 @@ class PointsToAnalysis(
         cond: T,
         dst: NBId,
         f: (NumericDomain, TACSymbol.Var, PointsToDomain, LTACCmd) -> NumericPathInformation
-    ) : Pair<NBId, PointsToDomain>? where T: TACCommandGraph.PathCondition, T: TACCommandGraph.PathCondition.ConditionalOn {
+    ) : Pair<NBId, PointsToDomain>? where T: PathCondition, T: PathCondition.ConditionalOn {
         val (n_,hints, path) = try {
             f(s.boundsAnalysis, cond.v, s, graph.elab(dst).commands.first())
         } catch(_: PruneInfeasible) {
@@ -965,8 +965,8 @@ class PointsToAnalysis(
                 val ppNextState = preprocessNext(nxt = dstCmd, p = stateIt)
                 try {
                     when (cond) {
-                        TACCommandGraph.PathCondition.TRUE -> dst to ppNextState
-                        is TACCommandGraph.PathCondition.EqZero -> {
+                        PathCondition.TRUE -> dst to ppNextState
+                        is PathCondition.EqZero -> {
                             /*
                             Check whether this path is even feasible...
                             */
@@ -976,7 +976,7 @@ class PointsToAnalysis(
                                 propagateNumericCondition(ppNextState, dst = dst, cond = cond, f = numericAnalysis::propagateFalse)
                             }
                         }
-                        is TACCommandGraph.PathCondition.NonZero -> {
+                        is PathCondition.NonZero -> {
                             /* again, check for feasibility */
                             if (!numericAnalysis.canBeTrue(ppNextState.boundsAnalysis, cond.v, finalCmd)) {
                                 null
@@ -989,7 +989,7 @@ class PointsToAnalysis(
                                 propagateNumericCondition(ppNextState, dst = dst, cond = cond, f = numericAnalysis::propagateTrue)
                             }
                         }
-                        is TACCommandGraph.PathCondition.Summary -> {
+                        is PathCondition.Summary -> {
                             if(cond.s is LoopCopyAnalysis.LoopCopySummary) {
                                 val isValid = isLoopSummaryValid(cond.s, ppNextState)
                                 if (isValid) {

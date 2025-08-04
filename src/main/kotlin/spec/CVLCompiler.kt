@@ -42,6 +42,7 @@ import instrumentation.transformers.CVLTACProgramBlockCallIdRemapper
 import kotlinx.serialization.UseSerializers
 import log.*
 import report.calltrace.CVLReportLabel
+import report.calltrace.printer.StackEntry
 import rules.genericrulecheckers.BuiltInRuleCustomChecker
 import scene.*
 import spec.CVLCompiler.CallIdContext.Companion.defaultBaseCallId
@@ -1073,7 +1074,7 @@ class CVLCompiler(
         }
         val rangeOfApplication = exp.getRangeOrEmpty()
         val wrappedFunction = CommandWithRequiredDecls(
-            SnippetCmd.CVLSnippetCmd.CVLFunctionStart(callId, sub.declarationId, rangeOfApplication, exp.noRevert).toAnnotation()
+            SnippetCmd.CVLSnippetCmd.CVLFunctionStart(callId, sub.declarationId, rangeOfApplication, exp.noRevert, StackEntry.CVLFunction(sub)).toAnnotation()
         ).toProg("start compiled body $sub", compilationEnvironment) merge functionBody.transformCode { c ->
             c.appendToSinks(
                 CommandWithRequiredDecls(SnippetCmd.CVLSnippetCmd.CVLFunctionEnd(callId, sub.declarationId).toAnnotation())
@@ -2053,7 +2054,7 @@ class CVLCompiler(
         check(declCmd.cvlType != EVMBuiltinTypes.method) { "all method variable declarations should have been promoted to parameters" }
 
         return addVariableValueAssumptions(declCmd.id, type, name, allocatedTACSymbols, compilationEnvironment) andThen CommandWithRequiredDecls(listOf(
-                    TraceMeta.VariableDeclarationCmd(v, declCmd.cvlType, TraceMeta.DeclarationType.Variable)
+                    TraceMeta.VariableDeclarationCmd(v, declCmd.cvlType, TraceMeta.DeclarationType.Variable(declCmd.id))
                 ), setOf(v)).toProg("decl", compilationEnvironment)
     }
 
@@ -2416,7 +2417,6 @@ class CVLCompiler(
                 TACCmd.Simple.AnnotationCmd(CVL_LABEL_END, labelId)
             )
     }
-
     /**
      * Defines a criterion for choosing which methods' instantiations are
      * candidates to be chosen by the SMT for a given symbolic method.
@@ -2470,6 +2470,8 @@ class CVLCompiler(
             ).merge(
                 wrapWithCVL(initializeReadTracking(), "setup read tracking instrumentation")
             ).merge(
+                wrapWithCVL(countSetup(), "record starting nonces")
+            ).merge(
                 // process storage for all contracts and balance
                 wrapWithCVL(
                     ruleLastStorageInitialize(), "last storage initialize"
@@ -2504,8 +2506,6 @@ class CVLCompiler(
             ).merge(
                 // Add linking connections
                 wrapWithCVL(resolveLinks(), "static links")
-            ).merge(
-                wrapWithCVL(countSetup(), "record starting nonces")
             ).merge(
                 wrapWithCVL(ensureZeroBalancesForClones(), "cloned contracts have no balances")
             ).merge(
@@ -3173,16 +3173,15 @@ class CVLCompiler(
             @KSerializable
             @Treapable
             sealed interface DeclarationType : AmbiSerializable {
+
+                val sourceName: String
                 @KSerializable
                 @Treapable
-                object Variable : DeclarationType {
-                    fun readResolve(): Any = Variable
-                    override fun hashCode() = utils.hashObject(this)
-                }
+                data class Variable(override val sourceName: String) : DeclarationType
 
                 @KSerializable
                 @Treapable
-                data class Parameter(val sourceName: String) : DeclarationType
+                data class Parameter(override val sourceName: String) : DeclarationType
             }
 
             /**

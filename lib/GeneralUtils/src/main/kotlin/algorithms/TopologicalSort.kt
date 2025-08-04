@@ -64,6 +64,7 @@ inline fun <T> deRecurse(
     }
 }
 
+
 /**
  * Returns the nodes of a DAG in topological order, sinks first. Throws [TopologicalOrderException] if there is a cycle.
  * [nodes] must be a superset of the sources of the graph.

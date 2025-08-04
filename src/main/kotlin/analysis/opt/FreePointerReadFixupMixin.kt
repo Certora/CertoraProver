@@ -52,7 +52,11 @@ interface FreePointerReadFixupMixin<T: FreePointerReadFixupMixin.ReplacementCand
     )
 
 
-    fun Stream<T>.doRewrite(p: CoreTACProgram) : CoreTACProgram {
+    /**
+     * [requireLiveAlias] means we require that the alias of the free pointer must be live;
+     * if it isn't live we generate a fresh read (or there is no such alias).
+     */
+    fun Stream<T>.doRewrite(p: CoreTACProgram, requireLiveAlias: Boolean = false) : CoreTACProgram {
         val dom by lazy {
             p.analysisCache.domination
         }
@@ -60,7 +64,9 @@ interface FreePointerReadFixupMixin<T: FreePointerReadFixupMixin.ReplacementCand
         infix fun CmdPointer.dominates(x: CmdPointer) = dom.dominates(this, x)
 
         val rewrite = this.map {
-            it to p.analysisCache.use.useSitesAfter(pointer = it.rewriteUseAfter, v = it.fpAlias)
+            it to p.analysisCache.use.useSitesAfter(pointer = it.rewriteUseAfter, v = it.fpAlias).filter { u ->
+                u != it.rewriteUseAfter
+            }
         }.flatMap { (exp, useSites) ->
             // is the value in these use sites definitely observing the value being written at exp
             val dominatedUseSites = useSites.filter {
@@ -106,7 +112,10 @@ interface FreePointerReadFixupMixin<T: FreePointerReadFixupMixin.ReplacementCand
                  * free pointer? If so, just replace `v` with that variable.
                  */
                 val otherAlias = gvn.findCopiesAt(useSite, source = write.rewriteUseAfter to src).firstOrNull { alias ->
-                    alias != src && isFreshReadAlias.query(alias, src = p.analysisCache.graph.elab(useSite)).toNullableResult() != null && alias != TACKeyword.MEM64.toVar()
+                    alias != src && isFreshReadAlias.query(alias, src = p.analysisCache.graph.elab(useSite)).toNullableResult() != null && alias != TACKeyword.MEM64.toVar() &&
+                        (!requireLiveAlias || p.analysisCache.lva.isLiveBefore(
+                            useSite, alias
+                        ))
                 }
                 if(otherAlias != null) {
                     useSite to (src to otherAlias)
@@ -141,24 +150,30 @@ interface FreePointerReadFixupMixin<T: FreePointerReadFixupMixin.ReplacementCand
             }
             h1
         }))
-
+        val g = p.analysisCache.graph
         return p.patching { patch ->
-            rewrite.newRead.forEachEntry { (where, newVar) ->
-                patch.replace(where) { orig ->
-                    listOf(
-                        orig,
+            val work = rewrite.newRead.keys + rewrite.rewrites.keys
+            for(w in work) {
+                val replacement = mutableListOf<TACCmd.Simple>()
+                val c = g.elab(w).cmd
+                if(w in rewrite.rewrites) {
+                    replacement.add(TACVariableSubstitutor(rewrite.rewrites[w]!!).map(c))
+                } else {
+                    replacement.add(c)
+                }
+                rewrite.newRead[w]?.let {newVar ->
+                    patch.addVarDecl(newVar)
+                    replacement.add(
                         TACCmd.Simple.AssigningCmd.AssignExpCmd(
                             lhs = newVar,
                             rhs = TACKeyword.MEM64.toVar().asSym()
                         )
                     )
                 }
-                patch.addVarDecl(newVar)
-            }
-            rewrite.rewrites.forEachEntry { (where, subst) ->
-                patch.replace(where) { c ->
-                    listOf(TACVariableSubstitutor(subst).map(c))
+                check(replacement.isNotEmpty()) {
+                    "Have empty replacement despite having work to do?"
                 }
+                patch.replaceCommand(w, replacement)
             }
         }
     }

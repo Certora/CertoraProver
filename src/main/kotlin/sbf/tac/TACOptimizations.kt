@@ -20,10 +20,10 @@ package sbf.tac
 import analysis.controlflow.InfeasiblePaths
 import analysis.loop.LoopHoistingOptimization
 import analysis.opt.*
+import analysis.opt.bytemaps.BytemapScalarizer
 import analysis.opt.inliner.GlobalInliner
 import analysis.opt.intervals.IntervalsRewriter
 import analysis.opt.overflow.OverflowPatternRewriter
-import analysis.opt.scalarizer.ByteMapScalarizer
 import analysis.split.BoolOptimizer
 import config.ReportTypes
 import instrumentation.transformers.FilteringFunctions
@@ -92,7 +92,7 @@ fun optimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProgram {
             }.let(BlockMerger::mergeBlocks)
         })
         .mapIf(optLevel >= 3, CoreToCoreTransformer(ReportTypes.BYTEMAP_SCALARIZER) {
-            ByteMapScalarizer.go(it).let {
+            BytemapScalarizer.go(it).let {
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
             }.let(BlockMerger::mergeBlocks)
         })

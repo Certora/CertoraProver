@@ -106,6 +106,7 @@ class DecompilerTest : WithResourceFile {
                         immutables = listOf(),
                         solidityTypes = setOf(),
                         sourceBytes = null,
+                        internalFunctionHarnesses = mapOf(),
                     )
                 }
             }

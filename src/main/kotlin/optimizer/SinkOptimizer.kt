@@ -17,8 +17,8 @@
 
 package optimizer
 
+import analysis.PathCondition
 import analysis.TACBlock
-import analysis.TACCommandGraph
 import tac.CallId
 import tac.MetaMap
 import utils.uniqueOrNull
@@ -38,7 +38,7 @@ object SinkOptimizer {
         val graph = prog.analysisCache.graph
         val sinkBlocks = graph.blocks.filter { sink ->
             graph.pred(sink).size > 1 && graph.pred(sink).any {
-                graph.pathConditionsOf(it.id).get(sink.id) == TACCommandGraph.PathCondition.TRUE
+                graph.pathConditionsOf(it.id).get(sink.id) == PathCondition.TRUE
             }
         }
         fun TACCmd.Simple.noMeta() : TACCmd.Simple = if(this is TACCmd.Simple.NopCmd) {

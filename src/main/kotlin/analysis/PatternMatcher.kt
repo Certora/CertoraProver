@@ -1851,7 +1851,7 @@ object PatternMatcher {
                 })
             }
             is Pattern.RecursivePattern -> {
-                val toReturn = compilePattern(graph, patt.patt)
+                val toReturn = compilePattern(graph, patt.patt, traverseFilter)
                 patt.nested.innerQuery = toReturn
                 toReturn
             }

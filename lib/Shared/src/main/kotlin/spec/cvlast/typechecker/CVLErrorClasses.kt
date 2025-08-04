@@ -1379,6 +1379,21 @@ class UnexpectedToken(override val location: Range, private val token: String, p
         "Syntax error: unexpected token `$token`; expected $expectedString."
     }
 }
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.TYPECHECKING,
+    description =
+    """
+        A syntax error. A list of expected tokens is presented
+        """
+)
+@CVLErrorExample("function f() { bytes32[] a; require #a.someField# == 1; }")
+class ExpectedArrayLengthAccess(private val exp: CVLExp.FieldSelectExp) : CVLError() {
+    override val location: Range
+        get() = exp.getRangeOrEmpty()
+    override val message: String
+        get() = "Unexpected field access .${exp.fieldName} on an expression of type array. Did you mean `.${CVLType.PureCVLType.CVLArrayType.lengthFieldName}` instead?"
+}
 
 // ParametricReturn ////////////////////////////////////////////////////////////////////////////////////////////////////
 

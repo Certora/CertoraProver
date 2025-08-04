@@ -57,14 +57,17 @@ class Func:
                  notpayable: bool,
                  fromLib: bool,  # actually serialized
                  isConstructor: bool,  # not serialized
+                 is_free_func: bool,
                  stateMutability: str,
                  visibility: str,
                  implemented: bool,  # does this function have a body? (false for interface functions)
                  overrides: bool,  # does this function override an interface declaration or super-contract definition?
+                 virtual: bool,
                  contractName: str,
                  source_bytes: Optional[SourceBytes],
                  ast_id: Optional[int],
                  original_file: Optional[str],
+                 location: Optional[str],
                  body_location: Optional[str],
                  ):
         self.name = name
@@ -75,13 +78,16 @@ class Func:
         self.notpayable = notpayable
         self.fromLib = fromLib
         self.isConstructor = isConstructor
+        self.is_free_func = is_free_func
         self.stateMutability = stateMutability
         self.visibility = visibility
         self.original_file = original_file
+        self.location = location
         self.body_location = body_location
         self.implemented = implemented
         self.ast_id = ast_id
         self.overrides = overrides
+        self.virtual = virtual
         self.contractName = contractName
         self.source_bytes = source_bytes
 

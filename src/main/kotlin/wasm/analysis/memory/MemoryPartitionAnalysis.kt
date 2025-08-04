@@ -26,8 +26,7 @@ import utils.*
 import vc.data.*
 import wasm.analysis.ConstArrayInitSummary
 import wasm.analysis.intervals.IntervalAnalysis
-import wasm.analysis.intervals.IntervalInterpreter
-import wasm.analysis.intervals.State
+import analysis.numeric.simplequalifiedint.SimpleQualifiedIntState
 import wasm.host.soroban.Val
 import wasm.host.soroban.types.MapType
 import wasm.impCfg.WASM_MEMORY_OP_WIDTH
@@ -45,7 +44,7 @@ private val logger = Logger(LoggerTypes.WASM)
  * - if `permission(a)` is ReadOnly, then [ctp] *must not* write the address `a`
  */
 class MemoryPartitionAnalysis private constructor(graph: TACCommandGraph): IMemoryPartitions {
-    companion object : AnalysisCache.Key<MemoryPartitionAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, MemoryPartitionAnalysis> {
         override fun createCached(graph: TACCommandGraph) = MemoryPartitionAnalysis(graph)
     }
     private val intervalAnalysis = graph.cache[IntervalAnalysis]
@@ -64,14 +63,14 @@ class MemoryPartitionAnalysis private constructor(graph: TACCommandGraph): IMemo
     override fun permission(start: BigInteger, end: BigInteger): IMemoryPartitions.Permission =
         permission(IntValue(start, end))
 
-    private fun AssigningSummary.writeLocations(st: State): IntValue? {
+    private fun AssigningSummary.writeLocations(st: SimpleQualifiedIntState): IntValue? {
         return when {
             TACKeyword.MEMORY.toVar() !in mustWriteVars && TACKeyword.MEMORY.toVar() !in mayWriteVars ->
                 null
 
             this is MapType.UnpackMapToMemorySummary ->  {
-                val start = IntervalInterpreter.interp(this.valsPos, st).x
-                val len = IntervalInterpreter.interp(this.length, st).x
+                val start = st.interpret(this.valsPos).x
+                val len = st.interpret(this.length).x
                     .mult(IntValue.Constant(Val.sizeInBytes.toBigInteger())).first
                 val end = start.add(len).first
                 IntValue(
@@ -81,7 +80,7 @@ class MemoryPartitionAnalysis private constructor(graph: TACCommandGraph): IMemo
             }
 
             this is ConstArrayInitSummary -> {
-                val start = IntervalInterpreter.interp(this.startPtr, st).x
+                val start = st.interpret(this.startPtr).x
                 IntValue(
                     lb = start.lb,
                     ub = start.ub + (stride*iterations) - BigInteger.ONE
@@ -107,18 +106,18 @@ class MemoryPartitionAnalysis private constructor(graph: TACCommandGraph): IMemo
 
             cmd is TACCmd.Simple.AssigningCmd.ByteStore -> {
                 val length = cmd.meta[WASM_MEMORY_OP_WIDTH] ?: 8
-                val base = IntervalInterpreter.interp(cmd.loc, st).x
+                val base = st.interpret(cmd.loc).x
                 base.copy(ub = base.ub + length.toBigInteger() - BigInteger.ONE)
             }
 
             cmd is TACCmd.Simple.ByteLongCopy ->
                 if (cmd.dstBase == TACKeyword.MEMORY.toVar()) {
-                    val length = IntervalInterpreter.interp(cmd.length, st).x
+                    val length = st.interpret(cmd.length).x
                     if (length.isConstant && length.c == BigInteger.ZERO) {
                         return null
                     }
 
-                    val base = IntervalInterpreter.interp(cmd.dstOffset, st).x
+                    val base = st.interpret(cmd.dstOffset).x
                     base.copy(ub = base.ub + length.ub - BigInteger.ONE)
                 } else {
                     null

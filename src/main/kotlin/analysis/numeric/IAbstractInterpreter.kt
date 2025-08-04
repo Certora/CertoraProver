@@ -18,7 +18,7 @@
 package analysis.numeric
 
 import analysis.LTACCmd
-import analysis.TACCommandGraph
+import analysis.PathCondition
 
 /**
  * The basic abstract interpreter interface. An abstract interpreter
@@ -39,5 +39,5 @@ interface IAbstractInterpreter<in W, out U> {
      * Propagate a state [w] with path condition [pathCondition] to [l]. Returning
      * null indicates that this path is not feasible.
      */
-    fun propagate(l: LTACCmd, w: W, pathCondition: TACCommandGraph.PathCondition) : U?
+    fun propagate(l: LTACCmd, w: W, pathCondition: PathCondition) : U?
 }

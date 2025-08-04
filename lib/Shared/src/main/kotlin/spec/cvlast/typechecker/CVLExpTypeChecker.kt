@@ -18,7 +18,9 @@
 @file:Suppress("NAME_SHADOWING") // Shadowing is used purposefully
 package spec.cvlast.typechecker
 
+import bridge.ContractInstanceInSDC
 import bridge.EVMExternalMethodInfo
+import bridge.types.SolcLocation
 import config.Config
 import datastructures.stdcollections.*
 import log.*
@@ -1588,7 +1590,7 @@ class CVLExpTypeCheckerWithContext(
                 exp,
                 vmTypeHandler = vm@{ ty ->
                     ty.getOrInferPureCVLType(exp.structExp).bind {
-                        if (exp.isArrayLengthExp()) {
+                        if (exp.isDynamicArrayLengthExp()) {
                             if(ty.context == FromVMContext.StateValue && ty.descriptor !is VMDynamicArrayTypeDescriptor) {
                                 CVLError.Exp(
                                     exp = exp,
@@ -1636,6 +1638,9 @@ class CVLExpTypeCheckerWithContext(
                 arrayLenHandler = { ty ->
                     if (ty !is CVLType.PureCVLType.CVLArrayType) {
                         CVLError.Exp(exp, "Expected operand of array length to have an array type, instead got: $ty")
+                            .asError()
+                    } else if (!exp.isArrayLengthFieldAccess()) {
+                        ExpectedArrayLengthAccess(exp)
                             .asError()
                     } else {
                         val isComplex = exp.structExp.tag.annotation == ComplexMarker
@@ -2153,6 +2158,42 @@ class CVLExpTypeCheckerWithContext(
         }
     }
 
+    private fun missingFunctionError(exp: CVLExp.UnresolvedApplyExp, contract: ContractInstanceInSDC): CVLError {
+        val errMessage = contract.internalFunctions.values
+            .map { it.method }
+            .find { method ->
+                method.name == exp.methodId && exp.args.drop(1).zipPred(method.fullArgs) { arg, type ->
+                    val fakeType = if (type.location == SolcLocation.storage) {
+                        // We want to see if the type is matching, the location is handled in the error strings below.
+                        // If we'd leave the storage location then convertibleToVMType would always fail because we can't
+                        // convert to storage-located variables.
+                        type.copy(location = SolcLocation.memory)
+                    } else {
+                        type
+                    }
+                    expr(arg).resultOrNull()?.getCVLType()
+                        ?.convertibleToVMType(fakeType.toVMTypeDescriptor(), ToVMContext.ArgumentPassing)?.isResult() == true
+                }
+            }
+            ?.let { method ->
+                val storageInputIndex = method.fullArgs.indexOfFirst { it.location == SolcLocation.storage }
+                val storageOutputIndex = method.returns.indexOfFirst { it.location == SolcLocation.storage }
+                val reason = if (storageInputIndex >= 0) {
+                    "because input parameter '${method.paramNames[storageInputIndex]}' has storage location"
+                } else if (storageOutputIndex >= 0) {
+                    "because output parameter #$storageOutputIndex has storage location"
+                } else {
+                    ""
+                }
+                "Cannot call internal function ${method.name} from spec $reason"
+            }
+            ?: (symbolTable.lookUpNonFunctionLikeSymbol(exp.methodId, typeEnv.scope)
+                ?.symbolValue as? CVLInvariant)?.let { "Cannot apply an invariant ${exp.methodId}, it can only be applied under requireInvariant" }
+            ?: "No function-like entry for ${exp.methodId} was found in the symbol table under contract ${contract.name}. Perhaps something was misspelled?"
+
+        return CVLError.Exp(exp, errMessage)
+    }
+
     fun resolveApply(exp: CVLExp.UnresolvedApplyExp): CollectingResult<CVLExp.ApplicationExp, CVLError> = collectingErrors {
         // First, check if this is a parametric method
         symbolTable.lookUpFunctionLikeSymbol(exp.methodId, typeEnv.scope)?.let { resolved ->
@@ -2161,49 +2202,44 @@ class CVLExpTypeCheckerWithContext(
             }
         }
 
-        // OK, we're dealing with a concrete method, let's find it.
-        val functionInfo = if (exp.base != null) {
-            val base = bind(expr(exp.base))
-            when (val type = base.getOrInferPureCVLType()) {
-                is CVLType.PureCVLType.Primitive.AccountIdentifier -> return@collectingErrors bind(handleAddressFunctionCall(exp, base))
+        val base = exp.base?.let { bind(expr(it)) }
+        val baseType = base?.getOrInferPureCVLType()
 
-                is CVLType.PureCVLType.Primitive.CodeContract -> {
-                    check(base is CVLExp.VariableExp) { "A code contract is always a VariableExp, no??" }
-                    // definitely calling a function from some contract, let's get the scope of that contract and look
-                    // for the function in that scope
-                    val scope = symbolTable.getContractScope(type.name) ?: error("the type is CodeContract but there's no such contract")
-                    symbolTable.lookUpFunctionLikeSymbol(exp.methodId, scope)?.let { symInfo ->
-                        symInfo as? CVLSymbolTable.SymbolInfo.CVLFunctionInfo
-                    }?.lift() ?: CVLError.Exp(
-                        exp = exp, message = "Cannot find method with name ${exp.methodId} in contract ${base}"
-                    ).asError()
-                }
+        // Now check if it's an address function call
+        if (baseType is CVLType.PureCVLType.Primitive.AccountIdentifier) {
+            return@collectingErrors bind(handleAddressFunctionCall(exp, base))
+        }
 
-                else -> returnError(ApplyMethodOnNonContract(exp))
+        val contractScope = if (base != null) {
+            if (baseType is CVLType.PureCVLType.Primitive.CodeContract) {
+                check(base is CVLExp.VariableExp) { "A code contract is always a VariableExp, no??" }
+                // definitely calling a function from some contract, let's get the scope of that contract and look
+                // for the function in that scope
+                symbolTable.getContractScope(baseType.name) ?: error("the type is CodeContract but there's no such contract")
+            } else {
+                returnError(ApplyMethodOnNonContract(exp))
             }
         } else {
-            val resolved = symbolTable.lookUpFunctionLikeSymbol(exp.methodId, typeEnv.scope)
-                ?: symbolTable.lookupMethodInContractEnv(CurrentContract, exp.methodId)
-                ?: returnError(CVLError.Exp(
-                    exp = exp,
-                    message = (symbolTable.lookUpNonFunctionLikeSymbol(exp.methodId, typeEnv.scope)
-                        ?.symbolValue as? CVLInvariant)?.let { "Cannot apply an invariant ${exp.methodId}, it can only be applied under requireInvariant" }
-                        ?: "No function-like entry for ${exp.methodId} was found in the symbol table. Perhaps something was misspelled?"
-            ))
-            when {
-                // we found a concrete function! yeet!
-                resolved is CVLSymbolTable.SymbolInfo.CVLFunctionInfo -> resolved.lift()
-                // we already dealt with the parametric method case
-                resolved is CVLSymbolTable.SymbolInfo.CVLValueInfo && resolved.getCVLType() == EVMBuiltinTypes.method -> `impossible!`
-                else -> CVLError.General(
-                    exp.getRangeOrEmpty(),
-                    message = "${exp.methodId} is not a callable"
-                ).asError()
-            }
-        }.let { bind(it) }
+            symbolTable.getContractScope(CurrentContract)!!
+        }
+        val contract = contractScope.enclosingContract()!!.contract
 
-        check(functionInfo.symbolValue is ContractFunction) {
-            "All other types of 'concrete' application should have already been resolved at this stage, got ${functionInfo.symbolValue}"
+        val functionInfo = symbolTable.lookUpFunctionLikeSymbol(exp.methodId, contractScope)?.let { symInfo ->
+            symInfo as? CVLSymbolTable.SymbolInfo.CVLFunctionInfo
+        }
+
+        val internalFunctionHarnessInfo = contract.internalFunctionHarnesses[exp.methodId]
+            ?.let { harnessName -> symbolTable.lookUpFunctionLikeSymbol(harnessName, contractScope) }
+            ?.let { symInfo -> symInfo as? CVLSymbolTable.SymbolInfo.CVLFunctionInfo }
+
+        val res = functionInfo?.let {
+            internalFunctionHarnessInfo?.let {
+                CVLSymbolTable.SymbolInfo.CVLFunctionInfo(functionInfo.symbolValue, functionInfo.impFuncs + internalFunctionHarnessInfo.impFuncs)
+            } ?: functionInfo
+        } ?: internalFunctionHarnessInfo ?: returnError(missingFunctionError(exp, contract))
+
+        check(res.symbolValue is ContractFunction) {
+            "All other types of 'concrete' application should have already been resolved at this stage, got ${res.symbolValue}"
         }
 
         if (exp.twoStateIndex != TwoStateIndex.NEITHER) {
@@ -2213,7 +2249,7 @@ class CVLExpTypeCheckerWithContext(
         }
 
         return@collectingErrors bind(resolveContractApplication(exp = exp,
-            functionInfo = functionInfo,
+            functionInfo = res,
             storageReference = exp.invokeStorage,
             symbolic = { called, argsMapped, storageExp, _ ->
                 CVLExp.ApplyExp.ContractFunction.Symbolic(

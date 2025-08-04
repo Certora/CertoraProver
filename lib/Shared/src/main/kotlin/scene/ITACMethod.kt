@@ -18,7 +18,6 @@
 package scene
 
 import bridge.EVMExternalMethodInfo
-import com.certora.collect.*
 import config.ReportTypes
 import evm.SighashInt
 import spec.CVLReservedVariables

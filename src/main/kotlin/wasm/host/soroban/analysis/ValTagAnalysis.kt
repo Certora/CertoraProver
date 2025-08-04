@@ -43,7 +43,7 @@ import kotlin.let
  *  possible [Val.Tag]s of other variables 'y'.
  */
 class ValTagAnalysis private constructor(val graph: TACCommandGraph) {
-    companion object : AnalysisCache.Key<ValTagAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, ValTagAnalysis> {
         override fun createCached(graph: TACCommandGraph) = ValTagAnalysis(graph)
     }
 
@@ -285,7 +285,7 @@ private class AbstractInterpreter(val me: IMustEqualsAnalysis): AbstractAbstract
             toStep: ValTagDomain,
             lhs: TACSymbol.Var,
             toWrite: ValTagValueDomain,
-            where: LTACCmd
+            where: CmdPointer
         ): ValTagDomain {
             if (toWrite == ValTagValueDomain.nondet) {
                 return toStep - lhs
@@ -313,7 +313,7 @@ private class AbstractInterpreter(val me: IMustEqualsAnalysis): AbstractAbstract
             toWrite: ValTagValueDomain,
             where: LTACCmd
         ): ValTagDomain {
-            return qualifierManager.assign(toStep, lhs, toWrite, where)
+            return qualifierManager.assign(toStep, lhs, toWrite, where.ptr)
         }
 
         override fun propagateSummary(
@@ -340,7 +340,7 @@ private class AbstractInterpreter(val me: IMustEqualsAnalysis): AbstractAbstract
         w: ValTagDomain,
         narrow: LTACCmdView<TACCmd.Simple.AssigningCmd>
     ): ValTagDomain {
-        return qualifierManager.killLHS(lhs = lhs, lhsVal = s[lhs], narrow = narrow, s = s)
+        return qualifierManager.killLHS(lhs = lhs, lhsVal = s[lhs], where = narrow.ptr, s = s)
     }
 }
 
@@ -459,7 +459,7 @@ private class ExpressionInterpreter(val qualifierManager: QualifierManager<ValTa
         whole: ValTagDomain,
         wrapped: LTACCmd
     ): ValTagDomain {
-        return qualifierManager.assign(toStep, lhs, newValue, wrapped)
+        return qualifierManager.assign(toStep, lhs, newValue, wrapped.ptr)
     }
 }
 

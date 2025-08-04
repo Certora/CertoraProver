@@ -51,10 +51,8 @@ def get_relevant_compiler(contract_file_path: Path, context: CertoraContext) -> 
 
     if context.compiler_map:
         match = Ctx.get_map_attribute_value(context, contract_file_path, 'compiler')
-        assert isinstance(match, str), (f"In the attribute compiler_map, {contract_file_path} expected to be matched "
-                                        f"to a string, {match} is of type {type(match)} not a string")
         if match:
-            return match
+            return str(match)
         else:
             raise RuntimeError(f'cannot match compiler to {contract_file_path} from compiler_map')
 

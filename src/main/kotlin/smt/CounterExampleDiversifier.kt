@@ -17,7 +17,7 @@
 
 package smt
 
-import analysis.TACCommandGraph
+import analysis.PathCondition
 import config.Config
 import datastructures.stdcollections.*
 import kotlinx.coroutines.flow.*
@@ -289,15 +289,15 @@ class CounterExampleDiversifier private constructor(
             return ctp.analysisCache.graph.succ(curBlock).single {
                 modelMap[BI2ReachVarName(it)]!!.value.asBoolean() &&
                     when (val pc = ctp.analysisCache.graph.pathConditions[curBlock]!![it]!!) {
-                        is TACCommandGraph.PathCondition.TRUE -> true
-                        is TACCommandGraph.PathCondition.EqZero -> {
+                        is PathCondition.TRUE -> true
+                        is PathCondition.EqZero -> {
                             when (pc.v.tag) {
                                 Tag.Bool -> !modelForSymbol(pc.v).asBoolean()
                                 else -> modelForSymbol(pc.v).asBigInt() == BigInteger.ZERO
                             }
                         }
 
-                        is TACCommandGraph.PathCondition.NonZero -> {
+                        is PathCondition.NonZero -> {
                             when (pc.v.tag) {
                                 Tag.Bool -> modelForSymbol(pc.v).asBoolean()
                                 else -> modelForSymbol(pc.v).asBigInt() != BigInteger.ZERO

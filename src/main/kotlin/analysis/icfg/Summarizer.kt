@@ -518,17 +518,28 @@ object Summarizer {
         }
     }
 
-    private fun getCalleeMethodsForDispatcherSummary(scene: IScene, callSumm: CallSummary): List<ITACMethod> {
-        check(callSumm.sigResolution.size == 1) {
+    /**
+     * There are few dispatcher flows that reuse this flow here and need to decide which methods to inline. The flow _slightly_ diverges.
+     * The [analysis.icfg.Summarization.AppliedSummary.LateInliningDispatcher] is allowed to call several methods with different sighashes.
+     * The dispatcher summary `_.foo() => DISPATCHER(...)` ([com.certora.certoraprover.cvl.CallSummary.Dispatcher])
+     * or [analysis.icfg.Summarization.AppliedSummary.Config.AutoDispatcher] strictly only allow
+     * a single sighash to be resolved. (A dispatcher summary can only be applied when the sighash is resolved uniquely.)
+     *
+     * For the [analysis.icfg.Summarization.AppliedSummary.LateInliningDispatcher] this methods also filters
+     * out methods for which the inputs don't match (using [instrumentation.calls.CalldataEncoding.checkInputSizeForNonArgsOnly] and
+     * [instrumentation.calls.CalldataEncoding.checkInputSizeForArgsOnly]).
+     */
+    private fun getCalleeMethodsForDispatcherSummary(scene: IScene, callSumm: CallSummary, isLateInlininedDispatcher: Boolean): List<ITACMethod> {
+        check(isLateInlininedDispatcher || callSumm.sigResolution.size == 1) {
             "Expected the sighash resolution of $callSumm to be of size 1 (got ${callSumm.sigResolution.size})"
         }
-
-        val sigResolution = callSumm.sigResolution.single()
-        check(sigResolution != null) {
+        check(callSumm.sigResolution.none { it == null } ) {
             "We don't support dispatcher summary on the fallback function"
         }
-        val resolution = (callSumm.callTarget.map { (it as? CallGraphBuilder.CalledContract.CreatedReference.Resolved)?.tgtConntractId})
-        return scene.getMethods(sigResolution).let { callees ->
+        val resolution = (callSumm.callTarget.map {
+            (it as? CallGraphBuilder.CalledContract.CreatedReference.Resolved)?.tgtConntractId
+        })
+        return callSumm.sigResolution.flatMap { sig -> scene.getMethods(sig!!) }.let { callees ->
             if (null in resolution) {
                 callees
             } else {
@@ -536,9 +547,14 @@ object Summarizer {
                     (it.getContainingContract() as? IClonedContract)?.sourceContractId in resolution
                 }
             }
-        }
+        }.letIf(isLateInlininedDispatcher){ callees -> callees.filter { it.matchesCallDataEncoding(callSumm.callConvention.input) }}
     }
 
+    /**
+     * Depending on the caller and the [appliedSummary] type, inlines the callees
+     * for the DISPATCHER summary, for the [analysis.icfg.Summarization.AppliedSummary.Config.AutoDispatcher]
+     * or for the [Summarization.AppliedSummary.LateInliningDispatcher]
+     */
     fun inlineDispatcherSummary(
         scene: IScene,
         caller: BigInteger,
@@ -560,7 +576,7 @@ object Summarizer {
         val defaultHavocType =
             Havocer.resolveHavocType(scene, caller, callSumm, SpecCallSummary.HavocSummary.Auto(SpecCallSummary.SummarizationMode.UNRESOLVED_ONLY))
 
-        val calleeMethods = getCalleeMethodsForDispatcherSummary(scene, callSumm).toMutableList()
+        val calleeMethods = getCalleeMethodsForDispatcherSummary(scene, callSumm, appliedSummary is Summarization.AppliedSummary.LateInliningDispatcher).toMutableList()
         if (summ.useFallback) {
             calleeMethods.addAll(scene.getContracts()
                 .filter { contract ->
@@ -575,7 +591,6 @@ object Summarizer {
         }
 
         val callers = getCallersAtPointer(where.ptr)
-
         instrumentDispatcher(
             patching,
             where,
@@ -1047,7 +1062,7 @@ object Summarizer {
             is Summarization.AppliedSummary.Config.AutoDispatcher -> {
                 // There are 2 options: Either there are methods to inline here, in which case we want to use optimistic
                 // dispatcher, or there aren't any methods to inline and then we want to havoc (i.e. non-optimistic).
-                val optimistic = getCalleeMethodsForDispatcherSummary(scene, where.cmd.summ as CallSummary).isNotEmpty()
+                val optimistic = getCalleeMethodsForDispatcherSummary(scene, where.cmd.summ as CallSummary, false).isNotEmpty()
                 return inlineDispatcherSummary(
                     scene,
                     caller,
@@ -1092,8 +1107,8 @@ object Summarizer {
 
         val resolution = (callSumm.callTarget.map { (it as? CallGraphBuilder.CalledContract.CreatedReference.Resolved)?.tgtConntractId})
         val callees = resolution.flatMapToSet { res ->
-                appliedSummary.specCallSumm.getMethods(scene, callSumm.sigResolution, res)
-            }
+            appliedSummary.specCallSumm.getMethods(scene, callSumm.sigResolution, res)
+        }
             .letIf(callSumm.callType == TACCallType.DELEGATE) { methods ->
                 methods.filter { m ->
                     decisionManager.shouldInline(where, m)
@@ -1110,12 +1125,9 @@ object Summarizer {
                             "will consider only dispatch list methods from the calling contract ($callingContract).")
                     }
                 }
-            // If we get unexpected types here we will either crash later on bad input, or, what is more likely, everything will work correctly
-            }.filter { m ->
-                (m.calldataEncoding as? CalldataEncoding)?.let {
-                    it.checkInputSizeForNonArgsOnly(callSumm.callConvention.input) && it.checkInputSizeForArgsOnly(callSumm.callConvention.input)
-                } ?: true
-            }.filter { appliedSummary.specCallSumm.useFallback || it.attribute !is MethodAttribute.Unique.Fallback }
+                // If we get unexpected types here we will either crash later on bad input, or, what is more likely, everything will work correctly
+            }.filter { it.matchesCallDataEncoding(callSumm.callConvention.input) }
+            .filter { appliedSummary.specCallSumm.useFallback || it.attribute !is MethodAttribute.Unique.Fallback }
         val callers = getCallersAtPointer(where.ptr)
 
         instrumentDispatcher(
@@ -1132,6 +1144,12 @@ object Summarizer {
             SummaryApplicationReason.Spec.reasonFor(appliedSummary.specCallSumm, null),
         )
     }
+
+    private fun ITACMethod.matchesCallDataEncoding(callInput: CallInput): Boolean =
+        (this.calldataEncoding as? CalldataEncoding)?.let {
+            it.checkInputSizeForNonArgsOnly(callInput) && it.checkInputSizeForArgsOnly(callInput)
+        } ?: true
+
 
     private operator fun InlinedMethodCallStack.invoke(c: CmdPointer) = this.iterateUpCallersMethodOnly(c)
 

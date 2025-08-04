@@ -20,7 +20,7 @@ package wasm.transform
 import algorithms.SimpleDominanceAnalysis
 import analysis.CmdPointer
 import analysis.DefiningEquationAnalysis
-import analysis.TACCommandGraph
+import analysis.PathCondition
 import analysis.maybeNarrow
 import datastructures.stdcollections.filterKeys
 import datastructures.stdcollections.mapValues
@@ -65,8 +65,8 @@ object PropagateRevertConditions {
         for (b in code.blocks) {
             for ((succ, pc) in code.pathConditionsOf(b.id)) {
                 if (succ !in code.cache.revertBlocks
-                    || pc is TACCommandGraph.PathCondition.TRUE  // Not interested in unconditional jumps
-                    || pc is TACCommandGraph.PathCondition.Summary) {
+                    || pc is PathCondition.TRUE  // Not interested in unconditional jumps
+                    || pc is PathCondition.Summary) {
                     continue
                 }
 
@@ -86,7 +86,7 @@ object PropagateRevertConditions {
                 val fv = condFormula.getFreeVars().singleOrNull() ?: continue
 
                 // If [noRevertCondition] is true then we won't revert
-                val noRevertCondition = condFormula.letIf(pc is TACCommandGraph.PathCondition.NonZero) {
+                val noRevertCondition = condFormula.letIf(pc is PathCondition.NonZero) {
                     TACExpr.UnaryExp.LNot(it)
                 }
 

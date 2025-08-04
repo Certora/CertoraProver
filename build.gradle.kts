@@ -130,7 +130,7 @@ allprojects {
 			systemProperty("mathematicaHome", project.property("mathematicaHome") as String)
 		}
 
-		maxHeapSize = project.findProperty("test.maxheap")?.toString() ?: "5120m"
+		maxHeapSize = project.findProperty("test.maxheap")?.toString() ?: "1g"
 
 		// Experimental option to enable running tests in parallel processes.  Use at your own risk, and YMMV.
 		// Note that the test themselves often assume they have the whole machine available to them, so this will result in

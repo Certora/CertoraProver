@@ -1,0 +1,12 @@
+{
+	"rules": {
+		"r": "SUCCESS",
+		"sanity": {
+			"SUCCESS": [
+				"C.noHarness()",
+				"C.overloaded()",
+				"D.noHarness()"
+			]
+		}
+	}
+}

@@ -33,6 +33,7 @@ import datastructures.stdcollections.*
 import decompiler.SourceParseResult
 import report.calltrace.CVLReportLabel
 import report.calltrace.CallInstance
+import report.calltrace.printer.*
 import spec.cvlast.*
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
@@ -205,6 +206,19 @@ sealed class SnippetCmd: AmbiSerializable {
         override fun hashCode() = hashObject(this)
         private fun readResolve(): Any = SnippetCreationDisabled
     }
+
+    /**
+     * An additional SnippetCmd to instruct the debugger to add a debug step a this [range].
+     *
+     * Use this carefully. The intention is that commands / Snippets supply a range by themselves.
+     * The typical use case for this is to add these snippets before a [DebugAdapterPushAction] so
+     * that the current "call site" is pushed on to the stack before stepping into a call.
+     */
+    @KSerializable
+    data class ExplicitDebugStep(
+        override val range: Range
+    ) : SnippetCmd(), HasRange
+
     /**
      * Snippets which carry debug information from the EVM.
      */
@@ -278,7 +292,7 @@ sealed class SnippetCmd: AmbiSerializable {
                 override val contractInstance: BigInteger,
                 override val range: Range.Range?,
                 val linkableStorageReadId: LinkableStorageReadId
-            ) : StorageSnippet(), RemapperEntity<LoadSnippet> {
+            ) : StorageSnippet(), RemapperEntity<LoadSnippet>{
                 constructor(
                     value: TACSymbol,
                     displayPath: DisplayPath,
@@ -637,6 +651,19 @@ sealed class SnippetCmd: AmbiSerializable {
             override val support: Set<TACSymbol.Var> = setOf(calldataSym)
         }
 
+        @KSerializable
+        data class Start(
+            val el: StackEntry,
+        ) : CVLSnippetCmd(), DebugAdapterPushAction {
+            override val stackElement: StackEntry
+                get() = el
+        }
+        @KSerializable
+        object End : CVLSnippetCmd(), DebugAdapterPopAction {
+            private fun readResolve(): Any = End
+            override fun hashCode() = hashObject(this)
+        }
+
         /**
          * the id associated with the start and end of a CVL event. see for example [TACMeta.CVL_LABEL_END]
          */
@@ -868,12 +895,13 @@ sealed class SnippetCmd: AmbiSerializable {
             @GeneratedBy(Allocator.Id.CALL_ID) val callIndex: CallId,
             val name: String,
             val range: Range,
-            val isNoRevert: Boolean
-        ): CVLSnippetCmd(), RemapperEntity<CVLFunctionStart>
+            val isNoRevert: Boolean,
+            override val stackElement: StackEntry
+        ): CVLSnippetCmd(), RemapperEntity<CVLFunctionStart>, DebugAdapterPushAction
 
         @KSerializable
         @GenerateRemapper
-        data class CVLFunctionEnd(@GeneratedBy(Allocator.Id.CALL_ID) val callIndex: CallId, val name: String): CVLSnippetCmd(), RemapperEntity<CVLFunctionEnd>
+        data class CVLFunctionEnd(@GeneratedBy(Allocator.Id.CALL_ID) val callIndex: CallId, val name: String): CVLSnippetCmd(), RemapperEntity<CVLFunctionEnd>, DebugAdapterPopAction
 
         /**
          * Snippet for internal assert command we add to the TAC program for a given

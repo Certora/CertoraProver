@@ -105,6 +105,13 @@ value class RuleOutputArtifacts private constructor(private val id: Int) {
     val liveStatisticsFileName: String get() = "rule_live_statistics_${id}.json"
     val ruleOutputFileName: String get() = "rule_output_${id}.json"
 
+    /**
+     * Note, the suffix "certora-dap" is used by the VSCode extension.
+     * The VSCode extension watches on additions, changes and deletions of
+     * all files with this suffix, do not change.
+     */
+    val dapCalltraceOutputFileName: String get() = "dap_calltrace_${id}-certora-dap.json"
+
     companion object {
         /**
          * "allocates" and registers the artifacts for the rule's output files,
@@ -116,6 +123,7 @@ value class RuleOutputArtifacts private constructor(private val id: Int) {
 
             registeredArtifacts[artifacts.liveStatisticsFileName] = StaticArtifactLocation.TreeViewReports
             registeredArtifacts[artifacts.ruleOutputFileName] = StaticArtifactLocation.TreeViewReports
+            registeredArtifacts[artifacts.dapCalltraceOutputFileName] = StaticArtifactLocation.TreeViewReports
 
             return artifacts
         }

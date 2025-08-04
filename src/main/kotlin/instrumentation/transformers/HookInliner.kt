@@ -31,6 +31,7 @@ import evm.MASK_SIZE
 import log.Logger
 import log.LoggerTypes
 import report.calltrace.CVLReportLabel
+import report.calltrace.printer.StackEntry
 import scene.IScene
 import spec.*
 import spec.CVLCompiler.CallIdContext.Companion.toContext
@@ -656,6 +657,7 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
                     )
 
                 val prog = hookInliningInfo.program.prependToBlock0(inlinedHookProg).wrapWithCVLLabelCmds(reportLabel)
+                    .wrapWithStackEntry(StackEntry.CVLHook(hookInliningInfo.cvlHook))
 
                 val replacingProg = transformHookToCoreTACProgram(prog, assignments)
 

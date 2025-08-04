@@ -118,8 +118,8 @@ class MutateValidator:
 
         if value is None:
             raise RuntimeError(f"calling validate_type_string with null value {key}")
-        if not isinstance(value, str) and not isinstance(value, Path):
-            raise Util.CertoraUserInputError(f"value of {key} {value} is not a string")
+        if not isinstance(value, (str, Path, int)):
+            raise Util.CertoraUserInputError(f"value of {key} {value} is not a string, integer, or Path")
         attr.validate_value(str(value))
 
     def validate_type_any(self, attr: AttrUtil.AttributeDefinition) -> None:

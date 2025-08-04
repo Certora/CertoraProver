@@ -23,6 +23,7 @@ from typing import Dict, Any, Set, List, Tuple, Optional
 from CertoraProver.certoraMiniSpecParser import SpecImportLexer, SpecImportParser, SpecWithImports
 from CertoraProver.certoraContextClass import CertoraContext
 from Shared import certoraUtils as Util
+import CertoraProver.certoraApp as App
 
 build_logger = logging.getLogger("build_conf")
 
@@ -59,7 +60,7 @@ class CertoraVerifyGenerator:
                 "primary_contract": equiv_contracts[0],
                 "secondary_contract": equiv_contracts[1]
             }
-        elif context.is_concord_app:
+        elif context.app == App.ConcordApp:
             if len(context.contracts) != 2:
                 raise Util.CertoraUserInputError(f"Expecting 2 contracts but got {len(context.contracts)}: {context.contracts}")
             contract_list = list(context.contracts)

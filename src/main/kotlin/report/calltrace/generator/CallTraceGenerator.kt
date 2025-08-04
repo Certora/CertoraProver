@@ -33,6 +33,7 @@ import report.*
 import report.calltrace.*
 import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.printer.CallTracePrettyPrinter
+import report.calltrace.printer.DebugAdapterProtocolStackMachine
 import report.calltrace.sarif.FmtArg
 import report.calltrace.sarif.SarifFormatter
 import report.globalstate.GlobalState
@@ -47,6 +48,7 @@ import spec.cvlast.CVLHookPattern
 import utils.Range
 import spec.cvlast.CVLType
 import spec.cvlast.PatternWithValue
+import spec.rules.IRule
 import tac.NBId
 import utils.*
 import vc.data.*
@@ -63,13 +65,15 @@ private val hardFail = Config.CallTraceHardFail.get() == HardFailMode.ON
  * The resulting class will contain a [callHierarchyRoot], which may only be partially-built if an error occurred.
  */
 internal sealed class CallTraceGenerator(
-    val ruleName: String,
+    val rule: IRule,
     val model: CounterexampleModel,
     val program: CoreTACProgram,
     val formatter: CallTraceValueFormatter,
     val scene: ISceneIdentifiers,
     ruleCallString: String,
 ) {
+
+    val ruleName = rule.declarationId
 
     /** Type used internally to communicate the result of handling a specific command with [handleCmd]. */
     internal sealed class HandleCmdResult {
@@ -176,7 +180,7 @@ internal sealed class CallTraceGenerator(
         val errorMsg = "Failed to generate call trace for rule $ruleName: ${msg()}"
         val exception = CallTraceException(errorMsg)
         logger.error(errorMsg)
-        return CallTrace.Failure(callHierarchyRoot, exception, printer)
+        return CallTrace.Failure(callHierarchyRoot, exception, printer, debugAdapter)
     }
 
     fun invalidCallStack(msg: () -> String): CallTrace {
@@ -301,7 +305,7 @@ internal sealed class CallTraceGenerator(
                     "CallTrace generation ended prematurely due to unexpected exception (rule $ruleName)"
                 logger.error(e) { generationFailureMsg }
                 val exception = CallTraceException(generationFailureMsg, e)
-                CallTrace.Failure(callHierarchyRoot, exception, printer)
+                CallTrace.Failure(callHierarchyRoot, exception, printer, debugAdapter)
             } finally {
                 printer?.close()
             }
@@ -356,7 +360,7 @@ internal sealed class CallTraceGenerator(
             globalState?.computeGlobalState(formatter = formatter)?.let(::callTraceAppend)
 
             val violatedAssert = LTACCmd(CmdPointer(currBlock, idx), cmd)
-            return HandleCmdResult.GeneratedCallTrace(CallTrace.ViolationFound(callHierarchyRoot, violatedAssert))
+            return HandleCmdResult.GeneratedCallTrace(CallTrace.ViolationFound(callHierarchyRoot, violatedAssert, debugAdapter))
         }
 
         return HandleCmdResult.Continue
@@ -418,7 +422,14 @@ internal sealed class CallTraceGenerator(
 
     val printer =
         if (Config.CallTraceTextDump.get()) {
-            CallTracePrettyPrinter(ruleName, model)
+            CallTracePrettyPrinter(rule.ruleIdentifier.toString(), model)
+        } else {
+            null
+        }
+
+    val debugAdapter =
+        if (Config.CallTraceDebugAdapterProtocol.get()) {
+            DebugAdapterProtocolStackMachine(rule, scene, model, formatter)
         } else {
             null
         }
@@ -710,7 +721,7 @@ internal sealed class CallTraceGenerator(
             Logger.regression { assertCheckMsg }
             if (!assertHasPassedOrNull) {
                 val violatedAssert = LTACCmd(CmdPointer(currBlock, idx), cmd)
-                HandleCmdResult.GeneratedCallTrace(CallTrace.ViolationFound(callHierarchyRoot, violatedAssert))
+                HandleCmdResult.GeneratedCallTrace(CallTrace.ViolationFound(callHierarchyRoot, violatedAssert, debugAdapter))
             } else {
                 HandleCmdResult.Continue
             }
@@ -743,6 +754,7 @@ internal sealed class CallTraceGenerator(
             val block = program.code[currBlock] ?: return callTraceFailure { "unknown block $currBlock." }
             block.forEachIndexed inner@{ cmdIdx, cmd ->
                 printer?.visit(LTACCmd(CmdPointer(currBlock, cmdIdx), cmd))
+                debugAdapter?.visit(LTACCmd(CmdPointer(currBlock, cmdIdx), cmd))
 
                 val handleCmdResult: HandleCmdResult = if (cmd.meta.containsKey(TACMeta.IGNORE_IN_CALLTRACE)) {
                     HandleCmdResult.Continue
@@ -816,6 +828,9 @@ internal sealed class CallTraceGenerator(
                             SnippetCmd.SnippetCreationDisabled -> {
                                 HandleCmdResult.Continue
                             }
+                            is SnippetCmd.ExplicitDebugStep -> {
+                                HandleCmdResult.Continue
+                            }
 
                             is SnippetCmd.EVMSnippetCmd,
                             is SnippetCmd.CVLSnippetCmd,
@@ -823,6 +838,7 @@ internal sealed class CallTraceGenerator(
                             is SnippetCmd.SolanaSnippetCmd -> {
                                 throw IllegalStateException("${snippetCmd::class.simpleName} snippet command handled in shared statement handler")
                             }
+
                         }
                     }
 

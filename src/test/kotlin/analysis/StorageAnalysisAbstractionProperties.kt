@@ -19,7 +19,7 @@ package analysis
 
 import analysis.numeric.IntValue
 import analysis.numeric.SimpleIntQualifier
-import analysis.numeric.SimpleQualifiedInt
+import analysis.numeric.simplequalifiedint.SimpleQualifiedInt
 import analysis.storage.*
 import analysis.storage.StorageAnalysis.SValue.I
 import analysis.storage.StorageAnalysis.Storage
@@ -29,11 +29,9 @@ import com.certora.collect.*
 import datastructures.stdcollections.*
 import net.jqwik.api.*
 import net.jqwik.kotlin.api.*
-import org.junit.jupiter.api.Assertions
 import utils.foldFirst
 import java.math.BigInteger
 import org.junit.jupiter.api.Assertions.*
-import vc.data.TACSymbol
 import vc.data.asTACSymbol
 
 @Tag(EXPENSIVE)
@@ -85,6 +83,35 @@ class StorageAnalysisAbstractionProperties {
         ) {
             "${j} is not a correct join of ${i1} and ${i2}"
         }
+    }
+
+    @Example
+    fun ceilDivBug() {
+        val i1 = I(
+            cs = null,
+            i = SimpleQualifiedInt(IntValue(151.toBigInteger(),676.toBigInteger())),
+            stride = treapSetOf(
+                Stride.SumOfTerms(
+                    treapMapOf(BigInteger.ONE to Stride.SymValue(null, IntValue(0.toBigInteger(), 5.toBigInteger()))),
+                    BigInteger.ONE
+                ),
+                Stride.SumOfTerms(
+                    treapMapOf(BigInteger.TWO to Stride.SymValue(null, IntValue(0.toBigInteger(), 5.toBigInteger()))),
+                    152.toBigInteger()
+                )
+            )
+        )
+        val i2 = I(
+            cs = null,
+            i = SimpleQualifiedInt(IntValue(151.toBigInteger(), 226.toBigInteger())),
+            stride = treapSetOf(
+                Stride.SumOfTerms(
+                    treapMapOf(BigInteger.ONE to Stride.SymValue(null, IntValue(0.toBigInteger(), 5.toBigInteger()))),
+                    BigInteger.ONE
+                )
+            )
+        )
+       sValueIJoinCorrect(i1, i2)
     }
 
     @Property(tries = 1000)

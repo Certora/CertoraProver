@@ -35,7 +35,7 @@ import java.math.BigInteger
  * [ctp] should be the TAC representation of [program]
  */
 class StaticMemoryAnalysis private constructor(val graph: TACCommandGraph) {
-    companion object : AnalysisCache.Key<StaticMemoryAnalysis> {
+    companion object : AnalysisCache.Key<TACCommandGraph, StaticMemoryAnalysis> {
         override fun createCached(graph: TACCommandGraph) = StaticMemoryAnalysis(graph)
 
         @KSerializable
