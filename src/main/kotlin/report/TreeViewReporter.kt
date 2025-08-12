@@ -729,9 +729,9 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                      * is running flag using the result at [di] itself.
                      */
                     updateStatus(di) { res -> res.copy(isRunning = res.status.isRunning(), highestNotificationLevel = highestNotificationLevel) }
-                } else if (childrenTreeViewResults.any { it.nodeType == NodeType.SANITY }) {
+                } else if (childrenTreeViewResults.any { it.nodeType == NodeType.SANITY } && childrenTreeViewResults.none { it.nodeType == NodeType.ASSERT_SUBRULE_AUTO_GEN }){
                     /**
-                     * If the node has any sanity children, then the tree looks as follows
+                     * If the node has any sanity children_and_ none of the children is a TAC program from multi_assert mode or a satisfy rule, then the tree looks as follows
                      *
                      * node of baseRule (TAC_program_1)
                      * - node of rule_not_vacuous (TAC_program_rule_not_vacuous)
@@ -759,6 +759,13 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                      *
                      * and in particular there is _no_ TAC program associated to the parametric rule node and thus [isRunning]
                      * for the parametric rule node is true iff one of the children is running.
+                     *
+                     * It's the same case in [Config.MultiAssertCheck] mode ˜(or if the rule is a satisfy rule), then the rule will look like:
+                     *
+                     * node of rule with multiple assert
+                     * - node for assert_1 (TAC_program_1)
+                     * - node for assert_2 (TAC_program_2)
+                     * - node for satisfy... (TAC_program_3)
                      */
                     val newStatus = childrenTreeViewResults.maxBy { it.status }.status
                     val newIsRunning = childrenTreeViewResults.any { it.isRunning }
