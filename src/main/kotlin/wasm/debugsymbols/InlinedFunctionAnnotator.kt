@@ -119,7 +119,7 @@ class InlinedFunctionAnnotator(private val wasmDebugSymbols: WasmDebugSymbols) {
 
         /**
          * Iterate over all blocks and add [InlinedFuncStartAnnotation] and [InlinedFuncEndAnnotation] annotation that are
-         * internal to the block. We also compute
+         * internal to the block.
          */
         val pcToEntryAndExit = input.getNodes().mapValues { e ->
             val r = processBlock(e.value)

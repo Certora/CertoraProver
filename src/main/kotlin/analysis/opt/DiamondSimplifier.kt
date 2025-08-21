@@ -31,6 +31,7 @@ import vc.data.TACMeta.CVL_LABEL_END
 import vc.data.TACMeta.CVL_LABEL_START
 import vc.data.TACExprFactUntyped as txf
 import verifier.BlockMerger
+import wasm.impCfg.StraightLine
 
 private val logger = Logger(LoggerTypes.OPTIMIZE)
 
@@ -149,6 +150,8 @@ private fun computeDiamondSimplifications(code: CoreTACProgram, allowAssumes: Bo
                     annot.v is SummaryStack.SummaryEnd -> false
                     annot.k == CVL_LABEL_END -> false
                     annot.k == CVL_LABEL_START -> false
+                    annot.v is StraightLine.InlinedFuncStartAnnotation.TAC -> false
+                    annot.v is StraightLine.InlinedFuncEndAnnotation.TAC -> false
                     else -> true
                 }
                 is TACCmd.Simple.NopCmd -> true
