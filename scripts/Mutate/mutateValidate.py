@@ -41,6 +41,38 @@ class MutateValidator:
         self.validate_arg_types()
         self.validate_gambit_objs()
         self.validate_attribute_combinations()
+        self.validate_manual_mutation()
+
+    def validate_manual_mutation(self) -> None:
+        if self.mutate_app.manual_mutants:
+            if not isinstance(self.mutate_app.manual_mutants, list):
+                raise Util.CertoraUserInputError("manual_mutants should be a list of objects")
+            for mutant in self.mutate_app.manual_mutants:
+                if not isinstance(mutant, dict):
+                    raise Util.CertoraUserInputError(f"manual_mutants should be a list of objects, "
+                                                     f"but found {type(mutant)} instead")
+
+                mandatory_keys = {Constants.FILE_TO_MUTATE, Constants.MUTANTS_LOCATION}
+                mutant_keys = set(mutant.keys())
+
+                missing_keys = mandatory_keys - mutant_keys
+                extra_keys = mutant_keys - mandatory_keys
+
+                if missing_keys:
+                    raise Util.CertoraUserInputError(f"manual_mutants object must contain keys: {mandatory_keys}, "
+                                                     f"missing: {missing_keys}")
+                if extra_keys:
+                    raise Util.CertoraUserInputError(f"manual_mutants object contains invalid keys: {extra_keys}, "
+                                                     f"only allowed: {mandatory_keys}")
+                try:
+                    Vf.validate_readable_file(mutant[Constants.FILE_TO_MUTATE], Util.SOL_EXT)
+                except Exception as e:
+                    raise Util.CertoraUserInputError(f"Invalid file_to_mutate in manual mutant: {mutant[Constants.FILE_TO_MUTATE]}", e)
+
+                try:
+                    Vf.validate_dir(mutant[Constants.MUTANTS_LOCATION])
+                except Exception as e:
+                    raise Util.CertoraUserInputError(f"Invalid mutants location {mutant[Constants.MUTANTS_LOCATION]}", e)
 
     def mutation_attribute_in_prover(self) -> None:
         gambit_attrs = ['filename', 'contract', 'functions', 'seed', 'num_mutants']

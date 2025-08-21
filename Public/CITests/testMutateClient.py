@@ -92,9 +92,42 @@ class TestMutatedClient(unittest.TestCase):
                              expected='skip_validate not allowed inside embedded gambit object')
         suite = MutantTestSuite(conf_file_template=_p('mutation_template.conf'),
                                 test_attribute=Util.TestValue.CHECK_ARGS)
-        suite.expect_failure(description="outdir without gambit",
+        suite.expect_failure(description="outdir without gambit being set",
                              replacements=TestUtil.replace_x(f'{mutation_expr()}, "outdir": "new_dir"'),
                              expected="Invalid configuration: 'outdir' should not be set")
+
+        not_a_list = f'"manual_mutants": {{ "file_to_mutate": "{_p("A.sol")}", "mutants_location": "{_p("A_mutations")}"}}'
+        suite.expect_failure(description="manual_mutants is not a list",
+                             replacements=TestUtil.replace_x(not_a_list),
+                             expected="manual_mutants should be a list of objects")
+
+        not_an_object = f'"manual_mutants": ["not an object", "also not an object"]'
+        suite.expect_failure(description="manual_mutants is not a list of objects",
+                             replacements=TestUtil.replace_x(not_an_object),
+                             expected="manual_mutants should be a list of objects")
+
+
+        missing_key = f'"manual_mutants": [{{ "mutants_location": "{_p("A_mutations")}"}}]'
+        suite.expect_failure(description="missing mandatory file_to_mutate",
+                             replacements=TestUtil.replace_x(missing_key),
+                             expected="manual_mutants object must contain keys:")
+
+
+        unknown_key = f'"manual_mutants": [{{ "file_to_mutate": "{_p("A.sol")}", "mutants_location": "{_p("A_mutations")}", "unknown": "{_p("A_mutations")}"}}]'
+        suite.expect_failure(description="manual_mutants object contains unknown key",
+                             replacements=TestUtil.replace_x(unknown_key),
+                             expected="manual_mutants object contains invalid keys")
+
+
+        bad_file = f'"manual_mutants": [{{ "file_to_mutate": "{_p("bad.sol")}", "mutants_location": "{_p("A_mutations")}"}}]'
+        suite.expect_failure(description="manual_mutants object missing file_to_mutate",
+                             replacements=TestUtil.replace_x(bad_file),
+                             expected="Invalid file_to_mutate in manual mutant")
+
+        bad_location = f'"manual_mutants": [{{ "file_to_mutate": "{_p("A.sol")}", "mutants_location": "{_p("bad_location")}"}}]'
+        suite.expect_failure(description="manual_mutants object missing file_to_mutate",
+                             replacements=TestUtil.replace_x(bad_location),
+                             expected="Invalid mutants location")
 
     def test_invalid_runs(self) -> None:
         suite = MutantTestSuite(conf_file_template=_p('mutation_conf_top_level.conf'),
@@ -154,7 +187,7 @@ class TestMutatedClient(unittest.TestCase):
         mutation_attrs['manual_mutants'][0]['mutants_location'] = "does_not_exist"
         suite.expect_failure(description="single manual mutation - bad location",
                              replacements=TestUtil.replace_x(TestUtil.json_to_str(mutation_attrs)),
-                             expected="not a valid file or directory")
+                             expected="Invalid mutants location")
 
     def test_mutations_flags(self) -> None:
 
