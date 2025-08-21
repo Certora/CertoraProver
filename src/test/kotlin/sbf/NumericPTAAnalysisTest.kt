@@ -211,7 +211,8 @@ class NumericPTAAnalysisTest {
         val prog = MutableSbfCallGraph(cfgs, entrypoints, globals, preservedCFGs = setOf())
         val memSummaries = MemorySummaries()
         val progWithTypes = annotateWithTypes(prog, memSummaries)
-        val analysis = WholeProgramMemoryAnalysis(progWithTypes, memSummaries)
+        val sbfTypeFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+        val analysis = WholeProgramMemoryAnalysis(progWithTypes, memSummaries, sbfTypeFac, processor = null)
         analysis.inferAll()
         val analysisResults = analysis.getResults()[entrypointCfgName]!!
         val post = analysisResults.getPost(label)

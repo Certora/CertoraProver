@@ -55,7 +55,7 @@ class ScalarAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
             if (isEntryPoint) {
                 preMap[entry.getLabel()] = ScalarDomain(sbfTypeFac, initPreconditions = true)
             }
-            fixpo.solve(cfg, preMap, postMap, null)
+            fixpo.solve(cfg, preMap, postMap, liveMapAtExit = null, processor = null)
         }
 }
 

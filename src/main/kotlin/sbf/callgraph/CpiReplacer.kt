@@ -17,28 +17,51 @@
 
 package sbf.callgraph
 
-import log.Logger
-import log.LoggerTypes
 import sbf.cfg.MetaData
 import sbf.cfg.MutableSbfBasicBlock
 import sbf.cfg.MutableSbfCFG
 import sbf.cfg.SbfInstruction
 import sbf.cfg.SbfMeta
 import datastructures.stdcollections.*
-import sbf.analysis.cpis.CpiCall
-import sbf.analysis.cpis.INVOKE_FUNCTION_NAME
-import sbf.analysis.cpis.INVOKE_SIGNED_FUNCTION_NAME
-import sbf.analysis.cpis.InvokeType
-import sbf.analysis.cpis.TokenInstruction
+import log.*
+import sbf.SolanaConfig
+import sbf.analysis.WholeProgramMemoryAnalysis
+import sbf.analysis.cpis.*
+import sbf.domains.INumValue
+import sbf.domains.IOffset
+import sbf.inliner.InlinerConfig
+import sbf.inliner.inline
+import sbf.output.annotateWithTypes
+import sbf.slicer.sliceAndPTAOptLoop
 
 private val cpiLog = Logger(LoggerTypes.CPI)
+
+fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>  substituteCpiCalls(
+    analysis: WholeProgramMemoryAnalysis<TNum, TOffset>,
+    target: String,
+    inliningConfig: InlinerConfig,
+    startTime: Long
+): SbfCallGraph {
+    val p0 = analysis.program
+    val cpiCalls = getCpiCalls(analysis)
+    val p1 = replaceCpis(p0, cpiCalls)
+    // We need to inline the code of the mocks for the CPI calls
+    val p2 = inline(target, target, p1, analysis.memSummaries, inliningConfig)
+    val p3 = annotateWithTypes(p2, analysis.memSummaries)
+    // Since we injected new code, this might create new unreachable blocks
+    val p4 = sliceAndPTAOptLoop(target, p3, analysis.memSummaries, startTime)
+    if (SolanaConfig.PrintAnalyzedToDot.get()) {
+        p4.toDot(ArtifactManagerFactory().outputDir, true)
+    }
+    return p4
+}
 
 /**
  * Returns [prog] where the CPI calls have been replaced with calls to their respective mocks.
  * For example, `call solana_program::program::invoke` could be substituted to
  * `call cvlr_solana::cpis::cvlr_invoke_transfer` if the invoked instruction is Token's transfer.
  */
-fun replaceCpis(prog: SbfCallGraph, cpiCalls: Iterable<CpiCall>): SbfCallGraph {
+private fun replaceCpis(prog: SbfCallGraph, cpiCalls: Iterable<CpiCall>): SbfCallGraph {
     return CpiReplacer.replaceCpis(prog, cpiCalls)
 }
 

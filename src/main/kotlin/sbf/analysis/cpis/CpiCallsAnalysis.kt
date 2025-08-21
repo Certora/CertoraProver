@@ -24,21 +24,14 @@ import sbf.callgraph.*
 import sbf.cfg.*
 import sbf.disassembler.GlobalVariableMap
 import sbf.disassembler.SbfRegister
-import sbf.domains.InstructionListener
-import sbf.domains.MemorySummaries
-import sbf.domains.PTAField
 import sbf.analysis.MemoryAnalysis
 import sbf.analysis.WholeProgramMemoryAnalysis
-import sbf.domains.ConstantSet
-import sbf.domains.MemoryDomain
+import sbf.domains.*
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
 
 private val cpiLog = Logger(LoggerTypes.CPI)
-
-/** Type of the memory domain. */
-private typealias MemoryDomainT = MemoryDomain<ConstantSet, ConstantSet>
 
 /**
  * Returns the list of CPI calls that the analysis was able to infer.
@@ -47,7 +40,9 @@ private typealias MemoryDomainT = MemoryDomain<ConstantSet, ConstantSet>
  * Observe that `invoke` should *not* be inlined, as this analysis detects `call solana_program::program::invoke` and
  * `call solana_program::program::invoke_signed`.
  */
-fun getCpiCalls(analysis: WholeProgramMemoryAnalysis): List<CpiCall> {
+fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getCpiCalls(
+    analysis: WholeProgramMemoryAnalysis<TNum, TOffset>
+): List<CpiCall> {
     return CpiAnalysis(analysis.program, analysis.getResults(), analysis.memSummaries).getCpiCalls()
 }
 
@@ -102,9 +97,9 @@ fun getInvokes(analyzedProg: SbfCallGraph): List<LocatedInvoke> {
 const val INVOKE_FUNCTION_NAME = "solana_program::program::invoke"
 const val INVOKE_SIGNED_FUNCTION_NAME = "solana_program::program::invoke_signed"
 
-private data class CpiAnalysis(
+private data class CpiAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     val analyzedProg: SbfCallGraph,
-    val analysisResults: Map<String, MemoryAnalysis<ConstantSet, ConstantSet>>,
+    val analysisResults: Map<String, MemoryAnalysis<TNum, TOffset>>,
     val memSummaries: MemorySummaries
 ) {
 
@@ -142,10 +137,10 @@ private data class CpiAnalysis(
      * Listens to the analysis, and once [locatedInvoke] is found, analyzes the memory domain trying to determine which
      * instruction is being called.
      */
-    private class InvokeInstructionListener(
+    private inner class InvokeInstructionListener(
         val locatedInvoke: LocatedSbfInstruction,
         val globals: GlobalVariableMap
-    ) : InstructionListener<MemoryDomainT> {
+    ) : InstructionListener<MemoryDomain<TNum, TOffset>> {
 
         /** If the listener can detect which instruction is called, it will store the instruction in this variable. */
         private var cpiInstruction: CpiInstruction? = null
@@ -158,7 +153,7 @@ private data class CpiAnalysis(
 
         override fun instructionEventBefore(
             locInst: LocatedSbfInstruction,
-            pre: MemoryDomainT
+            pre: MemoryDomain<TNum, TOffset>
         ) {
             if (locInst.label == this.locatedInvoke.label && locInst.pos == this.locatedInvoke.pos) {
                 if (cpiInstruction != null) {
@@ -203,14 +198,14 @@ private data class CpiAnalysis(
 
         override fun instructionEventAfter(
             locInst: LocatedSbfInstruction,
-            post: MemoryDomainT
+            post: MemoryDomain<TNum, TOffset>
         ) {
         }
 
         override fun instructionEvent(
             locInst: LocatedSbfInstruction,
-            pre: MemoryDomainT,
-            post: MemoryDomainT
+            pre: MemoryDomain<TNum, TOffset>,
+            post: MemoryDomain<TNum, TOffset>
         ) {
         }
     }
@@ -235,8 +230,8 @@ private data class CpiAnalysis(
          * We know that before calling `invoke` register R2 points to the `Instruction`, and 48 bytes after the program
          * id is encoded in 32 bytes.
          */
-        private fun getProgramIdBeforeInvoke(
-            memoryDomain: MemoryDomainT,
+        private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getProgramIdBeforeInvoke(
+            memoryDomain: MemoryDomain<TNum, TOffset>,
             globals: GlobalVariableMap
         ): Program.ProgramId? {
             val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
@@ -290,8 +285,8 @@ private data class CpiAnalysis(
          * the discriminant is known and can be converted into a [TokenInstruction], return such instruction.
          * Otherwise, return `null`.
          */
-        private fun getTokenProgramInstruction(
-            memoryDomain: MemoryDomainT,
+        private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getTokenProgramInstruction(
+            memoryDomain: MemoryDomain<TNum, TOffset>,
             globals: GlobalVariableMap
         ): TokenInstruction? {
             val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)

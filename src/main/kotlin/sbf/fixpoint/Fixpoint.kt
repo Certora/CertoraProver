@@ -23,6 +23,7 @@ import sbf.disassembler.Label
 import sbf.cfg.SbfCFG
 import sbf.disassembler.GlobalVariableMap
 import sbf.domains.AbstractDomain
+import sbf.domains.InstructionListener
 import sbf.domains.MemorySummaries
 import sbf.sbfLogger
 
@@ -35,10 +36,19 @@ const val debugFixpoPrintStatements = false
  **/
 interface FixpointSolver<T: AbstractDomain<T>> {
     /**
-     * @params [liveMapAtExit]: set of live registers at the end of each basic block
+     * Compute the fixpoint over [cfg] with the abstraction domain `T`.
+     * @param inMap output of the fixpoint. It contains the invariants at the entry of each block.
+     * @param outMap output of the fixpoint. It contains the invariants at the exit of each block.
+     * @param liveMapAtExit is set of live registers at the end of each basic block.
+     * @param processor after each WTO component is solved, [processor] is called. If a WTO component is
+     * nested, [processor] is called only after the outermost WTO cycle has been solved to ensure each block
+     * is processed only once with post-fixpoint facts.
      */
-    fun solve(cfg: SbfCFG, inMap: MutableMap<Label, T>, outMap: MutableMap<Label, T>,
-              liveMapAtExit: Map<Label, LiveRegisters>?)
+    fun solve(cfg: SbfCFG,
+              inMap: MutableMap<Label, T>,
+              outMap: MutableMap<Label, T>,
+              liveMapAtExit: Map<Label, LiveRegisters>?,
+              processor: InstructionListener<T>?)
 }
 
 /**
