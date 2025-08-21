@@ -1219,6 +1219,15 @@ object Config {
         )
     ) {}
 
+    val EquivalenceTraceFile = object : ConfigType.StringCmdLine(
+        "",
+        Option(
+            "equivTraceFile",
+            true,
+            "File to write the equivalence counter example to. Omit to print to stdout"
+        )
+    ) {}
+
 
     private val _Mem0x0To0x40AsScalar = object : ConfigType.BooleanCmdLine(
         true,

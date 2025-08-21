@@ -24,6 +24,7 @@ import datastructures.stdcollections.*
 import evm.DEFAULT_SIGHASH_SIZE
 import evm.EVM_BITWIDTH256
 import evm.EVM_BYTES_IN_A_WORD
+import evm.EVM_WORD_SIZE
 import log.*
 import report.calltrace.CallInputsAndOutputs
 import report.calltrace.calldataMovement
@@ -45,6 +46,7 @@ import verifier.equivalence.summarization.CommonPureInternalFunction
 import verifier.equivalence.tracing.BufferTraceInstrumentation
 import java.math.BigInteger
 import verifier.equivalence.CEXUtils.toList
+import verifier.equivalence.CEXUtils.withFailureString
 import verifier.equivalence.data.*
 
 private val logger = Logger(LoggerTypes.EQUIVALENCE)
@@ -163,6 +165,25 @@ internal class CounterExampleExplainer(
                 ).toList(buffLength)
             }
         }
+        val returnData = mutableListOf<BigInteger>()
+        var returnOffsIt = BigInteger.ZERO
+        val symbols = ce.returnDataSample.iterator()
+        while(returnOffsIt < returnSize && symbols.hasNext()) {
+            if (returnOffsIt + EVM_WORD_SIZE > returnSize) {
+                break
+            }
+            val sym = symbols.next()
+            val elemValue = model.valueAsBigInteger(sym).withFailureString("Return offs: $returnOffsIt").leftOrNull() ?: break
+            returnData.add(elemValue)
+            returnOffsIt += EVM_WORD_SIZE
+        }
+        val dataRepr = when {
+            returnOffsIt == returnSize -> ExternalCall.ReturnDataSample.Complete(returnData)
+            returnData.isEmpty() -> ExternalCall.ReturnDataSample.None
+            else -> ExternalCall.ReturnDataSample.Prefix(
+                returnData, bytesMissing = returnSize - returnOffsIt
+            )
+        }
         return ExternalCall.Complete(
             returnSize = returnSize,
             callee = callee,
@@ -170,6 +191,7 @@ internal class CounterExampleExplainer(
             calleeCodesize = calleeCodesize,
             calldata = calldata,
             value = value,
+            returnData = dataRepr
         ).toLeft()
     }
 

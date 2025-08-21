@@ -197,7 +197,7 @@ class SharedPureSummarization(
 
     override fun selectSummary(sig: QualifiedMethodSignature): SummarySelection<QualifiedMethodSignature, Int>? {
         return this.l.firstNotNullOfOrNull { (q, ind) ->
-            if(q.matchesContractAndParams(sig)) {
+            if(q.matchesNameAndParams(sig)) {
                 SummarySelection(q, ind)
             } else {
                 null

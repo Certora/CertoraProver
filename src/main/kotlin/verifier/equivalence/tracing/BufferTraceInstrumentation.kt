@@ -33,6 +33,7 @@ import vc.data.tacexprutil.ExprUnfolder
 import java.math.BigInteger
 import java.util.stream.Collectors
 import datastructures.stdcollections.*
+import evm.EVM_WORD_SIZE_INT
 import scene.ContractClass
 import scene.IContractWithSource
 import spec.cvlast.QualifiedMethodSignature
@@ -455,7 +456,9 @@ class BufferTraceInstrumentation private constructor(
         /**
          * The value in gwei sent with the call
          */
-        val value: TACSymbol
+        val value: TACSymbol,
+
+        val returnDataSample: List<TACSymbol.Var>
     ) : TransformableVarEntityWithSupport<CallEvent> {
         private operator fun ((TACSymbol.Var) -> TACSymbol.Var).invoke(o: TACSymbol) = when(o) {
             is TACSymbol.Const -> o
@@ -472,7 +475,8 @@ class BufferTraceInstrumentation private constructor(
                 returnCode = f(returnCode),
                 calleeCodeSize = f(calleeCodeSize),
                 callee = f(callee),
-                value = f(value)
+                value = f(value),
+                returnDataSample = returnDataSample.map(f)
             )
         }
 
@@ -487,7 +491,7 @@ class BufferTraceInstrumentation private constructor(
                 calleeCodeSize as? TACSymbol.Var,
                 callee as? TACSymbol.Var,
                 value as? TACSymbol.Var
-            )
+            ) + returnDataSample
         companion object {
             val META_KEY = MetaKey<CallEvent>("call.event.meta")
         }
@@ -1475,8 +1479,6 @@ class BufferTraceInstrumentation private constructor(
     ): CommandWithRequiredDecls<TACCmd.Simple> {
         val origCommand = origLc.cmd
 
-        val stateHolder = TACSymbol.Var("nextStatePre", Tag.Bit256).toUnique("!")
-
         /**
          * This is initialized to be equal to [globalStateAccumulator]
          */
@@ -1579,6 +1581,32 @@ class BufferTraceInstrumentation private constructor(
             TACKeyword.RETURNDATA.toVar(),
             TACKeyword.RETURN_SIZE.toVar()
         ))
+
+        val returnDataSampleSize = g.cache[MustBeConstantAnalysis].mustBeConstantAt(
+            origLc.ptr,
+            origCommand.outSize
+        )?.takeIf {
+            it.mod(EVM_WORD_SIZE) == BigInteger.ZERO && it > BigInteger.ZERO
+        }?.let {
+            it / EVM_WORD_SIZE
+        }?.toIntOrNull()
+
+        val (returnDataSamples, sampleReads) = returnDataSampleSize?.let { sz ->
+            (0 ..< sz).map { ind ->
+                val t = TACKeyword.TMP(Tag.Bit256, "!return$ind!")
+                t to CommandWithRequiredDecls(
+                    TACCmd.Simple.AssigningCmd.ByteLoad(
+                        lhs = t,
+                        loc = (ind * EVM_WORD_SIZE_INT).asTACSymbol(),
+                        base = TACKeyword.RETURNDATA.toVar()
+                    ),
+                    t
+                )
+            }
+        }?.unzip()?.mapSecond { reads ->
+            reads.flatten()
+        } ?: (listOf<TACSymbol.Var>() to CommandWithRequiredDecls<TACCmd.Simple>())
+
         /**
          * Copy the global state, increment it
          */
@@ -1591,7 +1619,10 @@ class BufferTraceInstrumentation private constructor(
                 lhs = globalStateAccumulator,
                 rhs = TACExpr.Vec.Add(stateCopy.asSym(), 1.asTACExpr)
             ),
-        ), setOf(stateCopy)).merge(callUpdate).merge(returnSizeConstraint).merge(
+        ), setOf(stateCopy, globalStateAccumulator, stateCopy)) andThen
+            callUpdate andThen
+            returnSizeConstraint andThen
+            sampleReads andThen
             // record the call command
             TACCmd.Simple.AnnotationCmd(
                 CallEvent.META_KEY,
@@ -1604,17 +1635,18 @@ class BufferTraceInstrumentation private constructor(
                     calleeCodeSize = calleeCodesize,
                     returnCode = TACKeyword.RETURNCODE.toVar(),
                     returnDataSize = TACKeyword.RETURN_SIZE.toVar(),
-                    value = origCommand.value
+                    value = origCommand.value,
+                    returnDataSample = returnDataSamples
                 )
+            ) andThen
+            // update memory with the copy amount
+            TACCmd.Simple.ByteLongCopy(
+                dstBase = origCommand.outBase,
+                length = copyAmount,
+                dstOffset = origCommand.outOffset,
+                srcOffset = TACSymbol.Zero,
+                srcBase = TACKeyword.RETURNDATA.toVar()
             )
-        // update memory with the copy amount
-        ).merge(TACCmd.Simple.ByteLongCopy(
-            dstBase = origCommand.outBase,
-            length = copyAmount,
-            dstOffset = origCommand.outOffset,
-            srcOffset = TACSymbol.Zero,
-            srcBase = TACKeyword.RETURNDATA.toVar()
-        )).merge(globalStateAccumulator, stateCopy, stateHolder)
     }
 
     /**

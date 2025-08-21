@@ -23,8 +23,10 @@ import spec.rules.IRule
 
 object SMTResultInterpreter {
     fun getResultString(res: SolverResult?, rule: IRule): String {
-        val isSatisfyRule = rule.isSatisfyRule || rule.getAllSingleRules().all {
-            it.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
+        val isSatisfyRule = rule.isSatisfyRule || rule.getAllSingleRules().let { singleRules ->
+            singleRules.isNotEmpty() && singleRules.all { single ->
+                single.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
+            }
         }
         return when (res) {
             null -> "No result"

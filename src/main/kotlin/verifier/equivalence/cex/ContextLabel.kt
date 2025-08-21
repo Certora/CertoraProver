@@ -36,7 +36,8 @@ sealed interface ContextLabel {
         CALLEE("Callee address", "Target account of external call"),
         CALLEE_CODESIZE("Callee codesize", "Non-deterministically chosen codesize of the target account"),
         RETURNSIZE("Result Buffer Size", "Size, in bytes, of the return/revert buffer"),
-        CALL_RESULT("Call Result", "Whether the external call reverted or returned successfully")
+        CALL_RESULT("Call Result", "Whether the external call reverted or returned successfully"),
+        RETURNDATA("Return Data", "(Partial) model of the returndata from the external call")
     }
 
     sealed interface InternalCallLabel : ContextLabel {
