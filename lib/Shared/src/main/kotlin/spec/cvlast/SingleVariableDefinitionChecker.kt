@@ -45,7 +45,7 @@ import utils.arrayDequeOf
  *
  * Note: wildcards ("_") and ghosts can be redefined at any time
  */
-class SingleVariableDefinitionChecker {
+class SingleVariableDefinitionChecker(val contractNames: List<String>) {
 
     // Note: this class only defines the traversals; the variable states and transitions are managed in [VarDefState]
     private val variables = VarDefState()
@@ -191,6 +191,9 @@ class SingleVariableDefinitionChecker {
             variables.push()
             variables.registerKeyword(CVLKeywords.calledContract.keyword)
             variables.registerKeyword(CVLKeywords.executingContract.keyword)
+            this@SingleVariableDefinitionChecker.contractNames.forEach { cName ->
+                variables.declareLocal(cName, Range.Empty())
+            }
 
             val result = defineAndCheckVM(
                 params    = importedMethod.methodParameterSignature.params.filterIsInstance<VMParam.Named>(),

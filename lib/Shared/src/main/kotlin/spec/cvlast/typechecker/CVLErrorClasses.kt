@@ -887,6 +887,10 @@ class AssignFromVoid(val rhsKind: RhsKind, val rhs: String, override val locatio
 // undefined variables in an invariant filter
 @CVLErrorExample("invariant i() true filtered { x -> #g#.selector != 0 }")
 
+// base of function call undeclared
+@CVLErrorExample("function f() { #x#.foo(); }")
+@CVLErrorExample("function f() { assert #x#.foo(); }")
+
 
 class UndeclaredVariable private constructor(override val location: Range, override val message : String) : CVLError() {
     constructor(id : String, location : Range) : this(location, specialize(id))
@@ -1655,33 +1659,24 @@ class MethodVariableTooManyContracts private constructor(override val location: 
 @KSerializable
 @CVLErrorType(
     category = CVLErrorCategory.TYPECHECKING,
-    description =
-    """
-        When calling a method on a specific contract, the contract must be either `currentContract` or a method-typed
-        variable introduced with a `using` statement. See {ref}`call-expr` for more details.
-        """
-)
-@CVLErrorExample(
-    exampleCVLWithRange = "rule r { method f; d.#f()#; assert true; }",
-    exampleMessage = "contract variable `d` not found. Contract variables must be introduced with a `using` statement."
-)
-class NoSuchContractInstance private constructor(override val location: Range, override val message: String) : CVLError() {
-    constructor(exp: CVLExp.UnresolvedApplyExp) : this(
-        location = exp.getRangeOrEmpty(),
-        message = "contract variable `${exp.base}` not found. Contract variables must be introduced with a `using` statement."
-    )
-}
-
-@KSerializable
-@CVLErrorType(
-    category = CVLErrorCategory.TYPECHECKING,
     description = "parametric methods can only be called on aliased contracts"
 )
-@CVLErrorExample("rule r { method f; address d; d.#f()#; assert true; }")
+@CVLErrorExample(
+    exampleCVLWithRange = "rule r { method f; address d; d.#f()#; assert true; }",
+    exampleMessage = "cannot perform parametric function calls on general address-typed variable `d` - only contract aliases are supported for this."
+)
+@CVLErrorExample(
+    exampleCVLWithRange = "rule r { method f; uint d; d.#f()#; assert true; }",
+    exampleMessage = "`d` is not a contract alias (i.e. it isn't introduced via a `using` statement. Cannot call a parametric function on it"
+)
 class NotAContractInstance private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(exp: CVLExp.UnresolvedApplyExp) : this(
         exp.getRangeOrEmpty(),
-        "cannot perform parametric function calls on general address-typed variables - only contract aliases are supported for this."
+        if (exp.base!!.getCVLType().isConvertibleTo(CVLType.PureCVLType.Primitive.AccountIdentifier)) {
+            "cannot perform parametric function calls on general address-typed variable `${exp.base}` - only contract aliases are supported for this."
+        } else {
+            "`${exp.base}` is not a contract alias (i.e. it isn't introduced via a `using` statement. Cannot call a parametric function on it"
+        }
     )
 }
 

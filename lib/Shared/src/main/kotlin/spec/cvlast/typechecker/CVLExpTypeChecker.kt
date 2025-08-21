@@ -2132,12 +2132,9 @@ class CVLExpTypeCheckerWithContext(
                     when (val ty = symbolInfo.getCVLTypeOrNull()) {
                         is CVLType.PureCVLType.Primitive.CodeContract -> ty.name.lift()
                         is CVLType.PureCVLType.Bottom -> AllContracts.lift()
-                        is CVLType.PureCVLType.Primitive.AccountIdentifier ->
-                            NotAContractInstance(exp).asError()
-
-                        else -> NoSuchContractInstance(exp).asError()
+                        else -> NotAContractInstance(exp).asError()
                     }
-                } ?: return NoSuchContractInstance(exp).asError()
+                } ?: `impossible!` // This means it's an undeclared variable which should have been caught earlier
             } else {
                 AllContracts.lift()
             }.bind { contract ->
@@ -2195,6 +2192,8 @@ class CVLExpTypeCheckerWithContext(
     }
 
     fun resolveApply(exp: CVLExp.UnresolvedApplyExp): CollectingResult<CVLExp.ApplicationExp, CVLError> = collectingErrors {
+        val base = exp.base?.let { bind(expr(it)) }
+        val exp = exp.copy(base = base)
         // First, check if this is a parametric method
         symbolTable.lookUpFunctionLikeSymbol(exp.methodId, typeEnv.scope)?.let { resolved ->
             if (resolved is CVLSymbolTable.SymbolInfo.CVLValueInfo && resolved.getCVLType() == EVMBuiltinTypes.method) {
@@ -2202,12 +2201,11 @@ class CVLExpTypeCheckerWithContext(
             }
         }
 
-        val base = exp.base?.let { bind(expr(it)) }
         val baseType = base?.getOrInferPureCVLType()
 
         // Now check if it's an address function call
         if (baseType is CVLType.PureCVLType.Primitive.AccountIdentifier) {
-            return@collectingErrors bind(handleAddressFunctionCall(exp, base))
+            return@collectingErrors bind(handleAddressFunctionCall(exp))
         }
 
         val contractScope = if (base != null) {
@@ -2273,7 +2271,7 @@ class CVLExpTypeCheckerWithContext(
         ))
     }
 
-    private fun handleAddressFunctionCall(exp: CVLExp.UnresolvedApplyExp, base: CVLExp): CollectingResult<CVLExp.ApplicationExp, CVLError> = collectingErrors {
+    private fun handleAddressFunctionCall(exp: CVLExp.UnresolvedApplyExp): CollectingResult<CVLExp.ApplicationExp, CVLError> = collectingErrors {
         val (args, storage) = bind(exp.args.map(this@CVLExpTypeCheckerWithContext::expr).flatten(), variable(exp.invokeStorage))
 
         if (!exp.invokeIsSafe) {
@@ -2318,7 +2316,7 @@ class CVLExpTypeCheckerWithContext(
         }
 
         return@collectingErrors CVLExp.AddressFunctionCallExp(
-            base,
+            exp.base!!,
             exp.methodId,
             args,
             storage,
