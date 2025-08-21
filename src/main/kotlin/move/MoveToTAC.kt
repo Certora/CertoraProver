@@ -204,21 +204,24 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     }
 
     private fun compileRuleCoreTACProgram(
+        ruleName: String,
         entryFunc: MoveFunction,
         sanityMode: SanityMode
     ): Pair<CoreTACProgram, CompiledRuleType> {
-        val moveTAC = compileMoveTACProgram(entryFunc, sanityMode)
+        return annotateCallStack("rule.$ruleName") {
+            val moveTAC = compileMoveTACProgram(entryFunc, sanityMode)
 
-        ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
+            ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
-        val coreTAC = MoveMemory(scene).transform(moveTAC).let { configureOptimizations(it) }
-        ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
+            val coreTAC = MoveMemory(scene).transform(moveTAC).let { configureOptimizations(it) }
+            ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
 
-        val ruleType = getRuleType(coreTAC)
+            val ruleType = getRuleType(coreTAC)
 
-        val finalTAC = preprocess(coreTAC, ruleType).letIf(scene.optimize) { optimize(it) }
+            val finalTAC = preprocess(coreTAC, ruleType).letIf(scene.optimize) { optimize(it) }
 
-        return finalTAC to ruleType
+            finalTAC to ruleType
+        }
     }
 
     private fun compileRule(
@@ -227,30 +230,34 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     ): List<Pair<EcosystemAgnosticRule, CoreTACProgram>> {
         return when (ruleType) {
             RuleType.USER_RULE -> {
-                val (coreTAC, compiledRuleType) = compileRuleCoreTACProgram(entryFunc, SanityMode.NONE)
+                val ruleName = entryFunc.name.toString()
+                val (coreTAC, compiledRuleType) = compileRuleCoreTACProgram(ruleName, entryFunc, SanityMode.NONE)
                 listOf(
                     EcosystemAgnosticRule(
-                        ruleIdentifier = RuleIdentifier.freshIdentifier(entryFunc.name.toString()),
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
                         ruleType = SpecType.Single.FromUser.SpecFile,
                         isSatisfyRule = compiledRuleType.isSatisfy
                     ) to coreTAC
                 )
             }
             RuleType.SANITY -> {
-                val (assertTAC, assertTACType) = compileRuleCoreTACProgram(entryFunc, SanityMode.ASSERT_TRUE)
+                val assertRuleName = "${entryFunc.name}-Assertions"
+                val satisfyRuleName = "${entryFunc.name}-$REACHED_END_OF_FUNCTION"
+
+                val (assertTAC, assertTACType) = compileRuleCoreTACProgram(assertRuleName, entryFunc, SanityMode.ASSERT_TRUE)
                 check(assertTACType == CompiledRuleType.ASSERT)
 
-                val (satisfyTAC, satisfyTACType) = compileRuleCoreTACProgram(entryFunc, SanityMode.SATISFY_TRUE)
+                val (satisfyTAC, satisfyTACType) = compileRuleCoreTACProgram(satisfyRuleName, entryFunc, SanityMode.SATISFY_TRUE)
                 check(satisfyTACType == CompiledRuleType.SATISFY)
 
                 listOf(
                     EcosystemAgnosticRule(
-                        ruleIdentifier = RuleIdentifier.freshIdentifier("${entryFunc.name}-Assertions"),
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(assertRuleName),
                         ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
                         isSatisfyRule = false
                     ) to assertTAC,
                     EcosystemAgnosticRule(
-                        ruleIdentifier = RuleIdentifier.freshIdentifier("${entryFunc.name}-$REACHED_END_OF_FUNCTION"),
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(satisfyRuleName),
                         ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
                         isSatisfyRule = true
                     ) to satisfyTAC
@@ -481,23 +488,36 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     return op(type, lhs, rhs)
                 }
 
-                cmds += when (inst) {
-                    is MoveInstruction.BrTrue ->
+                fun conditionalJump(cond: TACExpr.Sym, trueOffset: Int, falseOffset: Int): MoveCmdsWithDecls {
+                    val trueBranch = successor(trueOffset)
+                    val falseBranch = successor(falseOffset)
+                    return if (trueBranch != falseBranch) {
                         TACCmd.Simple.JumpiCmd(
-                            cond = pop().s,
-                            dst = successor(inst.branchTarget),
-                            elseDst = successor(currentOffset + 1),
+                            cond = cond.s,
+                            dst = trueBranch,
+                            elseDst = falseBranch,
                             meta = meta
                         ).withDecls()
+                    } else {
+                        TACCmd.Simple.JumpCmd(trueBranch, meta).withDecls()
+                    }
+                }
+
+                cmds += when (inst) {
+                    is MoveInstruction.BrTrue ->
+                        conditionalJump(
+                            cond = pop(),
+                            trueOffset = inst.branchTarget,
+                            falseOffset = currentOffset + 1
+                        )
+
                     is MoveInstruction.BrFalse ->
-                        TXF { not(pop()) }.letVar(Tag.Bool) { cond ->
-                            TACCmd.Simple.JumpiCmd(
-                                cond = cond.s,
-                                dst = successor(inst.branchTarget),
-                                elseDst = successor(currentOffset + 1),
-                                meta = meta
-                            ).withDecls()
-                        }
+                        conditionalJump(
+                            cond = pop(),
+                            falseOffset = inst.branchTarget,
+                            trueOffset = currentOffset + 1
+                        )
+
                     is MoveInstruction.Branch ->
                         TACCmd.Simple.JumpCmd(successor(inst.branchTarget), meta).withDecls()
 

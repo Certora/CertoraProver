@@ -62,6 +62,36 @@ class BytecodeTest : MoveTestFixture() {
     }
 
     @Test
+    fun `empty if`() {
+        addMoveSource("""
+            $testModule
+            public fun test(n: u32) {
+                if (n == 0) {
+                };
+                cvlm_assert(true);
+            }
+        """.trimIndent())
+
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `empty else`() {
+        addMoveSource("""
+            $testModule
+            public fun test(n: u32) {
+                if (n == 0) {
+                    cvlm_assert(true);
+                } else {
+                };
+                cvlm_assert(true);
+            }
+        """.trimIndent())
+
+        assertTrue(verify())
+    }
+
+    @Test
     fun `while loop`() {
         addMoveSource("""
             $testModule
