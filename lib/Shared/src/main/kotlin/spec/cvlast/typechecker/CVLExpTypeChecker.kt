@@ -2155,6 +2155,14 @@ class CVLExpTypeCheckerWithContext(
         }
     }
 
+    /**
+     * Checks if the given method ID is a listed internal function in the contract.
+     */
+    private fun shouldListInternalFunction(methodId: String, contract: ContractInstanceInSDC): Boolean {
+        return Config.ListCalls.getOrNull() != null &&
+               contract.internalFunctions.values.map { it.method.name }.contains(methodId)
+    }
+
     private fun missingFunctionError(exp: CVLExp.UnresolvedApplyExp, contract: ContractInstanceInSDC): CVLError {
         val errMessage = contract.internalFunctions.values
             .map { it.method }
@@ -2230,11 +2238,34 @@ class CVLExpTypeCheckerWithContext(
             ?.let { harnessName -> symbolTable.lookUpFunctionLikeSymbol(harnessName, contractScope) }
             ?.let { symInfo -> symInfo as? CVLSymbolTable.SymbolInfo.CVLFunctionInfo }
 
-        val res = functionInfo?.let {
-            internalFunctionHarnessInfo?.let {
-                CVLSymbolTable.SymbolInfo.CVLFunctionInfo(functionInfo.symbolValue, functionInfo.impFuncs + internalFunctionHarnessInfo.impFuncs)
-            } ?: functionInfo
-        } ?: internalFunctionHarnessInfo ?: returnError(missingFunctionError(exp, contract))
+        val res = when {
+            // Both function info and harness info are available - merge them
+            functionInfo != null && internalFunctionHarnessInfo != null -> {
+                val mergedImpFuncs = functionInfo.impFuncs + internalFunctionHarnessInfo.impFuncs
+                CVLSymbolTable.SymbolInfo.CVLFunctionInfo(functionInfo.symbolValue, mergedImpFuncs)
+            }
+
+            // Only function info is available
+            functionInfo != null -> functionInfo
+
+            // Only harness info is available
+            internalFunctionHarnessInfo != null -> internalFunctionHarnessInfo
+
+            // Neither available, but we just want to list internal function calls
+            shouldListInternalFunction(exp.methodId, contract) -> {
+                return@collectingErrors exp.copy(
+                    base = base,
+                    args = collectAndFilter(exp.args.map(::expr)),
+                    tag = exp.tag.copy(
+                        type = CVLType.PureCVLType.Bottom,
+                        annotation = CVLExp.UnresolvedApplyExp.ListedInternalFunc
+                    )
+                )
+            }
+
+            // Function not found - return error
+            else -> returnError(missingFunctionError(exp, contract))
+        }
 
         check(res.symbolValue is ContractFunction) {
             "All other types of 'concrete' application should have already been resolved at this stage, got ${res.symbolValue}"

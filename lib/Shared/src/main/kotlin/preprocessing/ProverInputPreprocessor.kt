@@ -163,14 +163,14 @@ object ProverInputPreprocessor {
         File(outFile).writeText(chosenRules)
     }
 
-    private fun printFunctionCalls(ast: CVLAst, primaryContract: String) {
+    private fun printFunctionCalls(ast: IAstCodeBlocks, importedContracts: List<CVLImportedContract>, primaryContract: String) {
         val outFile = Config.ListCalls.getOrNull() ?: return
 
         val unresolvedCallsCollector = object : CVLCmdFolder<Set<String>>() {
             override fun cvlExp(acc: Set<String>, exp: CVLExp): Set<String> {
                 val unresolvedCalls = exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().mapToSet { unresolved ->
                     val base = (unresolved.base as? CVLExp.VariableExp)?.id?.let { baseContract ->
-                        ast.importedContracts.find { it.alias == baseContract }?.solidityContractName?.name
+                        importedContracts.find { it.alias == baseContract }?.solidityContractName?.name
                     } ?: primaryContract
 
                     "$base.${unresolved.methodId}"
@@ -220,6 +220,7 @@ object ProverInputPreprocessor {
                         // In this ast all rules generated from invariants and built-ins are already present in the list
                         // of `rules`, so no need to explicitly add them here
                         printFilteredRules(ast.rules.mapToSet { it.declarationId })
+                        printFunctionCalls(ast, ast.importedContracts, verify.primary_contract)
                         ast
                     }
                 } else {
@@ -242,7 +243,7 @@ object ProverInputPreprocessor {
                             ast.invs.mapToSet { it.id } +
                             ast.useDeclarations.builtInRulesInUse.mapToSet { it.id }
                         )
-                        printFunctionCalls(ast, verify.primary_contract)
+                        printFunctionCalls(ast, ast.importedContracts, verify.primary_contract)
                         astCb(ast)
                     }
                 } else {

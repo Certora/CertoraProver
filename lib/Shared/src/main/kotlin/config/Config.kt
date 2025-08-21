@@ -206,8 +206,10 @@ object Config {
         ConfigType.StringCmdLine(
             null, Option(
                 "listCalls", true,
-                "Writes to the provided file a list of all unresolved calls that exist in the spec after syntax checking succeeded. " +
-                    "This option is only used by the TypeChecker.jar in non `-typecheck` mode."
+                "This option is only used by the TypeChecker.jar in non `-typecheck` mode. " +
+                "If typechecking is disabled (no `-typecheck` flag), writes to the provided file a list of all unresolved calls that exist in the spec. " +
+                    "If typechecking is enabled (`-typecheck` flag is used), returns a list of all internal calls that have no external harness function."
+
             )
         ) {}
 

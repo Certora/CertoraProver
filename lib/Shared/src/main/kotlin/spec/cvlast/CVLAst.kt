@@ -52,7 +52,6 @@ import spec.cvlast.typedescriptors.VMDynamicArrayTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.isWildcard
-import spec.rules.CVLSingleRule
 import spec.rules.ICVLRule
 import utils.*
 import utils.CollectingResult.Companion.asError
@@ -82,41 +81,19 @@ class InvalidParameterType(msg: String) : RuntimeException(msg)
 data class CVLAst(
     val importedMethods: List<MethodBlockEntry>,
     val useDeclarations: UseDeclarations,
-    val rules: List<ICVLRule>,
-    val subs: List<spec.cvlast.CVLFunction>,
-    val invs: List<CVLInvariant>,
+    override val rules: List<ICVLRule>,
+    override val subs: List<spec.cvlast.CVLFunction>,
+    override val invs: List<CVLInvariant>,
     val sorts: List<SortDeclaration>,
-    val ghosts: List<CVLGhostDeclaration>,
-    val definitions: List<spec.cvlast.CVLDefinition>,
-    val hooks: List<CVLHook>,
+    override val ghosts: List<CVLGhostDeclaration>,
+    override val definitions: List<spec.cvlast.CVLDefinition>,
+    override val hooks: List<CVLHook>,
     val importedContracts: List<CVLImportedContract>,
     val importedSpecFiles: List<CVLImportedSpecFile>,
     val overrideDeclarations: OverrideDeclarations,
     /* The scope is guaranteed to be initialized after [CVLScope.addScopes] */
     val scope: CVLScope
-) {
-    /**
-     * @return A sequence of all [CVLCmd]s that exist anywhere in the spec( rule, cvl-function, hook body, etc.)
-     */
-    fun getAllBlocks(): Sequence<CVLCmd> {
-        fun wrapExpWithApplyCmd(exp: CVLExp.UnresolvedApplyExp) =
-            CVLCmd.Simple.Apply(exp.getRangeOrEmpty(), exp, exp.getScope())
-
-        return (
-            rules.flatMap { rule -> (rule as CVLSingleRule).block } +
-            subs.flatMap { sub -> sub.block } +
-            invs.flatMap { inv ->
-                inv.exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().map(::wrapExpWithApplyCmd)
-            } +
-            hooks.flatMap { hook -> hook.block } +
-            ghosts.flatMap<CVLGhostDeclaration, CVLCmd> { ghost ->
-                (ghost as? CVLGhostWithAxiomsAndOldCopy)?.axioms?.flatMap {
-                    it.exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().map(::wrapExpWithApplyCmd)
-                } ?: listOf()
-            }
-        ).asSequence()
-    }
-}
+) : IAstCodeBlocks
 
 interface CreatesScope {
     val scope: CVLScope
@@ -3466,10 +3443,18 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
         val invokeIsWhole: Boolean = false
     ) : ApplicationExp() {
 
+        interface WhitelistedUnresolvedFunc : ExpressionAnnotation
+
         @Serializable
-        object VirtualFunc : ExpressionAnnotation {
+        object VirtualFunc : WhitelistedUnresolvedFunc {
             override fun hashCode() = utils.hashObject(this)
             private fun readResolve(): Any = VirtualFunc
+        }
+
+        @Serializable
+        object ListedInternalFunc : WhitelistedUnresolvedFunc {
+            override fun hashCode() = utils.hashObject(this)
+            private fun readResolve(): Any = ListedInternalFunc
         }
 
         override val callableName: String

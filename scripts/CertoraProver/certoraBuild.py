@@ -2505,7 +2505,7 @@ class CertoraBuildGenerator:
                                                                 mut=InsertAfter())
         return function_finder_by_contract, function_finder_instrumentation
 
-    def add_internal_func_harnesses(self, contract_file: str, sdc: SDC, specCalls: List[str]) -> Optional[Tuple[Dict[str, str], Dict[str, Dict[int, Instrumentation]]]]:
+    def add_internal_func_harnesses(self, contract_file: str, sdc: SDC, spec_calls: List[str]) -> Optional[Tuple[Dict[str, str], Dict[str, Dict[int, Instrumentation]]]]:
         # contract file -> byte offset -> to insert
         harness_function_instrumentation: Dict[str, Dict[int, Instrumentation]] = defaultdict(dict)
         # internal function name -> harness fuction name
@@ -2519,7 +2519,7 @@ class CertoraBuildGenerator:
 
         for c in sdc.contracts:
             for f in c.internal_funcs:
-                if f"{sdc.primary_contract}.{f.name}" not in specCalls:
+                if f"{sdc.primary_contract}.{f.name}" not in spec_calls:
                     continue
 
                 if f.fromLib:
@@ -2669,12 +2669,12 @@ class CertoraBuildGenerator:
     def build(self, certora_verify_generator: CertoraVerifyGenerator) -> None:
         context = self.context
 
-        specCalls: List[str] = []
+        spec_calls: List[str] = []
         if context.verify and not context.disallow_internal_function_calls:
             with tempfile.NamedTemporaryFile("r", dir=Util.get_build_dir()) as tmp_file:
                 try:
                     Ctx.run_local_spec_check(False, context, ["-listCalls",  tmp_file.name], print_errors=False)
-                    specCalls = tmp_file.read().split("\n")
+                    spec_calls = tmp_file.read().split("\n")
                 except Exception as e:
                     instrumentation_logger.warning(f"Failed to get calls from spec\n{e}")
 
@@ -2729,7 +2729,7 @@ class CertoraBuildGenerator:
                 # We start by trying to instrument _all_ finders, both autofinders and source finders
                 added_finders, all_finders_success, src_finders_gen_success, post_backup_dir = self.finders_compilation_round(
                     build_arg_contract_file, i, ignore_patterns, path_for_compiler_collector_file, pre_backup_dir,
-                    sdc_pre_finders, not context.disable_source_finders, specCalls)
+                    sdc_pre_finders, not context.disable_source_finders, spec_calls)
 
                 # we could have a case where source finders failed but regular finders succeeded.
                 # e.g. if we processed the AST wrong and skipped source finders generation
@@ -2741,7 +2741,7 @@ class CertoraBuildGenerator:
                     # let's try just the function autofinders
                     added_finders, function_autofinder_success, _, post_backup_dir = self.finders_compilation_round(
                         build_arg_contract_file, i, ignore_patterns, path_for_compiler_collector_file, pre_backup_dir,
-                        sdc_pre_finders, False, specCalls)
+                        sdc_pre_finders, False, spec_calls)
 
                     if not function_autofinder_success:
                         self.auto_finders_failed = True
@@ -3089,12 +3089,12 @@ class CertoraBuildGenerator:
                                   pre_backup_dir: Path,
                                   sdc_pre_finders: List[SDC],
                                   with_source_finders: bool,
-                                  specCalls: List[str]) -> Tuple[
+                                  spec_calls: List[str]) -> Tuple[
             List[Tuple[Dict[str, InternalFunc], Dict[str, UnspecializedSourceFinder], Dict[str, str], SDC]], bool, bool, Path]:
         added_finders_to_sdc, finders_compilation_success, source_finders_gen_success = \
             self.instrument_auto_finders(
                 build_arg_contract_file, i, sdc_pre_finders,
-                path_for_compiler_collector_file, with_source_finders, specCalls)
+                path_for_compiler_collector_file, with_source_finders, spec_calls)
         # successful or not, we backup current .certora_sources for either debuggability, or for availability
         # of sources.
         post_backup_dir = self.get_fresh_backupdir(Util.POST_AUTOFINDER_BACKUP_DIR)
@@ -3167,7 +3167,7 @@ class CertoraBuildGenerator:
                                 sdc_pre_finders: List[SDC],
                                 path_for_compiler_collector_file: str,
                                 instrument_source_finders: bool,
-                                specCalls: List[str]) -> Tuple[
+                                spec_calls: List[str]) -> Tuple[
             List[Tuple[Dict[str, InternalFunc], Dict[str, UnspecializedSourceFinder], Dict[str, str], SDC]], bool, bool]:
 
         # initialization
@@ -3188,7 +3188,7 @@ class CertoraBuildGenerator:
 
         added_internal_function_harnesses: Dict[str, str] = {}
         if not self.context.disallow_internal_function_calls:
-            added_internal_func_harness_tuple = self.add_internal_func_harnesses(build_arg_contract_file, sdc_pre_finder, specCalls)
+            added_internal_func_harness_tuple = self.add_internal_func_harnesses(build_arg_contract_file, sdc_pre_finder, spec_calls)
             if added_internal_func_harness_tuple:
                 instr = CertoraBuildGenerator.merge_dicts_instrumentation(function_instr, added_internal_func_harness_tuple[1])
                 added_internal_function_harnesses = added_internal_func_harness_tuple[0]
@@ -3887,21 +3887,19 @@ def build_from_scratch(context: CertoraContext,
 def build_from_cache_or_scratch(context: CertoraContext,
                                 certora_build_generator: CertoraBuildGenerator,
                                 certora_verify_generator: CertoraVerifyGenerator) \
-        -> Tuple[bool, bool, CachedFiles]:
+        -> Tuple[bool, CachedFiles]:
     """
     Builds either from cache (fast path) or from scratch (slow path)
-    @returns 1st tuple element whether there was a cache hit or not
-    @returns 2nd tuple element whether the build cache is enabled and applicable
-    @returns 3rd tuple element the artifacts of the build to potentially be cached
+    @returns 1st tuple element whether the cache should be saved
+    @returns 2nd tuple element the artifacts of the build to potentially be cached
     """
-    cache_hit = False
     cached_files: Optional[CachedFiles] = None
 
     if not context.build_cache:
         cached_files = build_from_scratch(context, certora_build_generator,
                                           certora_verify_generator,
                                           False)
-        return cache_hit, False, cached_files
+        return False, cached_files
 
     build_cache_applicable = CertoraBuildCacheManager.cache_is_applicable(context)
 
@@ -3912,34 +3910,60 @@ def build_from_cache_or_scratch(context: CertoraContext,
         cached_files = build_from_scratch(context, certora_build_generator,
                                           certora_verify_generator,
                                           False)
-        return cache_hit, False, cached_files
+        return False, cached_files
 
     cached_files = CertoraBuildCacheManager.build_from_cache(context)
-    # if no match, will rebuild from scratch
-    if cached_files is not None:
-        # write to .certora_build.json
-        shutil.copyfile(cached_files.certora_build_file, Util.get_certora_build_file())
-        # write build_output_props file
-        shutil.copyfile(cached_files.build_output_props_file, Util.get_built_output_props_file())
-        # write build_cache indicator file
-        with open(Util.get_build_cache_indicator_file(), "w+") as indicator_handle:
-            json.dump({"build_cache_hit": True}, indicator_handle)
-        # write in sources all the additional paths found
-        for p in cached_files.path_with_additional_included_files.glob("*"):
-            if p.is_dir():
-                Util.safe_copy_folder(p,
-                                      Util.get_certora_sources_dir() / p.name,
-                                      shutil.ignore_patterns())
-            else:
-                shutil.copyfile(p, Util.get_certora_sources_dir() / p.name)
-        cache_hit = True
-    else:
-        # rebuild
+
+    if not cached_files:
+        # No match, rebuild
         cached_files = build_from_scratch(context, certora_build_generator,
                                           certora_verify_generator,
                                           True)
+        return True, cached_files
 
-    return cache_hit, True, cached_files
+    # Cache hit!
+
+    # write to .certora_build.json
+    # This must happen _before_ searching for new internal function calls - the typechecker needs this file.
+    shutil.copyfile(cached_files.certora_build_file, Util.get_certora_build_file())
+
+    # Check whether there are any new internal function calls in the spec file - if there are then we need to build
+    # from scratch in order to create the relevant harness function.
+    if context.verify and not context.disallow_internal_function_calls:
+        with tempfile.NamedTemporaryFile("r", dir=Util.get_build_dir()) as tmp_file:
+            internal_calls = []
+            try:
+                Ctx.run_local_spec_check(True, context, ["-listCalls",  tmp_file.name], print_errors=False)
+                output = tmp_file.read().strip()
+                if output:
+                    internal_calls = output.split("\n")
+            except Exception as e:
+                instrumentation_logger.warning(f"Failed to get calls from spec\n{e}")
+
+            if internal_calls:
+                build_logger.info("Found new internal calls in the spec file, need to recompile anyway")
+                # There are new internal calls in the spec, we need to rebuild in order to generate the
+                # external harness functions for them.
+                cached_files = build_from_scratch(context, certora_build_generator,
+                                                  certora_verify_generator,
+                                                  True)
+                return True, cached_files
+
+    # write build_output_props file
+    shutil.copyfile(cached_files.build_output_props_file, Util.get_built_output_props_file())
+    # write build_cache indicator file
+    with open(Util.get_build_cache_indicator_file(), "w+") as indicator_handle:
+        json.dump({"build_cache_hit": True}, indicator_handle)
+    # write in sources all the additional paths found
+    for p in cached_files.path_with_additional_included_files.glob("*"):
+        if p.is_dir():
+            Util.safe_copy_folder(p,
+                                  Util.get_certora_sources_dir() / p.name,
+                                  shutil.ignore_patterns())
+        else:
+            shutil.copyfile(p, Util.get_certora_sources_dir() / p.name)
+
+    return False, cached_files
 
 
 def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> None:
@@ -3969,9 +3993,9 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
                 build_logger.warning(
                     "Local checks of CVL specification files disabled. It is recommended to enable the checks.")
 
-        cache_hit, build_cache_enabled, cached_files = build_from_cache_or_scratch(context,
-                                                                                   certora_build_generator,
-                                                                                   certora_verify_generator)
+        should_save_cache, cached_files = build_from_cache_or_scratch(context,
+                                                                      certora_build_generator,
+                                                                      certora_verify_generator)
 
         # avoid running the same test over and over again for each split run, context.split_rules is true only for
         # the first run and is set to [] for split runs
@@ -3990,7 +4014,7 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
             build_logger.debug("build_source_tree failed", exc_info=e)
 
         # save in build cache
-        if not cache_hit and build_cache_enabled and cached_files.may_store_in_build_cache:
+        if should_save_cache and cached_files.may_store_in_build_cache:
             CertoraBuildCacheManager.save_build_cache(context, cached_files)
 
         certora_verify_generator.update_certora_verify_struct(True)
