@@ -46,7 +46,7 @@ const val INVOKE_SIGNED_FUNCTION_NAME = "solana_program::program::invoke_signed"
 private const val OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID = 48
 
 /** Offset from the start of an `Instruction` to the data vector. */
-private const val OFFSET_FROM_INSTRUCTION_TO_DATA_VECTOR = 24
+private const val OFFSET_FROM_INSTRUCTION_TO_DATA_VEC = 24
 
 /** Offset from the start of the data vector to the discriminant of the instruction that is being called for Token. */
 private const val OFFSET_FROM_DATA_VECTOR_TO_TOKEN_INSTRUCTION_DISCRIMINANT = 0
@@ -202,7 +202,9 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getTokenProgram
         cpiLog.warn { "The PTA node pointed by register R2 is not exact" }
         return null
     }
-    val offsetToDataVector = pointerToInstruction.getOffset() + OFFSET_FROM_INSTRUCTION_TO_DATA_VECTOR
+    val offsetToDataVector =
+        pointerToInstruction.getOffset() + OFFSET_FROM_INSTRUCTION_TO_DATA_VEC +
+            SolanaConfig.RustVecLayout.get().getDataOffset()
 
     // We now try to follow the pointer to the data vector.
     val pointerToDataField = PTAField(offsetToDataVector, size = 8)

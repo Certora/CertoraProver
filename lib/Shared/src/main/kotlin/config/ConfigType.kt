@@ -389,6 +389,16 @@ sealed class ConfigType<T : Serializable>(
         EcosystemConverter, option, aliases, pythonName
     )
 
+    open class RustVecLayout(
+        default: cli.RustVecLayout,
+        option: Option,
+        aliases: List<Option> = listOf(),
+        pythonName: String? = null
+    ) : CmdLine<cli.RustVecLayout>(
+        default,
+        RustVecLayoutConverter, option, aliases, pythonName
+    )
+
     open class SummaryResolutionMode(
         default: SummaryResolutionPolicy,
         option: Option,

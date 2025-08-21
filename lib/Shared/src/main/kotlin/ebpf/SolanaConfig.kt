@@ -430,6 +430,22 @@ object SolanaConfig {
         )
     ) {}
 
+    private val rustVecLayoutDefault = cli.RustVecLayout(
+        cli.RustVecLayout.Field.CAPACITY,
+        cli.RustVecLayout.Field.DATA,
+        cli.RustVecLayout.Field.LENGTH
+    )
+    val RustVecLayout = object : ConfigType.RustVecLayout(
+        default = rustVecLayoutDefault,
+        Option(
+            "rustVecLayout", true,
+            "Describes the memory layout of the fields in a vector in Rust. Must be a colon-separated list of: `${cli.RustVecLayout.DATA_STR}`, " +
+                "`${cli.RustVecLayout.CAPACITY_STR}`, and `${cli.RustVecLayout.LENGTH_STR}`. " +
+                "For example, `$rustVecLayoutDefault` states that in memory we find first the pointer to the capacity, then the data, and then the length. " +
+                "[default=$rustVecLayoutDefault]"
+        ),
+    ) {}
+
     val DumpPTAGraphsToDot: ConfigType.StringSetCmdLine = object : ConfigType.StringSetCmdLine(
         null,
         Option("solanaDumpPTAGraphsToDot",

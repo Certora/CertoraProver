@@ -19,6 +19,7 @@ package cli
 
 import cli.SanityValues.*
 import config.HardFailMode
+import datastructures.stdcollections.*
 import smt.*
 import smt.HashingScheme
 import solver.*
@@ -194,6 +195,48 @@ val InvariantTypeConverter = Converter {
         else -> throw ConversionException(it, InvariantType::class.java)
     }
 }
+
+val RustVecLayoutConverter = Converter { layout ->
+    @Suppress("ForbiddenMethodCall")
+    val parts = layout
+        .split(":")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+
+    val expectedFields = setOf(
+        RustVecLayout.DATA_STR,
+        RustVecLayout.CAPACITY_STR,
+        RustVecLayout.LENGTH_STR
+    )
+
+    if (parts.size != 3 || parts.toSet() != expectedFields) {
+        throw ConversionException(layout, RustVecLayout::class.java)
+    }
+
+    val orderToLayout = mapOf(
+        listOf(RustVecLayout.DATA_STR, RustVecLayout.CAPACITY_STR, RustVecLayout.LENGTH_STR) to RustVecLayout(
+            RustVecLayout.Field.DATA, RustVecLayout.Field.CAPACITY, RustVecLayout.Field.LENGTH
+        ),
+        listOf(RustVecLayout.DATA_STR, RustVecLayout.LENGTH_STR, RustVecLayout.CAPACITY_STR) to RustVecLayout(
+            RustVecLayout.Field.DATA, RustVecLayout.Field.LENGTH, RustVecLayout.Field.CAPACITY
+        ),
+        listOf(RustVecLayout.CAPACITY_STR, RustVecLayout.DATA_STR, RustVecLayout.LENGTH_STR) to RustVecLayout(
+            RustVecLayout.Field.CAPACITY, RustVecLayout.Field.DATA, RustVecLayout.Field.LENGTH
+        ),
+        listOf(RustVecLayout.CAPACITY_STR, RustVecLayout.LENGTH_STR, RustVecLayout.DATA_STR) to RustVecLayout(
+            RustVecLayout.Field.CAPACITY, RustVecLayout.Field.LENGTH, RustVecLayout.Field.DATA
+        ),
+        listOf(RustVecLayout.LENGTH_STR, RustVecLayout.CAPACITY_STR, RustVecLayout.DATA_STR) to RustVecLayout(
+            RustVecLayout.Field.LENGTH, RustVecLayout.Field.CAPACITY, RustVecLayout.Field.DATA
+        ),
+        listOf(RustVecLayout.LENGTH_STR, RustVecLayout.DATA_STR, RustVecLayout.CAPACITY_STR) to RustVecLayout(
+            RustVecLayout.Field.LENGTH, RustVecLayout.Field.DATA, RustVecLayout.Field.CAPACITY
+        )
+    )
+
+    orderToLayout[parts]
+        ?: throw ConversionException(layout, RustVecLayout::class.java)
+}
 /*
 val ValueOracleCodeConverter = Converter {
     when (it){
@@ -253,6 +296,59 @@ enum class Ecosystem : Serializable {
 }
 
 /**
+ * Represents possible memory layouts of Rust's `Vec` structure.
+ *
+ * In Rust, a `Vec` is typically stored as three fields:
+ * - `data`: a pointer to the heap-allocated buffer
+ * - `capacity`: the number of elements the buffer can hold without reallocating
+ * - `len`: the number of elements currently in the vector
+ *
+ * Different Rust compiler versions, architectures, or ABIs may arrange
+ * these fields in different orders in memory.
+ */
+class RustVecLayout(
+    val first: Field,
+    val second: Field,
+    val third: Field
+): Serializable {
+    enum class Field { DATA, CAPACITY, LENGTH }
+
+    init {
+        require(setOf(first, second, third).size == 3) {
+            "Invalid RustVecLayout: fields must be distinct"
+        }
+    }
+
+    companion object {
+        /** String representation of the data field in Rust's Vec type. */
+        const val DATA_STR = "d"
+
+        /** String representation of the capacity field in Rust's Vec type. */
+        const val CAPACITY_STR = "c"
+
+        /** String representation of the length field in Rust's Vec type. */
+        const val LENGTH_STR = "l"
+
+        private const val FIELD_SIZE_BYTES = 8
+    }
+
+    fun getDataOffset(): Int = FIELD_SIZE_BYTES * when (Field.DATA) {
+        first  -> 0
+        second -> 1
+        third  -> 2
+        else -> throw IllegalStateException("${RustVecLayout::class.java} must have data field")
+    }
+
+    override fun toString(): String =
+        listOf(first, second, third).joinToString(":") {
+            when (it) {
+                Field.DATA     -> DATA_STR
+                Field.CAPACITY -> CAPACITY_STR
+                Field.LENGTH   -> LENGTH_STR
+            }
+        }
+}
+/**
  * @property runCalleeAnalysis Indicates whether this summarization mode requires running the callee analysis
  */
 enum class SummaryResolutionPolicy(val runCalleeAnalysis: Boolean) {
@@ -260,10 +356,12 @@ enum class SummaryResolutionPolicy(val runCalleeAnalysis: Boolean) {
      * Inlines all eligible summaries in each round of summarization
      */
     SIMPLE(false),
+
     /*
      * Delay inlining dispatcher summaries until other summaries have been inlined
      */
     TIERED(true),
+
     /*
      * delay inlining dispatcher summaries and aut-havocs until other summaries have been inlined
      */
