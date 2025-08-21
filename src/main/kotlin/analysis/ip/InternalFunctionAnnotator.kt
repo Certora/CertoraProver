@@ -22,6 +22,8 @@ import allocator.Allocator
 import allocator.GenerateRemapper
 import allocator.GeneratedBy
 import analysis.icfg.Summarization
+import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
+import analysis.opt.DiamondSimplifier.registerMergeableAnnot
 import analysis.pta.abi.PartitionField
 import com.certora.collect.*
 import datastructures.stdcollections.*
@@ -312,9 +314,9 @@ data class InternalFuncExitAnnotation(
     }
 }
 
-val JUMP_SYM = MetaKey<TACSymbol.Var.Annotation>("jump.sym")
-val INTERNAL_FUNC_START = MetaKey<InternalFuncStartAnnotation>("internal.func.start", restore = true)
-val INTERNAL_FUNC_EXIT = MetaKey<InternalFuncExitAnnotation>("internal.func.end")
+val JUMP_SYM = MetaKey<TACSymbol.Var.Annotation>("jump.sym").registerMergeableAnnot()
+val INTERNAL_FUNC_START = MetaKey<InternalFuncStartAnnotation>("internal.func.start", restore = true).registerDestructivelyMergeableAnnot()
+val INTERNAL_FUNC_EXIT = MetaKey<InternalFuncExitAnnotation>("internal.func.end").registerDestructivelyMergeableAnnot()
 
 class InternalFunctionExitFinder(code: CoreTACProgram) : Summarization.ExitFinder(code) {
     override fun calleeStarted(cmd: TACCmd.Simple.AnnotationCmd) =

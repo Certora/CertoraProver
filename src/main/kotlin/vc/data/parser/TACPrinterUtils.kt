@@ -92,7 +92,12 @@ fun TACExpr.AnnotationExp<*>.printer(mapOfMetaMap: MutableMap<MetaMap,Int>): Str
 fun TACSymbol.Var.printer(mapOfMetaMap: MutableMap<MetaMap, Int>): String {
     return toSMTRep() + printMetaString(mapOfMetaMap, this.meta)
 }
-fun TACExpr.Apply.printer(mapOfMetaMap: MutableMap<MetaMap, Int>) = "Apply($f ${ops.joinToString(" ") {it.printExpr(mapOfMetaMap)}})"
+fun TACExpr.Apply.printer(mapOfMetaMap: MutableMap<MetaMap, Int>) =
+    if (unconditionallySafe) {
+        "SafeApply($f ${ops.joinToString(" ") {it.printExpr(mapOfMetaMap)}})"
+    } else {
+        "Apply($f ${ops.joinToString(" ") {it.printExpr(mapOfMetaMap)}})"
+    }
 fun TACExpr.Vec.IntMul.printer(mapOfMetaMap: MutableMap<MetaMap, Int>) = "IntMul(${ls.joinToString(" ") {it.printExpr(mapOfMetaMap)}})"
 fun TACExpr.Vec.IntAdd.printer(mapOfMetaMap: MutableMap<MetaMap, Int>) = "IntAdd(${ls.joinToString(" ") {it.printExpr(mapOfMetaMap)}})"
 fun TACExpr.Vec.Add.printer(mapOfMetaMap: MutableMap<MetaMap, Int>) = "Add(${ls.joinToString(" ") {it.printExpr(mapOfMetaMap)}})"

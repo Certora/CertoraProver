@@ -20,6 +20,8 @@ package wasm.impCfg
 import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
+import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
+import analysis.opt.DiamondSimplifier.registerMergeableAnnot
 import datastructures.stdcollections.*
 import utils.Range
 import tac.*
@@ -58,14 +60,14 @@ class UnexpectedCallIndirect(msg: String) : Exception(msg)
 
 typealias WasmToTacInfo = CommandWithRequiredDecls<TACCmd.Simple>
 
-val WASM_INLINED_FUNC_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.inline.start")
-val WASM_INLINED_FUNC_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.inline.end")
-val WASM_SDK_FUNC_SUMMARY_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.sdk.func.start")
-val WASM_SDK_FUNC_SUMMARY_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.sdk.func.end")
-val WASM_HOST_FUNC_SUMMARY_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.host.func.start")
-val WASM_HOST_FUNC_SUMMARY_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.host.func.end")
-val WASM_USER_ASSUME = MetaKey<String>("wasm.user.assume")
-val WASM_USER_ASSERT = MetaKey<String>("wasm.user.assert")
+val WASM_INLINED_FUNC_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.inline.start").registerDestructivelyMergeableAnnot()
+val WASM_INLINED_FUNC_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.inline.end").registerDestructivelyMergeableAnnot()
+val WASM_SDK_FUNC_SUMMARY_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.sdk.func.start").registerDestructivelyMergeableAnnot()
+val WASM_SDK_FUNC_SUMMARY_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.sdk.func.end").registerDestructivelyMergeableAnnot()
+val WASM_HOST_FUNC_SUMMARY_START = MetaKey<StraightLine.InlinedFuncStartAnnotation.TAC>("wasm.host.func.start").registerDestructivelyMergeableAnnot()
+val WASM_HOST_FUNC_SUMMARY_END = MetaKey<StraightLine.InlinedFuncEndAnnotation.TAC>("wasm.host.func.end").registerDestructivelyMergeableAnnot()
+val WASM_USER_ASSUME = MetaKey<String>("wasm.user.assume").registerMergeableAnnot()
+val WASM_USER_ASSERT = MetaKey<String>("wasm.user.assert").registerMergeableAnnot()
 val WASM_MEMORY_OP_WIDTH = MetaKey<Int>("wasm.memory.op.width")
 
 //meta that contains information about the original address of the bytecode instruction in the .wasm file

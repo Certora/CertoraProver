@@ -284,15 +284,23 @@ interface TACExprFact {
     /** replaces the older TACExpr.ResetStore */
     fun resetStore(tag: Tag.Map) = mapDef(mapOf("i" to Tag.Bit256), { 0.asTACExpr }, tag)
 
-    fun applyBIF(t : TACBuiltInFunction, vararg ops: TACExpr) =
+    fun applyBIF(t: TACBuiltInFunction, vararg ops: TACExpr) =
         TACExpr.Apply(
             TACExpr.TACFunctionSym.BuiltIn(t),
             ops.toList(),
             t.returnSort
         )
 
-    fun safeMathNarrow(op: TACExpr, to: Tag.Bits) =
-        applyBIF(TACBuiltInFunction.SafeMathNarrow(to), op)
+    fun applyBIF(t: TACBuiltInFunction, unconditionallySafe: Boolean, vararg ops: TACExpr) =
+        TACExpr.Apply(
+            TACExpr.TACFunctionSym.BuiltIn(t),
+            ops.toList(),
+            t.returnSort,
+            unconditionallySafe
+        )
+
+    fun safeMathNarrow(op: TACExpr, to: Tag.Bits, unconditionallySafe: Boolean = false) =
+        applyBIF(TACBuiltInFunction.SafeMathNarrow(to), unconditionallySafe, op)
 
     fun safeMathPromotion(op: TACExpr) =
         applyBIF(TACBuiltInFunction.SafeMathPromotion(op.tag as Tag.Bits), op)

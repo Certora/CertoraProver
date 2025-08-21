@@ -22,6 +22,7 @@ import allocator.GeneratedBy
 import analysis.icfg.AxiomInliner
 import analysis.icfg.ExtCallSummarization
 import analysis.icfg.Inliner
+import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
 import analysis.split.StorageTypeBounder
 import analysis.storage.DisplayPaths
 import analysis.storage.StorageAnalysisResult
@@ -318,11 +319,11 @@ object TACMeta {
     /**
      * For indicating commands that originated with [CVLCmd.Simple.Label]
      */
-    val CVL_LABEL_START = MetaKey<CVLReportLabel>("cvl.label.start", restore = true)
+    val CVL_LABEL_START = MetaKey<CVLReportLabel>("cvl.label.start", restore = true).registerDestructivelyMergeableAnnot()
     @GeneratedBy(Allocator.Id.CVL_EVENT, source = true)
     val CVL_LABEL_START_ID: MetaKey<Int> = MetaKey<Int>("cvl.label.start.id")
     @GeneratedBy(Allocator.Id.CVL_EVENT, source = false)
-    val CVL_LABEL_END: MetaKey<Int> = MetaKey<Int>("cvl.label.end")
+    val CVL_LABEL_END: MetaKey<Int> = MetaKey<Int>("cvl.label.end").registerDestructivelyMergeableAnnot()
     @KSerializable
     @Treapable
     data class RequireInvariant(val id: Int, val name: String): AmbiSerializable
@@ -350,7 +351,7 @@ object TACMeta {
     /**
      * Snippet commands' annotations.
      */
-    val SNIPPET = MetaKey<SnippetCmd>("snippet.cmd", restore = true)
+    val SNIPPET = MetaKey<SnippetCmd>("snippet.cmd", restore = true).registerDestructivelyMergeableAnnot()
 
     /**
      * End annotation for [ScopeSnippet].

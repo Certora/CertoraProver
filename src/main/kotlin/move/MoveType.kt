@@ -218,7 +218,9 @@ fun MoveType.Primitive.assignFromIntInBounds(
             value.letVar(tag = Tag.Int, meta = meta) { intValue ->
                 mergeMany(
                     assumeBounds(intValue.s, meta),
-                    assign(dest, meta) { safeMathNarrow(intValue, bitsTag) }
+                    assign(dest, meta) {
+                        safeMathNarrow(intValue, bitsTag, unconditionallySafe = true)
+                    }
                 )
             }
         }

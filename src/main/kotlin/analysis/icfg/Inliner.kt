@@ -24,6 +24,7 @@ import allocator.GenerateRemapper
 import allocator.GeneratedBy
 import allocator.SuppressRemapWarning
 import analysis.*
+import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
 import analysis.pta.ABICodeFinder
 import analysis.pta.HeapType
 import analysis.pta.abi.*
@@ -141,9 +142,9 @@ object Inliner {
     }
 
     object CallStack {
-        val STACK_PUSH = MetaKey<PushRecord>("call.trace.push")
+        val STACK_PUSH = MetaKey<PushRecord>("call.trace.push").registerDestructivelyMergeableAnnot()
 
-        val STACK_POP = MetaKey<PopRecord>("call.trace.pop")
+        val STACK_POP = MetaKey<PopRecord>("call.trace.pop").registerDestructivelyMergeableAnnot()
 
         @GenerateRemapper
         @KSerializable

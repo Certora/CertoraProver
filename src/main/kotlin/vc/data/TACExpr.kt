@@ -1726,16 +1726,22 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
     sealed class Apply : TACExpr() {
         abstract val f: TACFunctionSym
 
+        /**
+            True if the function can be safely applied to all possible values of the input expressions, regardless of
+            prior conditional branching.
+         */
+        abstract val unconditionallySafe: Boolean
+
         companion object {
-            operator fun invoke(f: TACFunctionSym, ops: List<TACExpr>, tag: Tag?) =
+            operator fun invoke(f: TACFunctionSym, ops: List<TACExpr>, tag: Tag?, unconditionallySafe: Boolean = false) =
                 when(ops.size) {
-                    1 -> Unary(f, ops[0], tag)
-                    2 -> Binary(f, ops[0], ops[1], tag)
-                    else -> Nary(f, ops, tag)
+                    1 -> Unary(f, ops[0], tag, unconditionallySafe)
+                    2 -> Binary(f, ops[0], ops[1], tag, unconditionallySafe)
+                    else -> Nary(f, ops, tag, unconditionallySafe)
                 }
 
-            operator fun invoke(f: TACBuiltInFunction, ops: List<TACExpr>, tag: Tag?) =
-                Apply(TACFunctionSym.BuiltIn(f), ops, tag)
+            operator fun invoke(f: TACBuiltInFunction, ops: List<TACExpr>, tag: Tag?, unconditionallySafe: Boolean = false) =
+                Apply(TACFunctionSym.BuiltIn(f), ops, tag, unconditionallySafe)
         }
 
         abstract val ops: List<TACExpr>
@@ -1781,7 +1787,8 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
         class Unary(
             override val f: TACFunctionSym,
             val op: TACExpr,
-            override val tag: Tag?
+            override val tag: Tag?,
+            override val unconditionallySafe: Boolean = false
         ) : Apply() {
             override val ops get() = listOf(op)
         }
@@ -1791,7 +1798,8 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
             override val f: TACFunctionSym,
             val op1: TACExpr,
             val op2: TACExpr,
-            override val tag: Tag?
+            override val tag: Tag?,
+            override val unconditionallySafe: Boolean = false
         ) : Apply() {
             override val ops get() = listOf(op1, op2)
         }
@@ -1800,7 +1808,8 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
         class Nary(
             override val f: TACFunctionSym,
             override val ops: List<TACExpr>,
-            override val tag: Tag?
+            override val tag: Tag?,
+            override val unconditionallySafe: Boolean = false
         ) : Apply()
     }
 

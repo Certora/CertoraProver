@@ -456,7 +456,8 @@ class MoveMemory(val scene: MoveScene) {
                             assign(oldVecDigest, cmd.meta) {
                                 safeMathNarrow(
                                     select(deref.loc.asSym(), deref.offset intAdd vecDigestOffset.asTACExpr),
-                                    Tag.Bit256
+                                    Tag.Bit256,
+                                    unconditionallySafe = true // The vector digest is always 256 bits
                                 )
                             },
                             MoveType.U64.assumeBounds(newLen.s, cmd.meta),
@@ -507,7 +508,8 @@ class MoveMemory(val scene: MoveScene) {
                         assign(oldVecDigest, cmd.meta) {
                             safeMathNarrow(
                                 select(deref.loc.asSym(), deref.offset intAdd vecDigestOffset.asTACExpr),
-                                Tag.Bit256
+                                Tag.Bit256,
+                                unconditionallySafe = true // The vector digest is always 256 bits
                             )
                         },
                         assign(deref.loc, cmd.meta) {
@@ -578,7 +580,13 @@ class MoveMemory(val scene: MoveScene) {
         fun hashExprs(offset: BigInteger, type: MoveType.Value): List<TACExpr> {
             return when (type) {
                 is MoveType.Bits -> listOf(
-                    TXF { safeMathNarrow(select(loc.asSym(), offset.asTACExpr), Tag.Bit256) }
+                    TXF {
+                        safeMathNarrow(
+                            select(loc.asSym(), offset.asTACExpr),
+                            Tag.Bit256,
+                            unconditionallySafe = true // This cannot be larger than 256 bits
+                        )
+                    }
                 )
                 is MoveType.Bool -> listOf(
                     TXF { ite(select(loc.asSym(), offset.asTACExpr) eq 0.asTACExpr, 0.asTACExpr, 1.asTACExpr) }
@@ -589,8 +597,21 @@ class MoveMemory(val scene: MoveScene) {
                     listOf(TACExpr.Unconstrained(Tag.Bit256))
                 }
                 is MoveType.Vector -> listOf(
-                    TXF { safeMathNarrow(select(loc.asSym(), (offset + vecLengthOffset).asTACExpr), Tag.Bit256) },
-                    TXF { safeMathNarrow(select(loc.asSym(), (offset + vecDigestOffset).asTACExpr), Tag.Bit256) }
+                    TXF {
+                        safeMathNarrow(
+                            select(loc.asSym(), (offset + vecLengthOffset).asTACExpr),
+                            Tag.Bit256,
+                            unconditionallySafe = true // The vector length is always 256 bits
+                        )
+                    },
+                    TXF {
+                        safeMathNarrow(
+                            select(loc.asSym(),
+                            (offset + vecDigestOffset).asTACExpr),
+                            Tag.Bit256,
+                            unconditionallySafe = true // The vector digest is always 256 bits
+                        )
+                    }
                 )
                 is MoveType.Struct -> {
                     val fields = type.fields ?: run {

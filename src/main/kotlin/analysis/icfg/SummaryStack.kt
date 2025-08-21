@@ -21,6 +21,7 @@ package analysis.icfg
 import allocator.Allocator
 import allocator.GeneratedBy
 import analysis.ip.InternalFuncRet
+import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import report.callresolution.CallResolutionTableSummaryInfo
@@ -36,8 +37,8 @@ import vc.data.*
 import java.io.Serializable
 
 object SummaryStack {
-    val START_EXTERNAL_SUMMARY = MetaKey<SummaryStart.External>("call.trace.external.summary.start", restore = true)
-    val START_INTERNAL_SUMMARY = MetaKey<SummaryStart.Internal>("call.trace.internal.summary.start", restore = true)
+    val START_EXTERNAL_SUMMARY = MetaKey<SummaryStart.External>("call.trace.external.summary.start", restore = true).registerDestructivelyMergeableAnnot()
+    val START_INTERNAL_SUMMARY = MetaKey<SummaryStart.Internal>("call.trace.internal.summary.start", restore = true).registerDestructivelyMergeableAnnot()
 
     sealed class SummaryStart : Serializable, TransformableVarEntityWithSupport<SummaryStart>, DebugAdapterPushAction {
         abstract val callResolutionTableInfo: CallResolutionTableSummaryInfo
@@ -140,6 +141,6 @@ object SummaryStack {
         }
     }
 
-    val END_EXTERNAL_SUMMARY = MetaKey<SummaryEnd.External>("call.trace.external.summary.end", restore = true)
-    val END_INTERNAL_SUMMARY = MetaKey<SummaryEnd.Internal>("call.trace.internal.summary.end")
+    val END_EXTERNAL_SUMMARY = MetaKey<SummaryEnd.External>("call.trace.external.summary.end", restore = true).registerDestructivelyMergeableAnnot()
+    val END_INTERNAL_SUMMARY = MetaKey<SummaryEnd.Internal>("call.trace.internal.summary.end").registerDestructivelyMergeableAnnot()
 }

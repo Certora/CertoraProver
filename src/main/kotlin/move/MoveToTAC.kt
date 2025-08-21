@@ -337,7 +337,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 IntervalsRewriter.rewrite(it, handleLeinoVars = false)
             }
         )
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { simplifyDiamonds(it, iterative = true) })
+        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
                 // after pruning infeasible paths, there are more constants to propagate
                 ConstantPropagator.propagateConstants(it, emptySet())

@@ -108,6 +108,7 @@ import java.io.IOException;
     "Exists"          { return symbol(sym.EXISTS, yytext());}
     "QVars"               { return symbol(sym.QVARS, yytext()); }
     "Apply"           { return symbol(sym.APPLYFN, yytext());}
+    "SafeApply"           { return symbol(sym.SAFE_APPLYFN, yytext());}
     "MapDefinition"   { return symbol(sym.MAPDEFINITION, yytext());}
     {Hex} {debug("hex:", yytext());return symbol(sym.HEX, "Hex", yytext());}
     {DecimalLiteral}         {return symbol(sym.NUMBER,"number", Integer.valueOf(yytext()));}
