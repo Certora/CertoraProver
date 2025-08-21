@@ -18,8 +18,8 @@
 package analysis.split
 
 import analysis.storage.DisplayPath
-import analysis.storage.StorageAnalysis.Base
 import analysis.storage.StorageAnalysis.AnalysisPath
+import analysis.storage.StorageAnalysis.Base
 import analysis.storage.StorageAnalysisResult.NonIndexedPath
 import analysis.storage.StoragePath
 import bridge.types.PrimitiveType
@@ -238,6 +238,7 @@ class StorageLayoutHelper(private val contract: IContractClass, private val show
         }
 
         val fieldsAtSlot = fields.filter { (_, info) -> info.slot == startSlot }
+            .sortedBy { (_, info) -> info.offset }
 
         if (fieldsAtSlot.all { it.value.type is TACStorageType.IntegralType }) {
             // our slot is larger then the info we got.
