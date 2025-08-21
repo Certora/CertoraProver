@@ -264,10 +264,15 @@ private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getMemoryAnalysis(
         sbfLogger.info { "[$target] Whole-program memory analysis results:\n${analysis}" }
     }
     if (SolanaConfig.PrintResultsToDot.get()) {
-        sbfLogger.info { "[$target] Writing CFGs annotated with invariants to .dot files" }
+        sbfLogger.info { "[$target] Writing CFGs annotated with PTA graphs to .dot files" }
         // Print CFG + invariants (only PTA graphs)
         analysis.toDot(printInvariants = true)
-        analysis.dumpPTAGraphsSelectively(target)
+    }
+    val blocksToDump = SolanaConfig.DumpPTAGraphsToDot.getOrNull()
+    if (blocksToDump != null && blocksToDump.isNotEmpty()) {
+        analysis.dumpPTAGraphsSelectively(ArtifactManagerFactory().outputDir, target) { b ->
+            blocksToDump.contains(b.getLabel().toString())
+        }
     }
     analysis
 } else {

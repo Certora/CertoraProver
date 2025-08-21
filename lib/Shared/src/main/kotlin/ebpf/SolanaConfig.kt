@@ -380,7 +380,7 @@ object SolanaConfig {
         Option(
             "solanaPrintResults",
             false,
-            "Print analyzed program and invariants to standard output. [default: false]"
+            "Print the SBF CFG analyzed by PTA and the PTA graph to standard output (very verbose). [default: false]"
         )
     ) {}
 
@@ -389,7 +389,8 @@ object SolanaConfig {
         Option(
             "solanaPrintResultsToDot",
             false,
-            "Print analyzed program and points-to graphs to dot format. [default: false]"
+            "Generate a .dot file with the SBF CFG analyzed by PTA, and " +
+                       "the PTA graph at the entry of each basic block (very verbose, only for small programs). [default: false]"
         )
     ) {}
 
@@ -407,7 +408,7 @@ object SolanaConfig {
         Option(
             "solanaPrintAnalyzed",
             false,
-            "Print the actual analyzed program (after inlining and slicing) to standard output. [default: false]"
+            "Print the final SBF CFG after inlining and slicing to standard output. [default: false]"
         )
     ) {}
 
@@ -416,7 +417,7 @@ object SolanaConfig {
         Option(
             "solanaPrintAnalyzedToDot",
             false,
-            "Print the actual analyzed program (after inlining and slicing) to dot format. [default: false]"
+            "Generate a .dot file with the final SBF CFG after inlining and slicing. [default: false]"
         )
     ) {}
 
@@ -427,5 +428,14 @@ object SolanaConfig {
             false,
             "Print the TAC program (before loop unrolling) to standard output. [default: false]"
         )
+    ) {}
+
+    val DumpPTAGraphsToDot: ConfigType.StringSetCmdLine = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("solanaDumpPTAGraphsToDot",
+            true,
+            "Set of SBF basic block names. For each specified block, its PTA graph will be dumped into a separate .dot file. " +
+                       "The block names must match those shown by ${PrintAnalyzedToDot.name}."
+        ),
     ) {}
 }

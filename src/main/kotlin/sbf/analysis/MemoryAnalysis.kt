@@ -25,6 +25,7 @@ import sbf.domains.*
 import sbf.sbfLogger
 import sbf.fixpoint.*
 import sbf.support.printToFile
+import java.io.File
 
 /**
  *  Run a whole-program analysis on the SBF program using the memory domain.
@@ -107,10 +108,11 @@ class WholeProgramMemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset
     }
 
     /**
-     *  Dump to a separate file the graph in dot format of any basic block in function @fname that
-     *  satisfies @pred.
+     *  Dump to a separate file the graph in dot format of any basic block in function [fname] that
+     *  satisfies [pred].
      **/
-    fun dumpPTAGraphsSelectively(fname: String,
+    fun dumpPTAGraphsSelectively(outputDir: File,
+                                 fname: String,
                                  pred: (SbfBasicBlock) -> Boolean = { b ->
                                     b.getInstructions().any { inst -> inst.isAssertOrSatisfy()}
                                  }) {
@@ -121,7 +123,7 @@ class WholeProgramMemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset
                     val memAbsVal = memAnalysis.getPre(b.getLabel())
                     if (memAbsVal != null) {
                         val g = memAbsVal.getPTAGraph()
-                        printToFile("${b.getLabel()}.graph.dot",
+                        printToFile("$outputDir${File.separator}${b.getLabel()}.ptagraph.dot",
                                     g.toDot(false, "${b.getLabel()}"))
                     }
                 }
