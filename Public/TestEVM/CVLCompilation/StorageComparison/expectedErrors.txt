@@ -1,0 +1,5 @@
+Error in spec file (error.spec:6:9): could not type expression "init[o] == lastStorage[t]", message: Cannot compare between storage basis OtherContract and storage basis Basic
+Error in spec file (error.spec:11:9): could not type expression "init[o] == lastStorage[nativeBalances]", message: Cannot compare between storage basis OtherContract and storage basis nativeBalances
+Error in spec file (error.spec:17:21): could not type expression "yolo", message: Basis of storage comparison must be a contract identifier imported with `using`, the `nativeBalances` or `nativeCodesize` keywords, or the name of a ghost
+Error in spec file (error.spec:32:9): could not type expression "init == yolo", message: Cannot compare between storage and uint256
+Error in spec file (error.spec:38:9): could not type expression "init < lastStorage", message: init isn't a subtype of mathint so isn't comparable

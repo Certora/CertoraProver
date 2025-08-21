@@ -1,0 +1,15 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"checkGetNames": "FAIL",
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": ["getNames(bytes32)"],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"assertMessages": {
+		"r": "should fail"
+	},
+	"rules": {
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"returnsStruct()",
+				"returnsTuple()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"r": "FAIL"
+	}
+}

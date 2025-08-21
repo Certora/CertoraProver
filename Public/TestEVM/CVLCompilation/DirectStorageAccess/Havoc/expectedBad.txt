@@ -1,0 +1,7 @@
+Error in spec file (bad.spec:7:11): cannot havoc `t.a[k][i].bar`. havoc of entire arrays is currently unsupported.
+Error in spec file (bad.spec:16:11): cannot havoc `t.a[k][i].gorp`. havoc of entire arrays is currently unsupported.
+Error in spec file (bad.spec:23:11): cannot havoc `t.friday`. havoc of entire mappings is currently unsupported.
+Error in spec file (bad.spec:31:11): cannot havoc `t.nestedMap[b]`. havoc of entire mappings is currently unsupported.
+Error in spec file (bad.spec:40:11): cannot havoc `t.nestedMap[b][str]`. havoc of contract-defined structs is currently unsupported.
+Error in spec file (bad.spec:49:11): cannot havoc `t.nestedMap[b][str].foo`. havoc of contract-defined structs is currently unsupported.
+Error in spec file (bad.spec:56:11): cannot havoc `t.smells`. havoc of contract-defined enums is currently unsupported.

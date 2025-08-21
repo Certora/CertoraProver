@@ -1,0 +1,7 @@
+Warning: The generic preserved block for the invariant contradictingInvariant does not apply to any method
+Error in spec file (TestSpec.spec:1:1): After filtering, method argument f for rule contradictingFilters remains with no valid instantiations
+Error in spec file (TestSpec.spec:11:1): After filtering, method argument g for rule twoMethodsFilters02 remains with no valid instantiations
+Error in spec file (TestSpec.spec:23:1): After filtering, method argument f for rule twoMethodsFilters20 remains with no valid instantiations
+Error in spec file (TestSpec.spec:34:1): After filtering, method argument f for rule twoMethodsFilters21 remains with no valid instantiations
+Error in spec file (TestSpec.spec:46:1): After filtering, method argument f for rule twoMethodsFilters22 remains with no valid instantiations
+Error in spec file (TestSpec.spec:46:1): After filtering, method argument g for rule twoMethodsFilters22 remains with no valid instantiations

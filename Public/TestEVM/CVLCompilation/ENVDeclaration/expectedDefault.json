@@ -1,0 +1,6 @@
+{
+    "rules": {
+        "twoEnvsInBody": "FAIL",
+        "twoEnvsInHeader": "FAIL"
+    }
+}

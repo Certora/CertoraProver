@@ -1,0 +1,21 @@
+{
+	"assertMessages": {
+		"test_no_hook_inlining": "should fail if hooks isn't inlined - test.spec line 110",
+		"test_no_hook_inlining_complex_access": "should fail if hooks isn't inlined - test.spec line 120"
+	},
+	"rules": {
+		"test_array_lengths": "SUCCESS",
+		"test_array_lengths_in_quantifier": "SUCCESS",
+		"test_bytes_keys": "SUCCESS",
+		"test_complex_access": "SUCCESS",
+		"test_complex_access_in_quantifier": "SUCCESS",
+		"test_complex_mapping": "SUCCESS",
+		"test_complex_mapping_2": "SUCCESS",
+		"test_complex_mapping_in_quantifier": "SUCCESS",
+		"test_no_hook_inlining": "FAIL",
+		"test_no_hook_inlining_complex_access": "FAIL",
+		"test_packed_arrays": "SUCCESS",
+		"test_packed_arrays_in_quantifier": "SUCCESS",
+		"test_top_level": "SUCCESS"
+	}
+}

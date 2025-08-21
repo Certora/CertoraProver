@@ -1,0 +1,9 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"call_with_address": "SUCCESS",
+		"call_with_address_static": "SUCCESS"
+	}
+}

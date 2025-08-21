@@ -5,3 +5,14 @@ Public/TestEVM/RequireReasons/WithCheck.conf,True
 Public/TestEVM/MethodPickingTest/Bad.conf,True
 Public/TestEVM/CVLCompilation/Rerouting/Bad.conf,True
 Public/TestEVM/CVLCompilation/Rerouting/Bad2.conf,True
+Public/TestEVM/CVLCompilation/UnsatisfiableMethodFilters/Basic.conf,True
+Public/TestEVM/CVLCompilation/ContractTypes/Default.conf,True
+Public/TestEVM/CVLCompilation/StorageComparison/Errors.conf,True
+Public/TestEVM/CVLCompilation/StorageComparison/ComplexWithoutGround.conf,True
+Public/TestEVM/CVLCompilation/BinaryExpWithSideEffects/ShortCircuit.conf,True
+Public/TestEVM/CVLCompilation/BinaryExpWithSideEffects/ShortCircuitBad.conf,True
+Public/TestEVM/CVLCompilation/MultiReturn/Default.conf,True
+Public/TestEVM/CVLCompilation/DirectStorageAccess/Havoc/Bad.conf,True
+Public/TestEVM/CVLCompilation/Hooks/EmptyHooks/Basic.conf,True
+Public/TestEVM/CVLCompilation/Hooks/EmptyHooks/Importer.conf,True
+Public/TestEVM/CVLCompilation/EmptyContract/Default.conf,True

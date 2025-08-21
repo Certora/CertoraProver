@@ -1,0 +1,15 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"get_neg_two()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"quantifierWithSideEffect": "SUCCESS"
+	}
+}

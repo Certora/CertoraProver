@@ -1,0 +1,12 @@
+Error in spec file (Test.spec:6:2): Incorrect number of values returned for CVL function doesNotReturnEnough: expected 2 but saw 1.
+Error in spec file (Test.spec:10:2): Multiple values are returned for function returnsTooMany where only one was expected.
+Error in spec file (Test.spec:14:17): could not type expression "k", message: Expected type int256 in return position 2 of CVL function returnsWrongType, but k is of type uint256
+Error in spec file (Test.spec:29:2): Cannot assign 2-ary function to 3 variables
+Error in spec file (Test.spec:34:5): Cannot assign 2-ary function to 1 variable
+Error in spec file (Test.spec:40:2): Cannot assign 2-ary function to 1 variable
+Error in spec file (Test.spec:48:2): Cannot assign value of type uint256 to variable of type bool
+Error in spec file (Test.spec:48:2): Cannot assign value of type uint256[] to variable of type bytes5[]
+Error in spec file (Test.spec:48:2): Cannot assign value of type int32[] to variable of type int256
+Error in spec file (Test.spec:56:2): Cannot assign 2-ary function to 3 variables
+Error in spec file (Test.spec:61:2): Cannot assign 2-ary function to 1 variable
+Error in spec file (Test.spec:67:2): Cannot assign 2-ary function to 1 variable

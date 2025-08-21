@@ -1,0 +1,4 @@
+Error in spec file (complex.spec:6:25): could not type expression "(init == lastStorage)", message: Without grounding enabled, cannot use direct storage comparisons except in an assertion command.
+Error in spec file (complex.spec:7:9): could not type expression "(init != lastStorage)", message: Without grounding enabled, cannot use direct storage comparisons except in an assertion command.
+Error in spec file (complex.spec:24:19): could not type expression "lastStorage != init", message: Without grounding enabled, cannot use direct storage comparisons except in an assertion command.
+Error in spec file (complex.spec:31:19): could not type expression "lastStorage != init", message: Without grounding enabled, cannot use direct storage comparisons except in an assertion command.

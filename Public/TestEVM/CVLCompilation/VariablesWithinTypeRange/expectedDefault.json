@@ -1,0 +1,33 @@
+{
+	"assertMessages": {
+		"dynamicArrArg": "foo should not have reverted",
+		"dynamicArrVar": "foo should not have reverted",
+		"staticArrArg": "foo should not have reverted",
+		"staticArrVar": "foo should not have reverted"
+	},
+	"rules": {
+		"EArg": "SUCCESS",
+		"EVar": "SUCCESS",
+		"SArg": "SUCCESS",
+		"SVar": "SUCCESS",
+		"TArg": "SUCCESS",
+		"TVar": "SUCCESS",
+		"bytes4Arg": "SUCCESS",
+		"bytes4Var": "SUCCESS",
+		"dynamicArrArg": "FAIL",
+		"dynamicArrVar": "FAIL",
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": ["foo(C.E)", "foo(C.S)", "foo(C.S[4])", "foo(C.T)", "foo(bytes29[])", "foo(bytes4)", "foo(int16)", "foo(uint24)"],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"int16Arg": "SUCCESS",
+		"int16Var": "SUCCESS",
+		"staticArrArg": "FAIL",
+		"staticArrVar": "FAIL",
+		"uint24Arg": "SUCCESS",
+		"uint24Var": "SUCCESS"
+	}
+}

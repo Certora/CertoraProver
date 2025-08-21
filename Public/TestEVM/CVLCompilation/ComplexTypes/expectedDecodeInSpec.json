@@ -1,0 +1,7 @@
+{
+	"rules": {
+		"test_c": "SANITY_FAIL",
+		"test_c_inv": "SANITY_FAIL",
+		"test_with_literal": "SANITY_FAIL"
+	}
+}

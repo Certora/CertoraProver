@@ -1,0 +1,10 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "arithrshift": "SUCCESS",
+        "arithrshiftneg": "SUCCESS",
+        "logicrshift": "SUCCESS",
+        "logicrshiftneg": "SUCCESS",
+        "lshift": "SUCCESS"
+    }
+}

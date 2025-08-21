@@ -1,0 +1,15 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"check_complicated_right": "SUCCESS",
+		"check_complicated_static": "SUCCESS",
+		"check_complicated_wrong": "FAIL",
+		"check_encoding": "SUCCESS",
+		"correctLiteralDynamicCompilation": "SUCCESS",
+		"correctLiteralDynamicDynamic": "SUCCESS",
+		"correctLiteralStaticCompilation": "SUCCESS",
+		"regression": "SUCCESS"
+	}
+}

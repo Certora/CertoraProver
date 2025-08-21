@@ -1,0 +1,25 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "callsCollide": "FAIL",
+        "definitionNestedInArg": "SUCCESS",
+        "doesRevert": {
+            "FAIL": [
+                "revertsForSure()"
+            ],
+            "SANITY_FAIL": [],
+            "SUCCESS": [
+                "giveMeThree()"
+            ],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "functionInTernaryExp": "FAIL",
+        "returnsCouldCollide": "FAIL",
+        "test_ignore_return": "SUCCESS",
+        "test_min": "SUCCESS",
+        "test_min_3": "SUCCESS",
+        "test_min_fallthrough": "SUCCESS",
+        "yeet": "SUCCESS"
+    }
+}

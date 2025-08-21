@@ -1,0 +1,41 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "foo_no_invocation": {
+            "FAIL": [],
+            "SANITY_FAIL": [],
+            "SUCCESS": [
+                "foo(uint256)"
+            ],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "foo_pruned_from_fallback_case": {
+            "FAIL": [
+                "foo(uint256)"
+            ],
+            "SANITY_FAIL": [],
+            "SUCCESS": [],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "parametric_method_param": {
+            "FAIL": [],
+            "SANITY_FAIL": [],
+            "SUCCESS": [
+                "foo(uint256)"
+            ],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "parametric_method_variable": {
+            "FAIL": [],
+            "SANITY_FAIL": [],
+            "SUCCESS": [
+                "foo(uint256)"
+            ],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        }
+    }
+}

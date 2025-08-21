@@ -1,0 +1,10 @@
+{
+	"assertMessages": {
+		"dispatchListInlinesFallback": "!(lastReverted) && to_mathint(d._u) == o... - c.spec line 16",
+		"dispatchListInlinesFoo": "!(lastReverted) && to_mathint(d._u) == o... - c.spec line 26"
+	},
+	"rules": {
+		"dispatchListInlinesFallback": "SUCCESS",
+		"dispatchListInlinesFoo": "SUCCESS"
+	}
+}

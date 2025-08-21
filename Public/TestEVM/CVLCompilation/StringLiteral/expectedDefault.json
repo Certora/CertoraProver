@@ -1,0 +1,11 @@
+{
+	"rules": {
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"whichString(string)"
+			]
+		},
+		"shouldFail": "FAIL",
+		"whichString": "SANITY_FAIL"
+	}
+}
