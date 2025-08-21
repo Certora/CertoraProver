@@ -393,6 +393,7 @@ class DebugAdapterProtocolStackMachine(
                 is SnippetCmd.ExplicitDebugStep -> it.range
                 is SnippetCmd.EVMSnippetCmd.BranchSnippet.StartBranchSnippet -> it.branchSource.range
                 is SnippetCmd.EVMSnippetCmd.HaltSnippet -> it.range
+                is SnippetCmd.MoveSnippetCmd -> it.range
 
                 is SnippetCmd.CVLSnippetCmd.AssertCast,
                 is SnippetCmd.CVLSnippetCmd.BranchStart,

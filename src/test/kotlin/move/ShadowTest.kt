@@ -67,7 +67,7 @@ class ShadowTest : MoveTestFixture() {
             use 0::types::{s, n};
             fun test() {
                 let s = s(42);
-                cvlm_assert!(s.n() == 43);
+                cvlm_assert(s.n() == 43);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -94,13 +94,13 @@ class ShadowTest : MoveTestFixture() {
             fun test() {
                 let mut m1 = map<u64, u64>();
                 *borrow_mut(&mut m1, 1) = 42;
-                cvlm_assert!(*borrow(&m1, 1) == 42);
+                cvlm_assert(*borrow(&m1, 1) == 42);
                 let mut m2 = m1;
                 *borrow_mut(&mut m2, 1) = 82;
                 *borrow_mut(&mut m2, 2) = 83;
-                cvlm_assert!(*borrow(&m1, 1) == 42);
-                cvlm_assert!(borrow(&m2, 1) == 82);
-                cvlm_assert!(borrow(&m2, 2) == 83);
+                cvlm_assert(*borrow(&m1, 1) == 42);
+                cvlm_assert(borrow(&m2, 1) == 82);
+                cvlm_assert(borrow(&m2, 2) == 83);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -128,15 +128,15 @@ class ShadowTest : MoveTestFixture() {
                 let mut m1 = map();
                 *borrow_mut(&mut m1, 1, 1) = 42;
                 *borrow_mut(&mut m1, 1, 2) = 43;
-                cvlm_assert!(borrow(&m1, 1, 1) == 42);
-                cvlm_assert!(borrow(&m1, 1, 2) == 43);
+                cvlm_assert(borrow(&m1, 1, 1) == 42);
+                cvlm_assert(borrow(&m1, 1, 2) == 43);
                 let mut m2 = m1;
                 *borrow_mut(&mut m2, 1, 2) = 82;
                 *borrow_mut(&mut m2, 2, 2) = 83;
-                cvlm_assert!(borrow(&m1, 1, 1) == 42);
-                cvlm_assert!(borrow(&m1, 1, 2) == 43);
-                cvlm_assert!(borrow(&m2, 1, 2) == 82);
-                cvlm_assert!(borrow(&m2, 2, 2) == 83);
+                cvlm_assert(borrow(&m1, 1, 1) == 42);
+                cvlm_assert(borrow(&m1, 1, 2) == 43);
+                cvlm_assert(borrow(&m2, 1, 2) == 82);
+                cvlm_assert(borrow(&m2, 2, 2) == 83);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -194,10 +194,10 @@ class ShadowTest : MoveTestFixture() {
                 let s1 = s(42);
                 let s2 = s(43);
                 let s3 = s(42);
-                cvlm_assert!(s1 == s3);
-                cvlm_assert!(s1 != s2);
-                cvlm_assert!(hash(&s1) == hash(&s3));
-                cvlm_assert!(hash(&s1) != hash(&s2));
+                cvlm_assert(s1 == s3);
+                cvlm_assert(s1 != s2);
+                cvlm_assert(hash(&s1) == hash(&s3));
+                cvlm_assert(hash(&s1) != hash(&s2));
             }
         """.trimIndent())
         assertTrue(verify())

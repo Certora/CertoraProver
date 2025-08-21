@@ -35,8 +35,8 @@ class GenericsTest : MoveTestFixture() {
 
             public fun test() {
                 let v = foo(42);
-                cvlm_assert!(vector::length(&v) == 1);
-                cvlm_assert!(*vector::borrow(&v, 0) == 42);
+                cvlm_assert(vector::length(&v) == 1);
+                cvlm_assert(*vector::borrow(&v, 0) == 42);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -51,7 +51,7 @@ class GenericsTest : MoveTestFixture() {
             }
             public fun test() {
                 let f = Foo<u64> { x: 42 };
-                cvlm_assert!(f.x == 42);
+                cvlm_assert(f.x == 42);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -69,7 +69,7 @@ class GenericsTest : MoveTestFixture() {
             }
             public fun test() {
                 let f = Foo<u64> { x: 42 };
-                cvlm_assert!(foo(f) == 42);
+                cvlm_assert(foo(f) == 42);
             }
         """.trimIndent())
         assertTrue(verify())

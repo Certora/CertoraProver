@@ -793,6 +793,8 @@ private fun setActiveFlow() {
                 SpecFile.getOrNull() != null -> Config.ActiveEcosystem.set(Ecosystem.EVM)
                 else -> Config.ActiveEcosystem.set(Ecosystem.EVM)
             }
+        } else if (Config.MoveModulePath.getOrNull() != null) {
+            Config.ActiveEcosystem.set(Ecosystem.SUI)
         } else {
             Config.ActiveEcosystem.set(Ecosystem.EVM)
         }

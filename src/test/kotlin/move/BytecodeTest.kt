@@ -35,7 +35,7 @@ class BytecodeTest : MoveTestFixture() {
                 } else {
                     x = 0;
                 };
-                cvlm_assert!(x != n);
+                cvlm_assert(x != n);
             }
         """.trimIndent())
 
@@ -54,7 +54,7 @@ class BytecodeTest : MoveTestFixture() {
                 } else {
                     x = 1;
                 };
-                cvlm_assert!(x != n);
+                cvlm_assert(x != n);
             }
         """.trimIndent())
 
@@ -72,7 +72,7 @@ class BytecodeTest : MoveTestFixture() {
                     x = x + i;
                     i = i + 1;
                 };
-                cvlm_assert!(x == 13);
+                cvlm_assert(x == 13);
             }
         """.trimIndent())
 
@@ -92,7 +92,7 @@ class BytecodeTest : MoveTestFixture() {
                     i = i + 1;
                     if (i == 2) break;
                 };
-                cvlm_assert!(x == 11);
+                cvlm_assert(x == 11);
             }
         """.trimIndent())
 
@@ -107,7 +107,7 @@ class BytecodeTest : MoveTestFixture() {
                 x + 1
             }
             public fun test(n: u32) {
-                cvlm_assert!(function(n) == n + 1);
+                cvlm_assert(function(n) == n + 1);
             }
         """.trimIndent())
 
@@ -125,16 +125,16 @@ class BytecodeTest : MoveTestFixture() {
                 let n32 = (n as u32);
                 let n16 = (n as u16);
                 let n8 = (n as u8);
-                cvlm_assert!(n128 < (1 << 128));
-                cvlm_assert!(n64 < (1 << 64));
-                cvlm_assert!(n32 < (1 << 32));
-                cvlm_assert!(n16 < (1 << 16));
-                cvlm_assert!(n8 < (1 << 8));
-                cvlm_assert!((n8 as u$size) == n);
-                cvlm_assert!((n16 as u$size) == n);
-                cvlm_assert!((n32 as u$size) == n);
-                cvlm_assert!((n64 as u$size) == n);
-                cvlm_assert!((n128 as u$size) == n);
+                cvlm_assert(n128 < (1 << 128));
+                cvlm_assert(n64 < (1 << 64));
+                cvlm_assert(n32 < (1 << 32));
+                cvlm_assert(n16 < (1 << 16));
+                cvlm_assert(n8 < (1 << 8));
+                cvlm_assert((n8 as u$size) == n);
+                cvlm_assert((n16 as u$size) == n);
+                cvlm_assert((n32 as u$size) == n);
+                cvlm_assert((n64 as u$size) == n);
+                cvlm_assert((n128 as u$size) == n);
             }
         """.trimIndent())
 
@@ -149,7 +149,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let n256 = (1 << 255);
                 let n = (n256 as u$size);
-                cvlm_assert!(n >= 0);
+                cvlm_assert(n >= 0);
             }
         """.trimIndent())
 
@@ -164,7 +164,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 11u$size;
                 let b = 22u$size;
-                cvlm_assert!(a + b == 33u$size);
+                cvlm_assert(a + b == 33u$size);
             }
         """.trimIndent())
 
@@ -179,7 +179,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = ${maxInt(size)};
                 let b = 1u$size;
-                cvlm_assert!(a + b >= 0);
+                cvlm_assert(a + b >= 0);
             }
         """.trimIndent())
 
@@ -194,7 +194,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 33u$size;
                 let b = 22u$size;
-                cvlm_assert!(a - b == 11u$size);
+                cvlm_assert(a - b == 11u$size);
             }
         """.trimIndent())
 
@@ -209,7 +209,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0u$size;
                 let b = 1u$size;
-                cvlm_assert!(a - b >= 0);
+                cvlm_assert(a - b >= 0);
             }
         """.trimIndent())
 
@@ -224,7 +224,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 11u$size;
                 let b = 3u$size;
-                cvlm_assert!(a * b == 33u$size);
+                cvlm_assert(a * b == 33u$size);
             }
         """.trimIndent())
 
@@ -238,7 +238,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = ${maxInt(size)};
                 let b = 2u$size;
-                cvlm_assert!(a * b >= 0);
+                cvlm_assert(a * b >= 0);
             }
         """.trimIndent())
 
@@ -253,7 +253,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 33u$size;
                 let b = 3u$size;
-                cvlm_assert!(a / b == 11u$size);
+                cvlm_assert(a / b == 11u$size);
             }
         """.trimIndent())
 
@@ -268,7 +268,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 33u$size;
                 let b = 0u$size;
-                cvlm_assert!(a / b >= 0);
+                cvlm_assert(a / b >= 0);
             }
         """.trimIndent())
 
@@ -283,7 +283,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 33u$size;
                 let b = 10u$size;
-                cvlm_assert!(a % b == 3u$size);
+                cvlm_assert(a % b == 3u$size);
             }
         """.trimIndent())
 
@@ -297,7 +297,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 33u$size;
                 let b = 0u$size;
-                cvlm_assert!(a % b >= 0);
+                cvlm_assert(a % b >= 0);
             }
         """.trimIndent())
 
@@ -312,7 +312,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x5bu$size;
                 let b = 0x30u$size;
-                cvlm_assert!(a & b == 0x10u$size);
+                cvlm_assert(a & b == 0x10u$size);
             }
         """.trimIndent())
 
@@ -327,7 +327,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x50u$size;
                 let b = 0x03u$size;
-                cvlm_assert!(a | b == 0x53u$size);
+                cvlm_assert(a | b == 0x53u$size);
             }
         """.trimIndent())
 
@@ -341,7 +341,7 @@ class BytecodeTest : MoveTestFixture() {
             $testModule
             public fun test() {
                 let a = 0x7fu$size;
-                cvlm_assert!(a << 1 == 0xfeu$size);
+                cvlm_assert(a << 1 == 0xfeu$size);
             }
         """.trimIndent())
 
@@ -356,7 +356,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a: u$size = 1;
                 let b = ${size}u8;
-                cvlm_assert!((a << b) >= 0);
+                cvlm_assert((a << b) >= 0);
             }
         """.trimIndent())
 
@@ -370,7 +370,7 @@ class BytecodeTest : MoveTestFixture() {
             $testModule
             public fun test() {
                 let a = 0x7fu$size;
-                cvlm_assert!(a >> 1 == 0x3fu$size);
+                cvlm_assert(a >> 1 == 0x3fu$size);
             }
         """.trimIndent())
 
@@ -384,7 +384,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a: u$size = 1;
                 let b = ${size}u8;
-                cvlm_assert!((a >> b) >= 0);
+                cvlm_assert((a >> b) >= 0);
             }
         """.trimIndent())
 
@@ -399,7 +399,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7fu$size;
                 let b = 0x7fu$size;
-                cvlm_assert!(a == b);
+                cvlm_assert(a == b);
             }
         """.trimIndent())
 
@@ -414,7 +414,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7fu$size;
                 let b = 0x7eu$size;
-                cvlm_assert!(a == b);
+                cvlm_assert(a == b);
             }
         """.trimIndent())
 
@@ -437,7 +437,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = Bar { n: 1, f: Foo { n: 2, m: 3 }, m: 4 };
                 let b = Bar { n: 1, f: Foo { n: 2, m: 3 }, m: 4 };
-                cvlm_assert!(a == b);
+                cvlm_assert(a == b);
             }
         """.trimIndent())
 
@@ -460,7 +460,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = Bar { n: 1, f: Foo { n: 2, m: 3 }, m: 4 };
                 let b = Bar { n: 1, f: Foo { n: 2, m: 4 }, m: 4 };
-                cvlm_assert!(a == b);
+                cvlm_assert(a == b);
             }
         """.trimIndent())
 
@@ -475,7 +475,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7fu$size;
                 let b = 0x7eu$size;
-                cvlm_assert!(a != b);
+                cvlm_assert(a != b);
             }
         """.trimIndent())
 
@@ -490,7 +490,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7fu$size;
                 let b = 0x7fu$size;
-                cvlm_assert!(a != b);
+                cvlm_assert(a != b);
             }
         """.trimIndent())
 
@@ -513,7 +513,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = Bar { n: 1, f: Foo { n: 2, m: 3 }, m: 4 };
                 let b = Bar { n: 1, f: Foo { n: 8, m: 3 }, m: 4 };
-                cvlm_assert!(a != b);
+                cvlm_assert(a != b);
             }
         """.trimIndent())
 
@@ -536,7 +536,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = Bar { n: 1, f: Foo { n: 2, m: 3 }, m: 4 };
                 let b = Bar { n: 1, f: Foo { n: 2, m: 3 }, m: 4 };
-                cvlm_assert!(a != b);
+                cvlm_assert(a != b);
             }
         """.trimIndent())
 
@@ -551,7 +551,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7eu$size;
                 let b = 0x7fu$size;
-                cvlm_assert!(a < b);
+                cvlm_assert(a < b);
             }
         """.trimIndent())
 
@@ -565,7 +565,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7fu$size;
                 let b = 0x7eu$size;
-                cvlm_assert!(a < b);
+                cvlm_assert(a < b);
             }
         """.trimIndent())
 
@@ -579,7 +579,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7eu$size;
                 let b = 0x7fu$size;
-                cvlm_assert!(a <= b);
+                cvlm_assert(a <= b);
             }
         """.trimIndent())
 
@@ -593,7 +593,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7fu$size;
                 let b = 0x7eu$size;
-                cvlm_assert!(a <= b);
+                cvlm_assert(a <= b);
             }
         """.trimIndent())
 
@@ -607,7 +607,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7fu$size;
                 let b = 0x7eu$size;
-                cvlm_assert!(a > b);
+                cvlm_assert(a > b);
             }
         """.trimIndent())
 
@@ -621,7 +621,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7eu$size;
                 let b = 0x7fu$size;
-                cvlm_assert!(a > b);
+                cvlm_assert(a > b);
             }
         """.trimIndent())
 
@@ -635,7 +635,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7fu$size;
                 let b = 0x7eu$size;
-                cvlm_assert!(a >= b);
+                cvlm_assert(a >= b);
             }
         """.trimIndent())
 
@@ -649,7 +649,7 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = 0x7eu$size;
                 let b = 0x7fu$size;
-                cvlm_assert!(a >= b);
+                cvlm_assert(a >= b);
             }
         """.trimIndent())
 
@@ -662,7 +662,7 @@ class BytecodeTest : MoveTestFixture() {
             $testModule
             public fun test(i: u32) {
                 assert!(i == 13, 0);
-                cvlm_assert!(i == 13);
+                cvlm_assert(i == 13);
             }
         """.trimIndent())
 
@@ -675,7 +675,7 @@ class BytecodeTest : MoveTestFixture() {
             $testModule
             public fun test() {
                 let addr = @test_addr;
-                cvlm_assert!(addr == u256_to_address($testModuleAddr));
+                cvlm_assert(addr == u256_to_address($testModuleAddr));
             }
         """.trimIndent())
 
@@ -697,7 +697,7 @@ class BytecodeTest : MoveTestFixture() {
                     };
                     i = i + 1;
                 };
-                cvlm_assert!(total == 0 || total == a || total == a + a);
+                cvlm_assert(total == 0 || total == a || total == a + a);
             }
         """.trimIndent())
 

@@ -835,7 +835,8 @@ internal sealed class CallTraceGenerator(
                             is SnippetCmd.EVMSnippetCmd,
                             is SnippetCmd.CVLSnippetCmd,
                             is SnippetCmd.CvlrSnippetCmd,
-                            is SnippetCmd.SolanaSnippetCmd -> {
+                            is SnippetCmd.SolanaSnippetCmd,
+                            is SnippetCmd.MoveSnippetCmd -> {
                                 throw IllegalStateException("${snippetCmd::class.simpleName} snippet command handled in shared statement handler")
                             }
 

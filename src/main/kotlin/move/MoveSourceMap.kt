@@ -61,9 +61,12 @@ data class MoveSourceMap(
 
     @KSerializable(with = NamedLocationSerializer::class)
     data class NamedLocation(
-        @SerialName("name") val name: String,
+        @SerialName("name") val nameParts: String,
         @SerialName("location") val location: Location
-    )
+    ) {
+        @Suppress("ForbiddenMethodCall")
+        val name = nameParts.split('#')[0]
+    }
 
     @KSerializable
     data class Struct(

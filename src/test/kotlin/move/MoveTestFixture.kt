@@ -59,23 +59,10 @@ abstract class MoveTestFixture() {
          */
         private val cvlmSource = """
             module cvlm::asserts {
-                public native fun cvlm_assert_checked(cond: bool);
-                public native fun cvlm_assert_checked_msg(cond: bool, msg: vector<u8>);
-                public native fun cvlm_assume_checked(cond: bool);
-                public native fun cvlm_assume_checked_msg(cond: bool, msg: vector<u8>);
-
-                public macro fun cvlm_assert(${"\$cond"}: bool) {
-                    cvlm_assert_checked(${"\$cond"});
-                }
-                public macro fun cvlm_assert_msg(${"\$cond"}: bool, ${"\$msg"}: vector<u8>) {
-                    cvlm_assert_checked_msg(${"\$cond"}, ${"\$msg"});
-                }
-                public macro fun cvlm_assume(${"\$cond"}: bool) {
-                    cvlm_assume_checked(${"\$cond"});
-                }
-                public macro fun cvlm_assume_msg(${"\$cond"}: bool, ${"\$msg"}: vector<u8>) {
-                    cvlm_assume_checked_msg(${"\$cond"}, ${"\$msg"});
-                }
+                public native fun cvlm_assert(cond: bool);
+                public native fun cvlm_assert_msg(cond: bool, msg: vector<u8>);
+                public native fun cvlm_assume(cond: bool);
+                public native fun cvlm_assume_msg(cond: bool, msg: vector<u8>);
             }
             module cvlm::nondet {
                 public native fun nondet<T>(): T;
@@ -293,7 +280,7 @@ class MoveTestFixtureTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             public fun test(a: u32) {
-                cvlm_assert!(a == a);
+                cvlm_assert(a == a);
             }
         """.trimIndent())
 
@@ -305,7 +292,7 @@ class MoveTestFixtureTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             public fun test(a: u32, b: u32) {
-                cvlm_assert!(a + b == 12);
+                cvlm_assert(a + b == 12);
             }
         """.trimIndent())
 

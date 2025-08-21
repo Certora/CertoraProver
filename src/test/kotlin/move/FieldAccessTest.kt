@@ -32,8 +32,8 @@ class FieldAccessTest : MoveTestFixture() {
             }
             public fun test() {
                 let f = Foo { x: 42, y: 43 };
-                cvlm_assert!(getX(&f) == 42);
-                cvlm_assert!(getY(&f) == 43);
+                cvlm_assert(getX(&f) == 42);
+                cvlm_assert(getY(&f) == 43);
             }
         """.trimIndent())
         addMoveSource("""

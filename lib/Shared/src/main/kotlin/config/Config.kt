@@ -903,6 +903,15 @@ object Config {
         Option("excludeMoveRules", true, "List of Move rule names to exclude from the rule set.  Default is none.")
     ) {}
 
+    val MoveCallTraceVecElemCount = object : ConfigType.IntCmdLine(
+        3,
+        Option(
+            "callTraceVecElemCount",
+            true,
+            "The max number of vector element values to display in the call trace.  Default is 3."
+        )
+    ) {}
+
     val SubContract = object : ConfigType.StringCmdLine(
         null,
         Option("subContract", true, "A contract from a Solidity file to be verified")

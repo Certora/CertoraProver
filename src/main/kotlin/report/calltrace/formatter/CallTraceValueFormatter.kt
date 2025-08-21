@@ -39,6 +39,7 @@ import rules.ContractInfo
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
 import utils.*
+import java.math.BigInteger
 
 internal val logger = Logger(LoggerTypes.CALLTRACE)
 
@@ -299,6 +300,72 @@ sealed interface CallTraceValue {
                     append("$sPath=")
                     append(value.toSarif(formatter, "value at $sPath"))
                 }
+            }
+    }
+
+    data class MoveReference(val value: CallTraceValue) : CallTraceValue {
+        override val scalarValue: TACValue? get() = value.scalarValue
+        override val formatterType: FormatterType<*> get() = value.formatterType
+        override fun toSarif(formatter: CallTraceValueFormatter, tooltip: String): Sarif {
+            return mkSarif {
+                append("&")
+                append(value.toSarif(formatter, tooltip))
+            }
+        }
+    }
+
+    data class MoveStruct(val fields: List<Pair<String, CallTraceValue>>) : CallTraceValue {
+        override val scalarValue: TACValue? get() = null
+        override val formatterType: FormatterType<*> get() = FormatterType.Value.Unknown("MoveStruct")
+
+        override fun toSarif(formatter: CallTraceValueFormatter, tooltip: String): Sarif =
+            fields.joinToSarif(
+                separator = ", ",
+                prefix = "{",
+                postfix = "}"
+            ) { _, (fieldName, value) ->
+                mkSarif {
+                    append("$fieldName:")
+                    append(value.toSarif(formatter, "$tooltip.$fieldName"))
+                }
+            }
+    }
+
+    data class MoveVector(val length: BigInteger, val elements: List<CallTraceValue>) : CallTraceValue {
+        override val scalarValue: TACValue? get() = null
+        override val formatterType: FormatterType<*> get() = FormatterType.Value.Unknown("MoveVector")
+
+        override fun toSarif(formatter: CallTraceValueFormatter, tooltip: String): Sarif =
+            mkSarif {
+                append("[")
+                elements.take(length.toIntOrNull() ?: elements.size).forEachIndexed { i, it ->
+                    if (i > 0) {
+                        append(", ")
+                    }
+                    append(it.toSarif(formatter, "$tooltip[$i]"))
+                }
+                if (length > elements.size.toBigInteger()) {
+                    if (elements.size > 0) {
+                        append(", ")
+                    }
+                    append(Sarif.Arg(
+                        values = RepresentationsMap(Representations.Pretty to "..."),
+                        tooltip = "$length total elements",
+                        type = "",
+                        truncatable = false,
+                    ))
+                }
+                append("]")
+            }
+    }
+
+    data class MoveArg(val name: String, val value: CallTraceValue) : CallTraceValue {
+        override val scalarValue: TACValue? get() = value.scalarValue
+        override val formatterType: FormatterType<*> get() = value.formatterType
+
+        override fun toSarif(formatter: CallTraceValueFormatter, tooltip: String): Sarif =
+            mkSarif {
+                append(value.toSarif(formatter, name))
             }
     }
 

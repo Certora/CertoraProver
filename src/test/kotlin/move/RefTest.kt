@@ -29,7 +29,7 @@ class RefTest : MoveTestFixture() {
                 let mut x = 1;
                 let r = &mut x;
                 *r = 2;
-                cvlm_assert!(x == 2);
+                cvlm_assert(x == 2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -47,7 +47,7 @@ class RefTest : MoveTestFixture() {
                 } else {
                     *r = 3;
                 };
-                cvlm_assert!(x == 2 || x == 3);
+                cvlm_assert(x == 2 || x == 3);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -60,7 +60,7 @@ class RefTest : MoveTestFixture() {
             public fun test() {
                 let x = 1;
                 let r = &x;
-                cvlm_assert!(*r == 1);
+                cvlm_assert(*r == 1);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -79,7 +79,7 @@ class RefTest : MoveTestFixture() {
                     &y
                 };
                 let z = *r;
-                cvlm_assert!(z == 1 || z == 2);
+                cvlm_assert(z == 1 || z == 2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -98,7 +98,7 @@ class RefTest : MoveTestFixture() {
                     &mut y
                 };
                 *r = 3;
-                cvlm_assert!((x == 3 && y == 2) || (x == 1 && y == 3));
+                cvlm_assert((x == 3 && y == 2) || (x == 1 && y == 3));
             }
         """.trimIndent())
         assertTrue(verify())
@@ -117,7 +117,7 @@ class RefTest : MoveTestFixture() {
                     &y
                 };
                 let z = *r;
-                cvlm_assert!(z == cond);
+                cvlm_assert(z == cond);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -136,7 +136,7 @@ class RefTest : MoveTestFixture() {
                     &mut y
                 };
                 *r = false;
-                cvlm_assert!(x == !cond && y == cond);
+                cvlm_assert(x == !cond && y == cond);
             }
         """.trimIndent())
         assertTrue(verify())

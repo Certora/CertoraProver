@@ -19,7 +19,6 @@ package move
 
 import analysis.NonTrivialDefAnalysis
 import datastructures.stdcollections.*
-import move.CvlmApi.MESSAGE_VAR
 import move.MoveToTAC.Companion.CONST_STRING
 import tac.*
 import utils.*
@@ -27,9 +26,11 @@ import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
 
 object ConstantStringPropagator {
+    val MESSAGE_VAR = MetaKey<TACSymbol.Var>("move.message")
+
     /**
-        Propagates constant string values to commands that understand them.  For now, this is just AssertCmd and
-        AssumeCmd.
+        Propagates constant string values to commands that understand them.  We use this to get the user-provided
+        messages for asserts and assumes.
 
         This must run *before* DSA; otherwise, DSA will discard the original string variable if it is only used in the
         assert/assume command's MetaMap.
@@ -40,11 +41,17 @@ object ConstantStringPropagator {
             val messageVar = cmd.meta[MESSAGE_VAR] ?: return@mapNotNull null
             val messageDef = def.getDefCmd<TACCmd.Simple.AssigningCmd>(messageVar, ptr) ?: return@mapNotNull null
             val messageString = messageDef.cmd.lhs.meta[CONST_STRING] ?: return@mapNotNull null
-            ptr `to?` when(cmd) {
+            val newCmd = when(cmd) {
                 is TACCmd.Simple.AssertCmd -> cmd.copy(description = messageString, meta = cmd.meta - MESSAGE_VAR)
                 is TACCmd.Simple.AssumeCmd -> cmd.copy(msg = messageString, meta = cmd.meta - MESSAGE_VAR)
-                else -> error("Unexpected command type: ${cmd::class.simpleName} with MESSAGE_VAR meta")
-            }
+                is TACCmd.Simple.AnnotationCmd -> when (val annot = cmd.annot.v) {
+                    is MoveCallTrace.Assume -> MoveCallTrace.Assume(messageString, annot.range).toAnnotation()
+                    is MoveCallTrace.Assert -> MoveCallTrace.Assert(annot.isSatisfy, annot.condition, messageString, annot.range).toAnnotation()
+                    else -> null
+                }?.withMeta(cmd.meta - MESSAGE_VAR)
+                else -> null
+            } ?: error("Unexpected command with MESSAGE_VAR meta: $cmd at $ptr")
+            ptr to newCmd
         }.patchForEach(code) { (ptr, cmd) ->
             replaceCommand(ptr, listOf(cmd))
         }

@@ -29,8 +29,8 @@ class MathIntTest : MoveTestFixture() {
                 let a = math_int::from_u256(5);
                 let b = math_int::from_u256(10);
                 let c = math_int::from_u256(10);
-                cvlm_assert!(a != b);
-                cvlm_assert!(b == c);
+                cvlm_assert(a != b);
+                cvlm_assert(b == c);
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -41,7 +41,7 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(5).add(math_int::from_u256(10)) == math_int::from_u256(15));
+                cvlm_assert(math_int::from_u256(5).add(math_int::from_u256(10)) == math_int::from_u256(15));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -53,7 +53,7 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(15).sub(math_int::from_u256(5)) == math_int::from_u256(10));
+                cvlm_assert(math_int::from_u256(15).sub(math_int::from_u256(5)) == math_int::from_u256(10));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -64,7 +64,7 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(3).mul(math_int::from_u256(4)) == math_int::from_u256(12));
+                cvlm_assert(math_int::from_u256(3).mul(math_int::from_u256(4)) == math_int::from_u256(12));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -75,7 +75,7 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(12).div(math_int::from_u256(4)) == math_int::from_u256(3));
+                cvlm_assert(math_int::from_u256(12).div(math_int::from_u256(4)) == math_int::from_u256(3));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -86,7 +86,7 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(10).mod(math_int::from_u256(3)) == math_int::from_u256(1));
+                cvlm_assert(math_int::from_u256(10).mod(math_int::from_u256(3)) == math_int::from_u256(1));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -97,8 +97,8 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(5).lt(math_int::from_u256(10)));
-                cvlm_assert!(!math_int::from_u256(10).lt(math_int::from_u256(5)));
+                cvlm_assert(math_int::from_u256(5).lt(math_int::from_u256(10)));
+                cvlm_assert(!math_int::from_u256(10).lt(math_int::from_u256(5)));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -109,9 +109,9 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(5).le(math_int::from_u256(10)));
-                cvlm_assert!(math_int::from_u256(10).le(math_int::from_u256(10)));
-                cvlm_assert!(!math_int::from_u256(10).le(math_int::from_u256(5)));
+                cvlm_assert(math_int::from_u256(5).le(math_int::from_u256(10)));
+                cvlm_assert(math_int::from_u256(10).le(math_int::from_u256(10)));
+                cvlm_assert(!math_int::from_u256(10).le(math_int::from_u256(5)));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -122,8 +122,8 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(10).gt(math_int::from_u256(5)));
-                cvlm_assert!(!math_int::from_u256(5).gt(math_int::from_u256(10)));
+                cvlm_assert(math_int::from_u256(10).gt(math_int::from_u256(5)));
+                cvlm_assert(!math_int::from_u256(5).gt(math_int::from_u256(10)));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -134,9 +134,9 @@ class MathIntTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             fun test() {
-                cvlm_assert!(math_int::from_u256(10).ge(math_int::from_u256(5)));
-                cvlm_assert!(math_int::from_u256(10).ge(math_int::from_u256(10)));
-                cvlm_assert!(!math_int::from_u256(5).ge(math_int::from_u256(10)));
+                cvlm_assert(math_int::from_u256(10).ge(math_int::from_u256(5)));
+                cvlm_assert(math_int::from_u256(10).ge(math_int::from_u256(10)));
+                cvlm_assert(!math_int::from_u256(5).ge(math_int::from_u256(10)));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -148,8 +148,8 @@ class MathIntTest : MoveTestFixture() {
             $testModule
             fun test() {
                 let neg = math_int::from_u256(0).sub(math_int::from_u256(5));
-                cvlm_assert!(neg.lt(math_int::from_u256(0)));
-                cvlm_assert!(neg.add(math_int::from_u256(5)) == math_int::from_u256(0));
+                cvlm_assert(neg.lt(math_int::from_u256(0)));
+                cvlm_assert(neg.add(math_int::from_u256(5)) == math_int::from_u256(0));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))
@@ -162,8 +162,8 @@ class MathIntTest : MoveTestFixture() {
             fun test() {
                 let u256max = math_int::from_u256(0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF);
                 let large = u256max.add(math_int::from_u256(5));
-                cvlm_assert!(large.gt(u256max));
-                cvlm_assert!(large.sub(u256max) == math_int::from_u256(5));
+                cvlm_assert(large.gt(u256max));
+                cvlm_assert(large.sub(u256max) == math_int::from_u256(5));
             }
         """)
         assertTrue(verify(assumeNoTraps = false))

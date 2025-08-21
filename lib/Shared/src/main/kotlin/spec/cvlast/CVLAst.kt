@@ -697,10 +697,10 @@ data class SortDeclaration(val sort: CVLType.PureCVLType.Sort, override val rang
 data class ContractTypeDefinition(val name: String, val type: CVLType.PureCVLType): AmbiSerializable
 
 /** parameter used in a signature */
-@Serializable
 @Treapable
-sealed interface TypedParam<T>: AmbiSerializable {
+interface TypedParam<T>: AmbiSerializable {
     val type: T
+    val name: String?
 }
 
 @Serializable
@@ -724,11 +724,12 @@ sealed class VMParam : TypedParam<VMTypeDescriptor> {
      */
     @Serializable
     data class Unnamed(override val vmType: VMTypeDescriptor, override val range: Range) : VMParam() {
+        override val name: String? get() = null
         override fun toString() = "$vmType"
     }
 
     @Serializable
-    data class Named(val name: String, override val vmType: VMTypeDescriptor, override val range: Range, val originalName: String = name) : VMParam() {
+    data class Named(override val name: String, override val vmType: VMTypeDescriptor, override val range: Range, val originalName: String = name) : VMParam() {
         val id: String
             get() = name
 
@@ -745,6 +746,7 @@ data class CVLParam(
     val originalId : String = id,
 ) : TypedParam<CVLType.PureCVLType> {
     override fun toString(): String = "$type $originalId"
+    override val name get() = id
 }
 
 

@@ -30,7 +30,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let v1 = vector::empty<u32>();
                 let v2 = vector::empty<u32>();
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -43,7 +43,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let v1 = vector[42, 43];
                 let v2 = vector[42, 43];
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -56,7 +56,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let v1 = vector[42, 43];
                 let v2 = vector[43, 42];
-                cvlm_assert!(v1 != v2);
+                cvlm_assert(v1 != v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -69,7 +69,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let v1 = vector[b"hello", b"world"];
                 let v2 = vector[b"hello", b"world"];
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -83,7 +83,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let v1 = vector[b"hello", b"world"];
                 let v2 = vector[b"world", b"hello"];
-                cvlm_assert!(v1 != v2);
+                cvlm_assert(v1 != v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -100,7 +100,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let s1 = S { x: 1, y: b"hello" };
                 let s2 = S { x: 1, y: b"hello" };
-                cvlm_assert!(s1 == s2);
+                cvlm_assert(s1 == s2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -117,7 +117,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let s1 = S { x: 1, y: b"hello" };
                 let s2 = S { x: 1, y: b"world" };
-                cvlm_assert!(s1 != s2);
+                cvlm_assert(s1 != s2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -130,7 +130,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let v1 = vector[1, 2, 3];
                 let v2 = v1;
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -144,7 +144,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let v1 = vector[1, 2, 3];
                 let mut v2 = v1;
                 *vector::borrow_mut(&mut v2, 1) = 4;
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertFalse(verify())
@@ -158,7 +158,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let v1 = vector[1, 2, 3];
                 let mut v2 = v1;
                 v2.push_back(4);
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertFalse(verify())
@@ -172,7 +172,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let v1 = vector[1, 2, 3];
                 let mut v2 = v1;
                 v2.pop_back();
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertFalse(verify())
@@ -187,7 +187,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let mut v2 = v1;
                 v1.push_back(4);
                 v2.push_back(4);
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -202,7 +202,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let mut v2 = v1;
                 v1.push_back(4);
                 v2.push_back(5);
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertFalse(verify())
@@ -217,7 +217,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let mut v2 = v1;
                 v1.pop_back();
                 v2.pop_back();
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -232,7 +232,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let mut v2 = vector[1, 2, 4];
                 v1.pop_back();
                 v2.pop_back();
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertFalse(verify())
@@ -249,7 +249,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let s1 = vector[S { x: 1, y: 2 }];
                 let s2 = s1;
-                cvlm_assert!(s1 == s2);
+                cvlm_assert(s1 == s2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -267,7 +267,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let s1 = vector[S { x: 1, y: 2 }];
                 let mut s2 = s1;
                 vector::borrow_mut(&mut s2, 0).x = 3;
-                cvlm_assert!(s1 == s2);
+                cvlm_assert(s1 == s2);
             }
         """.trimIndent())
         assertFalse(verify())
@@ -280,7 +280,7 @@ class VecEqualityTest : MoveTestFixture() {
             public fun test() {
                 let v1 = vector[vector[1, 2], vector[3, 4]];
                 let v2 = v1;
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -294,7 +294,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let v1 = vector[vector[1, 2], vector[3, 4]];
                 let mut v2 = v1;
                 *vector::borrow_mut(vector::borrow_mut(&mut v2, 1), 0) = 6;
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertFalse(verify())
@@ -308,7 +308,7 @@ class VecEqualityTest : MoveTestFixture() {
                 let v1 = vector[vector[1, 2], vector[3, 4]];
                 let mut v2 = v1;
                 *vector::borrow_mut(vector::borrow_mut(&mut v2, 1), 0) = 6;
-                cvlm_assert!(vector::borrow(&v1, 0) == vector::borrow(&v2, 0));
+                cvlm_assert(vector::borrow(&v1, 0) == vector::borrow(&v2, 0));
             }
         """.trimIndent())
         assertTrue(verify())

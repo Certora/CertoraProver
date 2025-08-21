@@ -75,9 +75,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             }
         }
 
-        val FUNC_START = MetaKey<FuncStartAnnotation>("move.func.start")
-        val FUNC_END = MetaKey<FuncEndAnnotation>("move.func.end")
         val CONST_STRING = MetaKey<String>("move.const.string")
+
+        private const val REACHED_END_OF_FUNCTION = "Reached end of function"
     }
 
     private val uniqueNameAllocator = mutableMapOf<String, Int>()
@@ -95,65 +95,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     private fun PersistentStack<MoveCall>.format() = joinToString(" ← ") { it.callee.toString() }
 
     private val MoveFunction.varNameBase get() = name.toVarName()
-
-    @KSerializable
-    sealed class AnnotationArg : AmbiSerializable {
-        /** An argument value in a single variable */
-        @KSerializable
-        data class Value(val v: TACSymbol.Var) : AnnotationArg() {
-            override fun toString() = "$v"
-        }
-        /** A reference-typed argument expanded to a location index and offset (see [MoveMemory]) */
-        @KSerializable
-        data class ExpandedRef(val iLoc: TACSymbol.Var, val offset: TACSymbol.Var) : AnnotationArg() {
-            override fun toString() = "Ref($iLoc, $offset)"
-        }
-    }
-
-    @KSerializable
-    data class FuncStartAnnotation(
-        val name: MoveFunctionName,
-        val args: List<AnnotationArg>,
-        val range: Range.Range? = null
-    ) : TransformableVarEntityWithSupport<FuncStartAnnotation>, AmbiSerializable {
-        override val support: Set<TACSymbol.Var> get() = args.flatMapToSet {
-            when (it) {
-                is AnnotationArg.Value -> listOf(it.v)
-                is AnnotationArg.ExpandedRef -> listOf(it.iLoc, it.offset)
-            }
-        }
-
-        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-            args = args.map {
-                when (it) {
-                    is AnnotationArg.Value -> AnnotationArg.Value(f(it.v))
-                    is AnnotationArg.ExpandedRef -> AnnotationArg.ExpandedRef(f(it.iLoc), f(it.offset))
-                }
-            }
-        )
-    }
-
-    @KSerializable
-    data class FuncEndAnnotation(
-        val name: MoveFunctionName,
-        val returns: List<AnnotationArg>
-    ) : TransformableVarEntityWithSupport<FuncEndAnnotation>, AmbiSerializable {
-        override val support: Set<TACSymbol.Var> get() = returns.flatMapToSet {
-            when (it) {
-                is AnnotationArg.Value -> listOf(it.v)
-                is AnnotationArg.ExpandedRef -> listOf(it.iLoc, it.offset)
-            }
-        }
-
-        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-            returns = returns.map {
-                when (it) {
-                    is AnnotationArg.Value -> AnnotationArg.Value(f(it.v))
-                    is AnnotationArg.ExpandedRef -> AnnotationArg.ExpandedRef(f(it.iLoc), f(it.offset))
-                }
-            }
-        )
-    }
 
     private enum class SanityMode {
         NONE,
@@ -178,7 +119,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     returns = returns,
                     entryBlock = calleeEntry,
                     returnBlock = exit,
-                    callStack = persistentStackOf()
+                    callStack = persistentStackOf(),
+                    source = null
                 )
             )
         }
@@ -203,19 +145,33 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     when (sanityMode) {
                         SanityMode.NONE -> null
                         SanityMode.ASSERT_TRUE -> {
-                            TACCmd.Simple.AssertCmd(
-                                TACSymbol.True,
-                                "Reached end of function",
-                                MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
-                            ).withDecls()
+                            mergeMany(
+                                MoveCallTrace.annotateUserAssert(
+                                    isSatisfy = false,
+                                    condition = TACSymbol.True,
+                                    messageText = REACHED_END_OF_FUNCTION,
+                                ),
+                                TACCmd.Simple.AssertCmd(
+                                    TACSymbol.True,
+                                    REACHED_END_OF_FUNCTION,
+                                    MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                                ).withDecls()
+                            )
                         }
                         SanityMode.SATISFY_TRUE -> {
-                            TACCmd.Simple.AssertCmd(
-                                TACSymbol.False,
-                                "Reached end of function",
-                                MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
-                                    (TACMeta.SATISFY_ID to summarizationContext.allocSatisfyId())
-                            ).withDecls()
+                            mergeMany(
+                                MoveCallTrace.annotateUserAssert(
+                                    isSatisfy = true,
+                                    condition = TACSymbol.True,
+                                    messageText = REACHED_END_OF_FUNCTION
+                                ),
+                                TACCmd.Simple.AssertCmd(
+                                    TACSymbol.False,
+                                    REACHED_END_OF_FUNCTION,
+                                    MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
+                                        (TACMeta.SATISFY_ID to summarizationContext.allocSatisfyId())
+                                ).withDecls()
+                            )
                         }
                     }
                 )
@@ -255,7 +211,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
         ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
-        val coreTAC = MoveMemory(scene).transform(moveTAC)
+        val coreTAC = MoveMemory(scene).transform(moveTAC).let { configureOptimizations(it) }
         ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
 
         val ruleType = getRuleType(coreTAC)
@@ -294,7 +250,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                         isSatisfyRule = false
                     ) to assertTAC,
                     EcosystemAgnosticRule(
-                        ruleIdentifier = RuleIdentifier.freshIdentifier("${entryFunc.name}-Reaching end of function"),
+                        ruleIdentifier = RuleIdentifier.freshIdentifier("${entryFunc.name}-$REACHED_END_OF_FUNCTION"),
                         ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
                         isSatisfyRule = true
                     ) to satisfyTAC
@@ -343,7 +299,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
     private fun optimize(code: CoreTACProgram) =
         CoreTACProgram.Linear(code)
-        .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE, GlobalInliner::inlineAll))
+        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SNIPPET_REMOVAL, SnippetRemover::rewrite))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { BoolOptimizer(it).go() })
@@ -389,8 +345,24 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         )
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
-        .map(CoreToCoreTransformer(ReportTypes.QUANTIFIER_POLARITY) { QuantifierAnnotator(it).annotate() })
         .ref
+
+    /**
+        Enables or disables destructive optimizations, which allow us to optimize the TAC in ways that will break the
+        call trace.
+     */
+    @OptIn(Config.DestructiveOptimizationsOption::class)
+    private fun configureOptimizations(code: CoreTACProgram) = when (Config.DestructiveOptimizationsMode.get()) {
+        DestructiveOptimizationsModeEnum.DISABLE -> code
+        DestructiveOptimizationsModeEnum.ENABLE -> code.withDestructiveOptimizations(true)
+        DestructiveOptimizationsModeEnum.TWOSTAGE,
+        DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> {
+            throw CertoraException(
+                CertoraErrorType.BAD_CONFIG,
+                "Two-stage destructive optimization mode is not yet supported for Move programs."
+            )
+        }
+    }
 
     context(SummarizationContext)
     fun compileFunctionCall(call: MoveCall): MoveBlocks {
@@ -470,17 +442,10 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
             // Annotate the start of the function, and move the arguments into locals
             if (blockOffset == 0) {
-                cmds += TACCmd.Simple.AnnotationCmd(
-                    FUNC_START,
-                    FuncStartAnnotation(
-                        func.name,
-                        call.args.map { AnnotationArg.Value(it) }
-                    )
-                ).withDecls()
-
                 check(call.args.size == func.params.size) {
                     "Argument count mismatch: ${call.args.size} != ${func.params.size}"
                 }
+                cmds += MoveCallTrace.annotateFuncStart(func, call.args)
                 for (i in 0..<call.args.size) {
                     cmds += assign(locals[i].s) { call.args[i].asSym() }
                 }
@@ -491,7 +456,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                 logger.trace { "$currentOffset/${stack.size}: $inst" }
 
-                val meta = scene.sourceContext.tacMeta(src).toMap()
+                val metaInfo = scene.sourceContext.tacMeta(src)
+                val meta = metaInfo.toMap()
 
                 fun topVar() = stack.top.let { type ->
                     TACSymbol.Var("${uniqueName}!stack!${stack.size - 1}!${type.symNameExt()}", type.toTag()).asSym()
@@ -545,7 +511,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                 returns = callee.returns.map { push(it) },
                                 entryBlock = calleeEntry,
                                 returnBlock = successor(currentOffset + 1),
-                                callStack = callStack
+                                callStack = callStack,
+                                source = metaInfo?.getSourceDetails()
                             )
                         )
                         TACCmd.Simple.JumpCmd(calleeEntry, meta).withDecls()
@@ -554,14 +521,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     is MoveInstruction.Ret ->
                         mergeMany(
                             mergeMany(call.returns.reversed().map { assign(it) { pop() } }),
-                            TACCmd.Simple.AnnotationCmd(
-                                FUNC_END,
-                                FuncEndAnnotation(
-                                    func.name,
-                                    call.returns.map { AnnotationArg.Value(it) }
-                                ),
-                                meta
-                            ).withDecls(),
+                            MoveCallTrace.annotateFuncEnd(call.callee, call.returns),
                             TACCmd.Simple.JumpCmd(call.returnBlock, meta).withDecls()
                         ).also { fallthrough = null }
 

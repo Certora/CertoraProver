@@ -46,6 +46,7 @@ fun generateCallTrace(
         Ecosystem.EVM -> EVMCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
         Ecosystem.SOLANA -> SolanaCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
         Ecosystem.SOROBAN -> WasmCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
+        Ecosystem.SUI -> MoveCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
     }
     return generator.safeGenerate()
 }

@@ -154,6 +154,7 @@ val EcosystemConverter = Converter {
         "evm" -> Ecosystem.EVM
         "solana" -> Ecosystem.SOLANA
         "soroban" -> Ecosystem.SOROBAN
+        "sui" -> Ecosystem.SUI
         else -> throw ConversionException(it, Ecosystem::class.java)
     }
 }
@@ -247,7 +248,8 @@ enum class SanityValues {
 enum class Ecosystem : Serializable {
     EVM,
     SOROBAN,
-    SOLANA
+    SOLANA,
+    SUI
 }
 
 /**
