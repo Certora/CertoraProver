@@ -123,6 +123,7 @@ object DiamondSimplifier {
     ): List<DiamondSimplification> {
         val graph = code.analysisCache.graph
         val lva = code.analysisCache.lva
+        val def = code.analysisCache.strictDef
 
         return graph.blocks.mapNotNull diamond@{ block ->
             // Does the block end in a conditional jump?
@@ -140,9 +141,19 @@ object DiamondSimplifier {
             // We don't want to reduce every possible diamond, because doing so might result in a single very complex
             // block which we will have a hard time solving.  Best to leave such as separate blocks so we can split the
             // solving.
+            val destructive = code.destructiveOptimizations
             val relevantCommandCount =
                 listOf(block, dst, elseDst, join)
-                .sumOf { it.commands.count { it.cmd.disposition() != IRRELEVANT } }
+                .sumOf {
+                    it.commands.count {
+                        when (it.cmd.disposition()) {
+                            NON_MERGEABLE -> true
+                            DESTRUCTIVELY_MERGEABLE_ANNOT -> !destructive
+                            MERGEABLE -> true
+                            IRRELEVANT -> false
+                        }
+                    }
+                }
 
             if (relevantCommandCount > Config.MaxMergedBranchSize.get()) {
                 logger.info {
@@ -154,24 +165,48 @@ object DiamondSimplifier {
             // Check the effects of the commands in each branch.  We can only merge branches whose effects are only
             // assignments to variables (or, optionally, assumes), and whose operations are still valid/meaningful after
             // the merge.
+            val nonMergeableAnnotations = mutableSetOf<LTACCmd>()
             val assigned = buildSet {
                 succ.forEach { (_, commands) ->
-                    commands.forEach command@{ (ptr, cmd) ->
-                        val disposition = cmd.disposition()
-                        when (disposition) {
-                            NON_MERGEABLE -> return@diamond null
-                            DESTRUCTIVELY_MERGEABLE -> if (!code.destructiveOptimizations) { return@diamond null }
+                    commands.forEach command@{ lcmd ->
+                        when (lcmd.cmd.disposition()) {
+                            NON_MERGEABLE -> when (lcmd.cmd) {
+                                is TACCmd.Simple.AnnotationCmd -> nonMergeableAnnotations.add(lcmd)
+                                else -> return@diamond null
+                            }
+                            DESTRUCTIVELY_MERGEABLE_ANNOT -> if (!destructive) { nonMergeableAnnotations.add(lcmd) }
                             MERGEABLE -> {}
                             IRRELEVANT -> return@command
                         }
-                        when (cmd) {
-                            is TACCmd.Simple.AssigningCmd -> add(cmd.lhs)
+                        when (lcmd.cmd) {
+                            is TACCmd.Simple.AssigningCmd -> add(lcmd.cmd.lhs)
                             is TACCmd.Simple.AnnotationCmd -> {}
                             is TACCmd.Simple.Assume -> if (!allowAssumes) { return@diamond null }
-                            else -> error("Mergeable command with unknown effects: $cmd @ $ptr")
+                            else -> error("Mergeable command with unknown effects: $lcmd")
                         }
                     }
                 }
+            }
+
+            // If a live assigned variable might be undefined at the join point, we cannot merge this diamond, because
+            // we would be introducing a definite definition of the variable.
+            val liveAtJoin = assigned.filterToSet { lva.isLiveBefore(join.id, it) }.toSet()
+            val maybeUndefined = liveAtJoin.filter { null in def.defSitesOf(it, join.commands[0].ptr) }
+            if (maybeUndefined.isNotEmpty()) {
+                logger.info {
+                    "Not merging diamond at ${block.id} because it would definitely define $maybeUndefined"
+                }
+                return@diamond null
+            }
+
+            // If we reach this point, the diamond qualifies for reduction, except it may contain some non-mergeable
+            // annotations.  If that's the only reason we can't merge, then write the annotations to the log to help
+            // find annotation types we want to allow in the future.
+            if (nonMergeableAnnotations.isNotEmpty()) {
+                logger.info {
+                    "In ${code.name}: Not merging diamond at ${block.id} because of non-mergeable annotations:\n${nonMergeableAnnotations.joinToString("\n")}"
+                }
+                return@diamond null
             }
 
             // We found a diamond that qualifies for reduction!
@@ -280,7 +315,7 @@ object DiamondSimplifier {
         /** May have effects that cannot be merged */
         NON_MERGEABLE(0),
         /** May have effects that cannot be merged, unless desrtuctive optimizations are enabled */
-        DESTRUCTIVELY_MERGEABLE(1),
+        DESTRUCTIVELY_MERGEABLE_ANNOT(1),
         /** Has effects that we know how to merge */
         MERGEABLE(2),
         /** Does not have any interesting effects; may be merged, and doesn't count toward overall command count. */
@@ -401,7 +436,7 @@ object DiamondSimplifier {
         unless destructive optimizations are enabled.
      */
     fun <T : Serializable> MetaKey<T>.registerDestructivelyMergeableAnnot() =
-        registerAnnotationDisposition(DESTRUCTIVELY_MERGEABLE)
+        registerAnnotationDisposition(DESTRUCTIVELY_MERGEABLE_ANNOT)
 
     /**
         Indicates that annotations with the given key should always prevent blocks in different branches from being

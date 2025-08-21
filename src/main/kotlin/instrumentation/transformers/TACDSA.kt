@@ -20,6 +20,7 @@ package instrumentation.transformers
 import algorithms.postOrder
 import algorithms.topologicalOrderOrNull
 import analysis.*
+import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
 import datastructures.MutableBijection
 import datastructures.stdcollections.*
 import instrumentation.transformers.TACDSA.TACDSARenaming
@@ -37,8 +38,8 @@ import java.util.stream.Stream
 
 private val logger = Logger(LoggerTypes.DSA)
 
-val DSA_BLOCK_START = MetaKey<String>("dsa.assign.start", erased = true)
-val DSA_BLOCK_END = MetaKey<String>("dsa.assign.end", erased = true)
+val DSA_BLOCK_START = MetaKey<String>("dsa.assign.start", erased = true).registerDestructivelyMergeableAnnot()
+val DSA_BLOCK_END = MetaKey<String>("dsa.assign.end", erased = true).registerDestructivelyMergeableAnnot()
 
 private typealias Substitution = Map<TACSymbol.Var, TACSymbol.Var>
 private typealias MutableSubstitution = MutableMap<TACSymbol.Var, TACSymbol.Var>
