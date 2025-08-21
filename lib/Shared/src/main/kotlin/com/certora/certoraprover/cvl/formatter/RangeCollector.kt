@@ -253,6 +253,7 @@ internal class RangeCollector {
 
             is CallSummary.Constant,
             is CallSummary.Dispatcher,
+            is CallSummary.DispatchList,
             is CallSummary.AssertFalse,
             is CallSummary.Auto,
             is CallSummary.HavocAll,

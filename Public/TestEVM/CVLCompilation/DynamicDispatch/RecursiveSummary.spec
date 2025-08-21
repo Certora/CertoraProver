@@ -2,7 +2,7 @@ using Other as other;
 
 methods {
     function C.update(uint) external returns uint => HAVOC_ALL;
-    function _._ external => DISPATCH [
+    unresolved external in _._ => DISPATCH [
         C.update(uint),
     ] default NONDET;
 }

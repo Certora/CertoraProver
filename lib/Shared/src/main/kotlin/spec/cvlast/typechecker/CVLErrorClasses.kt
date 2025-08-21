@@ -31,6 +31,7 @@ import spec.cvlast.*
 import spec.cvlast.typedescriptors.PrintingContext
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.genericrulegenerators.BuiltInRuleId
+import spec.isWildcard
 import utils.*
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2010,37 +2011,37 @@ class StructComparisonContainsArrays private constructor(override val location: 
 @KSerializable
 @CVLErrorType(
     category = CVLErrorCategory.METHODS_BLOCK,
-    description = "Catch unresolved summaries are for external functions only."
+    description = "Dispatch list summaries are for external functions only."
 )
 @CVLErrorExample(
     exampleCVLWithRange =
     """
         methods {
-            function _._ #internal# => DISPATCH [ _.bar(uint) ] default HAVOC_ALL;
+            function _.foo() #internal# => DISPATCH [ _.bar(uint) ] default HAVOC_ALL;
         }
         """,
-    exampleMessage = "Catch unresolved summary can only be marked as external, got 'internal'."
+    exampleMessage = "Dispatch List summary can only be used on entry marked as external, got 'internal'."
 )
 class OnlyExternalSummaryAllowed constructor(override val location: Range, override val message: String): CVLError() {
-    constructor(token: LocatedToken) : this(token.range, "Catch unresolved summary can only be marked as external, got '${token.value}'.")
+    constructor(token: LocatedToken) : this(token.range, "Dispatch List summary can only be used on entry marked as external, got '${token.value}'.")
 }
 
 @KSerializable
 @CVLErrorType(
     category = CVLErrorCategory.METHODS_BLOCK,
-    description = "Catch unresolved summaries are for '_._' patterns only."
+    description = "Catch unresolved summaries must specify the method in which they apply correctly."
 )
 @CVLErrorExample(
     exampleCVLWithRange =
     """
         methods {
-            function #C._# external => DISPATCH [ _.foo(uint) ] default HAVOC_ALL;
+            unresolved external in #C.foo# => DISPATCH [ _.foo(uint) ] default HAVOC_ALL;
         }
         """,
-    exampleMessage = "Summarizing with a dispatch list is only allowed with '_._' pattern, got 'C._'."
+    exampleMessage = "The scope of an unresolved calls entry must include the full signature of the method including parameters, unless it is a catch-all. Got 'C.foo'."
 )
 class DispatchListWithSpecificId private constructor(override val location: Range, override val message: String): CVLError() {
-    constructor(exp: MethodReferenceExp) : this(exp.range, "Summarizing with a dispatch list is only allowed with '_._' pattern, got '${exp}'.")
+    constructor(exp: MethodReferenceExp) : this(exp.range, "The scope of an unresolved calls entry must include the full signature of the method including parameters, unless it is a catch-all. Got '${exp}'.")
 }
 
 @KSerializable
@@ -2052,7 +2053,7 @@ class DispatchListWithSpecificId private constructor(override val location: Rang
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [ #_._# ] default HAVOC_ALL;
+            unresolved external in _._ => DISPATCH [ #_._# ] default HAVOC_ALL;
         }
         """,
     exampleMessage = "A dispatch list may not contain the '_._' pattern."
@@ -2060,6 +2061,113 @@ class DispatchListWithSpecificId private constructor(override val location: Rang
 class FullWildcardInDispatchList private constructor(override val location: Range, override val message: String): CVLError() {
     constructor(exp: MethodSig) : this(exp.id.range, "A dispatch list may not contain the '_._' pattern.")
 }
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.METHODS_BLOCK,
+    description = "Dispatch list not allowed on this kind of method entry."
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        methods {
+            function C.foo() external => #DISPATCH [ C._ ] default HAVOC_ALL#;
+        }
+        """,
+    exampleMessage = "Dispatch list summary not supported on an exact method entry C.foo()."
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        methods {
+            function foo() external => #DISPATCH [ C._ ] default HAVOC_ALL#;
+        }
+        """,
+    exampleMessage = "Dispatch list summary not supported on an exact method entry PrimaryContract.foo()."
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        methods {
+            function C._() external => #DISPATCH [ C._ ] default HAVOC_ALL#;
+        }
+        """,
+    exampleMessage = "Dispatch list summary not supported on a catch-all method entry C._()."
+)
+class DispatchListOnUnsupportedMethodSig private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(range: Range, sig: QualifiedMethodSignature.QualifiedMethodSig) : this(
+        range,
+        "Dispatch list summary not supported on ${
+            if (sig.qualifiedMethodName.methodId.isWildcard()) {
+                "a catch-all"
+            } else {
+                "an exact"
+            }
+        } method entry $sig."
+    )
+}
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.METHODS_BLOCK,
+    description = "Dispatch list not allowed on catch-all entry."
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+        """
+        methods {
+            #function _._ external => DISPATCH [ C._ ] default HAVOC_ALL;#
+        }
+        """
+)
+class DispatchListOnOldUnresolvedCallSyntax private constructor(
+    override val location: Range,
+    override val message: String
+) : CVLError() {
+    constructor(range: Range) : this(
+        range,
+        "The syntax `function _._ external => DISPATCH...` for unresolved calls entries was removed. " +
+            "Use instead `unresolved external in _._ => DISPATCH...`. " +
+            "Catch-all summaries must use havocing summaries (`NONDET`, `HAVOC_ALL`, `HAVOC_ECF`, `AUTO`)."
+    )
+}
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.METHODS_BLOCK,
+    description = "Dispatch list entries must match signature when used on wildcard method entries."
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        methods {
+            function _.foo() external => DISPATCH [ #C.bar()# ] default HAVOC_ALL;
+        }
+        """,
+    exampleMessage = "Dispatch list entry C.bar() does not match signature of method entry foo()."
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        methods {
+            function _.foo() external => DISPATCH [ #_.bar()# ] default HAVOC_ALL;
+        }
+        """,
+    exampleMessage = "Dispatch list entry _.bar() does not match signature of method entry foo()."
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        methods {
+            function _.foo() external => DISPATCH [ #_.foo(uint)# ] default HAVOC_ALL;
+        }
+        """,
+    exampleMessage = "Dispatch list entry _.foo(uint256) does not match signature of method entry foo()."
+)
+class DispatchListWithMismatchedMethodSig private constructor(override val location: Range, override val message: String): CVLError() {
+    constructor(exp: SpecCallSummary.DispatchList.Pattern, methodEntry: MethodParameterSignature) : this(exp.range, "Dispatch list entry ${exp.toUIString()} does not match signature of method entry $methodEntry.")
+}
+
 @KSerializable
 @CVLErrorType(
     category = CVLErrorCategory.METHODS_BLOCK,
@@ -2069,7 +2177,7 @@ class FullWildcardInDispatchList private constructor(override val location: Rang
    exampleCVLWithRange =
     """
         methods {
-            function _._ external => #DISPATCH(optimistic=true) [ C._ ] default NONDET#;
+            unresolved external in _._ => #DISPATCH(optimistic=true) [ C._ ] default NONDET#;
         }
         """,
     exampleMessage = "Using an optimistic unresolved external summary with a default case is not allowed, remove the 'default ...' or use optimistic=false, in the method summary."
@@ -2088,7 +2196,7 @@ class OptimisticDispatchListHasNoDefault private constructor(override val locati
 //    exampleCVLWithRange =
 //    """
 //        methods {
-//            function _._ external => DISPATCH [ C._ ] default #ALWAYS(5)#;
+//            unresolved external in _._ => DISPATCH [ C._ ] default #ALWAYS(5)#;
 //        }
 //        """,
 //    exampleMessage = "Expecting a havocing summary, but got ALWAYS(5)"
@@ -2106,7 +2214,7 @@ class NonHavocingSummary private constructor(override val location: Range, overr
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [ #C.a# ] default NONDET;
+            unresolved external in _._ => DISPATCH [ #C.a# ] default NONDET;
         }
         """,
     exampleMessage = "Expecting method parameters for C.a or a wildcard pattern C._"
@@ -2115,7 +2223,7 @@ class NonHavocingSummary private constructor(override val location: Range, overr
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [ #_.a# ] default NONDET;
+            unresolved external in _._ => DISPATCH [ #_.a# ] default NONDET;
         }
         """,
     exampleMessage = "Expecting method parameters for _.a or a wildcard pattern <Some Contract>._"
@@ -2134,7 +2242,7 @@ class NonWildcardNoParams private constructor(override val location: Range, over
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [#C._()#] default NONDET;
+            unresolved external in _._ => DISPATCH [#C._()#] default NONDET;
         }
         """,
     exampleMessage = "Not expecting method parameters for wildcard method in C._()"
@@ -2153,8 +2261,8 @@ class WildCardMethodWithParams private constructor(override val location: Range,
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [] default NONDET;
-            #function _._ external => DISPATCH [] default HAVOC_ALL;#
+            unresolved external in _._ => DISPATCH [] default NONDET;
+            #unresolved external in _._ => DISPATCH [] default HAVOC_ALL;#
         }
         """,
     exampleMessage = "Duplicate catch-unresolved summarization for all contracts"
@@ -2174,7 +2282,7 @@ class MultipleCatchUnresolvedSummaries private constructor(override val location
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [ #D.whoami(uint)# ] default NONDET;
+            unresolved external in _._ => DISPATCH [ #D.whoami(uint)# ] default NONDET;
         }
         """,
     exampleMessage = "Contract D was not found in the solidity sources."
@@ -2183,7 +2291,7 @@ class MultipleCatchUnresolvedSummaries private constructor(override val location
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [ #D._# ] default NONDET;
+            unresolved external in _._ => DISPATCH [ #D._# ] default NONDET;
         }
         """,
     exampleMessage = "Contract D was not found in the solidity sources."
@@ -2206,7 +2314,7 @@ class DispatchListContractNotFound private constructor(override val location: Ra
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [ #PrimaryContract.whoami(uint)# ] default NONDET;
+            unresolved external in _._ => DISPATCH [ #PrimaryContract.whoami(uint)# ] default NONDET;
         }
         """,
     exampleMessage = "A method with the signature `whoami(uint256)` from the dispatch list was not found in contract `PrimaryContract`."
@@ -2215,7 +2323,7 @@ class DispatchListContractNotFound private constructor(override val location: Ra
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [ #_.whoami(uint)# ] default NONDET;
+            unresolved external in _._ => DISPATCH [ #_.whoami(uint)# ] default NONDET;
         }
         """,
     exampleMessage = "A method with the signature `whoami(uint256)` from the dispatch list was not found in any contract."
@@ -2224,7 +2332,7 @@ class DispatchListContractNotFound private constructor(override val location: Ra
     exampleCVLWithRange =
     """
         methods {
-            function _._ external => DISPATCH [
+            unresolved external in _._ => DISPATCH [
             _.overloadedFunction(),
             _.overloadedFunction(uint),
             #_.overloadedFunction(uint, uint)#,

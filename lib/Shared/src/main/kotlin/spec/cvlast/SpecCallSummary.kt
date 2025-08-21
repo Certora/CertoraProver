@@ -246,6 +246,9 @@ sealed class SpecCallSummary : AmbiSerializable, MaybeRevert {
                     } else {
                         val res = methods.filter {
                             sigResolution.hasMatchFor(it)
+                        }.ifEmpty {
+                            // if we found no method matching the sighash of the callsite, we consider the fallback method instead
+                            methods.filter { it.isFallback }
                         }
                         if (methods.isNotEmpty() && res.isEmpty()) {
                             logger.debug { "Filtered ${toUIString()} due to sighash resolution " +

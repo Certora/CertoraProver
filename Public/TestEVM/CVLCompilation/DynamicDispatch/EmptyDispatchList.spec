@@ -1,7 +1,7 @@
 using Other as other;
 
 methods {
-    function _._ external => DISPATCH [] default NONDET;
+    unresolved external in _._ => DISPATCH [] default NONDET;
 }
 
 /**

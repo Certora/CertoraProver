@@ -268,7 +268,7 @@ class TestCVLSummaries : AbstractCVLTest() {
         val primaryContractName = "C"
         val cvlText = """
             methods {
-                function _._ external => DISPATCH [
+                unresolved external in _._ => DISPATCH [
                     C.bar(uint),
                     _.update(uint),
                     _._
@@ -301,7 +301,7 @@ class TestCVLSummaries : AbstractCVLTest() {
             }
         """.trimIndent()
         testFlowWithPredicatesCVLError(CVLFlow().getProverQuery(confPath, cvlText, primaryContractName), listOf(
-            SpecificType(DispatchListWithSpecificId::class, TEST_SPEC_FILE_NAME, 1, 1)
+            SpecificType(CVLError.General::class, TEST_SPEC_FILE_NAME, 1, 1, "Catch-all summaries must use havocing summaries (`NONDET`, `HAVOC_ALL`, `HAVOC_ECF`, `AUTO`)")
         ))
     }
 
@@ -311,7 +311,7 @@ class TestCVLSummaries : AbstractCVLTest() {
         val primaryContractName = "C"
         val cvlText = """
             methods {
-                function _._ internal => DISPATCH [
+                function _.foo() internal => DISPATCH [
                     C.bar(uint),
                     _.update(uint),
                     Other._
@@ -333,7 +333,7 @@ class TestCVLSummaries : AbstractCVLTest() {
         val primaryContractName = "C"
         val cvlText = """
             methods {
-                function _._ external => DISPATCH [
+                unresolved external in _._ => DISPATCH [
                     C.bar(uint),
                     _.update(uint),
                     C._
@@ -349,12 +349,77 @@ class TestCVLSummaries : AbstractCVLTest() {
     }
 
     @Test
+    fun testDispatchListOnWildcardOk() {
+        val confPath = Path("src/test/resources/cvl/CVLSyntax/DynamicDispatch/Dynamic.conf")
+        val primaryContractName = "C"
+        val cvlText = """
+            methods {
+                function _.bar(uint) external => DISPATCH [
+                    C.bar(uint),
+                    C._
+                ] default NONDET;
+            }
+
+            rule easy {
+                assert true;
+            }
+        """.trimIndent()
+        testFlowWithPredicatesCVL(
+            CVLFlow().getProverQuery(confPath, cvlText, primaryContractName), listOf())
+    }
+
+    @Test
+    fun testDispatchListOnWildcardSubstitutes() {
+        val confPath = Path("src/test/resources/cvl/CVLSyntax/DynamicDispatch/Dynamic.conf")
+        val primaryContractName = "C"
+        val cvlText = """
+            methods {
+                function _.bar(uint) external => DISPATCH [
+                    C._
+                ] default NONDET;
+            }
+
+            rule easy {
+                assert true;
+            }
+        """.trimIndent()
+        val qWithScene = CVLFlow().getProverQueryWithScene(confPath, cvlText, primaryContractName)
+        testFlowWithPredicatesCVL(qWithScene.map { it.second }, listOf())
+        val q = qWithScene.map { it.second }
+        val scene = qWithScene.map { it.first }.resultOrNull()!!
+        val cvl = q.resultOrNull()!!.let {
+            when (it) {
+                is ProverQuery.EquivalenceQuery -> `impossible!`
+                is ProverQuery.CVLQuery.Single -> it.cvl
+            }
+        }
+        assert(cvl.externalSummaries.size == 1)
+        val summary = cvl.externalSummaries.entries.first().value
+        check(summary is SpecCallSummary.DispatchList) {"Expecting summary to be DispatchList found ${summary.javaClass}"}
+        val allMethods = summary.getMethods(scene, setOf(), null)
+        val dl = summary.dispatcherList
+        // the C._ in the dispatch list should have been desugared to C.bar(uint)
+        val exactPattern = (dl[0] as? SpecCallSummary.DispatchList.Pattern.QualifiedMethod)
+            ?: error { "First pattern should be a qualified method" }
+
+        val qualified = exactPattern.getMethods(scene, setOf(), null).also {
+            assert(it.size == 1) {"Expecting only one qualified method"}
+        }.first()
+        assert(qualified.getContainingContract().name == "C")
+        assert(qualified.soliditySignature == "bar(uint256)")
+        assert(allMethods.contains(qualified))
+        assert(exactPattern.sig.functionName == "bar")
+        assert(exactPattern.sig.qualifiedMethodName.host.name == "C")
+        assert(allMethods.size == 1)
+    }
+
+    @Test
     fun testDispatchListGetMethods() {
         val confPath = Path("src/test/resources/cvl/CVLSyntax/DynamicDispatch/Dynamic.conf")
         val primaryContractName = "C"
         val cvlText = """
             methods {
-                function _._ external => DISPATCH [
+                unresolved external in _._ => DISPATCH [
                     C.bar(uint),
                     _.update(uint),
                     C._

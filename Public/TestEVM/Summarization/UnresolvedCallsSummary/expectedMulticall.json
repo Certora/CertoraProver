@@ -1,0 +1,19 @@
+{
+	"assertMessages": {
+		"exampleSumOfThree": "true - Multicall.spec line 16"
+	},
+	"rules": {
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"getBalance(address)",
+				"sumOfThree(address,address,address)"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"exampleSumOfThree": "SUCCESS",
+		"testSumOfThree": "SUCCESS"
+	}
+}

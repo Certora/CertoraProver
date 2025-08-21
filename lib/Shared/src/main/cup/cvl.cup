@@ -507,6 +507,7 @@ summary ::=
   :}
   | AUTO:a                          resolution:r {: RESULT = new CallSummary.Auto              (range(axleft, rxright), r);            :}
   | exp:e expect_opt:expect         resolution:r {: RESULT = new CallSummary.Expression        (range(exleft, rxright), r, e, expect); :}
+  | unresolved_dynamic_summary:d                 {: RESULT = d;                                                                 :}
 ;
 
 dispatch_pattern_list_or_empty ::=
@@ -527,7 +528,7 @@ dispatch_pattern_list ::=
 ;
 
 unresolved_dynamic_summary ::=
-    DISPATCH:d dispatch_pattern_list_or_empty:l DEFAULT havoc_summary:s {: RESULT = new DispatchList(range(dxleft, sxright), l, s, null); :}
+    DISPATCH:d dispatch_pattern_list_or_empty:l DEFAULT havoc_summary:s {: RESULT = new DispatchList(range(dxleft, sxright), l, s, null, null); :}
   | DISPATCH:d LP flag_list:fl RP dispatch_pattern_list_or_empty:l summary_or_null:s {:
         FlagSyntax.FlagList flags = new FlagSyntax.FlagList(
             fl.remove("optimistic"),
@@ -537,7 +538,7 @@ unresolved_dynamic_summary ::=
         if (!fl.isEmpty()) {
             reportUnexpectedSummaryFlags(fl, (String) d, flxleft, flxright);
         } else {
-            RESULT = new DispatchList(range(dxleft, sxright), l, s, flags);
+            RESULT = new DispatchList(range(dxleft, sxright), l, s, flags, null);
         }
     :}
 ;
@@ -599,18 +600,13 @@ method_dec ::=
         }
         RESULT = new CatchAllSummary(range(fxleft, scxright), m, s, preflags);
     :}
-  | function_opt:f method_reference:m pre_return_method_dec_flags:preflags post_return_method_dec_flags:postflags IMPLIES unresolved_dynamic_summary:dl sc_opt:sc {:
-        expectFunction(f, mxleft, mxright);
-        expectSemicolon(sc, CVL2MissingSemicolon.ExpectedLocation.METHODS_ENTRIES);
-        RESULT = new UnresolvedDynamicSummary(range(fxleft, scxright), m, null, preflags, dl, true);
-    :}
   | UNRESOLVED_LOWERCASE:u pre_return_method_dec_flags:preflags IN method_reference:m vm_param_list_or_empty:pl IMPLIES unresolved_dynamic_summary:dl sc_opt:sc {:
         expectSemicolon(sc, CVL2MissingSemicolon.ExpectedLocation.METHODS_ENTRIES);
-        RESULT = new UnresolvedDynamicSummary(range(uxleft, scxright), m, pl, preflags, dl, false);
+        RESULT = new UnresolvedDynamicSummary(range(uxleft, scxright), m, pl, preflags, dl);
    :}
   | UNRESOLVED_LOWERCASE:u pre_return_method_dec_flags:preflags IN method_reference:m                           IMPLIES unresolved_dynamic_summary:dl sc_opt:sc {:
         expectSemicolon(sc, CVL2MissingSemicolon.ExpectedLocation.METHODS_ENTRIES);
-        RESULT = new UnresolvedDynamicSummary(range(uxleft, scxright), m, null, preflags, dl, false);
+        RESULT = new UnresolvedDynamicSummary(range(uxleft, scxright), m, null, preflags, dl);
    :}
   | error SC
 ;

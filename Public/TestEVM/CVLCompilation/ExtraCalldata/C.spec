@@ -1,5 +1,5 @@
 methods {
-    function _._ external => DISPATCH [
+    unresolved external in _._ => DISPATCH [
         D.withExtraCalldata()
     ] default HAVOC_ALL;
 }

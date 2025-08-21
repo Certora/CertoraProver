@@ -2,7 +2,7 @@ using Other as other;
 
 methods {
     function C.delegate(address,bytes) external returns(bool);
-    function _._ external => DISPATCH [
+    unresolved external in _._ => DISPATCH [
         C.delegate(address,bytes)
     ] default NONDET;
 }

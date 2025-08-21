@@ -1,7 +1,7 @@
 using Other as other;
 
 methods {
-    function _._ external => DISPATCH [
+    unresolved external in _._ => DISPATCH [
         C.r1(uint),
         C.r2(uint),
     ] default HAVOC_ECF;
