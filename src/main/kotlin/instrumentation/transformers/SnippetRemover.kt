@@ -17,8 +17,9 @@
 
 package instrumentation.transformers
 
+import analysis.*
 import datastructures.stdcollections.*
-import utils.letIf
+import utils.*
 import vc.data.*
 
 /**
@@ -28,8 +29,7 @@ object SnippetRemover {
     fun rewrite(ctp: CoreTACProgram): CoreTACProgram = ctp.letIf(ctp.destructiveOptimizations) { c ->
         c.patching { patcher ->
             ctp.ltacStream()
-                .filter { it.cmd is TACCmd.Simple.AnnotationCmd }
-                .filter { TACMeta.SNIPPET in it.cmd.meta }
+                .filter { it.maybeAnnotation(TACMeta.SNIPPET) != null }
                 .forEach { patcher.replaceCommand(it.ptr, listOf()) }
         }
     }
