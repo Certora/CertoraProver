@@ -15,15 +15,17 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package verifier.equivalence.summarization
+package verifier.equivalence
 
 import vc.data.TACSymbol
+import java.math.BigInteger
 
-data class SolidityCallingConvention(
-    override val argSymbols: List<TACSymbol>,
-    override val exitVars: List<TACSymbol.Var>
-) : PureFunctionExtraction.CallingConvention<SolidityCallingConvention> {
-    override fun withArgsAndReturns(args: List<TACSymbol>, rets: List<TACSymbol.Var>): SolidityCallingConvention {
-        return SolidityCallingConvention(args, rets)
-    }
+/**
+ * Representation of a location for a value: either a static slot in
+ * memory, or a [TACSymbol.Var]
+ */
+sealed interface ProgramValueLocation {
+    data class MemoryCell(val idx: BigInteger): ProgramValueLocation
+    data class StackVar(val which: TACSymbol.Var): ProgramValueLocation
+
 }

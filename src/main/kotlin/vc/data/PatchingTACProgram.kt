@@ -420,7 +420,7 @@ open class PatchingTACProgram<T : TACCmd> protected constructor(
         addVarDecls(reqDecl.declsToAdd)
     }
 
-    fun addVarDecls(varDecls: Set<TACSymbol.Var>) {
+    fun addVarDecls(varDecls: Collection<TACSymbol.Var>) {
         newVarDecls.addAll(varDecls)
     }
 

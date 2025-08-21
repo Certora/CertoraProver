@@ -403,7 +403,7 @@ internal sealed class CallTraceGenerator(
         val paramValues = internalFuncStartAnnot.args
             .filter { it.sort == InternalArgSort.SCALAR || it.sort == InternalArgSort.CALLDATA_ARRAY_ELEMS }
             .associateNotNull { arg ->
-                val pos = internalFuncStartAnnot.stackOffsetToArgPos[arg.offset] ?: return@associateNotNull null
+                val pos = arg.logicalPosition
                 val tacValue = model.valueAsTACValue(arg.s) ?: return@associateNotNull null
 
                 pos to tacValue

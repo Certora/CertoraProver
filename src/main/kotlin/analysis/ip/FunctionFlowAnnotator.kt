@@ -678,7 +678,7 @@ object FunctionFlowAnnotator {
         }
         val thisId = Allocator.getFreshId(Allocator.Id.INTERNAL_FUNC)
 
-        val (stackArgOffsets, argSymbols) = when(success) {
+        val argSymbols = when(success) {
             is ResolutionHints.EmbeddedInfo -> {
                 val stackOffsetToArgPos = treapMapOf<Int, Int>().mutate { res ->
                     var stackOffset = 1
@@ -720,8 +720,7 @@ object FunctionFlowAnnotator {
                                 InternalFuncArg(
                                     s = TACSymbol.Var.stackVar(expectedHeight - 1),
                                     sort = InternalArgSort.CALLDATA_ARRAY_ELEMS,
-                                    offset = ++sumOffset,
-                                    logicalPosition = stackOffsetToArgPos[sumOffset]
+                                    logicalPosition = stackOffsetToArgPos[++sumOffset]
                                         ?: error("No position for $sumOffset"),
                                     location = null
                                 )
@@ -730,8 +729,7 @@ object FunctionFlowAnnotator {
                                 InternalFuncArg(
                                     s = TACSymbol.Var.stackVar(expectedHeight),
                                     sort = InternalArgSort.CALLDATA_ARRAY_LENGTH,
-                                    offset = ++sumOffset,
-                                    logicalPosition = stackOffsetToArgPos[sumOffset]
+                                    logicalPosition = stackOffsetToArgPos[++sumOffset]
                                         ?: error("No position for $sumOffset"),
                                     location = null
                                 )
@@ -756,8 +754,7 @@ object FunctionFlowAnnotator {
                                         check(arg is StackArg.CalldataPointerPlaceHolder)
                                         InternalArgSort.CALLDATA_POINTER
                                     },
-                                    offset = ++sumOffset,
-                                    logicalPosition = stackOffsetToArgPos[sumOffset]
+                                    logicalPosition = stackOffsetToArgPos[++sumOffset]
                                         ?: error("No position for $sumOffset"),
                                     location = null
                                 )
@@ -778,10 +775,9 @@ object FunctionFlowAnnotator {
                             resolvedArgs.add(
                                 InternalFuncArg(
                                     s = relocOffset.pickBest(expectedHeight),
-                                    offset = ++sumOffset,
                                     sort = InternalArgSort.CALLDATA_ARRAY_ELEMS,
                                     location = null,
-                                    logicalPosition = stackOffsetToArgPos[sumOffset]
+                                    logicalPosition = stackOffsetToArgPos[++sumOffset]
                                         ?: error("No position for $sumOffset")
                                 )
                             )
@@ -789,8 +785,7 @@ object FunctionFlowAnnotator {
                                 InternalFuncArg(
                                     s = relocLen.first(),
                                     sort = InternalArgSort.CALLDATA_ARRAY_LENGTH,
-                                    offset = ++sumOffset,
-                                    logicalPosition = stackOffsetToArgPos[sumOffset]
+                                    logicalPosition = stackOffsetToArgPos[++sumOffset]
                                         ?: error("No position for $sumOffset"),
                                     location = null
                                 )
@@ -808,12 +803,11 @@ object FunctionFlowAnnotator {
                             resolvedArgs.add(
                                 InternalFuncArg(
                                     s = relocV.pickBest(expectedHeight),
-                                    offset = ++sumOffset,
                                     sort = when (arg) {
                                         is StackArg.CalldataPointer -> InternalArgSort.CALLDATA_POINTER
                                         is StackArg.Scalar -> InternalArgSort.SCALAR
                                     },
-                                    logicalPosition = stackOffsetToArgPos[sumOffset]
+                                    logicalPosition = stackOffsetToArgPos[++sumOffset]
                                         ?: error("No position for $sumOffset"),
                                     location = null
                                 )
@@ -825,10 +819,9 @@ object FunctionFlowAnnotator {
                             resolvedArgs.add(
                                 InternalFuncArg(
                                     s = arg.v,
-                                    offset = ++sumOffset,
                                     sort = InternalArgSort.SCALAR,
                                     location = null,
-                                    logicalPosition = stackOffsetToArgPos[sumOffset]
+                                    logicalPosition = stackOffsetToArgPos[++sumOffset]
                                         ?: error("No position for $sumOffset")
                                 )
                             )
@@ -840,7 +833,7 @@ object FunctionFlowAnnotator {
                         "Found argument array placeholder for $functionId @ $functionStartBlock but stack passing style was violated"
                     }
                 }
-                stackOffsetToArgPos to resolvedArgs
+                resolvedArgs
             }
 
             is ResolutionHints.ModifierInfo -> {
@@ -881,7 +874,6 @@ object FunctionFlowAnnotator {
                     val arg = InternalFuncArg(
                         s = sym,
                         sort = typeLayout,
-                        offset = indexTypeLayout + 1,
                         location = null,
                         logicalPosition = stackOffsetToArgPos[indexTypeLayout + 1]
                             ?: error("Incorrect offset without an argument position for $functionId")
@@ -902,7 +894,7 @@ object FunctionFlowAnnotator {
                     }
                     expectedHeight--
                 }
-                stackOffsetToArgPos to args.toList()
+                args.toList()
             }
         }
 
@@ -913,14 +905,13 @@ object FunctionFlowAnnotator {
             InternalFuncRet(
                 offset = it,
                 s = TACSymbol.Var.stackVar(returnAddressHeight - it),
-                location = null
+                location = null,
             )
         }
 
         return GenerationResult.Success(
             entryAnnot = annotationLocation to InternalFuncStartAnnotation(
                 id = thisId,
-                stackOffsetToArgPos = stackArgOffsets,
                 args = argSymbols,
                 startPc = functionStartBlock.origStartPc,
                 callSiteSrc = callSiteSrc,

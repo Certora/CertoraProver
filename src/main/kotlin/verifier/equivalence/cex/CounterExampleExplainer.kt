@@ -513,6 +513,15 @@ internal class CounterExampleExplainer(
                     )
                 }
             }
+
+            is BufferTraceInstrumentation.RawEventParams.CodeResult -> {
+                event.context.results.mapIndexed { ind, res ->
+                    EventParam(
+                        label = ContextLabel.ResultValue(ind),
+                        value = res.formatScalarAs(EVMTypeDescriptor.UIntK(EVM_BITWIDTH256)).leftOrNull()
+                    )
+                }
+            }
         }
         val buffer = tryExtractBufferModel(lTraceEventMarker).leftOrNull()
         return BasicEvent(

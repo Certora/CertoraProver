@@ -54,6 +54,7 @@ object PureFunctionExtraction {
         val argSymbols: List<TACSymbol>
         val exitVars: List<TACSymbol.Var>
         fun withArgsAndReturns(args: List<TACSymbol>, rets: List<TACSymbol.Var>) : R
+        fun bindOutputs(): Pair<List<TACSymbol.Var>, CommandWithRequiredDecls<TACCmd.Simple>>
     }
 
     /**
@@ -84,6 +85,77 @@ object PureFunctionExtraction {
         override val support: Set<TACSymbol.Var>
             get() = exitVars.toSet()
     }
+
+    abstract class StandardInternalFunctionAnnotator : PureFunctionExtractor<InternalFuncStartAnnotation, InternalFuncExitAnnotation, UnifiedCallingConvention> {
+        override fun exitFinder(prog: CoreTACProgram): Summarization.ExitFinder {
+            return InternalFunctionExitFinder(prog)
+        }
+
+        override val startMeta: MetaKey<InternalFuncStartAnnotation>
+            get() = INTERNAL_FUNC_START
+        override val endMeta: MetaKey<InternalFuncExitAnnotation>
+            get() = INTERNAL_FUNC_EXIT
+
+
+        override fun toCallingConvention(
+            start: InternalFuncStartAnnotation,
+            exits: List<InternalFuncExitAnnotation>,
+            startSyms: List<TACSymbol>,
+            exitVars: List<TACSymbol.Var>
+        ): UnifiedCallingConvention {
+            require(exits.map {
+                it.rets.size
+            }.allSame())
+            require(start.args.size == startSyms.size)
+            /**
+             * Ensure that every return symbol i in every exit annotatino
+             * has the same location and offset. Do this by computing the set of all
+             * pairs of "location and offset" used for return symbol i, and then seeing if that
+             * set is singleton.
+             */
+            val retPayload = exits.map {
+                it.rets.map {
+                    setOf(it.location to it.offset)
+                }
+            }.reduce { a, b ->
+                a.zip(b) { accumSet, newElems ->
+                    accumSet + newElems
+                }
+            }.monadicMap {
+                it.singleOrNull()
+            } ?: error("differeng sorts and locations")
+            val translatedArgs = start.args.zip(startSyms) { a, sym ->
+                a.copy(s = sym)
+            }
+            val rets = retPayload.zip(exitVars) { (loc, offs), sym ->
+                InternalFuncRet(
+                    location = loc,
+                    s = sym,
+                    offset = offs
+                )
+            }
+            return UnifiedCallingConvention(translatedArgs, rets)
+        }
+
+        override fun getArgSymbols(l: LTACAnnotation<InternalFuncStartAnnotation>): List<TACSymbol> {
+            return l.annotation.args.map {
+                it.s
+            }
+        }
+
+        override fun getExitSymbols(l: LTACAnnotation<InternalFuncExitAnnotation>): List<TACSymbol.Var> {
+            return l.annotation.rets.map { it.s }
+        }
+
+
+    }
+
+    object VyperExtractor : StandardInternalFunctionAnnotator() {
+        override fun accept(sig: QualifiedMethodSignature, src: ContractInstanceInSDC): Boolean {
+            return sig.resType.singleOrNull() is VMValueTypeDescriptor
+        }
+    }
+
 
     private val exitKeepAliveMeta = MetaKey<ExitKeepAlive>("keep.alive")
 
@@ -491,15 +563,7 @@ object PureFunctionExtraction {
         val callingConvention: R
     )
 
-    object SolidityExtractor : PureFunctionExtractor<InternalFuncStartAnnotation, InternalFuncExitAnnotation, SolidityCallingConvention> {
-        override fun exitFinder(prog: CoreTACProgram): Summarization.ExitFinder {
-            return InternalFunctionExitFinder(prog)
-        }
-
-        override val startMeta: MetaKey<InternalFuncStartAnnotation>
-            get() = INTERNAL_FUNC_START
-        override val endMeta: MetaKey<InternalFuncExitAnnotation>
-            get() = INTERNAL_FUNC_EXIT
+    object SolidityExtractor : StandardInternalFunctionAnnotator() {
 
         override fun accept(sig: QualifiedMethodSignature, src: ContractInstanceInSDC): Boolean {
             return sig.paramTypes.all {
@@ -510,26 +574,6 @@ object PureFunctionExtraction {
                 m.method.toMethodSignature(SolidityContract(m.declaringContract), Visibility.INTERNAL).matchesNameAndParams(sig) && m.method.stateMutability == SolidityFunctionStateMutability.pure
             }
         }
-
-        override fun toCallingConvention(
-            start: InternalFuncStartAnnotation,
-            exits: List<InternalFuncExitAnnotation>,
-            startSyms: List<TACSymbol>,
-            exitVars: List<TACSymbol.Var>
-        ): SolidityCallingConvention {
-            return SolidityCallingConvention(startSyms, exitVars)
-        }
-
-        override fun getArgSymbols(l: LTACAnnotation<InternalFuncStartAnnotation>): List<TACSymbol> {
-            return l.annotation.args.map {
-                it.s
-            }
-        }
-
-        override fun getExitSymbols(l: LTACAnnotation<InternalFuncExitAnnotation>): List<TACSymbol.Var> {
-            return l.annotation.rets.map { it.s }
-        }
-
     }
 
     /**

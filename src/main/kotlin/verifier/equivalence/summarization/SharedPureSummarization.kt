@@ -67,9 +67,6 @@ class SharedPureSummarization(
         rets: FunctionReturnInformation,
         intermediateCode: CoreTACProgram
     ): CoreTACProgram {
-        val args = internalFunctionStartInfo.args.map {
-            it.s.asSym()
-        }
         val id = selectedSummary.selectedSummary
         val returnTypes = selectedSummary.summaryKey.resType
         val summary = MutableCommandWithRequiredDecls<TACCmd.Simple>()
@@ -102,8 +99,8 @@ class SharedPureSummarization(
         for((rt, ret) in returnTypes.zip(rets.rets)) {
             val idPos = index++
             val baseForm = TACExpr.Apply(
-                TACBuiltInFunction.NondetFunction(args.size + 2).toTACFunctionSym(),
-                args + listOf(
+                TACBuiltInFunction.NondetFunction(argBackups.size + 2).toTACFunctionSym(),
+                argBackups.map { it.asSym() } + listOf(
                     idPos.asTACExpr, id.asTACExpr
                 ),
                 Tag.Bit256
@@ -166,15 +163,13 @@ class SharedPureSummarization(
                         )
                     }
             }
-            summary.extend(
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
+            summary.extend(TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 lhs = ret.s,
                 rhs = retValue
             ))
             summary.extend(ret.s)
         }
-        summary.extend(
-            TACCmd.Simple.SummaryCmd(
+        summary.extend(TACCmd.Simple.SummaryCmd(
             CommonPureInternalFunction(
                 argSymbols = argBackups,
                 rets = rets.rets.map { it.s },

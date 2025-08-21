@@ -319,8 +319,7 @@ class SimpleCanonicalization private constructor(
         val succ = graph.succ(start.block).singleOrNull {
             outPc[it]?.let { pc ->
                 pc == PathCondition.TRUE ||
-                    (pc is PathCondition.Summary && pc.s is ConditionalBlockSummary &&
-                        pc.s.originalBlockStart == it)
+                    (pc is PathCondition.Summary && pc.s.originalBlockStart == it)
             } == true && graph.pred(it) == setOf(start.block)
         } ?: return graph.elab(start.block).commands.last().ptr
         return translateBlock(CmdPointer(succ, 0), false, out)

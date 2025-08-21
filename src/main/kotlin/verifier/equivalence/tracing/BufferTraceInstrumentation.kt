@@ -43,6 +43,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import vc.data.TACProgramCombiners.andThen
 import vc.data.TACProgramCombiners.flatten
 import verifier.equivalence.DefiniteBufferConstructionAnalysis
+import verifier.equivalence.summarization.CommonPureInternalFunction
+import verifier.equivalence.summarization.ComputationResults
 import verifier.equivalence.summarization.ScalarEquivalenceSummary
 import verifier.equivalence.tracing.BufferTraceInstrumentation.ContextSymbols.Companion.lift
 
@@ -499,6 +501,11 @@ class BufferTraceInstrumentation private constructor(
 
     companion object {
 
+        fun TACCmd.Simple.isResultCommand() = this.isHalting() || (this is TACCmd.Simple.SummaryCmd && this.summ is ScalarEquivalenceSummary && when(this.summ) {
+            is CommonPureInternalFunction -> false
+            is ComputationResults -> true
+        })
+
         infix fun TACSymbol.Var.`=`(other: ToTACExpr) : CommandWithRequiredDecls<TACCmd.Simple> {
             return CommandWithRequiredDecls(listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 lhs = this,
@@ -813,6 +820,10 @@ class BufferTraceInstrumentation private constructor(
                 futureConsumers
             }
 
+            val needsGC = hasPrecedingGCPoint.filter { s ->
+                s in hasPrecedingGCPoint && (s !is EventLongRead || s.explicitReadId == null)
+            }
+
             /**
              * Now, for each [LongRead], generate its [LongReadInstrumentation].
              */
@@ -825,7 +836,7 @@ class BufferTraceInstrumentation private constructor(
                         hashVar = instrumentationVar("bufferHash"),
                         baseProphecy = instrumentationVar("bufferBaseProphecy"),
                         lengthProphecy = instrumentationVar("bufferLengthProphecy"),
-                        gcInfo = null.letIf(s in hasPrecedingGCPoint && (s !is EventLongRead || s.explicitReadId == null)) { _ ->
+                        gcInfo = null.letIf(s in needsGC) { _ ->
                             GarbageCollectionInfo(
                                 writeBoundVars = instrumentationVar("lower") to instrumentationVar("upper"),
                                 hashBackupVar = instrumentationVar("hashBackup"),
@@ -862,7 +873,11 @@ class BufferTraceInstrumentation private constructor(
             val worker = BufferTraceInstrumentation(
                 code = code,
                 readToInstrumentation = sourceToInstrumentation,
-                isGarbageCollectionFor = isGarbageCollectionFor,
+                isGarbageCollectionFor = isGarbageCollectionFor.mapValuesNotNull { (_, l) ->
+                    l.filter { r ->
+                        r in needsGC
+                    }.takeIf(List<LongRead>::isNotEmpty)
+                },
                 options = options,
                 context = context
             )
@@ -937,6 +952,14 @@ class BufferTraceInstrumentation private constructor(
                         return mismatch()
                     }
                     return RawEventParams.InternalSummaryParams(
+                        context = marker.context
+                    ).toLeft()
+                }
+                TraceEventSort.RESULT -> {
+                    if(marker.context !is Context.ResultMarker) {
+                        return mismatch()
+                    }
+                    return RawEventParams.CodeResult(
                         context = marker.context
                     ).toLeft()
                 }
@@ -1837,6 +1860,7 @@ class BufferTraceInstrumentation private constructor(
                 IncludedInTrace.DEFINITELY_AFTER -> return CommandWithRequiredDecls(listOf(TACCmd.Simple.AssumeCmd(TACSymbol.False, "impossible")))
                 IncludedInTrace.MAYBE_INCLUDED -> {
                     when(eventInfo.eventSort) {
+                        TraceEventSort.RESULT,
                         TraceEventSort.REVERT,
                         TraceEventSort.RETURN -> {
                             `impossible!`
@@ -1846,6 +1870,7 @@ class BufferTraceInstrumentation private constructor(
                         TraceEventSort.EXTERNAL_CALL -> {
                             val countVar = when(eventInfo.eventSort) {
                                 // these are required by the compiler, but IDEA complains about them :(
+                                TraceEventSort.RESULT,
                                 TraceEventSort.REVERT,
                                 TraceEventSort.RETURN -> `impossible!`
                                 TraceEventSort.LOG -> logTraceLog.itemCountVar
@@ -2035,6 +2060,7 @@ class BufferTraceInstrumentation private constructor(
                                 TraceEventSort.RETURN -> {
                                     CommandWithRequiredDecls(listOf(TACCmd.Simple.NopCmd))
                                 }
+                                TraceEventSort.RESULT,
                                 TraceEventSort.INTERNAL_SUMMARY_CALL,
                                 TraceEventSort.EXTERNAL_CALL,
                                 TraceEventSort.LOG -> {
@@ -2092,6 +2118,7 @@ class BufferTraceInstrumentation private constructor(
                 setup
             )
         }
+        is Context.ResultMarker -> results.lift()
         is Context.InternalCall -> args.lift()
         is Context.Log -> this.topics.lift()
         Context.MethodExit -> treapListOf<TACSymbol>().lift()
@@ -2162,6 +2189,19 @@ class BufferTraceInstrumentation private constructor(
 
             override val support: Set<TACSymbol.Var>
                 get() = setOfNotNull(callee as? TACSymbol.Var, value as? TACSymbol.Var)
+        }
+
+        @KSerializable
+        data class ResultMarker(
+            val results: List<TACSymbol>
+        ) : Context {
+            override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): Context {
+                return ResultMarker(results.map { it.map(f) })
+            }
+
+            override val support: Set<TACSymbol.Var>
+                get() = results.mapNotNullToSet { it as? TACSymbol.Var }
+
         }
     }
 
@@ -2861,6 +2901,12 @@ class BufferTraceInstrumentation private constructor(
             override val sort: TraceEventSort
                 get() = TraceEventSort.INTERNAL_SUMMARY_CALL
         }
+
+        data class CodeResult(override val context: Context.ResultMarker) : RawEventParams {
+            override val sort: TraceEventSort
+                get() = TraceEventSort.RESULT
+
+        }
     }
 
     /**
@@ -2872,7 +2918,8 @@ class BufferTraceInstrumentation private constructor(
         RETURN(TraceTargets.Results),
         LOG(TraceTargets.Log),
         EXTERNAL_CALL(TraceTargets.Calls),
-        INTERNAL_SUMMARY_CALL(TraceTargets.Calls, showBuffer = false)
+        INTERNAL_SUMMARY_CALL(TraceTargets.Calls, showBuffer = false),
+        RESULT(TraceTargets.Results, showBuffer = false)
     }
 
     /**

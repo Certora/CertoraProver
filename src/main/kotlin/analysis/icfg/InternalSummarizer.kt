@@ -435,7 +435,7 @@ abstract class InternalSummarizer<K, S> {
         }
 
         val args = callSite.args.sortedBy { fArg ->
-            callSite.getArgPos(fArg.offset)
+            fArg.logicalPosition
         }
 
         return { patching: SimplePatchingProgram ->

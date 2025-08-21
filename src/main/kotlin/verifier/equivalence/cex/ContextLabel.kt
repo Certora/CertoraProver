@@ -40,6 +40,16 @@ sealed interface ContextLabel {
         RETURNDATA("Return Data", "(Partial) model of the returndata from the external call")
     }
 
+    val Int.naturalString : String get() {
+        val naturalPos = this + 1
+        return naturalPos.toString() + when(naturalPos.mod(10)) {
+            1 -> "st"
+            2 -> "nd"
+            3 -> "rd"
+            else -> "th"
+        }
+    }
+
     sealed interface InternalCallLabel : ContextLabel {
         data object Signature : InternalCallLabel {
             override val displayLabel: String
@@ -58,17 +68,19 @@ sealed interface ContextLabel {
         data class ReturnValue(val ord: Int) : InternalCallLabel {
             override val displayLabel: String
                 get() {
-                    val naturalPos = ord + 1
-                    return naturalPos.toString() + when(naturalPos.mod(10)) {
-                        1 -> "st"
-                        2 -> "nd"
-                        3 -> "rd"
-                        else -> "th"
-                    } + "  Return"
+                    return "${ord.naturalString} Return"
                 }
 
             override val description: String
                 get() = "The $displayLabel value returned by the function"
         }
+    }
+
+    data class ResultValue(val ord: Int) : ContextLabel {
+        override val displayLabel: String
+            get() = "${ord.naturalString} Result"
+        override val description: String
+            get() = "The ${ord.naturalString} value produced by the computation"
+
     }
 }

@@ -20,7 +20,7 @@ package verifier.equivalence.summarization
 import vc.data.TACSummary
 import verifier.equivalence.tracing.BufferTraceInstrumentation
 
-interface ScalarEquivalenceSummary : TACSummary {
+sealed interface ScalarEquivalenceSummary : TACSummary {
     val sort: BufferTraceInstrumentation.TraceEventSort
     val asContext: BufferTraceInstrumentation.Context
 }

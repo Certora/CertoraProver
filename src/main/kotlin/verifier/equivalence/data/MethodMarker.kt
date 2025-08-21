@@ -35,6 +35,14 @@
 package verifier.equivalence.data
 
 sealed interface MethodMarker {
-    object METHODA : MethodMarker
-    object METHODB : MethodMarker
+    object METHODA : MethodMarker {
+        override val isA: Boolean
+            get() = true
+    }
+    object METHODB : MethodMarker {
+        override val isA: Boolean
+            get() = false
+    }
+
+    val isA: Boolean
 }

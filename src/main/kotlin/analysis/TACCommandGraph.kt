@@ -622,7 +622,7 @@ sealed class PathCondition : ToLExpression {
             }
     }
 
-    data class Summary(val s: TACSummary) : PathCondition() {
+    data class Summary(val s: ConditionalBlockSummary) : PathCondition() {
         override fun toLExpression(
             conv: ToLExpression.Conv,
             meta: MetaMap?,

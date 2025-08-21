@@ -138,6 +138,9 @@ class EquivalenceChecker private constructor(
                     "Need to set ${Config.EquivalenceCheck.option.opt} in equivalence checker mode"
                 )
             }
+
+            Logger.always("WARNING: Concord is still extremely experimental, and should not be used in production contexts", respectQuiet = false)
+
             val methodChoice = Config.MethodChoices.orEmpty().singleOrNull() ?: throw CertoraException(
                 CertoraErrorType.BAD_CONFIG,
                 "Missing single method choice"
@@ -345,6 +348,7 @@ class EquivalenceChecker private constructor(
                                 BufferTraceInstrumentation.TraceEventSort.LOG -> "Log Emit"
                                 BufferTraceInstrumentation.TraceEventSort.EXTERNAL_CALL -> "External Call"
                                 BufferTraceInstrumentation.TraceEventSort.INTERNAL_SUMMARY_CALL -> "Internal Call"
+                                BufferTraceInstrumentation.TraceEventSort.RESULT -> "Result"
                             })
                             if(sort.showBuffer) {
                                 val r = bufferRepr?.asBufferRepr("")

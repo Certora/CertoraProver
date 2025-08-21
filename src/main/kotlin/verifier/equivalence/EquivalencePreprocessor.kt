@@ -29,6 +29,9 @@ import vc.data.CoreTACProgram
 import vc.data.TACStructureException
 import verifier.*
 import verifier.equivalence.EquivalenceChecker.Companion.resolve
+import verifier.equivalence.data.EquivalenceQueryContext
+import verifier.equivalence.data.MethodMarker
+import verifier.equivalence.data.ProgramContext
 import verifier.equivalence.summarization.PureFunctionExtraction
 import verifier.equivalence.summarization.SharedPureSummarization
 
@@ -55,10 +58,13 @@ object EquivalencePreprocessor {
         val summarizer = SharedPureSummarization(sigs)
         try {
             logger.info {
-                "Trying to batch summarize common pure functions"
+                "Trying to batch summarize common pure functions: $sharedSigs"
             }
             val codeA = summarizer.summarize(methodA.code as CoreTACProgram)
             val codeB = summarizer.summarize(methodB.code as CoreTACProgram)
+            logger.info {
+                "Done"
+            }
             return codeA to codeB
         } catch(e: Exception) {
             when(e) {
@@ -95,17 +101,26 @@ object EquivalencePreprocessor {
         return codeAIt to codeBIt
     }
 
+    private data class Extraction<
+        T: InternalFunctionStartAnnot,
+        U: InternalFunctionExitAnnot,
+        R: PureFunctionExtraction.CallingConvention<R>
+        >(
+        val extract: PureFunctionExtraction.PureFunctionExtractor<T, U, R>,
+        val ruleGeneration: AbstractRuleGeneration<R>
+    )
+
     /**
      * Does the common internal summarization process using the (language specific) pure function extractor [extract].
      */
-    private fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: PureFunctionExtraction.CallingConvention<R>> commonInternalSummarization(
+    private suspend fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: PureFunctionExtraction.CallingConvention<R>> commonInternalSummarization(
         scene: IScene,
         methodAForAnalysis: TACMethod,
         methodBForAnalysis: TACMethod,
-        extract: PureFunctionExtraction.PureFunctionExtractor<T, U, R>
+        extract: Extraction<T, U, R>
     ) {
-        val methodBPure = PureFunctionExtraction.canonicalPureFunctionsIn(methodBForAnalysis, extract)
-        val methodAPure = PureFunctionExtraction.canonicalPureFunctionsIn(methodAForAnalysis, extract)
+        val methodBPure = PureFunctionExtraction.canonicalPureFunctionsIn(methodBForAnalysis, extract.extract)
+        val methodAPure = PureFunctionExtraction.canonicalPureFunctionsIn(methodAForAnalysis, extract.extract)
 
         val shared = methodBPure.filter { (qB, progA) ->
             methodAPure.any { (qA, progB) ->
@@ -120,6 +135,37 @@ object EquivalencePreprocessor {
                 logger.info {
                     "\t* ${q.toNamedDecSignature()}"
                 }
+            }
+        }
+
+        val context = object : EquivalenceQueryContext {
+            override val contextA: ProgramContext<MethodMarker.METHODA>
+                get() = ProgramContext.of(methodAForAnalysis)
+            override val contextB: ProgramContext<MethodMarker.METHODB>
+                get() = ProgramContext.of(methodBForAnalysis)
+            override val scene: IScene
+                get() = scene
+
+        }
+
+
+        for(qA in methodAPure) {
+            if(qA.sig in shared) {
+                continue
+            }
+            val matching = methodBPure.singleOrNull {
+                it.sig.matchesNameAndParams(qA.sig)
+            } ?: continue
+            if(proveInternalFunctionEquivalence(
+                    context, qA, matching, extract
+                )) {
+                shared.add(qA.sig)
+            }
+        }
+
+        for(s in shared) {
+            Logger.regression {
+                "Found common pure function: ${s.prettyPrint()}"
             }
         }
 
@@ -144,13 +190,43 @@ object EquivalencePreprocessor {
 
     }
 
-    fun preprocess(scene: IScene, query: ProverQuery.EquivalenceQuery) {
+    private suspend fun <R: PureFunctionExtraction.CallingConvention<R>> proveInternalFunctionEquivalence(
+        context: EquivalenceQueryContext,
+        qA: PureFunctionExtraction.CanonFunction<R>,
+        qB: PureFunctionExtraction.CanonFunction<R>,
+        extract: Extraction<*, *, R>
+    ): Boolean {
+        return InternalFunctionEquivalence(
+            context = context,
+            sig = qA.sig,
+            ruleGeneration = extract.ruleGeneration,
+            programAIn = qA,
+            programBIn = qB
+        ).proveEquivalence()
+    }
+
+
+    suspend fun preprocess(scene: IScene, query: ProverQuery.EquivalenceQuery) {
         val (methodAForAnalysis, methodBForAnalysis) = scene.resolve(query)
         val langA = (methodAForAnalysis.getContainingContract() as? IContractWithSource)?.src?.lang
         val langB = (methodBForAnalysis.getContainingContract() as? IContractWithSource)?.src?.lang
 
+
+        val context = object : EquivalenceQueryContext {
+            override val contextA: ProgramContext<MethodMarker.METHODA>
+                get() = ProgramContext.of(methodAForAnalysis)
+            override val contextB: ProgramContext<MethodMarker.METHODB>
+                get() = ProgramContext.of(methodBForAnalysis)
+            override val scene: IScene
+                get() = scene
+
+        }
+
+
         val extractor = if(langA == langB && langA == SourceLanguage.Solidity) {
-            PureFunctionExtraction.SolidityExtractor
+            Extraction(PureFunctionExtraction.SolidityExtractor, UnifiedInternalFunctionGenerator(context))
+        } else if(langA == langB && langA == SourceLanguage.Vyper) {
+            Extraction(PureFunctionExtraction.VyperExtractor, UnifiedInternalFunctionGenerator(context))
         } else {
             null
         }
