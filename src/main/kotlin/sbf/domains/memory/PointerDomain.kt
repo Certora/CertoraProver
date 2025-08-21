@@ -1112,11 +1112,23 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     }
 
     /**
-     * Return all links from this node in the range [start, start+size-1]
-     * If isStrict is false then pairs whose fields overlap with lower or upper bound of the above range are also included.
-     * If onlyPartial is true then we don't include a link if its field occupies the whole range.
+     * Return all links from this node in the range `[start, start+size-1]`
      *
      * TOIMPROVE: use something similar to C++ lower_bound to avoid a full pass over all successors.
+     *
+     * @param isStrict if true then a link is only returned if it is strictly included in the above range.
+     * @param onlyPartial if true then a link is not returned if it occupies exactly the above range.
+     *
+     * For instance, if the range is `[10, 29]` (`start = 10` and `size = 20`) and links = `{[8,11],[14, 21]}` then
+     *
+     * - `isStrict=true` : `{ [14,21] }`
+     * - `isStrict=false`: `{ [8,11], [14,21] }`
+     *
+     *  if the range is still `[10, 29]` and link = `{[10, 29]}` then
+     *
+     * - `onlyPartial=true` : `{}`
+     * - `onlyPartial=false`: `{[10,29]}`
+     *
      */
     fun getLinksInRange(start: PTAOffset, size: Long, isStrict: Boolean = true, onlyPartial: Boolean = false): List<PTALink>   {
         checkNotForward("getLinksInRange", this)
@@ -1128,6 +1140,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         val links = ArrayList<PTALink>(getSuccs().size)
         for ((field, succC) in getSuccs()) {
             val fieldRange = field.toInterval()
+
             if (fieldRange.lessThan(fullRange)) {
                 continue
             }
@@ -2659,33 +2672,37 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     }
 
             if (o != null && (op == BinOp.ADD || op == BinOp.SUB)) {
-                // This is a long explanation for why we unify nodes pointed by `op1` and `op2` even if we know at this
-                // point that `op2` is a number.
-                //
-                // First point: we perform a reduction from PTA to scalar domain.
-                // This reduction might tell the scalar domain that some register contains a number.
-                // This is okay, but we need to keep in mind that part of PTA's information is flow-insensitive.
-                //
-                //
-                // Second point: recall that during TAC encoding we recompute invariants at the instruction level.
-                // During analysis phase, we now that `op2` is a number.
-                // When we reanalyze `op1:= op1+op2`, it is possible that the node pointed by `op2` has been unified with other
-                // nodes due to flow-insensitivity. Then, the reanalysis of `op1:=op1+op2` will not be done by
-                // `doConstantPointerArithmetic` but instead by `doGeneralCasePointerArithmetic`.
-                // This different transfer function might do extra unifications between nodes pointed by `op1` and `op2` which we
-                // did not perform during analysis phase. This is a problem because the TAC encoding phase
-                // assumes that the re-analysis of instructions does not cause extra aliasing.
-                //
-                // Solution: if `op2` points to a node then we always unify it with the node pointed by `op1` even if we
-                // know that at this time `op2` is a number.
                 val c2 = getRegCell(op2)
-                if (c2 != null) {
+                if (c2 == null) {
+                    val newOffset = updateOffset(op, c1.getNode(), c1.getOffset(), o)
+                    setRegCell(dst, c1.getNode().createSymCell(newOffset))
+                } else {
+                    // This is a long explanation for why we unify nodes pointed by `op1` and `op2` even if we know at this
+                    // point that `op2` is a number.
+                    //
+                    // First point: we perform a reduction from PTA to scalar domain.
+                    // This reduction might tell the scalar domain that some register contains a number.
+                    // This is okay, but we need to keep in mind that part of PTA's information is flow-insensitive.
+                    //
+                    //
+                    // Second point: recall that during TAC encoding we recompute invariants at the instruction level.
+                    // During analysis phase, we now that `op2` is a number.
+                    // When we reanalyze `op1:= op1+op2`, it is possible that the node pointed by `op2` has been unified with other
+                    // nodes due to flow-insensitivity. Then, the reanalysis of `op1:=op1+op2` will not be done by
+                    // `doConstantPointerArithmetic` but instead by `doGeneralCasePointerArithmetic`.
+                    // This different transfer function might do extra unifications between nodes pointed by `op1` and `op2` which we
+                    // did not perform during analysis phase. This is a problem because the TAC encoding phase
+                    // assumes that the re-analysis of instructions does not cause extra aliasing.
+                    //
+                    // Solution: if `op2` points to a node then we always unify it with the node pointed by `op1` even if we
+                    // know that at this time `op2` is a number.
                     concretizeCell(c1, "$dst:= $op1 $op $op2", locInst)
                         .unify(concretizeCell(c2, "$dst:= $op1 $op $op2", locInst))
-                }
-                // after unification, op1 and op2 point to the same cell.
-                if (dst != op1 && dst != op2) {
-                    setRegCell(dst, getRegCell(op1))
+                    // after unification, `op1` and `op2` point to the same cell, so we don't need to update `dst` unless
+                    // it is different from both `op1` and `op2`
+                    if (dst != op1 && dst != op2) {
+                        setRegCell(dst, getRegCell(op1))
+                    }
                 }
             } else {
                 doUnknownPointerArithmetic(dst, c1.getNode())
@@ -2879,6 +2896,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
         if (isStack) {
             // Read from uninitialized stack is common due to memcpy from the input region
+
+            // 1st special case: the loaded value is a number from looking at overlapping de-referenced memory locations
             val reconstructedSuccC = reconstructFromIntegerCells(locInst, derefC, field.size, scalars)
             when {
                 reconstructedSuccC != null -> {
@@ -2901,6 +2920,18 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     }
                     throw UnknownStackContentError(DevErrorInfo(locInst, errExp,
                         "load: reading from a stack offset ${field.offset} that points to nowhere."))
+                }
+                else -> {
+                    // continue
+                }
+            }
+
+            // 2nd special case: scalar domain knows that the loaded value is a stack pointer pointing (possibly) to multiple offsets
+            when (scalars.getStackContent(field.offset.v, field.size.toByte()).type()) {
+                is SbfType.PointerType.Stack -> {
+                    untrackedStackFields = untrackedStackFields.remove(field)
+                    setRegCell(lhs, getStack().createSymCell(PTASymOffset.mkTop()))
+                    return
                 }
                 else -> {
                     // continue with external allocation
@@ -3130,23 +3161,35 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     }
 
     /**
-     *  Return only the **partial** overlap links with `[c.offset, c.offset + len]`
-     *
-     *  Precondition: [c].node is the stack
-     */
-    private fun getOnlyOverlapLinks(c: PTACell, len: Long): List<PTALink> {
-        check(c.getNode() == getStack()) {"getOverlapLinks expects only a stack node"}
-        return c.getNode().getLinksInRange(c.getOffset(), len, isStrict = false, onlyPartial = true)
-    }
-
-    /**
      * Return all links within `[c.offset, c.offset + len]`, including partial overlaps.
      *
      * Precondition: [c].node cannot be a summarized node.
      **/
     private fun getAllLinks(c: PTACell, len: Long): List<PTALink> {
         check(c.getNode().isExactNode()) {"getAllLinks expects a exact PTA node"}
-        return c.getNode().getLinksInRange(c.getOffset(), len, isStrict = false, onlyPartial = false)
+        return c.getNode().getLinksInRange(c.getOffset(), len, isStrict = false)
+    }
+
+    /**
+     *  Return all links in range `[c.offset, c.offset + len]`, included partial overlaps, unless the link fully occupies that range.
+     *
+     *  Precondition: [c].node is the stack
+     */
+    private fun getAllLinksExceptIfFullRange(c: PTACell, len: Long): List<PTALink> {
+        check(c.getNode() == getStack()) {"getAllLinksExceptIfFullRange expects only a stack node"}
+        return c.getNode().getLinksInRange(c.getOffset(), len, isStrict = false, onlyPartial = true)
+    }
+
+    /**
+     *  Return all links that overlap with the range `[c.offset, c.offset + len]`, but are not fully subsumed in that range.
+     *
+     *  Precondition: [c].node is the stack
+     */
+    private fun getOverlapLinks(c: PTACell, len: Long): List<PTALink> {
+        val fullRange = FiniteInterval.mkInterval(c.getOffset().v, len)
+        return getAllLinksExceptIfFullRange(c, len).filter {
+            !fullRange.includes(it.field.toInterval())
+        }
     }
 
     /**
@@ -3166,8 +3209,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         val isStack = srcNode == getStack()
 
         if (isStack) {
-            // Remove any partial overlapping field from `srcNode` and update `untrackedStackFields` accordingly.
-            val links = getOnlyOverlapLinks(src, width.toLong())
+            // Remove any overlapping field from `srcNode` and update `untrackedStackFields` accordingly.
+            val links = getAllLinksExceptIfFullRange(src, width.toLong())
             srcNode.removeLinks(links) { f ->
                 untrackedStackFields = untrackedStackFields.add(f)
             }
@@ -3343,13 +3386,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
 
     /**
-     * Remove only overlap fields with `[c.offset, c.offset + len]`.
+     * Remove only overlap fields but not fully included in the range `[c.offset, c.offset + len]`.
      * Used by `doMemcpy`.
      */
     private fun removeOnlyOverlapLinks(c: PTACell, len: Long) {
         val node = c.getNode()
         check(node == getStack()) {"removeOnlyOverlapLinks can be called only on the stack"}
-        val links = getOnlyOverlapLinks(c, len)
+        val links = getOverlapLinks(c, len)
         node.removeLinks(links) { f ->
             dbgMemTransfer { "\tRemoved link at $f" +
                              "\tMade inaccessible stack link at $f because of overlapping"
@@ -3370,8 +3413,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         // We make accessible again all fields that will be overwritten on the destination
         val range = FiniteInterval.mkInterval(offset.v, len)
         untrackedStackFields = untrackedStackFields.removeAll {
-            dbgMemTransfer { "\tMade accessible stack link $it" }
-            range.includes(it.toInterval())
+            val isAccessible = range.includes(it.toInterval())
+            if (isAccessible) {
+                dbgMemTransfer { "\tMade accessible stack link $it" }
+            }
+            isAccessible
         }
 
         // remove all fields (included overlaps and fully subsumed), and it makes inaccessible only partial overlap fields.
@@ -3644,8 +3690,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             check(srcNode.isExactNode()) { "memcpyExactToExact: source node is not exact" }
             check(dstNode.isExactNode()) { "memcpyExactToExact: destination node is not exact" }
 
-            val srcLinks = srcNode.getLinksInRange(srcOffset, len, isStrict = true, onlyPartial = false)
-            val dstLinks = dstNode.getLinksInRange(dstOffset, len, isStrict = true, onlyPartial = false)
+            val srcLinks = srcNode.getLinksInRange(srcOffset, len)
+            val dstLinks = dstNode.getLinksInRange(dstOffset, len)
             val adjustedOffset = dstOffset - srcOffset
             val unifications = mutableListOf<Pair<PTASymCell, PTASymCell>>()
             val additions = mutableListOf<PTALink>()
@@ -3679,6 +3725,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             check(dstC.getNode() == getStack()) { "memcpyExactToWeakStack: destination node is not stack" }
             // Even if the memcpy is weak, we remove any overlapping field.
             // This is similar to what we do in stores.
+
             removeOnlyOverlapLinks(dstC, len)
             memcpyExactToExact(srcC, len, dstC)
         }

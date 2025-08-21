@@ -78,9 +78,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
     /**
      *  Check that the subdomains are consistent about the common facts that they infer.
-     *  Currently, we only check about the value of r10.
+     *  Currently, we only check that all registers point to the same (modulo some precision differences) stack offsets.
      **/
-    private fun checkConsistencyBetweenSubdomains(globals: GlobalVariableMap, msg:String) {
+    private fun checkConsistencyBetweenSubdomains(msg:String) {
         if (!SolanaConfig.SanityChecks.get()) {
             return
         }
@@ -88,23 +88,43 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             return
         }
 
-        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
         val scalars = getScalars()
         val ptaGraph = getPTAGraph()
-        // Get value for r10 in the Pointer domain
-        val c = ptaGraph.getRegCell(r10, scalars.sbfTypeFac.mkTop() /*shouldn't be used*/, globals, locInst = null)
-        check(c != null)
-        {"$msg: pointer domain should know about r10"}
-        if (c.getNode().isExactNode()) {
-            // Get value for r10 in Scalars
-            val type = scalars.getValue(r10).type()
-            check(type is SbfType.PointerType.Stack<TNum, TOffset>)
-            {"$msg: scalar domain should know that r10 is a pointer to the stack"}
-            val scalarOffset = type.offset
-            val pointerOffset = c.getOffset()
-            // Since r10 is read-only, both subdomains should agree on the same offset for r10
-            check(scalarOffset.toLongOrNull() == pointerOffset.toLongOrNull())
-            { "$msg: scalar and pointer domains should agree on r10 offset" }
+        for (v in SbfRegister.values()) {
+            val reg = Value.Reg(v)
+            val type = scalars.getValue(reg).type()
+            val isStackScalar = type is SbfType.PointerType.Stack<TNum, TOffset>
+
+            val c = ptaGraph.getRegCell(reg)
+                ?: // it is possible that scalars say stack but ptaGraph doesn't know yet because the pointer has not
+                // been de-referenced.
+                continue
+
+            val isStackGraph = c.getNode() == ptaGraph.getStack()
+            if (isStackGraph && isStackScalar) {
+                check(type is SbfType.PointerType.Stack<TNum, TOffset>)
+                val scalarOffset = type.offset
+                val pointerOffset = c.getOffset()
+                if (scalarOffset.toLongOrNull() != pointerOffset.toLongOrNull()) {
+                    throw MemoryDomainError(
+                        "$msg: Scalars and PTAGraph should agree on $reg (1).\n" +
+                            "Scalars=$scalars\nPTAGraph=$ptaGraph"
+                    )
+                }
+            } else if (!isStackGraph && isStackScalar) {
+                // if scalars says stack then ptaGraph says also stack because it shouldn't be less precise
+                throw MemoryDomainError(
+                    "$msg: Scalars and PTAGraph should agree on $reg (2).\n" +
+                        "Scalars=$scalars\nPTAGraph=$ptaGraph"
+                )
+            } else if (isStackGraph) {
+                if (!type.isTop()) { // ptaGraph can be more precise than scalars
+                    throw MemoryDomainError(
+                        "$msg: Scalars and PTAGraph should agree on $reg (3).\n" +
+                            "Scalars=$scalars\nPTAGraph=$ptaGraph"
+                    )
+                }
+            }
         }
     }
 
@@ -508,8 +528,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             } else {
                 this.deepCopy()
             }
-            out.checkConsistencyBetweenSubdomains(globals, "Before ${b.getLabel()}")
+
             for (locInst in b.getLocatedInstructions()) {
+                out.checkConsistencyBetweenSubdomains("Before $locInst")
                 out.analyze(b, locInst, globals, memSummaries)
                 if (out.isBottom()) {
                     break
@@ -524,6 +545,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             }
             for (locInst in b.getLocatedInstructions()) {
                 listener.instructionEventBefore(locInst, out)
+                out.checkConsistencyBetweenSubdomains("Before $locInst")
                 out.analyze(b, locInst, globals, memSummaries)
                 listener.instructionEventAfter(locInst, out)
             }
