@@ -81,6 +81,12 @@ abstract class FullEquivalence<I, R>(
          * or refinement failed for the reason given in [message].
          */
         data class GaveUp(val message: String, val check: TraceEquivalenceChecker.CheckResult<*>) : EquivalenceResult<Nothing>
+
+        fun pp() = when(this) {
+            is ExplainedCounterExample -> "NotEquiv"
+            is GaveUp -> "GaveUp(${this.message})"
+            is Verified -> "Verified"
+        }
     }
 
     /**

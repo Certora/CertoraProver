@@ -30,12 +30,12 @@ class StringLiteralTest : MoveTestFixture() {
             $testModule
             public fun test() {
                 let s = b"hello";
-                cvlm_assert!(s.length() == 5);
-                cvlm_assert!(s[0] == 104);
-                cvlm_assert!(s[1] == 101);
-                cvlm_assert!(s[2] == 108);
-                cvlm_assert!(s[3] == 108);
-                cvlm_assert!(s[4] == 111);
+                cvlm_assert(s.length() == 5);
+                cvlm_assert(s[0] == 104);
+                cvlm_assert(s[1] == 101);
+                cvlm_assert(s[2] == 108);
+                cvlm_assert(s[3] == 108);
+                cvlm_assert(s[4] == 111);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -47,7 +47,7 @@ class StringLiteralTest : MoveTestFixture() {
             $testModule
             public fun test() {
                 let s = b"";
-                cvlm_assert!(s.length() == 0);
+                cvlm_assert(s.length() == 0);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -58,7 +58,7 @@ class StringLiteralTest : MoveTestFixture() {
         addMoveSource("""
             $testModule
             public fun test(n: u64) {
-                cvlm_assert_msg!(n == 5, b"n is 5");
+                cvlm_assert_msg(n == 5, b"n is 5");
             }
         """.trimIndent())
         assertFalse(verify())

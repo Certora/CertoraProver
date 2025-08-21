@@ -1,0 +1,8 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"type_constraints_unsigned_primitive": "SUCCESS",
+		"type_constraints_signed_primitive": "SUCCESS",
+		"type_constraints_via_solidity": "SUCCESS"
+	}
+}

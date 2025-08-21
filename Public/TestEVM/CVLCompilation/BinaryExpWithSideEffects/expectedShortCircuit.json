@@ -1,0 +1,21 @@
+{
+	"assertMessages": {
+		"binaryDivByZeroFail": "Division by zero",
+		"binaryOrViolated": "Cannot safely cast j (int256) to uint256 (shortCircuit.spec:33:23)"
+	},
+	"rules": {
+		"binaryAnd": "SUCCESS",
+		"binaryDivByZeroFail": "FAIL",
+		"binaryDivByZeroShortCircuit": "SUCCESS",
+		"binaryImply": "SUCCESS",
+		"binaryOr": "SUCCESS",
+		"binaryOrViolated": "FAIL",
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": ["get_neg_two()"],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

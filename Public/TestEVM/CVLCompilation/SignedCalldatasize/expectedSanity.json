@@ -1,0 +1,16 @@
+{
+    "rules": {
+        "calldatasizeIsSigned": "SUCCESS",
+        "functionsDoesNotRevert": {
+            "FAIL": [],
+            "SANITY_FAIL": [
+                "proposals(uint256)",
+                "certoraProposalStart(uint256)",
+                "withManyArgs(uint256,uint256,uint256)"
+            ],
+            "SUCCESS": [],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        }
+    }
+}

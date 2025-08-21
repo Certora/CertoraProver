@@ -190,6 +190,14 @@ object SolanaConfig {
         override fun check(newValue: Int) = newValue >= 1
     }
 
+    val UseScalarPredicateDomain = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "solanaUseScalarPredicateDomain", true,
+            "If true then the Scalar+Predicate domain is used by the Memory domain, else the Scalar domain. [default: true]."
+        )
+    ) {}
+
     val EnablePTAPseudoCanonicalize = object : ConfigType.BooleanCmdLine(
         true,
         Option(
@@ -372,7 +380,7 @@ object SolanaConfig {
         Option(
             "solanaPrintResults",
             false,
-            "Print analyzed program and invariants to standard output. [default: false]"
+            "Print the SBF CFG analyzed by PTA and the PTA graph to standard output (very verbose). [default: false]"
         )
     ) {}
 
@@ -381,7 +389,8 @@ object SolanaConfig {
         Option(
             "solanaPrintResultsToDot",
             false,
-            "Print analyzed program and points-to graphs to dot format. [default: false]"
+            "Generate a .dot file with the SBF CFG analyzed by PTA, and " +
+                       "the PTA graph at the entry of each basic block (very verbose, only for small programs). [default: false]"
         )
     ) {}
 
@@ -399,7 +408,7 @@ object SolanaConfig {
         Option(
             "solanaPrintAnalyzed",
             false,
-            "Print the actual analyzed program (after inlining and slicing) to standard output. [default: false]"
+            "Print the final SBF CFG after inlining and slicing to standard output. [default: false]"
         )
     ) {}
 
@@ -408,7 +417,7 @@ object SolanaConfig {
         Option(
             "solanaPrintAnalyzedToDot",
             false,
-            "Print the actual analyzed program (after inlining and slicing) to dot format. [default: false]"
+            "Generate a .dot file with the final SBF CFG after inlining and slicing. [default: false]"
         )
     ) {}
 
@@ -419,5 +428,30 @@ object SolanaConfig {
             false,
             "Print the TAC program (before loop unrolling) to standard output. [default: false]"
         )
+    ) {}
+
+    private val rustVecLayoutDefault = cli.RustVecLayout(
+        cli.RustVecLayout.Field.CAPACITY,
+        cli.RustVecLayout.Field.DATA,
+        cli.RustVecLayout.Field.LENGTH
+    )
+    val RustVecLayout = object : ConfigType.RustVecLayout(
+        default = rustVecLayoutDefault,
+        Option(
+            "rustVecLayout", true,
+            "Describes the memory layout of the fields in a vector in Rust. Must be a colon-separated list of: `${cli.RustVecLayout.DATA_STR}`, " +
+                "`${cli.RustVecLayout.CAPACITY_STR}`, and `${cli.RustVecLayout.LENGTH_STR}`. " +
+                "For example, `$rustVecLayoutDefault` states that in memory we find first the pointer to the capacity, then the data, and then the length. " +
+                "[default=$rustVecLayoutDefault]"
+        ),
+    ) {}
+
+    val DumpPTAGraphsToDot: ConfigType.StringSetCmdLine = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("solanaDumpPTAGraphsToDot",
+            true,
+            "Set of SBF basic block names. For each specified block, its PTA graph will be dumped into a separate .dot file. " +
+                       "The block names must match those shown by ${PrintAnalyzedToDot.name}."
+        ),
     ) {}
 }

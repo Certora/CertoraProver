@@ -31,7 +31,7 @@ class SummaryTest : MoveTestFixture() {
                 n + 42
             }
             public fun test() {
-                cvlm_assert!(foo(10) == 12);
+                cvlm_assert(foo(10) == 12);
             }
         """.trimIndent())
         addMoveSource("""
@@ -56,8 +56,8 @@ class SummaryTest : MoveTestFixture() {
             }
             public fun test() {
                 let v = foo<u32>(10);
-                cvlm_assert!(v.length() == 1);
-                cvlm_assert!(v[0] == 10);
+                cvlm_assert(v.length() == 1);
+                cvlm_assert(v[0] == 10);
             }
         """.trimIndent())
         addMoveSource("""
@@ -80,7 +80,7 @@ class SummaryTest : MoveTestFixture() {
             $testModule
             native fun foo(a: u64, b: u64): u64;
             public fun test() {
-                cvlm_assert!(foo(10, 20) == foo(10, 20));
+                cvlm_assert(foo(10, 20) == foo(10, 20));
             }
         """.trimIndent())
         addMoveSource("""
@@ -101,7 +101,7 @@ class SummaryTest : MoveTestFixture() {
             $testModule
             native fun foo(a: u64, b: u64): u64;
             public fun test() {
-                cvlm_assert!(foo(10, 20) == foo(10, 21));
+                cvlm_assert(foo(10, 20) == foo(10, 21));
             }
         """.trimIndent())
         addMoveSource("""

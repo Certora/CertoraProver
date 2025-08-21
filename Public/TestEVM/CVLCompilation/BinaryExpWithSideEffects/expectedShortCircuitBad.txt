@@ -1,0 +1,5 @@
+Error in spec file (shortCircuitBad.spec:8:12): could not type expression "(forall uint256 x. x > 0) => assert_uint256(y) > 0", message: Cannot compile this expression.
+The rhs `assert_uint256(y) > 0` may have side-effects (in [assert_uint256(y)]) so must be evaluated only conditionally, dependent on the evaluation of the lhs `(forall uint256 x. x > 0)`. But this lhs contains a quantified expression, and due to optimizations we perform on such expressions conditional evaluation must not depend on them.
+If possible, rewrite the implication as `rhs || !lhs` in order to overcome this problem.
+Alternatively, disable the optimization by adding `--prover_args "-smt_groundQuantifiers false"` to your command-line/conf file.
+See https://docs.certora.com/en/latest/docs/prover/approx/grounding.html#limitations-on-grounding for more details.

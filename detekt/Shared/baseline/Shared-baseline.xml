@@ -37,7 +37,6 @@
         <ID>Deprecation:CVLCmdTypeChecker.kt$CVLCmdTypeChecker$Exp</ID>
         <ID>Deprecation:CVLCmdTypeChecker.kt$CVLCmdTypeChecker$General</ID>
         <ID>Deprecation:CVLExpTypeChecker.kt$CVLExpTypeCheckerWithContext$Exp</ID>
-        <ID>Deprecation:CVLExpTypeChecker.kt$CVLExpTypeCheckerWithContext$General</ID>
         <ID>Deprecation:CVLExpTypeChecker.kt$CVLExpTypeCheckerWithContext$Lhs</ID>
         <ID>Deprecation:CVLExpTypeChecker.kt$CVLExpTypeCheckerWithContext.Companion$Exp</ID>
         <ID>Deprecation:CVLHookTypeChecker.kt$CVLHookTypeChecker$General</ID>
@@ -148,7 +147,6 @@
         <ID>ImportStdCollections:CVLExpModifiesReads.kt$CVLExpModifiesReads$mutableSetOf</ID>
         <ID>ImportStdCollections:CVLExpModifiesReads.kt$CVLExpModifiesReads$toSet</ID>
         <ID>ImportStdCollections:CVLInput.kt$CVLInput.WithImportedSpecs$forEach</ID>
-        <ID>ImportStdCollections:CVLKeywords.kt$CVLKeywords.Companion$plus</ID>
         <ID>ImportStdCollections:CVLScope.kt$CVLScope$+</ID>
         <ID>ImportStdCollections:CVLScope.kt$CVLScope.Companion$listOf</ID>
         <ID>ImportStdCollections:CVLType.kt$EVMBuiltinTypes$listOf</ID>

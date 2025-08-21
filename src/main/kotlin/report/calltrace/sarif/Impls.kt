@@ -22,7 +22,6 @@ import report.calltrace.CallInstance
 import report.calltrace.StorageDisplayPathGenerator
 import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.formatter.CallTraceValue
-import report.calltrace.name
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
 import spec.cvlast.EVMBuiltinTypes
@@ -65,7 +64,7 @@ fun <@Treapable T> sarifFromInvokingInstance(instance: CallInstance.InvokingInst
         val arg =
             value.toSarif(instance.formatter, ordinalTooltip("parameter", idx, params.size))
 
-        val name = param.name() ?: value.paramName
+        val name = param.name ?: value.paramName
         if (name != null) {
             builder.append("${name}=")
         }

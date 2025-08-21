@@ -1,0 +1,16 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"badCheck": "FAIL",
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": ["x()"],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"goodCheck": "SUCCESS"
+	}
+}

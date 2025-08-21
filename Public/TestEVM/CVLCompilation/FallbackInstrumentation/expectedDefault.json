@@ -1,0 +1,28 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": ["counter()"],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"fallbackFuncReached": {
+			"FAIL": ["<receiveOrFallback>()"],
+			"SANITY_FAIL": [],
+			"SUCCESS": [],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"receiveFuncReached": {
+			"FAIL": ["<receiveOrFallback>()"],
+			"SANITY_FAIL": [],
+			"SUCCESS": [],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

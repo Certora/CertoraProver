@@ -1,0 +1,58 @@
+{
+    "CALLGRAPH": {
+        "constructor()": [
+            false,
+            false
+        ],
+        "callWithExtraCalldata(uint256,uint256,uint256)": false,
+        "no signature": [
+            true,
+            true,
+            true
+        ],
+        "withExtraCalldata()": true
+    },
+    "INIT": {
+        "D-withExtraCalldata()": true,
+        "C-callWithExtraCalldata(uint256,uint256,uint256)": true
+    },
+    "NonLinearStats": {
+        "r": [
+            true,
+            true
+        ],
+        "r-rule_not_vacuous": [
+            true,
+            true
+        ]
+    },
+    "POINTSTO": {
+        "C-callWithExtraCalldata(uint256,uint256,uint256)": false,
+        "D-withExtraCalldata()": true,
+        "constructor()": [
+            false,
+            false
+        ],
+        "no signature": [
+            true,
+            true,
+            true
+        ],
+        "callWithExtraCalldata(uint256,uint256,uint256)": false,
+        "withExtraCalldata()": true
+    },
+    "PathCountStats": {
+        "r": [
+            true,
+            true
+        ],
+        "r-rule_not_vacuous": [
+            true,
+            true
+        ]
+    },
+    "SKeyDetection": {
+        "r": true,
+        "r-rule_not_vacuous": true
+    }
+}

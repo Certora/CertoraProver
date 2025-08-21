@@ -1,0 +1,16 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"check1": "SUCCESS",
+		"check2": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"setM(uint256,uint256)"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

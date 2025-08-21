@@ -92,7 +92,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     PATTERN_REWRITER(LoggerTypes.PATTERN_REWRITER),
     OPTIMIZE_INFEASIBLE_PATHS(LoggerTypes.OPTIMIZE),
     OPTIMIZE_OVERFLOW(LoggerTypes.OPTIMIZE),
-    OPTIMIZE_DIAMONDS(LoggerTypes.OPTIMIZE),
+    OPTIMIZE_DIAMONDS(LoggerTypes.DIAMOND_SIMPLIFIER),
     OPTIMIZE_VALUE_RANGE(LoggerTypes.OPTIMIZE),
     OPTIMIZE_PROPAGATE_CONSTANTS1(LoggerTypes.OPTIMIZE),
     OPTIMIZE_PROPAGATE_CONSTANTS2(LoggerTypes.OPTIMIZE),
@@ -282,6 +282,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     PROPAGATE_STRINGS(LoggerTypes.COMMON),
     BYTESK_INSTRUMENTER(LoggerTypes.NORMALIZER),
     HASH_FP_REUSE_NORMALIZATION(LoggerTypes.ALLOC),
+    EQUIVALENCE_DEBUG(LoggerTypes.EQUIVALENCE)
     ;
 
     override fun isEnabled(): Boolean = this == NONE || Config.isEnabledLogger(this.loggerCategory) || Config.isEnabledReport(this)

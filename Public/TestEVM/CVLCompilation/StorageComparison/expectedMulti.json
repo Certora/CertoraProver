@@ -1,0 +1,11 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"should_pass_1": "SUCCESS",
+		"should_pass_2": "SUCCESS",
+		"should_pass_3": "SUCCESS",
+		"should_fail_1": "FAIL"
+	}
+}

@@ -1,0 +1,8 @@
+{
+  "assertMessages": {},
+    "rules": {
+        "rule_stack_array_1": "SUCCESS",
+	"rule_stack_array_3": "SUCCESS",
+	"rule_stack_array_4": "SUCCESS"
+  }
+}

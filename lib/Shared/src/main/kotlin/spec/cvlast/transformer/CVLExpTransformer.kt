@@ -25,6 +25,7 @@ import utils.CollectingResult.Companion.bind
 import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
+import utils.ErrorCollector.Companion.collectingErrors
 
 // TODO: CERT-2401
 // This (and other MonadicTransformers) could be auto-generated.  This would have a few benefits:
@@ -143,20 +144,16 @@ interface CVLExpTransformer<out E> {
             }
         }
 
-    fun unresolvedApplyExp(exp: CVLExp.UnresolvedApplyExp): CollectingResult<CVLExp.UnresolvedApplyExp, E> {
-        return exp.args.map {
-            expr(it)
-        }.flatten().map {
-            exp.copy(args = it)
-        }
+    fun unresolvedApplyExp(exp: CVLExp.UnresolvedApplyExp): CollectingResult<CVLExp.UnresolvedApplyExp, E> = collectingErrors {
+        val args = collectAndFilter(exp.args.map(::expr))
+        val base = exp.base?.let { bind(expr(it)) }
+        return@collectingErrors exp.copy(args = args, base = base)
     }
 
-    fun addressFunctionCall(exp: CVLExp.AddressFunctionCallExp): CollectingResult<CVLExp.AddressFunctionCallExp, E> {
-        return exp.args.map {
-            expr(it)
-        }.flatten().map {
-            exp.copy(args = it)
-        }
+    fun addressFunctionCall(exp: CVLExp.AddressFunctionCallExp): CollectingResult<CVLExp.AddressFunctionCallExp, E> = collectingErrors {
+        val args = collectAndFilter(exp.args.map(::expr))
+        val base = bind(expr(exp.base))
+        return@collectingErrors exp.copy(args = args, base = base)
     }
 
     fun ge(exp: CVLExp.RelopExp.ArithRelopExp.GeExp): CollectingResult<CVLExp.RelopExp.ArithRelopExp.GeExp, E> =

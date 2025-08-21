@@ -36,7 +36,18 @@ sealed interface ContextLabel {
         CALLEE("Callee address", "Target account of external call"),
         CALLEE_CODESIZE("Callee codesize", "Non-deterministically chosen codesize of the target account"),
         RETURNSIZE("Result Buffer Size", "Size, in bytes, of the return/revert buffer"),
-        CALL_RESULT("Call Result", "Whether the external call reverted or returned successfully")
+        CALL_RESULT("Call Result", "Whether the external call reverted or returned successfully"),
+        RETURNDATA("Return Data", "(Partial) model of the returndata from the external call")
+    }
+
+    val Int.naturalString : String get() {
+        val naturalPos = this + 1
+        return naturalPos.toString() + when(naturalPos.mod(10)) {
+            1 -> "st"
+            2 -> "nd"
+            3 -> "rd"
+            else -> "th"
+        }
     }
 
     sealed interface InternalCallLabel : ContextLabel {
@@ -57,17 +68,19 @@ sealed interface ContextLabel {
         data class ReturnValue(val ord: Int) : InternalCallLabel {
             override val displayLabel: String
                 get() {
-                    val naturalPos = ord + 1
-                    return naturalPos.toString() + when(naturalPos.mod(10)) {
-                        1 -> "st"
-                        2 -> "nd"
-                        3 -> "rd"
-                        else -> "th"
-                    } + "  Return"
+                    return "${ord.naturalString} Return"
                 }
 
             override val description: String
                 get() = "The $displayLabel value returned by the function"
         }
+    }
+
+    data class ResultValue(val ord: Int) : ContextLabel {
+        override val displayLabel: String
+            get() = "${ord.naturalString} Result"
+        override val description: String
+            get() = "The ${ord.naturalString} value produced by the computation"
+
     }
 }

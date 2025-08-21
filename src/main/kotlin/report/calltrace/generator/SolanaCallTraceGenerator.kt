@@ -39,12 +39,13 @@ import vc.data.TACMeta
  */
 internal class SolanaCallTraceGenerator(
     rule: IRule,
+    cexId: Int,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
     ruleCallString: String,
-) : CvlrCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString) {
+) : CvlrCallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString) {
 
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {

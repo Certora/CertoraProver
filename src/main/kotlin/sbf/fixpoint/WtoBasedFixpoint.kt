@@ -24,6 +24,7 @@ import sbf.domains.AbstractDomain
 import sbf.domains.MemorySummaries
 import sbf.sbfLogger
 import datastructures.stdcollections.*
+import sbf.domains.InstructionListener
 
 /**
  * This solver supports posets (partial ordered sets) with infinite ascending chains.
@@ -42,8 +43,8 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
     bot: T,
     top: T,
     val options: WtoBasedFixpointOptions,
-    globalsMap: GlobalVariableMap,
-    memSummaries: MemorySummaries):
+    val globalsMap: GlobalVariableMap,
+    val memSummaries: MemorySummaries):
         FixpointSolver<T>,
         FixpointSolverOperations<T>(bot, top, globalsMap, memSummaries){
 
@@ -61,19 +62,41 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         }
         val label = node.label
         val b = wto.cfg.getBlock(label)
-        check(b != null) {"Cannot find basic block for label $label in CFG ${wto.cfg.getName()}"}
+        check(b != null) {
+            "Cannot find basic block for $label in CFG ${wto.cfg.getName()}"
+        }
 
         // Join all predecessors
         val inState = getInState(b, inMap, outMap)
         // Compute transfer functions for the whole basic block. outMap is updated
-        analyzeBlock(b, inState, outMap, deadMap, false)
+        analyzeBlock(b, inState, outMap, deadMap)
+    }
+
+    private fun processWtoVertex(node: WtoVertex,
+                                 wto: Wto,
+                                 inMap: MutableMap<Label, T>,
+                                 processor: InstructionListener<T>) {
+        val label = node.label
+        val b = wto.cfg.getBlock(label)
+        check(b != null) {
+            "Cannot find basic block for $label in CFG ${wto.cfg.getName()}"
+        }
+        val inState = inMap[label]
+        check(inState != null) {
+            "Cannot find abstract state for $label in CFG ${wto.cfg.getName()}"
+        }
+        inState.analyze(b, globalsMap, memSummaries, processor)
     }
 
     private fun extrapolate(b: SbfBasicBlock, numAscendingIterations: UInt,
                             oldState: T, newState: T): T {
         return if (numAscendingIterations < options.wideningDelay) {
+            oldState.pseudoCanonicalize(newState)
             oldState.join(newState, b.getLabel(), b.getLabel())
         } else {
+            if (debugFixpo) {
+                sbfLogger.info { "Widening at block ${b.getLabel()} (iter=$numAscendingIterations)" }
+            }
             oldState.widen(newState, b.getLabel())
         }
     }
@@ -124,7 +147,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         var ascendingIterations = 0U
         while (true) {
             inMap[b.getLabel()] = inState
-            analyzeBlock(b, inState, outMap, deadMap,false)
+            analyzeBlock(b, inState, outMap, deadMap)
             for (c in node.getComponents()) {
                 if (c !is WtoVertex || c.label != b.getLabel()) { // don't analyze twice the head
                     solveWtoComponent(c, wto, inMap, outMap, deadMap)
@@ -151,8 +174,6 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
                              "${ascendingIterations+1U} iterations" }
         }
 
-
-
         var descendingIterations = 0U
         if (debugFixpo) {
             if (options.descendingIterations > 0U) {
@@ -161,7 +182,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         }
         while (descendingIterations < options.descendingIterations) {
             inMap[b.getLabel()] = inState
-            analyzeBlock(b, inState, outMap, deadMap, false)
+            analyzeBlock(b, inState, outMap, deadMap)
             for (c in node.getComponents()) {
                 if (c !is WtoVertex || c.label != b.getLabel()) { // don't analyze twice the head
                     solveWtoComponent(c, wto, inMap, outMap, deadMap)
@@ -183,8 +204,30 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
                 sbfLogger.info { "Finished analysis (descending phase) of loop ${node.head().label}" }
             }
         }
+    }
 
-
+    private fun processWtoCycle(node: WtoCycle,
+                                wto: Wto,
+                                inMap: MutableMap<Label, T>,
+                                processor: InstructionListener<T>) {
+        val cfg = wto.cfg
+        val label = node.head().label
+        val b = cfg.getBlock(label)
+        check(b != null) {
+            "Cannot find block for $label in CFG ${wto.cfg.getName()}"
+        }
+        val inState = inMap[label]
+        check(inState != null) {
+            "Cannot find abstract state for $label in CFG ${wto.cfg.getName()}"
+        }
+        // process the head
+        inState.analyze(b, globalsMap, memSummaries, processor)
+        // process recursively the rest of the component
+        for (c in node.getComponents()) {
+            if (c !is WtoVertex || c.label != b.getLabel()) { // don't process twice the head
+                processWtoComponent(c, wto, inMap, processor)
+            }
+        }
     }
 
     private fun solveWtoComponent(c: WtoComponent, wto: Wto,
@@ -197,10 +240,21 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         }
     }
 
+    private fun processWtoComponent(c: WtoComponent,
+                                    wto: Wto,
+                                    inMap: MutableMap<Label, T>,
+                                    processor: InstructionListener<T>) {
+        when (c) {
+            is WtoVertex -> processWtoVertex(c, wto, inMap, processor)
+            is WtoCycle -> processWtoCycle(c, wto, inMap, processor)
+        }
+    }
+
     override fun solve(cfg: SbfCFG,
                        inMap: MutableMap<Label, T>,
                        outMap: MutableMap<Label, T>,
-                       liveMapAtExit: Map<Label, LiveRegisters>?) {
+                       liveMapAtExit: Map<Label, LiveRegisters>?,
+                       processor: InstructionListener<T>?) {
 
         val entry = cfg.getEntry()
 
@@ -233,6 +287,9 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
 
         for (c in wto.getComponents()) {
             solveWtoComponent(c, wto, inMap, outMap, deadMap)
+            if (processor != null) {
+                processWtoComponent(c, wto, inMap, processor)
+            }
         }
 
         if (debugFixpo) {

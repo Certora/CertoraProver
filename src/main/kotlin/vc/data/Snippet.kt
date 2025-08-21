@@ -182,7 +182,6 @@ sealed interface AssertSnippet<T : AssertSnippet<T>> : ScopeSnippet {
  * These commands should be used to build the CallTrace.
  */
 @KSerializable
-@Treapable
 sealed class SnippetCmd: AmbiSerializable {
     /**
      * Lifts this [SnippetCmd] to an annotation command ([[TACCmd.Simple.AnnotationCmd]s]) if
@@ -1437,6 +1436,14 @@ sealed class SnippetCmd: AmbiSerializable {
         }
     }
 
+
+    /**
+     * Snippets for annotating Move functions.
+     */
+    @KSerializable
+    abstract class MoveSnippetCmd : SnippetCmd() {
+        abstract val range: Range.Range?
+    }
 
     /**
      * Snippets for annotating loops.

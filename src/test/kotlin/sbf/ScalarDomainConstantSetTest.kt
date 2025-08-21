@@ -492,7 +492,8 @@ class ScalarDomainConstantSetTest {
      *   r2 = sp(3796)
      *   while (r1 < 5) {
      *      r3 = r2 + (r1 * 8)
-     *      *r3 = 0
+     *      *r3 = 42
+     *      r1 = r1 + 1
      *   }
      *   ```
     **/
@@ -542,7 +543,8 @@ class ScalarDomainConstantSetTest {
      *   r2 = sp(3796)
      *   while (r1 < 5) {
      *      r2 = r2 + 8
-     *      *r2 = 0
+     *      *r2 = 42
+     *      r1 = r1 + 1
      *   }
      *   ```
      **/
@@ -572,6 +574,8 @@ class ScalarDomainConstantSetTest {
             }
             bb(4) {
                 assert(CondOp.EQ(r1, 5))
+                r2 = r10
+                BinOp.SUB(r2, 300)
                 r3 = r2[16]
                 assert(CondOp.LE(r3, 42))
                 exit()
@@ -587,9 +591,6 @@ class ScalarDomainConstantSetTest {
             exception = true
         }
         Assertions.assertEquals(true, exception)
-
-
-
     }
 
 }

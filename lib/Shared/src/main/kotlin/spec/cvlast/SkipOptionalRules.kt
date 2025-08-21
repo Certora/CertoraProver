@@ -37,7 +37,7 @@ class SkipOptionalRules(val symbolTable: CVLSymbolTable) {
                     acc: SpecType.Single.SkippedMissingOptionalMethod?,
                     exp: CVLExp.UnresolvedApplyExp
                 ): SpecType.Single.SkippedMissingOptionalMethod {
-                    check(exp.tag.annotation == CVLExp.UnresolvedApplyExp.VirtualFunc) {
+                    check(exp.tag.annotation is CVLExp.UnresolvedApplyExp.WhitelistedUnresolvedFunc) {
                         "We shouldn't reach here with an unresolved apply unless it's for virtual funcs"
                     }
                     return SpecType.Single.SkippedMissingOptionalMethod(

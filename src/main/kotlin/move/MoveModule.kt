@@ -1210,4 +1210,13 @@ class MoveModule(val path: Path) {
         return structDefinitionsById[handle.id]
             ?: error("Struct definition not found for handle $handle")
     }
+
+    private val structDefinitionsByName = structDefinitions.orEmpty().associateBy { it.name }
+
+    fun maybeDefinition(name: MoveStructName): StructDefinition? {
+        check(name.module == this.moduleName) {
+            "Struct name $name does not belong to module $moduleName"
+        }
+        return structDefinitionsByName[name]
+    }
 }

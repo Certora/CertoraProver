@@ -160,7 +160,7 @@ abstract class AbstractTACChecker {
                         simpleSimpleObj.analysisCache.graph.commands.forEach { (_, cmd) ->
                                 cmd.getLhs()?.let { counters.plusOne(it)}
                             }
-                        counters.keys.filter { counters[it] == 1 }
+                        counters.keys.filterToSet { counters[it] == 1 }
                     }
 
                     simpleSimpleObj.symbolTable.tags.keys.filterToSet { v ->

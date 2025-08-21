@@ -753,7 +753,6 @@ class AddInternalFunctionsTest {
                 startPc = 0,
                 args = listOf(),
                 methodSignature = qualifiedMethodSignature(id),
-                stackOffsetToArgPos = mapOf(),
                 callSiteSrc = null,
                 calleeSrc = null
             )

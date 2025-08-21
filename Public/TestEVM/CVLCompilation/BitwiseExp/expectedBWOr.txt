@@ -1,0 +1,3 @@
+Syntax warning in spec file BWOr.spec:4:12: Usage of bitwise operation 0x1 | 0x0 is experimental. Use with caution.
+Syntax warning in spec file BWOr.spec:5:12: Usage of bitwise operation max_uint256 | 0x1010101 is experimental. Use with caution.
+Syntax warning in spec file BWOr.spec:6:12: Usage of bitwise operation 0xff00f | 0xf00ff0 is experimental. Use with caution.

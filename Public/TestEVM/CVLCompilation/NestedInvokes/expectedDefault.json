@@ -1,0 +1,17 @@
+{
+    "assertMessages": {},
+    "rules": {
+        "check": "SUCCESS",
+        "envfreeFuncsStaticCheck": {
+            "FAIL": [],
+            "SANITY_FAIL": [],
+            "SUCCESS": [
+                "inner(uint256)",
+                "outer(uint256,uint256)"
+            ],
+            "TIMEOUT": [],
+            "UNKNOWN": []
+        },
+        "unnested": "SUCCESS"
+    }
+}

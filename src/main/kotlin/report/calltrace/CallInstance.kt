@@ -47,7 +47,7 @@ import java.math.BigInteger
  * [name] is the string representation of this [CallInstance], displayed in the CallTrace.
  * [status] is a status field mainly used to pass information to the frontend, to attach the correct labels.
  */
-sealed class CallInstance : TreeViewReportable {
+abstract class CallInstance : TreeViewReportable {
 
     /** this property will be deprecated soon, prefer [sarif] for newer sub-classes */
     open val name: String get() = this.sarif.flatten()
@@ -170,6 +170,11 @@ sealed class CallInstance : TreeViewReportable {
                 "Call trace build failed here, but recovered. Call structure from this point may be incorrect."
             )
         }
+
+        class Imprecision(msg: String, override val range: Range.Range?) : ErrorInstance() {
+            override val sarif = Sarif.fromPlainStringUnchecked(msg)
+            override var status = CallEndStatus.IMPRECISION
+        }
     }
 
     /**
@@ -180,7 +185,7 @@ sealed class CallInstance : TreeViewReportable {
      * [returnTypes] are the [CVLType.PureCVLType]s correspond to [returnValues].
      * values were inserted in order, from the first param to the k param (0 <= k<= params.size).
      */
-    sealed class InvokingInstance<@Treapable T> : ScopeInstance() {
+    abstract class InvokingInstance<@Treapable T> : ScopeInstance() {
         open val params: List<TypedParam<T>> // xx part of the duplicated parameter naming complex ..
             get() = emptyList()
         open val returnTypes: List<T>
@@ -202,7 +207,7 @@ sealed class CallInstance : TreeViewReportable {
 
         override val sarif get() = sarifFromInvokingInstance(this)
 
-        val paramNames get() = params.monadicMap { it.name() }
+        val paramNames get() = params.monadicMap { it.name }
         val paramTypes get() = params.map { it.type }
 
         override fun toString(): String {
@@ -223,7 +228,7 @@ sealed class CallInstance : TreeViewReportable {
              * [paramValues] and [params] can't be trusted to match.
              * on size mismatch (perhaps due to some analysis failure), give up on trying to find a name
              */
-            val names = params.map { it.name() }.takeIf { params.size == paramValues.size }
+            val names = params.map { it.name }.takeIf { params.size == paramValues.size }
 
             return paramValues
                 .toSortedMap()
@@ -627,7 +632,11 @@ sealed class CallInstance : TreeViewReportable {
     /**
      * [CVLExp] as part of a [CVLCmd].
      */
-    class CVLExpInstance(override val sarif: Sarif, override val range: Range.Range?, val value: TACValue?) : ScopeInstance() {
+    class CVLExpInstance(
+        override val sarif: Sarif,
+        override val range: Range.Range?,
+        val value: TACValue?
+    ) : ScopeInstance() {
         companion object {
             /** for instances that have already-formatted values */
             fun withStringExpAndValue(
@@ -666,13 +675,6 @@ fun callInstanceTreeStructureException(errorMsg: () -> String): Nothing {
     val structureErrorPrefix = "The call trace tree has an invalid structure:"
     throw CallTraceException("$structureErrorPrefix ${errorMsg()}")
 }
-
-internal fun TypedParam<*>.name(): String? =
-    when (this) {
-        is CVLParam -> this.id
-        is VMParam.Named -> this.name
-        is VMParam.Unnamed -> null
-    }
 
 @Suppress("ForbiddenMethodCall")
 private val namePrefixRE = Regex("^([a-zA-Z0-9_]+=)(.*)$")

@@ -22,12 +22,12 @@ import allocator.Allocator
 import allocator.GenerateRemapper
 import allocator.GeneratedBy
 import analysis.icfg.Summarization
+import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
+import analysis.opt.DiamondSimplifier.registerMergeableAnnot
 import analysis.pta.abi.PartitionField
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import evm.MASK_SIZE
-import log.Logger
-import log.LoggerTypes
 import report.calltrace.printer.DebugAdapterPopAction
 import report.calltrace.printer.DebugAdapterPushAction
 import report.calltrace.printer.StackEntry
@@ -37,8 +37,6 @@ import utils.*
 import vc.data.*
 import java.io.Serializable
 import java.math.BigInteger
-
-private val logger = Logger(LoggerTypes.DECOMPILER)
 
 val internalAnnotationMask = BigInteger("ffffff6e4604afefe123321beef1b01fffffffffffffffffffffffff00000000", 16)
 fun BigInteger.isInternalAnnotationConstant() = this == ((this and BigInteger("ffffffff", 16)) or internalAnnotationMask)
@@ -63,7 +61,6 @@ enum class InternalArgSort {
 @Treapable
 data class InternalFuncArg(
     val s: TACSymbol,
-    val offset: Int,
     val logicalPosition: Int,
     val sort: InternalArgSort,
     val location: InternalFuncValueLocation? = null
@@ -71,14 +68,13 @@ data class InternalFuncArg(
     override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): InternalFuncArg {
         return InternalFuncArg(
             (s as? TACSymbol.Var)?.let(f) ?: s,
-            offset,
             logicalPosition,
             sort,
             location?.transformSymbols(f)
         )
     }
 
-    override fun hashCode() = hash { it + s + offset + sort + location + logicalPosition }
+    override fun hashCode() = hash { it + s + sort + location + logicalPosition }
     override val support: Set<TACSymbol.Var>
         get() = treapSetOfNotNull(s as? TACSymbol.Var) + location?.support.orEmpty()
 }
@@ -153,7 +149,6 @@ interface InternalFunctionStartInfo {
 data class InternalFuncStartAnnotation(
     @GeneratedBy(Allocator.Id.INTERNAL_FUNC, source = true) override val id: Int, val startPc: Int,
     override val args: List<InternalFuncArg>, override val methodSignature: QualifiedMethodSignature,
-    val stackOffsetToArgPos: Map<Int, Int>,
     override val callSiteSrc: TACMetaInfo?,
     override val calleeSrc: TACMetaInfo?
 ) : TransformableVarEntityWithSupport<InternalFuncStartAnnotation>, RemapperEntity<InternalFuncStartAnnotation>, Serializable, InternalFunctionStartInfo, DebugAdapterPushAction, InternalFunctionStartAnnot {
@@ -163,12 +158,6 @@ data class InternalFuncStartAnnotation(
     fun isSummarizable() = args.all { it.sort == InternalArgSort.SCALAR }
 
     override val stackElement = StackEntry.SolidityFunction(methodSignature.prettyPrintFullyQualifiedName(), calleeSrc?.getSourceDetails()?.range)
-
-    fun getArgPos(argOffset: Int): Int = stackOffsetToArgPos[argOffset] ?: run {
-        val msg = "Unexpected requested argument offset $argOffset"
-        logger.error(msg)
-        throw IllegalArgumentException(msg)
-    }
 
     override val support: Set<TACSymbol.Var>
         get() = args.flatMapToSet { arg -> arg.support }.toSet()
@@ -325,9 +314,9 @@ data class InternalFuncExitAnnotation(
     }
 }
 
-val JUMP_SYM = MetaKey<TACSymbol.Var.Annotation>("jump.sym")
-val INTERNAL_FUNC_START = MetaKey<InternalFuncStartAnnotation>("internal.func.start", restore = true)
-val INTERNAL_FUNC_EXIT = MetaKey<InternalFuncExitAnnotation>("internal.func.end")
+val JUMP_SYM = MetaKey<TACSymbol.Var.Annotation>("jump.sym").registerMergeableAnnot()
+val INTERNAL_FUNC_START = MetaKey<InternalFuncStartAnnotation>("internal.func.start", restore = true).registerDestructivelyMergeableAnnot()
+val INTERNAL_FUNC_EXIT = MetaKey<InternalFuncExitAnnotation>("internal.func.end").registerDestructivelyMergeableAnnot()
 
 class InternalFunctionExitFinder(code: CoreTACProgram) : Summarization.ExitFinder(code) {
     override fun calleeStarted(cmd: TACCmd.Simple.AnnotationCmd) =

@@ -34,8 +34,8 @@ class IntervalsTest : MoveTestFixture() {
             $testModule
             public fun test() {
                 let v = nondet<vector<u64>>();
-                cvlm_assume!(v.length() == 3);
-                cvlm_assert!(v.length() == 3);
+                cvlm_assume(v.length() == 3);
+                cvlm_assert(v.length() == 3);
             }
         """.trimIndent())
         assertReachableAnd(true)
@@ -50,7 +50,7 @@ class IntervalsTest : MoveTestFixture() {
                 let x = nondet<u64>();
                 let n = v.length();
                 v.push_back(x);
-                cvlm_assert!(v.length() == n);
+                cvlm_assert(v.length() == n);
             }
         """.trimIndent())
         assertReachableAnd(null)
@@ -65,7 +65,7 @@ class IntervalsTest : MoveTestFixture() {
                 let mut v = nondet<vector<u64>>();
                 let n = v.length();
                 let _ = v.pop_back();
-                cvlm_assert!(v.length() == n);
+                cvlm_assert(v.length() == n);
             }
         """.trimIndent())
         assertReachableAnd(null)
@@ -78,7 +78,7 @@ class IntervalsTest : MoveTestFixture() {
             public fun test() {
                 let v = nondet<vector<u64>>();
                 if (v.length() <= 3) {
-                    cvlm_assert!(v.length() <= 10);
+                    cvlm_assert(v.length() <= 10);
                 }
             }
         """.trimIndent())
@@ -93,7 +93,7 @@ class IntervalsTest : MoveTestFixture() {
             public fun test() {
                 let v = nondet<vector<u64>>();
                 if (v.length() <= 3) {
-                    cvlm_assert!(v.length() > 4);
+                    cvlm_assert(v.length() > 4);
                 }
             }
         """.trimIndent())
@@ -108,7 +108,7 @@ class IntervalsTest : MoveTestFixture() {
             public fun test() {
                 let v = nondet<vector<u64>>();
                 if (v.length() <= 3) {
-                    cvlm_assert!(v.length() <= 2);
+                    cvlm_assert(v.length() <= 2);
                 }
             }
         """.trimIndent())
@@ -128,8 +128,8 @@ class IntervalsTest : MoveTestFixture() {
               let v1 = vs.borrow(i);
               let v2 = vs.borrow(j);
 
-              cvlm_assume!(v1.length() <= 5);
-              cvlm_assert!(v2.length() <= 5);
+              cvlm_assume(v1.length() <= 5);
+              cvlm_assert(v2.length() <= 5);
             }
         """.trimIndent())
         assertReachableAnd(null)

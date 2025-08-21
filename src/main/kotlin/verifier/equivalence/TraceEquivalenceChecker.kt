@@ -160,7 +160,8 @@ class TraceEquivalenceChecker<I>(
         val theRule = ruleGenerator.generateRule(
             aCode = instrumentedA.asProgram(progA.p),
             bCode = instrumentedB.asProgram(progB.p),
-            vc = vc
+            vc = vc,
+            label = "program-equivalence"
         )
         val start = System.currentTimeMillis()
         val vcRes = TACVerifier.verify(scene, theRule.code, DummyLiveStatsReporter, equivalenceRule)

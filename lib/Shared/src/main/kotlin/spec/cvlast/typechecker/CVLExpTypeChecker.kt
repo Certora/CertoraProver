@@ -2132,12 +2132,9 @@ class CVLExpTypeCheckerWithContext(
                     when (val ty = symbolInfo.getCVLTypeOrNull()) {
                         is CVLType.PureCVLType.Primitive.CodeContract -> ty.name.lift()
                         is CVLType.PureCVLType.Bottom -> AllContracts.lift()
-                        is CVLType.PureCVLType.Primitive.AccountIdentifier ->
-                            NotAContractInstance(exp).asError()
-
-                        else -> NoSuchContractInstance(exp).asError()
+                        else -> NotAContractInstance(exp).asError()
                     }
-                } ?: return NoSuchContractInstance(exp).asError()
+                } ?: `impossible!` // This means it's an undeclared variable which should have been caught earlier
             } else {
                 AllContracts.lift()
             }.bind { contract ->
@@ -2156,6 +2153,14 @@ class CVLExpTypeCheckerWithContext(
                 }
             }
         }
+    }
+
+    /**
+     * Checks if the given method ID is a listed internal function in the contract.
+     */
+    private fun shouldListInternalFunction(methodId: String, contract: ContractInstanceInSDC): Boolean {
+        return Config.ListCalls.getOrNull() != null &&
+               contract.internalFunctions.values.map { it.method.name }.contains(methodId)
     }
 
     private fun missingFunctionError(exp: CVLExp.UnresolvedApplyExp, contract: ContractInstanceInSDC): CVLError {
@@ -2195,6 +2200,8 @@ class CVLExpTypeCheckerWithContext(
     }
 
     fun resolveApply(exp: CVLExp.UnresolvedApplyExp): CollectingResult<CVLExp.ApplicationExp, CVLError> = collectingErrors {
+        val base = exp.base?.let { bind(expr(it)) }
+        val exp = exp.copy(base = base)
         // First, check if this is a parametric method
         symbolTable.lookUpFunctionLikeSymbol(exp.methodId, typeEnv.scope)?.let { resolved ->
             if (resolved is CVLSymbolTable.SymbolInfo.CVLValueInfo && resolved.getCVLType() == EVMBuiltinTypes.method) {
@@ -2202,12 +2209,11 @@ class CVLExpTypeCheckerWithContext(
             }
         }
 
-        val base = exp.base?.let { bind(expr(it)) }
         val baseType = base?.getOrInferPureCVLType()
 
         // Now check if it's an address function call
         if (baseType is CVLType.PureCVLType.Primitive.AccountIdentifier) {
-            return@collectingErrors bind(handleAddressFunctionCall(exp, base))
+            return@collectingErrors bind(handleAddressFunctionCall(exp))
         }
 
         val contractScope = if (base != null) {
@@ -2232,11 +2238,34 @@ class CVLExpTypeCheckerWithContext(
             ?.let { harnessName -> symbolTable.lookUpFunctionLikeSymbol(harnessName, contractScope) }
             ?.let { symInfo -> symInfo as? CVLSymbolTable.SymbolInfo.CVLFunctionInfo }
 
-        val res = functionInfo?.let {
-            internalFunctionHarnessInfo?.let {
-                CVLSymbolTable.SymbolInfo.CVLFunctionInfo(functionInfo.symbolValue, functionInfo.impFuncs + internalFunctionHarnessInfo.impFuncs)
-            } ?: functionInfo
-        } ?: internalFunctionHarnessInfo ?: returnError(missingFunctionError(exp, contract))
+        val res = when {
+            // Both function info and harness info are available - merge them
+            functionInfo != null && internalFunctionHarnessInfo != null -> {
+                val mergedImpFuncs = functionInfo.impFuncs + internalFunctionHarnessInfo.impFuncs
+                CVLSymbolTable.SymbolInfo.CVLFunctionInfo(functionInfo.symbolValue, mergedImpFuncs)
+            }
+
+            // Only function info is available
+            functionInfo != null -> functionInfo
+
+            // Only harness info is available
+            internalFunctionHarnessInfo != null -> internalFunctionHarnessInfo
+
+            // Neither available, but we just want to list internal function calls
+            shouldListInternalFunction(exp.methodId, contract) -> {
+                return@collectingErrors exp.copy(
+                    base = base,
+                    args = collectAndFilter(exp.args.map(::expr)),
+                    tag = exp.tag.copy(
+                        type = CVLType.PureCVLType.Bottom,
+                        annotation = CVLExp.UnresolvedApplyExp.ListedInternalFunc
+                    )
+                )
+            }
+
+            // Function not found - return error
+            else -> returnError(missingFunctionError(exp, contract))
+        }
 
         check(res.symbolValue is ContractFunction) {
             "All other types of 'concrete' application should have already been resolved at this stage, got ${res.symbolValue}"
@@ -2273,7 +2302,7 @@ class CVLExpTypeCheckerWithContext(
         ))
     }
 
-    private fun handleAddressFunctionCall(exp: CVLExp.UnresolvedApplyExp, base: CVLExp): CollectingResult<CVLExp.ApplicationExp, CVLError> = collectingErrors {
+    private fun handleAddressFunctionCall(exp: CVLExp.UnresolvedApplyExp): CollectingResult<CVLExp.ApplicationExp, CVLError> = collectingErrors {
         val (args, storage) = bind(exp.args.map(this@CVLExpTypeCheckerWithContext::expr).flatten(), variable(exp.invokeStorage))
 
         if (!exp.invokeIsSafe) {
@@ -2318,7 +2347,7 @@ class CVLExpTypeCheckerWithContext(
         }
 
         return@collectingErrors CVLExp.AddressFunctionCallExp(
-            base,
+            exp.base!!,
             exp.methodId,
             args,
             storage,

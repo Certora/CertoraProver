@@ -416,8 +416,12 @@ private fun checkTreeViewState(finalResult: FinalResult): FinalResult {
 
     val stillRunning = TreeViewReporter.instance?.topLevelRulesStillRunning()
     if (stillRunning?.isNotEmpty() == true) {
-        Logger.alwaysWarn("We are shutting down, but some rules are still registered as `isRunning`:\n" +
-            stillRunning.joinToString(separator = "\n") { it.second })
+        val msg = "We are shutting down, but some rules are still registered as `isRunning`:\n" +
+            stillRunning.joinToString(separator = "\n") { it.second }
+        if(Config.TestMode.get()){
+            throw IllegalStateException(msg)
+        }
+        Logger.alwaysWarn(msg)
     }
 
     val treeViewViolationOrErrors = TreeViewReporter.instance?.topLevelRulesWithViolationOrErrorOrRunning()
@@ -789,6 +793,8 @@ private fun setActiveFlow() {
                 SpecFile.getOrNull() != null -> Config.ActiveEcosystem.set(Ecosystem.EVM)
                 else -> Config.ActiveEcosystem.set(Ecosystem.EVM)
             }
+        } else if (Config.MoveModulePath.getOrNull() != null) {
+            Config.ActiveEcosystem.set(Ecosystem.SUI)
         } else {
             Config.ActiveEcosystem.set(Ecosystem.EVM)
         }

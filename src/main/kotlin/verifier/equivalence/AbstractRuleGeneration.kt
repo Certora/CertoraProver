@@ -376,7 +376,8 @@ abstract class AbstractRuleGeneration<I>(
     fun generateRule(
         aCode: CallableProgram<MethodMarker.METHODA, I>,
         bCode: CallableProgram<MethodMarker.METHODB, I>,
-        vc: CoreTACProgram
+        vc: CoreTACProgram,
+        label: String
     ) : GeneratedRule {
         val setupA = setupAndPrepareForInlining(aCode, context.contextA)
         val setupB = setupAndPrepareForInlining(bCode, context.contextB)
@@ -398,7 +399,7 @@ abstract class AbstractRuleGeneration<I>(
                     EquivalenceChecker.mergeCodes(setupB.prog, vc)
                 )
             )
-        ).let {
+        ).copy(name = label).let {
             CompiledRule.optimize(context.scene.toIdentifiers(), it, bmcMode = false)
         }
         return GeneratedRule(

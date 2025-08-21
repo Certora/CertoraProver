@@ -34,9 +34,9 @@ class HashTest : MoveTestFixture() {
             $testModule
             use 0::hashes::hash;
             public fun test() {
-                cvlm_assert!(hash(1) == hash(1));
-                cvlm_assert!(hash(2) == hash(2));
-                cvlm_assert!(hash(1) != hash(2));
+                cvlm_assert(hash(1) == hash(1));
+                cvlm_assert(hash(2) == hash(2));
+                cvlm_assert(hash(1) != hash(2));
             }
         """.trimIndent())
         assertTrue(verify())
@@ -55,10 +55,10 @@ class HashTest : MoveTestFixture() {
             $testModule
             use 0::hashes::hash;
             public fun test() {
-                cvlm_assert!(hash(1, 2) == hash(1, 2));
-                cvlm_assert!(hash(2, 1) == hash(2, 1));
-                cvlm_assert!(hash(1, 2) != hash(2, 1));
-                cvlm_assert!(hash(1, 2) != hash(2, 2));
+                cvlm_assert(hash(1, 2) == hash(1, 2));
+                cvlm_assert(hash(2, 1) == hash(2, 1));
+                cvlm_assert(hash(1, 2) != hash(2, 1));
+                cvlm_assert(hash(1, 2) != hash(2, 2));
             }
         """.trimIndent())
         assertTrue(verify())
@@ -82,12 +82,12 @@ class HashTest : MoveTestFixture() {
             $testModule
             use 0::hashes::{hash, s};
             public fun test() {
-                cvlm_assert!(hash(s(1, 2)) == hash(s(1, 2)));
-                cvlm_assert!(hash(s(1, 1)) == hash(s(1, 1)));
-                cvlm_assert!(hash(s(2, 2)) == hash(s(2, 2)));
-                cvlm_assert!(hash(s(1, 2)) != hash(s(2, 2)));
-                cvlm_assert!(hash(s(1, 2)) != hash(s(2, 1)));
-                cvlm_assert!(hash(s(1, 2)) != hash(s(2, 2)));
+                cvlm_assert(hash(s(1, 2)) == hash(s(1, 2)));
+                cvlm_assert(hash(s(1, 1)) == hash(s(1, 1)));
+                cvlm_assert(hash(s(2, 2)) == hash(s(2, 2)));
+                cvlm_assert(hash(s(1, 2)) != hash(s(2, 2)));
+                cvlm_assert(hash(s(1, 2)) != hash(s(2, 1)));
+                cvlm_assert(hash(s(1, 2)) != hash(s(2, 2)));
             }
         """.trimIndent())
         assertTrue(verify())
@@ -106,8 +106,8 @@ class HashTest : MoveTestFixture() {
             $testModule
             use 0::hashes::hash;
             public fun test() {
-                cvlm_assert!(hash(1 as u8) == hash(1 as u8));
-                cvlm_assert!(hash(1 as u16) != hash(1 as u8));
+                cvlm_assert(hash(1 as u8) == hash(1 as u8));
+                cvlm_assert(hash(1 as u16) != hash(1 as u8));
             }
         """.trimIndent())
         assertTrue(verify())
@@ -126,9 +126,9 @@ class HashTest : MoveTestFixture() {
             $testModule
             use 0::hashes::hash;
             public fun test() {
-                cvlm_assert!(hash(b"hello") == hash(b"hello"));
-                cvlm_assert!(hash(b"world") == hash(b"world"));
-                cvlm_assert!(hash(b"hello") != hash(b"world"));
+                cvlm_assert(hash(b"hello") == hash(b"hello"));
+                cvlm_assert(hash(b"world") == hash(b"world"));
+                cvlm_assert(hash(b"hello") != hash(b"world"));
             }
         """.trimIndent())
         assertTrue(verify())
@@ -152,10 +152,10 @@ class HashTest : MoveTestFixture() {
             $testModule
             use 0::hashes::{hash, s};
             public fun test() {
-                cvlm_assert!(hash(s(1, b"hello")) == hash(s(1, b"hello")));
-                cvlm_assert!(hash(s(2, b"world")) == hash(s(2, b"world")));
-                cvlm_assert!(hash(s(1, b"hello")) != hash(s(2, b"hello")));
-                cvlm_assert!(hash(s(1, b"hello")) != hash(s(1, b"world")));
+                cvlm_assert(hash(s(1, b"hello")) == hash(s(1, b"hello")));
+                cvlm_assert(hash(s(2, b"world")) == hash(s(2, b"world")));
+                cvlm_assert(hash(s(1, b"hello")) != hash(s(2, b"hello")));
+                cvlm_assert(hash(s(1, b"hello")) != hash(s(1, b"world")));
             }
         """.trimIndent())
         assertTrue(verify())

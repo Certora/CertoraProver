@@ -1,0 +1,1 @@
+enum EnumAtTopLevel { Why, Is, This, Possible }

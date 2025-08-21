@@ -1,0 +1,27 @@
+{
+	"rules": {
+		"constants": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"and128(int128,int128)",
+				"and256(int256,int256)",
+				"andb16(bytes16,bytes16)",
+				"andb32(bytes32,bytes32)",
+				"andu128(uint128,uint128)",
+				"andu256(uint256,uint256)"
+			]
+		},
+		"symbolic128": "FAIL",
+		"symbolic256": "SUCCESS",
+		"symbolicAndConstants128": "SUCCESS",
+		"symbolicAndConstants256": "SANITY_FAIL",
+		"symbolicAndConstantsb16": "SUCCESS",
+		"symbolicAndConstantsb32": "SUCCESS",
+		"symbolicAndConstantsu128": "SUCCESS",
+		"symbolicAndConstantsu256": "SUCCESS",
+		"symbolicb16": "SUCCESS",
+		"symbolicb32": "SUCCESS",
+		"symbolicu128": "SUCCESS",
+		"symbolicu256": "SUCCESS"
+	}
+}

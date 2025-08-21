@@ -162,7 +162,7 @@ private fun SignatureToken.toMoveValueType(
 }
 
 context(MoveScene)
-private fun MoveModule.DatatypeHandle.toMoveStructRaw(
+fun MoveModule.DatatypeHandle.toMoveStructRaw(
     typeArgs: List<MoveType.Value> = listOf(),
 ): MoveType.Struct {
     check(typeParameters.size == typeArgs.size) {
@@ -218,7 +218,9 @@ fun MoveType.Primitive.assignFromIntInBounds(
             value.letVar(tag = Tag.Int, meta = meta) { intValue ->
                 mergeMany(
                     assumeBounds(intValue.s, meta),
-                    assign(dest, meta) { safeMathNarrow(intValue, bitsTag) }
+                    assign(dest, meta) {
+                        safeMathNarrow(intValue, bitsTag, unconditionallySafe = true)
+                    }
                 )
             }
         }

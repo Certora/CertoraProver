@@ -1369,6 +1369,30 @@ def get_mappings_from_forge_remappings() -> List[str]:
 
     return remappings
 
+def check_remapping_file() -> None:
+    seen: Dict[str, str] = {}
+
+    if not REMAPPINGS_FILE.exists():
+        return
+    with open(REMAPPINGS_FILE) as f:
+        for lineno, line in enumerate(f, 1):
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            parts = line.split("=")
+            if len(parts) != 2:
+                raise CertoraUserInputError(f"Invalid remapping in {REMAPPINGS_FILE}  line {lineno}: {line}")
+            key, value = map(str.strip, parts)
+
+            if key in seen:
+                if seen[key] == value:
+                    io_logger.warning(f"Warning: duplicate key-value pair at line {lineno}: {key}={value}")
+                else:
+                    raise CertoraUserInputError(f"Conflicting values in {REMAPPINGS_FILE} for key '{key}' "
+                                                f"at line {lineno} (previous: '{seen[key]}', new: '{value}')")
+            else:
+                seen[key] = value
+
 
 def handle_remappings_file(context: SimpleNamespace) -> List[str]:
     """"
@@ -1380,13 +1404,12 @@ def handle_remappings_file(context: SimpleNamespace) -> List[str]:
     :return:
     """
     remappings = []
+    check_remapping_file()
     if REMAPPINGS_FILE.exists() and not FOUNDRY_TOML_FILE.exists():
         try:
             with REMAPPINGS_FILE.open() as remappings_file:
-                remappings = list(filter(lambda x: x != "", map(lambda x: x.strip(), remappings_file.readlines())))
-                keys = [s.split('=')[0] for s in remappings]
-                if len(set(keys)) < len(keys):
-                    raise CertoraUserInputError(f"remappings.txt includes duplicated keys in: {keys}")
+                remappings_set = set(filter(lambda x: x != "", map(lambda x: x.strip(), remappings_file.readlines())))
+            remappings = list(remappings_set)
         except CertoraUserInputError as e:
             raise e from None
         except Exception as e:

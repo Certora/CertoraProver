@@ -1,0 +1,23 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+    "envfreeFuncsStaticCheck": {
+      "SUCCESS": [
+        "testFoo(uint256)",
+        "testBar(uint256)",
+        "testITakeMoreComplicatedTypes()",
+        "testIDontReturnAnything()",
+        "testKnownReceiver()",
+        "testKnownReceiverUnknownSighash(bytes)"
+      ]
+    },
+		"testDispatch": "SUCCESS",
+		"testDispatch2": "SUCCESS",
+		"testDispatchFallback": "SUCCESS",
+		"testNoDispatchOnResolved": "SUCCESS",
+		"testFallbackDispatchOnUnresolved": "SUCCESS",
+		"testDispatcher": "SUCCESS"
+	}
+}

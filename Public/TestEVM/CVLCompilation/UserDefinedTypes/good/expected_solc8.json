@@ -1,0 +1,168 @@
+{
+	"assertMessages": {
+	},
+	"rules": {
+		"assign_a_struct": "SUCCESS",
+		"check_bidwidths": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"SuperTest.i_return_a_tuple_with_an_enum_and_a_value_type(bool,uint64)",
+				"call_enum_and_value_function(SuperTestLibrary.EnumInALibraryInASuperContract,SuperTestLibrary.SupremeType)",
+				"external_call_choose_an_alias(SuperTest.EnumInASuperContract)",
+				"external_call_choose_an_enum(Test.Alias)",
+				"external_call_guess_my_struct()",
+				"guess_my_alias(Test.Alias)",
+				"internal_call_choose_an_alias(SuperTest.EnumInASuperContract)",
+				"internal_call_choose_an_enum(Test.Alias)",
+				"internal_call_guess_my_struct()",
+				"is_too_late(Test.SelfDeStruct)",
+				"is_worst_case(Test.StructuralDamage)",
+				"my_storage_value()",
+				"my_storage_value_is(Test.EnumClaw)",
+				"set_my_enum(Test.EnumClaw)",
+				"whats_my_alias()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"pass_a_nested_struct_arg": "SUCCESS",
+		"pass_a_nested_struct_arg_should_fail": "FAIL",
+		"pass_a_struct_arg": "SUCCESS",
+		"pass_a_struct_arg_should_fail": "FAIL",
+		"pass_a_user_defined_arg": "SUCCESS",
+		"pass_an_enum_arg": "SUCCESS",
+		"read_a_tuple_return": "SUCCESS",
+		"read_a_tuple_return_sanity_should_fail": "FAIL",
+		"summarize_enum_and_value_arg_with_ghost": "SUCCESS",
+		"summarize_enum_and_value_arg_with_ghost_should_fail": "FAIL",
+		"summarize_external_call_struct_arg": "SUCCESS",
+		"summarize_external_call_with_cvl_function": "SUCCESS",
+		"summarize_external_call_with_cvl_function_takes_enum": "SUCCESS",
+		"summarize_internal_call_struct_arg": "SUCCESS",
+		"summarize_internal_call_with_cvl_function": "SUCCESS",
+		"summarize_internal_call_with_cvl_function_takes_enum": "SUCCESS",
+		"use_method_selector": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"SuperTest.call_enum_and_value_function(uint8,uint64)",
+				"SuperTest.choose_an_alias(uint8)",
+				"SuperTest.external_call_choose_an_alias(uint8)",
+				"SuperTest.i_return_a_tuple_with_an_enum_and_a_value_type(bool,uint64)",
+				"SuperTest.internal_call_choose_an_alias(uint8)",
+				"SuperTest.super_storage_slot()",
+				"Test.call_enum_and_value_function(uint8,uint64)",
+				"Test.choose_an_alias(uint8)",
+				"Test.choose_an_enum(uint128)",
+				"Test.external_call_choose_an_alias(uint8)",
+				"Test.external_call_choose_an_enum(uint128)",
+				"Test.external_call_guess_my_struct()",
+				"Test.guess_my_alias(uint128)",
+				"Test.guess_my_struct((uint64,uint64,uint8,(uint128,uint256)))",
+				"Test.i_return_a_tuple_with_an_enum_and_a_value_type(bool,uint64)",
+				"Test.internal_call_choose_an_alias(uint8)",
+				"Test.internal_call_choose_an_enum(uint128)",
+				"Test.internal_call_guess_my_struct()",
+				"Test.is_too_late((uint64,uint64,uint8,(uint128,uint256)))",
+				"Test.is_worst_case((uint128,uint256))",
+				"Test.my_alias()",
+				"Test.my_storage_value()",
+				"Test.my_storage_value_is(uint8)",
+				"Test.my_struct_storage_value()",
+				"Test.set_my_enum(uint8)",
+				"Test.super_storage_slot()",
+				"Test.whats_my_alias()"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"we_are_aliases": {
+			"Induction base: After the constructor": "FAIL",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"SuperTest.call_enum_and_value_function(uint8,uint64)",
+						"SuperTest.choose_an_alias(uint8)",
+						"SuperTest.external_call_choose_an_alias(uint8)",
+						"SuperTest.i_return_a_tuple_with_an_enum_and_a_value_type(bool,uint64)",
+						"SuperTest.internal_call_choose_an_alias(uint8)",
+						"Test.call_enum_and_value_function(uint8,uint64)",
+						"Test.choose_an_alias(uint8)",
+						"Test.choose_an_enum(uint128)",
+						"Test.external_call_choose_an_alias(uint8)",
+						"Test.external_call_choose_an_enum(uint128)",
+						"Test.external_call_guess_my_struct()",
+						"Test.guess_my_struct((uint64,uint64,uint8,(uint128,uint256)))",
+						"Test.i_return_a_tuple_with_an_enum_and_a_value_type(bool,uint64)",
+						"Test.internal_call_choose_an_alias(uint8)",
+						"Test.internal_call_choose_an_enum(uint128)",
+						"Test.internal_call_guess_my_struct()",
+						"Test.is_too_late((uint64,uint64,uint8,(uint128,uint256)))",
+						"Test.is_worst_case((uint128,uint256))",
+						"Test.my_storage_value_is(uint8)",
+						"Test.set_my_enum(uint8)",
+						"Test.whats_my_alias()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				},
+				"Using specific requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"Test.guess_my_alias(Test.Alias)"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"we_love_auburn": {
+			"Induction base: After the constructor": "FAIL",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"SuperTest.call_enum_and_value_function(uint8,uint64)",
+						"SuperTest.choose_an_alias(uint8)",
+						"SuperTest.external_call_choose_an_alias(uint8)",
+						"SuperTest.i_return_a_tuple_with_an_enum_and_a_value_type(bool,uint64)",
+						"SuperTest.internal_call_choose_an_alias(uint8)",
+						"Test.call_enum_and_value_function(uint8,uint64)",
+						"Test.choose_an_alias(uint8)",
+						"Test.choose_an_enum(uint128)",
+						"Test.external_call_choose_an_alias(uint8)",
+						"Test.external_call_choose_an_enum(uint128)",
+						"Test.external_call_guess_my_struct()",
+						"Test.guess_my_alias(uint128)",
+						"Test.guess_my_struct((uint64,uint64,uint8,(uint128,uint256)))",
+						"Test.i_return_a_tuple_with_an_enum_and_a_value_type(bool,uint64)",
+						"Test.internal_call_choose_an_alias(uint8)",
+						"Test.internal_call_choose_an_enum(uint128)",
+						"Test.internal_call_guess_my_struct()",
+						"Test.is_too_late((uint64,uint64,uint8,(uint128,uint256)))",
+						"Test.is_worst_case((uint128,uint256))",
+						"Test.my_storage_value_is(uint8)",
+						"Test.whats_my_alias()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				},
+				"Using specific requirements": {
+					"FAIL": [
+						"Test.set_my_enum(Test.EnumClaw)"
+					],
+					"SANITY_FAIL": [],
+					"SUCCESS": [],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		}
+	}
+}

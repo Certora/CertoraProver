@@ -1,0 +1,13 @@
+{
+	"rules": {
+		"delegateItToSomeoneElse": "SUCCESS",
+		"easy": "SUCCESS",
+		"failDueToStateChange": "FAIL",
+		"failDueToStateChange2": "FAIL",
+		"fixed_lottery": "SANITY_FAIL",
+		"itReverts": "SUCCESS",
+		"lottery": "SUCCESS",
+		"noCalleesMatchDefault": "SUCCESS",
+		"noCalleesMatchFallback": "SUCCESS"
+	}
+}

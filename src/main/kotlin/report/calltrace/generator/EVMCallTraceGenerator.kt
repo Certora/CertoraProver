@@ -56,12 +56,13 @@ private val logger = Logger(LoggerTypes.CALLTRACE)
  */
 internal class EVMCallTraceGenerator(
     rule: IRule,
+    cexId: Int,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
     ruleCallString: String,
-) : CallTraceGenerator(rule, model, program, formatter, scene, ruleCallString) {
+) : CallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString) {
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {
             is TACCmd.Simple.AnnotationCmd -> {
@@ -613,7 +614,7 @@ internal class EVMCallTraceGenerator(
             when(appliedSummary.specCallSumm){
                 is SpecCallSummary.DispatchList -> {
                     check(!appliedSummary.specCallSumm.optimistic) { "Expected a summary with pessimistic dispatch" }
-                    "Applying default case of 'unresolved external' summary, using '${sc.havocType}'"
+                    "Applying default case of DISPATCH summary, using '${sc.havocType}'"
                 }
                 is SpecCallSummary.Dispatcher -> {
                     check(!appliedSummary.specCallSumm.optimistic) { "Expected a call summary pessimistic dispatch" }
@@ -625,7 +626,7 @@ internal class EVMCallTraceGenerator(
                 is SpecCallSummary.Exp,
                 is SpecCallSummary.HavocSummary,
                 is SpecCallSummary.Reroute,
-                is SpecCallSummary.PerCalleeConstant -> error("Expecting either DISPATCHER(optimistic=false) summary or an 'unresolved external', got ${appliedSummary.specCallSumm}")
+                is SpecCallSummary.PerCalleeConstant -> error("Expecting either DISPATCHER(optimistic=false) summary or a DISPATCH, got ${appliedSummary.specCallSumm}")
             }
             is Summarization.AppliedSummary.LateInliningDispatcher,
             is Summarization.AppliedSummary.Prover -> "As of internal Prover handling"

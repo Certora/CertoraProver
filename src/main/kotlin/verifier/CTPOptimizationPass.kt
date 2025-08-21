@@ -60,7 +60,7 @@ interface CTPOptimizationPass {
         }
 
         fun simplifyDiamonds(iterative: Boolean, allowAssumes: Boolean = true) = make(OPTIMIZE_DIAMONDS) { ctp ->
-            simplifyDiamonds(ctp, iterative = iterative, allowAssumes = allowAssumes)
+            DiamondSimplifier.simplifyDiamonds(ctp, iterative = iterative, allowAssumes = allowAssumes)
         }
 
         val boolOptimizer = make(OPTIMIZE_BOOL_VARIABLES) { ctp -> BoolOptimizer(ctp).go() }

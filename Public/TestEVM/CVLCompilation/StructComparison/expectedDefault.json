@@ -1,0 +1,16 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"compareCVLStructs": "SUCCESS",
+		"compareFunctionReturnStruct": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"getOuterStruct(uint24,bytes24,int32)"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		}
+	}
+}

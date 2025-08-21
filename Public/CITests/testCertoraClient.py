@@ -851,8 +851,15 @@ class TestClient(unittest.TestCase):
         remapping = "a=lib\na=lib"
         with open(Util.REMAPPINGS_FILE, "w") as file:
             file.write(remapping)
-        description = f"duplicates in {Util.REMAPPINGS_FILE}"
-        suite.expect_failure(description=description, expected="remappings.txt includes duplicated")
+        description = f"identical duplicates in {Util.REMAPPINGS_FILE}"
+        suite.expect_success(description=description)
+        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+
+        remapping = "a=lib\na=lib2"
+        with open(Util.REMAPPINGS_FILE, "w") as file:
+            file.write(remapping)
+        description = f"non-identical duplicates in {Util.REMAPPINGS_FILE}"
+        suite.expect_failure(description=description, expected="Conflicting values in remappings.txt for key 'a'")
         Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
         remapping = '{"dependencies": {"c": "^3.4.1"},"devDependencies": {"c": "^5.0.8"}}'
@@ -871,6 +878,15 @@ class TestClient(unittest.TestCase):
         description = f"duplicates in {Util.REMAPPINGS_FILE} and Util.PACKAGE_FILE"
         suite.expect_failure(description=description, expected="package.json and remappings.txt include duplicated")
         Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+        Path(Util.PACKAGE_FILE).unlink(missing_ok=True)
+
+
+        remapping = "a=lib\nb=lib=lib2"
+        with open(Util.REMAPPINGS_FILE, "w") as file:
+            file.write(remapping)
+
+        description = f"remappings.txt with bad format"
+        suite.expect_failure(description=description, expected="Invalid remapping in remappings.txt")
         Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
     def test_solc_args(self) -> None:

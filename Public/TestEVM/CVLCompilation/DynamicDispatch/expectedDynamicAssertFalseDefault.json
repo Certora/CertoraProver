@@ -1,0 +1,10 @@
+{
+	"assertMessages": {
+		"easy": "Reachability - DynamicAssertFalseDefault.spec line 14",
+		"lottery": "A havoc result that should be unreachable, due to summary in DynamicAssertFalseDefault.spec:7:15"
+	},
+	"rules": {
+		"easy": "SUCCESS",
+		"lottery": "FAIL"
+	}
+}

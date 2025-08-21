@@ -23,9 +23,10 @@ import datastructures.PersistentStack
 import datastructures.persistentStackOf
 import datastructures.stdcollections.*
 import log.*
+import move.ConstantStringPropagator.MESSAGE_VAR
+import move.MoveModule.*
 import move.analysis.ReferenceAnalysis
-import tac.MetaMap
-import tac.Tag
+import tac.*
 import tac.generation.*
 import utils.*
 import vc.data.*
@@ -148,29 +149,40 @@ class MoveMemory(val scene: MoveScene) {
     private fun transformCommand(lcmd: MoveTACProgram.LCmd, refs: ReferenceAnalysis): SimpleCmdsWithDecls {
         with(CommandContext(refs, lcmd)) {
             return when (val cmd = lcmd.cmd) {
-                is TACCmd.Simple -> when (cmd) {
-                    is TACCmd.Simple.AssigningCmd.AssignExpCmd -> transformAssignExpCmd(cmd)
-                    is TACCmd.Simple.AssigningCmd.AssignHavocCmd -> transformAssignHavocCmd(cmd)
-                    is TACCmd.Simple.AnnotationCmd -> transformAnnotationCmd(cmd)
-                    is TACCmd.Simple.AssertCmd, is TACCmd.Simple.AssumeCmd -> transformAssumeAssertCmd(cmd)
-                    else -> cmd.withDecls()
+                is TACCmd.Simple -> {
+                    // If the command has a MESSAGE_VAR meta, we need to transform the referenced variable.
+                    val messageVar = cmd.meta[MESSAGE_VAR]
+                    @Suppress("NAME_SHADOWING") // Intentionally shadow the un-transformed `cmd`
+                    val cmd = if (messageVar != null) {
+                        cmd.withMeta(cmd.meta + (MESSAGE_VAR to transformLocVar(messageVar)))
+                    } else {
+                        cmd
+                    }
+                    when (cmd) {
+                        is TACCmd.Simple.AssigningCmd.AssignExpCmd -> transformAssignExpCmd(cmd)
+                        is TACCmd.Simple.AssigningCmd.AssignHavocCmd -> transformAssignHavocCmd(cmd)
+                        else -> cmd.withDecls()
+                    }
                 }
-                is TACCmd.Move -> when (cmd) {
-                    is TACCmd.Move.BorrowLocCmd -> transformBorrowLocCmd(cmd)
-                    is TACCmd.Move.BorrowFieldCmd -> transformBorrowFieldCmd(cmd)
-                    is TACCmd.Move.ReadRefCmd -> transformReadRefCmd(cmd)
-                    is TACCmd.Move.WriteRefCmd -> transformWriteRefCmd(cmd)
-                    is TACCmd.Move.PackStructCmd -> transformPackStructCmd(cmd)
-                    is TACCmd.Move.UnpackStructCmd -> transformUnpackStructCmd(cmd)
-                    is TACCmd.Move.VecPackCmd -> transformVecPackCmd(cmd)
-                    is TACCmd.Move.VecUnpackCmd -> transformVecUnpackCmd(cmd)
-                    is TACCmd.Move.VecLenCmd -> transformVecLenCmd(cmd)
-                    is TACCmd.Move.VecBorrowCmd -> transformVecBorrowCmd(cmd)
-                    is TACCmd.Move.VecPushBackCmd -> transformVecPushBackCmd(cmd)
-                    is TACCmd.Move.VecPopBackCmd -> transformVecPopBackCmd(cmd)
-                    is TACCmd.Move.GhostArrayBorrowCmd -> transformGhostArrayBorrowCmd(cmd)
-                    is TACCmd.Move.HashCmd -> transformHashCmd(cmd)
-                    is TACCmd.Move.EqCmd -> transformEqCmd(cmd)
+                is TACCmd.Move -> {
+                    check(MESSAGE_VAR !in cmd.meta) { "Unexpected MESSAGE_VAR in Move command: $lcmd" }
+                    when (cmd) {
+                        is TACCmd.Move.BorrowLocCmd -> transformBorrowLocCmd(cmd)
+                        is TACCmd.Move.BorrowFieldCmd -> transformBorrowFieldCmd(cmd)
+                        is TACCmd.Move.ReadRefCmd -> transformReadRefCmd(cmd)
+                        is TACCmd.Move.WriteRefCmd -> transformWriteRefCmd(cmd)
+                        is TACCmd.Move.PackStructCmd -> transformPackStructCmd(cmd)
+                        is TACCmd.Move.UnpackStructCmd -> transformUnpackStructCmd(cmd)
+                        is TACCmd.Move.VecPackCmd -> transformVecPackCmd(cmd)
+                        is TACCmd.Move.VecUnpackCmd -> transformVecUnpackCmd(cmd)
+                        is TACCmd.Move.VecLenCmd -> transformVecLenCmd(cmd)
+                        is TACCmd.Move.VecBorrowCmd -> transformVecBorrowCmd(cmd)
+                        is TACCmd.Move.VecPushBackCmd -> transformVecPushBackCmd(cmd)
+                        is TACCmd.Move.VecPopBackCmd -> transformVecPopBackCmd(cmd)
+                        is TACCmd.Move.GhostArrayBorrowCmd -> transformGhostArrayBorrowCmd(cmd)
+                        is TACCmd.Move.HashCmd -> transformHashCmd(cmd)
+                        is TACCmd.Move.EqCmd -> transformEqCmd(cmd)
+                    }
                 }
                 else -> error("Bad command in MoveTACProgram: $lcmd")
             }
@@ -212,40 +224,6 @@ class MoveMemory(val scene: MoveScene) {
                 is MoveTag.GhostArray -> assignHavoc(transformLocVar(cmd.lhs), cmd.meta)
             }
             else -> cmd.withDecls()
-        }
-    }
-
-    context(CommandContext)
-    private fun transformAnnotationCmd(cmd: TACCmd.Simple.AnnotationCmd): SimpleCmdsWithDecls {
-        fun mapAnnotationArgs(args: List<MoveToTAC.AnnotationArg>) = args.map { arg ->
-            when (arg) {
-                is MoveToTAC.AnnotationArg.Value -> when (arg.v.tag) {
-                    is MoveTag.Ref -> transformRefVar(arg.v).let {
-                        MoveToTAC.AnnotationArg.ExpandedRef(it.locId, it.offset)
-                    }
-                    else -> MoveToTAC.AnnotationArg.Value(transformLocVar(arg.v))
-                }
-                is MoveToTAC.AnnotationArg.ExpandedRef ->
-                    error("Unexpected expanded reference in function start annotation before memory transform: $arg")
-            }
-        }
-        cmd.maybeAnnotation(MoveToTAC.FUNC_START)?.let {
-            val args = mapAnnotationArgs(it.args)
-            return TACCmd.Simple.AnnotationCmd(MoveToTAC.FUNC_START, it.copy(args = args), cmd.meta).withDecls()
-        }
-        cmd.maybeAnnotation(MoveToTAC.FUNC_END)?.let {
-            val returns = mapAnnotationArgs(it.returns)
-            return TACCmd.Simple.AnnotationCmd(MoveToTAC.FUNC_END, it.copy(returns = returns), cmd.meta).withDecls()
-        }
-
-        return cmd.withDecls()
-    }
-
-    context(CommandContext)
-    private fun transformAssumeAssertCmd(cmd: TACCmd.Simple): SimpleCmdsWithDecls {
-        return when (val messageVar = cmd.meta[CvlmApi.MESSAGE_VAR]) {
-            null -> cmd.withDecls()
-            else -> cmd.withMeta(cmd.meta + (CvlmApi.MESSAGE_VAR to transformLocVar(messageVar))).withDecls()
         }
     }
 
@@ -436,14 +414,20 @@ class MoveMemory(val scene: MoveScene) {
 
         val srcRefVars = transformRefVar(cmd.srcRef)
         val dstRefVars = transformRefVar(cmd.dstRef)
-        val len = TACKeyword.TMP(Tag.Bit256, "len")
         return mergeMany(
-            getVecLen(len, cmd.srcRef, cmd.meta),
-            Trap.assert("Index out of bounds", cmd.meta) { cmd.index lt len.asSym() },
-            assign(dstRefVars.locId, cmd.meta) { srcRefVars.locId.asSym() },
-            assign(dstRefVars.offset, cmd.meta) {
-                srcRefVars.offset.asSym() intAdd vecElemsOffset.asTACExpr intAdd (cmd.index.asSym() intMul elemSize.asTACExpr)
-            },
+            listOfNotNull(
+                runIf(cmd.doBoundsCheck) {
+                    val len = TACKeyword.TMP(Tag.Bit256, "!len")
+                    mergeMany(
+                        getVecLen(len, cmd.srcRef, cmd.meta),
+                        Trap.assert("Index out of bounds", cmd.meta) { cmd.index lt len.asSym() }
+                    )
+                },
+                assign(dstRefVars.locId, cmd.meta) { srcRefVars.locId.asSym() },
+                assign(dstRefVars.offset, cmd.meta) {
+                    srcRefVars.offset.asSym() intAdd vecElemsOffset.asTACExpr intAdd (cmd.index.asSym() intMul elemSize.asTACExpr)
+                },
+            )
         )
     }
 
@@ -472,7 +456,8 @@ class MoveMemory(val scene: MoveScene) {
                             assign(oldVecDigest, cmd.meta) {
                                 safeMathNarrow(
                                     select(deref.loc.asSym(), deref.offset intAdd vecDigestOffset.asTACExpr),
-                                    Tag.Bit256
+                                    Tag.Bit256,
+                                    unconditionallySafe = true // The vector digest is always 256 bits
                                 )
                             },
                             MoveType.U64.assumeBounds(newLen.s, cmd.meta),
@@ -523,7 +508,8 @@ class MoveMemory(val scene: MoveScene) {
                         assign(oldVecDigest, cmd.meta) {
                             safeMathNarrow(
                                 select(deref.loc.asSym(), deref.offset intAdd vecDigestOffset.asTACExpr),
-                                Tag.Bit256
+                                Tag.Bit256,
+                                unconditionallySafe = true // The vector digest is always 256 bits
                             )
                         },
                         assign(deref.loc, cmd.meta) {
@@ -594,7 +580,13 @@ class MoveMemory(val scene: MoveScene) {
         fun hashExprs(offset: BigInteger, type: MoveType.Value): List<TACExpr> {
             return when (type) {
                 is MoveType.Bits -> listOf(
-                    TXF { safeMathNarrow(select(loc.asSym(), offset.asTACExpr), Tag.Bit256) }
+                    TXF {
+                        safeMathNarrow(
+                            select(loc.asSym(), offset.asTACExpr),
+                            Tag.Bit256,
+                            unconditionallySafe = true // This cannot be larger than 256 bits
+                        )
+                    }
                 )
                 is MoveType.Bool -> listOf(
                     TXF { ite(select(loc.asSym(), offset.asTACExpr) eq 0.asTACExpr, 0.asTACExpr, 1.asTACExpr) }
@@ -605,8 +597,21 @@ class MoveMemory(val scene: MoveScene) {
                     listOf(TACExpr.Unconstrained(Tag.Bit256))
                 }
                 is MoveType.Vector -> listOf(
-                    TXF { safeMathNarrow(select(loc.asSym(), (offset + vecLengthOffset).asTACExpr), Tag.Bit256) },
-                    TXF { safeMathNarrow(select(loc.asSym(), (offset + vecDigestOffset).asTACExpr), Tag.Bit256) }
+                    TXF {
+                        safeMathNarrow(
+                            select(loc.asSym(), (offset + vecLengthOffset).asTACExpr),
+                            Tag.Bit256,
+                            unconditionallySafe = true // The vector length is always 256 bits
+                        )
+                    },
+                    TXF {
+                        safeMathNarrow(
+                            select(loc.asSym(),
+                            (offset + vecDigestOffset).asTACExpr),
+                            Tag.Bit256,
+                            unconditionallySafe = true // The vector digest is always 256 bits
+                        )
+                    }
                 )
                 is MoveType.Struct -> {
                     val fields = type.fields ?: run {

@@ -33,6 +33,7 @@ import vc.data.tacexprutil.ExprUnfolder
 import java.math.BigInteger
 import java.util.stream.Collectors
 import datastructures.stdcollections.*
+import evm.EVM_WORD_SIZE_INT
 import scene.ContractClass
 import scene.IContractWithSource
 import spec.cvlast.QualifiedMethodSignature
@@ -42,6 +43,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import vc.data.TACProgramCombiners.andThen
 import vc.data.TACProgramCombiners.flatten
 import verifier.equivalence.DefiniteBufferConstructionAnalysis
+import verifier.equivalence.summarization.CommonPureInternalFunction
+import verifier.equivalence.summarization.ComputationResults
 import verifier.equivalence.summarization.ScalarEquivalenceSummary
 import verifier.equivalence.tracing.BufferTraceInstrumentation.ContextSymbols.Companion.lift
 
@@ -455,7 +458,9 @@ class BufferTraceInstrumentation private constructor(
         /**
          * The value in gwei sent with the call
          */
-        val value: TACSymbol
+        val value: TACSymbol,
+
+        val returnDataSample: List<TACSymbol.Var>
     ) : TransformableVarEntityWithSupport<CallEvent> {
         private operator fun ((TACSymbol.Var) -> TACSymbol.Var).invoke(o: TACSymbol) = when(o) {
             is TACSymbol.Const -> o
@@ -472,7 +477,8 @@ class BufferTraceInstrumentation private constructor(
                 returnCode = f(returnCode),
                 calleeCodeSize = f(calleeCodeSize),
                 callee = f(callee),
-                value = f(value)
+                value = f(value),
+                returnDataSample = returnDataSample.map(f)
             )
         }
 
@@ -487,13 +493,18 @@ class BufferTraceInstrumentation private constructor(
                 calleeCodeSize as? TACSymbol.Var,
                 callee as? TACSymbol.Var,
                 value as? TACSymbol.Var
-            )
+            ) + returnDataSample
         companion object {
             val META_KEY = MetaKey<CallEvent>("call.event.meta")
         }
     }
 
     companion object {
+
+        fun TACCmd.Simple.isResultCommand() = this.isHalting() || (this is TACCmd.Simple.SummaryCmd && this.summ is ScalarEquivalenceSummary && when(this.summ) {
+            is CommonPureInternalFunction -> false
+            is ComputationResults -> true
+        })
 
         infix fun TACSymbol.Var.`=`(other: ToTACExpr) : CommandWithRequiredDecls<TACCmd.Simple> {
             return CommandWithRequiredDecls(listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(
@@ -809,6 +820,10 @@ class BufferTraceInstrumentation private constructor(
                 futureConsumers
             }
 
+            val needsGC = hasPrecedingGCPoint.filter { s ->
+                s in hasPrecedingGCPoint && (s !is EventLongRead || s.explicitReadId == null)
+            }
+
             /**
              * Now, for each [LongRead], generate its [LongReadInstrumentation].
              */
@@ -821,7 +836,7 @@ class BufferTraceInstrumentation private constructor(
                         hashVar = instrumentationVar("bufferHash"),
                         baseProphecy = instrumentationVar("bufferBaseProphecy"),
                         lengthProphecy = instrumentationVar("bufferLengthProphecy"),
-                        gcInfo = null.letIf(s in hasPrecedingGCPoint && (s !is EventLongRead || s.explicitReadId == null)) { _ ->
+                        gcInfo = null.letIf(s in needsGC) { _ ->
                             GarbageCollectionInfo(
                                 writeBoundVars = instrumentationVar("lower") to instrumentationVar("upper"),
                                 hashBackupVar = instrumentationVar("hashBackup"),
@@ -858,7 +873,11 @@ class BufferTraceInstrumentation private constructor(
             val worker = BufferTraceInstrumentation(
                 code = code,
                 readToInstrumentation = sourceToInstrumentation,
-                isGarbageCollectionFor = isGarbageCollectionFor,
+                isGarbageCollectionFor = isGarbageCollectionFor.mapValuesNotNull { (_, l) ->
+                    l.filter { r ->
+                        r in needsGC
+                    }.takeIf(List<LongRead>::isNotEmpty)
+                },
                 options = options,
                 context = context
             )
@@ -933,6 +952,14 @@ class BufferTraceInstrumentation private constructor(
                         return mismatch()
                     }
                     return RawEventParams.InternalSummaryParams(
+                        context = marker.context
+                    ).toLeft()
+                }
+                TraceEventSort.RESULT -> {
+                    if(marker.context !is Context.ResultMarker) {
+                        return mismatch()
+                    }
+                    return RawEventParams.CodeResult(
                         context = marker.context
                     ).toLeft()
                 }
@@ -1475,8 +1502,6 @@ class BufferTraceInstrumentation private constructor(
     ): CommandWithRequiredDecls<TACCmd.Simple> {
         val origCommand = origLc.cmd
 
-        val stateHolder = TACSymbol.Var("nextStatePre", Tag.Bit256).toUnique("!")
-
         /**
          * This is initialized to be equal to [globalStateAccumulator]
          */
@@ -1579,6 +1604,32 @@ class BufferTraceInstrumentation private constructor(
             TACKeyword.RETURNDATA.toVar(),
             TACKeyword.RETURN_SIZE.toVar()
         ))
+
+        val returnDataSampleSize = g.cache[MustBeConstantAnalysis].mustBeConstantAt(
+            origLc.ptr,
+            origCommand.outSize
+        )?.takeIf {
+            it.mod(EVM_WORD_SIZE) == BigInteger.ZERO && it > BigInteger.ZERO
+        }?.let {
+            it / EVM_WORD_SIZE
+        }?.toIntOrNull()
+
+        val (returnDataSamples, sampleReads) = returnDataSampleSize?.let { sz ->
+            (0 ..< sz).map { ind ->
+                val t = TACKeyword.TMP(Tag.Bit256, "!return$ind!")
+                t to CommandWithRequiredDecls(
+                    TACCmd.Simple.AssigningCmd.ByteLoad(
+                        lhs = t,
+                        loc = (ind * EVM_WORD_SIZE_INT).asTACSymbol(),
+                        base = TACKeyword.RETURNDATA.toVar()
+                    ),
+                    t
+                )
+            }
+        }?.unzip()?.mapSecond { reads ->
+            reads.flatten()
+        } ?: (listOf<TACSymbol.Var>() to CommandWithRequiredDecls<TACCmd.Simple>())
+
         /**
          * Copy the global state, increment it
          */
@@ -1591,7 +1642,10 @@ class BufferTraceInstrumentation private constructor(
                 lhs = globalStateAccumulator,
                 rhs = TACExpr.Vec.Add(stateCopy.asSym(), 1.asTACExpr)
             ),
-        ), setOf(stateCopy)).merge(callUpdate).merge(returnSizeConstraint).merge(
+        ), setOf(stateCopy, globalStateAccumulator, stateCopy)) andThen
+            callUpdate andThen
+            returnSizeConstraint andThen
+            sampleReads andThen
             // record the call command
             TACCmd.Simple.AnnotationCmd(
                 CallEvent.META_KEY,
@@ -1604,17 +1658,18 @@ class BufferTraceInstrumentation private constructor(
                     calleeCodeSize = calleeCodesize,
                     returnCode = TACKeyword.RETURNCODE.toVar(),
                     returnDataSize = TACKeyword.RETURN_SIZE.toVar(),
-                    value = origCommand.value
+                    value = origCommand.value,
+                    returnDataSample = returnDataSamples
                 )
+            ) andThen
+            // update memory with the copy amount
+            TACCmd.Simple.ByteLongCopy(
+                dstBase = origCommand.outBase,
+                length = copyAmount,
+                dstOffset = origCommand.outOffset,
+                srcOffset = TACSymbol.Zero,
+                srcBase = TACKeyword.RETURNDATA.toVar()
             )
-        // update memory with the copy amount
-        ).merge(TACCmd.Simple.ByteLongCopy(
-            dstBase = origCommand.outBase,
-            length = copyAmount,
-            dstOffset = origCommand.outOffset,
-            srcOffset = TACSymbol.Zero,
-            srcBase = TACKeyword.RETURNDATA.toVar()
-        )).merge(globalStateAccumulator, stateCopy, stateHolder)
     }
 
     /**
@@ -1805,6 +1860,7 @@ class BufferTraceInstrumentation private constructor(
                 IncludedInTrace.DEFINITELY_AFTER -> return CommandWithRequiredDecls(listOf(TACCmd.Simple.AssumeCmd(TACSymbol.False, "impossible")))
                 IncludedInTrace.MAYBE_INCLUDED -> {
                     when(eventInfo.eventSort) {
+                        TraceEventSort.RESULT,
                         TraceEventSort.REVERT,
                         TraceEventSort.RETURN -> {
                             `impossible!`
@@ -1814,6 +1870,7 @@ class BufferTraceInstrumentation private constructor(
                         TraceEventSort.EXTERNAL_CALL -> {
                             val countVar = when(eventInfo.eventSort) {
                                 // these are required by the compiler, but IDEA complains about them :(
+                                TraceEventSort.RESULT,
                                 TraceEventSort.REVERT,
                                 TraceEventSort.RETURN -> `impossible!`
                                 TraceEventSort.LOG -> logTraceLog.itemCountVar
@@ -2003,6 +2060,7 @@ class BufferTraceInstrumentation private constructor(
                                 TraceEventSort.RETURN -> {
                                     CommandWithRequiredDecls(listOf(TACCmd.Simple.NopCmd))
                                 }
+                                TraceEventSort.RESULT,
                                 TraceEventSort.INTERNAL_SUMMARY_CALL,
                                 TraceEventSort.EXTERNAL_CALL,
                                 TraceEventSort.LOG -> {
@@ -2060,6 +2118,7 @@ class BufferTraceInstrumentation private constructor(
                 setup
             )
         }
+        is Context.ResultMarker -> results.lift()
         is Context.InternalCall -> args.lift()
         is Context.Log -> this.topics.lift()
         Context.MethodExit -> treapListOf<TACSymbol>().lift()
@@ -2130,6 +2189,19 @@ class BufferTraceInstrumentation private constructor(
 
             override val support: Set<TACSymbol.Var>
                 get() = setOfNotNull(callee as? TACSymbol.Var, value as? TACSymbol.Var)
+        }
+
+        @KSerializable
+        data class ResultMarker(
+            val results: List<TACSymbol>
+        ) : Context {
+            override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): Context {
+                return ResultMarker(results.map { it.map(f) })
+            }
+
+            override val support: Set<TACSymbol.Var>
+                get() = results.mapNotNullToSet { it as? TACSymbol.Var }
+
         }
     }
 
@@ -2829,6 +2901,12 @@ class BufferTraceInstrumentation private constructor(
             override val sort: TraceEventSort
                 get() = TraceEventSort.INTERNAL_SUMMARY_CALL
         }
+
+        data class CodeResult(override val context: Context.ResultMarker) : RawEventParams {
+            override val sort: TraceEventSort
+                get() = TraceEventSort.RESULT
+
+        }
     }
 
     /**
@@ -2840,7 +2918,8 @@ class BufferTraceInstrumentation private constructor(
         RETURN(TraceTargets.Results),
         LOG(TraceTargets.Log),
         EXTERNAL_CALL(TraceTargets.Calls),
-        INTERNAL_SUMMARY_CALL(TraceTargets.Calls, showBuffer = false)
+        INTERNAL_SUMMARY_CALL(TraceTargets.Calls, showBuffer = false),
+        RESULT(TraceTargets.Results, showBuffer = false)
     }
 
     /**

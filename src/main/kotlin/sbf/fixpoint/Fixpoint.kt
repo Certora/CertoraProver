@@ -23,6 +23,7 @@ import sbf.disassembler.Label
 import sbf.cfg.SbfCFG
 import sbf.disassembler.GlobalVariableMap
 import sbf.domains.AbstractDomain
+import sbf.domains.InstructionListener
 import sbf.domains.MemorySummaries
 import sbf.sbfLogger
 
@@ -35,10 +36,19 @@ const val debugFixpoPrintStatements = false
  **/
 interface FixpointSolver<T: AbstractDomain<T>> {
     /**
-     * @params [liveMapAtExit]: set of live registers at the end of each basic block
+     * Compute the fixpoint over [cfg] with the abstraction domain `T`.
+     * @param inMap output of the fixpoint. It contains the invariants at the entry of each block.
+     * @param outMap output of the fixpoint. It contains the invariants at the exit of each block.
+     * @param liveMapAtExit is set of live registers at the end of each basic block.
+     * @param processor after each WTO component is solved, [processor] is called. If a WTO component is
+     * nested, [processor] is called only after the outermost WTO cycle has been solved to ensure each block
+     * is processed only once with post-fixpoint facts.
      */
-    fun solve(cfg: SbfCFG, inMap: MutableMap<Label, T>, outMap: MutableMap<Label, T>,
-              liveMapAtExit: Map<Label, LiveRegisters>?)
+    fun solve(cfg: SbfCFG,
+              inMap: MutableMap<Label, T>,
+              outMap: MutableMap<Label, T>,
+              liveMapAtExit: Map<Label, LiveRegisters>?,
+              processor: InstructionListener<T>?)
 }
 
 /**
@@ -101,16 +111,16 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
     }
 
     /**
-     * Return a pair where the first element is the old abstract state recorded for block and
-     * the second element is true if the new abstract state is different from the old one.
+     * Analyze [block] starting with abstract state [inState] and store its effects in [outMap].
+     *
+     * [deadMap] is used as an optimization to forget from abstract states facts about dead variables.
      **/
     fun analyzeBlock(
         block: SbfBasicBlock,
         inState: T,
         outMap: MutableMap<Label, T>,
-        deadMap: Map<Label,LiveRegisters>?,
-        checkChange: Boolean = true
-    ): Pair<T?, Boolean> {
+        deadMap: Map<Label,LiveRegisters>?
+    ) {
 
         if (debugFixpo) {
             if (debugFixpoPrintStatements) {
@@ -123,7 +133,7 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
         if (debugFixpo && debugFixpoPrintStates) {
             sbfLogger.info { "BEFORE ${inState}\n" }
         }
-        val oldOutState = outMap[block.getLabel()]
+
         val outState = inState.analyze(block, globals, memSummaries)
 
         if (deadMap != null) {
@@ -142,18 +152,6 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
             sbfLogger.info { "AFTER ${outState}\n" }
         }
 
-        val change = ((!checkChange ||
-            ((oldOutState == null) || !(outState.lessOrEqual(oldOutState, block.getLabel(), block.getLabel())))))
-
         outMap[block.getLabel()] = outState
-
-        if (debugFixpo && change) {
-            if (debugFixpoPrintStates) {
-                sbfLogger.info { "Block ${block.getLabel()} must be re-analyzed\nOLD=$oldOutState\nNEW=$outState\n" }
-            } else {
-                sbfLogger.info { "Block ${block.getLabel()} must be re-analyzed"}
-            }
-        }
-        return Pair(oldOutState, change)
     }
 }

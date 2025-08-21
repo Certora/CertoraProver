@@ -22,6 +22,7 @@ import allocator.GeneratedBy
 import analysis.icfg.AxiomInliner
 import analysis.icfg.ExtCallSummarization
 import analysis.icfg.Inliner
+import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
 import analysis.split.StorageTypeBounder
 import analysis.storage.DisplayPaths
 import analysis.storage.StorageAnalysisResult
@@ -174,13 +175,13 @@ object TACMeta {
     /**
      * Marker annotation used to delimit code that corresponds to the decompilation of a single call* command.
      */
-    val CALL_GROUP_START = MetaKey.Nothing("tac.decompiler.call-start")
+    val CALL_GROUP_START = MetaKey.Nothing("tac.decompiler.call-start").registerDestructivelyMergeableAnnot()
 
     /**
      * Marker annotation used to delimit code that corresponds to the decompilation of a single call* command.
      * These should be "well-matched" with [CALL_GROUP_START].
      */
-    val CALL_GROUP_END = MetaKey.Nothing("tac.decompiler.call-end")
+    val CALL_GROUP_END = MetaKey.Nothing("tac.decompiler.call-end").registerDestructivelyMergeableAnnot()
 
     // attached to long copy commands that have been shown to copy an exact constant (from codedata)
     val CONSTANT_SCALARIZATION = MetaKey<BigInteger>("long-copy.constant.scalarization")
@@ -318,11 +319,11 @@ object TACMeta {
     /**
      * For indicating commands that originated with [CVLCmd.Simple.Label]
      */
-    val CVL_LABEL_START = MetaKey<CVLReportLabel>("cvl.label.start", restore = true)
+    val CVL_LABEL_START = MetaKey<CVLReportLabel>("cvl.label.start", restore = true).registerDestructivelyMergeableAnnot()
     @GeneratedBy(Allocator.Id.CVL_EVENT, source = true)
     val CVL_LABEL_START_ID: MetaKey<Int> = MetaKey<Int>("cvl.label.start.id")
     @GeneratedBy(Allocator.Id.CVL_EVENT, source = false)
-    val CVL_LABEL_END: MetaKey<Int> = MetaKey<Int>("cvl.label.end")
+    val CVL_LABEL_END: MetaKey<Int> = MetaKey<Int>("cvl.label.end").registerDestructivelyMergeableAnnot()
     @KSerializable
     @Treapable
     data class RequireInvariant(val id: Int, val name: String): AmbiSerializable
@@ -350,14 +351,14 @@ object TACMeta {
     /**
      * Snippet commands' annotations.
      */
-    val SNIPPET = MetaKey<SnippetCmd>("snippet.cmd", restore = true)
+    val SNIPPET = MetaKey<SnippetCmd>("snippet.cmd", restore = true).registerDestructivelyMergeableAnnot()
 
     /**
      * End annotation for [ScopeSnippet].
      * This scopes the range of TAC commands that should be iterated over to enforce
      * the snippet's property.
      */
-    val SCOPE_SNIPPET_END = MetaKey.Nothing("snippet.cmd.scope.end")
+    val SCOPE_SNIPPET_END = MetaKey.Nothing("snippet.cmd.scope.end").registerDestructivelyMergeableAnnot()
 
     /**
      * This meta can be added to a [TACCmd] when we want the callTrace to ignore it.
@@ -368,9 +369,9 @@ object TACMeta {
      * Annotations for the loops entering/exit labels
      */
     @GeneratedBy(Allocator.Id.LOOP)
-    val START_LOOP : MetaKey<Int> = MetaKey<Int>("start_loop.cmd")
+    val START_LOOP : MetaKey<Int> = MetaKey<Int>("start_loop.cmd").registerDestructivelyMergeableAnnot()
 
-    val END_LOOP = MetaKey.Nothing("end_loop.cmd")
+    val END_LOOP = MetaKey.Nothing("end_loop.cmd").registerDestructivelyMergeableAnnot()
 
     /**
      * Used to tag assume/assert false sink commands that are inserted during unrolling

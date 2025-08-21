@@ -37,10 +37,12 @@ import instrumentation.transformers.*
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import log.*
+import move.CvlmManifest.RuleType
 import optimizer.*
 import org.jetbrains.annotations.TestOnly
 import spec.cvlast.RuleIdentifier
 import spec.cvlast.SpecType
+import spec.genericrulegenerators.*
 import spec.rules.*
 import tac.*
 import tac.generation.*
@@ -58,9 +60,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     companion object {
         fun compileRule(
             entryFunc: MoveFunction,
-            scene: MoveScene,
-            optimize: Boolean,
-        ) = MoveToTAC(scene).compileRule(entryFunc, optimize)
+            ruleType: RuleType,
+            scene: MoveScene
+        ) = MoveToTAC(scene).compileRule(entryFunc, ruleType)
 
         @TestOnly
         fun compileMoveTAC(
@@ -69,13 +71,13 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         ) = scene.maybeDefinition(entryFunc)?.let {
             with(scene) {
                 val fn = MoveFunction(it.function)
-                MoveToTAC(scene).compileMoveTACProgram(fn)
+                MoveToTAC(scene).compileMoveTACProgram(fn, SanityMode.NONE)
             }
         }
 
-        val FUNC_START = MetaKey<FuncStartAnnotation>("move.func.start")
-        val FUNC_END = MetaKey<FuncEndAnnotation>("move.func.end")
         val CONST_STRING = MetaKey<String>("move.const.string")
+
+        private const val REACHED_END_OF_FUNCTION = "Reached end of function"
     }
 
     private val uniqueNameAllocator = mutableMapOf<String, Int>()
@@ -94,66 +96,13 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
     private val MoveFunction.varNameBase get() = name.toVarName()
 
-    @KSerializable
-    sealed class AnnotationArg : AmbiSerializable {
-        /** An argument value in a single variable */
-        @KSerializable
-        data class Value(val v: TACSymbol.Var) : AnnotationArg() {
-            override fun toString() = "$v"
-        }
-        /** A reference-typed argument expanded to a location index and offset (see [MoveMemory]) */
-        @KSerializable
-        data class ExpandedRef(val iLoc: TACSymbol.Var, val offset: TACSymbol.Var) : AnnotationArg() {
-            override fun toString() = "Ref($iLoc, $offset)"
-        }
+    private enum class SanityMode {
+        NONE,
+        ASSERT_TRUE,
+        SATISFY_TRUE
     }
 
-    @KSerializable
-    data class FuncStartAnnotation(
-        val name: MoveFunctionName,
-        val args: List<AnnotationArg>,
-        val range: Range.Range? = null
-    ) : TransformableVarEntityWithSupport<FuncStartAnnotation>, AmbiSerializable {
-        override val support: Set<TACSymbol.Var> get() = args.flatMapToSet {
-            when (it) {
-                is AnnotationArg.Value -> listOf(it.v)
-                is AnnotationArg.ExpandedRef -> listOf(it.iLoc, it.offset)
-            }
-        }
-
-        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-            args = args.map {
-                when (it) {
-                    is AnnotationArg.Value -> AnnotationArg.Value(f(it.v))
-                    is AnnotationArg.ExpandedRef -> AnnotationArg.ExpandedRef(f(it.iLoc), f(it.offset))
-                }
-            }
-        )
-    }
-
-    @KSerializable
-    data class FuncEndAnnotation(
-        val name: MoveFunctionName,
-        val returns: List<AnnotationArg>
-    ) : TransformableVarEntityWithSupport<FuncEndAnnotation>, AmbiSerializable {
-        override val support: Set<TACSymbol.Var> get() = returns.flatMapToSet {
-            when (it) {
-                is AnnotationArg.Value -> listOf(it.v)
-                is AnnotationArg.ExpandedRef -> listOf(it.iLoc, it.offset)
-            }
-        }
-
-        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-            returns = returns.map {
-                when (it) {
-                    is AnnotationArg.Value -> AnnotationArg.Value(f(it.v))
-                    is AnnotationArg.ExpandedRef -> AnnotationArg.ExpandedRef(f(it.iLoc), f(it.offset))
-                }
-            }
-        )
-    }
-
-    private fun compileMoveTACProgram (entryFunc: MoveFunction): MoveTACProgram {
+    private fun compileMoveTACProgram(entryFunc: MoveFunction, sanityMode: SanityMode): MoveTACProgram {
         val args = entryFunc.params.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_arg_$i", it.toTag()) }
         val returns = entryFunc.returns.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_ret_$i", it.toTag()) }
 
@@ -170,7 +119,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     returns = returns,
                     entryBlock = calleeEntry,
                     returnBlock = exit,
-                    callStack = persistentStackOf()
+                    callStack = persistentStackOf(),
+                    source = null
                 )
             )
         }
@@ -188,9 +138,44 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             )
         )
 
-        // The exit block is just a place for the entry function to return to
         val exitCode = treapMapOf(
-            exit to label("Exit from $entryFunc")
+            exit to mergeMany(
+                listOfNotNull(
+                    label("Exit from $entryFunc"),
+                    when (sanityMode) {
+                        SanityMode.NONE -> null
+                        SanityMode.ASSERT_TRUE -> {
+                            mergeMany(
+                                MoveCallTrace.annotateUserAssert(
+                                    isSatisfy = false,
+                                    condition = TACSymbol.True,
+                                    messageText = REACHED_END_OF_FUNCTION,
+                                ),
+                                TACCmd.Simple.AssertCmd(
+                                    TACSymbol.True,
+                                    REACHED_END_OF_FUNCTION,
+                                    MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                                ).withDecls()
+                            )
+                        }
+                        SanityMode.SATISFY_TRUE -> {
+                            mergeMany(
+                                MoveCallTrace.annotateUserAssert(
+                                    isSatisfy = true,
+                                    condition = TACSymbol.True,
+                                    messageText = REACHED_END_OF_FUNCTION
+                                ),
+                                TACCmd.Simple.AssertCmd(
+                                    TACSymbol.False,
+                                    REACHED_END_OF_FUNCTION,
+                                    MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
+                                        (TACMeta.SATISFY_ID to summarizationContext.allocSatisfyId())
+                                ).withDecls()
+                            )
+                        }
+                    }
+                )
+            )
         )
 
         val allCode = entryCode + callCode + exitCode
@@ -218,27 +203,72 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         return moveTAC
     }
 
-    private fun compileRule(entryFunc: MoveFunction, optimize: Boolean): Pair<EcosystemAgnosticRule, CoreTACProgram> {
-        val moveTAC = compileMoveTACProgram(entryFunc)
-        val ruleName = moveTAC.name
+    private fun compileRuleCoreTACProgram(
+        ruleName: String,
+        entryFunc: MoveFunction,
+        sanityMode: SanityMode
+    ): Pair<CoreTACProgram, CompiledRuleType> {
+        return annotateCallStack("rule.$ruleName") {
+            val moveTAC = compileMoveTACProgram(entryFunc, sanityMode)
 
-        ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
+            ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
-        val coreTAC = MoveMemory(scene).transform(moveTAC)
-        ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
+            val coreTAC = MoveMemory(scene).transform(moveTAC).let { configureOptimizations(it) }
+            ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
 
-        val isSatisfyRule = isSatisfyRule(coreTAC)
+            val ruleType = getRuleType(coreTAC)
 
-        val finalTAC = preprocess(coreTAC, isSatisfyRule).letIf(optimize) { optimize(it) }
+            val finalTAC = preprocess(coreTAC, ruleType).letIf(scene.optimize) { optimize(it) }
 
-        return EcosystemAgnosticRule(
-            ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
-            ruleType = SpecType.Single.FromUser.SpecFile,
-            isSatisfyRule = isSatisfyRule
-        ) to finalTAC
+            finalTAC to ruleType
+        }
     }
 
-    private fun isSatisfyRule(code: CoreTACProgram): Boolean {
+    private fun compileRule(
+        entryFunc: MoveFunction,
+        ruleType: RuleType
+    ): List<Pair<EcosystemAgnosticRule, CoreTACProgram>> {
+        return when (ruleType) {
+            RuleType.USER_RULE -> {
+                val ruleName = entryFunc.name.toString()
+                val (coreTAC, compiledRuleType) = compileRuleCoreTACProgram(ruleName, entryFunc, SanityMode.NONE)
+                listOf(
+                    EcosystemAgnosticRule(
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
+                        ruleType = SpecType.Single.FromUser.SpecFile,
+                        isSatisfyRule = compiledRuleType.isSatisfy
+                    ) to coreTAC
+                )
+            }
+            RuleType.SANITY -> {
+                val assertRuleName = "${entryFunc.name}-Assertions"
+                val satisfyRuleName = "${entryFunc.name}-$REACHED_END_OF_FUNCTION"
+
+                val (assertTAC, assertTACType) = compileRuleCoreTACProgram(assertRuleName, entryFunc, SanityMode.ASSERT_TRUE)
+                check(assertTACType == CompiledRuleType.ASSERT)
+
+                val (satisfyTAC, satisfyTACType) = compileRuleCoreTACProgram(satisfyRuleName, entryFunc, SanityMode.SATISFY_TRUE)
+                check(satisfyTACType == CompiledRuleType.SATISFY)
+
+                listOf(
+                    EcosystemAgnosticRule(
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(assertRuleName),
+                        ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
+                        isSatisfyRule = false
+                    ) to assertTAC,
+                    EcosystemAgnosticRule(
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(satisfyRuleName),
+                        ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
+                        isSatisfyRule = true
+                    ) to satisfyTAC
+                )
+            }
+        }
+    }
+
+    private enum class CompiledRuleType(val isSatisfy: Boolean) { ASSERT(false), SATISFY(true) }
+
+    private fun getRuleType(code: CoreTACProgram): CompiledRuleType {
         val areSatisfyAsserts = code.parallelLtacStream().mapNotNull { (_, cmd) ->
             (cmd as? TACCmd.Simple.AssertCmd)
                 ?.takeIf { TACMeta.CVL_USER_DEFINED_ASSERT in it.meta }
@@ -250,14 +280,18 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 "Rule ${code.name} contains no assertions after compilation. Assertions may have been trivially unreachable and removed by the compiler."
             )
         }
-        return areSatisfyAsserts.uniqueOrNull() ?: throw CertoraException(
-            CertoraErrorType.CVL,
-            "Rule ${code.name} mixes assert and satisfy commands."
-        )
+        return when(areSatisfyAsserts.uniqueOrNull()) {
+            true -> CompiledRuleType.SATISFY
+            false -> CompiledRuleType.ASSERT
+            null -> throw CertoraException(
+                CertoraErrorType.CVL,
+                "Rule ${code.name} mixes assert and satisfy commands."
+            )
+        }
     }
 
 
-    private fun preprocess(code: CoreTACProgram, isSatisfyRule: Boolean) =
+    private fun preprocess(code: CoreTACProgram, ruleType: CompiledRuleType) =
         CoreTACProgram.Linear(code)
         // ConstantStringPropagator must come before TACDSA
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
@@ -267,12 +301,12 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
         .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
-        .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
+        .mapIf(ruleType.isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
         .ref
 
     private fun optimize(code: CoreTACProgram) =
         CoreTACProgram.Linear(code)
-        .map(CoreToCoreTransformer(ReportTypes.OPTIMIZE, GlobalInliner::inlineAll))
+        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SNIPPET_REMOVAL, SnippetRemover::rewrite))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { BoolOptimizer(it).go() })
@@ -310,7 +344,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 IntervalsRewriter.rewrite(it, handleLeinoVars = false)
             }
         )
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { simplifyDiamonds(it, iterative = true) })
+        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
                 // after pruning infeasible paths, there are more constants to propagate
                 ConstantPropagator.propagateConstants(it, emptySet())
@@ -318,8 +352,24 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         )
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
-        .map(CoreToCoreTransformer(ReportTypes.QUANTIFIER_POLARITY) { QuantifierAnnotator(it).annotate() })
         .ref
+
+    /**
+        Enables or disables destructive optimizations, which allow us to optimize the TAC in ways that will break the
+        call trace.
+     */
+    @OptIn(Config.DestructiveOptimizationsOption::class)
+    private fun configureOptimizations(code: CoreTACProgram) = when (Config.DestructiveOptimizationsMode.get()) {
+        DestructiveOptimizationsModeEnum.DISABLE -> code
+        DestructiveOptimizationsModeEnum.ENABLE -> code.withDestructiveOptimizations(true)
+        DestructiveOptimizationsModeEnum.TWOSTAGE,
+        DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> {
+            throw CertoraException(
+                CertoraErrorType.BAD_CONFIG,
+                "Two-stage destructive optimization mode is not yet supported for Move programs."
+            )
+        }
+    }
 
     context(SummarizationContext)
     fun compileFunctionCall(call: MoveCall): MoveBlocks {
@@ -399,17 +449,10 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
             // Annotate the start of the function, and move the arguments into locals
             if (blockOffset == 0) {
-                cmds += TACCmd.Simple.AnnotationCmd(
-                    FUNC_START,
-                    FuncStartAnnotation(
-                        func.name,
-                        call.args.map { AnnotationArg.Value(it) }
-                    )
-                ).withDecls()
-
                 check(call.args.size == func.params.size) {
                     "Argument count mismatch: ${call.args.size} != ${func.params.size}"
                 }
+                cmds += MoveCallTrace.annotateFuncStart(func, call.args)
                 for (i in 0..<call.args.size) {
                     cmds += assign(locals[i].s) { call.args[i].asSym() }
                 }
@@ -420,7 +463,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                 logger.trace { "$currentOffset/${stack.size}: $inst" }
 
-                val meta = scene.sourceContext.tacMeta(src).toMap()
+                val metaInfo = scene.sourceContext.tacMeta(src)
+                val meta = metaInfo.toMap()
 
                 fun topVar() = stack.top.let { type ->
                     TACSymbol.Var("${uniqueName}!stack!${stack.size - 1}!${type.symNameExt()}", type.toTag()).asSym()
@@ -444,23 +488,36 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     return op(type, lhs, rhs)
                 }
 
-                cmds += when (inst) {
-                    is MoveInstruction.BrTrue ->
+                fun conditionalJump(cond: TACExpr.Sym, trueOffset: Int, falseOffset: Int): MoveCmdsWithDecls {
+                    val trueBranch = successor(trueOffset)
+                    val falseBranch = successor(falseOffset)
+                    return if (trueBranch != falseBranch) {
                         TACCmd.Simple.JumpiCmd(
-                            cond = pop().s,
-                            dst = successor(inst.branchTarget),
-                            elseDst = successor(currentOffset + 1),
+                            cond = cond.s,
+                            dst = trueBranch,
+                            elseDst = falseBranch,
                             meta = meta
                         ).withDecls()
+                    } else {
+                        TACCmd.Simple.JumpCmd(trueBranch, meta).withDecls()
+                    }
+                }
+
+                cmds += when (inst) {
+                    is MoveInstruction.BrTrue ->
+                        conditionalJump(
+                            cond = pop(),
+                            trueOffset = inst.branchTarget,
+                            falseOffset = currentOffset + 1
+                        )
+
                     is MoveInstruction.BrFalse ->
-                        TXF { not(pop()) }.letVar(Tag.Bool) { cond ->
-                            TACCmd.Simple.JumpiCmd(
-                                cond = cond.s,
-                                dst = successor(inst.branchTarget),
-                                elseDst = successor(currentOffset + 1),
-                                meta = meta
-                            ).withDecls()
-                        }
+                        conditionalJump(
+                            cond = pop(),
+                            falseOffset = inst.branchTarget,
+                            trueOffset = currentOffset + 1
+                        )
+
                     is MoveInstruction.Branch ->
                         TACCmd.Simple.JumpCmd(successor(inst.branchTarget), meta).withDecls()
 
@@ -474,7 +531,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                 returns = callee.returns.map { push(it) },
                                 entryBlock = calleeEntry,
                                 returnBlock = successor(currentOffset + 1),
-                                callStack = callStack
+                                callStack = callStack,
+                                source = metaInfo?.getSourceDetails()
                             )
                         )
                         TACCmd.Simple.JumpCmd(calleeEntry, meta).withDecls()
@@ -483,14 +541,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     is MoveInstruction.Ret ->
                         mergeMany(
                             mergeMany(call.returns.reversed().map { assign(it) { pop() } }),
-                            TACCmd.Simple.AnnotationCmd(
-                                FUNC_END,
-                                FuncEndAnnotation(
-                                    func.name,
-                                    call.returns.map { AnnotationArg.Value(it) }
-                                ),
-                                meta
-                            ).withDecls(),
+                            MoveCallTrace.annotateFuncEnd(call.callee, call.returns),
                             TACCmd.Simple.JumpCmd(call.returnBlock, meta).withDecls()
                         ).also { fallthrough = null }
 

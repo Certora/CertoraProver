@@ -1,0 +1,20 @@
+[package]
+name = "stack_array"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/stack_array.rs"
+
+[features]
+certora = []
+
+[dependencies]
+cvlr = "0.4"
+
+[package.metadata.certora]
+sources = ["Cargo.toml", "src/**/*.rs"]
+solana_inlining = ["./cvt_inlining_core.txt"]
+solana_summaries = ["./cvt_summaries_core.txt"]

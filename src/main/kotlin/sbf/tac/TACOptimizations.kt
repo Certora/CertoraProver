@@ -74,7 +74,7 @@ fun optimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProgram {
         })
         // we don't fold diamonds with assumes in them, because it creates assumes with disjunctions, and
         // `IntervalsCalculator` can't work well with those.
-        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { simplifyDiamonds(it, iterative = true, allowAssumes = false) })
+        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true, allowAssumes = false) })
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { c -> BoolOptimizer(c).go() })
         // constant propagation + cleanup + merging blocks
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1) {
@@ -112,7 +112,7 @@ fun optimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProgram {
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
             IntervalsRewriter.rewrite(it, handleLeinoVars = false) })
         // Simplify diamonds after interval rewriter. This time we fold assumes
-        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { simplifyDiamonds(it, iterative = true) })
+        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
         // after pruning infeasible paths, there are more constants to propagate
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
             ConstantPropagatorAndSimplifier(it).rewrite().let {
@@ -192,7 +192,7 @@ fun legacyOptimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProg
                 IntervalsRewriter.rewrite(it, handleLeinoVars = false)
             })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { simplifyDiamonds(it, iterative = true) })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
                 // after pruning infeasible paths, there are more constants to propagate
                 ConstantPropagator.propagateConstants(it, emptySet())

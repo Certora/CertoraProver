@@ -64,10 +64,15 @@ class MoveScene(
     val cvlmManifest by lazy { CvlmManifest(this) }
 
     val rules by lazy {
-        cvlmManifest.selectedRules.map {
-            val def = maybeDefinition(it)
-                ?: error("No definition found for rule function $it")
-            MoveToTAC.compileRule(MoveFunction(def.function), this, optimize)
+        cvlmManifest.selectedRules.flatMap { (funcName, ruleType) ->
+            val def = maybeDefinition(funcName)
+                ?: error("No definition found for rule function $funcName")
+            // Instantiate the function, using the `Nothing` type for all type arguments.
+            val func = MoveFunction(
+                def.function,
+                typeArguments = def.function.typeParameters.map { nothingType }
+            )
+            MoveToTAC.compileRule(func, ruleType, this)
         }.also {
             if (it.isEmpty()) {
                 throw CertoraException(
@@ -90,4 +95,11 @@ class MoveScene(
     fun definition(type: MoveModule.DatatypeHandle) = module(type.definingModule).definition(type)
 
     fun maybeDefinition(func: MoveFunctionName) = moduleMap[func.module]?.maybeDefinition(func)
+    fun maybeDefinition(type: MoveStructName) = moduleMap[type.module]?.maybeDefinition(type)
+
+    val nothingType by lazy {
+        val name = MoveStructName(MoveModuleName(Config.CvlmAddress.get(), "nothing"), "Nothing")
+        val def = maybeDefinition(name) ?: error("No definition found for $name")
+        def.structHandle.toMoveStructRaw() // "raw" to prevent shadowing
+    }
 }

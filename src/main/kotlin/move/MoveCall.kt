@@ -17,6 +17,7 @@
 
 package move
 
+import compiler.SourceSegment
 import datastructures.*
 import datastructures.stdcollections.*
 import tac.*
@@ -36,6 +37,12 @@ data class MoveCall(
     val returnBlock: NBId,
     /** The calls on the stack (not including this call) */
     val callStack: PersistentStack<MoveCall>,
+    /** The source range of the call */
+    val source: SourceSegment?
 ) {
     val funcsOnStack = callStack.mapToSet { it.callee }
+    val range get() = source?.range
+    val displaySource get() = source?.let {
+        "at ${it.fileName}:${it.lineNumber}: ${it.content.lines().firstOrNull()?.escapeQuotes()}"
+    }
 }

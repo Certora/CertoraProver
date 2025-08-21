@@ -31,8 +31,8 @@ class NondetTest : MoveTestFixture() {
             $testModule
             public fun test() {
                 let v = nondet<vector<u64>>();
-                cvlm_assert!(v.length() <= ${maxInt(64)});
-                cvlm_assert!(v.length() >= 0);
+                cvlm_assert(v.length() <= ${maxInt(64)});
+                cvlm_assert(v.length() >= 0);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -45,8 +45,8 @@ class NondetTest : MoveTestFixture() {
             $testModule
             public fun test(i: u64) {
                 let v = nondet<vector<u$size>>();
-                cvlm_assert!(v[i] <= ${maxInt(size)});
-                cvlm_assert!(v[i] >= 0);
+                cvlm_assert(v[i] <= ${maxInt(size)});
+                cvlm_assert(v[i] >= 0);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -62,8 +62,8 @@ class NondetTest : MoveTestFixture() {
             }
             public fun test() {
                 let s = nondet<S>();
-                cvlm_assert!(s.f <= ${maxInt(size)});
-                cvlm_assert!(s.f >= 0);
+                cvlm_assert(s.f <= ${maxInt(size)});
+                cvlm_assert(s.f >= 0);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -79,8 +79,8 @@ class NondetTest : MoveTestFixture() {
             }
             public fun test(i: u64) {
                 let v = nondet<vector<S>>();
-                cvlm_assert!(v[i].f <= ${maxInt(size)});
-                cvlm_assert!(v[i].f >= 0);
+                cvlm_assert(v[i].f <= ${maxInt(size)});
+                cvlm_assert(v[i].f >= 0);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -93,7 +93,7 @@ class NondetTest : MoveTestFixture() {
             public fun test() {
                 let v1 = nondet<vector<u64>>();
                 let v2 = v1;
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -106,7 +106,7 @@ class NondetTest : MoveTestFixture() {
             public fun test() {
                 let v1 = nondet<vector<u64>>();
                 let v2 = nondet<vector<u64>>();
-                cvlm_assert!(v1 != v2);
+                cvlm_assert(v1 != v2);
             }
         """.trimIndent())
         assertFalse(verify())
@@ -119,7 +119,7 @@ class NondetTest : MoveTestFixture() {
             public fun test() {
                 let v1 = nondet<vector<u64>>();
                 let v2 = nondet<vector<u64>>();
-                cvlm_assert!(v1 == v2);
+                cvlm_assert(v1 == v2);
             }
         """.trimIndent())
         assertFalse(verify())

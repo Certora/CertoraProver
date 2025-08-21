@@ -542,8 +542,8 @@ class CVLCmdTypeChecker(
                     ).asError()
                 is CVLExp.ApplyExp.Inlinable -> cmd.copy(exp = exp).lift()
                 is CVLExp.UnresolvedApplyExp -> {
-                    check(exp.tag.annotation == CVLExp.UnresolvedApplyExp.VirtualFunc) {
-                        "The expression should only remain in unresolved state if it corresponds to optional methods in the methods block"
+                    check(exp.tag.annotation is CVLExp.UnresolvedApplyExp.WhitelistedUnresolvedFunc) {
+                        "The expression should only remain in unresolved state if it corresponds to optional methods in the methods block or -listCalls was used"
                     }
                     cmd.copy(exp = exp).lift()
                 }

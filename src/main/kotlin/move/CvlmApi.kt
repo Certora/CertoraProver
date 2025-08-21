@@ -17,8 +17,10 @@
 
 package move
 
+import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import datastructures.stdcollections.*
 import config.*
+import move.ConstantStringPropagator.MESSAGE_VAR
 import tac.*
 import tac.generation.*
 import utils.*
@@ -28,8 +30,6 @@ import vc.data.*
     Provides implementations for the CVLM API functions.
  */
 object CvlmApi {
-    val MESSAGE_VAR = MetaKey<TACSymbol.Var>("cvlm.assert.message")
-
     private val cvlmAddr = Config.CvlmAddress.get()
 
     private val summarizers = mutableMapOf<MoveFunctionName, context(SummarizationContext) (MoveCall) -> MoveBlocks>()
@@ -72,95 +72,142 @@ object CvlmApi {
     private fun addAssertsSummaries() {
         /*
             ```
-            public native fun cvlm_assert_checked(cond: bool);
+            public native fun cvlm_assert(cond: bool);
             ```
          */
-        addSummary(assertsModule, "cvlm_assert_checked") { call ->
+        addSummary(assertsModule, "cvlm_assert") { call ->
             singleBlockSummary(call) {
-                TACCmd.Simple.AssertCmd(
-                    call.args[0],
-                    "Failed property in cvt::assert",
-                    MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
-                ).withDecls()
+                mergeMany(
+                    MoveCallTrace.annotateUserAssert(
+                        isSatisfy = false,
+                        condition = call.args[0],
+                        messageText = call.displaySource,
+                        range = call.range
+                    ),
+                    TACCmd.Simple.AssertCmd(
+                        call.args[0],
+                        "cvlm_assert",
+                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                    ).withDecls()
+                )
             }
         }
 
         /*
             ```
-            public native fun cvlm_assert_checked_msg(cond: bool, msg: vector<u8>);
+            public native fun cvlm_assert_msg(cond: bool, msg: vector<u8>);
             ```
          */
-        addSummary(assertsModule, "cvlm_assert_checked_msg") { call ->
+        addSummary(assertsModule, "cvlm_assert_msg") { call ->
             singleBlockSummary(call) {
-                TACCmd.Simple.AssertCmd(
-                    call.args[0],
-                    "Failed property in cvt::assert (could not extract message)", // message will be replaced later
-                    MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (MESSAGE_VAR to call.args[1])
-                ).withDecls()
+                mergeMany(
+                    MoveCallTrace.annotateUserAssert(
+                        isSatisfy = false,
+                        condition = call.args[0],
+                        messageVar = call.args[1],
+                        messageText = call.displaySource,
+                        range = call.range
+                    ),
+                    TACCmd.Simple.AssertCmd(
+                        call.args[0],
+                        "cvlm_assert_msg (could not extract message)", // message will be replaced later
+                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (MESSAGE_VAR to call.args[1])
+                    ).withDecls()
+                )
             }
         }
 
         /*
             ```
-            public native fun cvlm_assume_checked(cond: bool);
+            public native fun cvlm_assume(cond: bool);
             ```
          */
-        addSummary(assertsModule, "cvlm_assume_checked") { call ->
+        addSummary(assertsModule, "cvlm_assume") { call ->
             singleBlockSummary(call) {
-                TACCmd.Simple.AssumeCmd(
-                    call.args[0],
-                    "summarizeAssumeAssert"
-                ).withDecls()
+                mergeMany(
+                    MoveCallTrace.annotateUserAssume(
+                        messageText = call.displaySource,
+                        range = call.range
+                    ),
+                    TACCmd.Simple.AssumeCmd(
+                        call.args[0],
+                        "cvlm_assume"
+                    ).withDecls()
+                )
             }
         }
 
         /*
             ```
-            public native fun cvlm_assume_checked_msg(cond: bool, msg: vector<u8>);
+            public native fun cvlm_assume_msg(cond: bool, msg: vector<u8>);
             ```
          */
-        addSummary(assertsModule, "cvlm_assume_checked_msg") { call ->
+        addSummary(assertsModule, "cvlm_assume_msg") { call ->
             singleBlockSummary(call) {
-                TACCmd.Simple.AssumeCmd(
-                    call.args[0],
-                    "summarizeAssumeAssert",
-                    MetaMap(MESSAGE_VAR to call.args[1])
-                ).withDecls()
+                mergeMany(
+                    MoveCallTrace.annotateUserAssume(
+                        messageVar = call.args[1],
+                        messageText = call.displaySource,
+                        range = call.range
+                    ),
+                    TACCmd.Simple.AssumeCmd(
+                        call.args[0],
+                        "cvlm_assume_msg (could not extract message)",
+                        MetaMap(MESSAGE_VAR to call.args[1])
+                    ).withDecls()
+                )
             }
         }
 
         /*
             ```
-            public native fun cvlm_satisfy_checked(cond: bool);
+            public native fun cvlm_satisfy(cond: bool);
             ```
          */
-        addSummary(assertsModule, "cvlm_satisfy_checked") { call ->
+        addSummary(assertsModule, "cvlm_satisfy") { call ->
             singleBlockSummary(call) {
                 TXF { not(call.args[0]) }.letVar(Tag.Bool) { cond ->
-                    TACCmd.Simple.AssertCmd(
-                        cond.s,
-                        "Property satisfied",
-                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (TACMeta.SATISFY_ID to allocSatisfyId())
-                    ).withDecls()
+                    mergeMany(
+                        MoveCallTrace.annotateUserAssert(
+                            isSatisfy = true,
+                            condition = call.args[0],
+                            messageText = call.displaySource,
+                            range = call.range
+                        ),
+                        TACCmd.Simple.AssertCmd(
+                            cond.s,
+                            "cvlm_satisfy",
+                            MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (TACMeta.SATISFY_ID to allocSatisfyId())
+                        ).withDecls()
+                    )
                 }
             }
         }
 
         /*
             ```
-            public native fun cvlm_satisfy_checked_msg(cond: bool, msg: vector<u8>);
+            public native fun cvlm_satisfy_msg(cond: bool, msg: vector<u8>);
             ```
          */
-        addSummary(assertsModule, "cvlm_satisfy_checked_msg") { call ->
+        addSummary(assertsModule, "cvlm_satisfy_msg") { call ->
             singleBlockSummary(call) {
                 TXF { not(call.args[0]) }.letVar(Tag.Bool) { cond ->
-                    TACCmd.Simple.AssertCmd(
-                        cond.s,
-                        "Property satisfied (could not extract message)",
-                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
-                            (TACMeta.SATISFY_ID to allocSatisfyId()) +
-                            (MESSAGE_VAR to call.args[1])
-                    ).withDecls()
+                    mergeMany(
+                        MoveCallTrace.annotateUserAssert(
+                            isSatisfy = true,
+                            condition = call.args[0],
+                            messageVar = call.args[1],
+                            messageText = call.displaySource,
+                            range = call.range
+                        ),
+                        TACCmd.Simple.AssertCmd(
+                            cond.s,
+                            "cvlm_satisfy_msg (could not extract message)",
+                            MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
+                                (TACMeta.SATISFY_ID to allocSatisfyId()) +
+                                (MESSAGE_VAR to call.args[1])
+                        ).withDecls()
+                    )
                 }
             }
         }

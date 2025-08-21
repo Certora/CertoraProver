@@ -176,14 +176,10 @@ class BytemapInliner private constructor(
                         }
 
                         override fun ite(lhs: TACSymbol.Var, i: TACSymbol, t: TACSymbol.Var, e: TACSymbol.Var) =
-                            when (rhsTermOf(i).asConstOrNull) {
-                                BigInteger.ONE -> loadAtRhs(t, query)
-                                BigInteger.ZERO -> loadAtRhs(e, query)
-                                else -> listOf(
-                                    loadAtRhs(t, query),
-                                    loadAtRhs(e, query)
-                                ).sameValueOrNull()
-                            }
+                            listOf(
+                                loadAtRhs(t, query),
+                                loadAtRhs(e, query)
+                            ).sameValueOrNull()
 
                         override fun mapDefinition(lhs: TACSymbol.Var, param: TACSymbol.Var, definition: TACExpr) =
                             definition.asConstOrNull?.let { Term(it).toRight() }

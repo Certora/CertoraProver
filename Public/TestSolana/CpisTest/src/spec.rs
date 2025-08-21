@@ -1,4 +1,4 @@
-//! This module contains the specification for an example appication which uses
+//! This module contains the specification for an example application which uses
 //! CPI calls.
 
 mod processor;
@@ -11,7 +11,7 @@ use cvlr_solana::{
 };
 use solana_program::account_info::{next_account_info, AccountInfo};
 
-cvlr_solana::cvlr_solana_init!();
+spl_token::cvlr_solana_init!();
 
 #[rule]
 pub fn rule_transfer_token_transfers_same_wallet_0() {
@@ -266,4 +266,42 @@ pub fn rule_close_account_balance_is_zero_after_success<const N_SIGNERS: usize>(
 
     cvlr_assert!(*token_program.key == spl_token::id());
     cvlr_assert!(account_wallet_amount_post == 0);
+}
+
+#[rule]
+pub fn rule_invoke_unknown_program_check_amount_change() {
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    let account_info_iter = &mut account_infos.iter();
+    let acc1: &AccountInfo = next_account_info(account_info_iter).unwrap();
+    let token_instruction_data = Vec::new();
+
+    let acc_wallet_amount_pre = spl_token_account_get_amount(acc1);
+
+    // We are invoking an unknown program.
+    process_unknown_program(&account_infos, &token_instruction_data).unwrap();
+    let acc_wallet_amount_post = spl_token_account_get_amount(acc1);
+
+    // Since we are invoking an unknown program, we cannot make any assumptions
+    // about the wallet amount after the program invocation.
+    // For this reason, this assertion should fail.
+    cvlr_assert!(acc_wallet_amount_pre != acc_wallet_amount_post);
+}
+
+#[rule]
+pub fn rule_invoke_unknown_program_check_amount_does_not_change() {
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    let account_info_iter = &mut account_infos.iter();
+    let acc1: &AccountInfo = next_account_info(account_info_iter).unwrap();
+    let token_instruction_data = Vec::new();
+
+    let acc_wallet_amount_pre = spl_token_account_get_amount(acc1);
+
+    // We are invoking an unknown program.
+    process_unknown_program(&account_infos, &token_instruction_data).unwrap();
+    let acc_wallet_amount_post = spl_token_account_get_amount(acc1);
+
+    // Since we are invoking an unknown program, we cannot make any assumptions
+    // about the wallet amount after the program invocation.
+    // For this reason, this assertion should fail.
+    cvlr_assert!(acc_wallet_amount_pre == acc_wallet_amount_post);
 }

@@ -17,21 +17,6 @@
 
 package sbf.analysis.cpis
 
-import sbf.cfg.LocatedSbfInstruction
-import sbf.cfg.SbfCFG
-
-/** A call to a known [CpiInstruction] at a specific location in the code. */
-data class CpiCall(
-    val cfg: SbfCFG,
-    val invokeInstruction: LocatedSbfInstruction,
-    val cpiInstruction: CpiInstruction,
-    val invokeType: InvokeType
-) {
-    override fun toString(): String {
-        return "$invokeType: $cpiInstruction @ $invokeInstruction"
-    }
-}
-
 /** A known instruction for a specific Solana program. */
 sealed interface CpiInstruction
 

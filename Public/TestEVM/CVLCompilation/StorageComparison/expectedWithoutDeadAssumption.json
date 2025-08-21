@@ -1,0 +1,21 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"should_fail_1": "FAIL",
+		"should_fail_2": "FAIL",
+		"should_fail_3": "FAIL",
+		"should_fail_4": "FAIL",
+		"should_fail_5": "FAIL",
+		"should_fail_6": "FAIL",
+		"should_pass_1": "FAIL",
+		"should_pass_2": "FAIL",
+		"should_pass_3": "SUCCESS",
+		"should_pass_4": "SUCCESS",
+		"should_pass_5": "SUCCESS",
+		"should_pass_6": "SUCCESS",
+		"should_pass_7": "SUCCESS",
+		"should_pass_8": "SUCCESS"
+	}
+}

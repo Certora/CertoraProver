@@ -1,0 +1,5 @@
+Syntax warning in spec file BWConstants.spec:2:12: Usage of bitwise operation 0xffff >> 32 is experimental. Use with caution.
+Syntax warning in spec file BWConstants.spec:6:12: Usage of bitwise operation 0xffff >>> 32 is experimental. Use with caution.
+Syntax warning in spec file BWConstants.spec:10:12: Usage of bitwise operation -1 >> 32 is experimental. Use with caution.
+Syntax warning in spec file BWConstants.spec:14:12: Usage of bitwise operation -1 >>> 1 is experimental. Use with caution.
+Syntax warning in spec file BWConstants.spec:18:12: Usage of bitwise operation 0xff << 256 is experimental. Use with caution.

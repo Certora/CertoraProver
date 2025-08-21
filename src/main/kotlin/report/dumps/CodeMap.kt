@@ -33,9 +33,8 @@ import config.Config.IsGenerateGraphs
 import config.ReportTypes
 import datastructures.MultiMap
 import datastructures.stdcollections.*
-import decompiler.BLOCK_SOURCE_INFO
 import log.*
-import move.MoveToTAC
+import move.MoveCallTrace
 import report.BigIntPretty.bigIntPretty
 import report.TreeViewLocation
 import report.dumps.AddInternalFunctions.addInternalFunctionIdxsDontThrow
@@ -327,10 +326,17 @@ data class CodeMap(
             }
         }
 
-        fun getHtmlRep(arg: MoveToTAC.AnnotationArg): String {
-            return when (arg) {
-                is MoveToTAC.AnnotationArg.Value -> varWithAnchor(arg.v)
-                is MoveToTAC.AnnotationArg.ExpandedRef -> "${varWithAnchor(arg.iLoc)}.${varWithAnchor(arg.offset)}"
+        fun getHtmlRep(v: MoveCallTrace.Value): String {
+            return when (v) {
+                is MoveCallTrace.Value.Primitive -> getHtmlRep(v.sym)
+                is MoveCallTrace.Value.Struct -> {
+                    v.fields.joinToString(", ", "{", "}") { (name, value) ->
+                        "$name:${getHtmlRep(value)}"
+                    }
+                }
+                is MoveCallTrace.Value.Vector -> "std::vector(${getHtmlRep(v.length)})"
+                is MoveCallTrace.Value.GhostArray -> "ghost array"
+                is MoveCallTrace.Value.Reference -> "&amp;${getHtmlRep(v.value)}"
             }
         }
 
@@ -388,8 +394,8 @@ data class CodeMap(
                         }
                     }", Color.DARKBLUE).withTitle(metaValue.toString())
                     is InternalFuncExitAnnotation -> colorText("$larrow Method call ${wrapInternalFunEnd(metaValue.id)} ${metaValue.rets.joinToString(", ","(rets: ",")") { getHtmlRep(it.s) }})", Color.DARKBLUE).withTitle(metaValue.toString())
-                    is MoveToTAC.FuncStartAnnotation -> colorText("$rarrow ${metaValue.name.toString().escapeHTML()}(${metaValue.args.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
-                    is MoveToTAC.FuncEndAnnotation -> colorText("$larrow ${metaValue.name.toString().escapeHTML()}(returns ${metaValue.returns.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is MoveCallTrace.FuncStart -> colorText("$rarrow ${metaValue.name.toString().escapeHTML()}(${metaValue.args.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is MoveCallTrace.FuncEnd -> colorText("$larrow ${metaValue.name.toString().escapeHTML()}(returns ${metaValue.returns.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
                     is Inliner.CallStack.PushRecord -> colorText("$rarrow Solidity call ${metaValue.calleeId}", Color.DARKBLUE).withTitle(metaValue.toString())
                     is Inliner.CallStack.PopRecord -> colorText("$larrow Solidity call ${metaValue.calleeId}", Color.DARKBLUE).withTitle(metaValue.toString())
                     is InternalFunctionFinderReport -> if (metaValue.unresolvedFunctions.isNotEmpty()) {
@@ -1047,10 +1053,6 @@ data class CodeMap(
         val cmdsToRender = cmds.filter {
             when (it.cmd) {
                 is TACCmd.Simple.NopCmd -> false
-                is TACCmd.Simple.AnnotationCmd -> when (it.cmd.annot.k) {
-                    BLOCK_SOURCE_INFO -> false
-                    else -> true
-                }
                 else -> true
             }
         }.filter {

@@ -26,6 +26,8 @@ import sbf.disassembler.newGlobalVariableMap
 import sbf.domains.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import sbf.analysis.MemoryAnalysis
+import sbf.testing.SbfTestDSL
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
 
@@ -666,7 +668,7 @@ class MemoryTest {
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
         // R1 points to something that looks like a dangling pointer
         // Note that the pointer domain doesn't know anything about R1 but the scalar domain does
-        absVal1.getScalars().setRegister(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
+        absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
         absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1_ARG))
 
         val absVal2 = MemoryDomain(nodeAllocator, sbfTypesFac, true)
@@ -703,7 +705,7 @@ class MemoryTest {
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
         absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1_ARG))
-        absVal1.getScalars().setRegister(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
+        absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
 
         val absVal2 = MemoryDomain(nodeAllocator, sbfTypesFac, true)
         val stack2 = absVal2.getRegCell(r10, newGlobalVariableMap())
@@ -712,7 +714,7 @@ class MemoryTest {
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
         // R1 points to (stack, 4040)
         absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
-        absVal2.getScalars().setRegister(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
+        absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
         ConfigScope(SolanaConfig.OptimisticPTAJoin, true).use {
@@ -755,7 +757,7 @@ class MemoryTest {
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
         // R1 points to (stack, 4040)
         absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
-        absVal2.getScalars().setRegister(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
+        absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
         ConfigScope(SolanaConfig.OptimisticPTAJoin, true).use {
@@ -948,4 +950,136 @@ class MemoryTest {
         Assertions.assertEquals(true, c4 == null)
     }
 
+    @Test
+    fun test20() {
+        // trivial test for pointer arithmetic
+        val cfg = SbfTestDSL.makeCFG("entrypoint") {
+            bb(0) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                goto (1)
+            }
+            bb(1) {
+                r2[0] = 5
+            }
+        }
+
+        val results = MemoryAnalysis(cfg, newGlobalVariableMap(), MemorySummaries(), ConstantSbfTypeFactory(), processor = null).getPost(Label.Address(0))
+        println("$cfg\nResults=$results")
+        check(results != null)
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2_ARG))
+        check(sc != null)
+        Assertions.assertEquals(true, sc.concretize().getOffset().v == 4088L)
+    }
+
+    @Test
+    fun test21() {
+        // trivial test for pointer arithmetic
+        val cfg = SbfTestDSL.makeCFG("entrypoint") {
+            bb(0) {
+                r1 = 8
+                r2 = r10
+                BinOp.SUB(r2, r1)
+                goto (1)
+            }
+            bb(1) {
+                r2[0] = 5
+            }
+        }
+
+        val results = MemoryAnalysis(cfg, newGlobalVariableMap(), MemorySummaries(), ConstantSbfTypeFactory(), processor = null).getPost(Label.Address(0))
+        println("$cfg\nResults=$results")
+        check(results != null)
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2_ARG))
+        check(sc != null)
+        Assertions.assertEquals(true, sc.concretize().getOffset().v == 4088L)
+    }
+
+    @Test
+    fun test22() {
+        println("====== TEST 22  =======")
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(1) {
+                r2 = r10
+                r3 = r10
+                BinOp.SUB(r3, 24)
+                br(CondOp.GT(r1, 0), 2, 3)
+            }
+            bb(2) {
+                BinOp.SUB(r2, 8)
+                r2[0] = r3
+                goto(4)
+            }
+            bb(3) {
+                BinOp.SUB(r2, 16)
+                r2[0] = r3
+                goto(4)
+            }
+            bb(4) {
+                goto(5)
+            }
+            bb(5) {
+                r4 = r2[0]
+                goto(6)
+            }
+            bb(6) {
+                assert(CondOp.NE(r2, 0)) // for liveness
+                assert(CondOp.GT(r4, 0)) // for liveness
+                exit()
+            }
+        }
+
+        println("$cfg")
+        val results = MemoryAnalysis(cfg, newGlobalVariableMap(), MemorySummaries(), ConstantSetSbfTypeFactory(20UL), null).getPost(Label.Address(5))
+        println("$results")
+        check(results != null)
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R2_ARG))
+        check(sc != null)
+        Assertions.assertEquals(true, sc.getNode().isMayStack)
+    }
+
+    @Test
+    fun test23() {
+        println("====== TEST 23  =======")
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(1) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+
+                br(CondOp.GT(r1, 0), 2, 3)
+            }
+            bb(2) {
+                r3 = r10
+                BinOp.SUB(r3, 24)
+                r2[0] = r3
+                goto(4)
+            }
+            bb(3) {
+                r3 = r10
+                BinOp.SUB(r3, 48)
+                r2[0] = r3
+                goto(4)
+            }
+            bb(4) {
+                goto(5)
+            }
+            bb(5) {
+                r4 = r2[0]
+                goto(6)
+            }
+            bb(6) {
+                assert(CondOp.NE(r2, 0)) // for liveness
+                assert(CondOp.GT(r4, 0)) // for liveness
+                exit()
+            }
+        }
+
+        println("$cfg")
+        val results = MemoryAnalysis(cfg, newGlobalVariableMap(), MemorySummaries(), ConstantSetSbfTypeFactory(20UL), null).getPost(Label.Address(5))
+        println("$results")
+        check(results != null)
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+        check(sc != null)
+        Assertions.assertEquals(true, sc.getNode().isMayStack)
+    }
 }

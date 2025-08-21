@@ -543,6 +543,7 @@ internal class Tokenizer(
             is CallSummary.HavocAll -> Token.fromSym(sym.HAVOC_ALL).asList()
             is CallSummary.HavocECF -> Token.fromSym(sym.HAVOC_ECF).asList()
             is CallSummary.Nondet -> Token.fromSym(sym.NONDET).asList()
+            is CallSummary.DispatchList -> unresolvedDynamicSummary(ctx)
         }
 
         val summarizationMode = when (ctx.summarizationMode) {

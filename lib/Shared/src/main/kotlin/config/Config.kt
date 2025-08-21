@@ -206,8 +206,10 @@ object Config {
         ConfigType.StringCmdLine(
             null, Option(
                 "listCalls", true,
-                "Writes to the provided file a list of all unresolved calls that exist in the spec after syntax checking succeeded. " +
-                    "This option is only used by the TypeChecker.jar in non `-typecheck` mode."
+                "This option is only used by the TypeChecker.jar in non `-typecheck` mode. " +
+                "If typechecking is disabled (no `-typecheck` flag), writes to the provided file a list of all unresolved calls that exist in the spec. " +
+                    "If typechecking is enabled (`-typecheck` flag is used), returns a list of all internal calls that have no external harness function."
+
             )
         ) {}
 
@@ -901,6 +903,15 @@ object Config {
         Option("excludeMoveRules", true, "List of Move rule names to exclude from the rule set.  Default is none.")
     ) {}
 
+    val MoveCallTraceVecElemCount = object : ConfigType.IntCmdLine(
+        3,
+        Option(
+            "callTraceVecElemCount",
+            true,
+            "The max number of vector element values to display in the call trace.  Default is 3."
+        )
+    ) {}
+
     val SubContract = object : ConfigType.StringCmdLine(
         null,
         Option("subContract", true, "A contract from a Solidity file to be verified")
@@ -1216,6 +1227,15 @@ object Config {
             "equivalenceCheck",
             true,
             "Magic flag that must be set if equivalence checker is run"
+        )
+    ) {}
+
+    val EquivalenceTraceFile = object : ConfigType.StringCmdLine(
+        "",
+        Option(
+            "equivTraceFile",
+            true,
+            "File to write the equivalence counter example to. Omit to print to stdout"
         )
     ) {}
 

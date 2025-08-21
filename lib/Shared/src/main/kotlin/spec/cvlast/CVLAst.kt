@@ -52,7 +52,6 @@ import spec.cvlast.typedescriptors.VMDynamicArrayTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.isWildcard
-import spec.rules.CVLSingleRule
 import spec.rules.ICVLRule
 import utils.*
 import utils.CollectingResult.Companion.asError
@@ -82,41 +81,19 @@ class InvalidParameterType(msg: String) : RuntimeException(msg)
 data class CVLAst(
     val importedMethods: List<MethodBlockEntry>,
     val useDeclarations: UseDeclarations,
-    val rules: List<ICVLRule>,
-    val subs: List<spec.cvlast.CVLFunction>,
-    val invs: List<CVLInvariant>,
+    override val rules: List<ICVLRule>,
+    override val subs: List<spec.cvlast.CVLFunction>,
+    override val invs: List<CVLInvariant>,
     val sorts: List<SortDeclaration>,
-    val ghosts: List<CVLGhostDeclaration>,
-    val definitions: List<spec.cvlast.CVLDefinition>,
-    val hooks: List<CVLHook>,
+    override val ghosts: List<CVLGhostDeclaration>,
+    override val definitions: List<spec.cvlast.CVLDefinition>,
+    override val hooks: List<CVLHook>,
     val importedContracts: List<CVLImportedContract>,
     val importedSpecFiles: List<CVLImportedSpecFile>,
     val overrideDeclarations: OverrideDeclarations,
     /* The scope is guaranteed to be initialized after [CVLScope.addScopes] */
     val scope: CVLScope
-) {
-    /**
-     * @return A sequence of all [CVLCmd]s that exist anywhere in the spec( rule, cvl-function, hook body, etc.)
-     */
-    fun getAllBlocks(): Sequence<CVLCmd> {
-        fun wrapExpWithApplyCmd(exp: CVLExp.UnresolvedApplyExp) =
-            CVLCmd.Simple.Apply(exp.getRangeOrEmpty(), exp, exp.getScope())
-
-        return (
-            rules.flatMap { rule -> (rule as CVLSingleRule).block } +
-            subs.flatMap { sub -> sub.block } +
-            invs.flatMap { inv ->
-                inv.exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().map(::wrapExpWithApplyCmd)
-            } +
-            hooks.flatMap { hook -> hook.block } +
-            ghosts.flatMap<CVLGhostDeclaration, CVLCmd> { ghost ->
-                (ghost as? CVLGhostWithAxiomsAndOldCopy)?.axioms?.flatMap {
-                    it.exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().map(::wrapExpWithApplyCmd)
-                } ?: listOf()
-            }
-        ).asSequence()
-    }
-}
+) : IAstCodeBlocks
 
 interface CreatesScope {
     val scope: CVLScope
@@ -720,10 +697,10 @@ data class SortDeclaration(val sort: CVLType.PureCVLType.Sort, override val rang
 data class ContractTypeDefinition(val name: String, val type: CVLType.PureCVLType): AmbiSerializable
 
 /** parameter used in a signature */
-@Serializable
 @Treapable
-sealed interface TypedParam<T>: AmbiSerializable {
+interface TypedParam<T>: AmbiSerializable {
     val type: T
+    val name: String?
 }
 
 @Serializable
@@ -747,11 +724,12 @@ sealed class VMParam : TypedParam<VMTypeDescriptor> {
      */
     @Serializable
     data class Unnamed(override val vmType: VMTypeDescriptor, override val range: Range) : VMParam() {
+        override val name: String? get() = null
         override fun toString() = "$vmType"
     }
 
     @Serializable
-    data class Named(val name: String, override val vmType: VMTypeDescriptor, override val range: Range, val originalName: String = name) : VMParam() {
+    data class Named(override val name: String, override val vmType: VMTypeDescriptor, override val range: Range, val originalName: String = name) : VMParam() {
         val id: String
             get() = name
 
@@ -768,6 +746,7 @@ data class CVLParam(
     val originalId : String = id,
 ) : TypedParam<CVLType.PureCVLType> {
     override fun toString(): String = "$type $originalId"
+    override val name get() = id
 }
 
 
@@ -3466,10 +3445,18 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
         val invokeIsWhole: Boolean = false
     ) : ApplicationExp() {
 
+        interface WhitelistedUnresolvedFunc : ExpressionAnnotation
+
         @Serializable
-        object VirtualFunc : ExpressionAnnotation {
+        object VirtualFunc : WhitelistedUnresolvedFunc {
             override fun hashCode() = utils.hashObject(this)
             private fun readResolve(): Any = VirtualFunc
+        }
+
+        @Serializable
+        object ListedInternalFunc : WhitelistedUnresolvedFunc {
+            override fun hashCode() = utils.hashObject(this)
+            private fun readResolve(): Any = ListedInternalFunc
         }
 
         override val callableName: String

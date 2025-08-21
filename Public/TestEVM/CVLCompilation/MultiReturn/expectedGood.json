@@ -1,0 +1,8 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+		"returnsLiteralWorks": "SUCCESS"
+	}
+}

@@ -60,7 +60,7 @@ class CVLMethodsBlockTypeChecker(
      */
     private fun typeCheckCatchUnresolvedAnnotation(symbolTable: CVLSymbolTable, entry: CatchUnresolvedSummaryAnnotation)
     : CollectingResult<MethodBlockEntry, CVLError>  {
-        return typeCheckDispatchListSummary(symbolTable, entry.dispatchList).map { entry }
+        return typeCheckDispatchListSummary(symbolTable, entry.dispatchList, null).map { entry }
     }
 
     /**
@@ -166,7 +166,7 @@ class CVLMethodsBlockTypeChecker(
             // always well typed:
             is SpecCallSummary.HavocSummary.Nondet -> typeCheckNondetSummary(summary, res, entry)
             is SpecCallSummary.HavocSummary -> summary.lift()
-            is SpecCallSummary.DispatchList -> typeCheckDispatchListSummary(symbolTable, summary)
+            is SpecCallSummary.DispatchList -> typeCheckDispatchListSummary(symbolTable, summary, entry)
             is SpecCallSummary.Reroute -> typeCheckRerouteSummary(symbolTable, entry, summary)
         }
     }
@@ -481,7 +481,7 @@ class CVLMethodsBlockTypeChecker(
         }
     }
 
-    private fun typeCheckDispatchListSummary(symbolTable: CVLSymbolTable, dispatchList: SpecCallSummary.DispatchList) = collectingErrors {
+    private fun typeCheckDispatchListSummary(symbolTable: CVLSymbolTable, dispatchList: SpecCallSummary.DispatchList, entry: ConcreteMethodBlockAnnotation?) = collectingErrors {
         check(dispatchList.summarizationMode == SpecCallSummary.SummarizationMode.UNRESOLVED_ONLY) {
             "Dispatch list should only be applied to unresolved summaries."
         }
@@ -489,7 +489,9 @@ class CVLMethodsBlockTypeChecker(
             when(p) {
                 is SpecCallSummary.DispatchList.Pattern.QualifiedMethod -> {
                     check(p.sig.sighashInt != null) {"Expecting to always know sighash of methods in dispatch list patterns"}
-                    if (symbolTable.getContractScope(p.sig.qualifiedMethodName.host) == null) {
+                    if (entry != null && !p.sig.matchesNameAndParams(entry.methodParameterSignature)) {
+                        collectError(DispatchListWithMismatchedMethodSig(p, entry.methodParameterSignature))
+                    } else if (symbolTable.getContractScope(p.sig.qualifiedMethodName.host) == null) {
                         collectError(DispatchListContractNotFound(p))
                     } else {
                         val info = symbolTable.lookupMethodInContractEnv(p.sig.qualifiedMethodName.host, p.sig.qualifiedMethodName.methodId)
@@ -500,19 +502,25 @@ class CVLMethodsBlockTypeChecker(
                 }
                 is SpecCallSummary.DispatchList.Pattern.WildcardContract -> {
                     check(p.sig.sighashInt != null) {"Expecting to always know sighash of methods in dispatch list patterns"}
-                    val scopes = symbolTable.getAllContractScopes()
-                    val anyMatching = scopes.any {scope ->
-                        val info = symbolTable.lookUpFunctionLikeSymbol(p.sig.functionName, scope)
-                        checkFuncForOverload(info, p.sig.sighashInt!!.n )
-                    }
-                    if (!anyMatching) {
-                        collectError(DispatchListNoMatchingMethodFound(p))
+                    if (entry != null && !p.sig.matchesNameAndParams(entry.methodParameterSignature)) {
+                        collectError(DispatchListWithMismatchedMethodSig(p, entry.methodParameterSignature))
+                    } else {
+                        val scopes = symbolTable.getAllContractScopes()
+                        val anyMatching = scopes.any { scope ->
+                            val info = symbolTable.lookUpFunctionLikeSymbol(p.sig.functionName, scope)
+                            checkFuncForOverload(info, p.sig.sighashInt!!.n)
+                        }
+                        if (!anyMatching) {
+                            collectError(DispatchListNoMatchingMethodFound(p))
+                        }
                     }
                 }
-                is SpecCallSummary.DispatchList.Pattern.WildcardMethod ->
+                is SpecCallSummary.DispatchList.Pattern.WildcardMethod -> {
+                    check(entry == null || dispatchList.useFallback) { "We should have replaced the wildcard method in the dispatch list for an entry with given sighash and no use_fallback" }
                     if (null == symbolTable.getContractNameFromContractId(p.contract.contract)) {
                         collectError(DispatchListContractNotFound(p))
                     }
+                }
             }
         }
         dispatchList

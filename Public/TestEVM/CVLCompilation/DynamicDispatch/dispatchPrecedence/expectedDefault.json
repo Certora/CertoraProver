@@ -1,0 +1,15 @@
+{
+	"assertMessages": {
+		"dispatchListCallstackPrecedence": "currentContract.n == 3 - c.spec line 49",
+		"dispatchListDirectFromCVL": "d.n == 1 - c.spec line 64",
+		"recursiveInlining": "currentContract.n == 3 - c.spec line 40",
+		"wildcardContractIsInlined": "currentContract.n == 1 - c.spec line 29"
+	},
+	"rules": {
+		"dispatchListCallstackPrecedence": "SUCCESS",
+		"dispatchListDirectFromCVL": "SUCCESS",
+		"innerExternalCallNotDispatched": "SUCCESS",
+		"recursiveInlining": "SUCCESS",
+		"wildcardContractIsInlined": "SUCCESS"
+	}
+}

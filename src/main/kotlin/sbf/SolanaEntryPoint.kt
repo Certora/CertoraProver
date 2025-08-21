@@ -28,7 +28,6 @@ import sbf.callgraph.*
 import sbf.disassembler.*
 import sbf.inliner.*
 import sbf.analysis.*
-import sbf.domains.MemorySummaries
 import sbf.output.annotateWithTypes
 import sbf.slicer.*
 import sbf.support.*
@@ -38,10 +37,10 @@ import org.jetbrains.annotations.TestOnly
 import report.CVTAlertReporter
 import report.CVTAlertSeverity
 import report.CVTAlertType
-import sbf.analysis.cpis.getCpiCalls
-import sbf.callgraph.replaceCpis
+import sbf.analysis.cpis.InvokeInstructionListener
+import sbf.analysis.cpis.getInvokes
 import sbf.cfg.*
-import sbf.domains.ConstantSet
+import sbf.domains.*
 import utils.Range
 import spec.cvlast.RuleIdentifier
 import spec.rules.EcosystemAgnosticRule
@@ -65,6 +64,9 @@ data class CompiledSolanaRule(
 // Any rule name with these suffixes will be considered a vacuity/sanity rule
 const val devVacuitySuffix = "\$sanity"
 const val vacuitySuffix = "rule_not_vacuous_cvlr"
+
+// SBF type factory used by WholeProgramMemoryAnalysis
+private val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
 
 /* Entry point to the Solana SBF front-end */
 @Suppress("ForbiddenMethodCall")
@@ -195,17 +197,17 @@ private fun solanaRuleToTAC(rule: EcosystemAgnosticRule,
         analyzedProg.toDot(ArtifactManagerFactory().outputDir, true)
     }
 
-    // 3. Perform memory analysis to map each memory operation to a memory partitioning
-    val programAnalysis = getMemoryAnalysis(target, analyzedProg, memSummaries)
+    // 3. (Optional) Remove CPI calls
+    val progWithoutCPICalls = lowerCPICalls(target, analyzedProg, inliningConfig, memSummaries, start0)
 
-    // 4. Substitute CPI calls if required
-    val (progAfterCPICallSubstitution, analysisResults) =
-        runCpisSubstitution(programAnalysis, target, inliningConfig, start0, memSummaries, analyzedProg)
+    // 4. Perform memory analysis to map each memory operation to a memory partitioning
+    val analysisResults =
+        getMemoryAnalysis(target, progWithoutCPICalls, memSummaries, sbfTypesFac, processor = null)?.getResults()
 
     // 5. Convert to TAC
     sbfLogger.info { "[$target] Started translation to CoreTACProgram" }
     val start2 = System.currentTimeMillis()
-    val coreTAC = sbfCFGsToTAC(progAfterCPICallSubstitution, memSummaries, globalsSymbolTable, analysisResults)
+    val coreTAC = sbfCFGsToTAC(progWithoutCPICalls, memSummaries, globalsSymbolTable, analysisResults)
     val isSatisfyRule = hasSatisfy(coreTAC)
     val end2 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished translation to CoreTACProgram in ${(end2 - start2) / 1000}s" }
@@ -224,34 +226,20 @@ private fun solanaRuleToTAC(rule: EcosystemAgnosticRule,
     return attachRangeToRule(rule, optCoreTAC, isSatisfyRule)
 }
 
-private fun runCpisSubstitution(
-    programAnalysis: WholeProgramMemoryAnalysis?,
-    target: CfgName,
-    inliningConfig: InlinerConfig,
-    start0: Long,
-    memSummaries: MemorySummaries,
-    analyzedProg: SbfCallGraph
-): Pair<SbfCallGraph, Map<String, MemoryAnalysis<ConstantSet, ConstantSet>>?> {
-    if (!SolanaConfig.EnableCpiAnalysis.get() || programAnalysis == null) {
-        return (analyzedProg to programAnalysis?.getResults())
-    }
-    val newCallGraph = substituteCpiCalls(programAnalysis, target, inliningConfig, start0)
-    val analysis = getMemoryAnalysis(target, newCallGraph, memSummaries)
-    if (analysis == null) {
-        return (analyzedProg to programAnalysis.getResults())
-    }
-    return (newCallGraph to analysis.getResults())
-}
-
-private fun getMemoryAnalysis(
+/**
+ * Run memory analysis and, optionally, process each instruction with [processor]
+ */
+private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getMemoryAnalysis(
     target: String,
-    analyzedProg: SbfCallGraph,
-    memSummaries: MemorySummaries
-): WholeProgramMemoryAnalysis? = if (SolanaConfig.UsePTA.get()) {
+    program: SbfCallGraph,
+    memSummaries: MemorySummaries,
+    sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
+    processor: InstructionListener<MemoryDomain<TNum, TOffset>>?
+): WholeProgramMemoryAnalysis<TNum, TOffset>? = if (SolanaConfig.UsePTA.get()) {
     sbfLogger.info { "[$target] Started whole-program memory analysis " }
 
     val start = System.currentTimeMillis()
-    val analysis = WholeProgramMemoryAnalysis(analyzedProg, memSummaries)
+    val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, processor)
     try {
         analysis.inferAll()
     } catch (e: PointerAnalysisError) {
@@ -263,7 +251,7 @@ private fun getMemoryAnalysis(
             is UnknownGlobalDerefError,
             is UnknownStackContentError,
             is UnknownMemcpyLenError,
-            is DerefOfAbsoluteAddressError -> explainPTAError(e, analyzedProg, memSummaries)
+            is DerefOfAbsoluteAddressError -> explainPTAError(e, program, memSummaries)
 
             else -> {}
         }
@@ -276,33 +264,40 @@ private fun getMemoryAnalysis(
         sbfLogger.info { "[$target] Whole-program memory analysis results:\n${analysis}" }
     }
     if (SolanaConfig.PrintResultsToDot.get()) {
-        sbfLogger.info { "[$target] Writing CFGs annotated with invariants to .dot files" }
+        sbfLogger.info { "[$target] Writing CFGs annotated with PTA graphs to .dot files" }
         // Print CFG + invariants (only PTA graphs)
         analysis.toDot(printInvariants = true)
-        analysis.dumpPTAGraphsSelectively(target)
+    }
+    val blocksToDump = SolanaConfig.DumpPTAGraphsToDot.getOrNull()
+    if (blocksToDump != null && blocksToDump.isNotEmpty()) {
+        analysis.dumpPTAGraphsSelectively(ArtifactManagerFactory().outputDir, target) { b ->
+            blocksToDump.contains(b.getLabel().toString())
+        }
     }
     analysis
 } else {
     null
 }
 
-private fun substituteCpiCalls(
-    analysis: WholeProgramMemoryAnalysis,
-    target: String,
+/**
+ * Try to replace CPI calls (i.e., `invoke` or `invoke_signed calls`) with direct calls
+ */
+private fun lowerCPICalls(
+    target: CfgName,
+    program: SbfCallGraph,
     inliningConfig: InlinerConfig,
-    start0: Long
+    memSummaries: MemorySummaries,
+    start: Long
 ): SbfCallGraph {
-    val cpiCalls = getCpiCalls(analysis)
-    val p1 = replaceCpis(analysis.program, cpiCalls)
-    // We need to inline the code of the mocks for the CPI calls
-    val p2 = inline(target, target, p1, analysis.memSummaries, inliningConfig)
-    val p3 = annotateWithTypes(p2, analysis.memSummaries)
-    // Since we injected new code, this might create new unreachable blocks
-    val p4 = sliceAndPTAOptLoop(target, p3, analysis.memSummaries, start0)
-    if (SolanaConfig.PrintAnalyzedToDot.get()) {
-        p4.toDot(ArtifactManagerFactory().outputDir, true)
+    if (!SolanaConfig.EnableCpiAnalysis.get()) {
+        return program
     }
-    return p4
+    val invokes = getInvokes(program)
+    val processor = InvokeInstructionListener<ConstantSet, ConstantSet>(invokes, program.getGlobals())
+    val memAnalysis = getMemoryAnalysis(target, program, memSummaries, sbfTypesFac, processor = processor)
+        ?: return program
+    val cpiCalls = processor.getCpis()
+    return substituteCpiCalls(memAnalysis, target, cpiCalls, inliningConfig, start)
 }
 
 /**
@@ -320,7 +315,7 @@ private fun attachRangeToRule(
         // If the rule has been generated from a basic rule, then we have to update the parent rule range.
         // It would be more elegant to generate the original rule with the correct range, but [getRuleRange] relies on
         // annotation commands that can be generated only after the static analysis.
-        // In fact, those annotations need the value and pointer analysis to be executed to be able to infer the compile
+        // In fact, those annotations need the value and pointer analysis to be executed to be able to infer at compile
         // time constants that represent the file name and the line number.
         val parentRule = rule.ruleType.getOriginatingRule() as EcosystemAgnosticRule
         // Since this rule has been generated, we need to first get the name of the parent rule, and resolve the range
@@ -350,7 +345,7 @@ private fun attachRangeToRule(
  * location associated with such command.
  * If there are no [RuleLocationAnnotation] or the location does not exist in the uploaded files, returns
  * [Range.Empty].
- * If there are multiple [RuleLocationAnnotation], selects nondeterministically one to read the
+ * If there are multiple [RuleLocationAnnotation], selects non-deterministically one to read the
  * location from. If in the rules `CVT_rule_location` is called exactly once as the first instruction, this never
  * happens.
  */

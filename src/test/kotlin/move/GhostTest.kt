@@ -35,7 +35,7 @@ class GhostTest : MoveTestFixture() {
             use 0::ghosts::ghost;
             fun test() {
                 *ghost() = 1234;
-                cvlm_assert!(*ghost() == 1234);
+                cvlm_assert(*ghost() == 1234);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -56,8 +56,8 @@ class GhostTest : MoveTestFixture() {
             fun test() {
                 *ghost<u32>() = 1234;
                 *ghost<u64>() = 5678;
-                cvlm_assert!(*ghost<u32>() == 1234);
-                cvlm_assert!(*ghost<u64>() == 5678);
+                cvlm_assert(*ghost<u32>() == 1234);
+                cvlm_assert(*ghost<u64>() == 5678);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -78,8 +78,8 @@ class GhostTest : MoveTestFixture() {
             fun test() {
                 *ghost(1) = 1234;
                 *ghost(2) = 5678;
-                cvlm_assert!(*ghost(1) == 1234);
-                cvlm_assert!(*ghost(2) == 5678);
+                cvlm_assert(*ghost(1) == 1234);
+                cvlm_assert(*ghost(2) == 5678);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -102,10 +102,10 @@ class GhostTest : MoveTestFixture() {
                 *ghost<u32>(2) = 34;
                 *ghost<u64>(1) = 56;
                 *ghost<u64>(2) = 78;
-                cvlm_assert!(*ghost<u32>(1) == 12);
-                cvlm_assert!(*ghost<u32>(2) == 34);
-                cvlm_assert!(*ghost<u64>(1) == 56);
-                cvlm_assert!(*ghost<u64>(2) == 78);
+                cvlm_assert(*ghost<u32>(1) == 12);
+                cvlm_assert(*ghost<u32>(2) == 34);
+                cvlm_assert(*ghost<u64>(1) == 56);
+                cvlm_assert(*ghost<u64>(2) == 78);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -128,10 +128,10 @@ class GhostTest : MoveTestFixture() {
                 *ghost(1, 2) = 34;
                 *ghost(2, 1) = 56;
                 *ghost(2, 2) = 78;
-                cvlm_assert!(*ghost(1, 1) == 12);
-                cvlm_assert!(*ghost(1, 2) == 34);
-                cvlm_assert!(*ghost(2, 1) == 56);
-                cvlm_assert!(*ghost(2, 2) == 78);
+                cvlm_assert(*ghost(1, 1) == 12);
+                cvlm_assert(*ghost(1, 2) == 34);
+                cvlm_assert(*ghost(2, 1) == 56);
+                cvlm_assert(*ghost(2, 2) == 78);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -160,10 +160,10 @@ class GhostTest : MoveTestFixture() {
                 *ghost(1, 1).y() = 34;
                 *ghost(2, 1).x() = 56;
                 *ghost(2, 1).y() = 78;
-                cvlm_assert!(ghost(1, 1).x() == 12);
-                cvlm_assert!(ghost(1, 1).y() == 34);
-                cvlm_assert!(ghost(2, 1).x() == 56);
-                cvlm_assert!(ghost(2, 1).y() == 78);
+                cvlm_assert(ghost(1, 1).x() == 12);
+                cvlm_assert(ghost(1, 1).y() == 34);
+                cvlm_assert(ghost(2, 1).x() == 56);
+                cvlm_assert(ghost(2, 1).y() == 78);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -186,10 +186,10 @@ class GhostTest : MoveTestFixture() {
                 *ghost<u32>(1, 2) = 34;
                 *ghost<u64>(2, 1) = 56;
                 *ghost<u64>(2, 2) = 78;
-                cvlm_assert!(*ghost<u32>(1, 1) == 12);
-                cvlm_assert!(*ghost<u32>(1, 2) == 34);
-                cvlm_assert!(*ghost<u64>(2, 1) == 56);
-                cvlm_assert!(*ghost<u64>(2, 2) == 78);
+                cvlm_assert(*ghost<u32>(1, 1) == 12);
+                cvlm_assert(*ghost<u32>(1, 2) == 34);
+                cvlm_assert(*ghost<u64>(2, 1) == 56);
+                cvlm_assert(*ghost<u64>(2, 2) == 78);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -217,10 +217,10 @@ class GhostTest : MoveTestFixture() {
                 *ghost(ghost_key(1, 2)) = 34;
                 *ghost(ghost_key(2, 1)) = 56;
                 *ghost(ghost_key(2, 2)) = 78;
-                cvlm_assert!(*ghost(ghost_key(1, 1)) == 12);
-                cvlm_assert!(*ghost(ghost_key(1, 2)) == 34);
-                cvlm_assert!(*ghost(ghost_key(2, 1)) == 56);
-                cvlm_assert!(*ghost(ghost_key(2, 2)) == 78);
+                cvlm_assert(*ghost(ghost_key(1, 1)) == 12);
+                cvlm_assert(*ghost(ghost_key(1, 2)) == 34);
+                cvlm_assert(*ghost(ghost_key(2, 1)) == 56);
+                cvlm_assert(*ghost(ghost_key(2, 2)) == 78);
             }
         """.trimIndent())
         assertTrue(verify())
@@ -241,7 +241,7 @@ class GhostTest : MoveTestFixture() {
             fun test() {
                 let key = 1;
                 *ghost(&key) = 12;
-                cvlm_assert!(*ghost(&key) == 12);
+                cvlm_assert(*ghost(&key) == 12);
             }
         """.trimIndent())
         assertTrue(verify())

@@ -56,12 +56,12 @@ data class CVL(
     val name: String,
     val primaryContract: SolidityContract,
     val importedFuncs: Map<ContractInstanceInSDC, List<ContractFunction>>, // only funcs from "methods" section, usually one needs to use "availableMethods"
-    val rules: List<ICVLRule>,
-    val subs: List<CVLFunction>,
+    override val rules: List<ICVLRule>,
+    override val subs: List<CVLFunction>,
     val invariants: List<CVLInvariant>,
     val sorts: List<SortDeclaration>,
-    val ghosts: List<CVLGhostDeclaration>,
-    val hooks: List<CVLHook>,
+    override val ghosts: List<CVLGhostDeclaration>,
+    override val hooks: List<CVLHook>,
     val symbolTable: CVLSymbolTable,
     val importedContracts: List<CVLImportedContract>,
     val astScope: CVLScope, // the tippy-top, big-daddy scope of the AST
@@ -69,8 +69,12 @@ data class CVL(
     val external: Map<SummarySignature.External, SpecCallSummary.ExpressibleInCVL>,
     override val unresolvedSummaries: Map<SummarySignature.External, SpecCallSummary.DispatchList>,
     val methodFilters: Map<RuleIdentifier, Map<String, List<Method>>> /* rule-identifier -> method-param-name -> list of usable methods */
-) : IWithSummaryInfo {
+) : IAstCodeBlocks, IWithSummaryInfo {
 
+    override val invs: List<CVLInvariant>
+        get() = invariants
+    override val definitions: List<CVLDefinition>
+        get() = listOf()
     override val internalSummaries: Map<SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>
         get() = internal
     override val externalSummaries: Map<SummarySignature.External, SpecCallSummary.ExpressibleInCVL>

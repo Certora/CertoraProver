@@ -25,11 +25,10 @@ import evm.MAX_EVM_UINT256
 import log.*
 import smt.axiomgenerators.fullinstantiation.StorageHashAxiomGeneratorPlainInjectivity
 import tac.Tag
-import vc.data.TACBuiltInFunction
+import utils.*
+import vc.data.*
+import vc.data.tacexprutil.*
 import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
-import vc.data.TACCmd
-import vc.data.TACExpr
-import vc.data.TACSymbol
 import java.math.BigInteger
 
 
@@ -68,7 +67,7 @@ value class SkeyInfo(val isSkey: Boolean) {
  *
  *  [AnnotateSkeyBifs] uses the information collected here to transform the program.
  */
-class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<SkeyInfo>(
+class SkeyDetection private constructor(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<SkeyInfo>(
     tacCommandGraph,
     object : JoinLattice<SkeyInfo> {
         override fun join(x: SkeyInfo, y: SkeyInfo): SkeyInfo = x join y
@@ -78,12 +77,6 @@ class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<Skey
     ExpDirection.FORWARD
 ) {
 
-    /** when some function like BwAnd is applied to an skey */
-    private var detectedFunctionAppliedToSkey: Boolean = false
-
-    private var detectedSkeyStoredToArray: Boolean = false
-
-    private val eqComparisons = mutableSetOf<ExpPointer>()
     private val assignments = mutableSetOf<LTACCmdView<TACCmd.Simple.AssigningCmd>>()
 
     /** contains all the variables in the program that have skey type according to the [SkeyDetection]. */
@@ -95,13 +88,10 @@ class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<Skey
     }
 
     val result = run {
-        SkeyDetectionResult(
+        SkeyDetectionResult.Full(
             graph = tacCommandGraph,
             expOut = expOut,
-            eqComparisons = eqComparisons,
             skeyVars = skeyVars,
-            detectedFunctionAppliedToSkey = detectedFunctionAppliedToSkey,
-            detectedSkeyStoredToArray = detectedSkeyStoredToArray,
         )
     }
 
@@ -167,14 +157,10 @@ class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<Skey
             }
 
             is TACExpr.Store -> {
-                if (inState[2].isSkey) {
-                    detectedSkeyStoredToArray = true
-                }
                 bottom
             }
 
             is TACExpr.BinRel.Eq -> {
-                eqComparisons.add(exp.ptr)
                 bottom
             }
 
@@ -185,9 +171,6 @@ class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<Skey
                 if (inState[0].isSkey && e.o2.evalAsConst() == BigInteger.ZERO) {
                     error("the shift operation \"$e\" is a noop -- the DropBwNops optimization should have " +
                         "eliminated it before this point")
-                } else if(inState.any { it.isSkey }) {
-                    detectedFunctionAppliedToSkey = true
-                    bottom
                 } else {
                     bottom
                 }
@@ -202,7 +185,6 @@ class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<Skey
                                 "it before this point")
 
                         else -> {
-                            detectedFunctionAppliedToSkey = true
                             bottom
                         }
                     }
@@ -263,7 +245,6 @@ class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<Skey
                         logger.warn {
                             "Earlier pass in pipeline as to translate $e to an skey, but it already is"
                         }
-                        detectedFunctionAppliedToSkey = true
                         bottom
                     } else {
                         SkeyInfo(isSkey = true)
@@ -283,7 +264,6 @@ class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<Skey
                         "One of the arguments of a TAC expression ($e) that is not a store, select, eq, lt, gt was " +
                                 "marked as an skey"
                     }
-                    detectedFunctionAppliedToSkey = true
                 }
                 bottom
             }
@@ -326,31 +306,62 @@ class SkeyDetection(tacCommandGraph: TACCommandGraph) : ExpDataflowAnalysis<Skey
                 else -> false
             }
 
+
+        fun run(code: CoreTACProgram): SkeyDetectionResult {
+            // Do a quick check first to see if there are *any* SimpleHash expressions that require large gaps.  Many
+            // TAC programs do not need the full analysis.
+            val anySkey = code.parallelLtacStream().anyMatch { (_, cmd) ->
+                cmd.exprs().any { exp ->
+                    exp.subs.any { sub ->
+                        when (sub) {
+                            is TACExpr.SimpleHash -> sub.hashFamily.requiresLargeGaps
+                            is TACExpr.Apply -> when (sub.f) {
+                                TACBuiltInFunction.ToStorageKey.toTACFunctionSym() -> true
+                                else -> false
+                            }
+                            else -> false
+                        }
+                    }
+                }
+            }
+            return if (anySkey) {
+                SkeyDetection(code.analysisCache.graph).result
+            } else {
+                SkeyDetectionResult.None
+            }
+        }
     }
 }
+
 
 /**
  * The final result of the [SkeyDetection], used by [AnnotateSkeyBifs] as well as
  * [StorageHashAxiomGeneratorPlainInjectivity].
  */
-data class SkeyDetectionResult(
-    val graph: TACCommandGraph,
-    val expOut: Map<ExpPointer, SkeyInfo>,
-    val eqComparisons: Set<ExpPointer>,
-    val skeyVars: Set<TACSymbol.Var>,
-    val detectedFunctionAppliedToSkey: Boolean,
-    val detectedSkeyStoredToArray: Boolean,
-) {
-    fun isSkey(exp: ExpPointer): Boolean = getAnalysisResult(exp).isSkey
+sealed class SkeyDetectionResult {
+    abstract val skeyVars: Set<TACSymbol.Var>
+    abstract fun isSkey(exp: ExpPointer): Boolean
 
-    fun getAnalysisResult(exp: ExpPointer): SkeyInfo = expOut[exp] ?: run {
-            val ltacCmd = graph.elab(exp.cmdPointer)
-            if (ltacCmd.cmd is TACCmd.Simple.AssigningCmd) {
-                logger.debug {
-                    "Got no analysis result for expression pointer $exp (points to: exp ${graph.elab(exp)} in command $ltacCmd)."
+    data class Full(
+        private val graph: TACCommandGraph,
+        private val expOut: Map<ExpPointer, SkeyInfo>,
+        override val skeyVars: Set<TACSymbol.Var>,
+    ) : SkeyDetectionResult() {
+        override fun isSkey(exp: ExpPointer): Boolean = getAnalysisResult(exp).isSkey
+
+        fun getAnalysisResult(exp: ExpPointer): SkeyInfo = expOut[exp] ?: run {
+                val ltacCmd = graph.elab(exp.cmdPointer)
+                if (ltacCmd.cmd is TACCmd.Simple.AssigningCmd) {
+                    logger.debug {
+                        "Got no analysis result for expression pointer $exp (points to: exp ${graph.elab(exp)} in command $ltacCmd)."
+                    }
                 }
-            }
-        SkeyInfo.Bottom
+            SkeyInfo.Bottom
+        }
     }
 
+    object None : SkeyDetectionResult() {
+        override val skeyVars: Set<TACSymbol.Var> = emptySet()
+        override fun isSkey(exp: ExpPointer): Boolean = false
+    }
 }

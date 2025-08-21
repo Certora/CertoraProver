@@ -2526,10 +2526,11 @@ sealed class TACCmd : Serializable, ITACCmd {
         data class VecBorrowCmd(
             val dstRef: TACSymbol.Var,
             val srcRef: TACSymbol.Var,
-            val index: TACSymbol.Var,
+            val index: TACSymbol,
+            val doBoundsCheck: Boolean = true,
             override val meta: MetaMap = MetaMap()
         ) : Move(), Borrow {
-            override fun argString(): String = "$dstRef $srcRef $index"
+            override fun argString(): String = "$dstRef $srcRef $index $doBoundsCheck"
             override fun toString(): String = super.toString() // opt out of generated toString
             override val modifiedVars get() = setOf(dstRef)
             init {

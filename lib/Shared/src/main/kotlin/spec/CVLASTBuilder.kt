@@ -135,7 +135,7 @@ class CVLAstBuilder(
         collect(validateMethodChoices(functionInfo.values.flatten(), mainContract.name))
 
         ast = bind(CleanEmptyHooks.check(ast))
-        ast = bind(SingleVariableDefinitionChecker().check(ast))
+        ast = bind(SingleVariableDefinitionChecker(contracts.map { it.name }).check(ast))
         ast = bind(QuantifierVarRenamer().ast(ast))
         ast = bind(generateAndAddExtraRules(ast, functionInfo, mainContract.name))
 

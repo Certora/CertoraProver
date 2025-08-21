@@ -76,8 +76,8 @@ class MemoryMemsetTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(4040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         val locInst = LocatedSbfInstruction(Label.Address(0), 0, SolanaFunction.toCallInst(SolanaFunction.SOL_MEMSET))
         sbfLogger.warn { "Before memset(r1,r2,24)\n$g" }
         g.doMemset(locInst, scalars, newGlobalVariableMap())
@@ -114,7 +114,7 @@ class MemoryMemsetTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(4040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
+        scalars.setScalarValue(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
         val locInst = LocatedSbfInstruction(Label.Address(0), 0, SolanaFunction.toCallInst(SolanaFunction.SOL_MEMSET))
         sbfLogger.warn { "Before memset(r1,r2,24)\n$g" }
         g.doMemset(locInst, scalars, newGlobalVariableMap())
@@ -149,8 +149,8 @@ class MemoryMemsetTest {
         g.setRegCell(r1, heapNode.createSymCell(0))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         val locInst = LocatedSbfInstruction(Label.Address(0), 0, SolanaFunction.toCallInst(SolanaFunction.SOL_MEMSET))
         sbfLogger.warn { "Before memset(r1,r2,24)\n$g" }
         g.doMemset(locInst, scalars, newGlobalVariableMap())

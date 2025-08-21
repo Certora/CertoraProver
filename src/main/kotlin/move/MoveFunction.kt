@@ -19,6 +19,7 @@ package move
 
 import datastructures.stdcollections.*
 import java.util.Objects
+import spec.cvlast.TypedParam
 import utils.*
 
 /**
@@ -92,6 +93,38 @@ class MoveFunction private constructor(
             }
         }
     }
+
+    /** The display name (if available) and type of a function parameter */
+    @KSerializable
+    data class DisplayParam(
+        override val name: String?,
+        override val type: MoveType
+    ) : TypedParam<MoveType> {
+        override fun toString() = name?.let { "$it: $type" } ?: "$type"
+    }
+
+    /**
+        The display names (where available) and types of the function's parameters.
+     */
+    val displayParams: List<DisplayParam> by lazy {
+        val sourceParams = scene.sourceContext[definition]?.parameters
+            ?: return@lazy params.map { DisplayParam(null, it) }
+
+        check(sourceParams.size == params.size) {
+            "Parameter names size ${sourceParams.size} does not match params size ${params.size} for function $name"
+        }
+        sourceParams.zip(params).map { (param, type) ->
+            DisplayParam(param.name, type)
+        }
+    }
+
+    /**
+        The source range of the function definition, if available.
+     */
+    val range: Range.Range? get() =
+        scene.sourceContext.tacMeta(
+            scene.sourceContext[definition]?.location
+        )?.getSourceDetails()?.range
 
     companion object {
         context(MoveScene)

@@ -29,6 +29,40 @@ import datastructures.stdcollections.*
  *
  */
 internal sealed interface ExternalCall : IEvent {
+    sealed interface ReturnDataSample {
+        data class Complete(
+            val values: List<BigInteger>
+        ) : ReturnDataSample {
+            override fun prettyPrint(): String {
+                return if(values.isEmpty()) {
+                    "! Empty buffer"
+                } else {
+                    values.joinToString("") { v ->
+                        v.toString(16).padStart(64, '0')
+                    }
+                }
+            }
+        }
+
+        data object None: ReturnDataSample {
+            override fun prettyPrint(): String {
+                return "! No data collected"
+            }
+        }
+        data class Prefix(
+            val values: List<BigInteger>,
+            val bytesMissing: BigInteger
+        ) : ReturnDataSample {
+            override fun prettyPrint(): String {
+                return values.joinToString("") { v ->
+                    v.toString(16).padStart(64, '0')
+                } + "... missing $bytesMissing more bytes"
+            }
+        }
+
+        fun prettyPrint(): String
+    }
+
     /**
      * An external call whose details were fully resolved. Implements the [EventWithData] interface.
      */
@@ -57,6 +91,11 @@ internal sealed interface ExternalCall : IEvent {
          * The calldata as a list of bytes or an explanation for why we couldn't extract it
          */
         val calldata: Either<List<UByte>, String>,
+
+        /**
+         * sample of return data
+         */
+        val returnData: ReturnDataSample
     ) : ExternalCall, EventWithData {
         override val params: List<EventParam>
             get() = listOf(
@@ -83,6 +122,10 @@ internal sealed interface ExternalCall : IEvent {
                     ContextLabel.ExternalCallLabel.RETURNSIZE,
                     returnSize.toString()
                 ),
+                EventParam(
+                    ContextLabel.ExternalCallLabel.RETURNDATA,
+                    returnData.prettyPrint()
+                )
             )
         override val sort: BufferTraceInstrumentation.TraceEventSort
             get() = BufferTraceInstrumentation.TraceEventSort.EXTERNAL_CALL
@@ -105,7 +148,9 @@ internal sealed interface ExternalCall : IEvent {
                 "\t The callee codesize was chosen as: $calleeCodesize\n" +
                 "\t The call result was:\n" +
                 "\t\t $resultStr\n" +
-                "\t\t With a buffer of length: $returnSize"
+                "\t\t With a buffer of length: $returnSize\n" +
+                "\t\t The returned buffer model is:\n" +
+                "\t\t\t " + returnData.prettyPrint() + "\n"
         }
     }
 

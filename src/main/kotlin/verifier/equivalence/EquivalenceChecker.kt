@@ -40,7 +40,9 @@ import vc.data.*
 import verifier.equivalence.cex.*
 import verifier.equivalence.data.*
 import verifier.equivalence.tracing.BufferTraceInstrumentation
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 
@@ -136,6 +138,9 @@ class EquivalenceChecker private constructor(
                     "Need to set ${Config.EquivalenceCheck.option.opt} in equivalence checker mode"
                 )
             }
+
+            Logger.always("WARNING: Concord is still extremely experimental, and should not be used in production contexts", respectQuiet = false)
+
             val methodChoice = Config.MethodChoices.orEmpty().singleOrNull() ?: throw CertoraException(
                 CertoraErrorType.BAD_CONFIG,
                 "Missing single method choice"
@@ -222,6 +227,12 @@ class EquivalenceChecker private constructor(
              */
             val diffExplanation: MismatchExplanation
         ) : SatInterpretation
+    }
+
+    private interface OutputF : AutoCloseable {
+        fun print(s: String)
+
+        operator fun invoke(s: String) = print(s)
     }
 
     private suspend fun checkEquivalence() : RuleCheckResult {
@@ -337,6 +348,7 @@ class EquivalenceChecker private constructor(
                                 BufferTraceInstrumentation.TraceEventSort.LOG -> "Log Emit"
                                 BufferTraceInstrumentation.TraceEventSort.EXTERNAL_CALL -> "External Call"
                                 BufferTraceInstrumentation.TraceEventSort.INTERNAL_SUMMARY_CALL -> "Internal Call"
+                                BufferTraceInstrumentation.TraceEventSort.RESULT -> "Result"
                             })
                             if(sort.showBuffer) {
                                 val r = bufferRepr?.asBufferRepr("")
@@ -453,14 +465,32 @@ class EquivalenceChecker private constructor(
                     }
                 }
 
+                val outputFunction = Config.EquivalenceTraceFile.get().takeIf { f -> f.isNotBlank() }?.let { f ->
+                    val o = BufferedOutputStream(FileOutputStream(File(f))).bufferedWriter()
+                    object : OutputF {
+                        override fun close() {
+                            o.close()
+                        }
 
+                        override fun print(s: String) {
+                            o.write(s)
+                        }
+                    };
+                } ?: object : OutputF {
+                    override fun print(s: String) {
+                        println(s)
+                    }
+
+                    override fun close() {
+                    }
+                }
                 if(interp.priorEventsA != null) {
-                    println("There were ${interp.priorEventsA.size} call(s) prior to this event:")
+                    outputFunction("There were ${interp.priorEventsA.size} call(s) prior to this event:")
                     interp.priorEventsA.forEach {
-                        println(it.prettyPrint())
+                        outputFunction(it.prettyPrint())
                     }
                 } else {
-                    println("Couldn't extract prior trace information")
+                    outputFunction("Couldn't extract prior trace information")
                 }
 
                 val msg = when(interp.diffExplanation) {
@@ -483,7 +513,8 @@ class EquivalenceChecker private constructor(
                             "\t! ${methodB.getContainingContract().name}: ${interp.diffExplanation.contractBValue}"
                     }
                 }
-                println(msg)
+                outputFunction(msg)
+                outputFunction.close()
                 interp.ruleCheckResult
             }
         }

@@ -1,0 +1,15 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"top_levels": "SUCCESS",
+		"top_levels_consistency": "SUCCESS",
+		"array_deref": "SUCCESS",
+		"array_deref_consistency": "SUCCESS",
+		"array_length": "SUCCESS",
+		"array_length_elements": "SUCCESS",
+		"array_length_and_reverts": "SUCCESS",
+		"top_level_mapping": "SUCCESS",
+		"havoc_in_store_hook": "SUCCESS",
+		"havoc_constraints_for_signed_primitive": "SUCCESS"
+	}
+}

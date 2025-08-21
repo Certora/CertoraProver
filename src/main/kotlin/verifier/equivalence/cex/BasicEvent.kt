@@ -41,6 +41,7 @@ data class BasicEvent(
             BufferTraceInstrumentation.TraceEventSort.LOG -> "! A log was emitted"
             BufferTraceInstrumentation.TraceEventSort.EXTERNAL_CALL -> "! An external call was made"
             BufferTraceInstrumentation.TraceEventSort.INTERNAL_SUMMARY_CALL -> "! An internal call was made"
+            BufferTraceInstrumentation.TraceEventSort.RESULT -> "! The computation completed"
         }
         val bufferBody = if(sort.showBuffer) {
             val bufferDescription = bufferRepr?.let { bufferMap ->

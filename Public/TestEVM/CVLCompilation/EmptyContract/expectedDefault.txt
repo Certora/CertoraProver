@@ -1,0 +1,4 @@
+Warning: Skipping rule falseRuleFiltered - trivial method filter filters out all methods
+Warning: The generic preserved block for the invariant falseInvFiltered does not apply to any method
+Got exception no candidate functions to instantiate parametric rule when compiling rule falseRule
+Got exception no candidate functions to instantiate parametric rule when compiling rule Using general requirements

@@ -17,15 +17,16 @@
 
 package sbf.tac
 
+import analysis.opt.DiamondSimplifier.registerMergeableAnnot
 import sbf.cfg.SbfInstruction
 import vc.data.TACCmd
 
-private val DEBUG_INLINED_FUNC_START_FROM_ANNOT = tac.MetaKey<SbfInlinedFuncStartAnnotation>("debug.sbf.function_start")
-private val DEBUG_INLINED_FUNC_END_FROM_ANNOT = tac.MetaKey<SbfInlinedFuncEndAnnotation>("debug.sbf.function_end")
-val DEBUG_INLINED_FUNC_START = tac.MetaKey<String>("debug.sbf.function_start")
-val DEBUG_INLINED_FUNC_END = tac.MetaKey<String>("debug.sbf.function_end")
-val DEBUG_UNREACHABLE_CODE = tac.MetaKey<String>("debug.sbf.unreachable")
-val DEBUG_EXTERNAL_CALL = tac.MetaKey<String>("debug.sbf.external_call")
+private val DEBUG_INLINED_FUNC_START_FROM_ANNOT = tac.MetaKey<SbfInlinedFuncStartAnnotation>("debug.sbf.function_start").registerMergeableAnnot()
+private val DEBUG_INLINED_FUNC_END_FROM_ANNOT = tac.MetaKey<SbfInlinedFuncEndAnnotation>("debug.sbf.function_end").registerMergeableAnnot()
+val DEBUG_INLINED_FUNC_START = tac.MetaKey<String>("debug.sbf.function_start").registerMergeableAnnot()
+val DEBUG_INLINED_FUNC_END = tac.MetaKey<String>("debug.sbf.function_end").registerMergeableAnnot()
+val DEBUG_UNREACHABLE_CODE = tac.MetaKey<String>("debug.sbf.unreachable").registerMergeableAnnot()
+val DEBUG_EXTERNAL_CALL = tac.MetaKey<String>("debug.sbf.external_call").registerMergeableAnnot()
 
 /** This class annotates TAC to make easier debugging (only for devs) **/
 object Debug {

@@ -288,8 +288,10 @@ class ContractClass(
 
             transforms.addExpensive(ReportTypes.LOOP_SUMMARY_INSTRUMENTATION, LoopInterpolation::interpolateLoopSummaries)
 
-            transforms.add(ReportTypes.FIXED_BOOL_COMPARISON, BoolComparisonFixer::fix)
-            transforms.add(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations)
+            if(!Config.EquivalenceCheck.get()) {
+                transforms.add(ReportTypes.FIXED_BOOL_COMPARISON, BoolComparisonFixer::fix)
+                transforms.add(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations)
+            }
 
             transforms.add(ReportTypes.NORMALIZE_REDUNDANT_FP_UPDATES, RedundantFreePointerNormalizer::rewrite)
 
