@@ -758,12 +758,8 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         checkNotForward("redirectSuccs", other)
         check(id != other.id) {"Cannot redirect successors to itself"}
 
+        val unifications = mutableListOf<Pair<PTACell, PTACell>>()
         while (succs.iterator().hasNext()) {
-           /** Avoid ConcurrentModificationException
-            *
-            *  it is assigned to succs.iterator() at every iteration because calling to unify (CASE A, below)
-            *  can actually remove entries from succs in presence of cycles
-            **/
             val it = succs.iterator()
             val (i, succC) = it.next()
             // there is a direct link from (n1,i) to succC
@@ -786,7 +782,10 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
                  *
                  * Ensure that (other,j) has always at most one successor.
                  **/
-                c3.unify(succC)
+
+                // We don't unify inside this loop to make sure that `other` (CASE B) in a future iteration does
+                // not become a forwarding node because of this unification.
+                unifications.add(c3 to succC)
             } else {
                 /** CASE B:
                  *  (this, i) --> succC   ==>   (this,i)
@@ -798,6 +797,10 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
                 other.addSucc(j, succC)
             }
         }
+
+        dbgUnify2 {"\t\tStart unifications from redirecting successors"}
+        unifications.forEach { (c1,c2) -> c1.unify(c2) }
+        dbgUnify2 {"\t\tFinished unifications from redirecting successors"}
     }
 
     /** Redirect all edges from this to [other] and reset this **/
