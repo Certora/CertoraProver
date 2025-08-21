@@ -170,6 +170,11 @@ abstract class CallInstance : TreeViewReportable {
                 "Call trace build failed here, but recovered. Call structure from this point may be incorrect."
             )
         }
+
+        class Imprecision(msg: String, override val range: Range.Range?) : ErrorInstance() {
+            override val sarif = Sarif.fromPlainStringUnchecked(msg)
+            override var status = CallEndStatus.IMPRECISION
+        }
     }
 
     /**
@@ -627,7 +632,11 @@ abstract class CallInstance : TreeViewReportable {
     /**
      * [CVLExp] as part of a [CVLCmd].
      */
-    class CVLExpInstance(override val sarif: Sarif, override val range: Range.Range?, val value: TACValue?) : ScopeInstance() {
+    class CVLExpInstance(
+        override val sarif: Sarif,
+        override val range: Range.Range?,
+        val value: TACValue?
+    ) : ScopeInstance() {
         companion object {
             /** for instances that have already-formatted values */
             fun withStringExpAndValue(

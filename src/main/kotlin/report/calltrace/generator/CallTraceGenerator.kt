@@ -36,6 +36,7 @@ import report.calltrace.printer.CallTracePrettyPrinter
 import report.calltrace.printer.DebugAdapterProtocolStackMachine
 import report.calltrace.sarif.FmtArg
 import report.calltrace.sarif.SarifFormatter
+import report.cexanalysis.CounterExampleAnalyser
 import report.globalstate.GlobalState
 import sbf.tac.SBF_INLINED_FUNCTION_END
 import sbf.tac.SBF_INLINED_FUNCTION_START
@@ -43,6 +44,7 @@ import scene.IClonedContract
 import scene.ISceneIdentifiers
 import scene.MethodAttribute
 import solver.CounterexampleModel
+import solver.SMTCounterexampleModel
 import spec.CVLReservedVariables
 import spec.cvlast.CVLHookPattern
 import utils.Range
@@ -66,6 +68,7 @@ private val hardFail = Config.CallTraceHardFail.get() == HardFailMode.ON
  */
 internal sealed class CallTraceGenerator(
     val rule: IRule,
+    val cexId: Int,
     val model: CounterexampleModel,
     val program: CoreTACProgram,
     val formatter: CallTraceValueFormatter,
@@ -86,6 +89,11 @@ internal sealed class CallTraceGenerator(
     }
 
     val blocks = program.topoSortFw.filter { it in model.reachableNBIds }
+    val cexAnalyzer: CounterExampleAnalyser? = if (model is SMTCounterexampleModel) {
+        CounterExampleAnalyser(cexId, program, model)
+    } else {
+        null
+    }
 
     init {
         check(blocks.isNotEmpty()) {
@@ -762,6 +770,9 @@ internal sealed class CallTraceGenerator(
                     handleCmd(cmd, cmdIdx, currBlock, blockIdx)
                 }
 
+                // If there is imprecision, append to the call trace the imprecision call instance
+                appendCallTraceImprecisionIfNecessary(CmdPointer(currBlock, cmdIdx))
+
                 if (handleCmdResult is HandleCmdResult.GeneratedCallTrace) {
                     // finalize all open calls
                     // the failing assert may be before their end, and without this we won't see their arguments and return values.
@@ -780,6 +791,20 @@ internal sealed class CallTraceGenerator(
         }
         return callTraceFailure { "did not reach a violated assert command in $ruleName" }
     }
+
+
+    /**
+     * If there is an imprecision associated with the given command pointer, appends the imprecision call instance to
+     * the call trace.
+     */
+    private fun appendCallTraceImprecisionIfNecessary(cmdPointer: CmdPointer) {
+        cexAnalyzer?.imprecisions?.get(cmdPointer)?.let { (msg, range) ->
+            val calltraceMsg = "Imprecision detected: $msg"
+            val imprecisionCallInstance = CallInstance.ErrorInstance.Imprecision(calltraceMsg, range as? Range.Range)
+            callTraceAppend(imprecisionCallInstance)
+        }
+    }
+
 
     /**
      * Handle the generation of the call trace when the current command is [cmd].

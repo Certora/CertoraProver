@@ -709,6 +709,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
 
                             val callTrace = generateCallTrace(
                                 rule,
+                                exampleIndex,
                                 model,
                                 origProgWithAssertIdMeta,
                                 formatter,

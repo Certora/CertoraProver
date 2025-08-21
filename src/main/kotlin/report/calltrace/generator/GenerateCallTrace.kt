@@ -36,6 +36,7 @@ import vc.data.CoreTACProgram
  */
 fun generateCallTrace(
     rule: IRule,
+    cexId: Int,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
@@ -43,10 +44,10 @@ fun generateCallTrace(
     ruleCallString: String,
 ): CallTrace {
     val generator: CallTraceGenerator = when (Config.ActiveEcosystem.get()) {
-        Ecosystem.EVM -> EVMCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
-        Ecosystem.SOLANA -> SolanaCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
-        Ecosystem.SOROBAN -> WasmCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
-        Ecosystem.SUI -> MoveCallTraceGenerator(rule, model, program, formatter, scene, ruleCallString)
+        Ecosystem.EVM -> EVMCallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString)
+        Ecosystem.SOLANA -> SolanaCallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString)
+        Ecosystem.SOROBAN -> WasmCallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString)
+        Ecosystem.SUI -> MoveCallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString)
     }
     return generator.safeGenerate()
 }

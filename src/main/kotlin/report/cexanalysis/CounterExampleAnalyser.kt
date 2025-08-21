@@ -24,6 +24,7 @@ import report.RuleAlertReport
 import solver.SMTCounterexampleModel
 import utils.Color.Companion.greenBg
 import utils.Color.Companion.yellow
+import utils.Range
 import vc.data.CoreTACProgram
 
 private val logger = Logger(LoggerTypes.CEX_ANALYSER)
@@ -49,7 +50,7 @@ class CounterExampleAnalyser(
      *
      * Note that [unneeded] commands don't appear here.
      */
-    val imprecisions: Map<CmdPointer, String> = CounterExampleImprecisionDetector(cex).check() - unneeded
+    val imprecisions: Map<CmdPointer, Pair<String, Range?>> = CounterExampleImprecisionDetector(cex).check() - unneeded
 
     private val firstAlertText = imprecisions.entries.firstOrNull()?.let { (ptr, msg) ->
         "${cex.g.toCommand(ptr).sourceOrCVLRange} : $msg"

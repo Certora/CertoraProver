@@ -32,6 +32,7 @@ import vc.data.*
 enum class CallEndStatus(private val repString: String) {
     REVERT("REVERT"),
     SUMMARIZED("SUMMARIZED"),
+    IMPRECISION("IMPRECISION"),
     DISPATCHER("DISPATCHER"),
     DEFAULT_HAVOC("DEFAULT HAVOC"),
     REVERT_CAUSE("REVERT CAUSE"),

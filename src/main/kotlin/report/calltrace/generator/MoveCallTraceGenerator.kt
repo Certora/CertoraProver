@@ -35,12 +35,13 @@ import wasm.impCfg.*
  */
 internal class MoveCallTraceGenerator(
     rule: IRule,
+    cexId: Int,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
     ruleCallString: String,
-) : CallTraceGenerator(rule, model, program, formatter, scene, ruleCallString) {
+) : CallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString) {
 
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int) =
         cmd.maybeAnnotation(TACMeta.SNIPPET)?.let {

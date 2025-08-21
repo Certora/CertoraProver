@@ -32,11 +32,13 @@ import java.math.BigInteger
 class CounterExampleImprecisionDetector(private val cex: CounterExampleContext) {
 
     /**
-     * Returns all [CmdPointer]s with an imprecision, together with a relevant msg.
+     * Returns all [CmdPointer]s with an imprecision, together with a relevant msg and range.
      */
-    fun check(): Map<CmdPointer, String> =
+    fun check(): Map<CmdPointer, Pair<String, Range?>> =
         cex.cexCmdSequence().associateNotNull { (ptr, cmd) ->
-            ptr `to?` checkCmd(cmd)
+            checkCmd(cmd)?.let { check ->
+                ptr to (check to cex.g.toCommand(ptr).sourceOrCVLRange)
+            }
         }
 
     private fun checkCmd(cmd: TACCmd.Simple): String? {

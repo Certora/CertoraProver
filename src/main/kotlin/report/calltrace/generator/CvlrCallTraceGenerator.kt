@@ -44,12 +44,13 @@ val cvlrLogger = Logger(LoggerTypes.CVLR)
 
 internal open class CvlrCallTraceGenerator(
     rule: IRule,
+    cexId: Int,
     model: CounterexampleModel,
     program: CoreTACProgram,
     formatter: CallTraceValueFormatter,
     scene: ISceneIdentifiers,
     ruleCallString: String,
-) : CallTraceGenerator(rule, model, program, formatter, scene, ruleCallString) {
+) : CallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString) {
 
     /**
      * [SnippetCmd.CvlrSnippetCmd.CexAttachLocation] can set the range for the next element in the calltrace that will
