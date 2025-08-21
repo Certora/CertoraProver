@@ -1,4 +1,4 @@
-//! This module contains the specification for an example appication which uses
+//! This module contains the specification for an example application which uses
 //! CPI calls.
 
 mod processor;
@@ -11,7 +11,7 @@ use cvlr_solana::{
 };
 use solana_program::account_info::{next_account_info, AccountInfo};
 
-cvlr_solana::cvlr_solana_init!();
+spl_token::cvlr_solana_init!();
 
 #[rule]
 pub fn rule_transfer_token_transfers_same_wallet_0() {

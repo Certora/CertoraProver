@@ -37,6 +37,8 @@ import org.jetbrains.annotations.TestOnly
 import report.CVTAlertReporter
 import report.CVTAlertSeverity
 import report.CVTAlertType
+import sbf.analysis.cpis.InvokeInstructionListener
+import sbf.analysis.cpis.getInvokes
 import sbf.cfg.*
 import sbf.domains.*
 import utils.Range
@@ -285,9 +287,12 @@ private fun lowerCPICalls(
     if (!SolanaConfig.EnableCpiAnalysis.get()) {
         return program
     }
-    val memAnalysis = getMemoryAnalysis(target, program, memSummaries, sbfTypesFac, processor = null)
+    val invokes = getInvokes(program)
+    val processor = InvokeInstructionListener<ConstantSet, ConstantSet>(invokes, program.getGlobals())
+    val memAnalysis = getMemoryAnalysis(target, program, memSummaries, sbfTypesFac, processor = processor)
         ?: return program
-    return substituteCpiCalls(memAnalysis, target, inliningConfig, start)
+    val cpiCalls = processor.getInferredCpis()
+    return substituteCpiCalls(memAnalysis, target, cpiCalls, inliningConfig, start)
 }
 
 /**
