@@ -118,6 +118,7 @@ private data class DiamondSimplification(
 
 private fun computeDiamondSimplifications(code: CoreTACProgram, allowAssumes: Boolean): List<DiamondSimplification> {
     val graph = code.analysisCache.graph
+    val lva = code.analysisCache.lva
 
     return graph.blocks.mapNotNull diamond@{ block ->
         // Does the block end in a conditional jump?
@@ -194,14 +195,6 @@ private fun computeDiamondSimplifications(code: CoreTACProgram, allowAssumes: Bo
                         logger.trace { "Unexpected command in diamond: $ptr: $cmd" }
                     }
                 }?.takeIf { lhs ->
-                    val lva = code.analysisCache.lva
-                    if (lva.isLiveBefore(ptr, lhs)) {
-                        // This assignment is overwriting an old variable, so this might be a visible side-effect
-                        logger.trace {
-                            "Cannot rewrite diamond because live variable $lhs is being overwritten at $ptr: $cmd"
-                        }
-                        return@diamond null
-                    }
                     // Is this variable live at the join point?
                     lva.isLiveBefore(join.id, lhs)
                 }
@@ -220,60 +213,83 @@ private fun computeDiamondSimplifications(code: CoreTACProgram, allowAssumes: Bo
             }
         }.toMap()
 
-        val branchReplacements = succ.mapIndexed { i, (_, commands) ->
-            // Rewrite the variables as above and rewrite assumes to include the branch condition
-            val mapper = object : DefaultTACCmdMapper() {
-                override fun mapVar(t: TACSymbol.Var) =
-                    branchReplacementVars[t to i] ?: t
 
-                override fun mapAssumeCmd(t: TACCmd.Simple.AssumeCmd) =
-                    super.mapAssumeCmd(t).let {
-                        makeAssume((it as TACCmd.Simple.Assume).condExpr, it.meta)
-                    }
+        // Generate the replacement commands for the conditional jump in this diamond.
+        val replacements = buildList {
 
-                override fun mapAssumeNotCmd(t: TACCmd.Simple.AssumeNotCmd) =
-                    super.mapAssumeNotCmd(t).let {
-                        makeAssume((it as TACCmd.Simple.Assume).condExpr, it.meta)
-                    }
-
-                override fun mapAssumeExpCmd(t: TACCmd.Simple.AssumeExpCmd) =
-                    super.mapAssumeExpCmd(t).let {
-                        makeAssume((it as TACCmd.Simple.Assume).condExpr, it.meta)
-                    }
-
-                private fun makeAssume(cond: TACExpr, meta: MetaMap) =
-                    if (i == 0) {
-                        // this is the "true" path
-                        TACCmd.Simple.AssumeExpCmd(
-                            txf { not(jump.cmd.cond.asSym()) or cond },
-                            meta
-                        )
-                    } else {
-                        // the "false" path
-                        TACCmd.Simple.AssumeExpCmd(
-                            txf { jump.cmd.cond.asSym() or cond },
-                            meta
+            // Add each branch's commands
+            succ.forEachIndexed { i, (succId, commands) ->
+                // For each of the variables that we will rewrite in this branch, if the variable already has a value at
+                // the start of the block, then we need to assign that value to the replacement variable for this branch.
+                liveEffects.forEach { v ->
+                    if (lva.isLiveBefore(succId, v)) {
+                        add(
+                            TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                                lhs = branchReplacementVars[v to i]!!,
+                                rhs = v.asSym()
+                            )
                         )
                     }
-            }
-            commands.map { mapper.map(it.cmd) }.filter { it !is TACCmd.Simple.JumpCmd }
-        }
-
-        // Concatenate the branch replacements, and add an ITE command for each effect
-        val replacements = branchReplacements.flatten() + liveEffects.map {
-            TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                lhs = it,
-                rhs = txf {
-                    ite(
-                        jump.cmd.cond.asSym(),
-                        branchReplacementVars[it to 0]!!.asSym(),
-                        branchReplacementVars[it to 1]!!.asSym()
-                    )
                 }
-            )
-        } + listOf(
-            TACCmd.Simple.JumpCmd(join.id)
-        )
+
+                // For each command in this branch, rewrite the "effect" variables as above, and rewrite assumes to
+                // include the branch condition
+                val mapper = object : DefaultTACCmdMapper() {
+                    override fun mapVar(t: TACSymbol.Var) =
+                        branchReplacementVars[t to i] ?: t
+
+                    override fun mapAssumeCmd(t: TACCmd.Simple.AssumeCmd) =
+                        super.mapAssumeCmd(t).let {
+                            makeAssume((it as TACCmd.Simple.Assume).condExpr, it.meta)
+                        }
+
+                    override fun mapAssumeNotCmd(t: TACCmd.Simple.AssumeNotCmd) =
+                        super.mapAssumeNotCmd(t).let {
+                            makeAssume((it as TACCmd.Simple.Assume).condExpr, it.meta)
+                        }
+
+                    override fun mapAssumeExpCmd(t: TACCmd.Simple.AssumeExpCmd) =
+                        super.mapAssumeExpCmd(t).let {
+                            makeAssume((it as TACCmd.Simple.Assume).condExpr, it.meta)
+                        }
+
+                    private fun makeAssume(cond: TACExpr, meta: MetaMap) =
+                        if (i == 0) {
+                            // this is the "true" path
+                            TACCmd.Simple.AssumeExpCmd(
+                                txf { not(jump.cmd.cond.asSym()) or cond },
+                                meta
+                            )
+                        } else {
+                            // the "false" path
+                            TACCmd.Simple.AssumeExpCmd(
+                                txf { jump.cmd.cond.asSym() or cond },
+                                meta
+                            )
+                        }
+                }
+                addAll(commands.map { mapper.map(it.cmd) }.filter { it !is TACCmd.Simple.JumpCmd })
+            }
+
+            // Add the ITE assignments for the live effects at the join point, to get values into the actual result
+            // variables.
+            liveEffects.forEach {
+                add(
+                    TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                        lhs = it,
+                        rhs = txf {
+                            ite(
+                                jump.cmd.cond.asSym(),
+                                branchReplacementVars[it to 0]!!.asSym(),
+                                branchReplacementVars[it to 1]!!.asSym()
+                            )
+                        }
+                    )
+                )
+            }
+
+            add(TACCmd.Simple.JumpCmd(join.id))
+        }
 
         DiamondSimplification(
             jumpPtr = jump.ptr,

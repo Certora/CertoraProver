@@ -681,4 +681,26 @@ class BytecodeTest : MoveTestFixture() {
 
         assertTrue(verify())
     }
+
+    @Test
+    fun `diamond optimization regression`() {
+        // This is a regression test for a bug in the DiamondSimplifier that is easy to reproduce in Move
+        addMoveSource("""
+            $testModule
+            public fun test(a: u64, b: bool) {
+                let mut total = 0;
+                let mut i = 0;
+                let stop = 2;
+                while (i < stop) {
+                    if (b) {
+                        total = total + a;
+                    };
+                    i = i + 1;
+                };
+                cvlm_assert!(total == 0 || total == a || total == a + a);
+            }
+        """.trimIndent())
+
+        assertTrue(verify(optimize = true, loopIter = 2))
+    }
 }
