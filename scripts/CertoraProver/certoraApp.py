@@ -33,6 +33,9 @@ class EvmApp(EvmAppClass):
 class RustAppClass(CertoraApp):
     pass
 
+class MoveAppClass(CertoraApp):
+    pass
+
 class SolanaApp(RustAppClass):
     attr_class = Attrs.SolanaProverAttributes
 
@@ -45,5 +48,5 @@ class RangerApp(EvmAppClass):
 class ConcordApp(EvmAppClass):
     attr_class = Attrs.ConcordAttributes
 
-class SuiApp(EvmAppClass):
+class SuiApp(MoveAppClass):
     attr_class = Attrs.SuiProverAttributes
