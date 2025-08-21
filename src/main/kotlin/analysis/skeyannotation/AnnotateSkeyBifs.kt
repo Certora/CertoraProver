@@ -43,7 +43,7 @@ import java.math.BigInteger
  *  - flips `TACExpr.Vec.SimpleHash` to the analogous [TACBuiltInFunction]
  *  - flips additions with an skey from `Add` to `skey_add`
  *  - introduces `to_skey` and `from_skey` at the `seams`
- *  - flip types of symbols
+ *  - flip types of symbols`
  */
 object AnnotateSkeyBifs {
 
@@ -53,7 +53,7 @@ object AnnotateSkeyBifs {
     private fun runSkeyDetection(tacProgram: CoreTACProgram): SkeyDetectionResult {
         return CodeAnalysis(
             "SKeyDetection",
-            { it: CoreTACProgram -> SkeyDetection(TACCommandGraph(it)).result },
+            { it: CoreTACProgram -> SkeyDetection.run(it) },
             { true }
         ).runAnalysis(tacProgram)
     }
