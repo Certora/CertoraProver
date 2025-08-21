@@ -1496,26 +1496,34 @@ class PTANodeAllocator {
 
     /**
      *  Return a cell for [address]
+     *  @param [initializer]: function only applied on the node when it is first created.
      */
-    fun mkCell(address: ULong): PTACell {
-        val c = addressMap.getOrPut(address) { mkNode() }.createCell(0)
+    fun mkCell(address: ULong, initializer: (PTANode) -> Unit): PTACell {
+        val c = addressMap.getOrPut(address) {
+            val n = mkNode()
+            initializer(n)
+            n
+        }.createCell(0)
         c.getNode()
         return c
     }
 
     /**
      *  Return a cell for pair ([locInst], [i])
+     *  @param [initializer]: function only applied on the node when it is first created.
      */
-    fun mkCell(locInst: LocatedSbfInstruction, i: Int = 0): PTACell {
+    fun mkCell(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode) -> Unit): PTACell {
         val indexMap = instMap[locInst]
         return if (indexMap == null) {
             val n = mkNode()
+            initializer(n)
             instMap[locInst] = mutableMapOf(Pair(i,n))
             n.createCell(0)
         } else {
             var n = indexMap[i]
             if (n == null) {
                 n = mkNode()
+                initializer(n)
                 indexMap[i] = n
                 instMap[locInst] = indexMap
                 n.createCell(0)
@@ -1529,9 +1537,14 @@ class PTANodeAllocator {
 
     /**
      *  Return a cell for [global]
+     *  @param [initializer]: function only applied on the node when it is first created.
      */
-    fun mkCell(global: SbfGlobalVariable): PTACell {
-        val c = globalsMap.getOrPut(global) { mkNode() }.createCell(0)
+    fun mkCell(global: SbfGlobalVariable, initializer: (PTANode) -> Unit): PTACell {
+        val c = globalsMap.getOrPut(global) {
+            val n = mkNode()
+            initializer(n)
+            n
+        }.createCell(0)
         c.getNode()
         return c
     }
@@ -1543,8 +1556,8 @@ class GlobalAllocation(private val allocator: PTANodeAllocator) {
      * Each global variable is modeled by a **different** node.
      * Therefore, we assume that there is no aliasing between global variables.
      **/
-    fun alloc(gv: SbfGlobalVariable, offset: Constant): PTASymCell {
-        val c = allocator.mkCell(gv)
+    fun alloc(gv: SbfGlobalVariable, offset: Constant, initializer: (PTANode) -> Unit = {}): PTASymCell {
+        val c = allocator.mkCell(gv, initializer)
         c.getNode().isMayGlobal = true
         val o = offset.toLongOrNull()
         return if (o != null) {
@@ -1572,19 +1585,19 @@ class HeapAllocation(private val allocator: PTANodeAllocator) {
      * This ensures sound results but better abstractions will be needed if programs
      * use heavily the heap via absolute addresses.
      */
-    fun lowLevelAlloc(offset: Constant): PTASymCell {
+    fun lowLevelAlloc(offset: Constant, initializer: (PTANode) -> Unit = {}): PTASymCell {
         if (usedHighLevel) {
             throw PointerDomainError("Cannot use both low-level and high-level heap allocation APIs")
         }
         usedLowLevel = true
         val o = offset.toLongOrNull()
         return if (o != null) {
-            val c = allocator.mkCell(SBF_HEAP_START.toULong())
+            val c = allocator.mkCell(SBF_HEAP_START.toULong(), initializer)
             c.getNode().isMayHeap = true
             c.getNode().createSymCell(PTAOffset(o) + c.getOffset())
 
         } else {
-            val c = allocator.mkCell(SBF_HEAP_START.toULong())
+            val c = allocator.mkCell(SBF_HEAP_START.toULong(), initializer)
             c.getNode().isMayHeap = true
             c.getNode().createSymCell(PTASymOffset.mkTop())
         }
@@ -1597,13 +1610,13 @@ class HeapAllocation(private val allocator: PTANodeAllocator) {
      * Unchecked assumption: each time one of these functions is called, it returns either null
      * or a pointer that is disjoint from any other pointer returned by previous calls.
      */
-    fun highLevelAlloc(locInst: LocatedSbfInstruction, i: Int = 0): PTASymCell {
+    fun highLevelAlloc(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode) -> Unit = {}): PTASymCell {
         if (usedLowLevel) {
             throw PointerDomainError("Cannot use both low-level and high-level heap allocation APIs")
         }
         usedHighLevel = true
 
-        val c = allocator.mkCell(locInst, i)
+        val c = allocator.mkCell(locInst, i, initializer)
         c.getNode().isMayHeap = true
         return c.createSymCell()
     }
@@ -1615,24 +1628,23 @@ class HeapAllocation(private val allocator: PTANodeAllocator) {
  *  memory regions, but we cannot tell.
  **/
 class ExternalAllocation(private val allocator: PTANodeAllocator) {
-    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0): PTASymCell {
-        val c = allocator.mkCell(locInst, i)
+    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode) -> Unit = {}): PTASymCell {
+        val c = allocator.mkCell(locInst, i, initializer)
         c.getNode().isMayExternal = true
         return c.createSymCell()
     }
 
-    fun alloc(address: ULong): PTASymCell {
-        val c = allocator.mkCell(address)
+    fun alloc(address: ULong, initializer: (PTANode) -> Unit = {}): PTASymCell {
+        val c = allocator.mkCell(address, initializer)
         c.getNode().isMayExternal = true
         return c.createSymCell()
     }
 }
 
 class IntegerAllocation(private val allocator: PTANodeAllocator) {
-    fun alloc(locInst: LocatedSbfInstruction, value: Constant, i: Int = 0): PTASymCell {
-        val c = allocator.mkCell(locInst, i)
+    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode) -> Unit): PTASymCell {
+        val c = allocator.mkCell(locInst, i, initializer)
         c.getNode().isMayInteger = true
-        c.getNode().integerValue = value
         return c.createSymCell()
     }
 }
@@ -3147,7 +3159,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     // Found a single field that fully contains the requested slice.
                     // We could actually return `succC` but we allocate a new symbolic integer cell to
                     // avoid creating unnecessary aliasing.
-                    return integerAlloc.alloc(locInst, Constant.makeTop()) // Numeric analysis loss of precision
+                    return integerAlloc.alloc(locInst, initializer = { it.integerValue = Constant.makeTop()}) // Numeric analysis loss of precision
                 }
                 else -> {}
             }
@@ -3257,21 +3269,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     ): PTASymCell? {
         return when (value) {
             is Value.Imm -> {
-                val constant: Constant = when (valueType) {
-                    is SbfType.NumType -> {
-                        val longValue = valueType.value.toLongOrNull()
-                        if (longValue != null) {
-                            Constant(longValue)
-                        } else {
-                            Constant.makeTop() // Numeric analysis loss of precision
-                        }
-                    }
-
-                    else -> Constant.makeTop() // Numeric analysis loss of precision
-                }
-                integerAlloc.alloc(locInst, constant)
+                integerAlloc.alloc(locInst, initializer = { it.integerValue = Constant(value.v.toLong())})
             }
-
             is Value.Reg -> {
                 getRegCell(value) ?:
                 // We don't have yet a cell for the value: we ask the scalar analysis
@@ -3284,9 +3283,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         } else {
                             Constant.makeTop()
                         }
-                        integerAlloc.alloc(locInst, constant)
+                        integerAlloc.alloc(locInst, initializer = { it.integerValue = constant})
                     }
-
                     is SbfType.PointerType.Global -> {
                         val gv = valueType.global
                         if (gv == null) {
@@ -4204,7 +4202,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         setRegCell(r0, heapAlloc.highLevelAlloc(locInst))
                     }
                     MemSummaryArgumentType.NUM -> {
-                        setRegCell(r0, integerAlloc.alloc(locInst, Constant.makeTop())) // Numeric analysis loss of precision
+                        setRegCell(r0, integerAlloc.alloc(locInst, initializer = { it.integerValue = Constant.makeTop() })) // Numeric analysis loss of precision
                     }
                     else -> {
                         forget(r0)
@@ -4247,13 +4245,14 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         // Add new link
                         val allocatedC = when (type) {
                             MemSummaryArgumentType.PTR_HEAP -> {
-                                concretizeCell(heapAlloc.highLevelAlloc(locInst, curArg), "$call (2)", locInst)
+                                concretizeCell(heapAlloc.highLevelAlloc(locInst, curArg), devMsg ="$call (2)", locInst)
                             }
                             MemSummaryArgumentType.PTR_EXTERNAL -> {
-                                concretizeCell(externAlloc.alloc(locInst, curArg), "$call (3)", locInst)
+                                concretizeCell(externAlloc.alloc(locInst, curArg), devMsg = "$call (3)", locInst)
                             }
                             else -> {
-                                concretizeCell(integerAlloc.alloc(locInst, Constant.makeTop(), curArg), "$call (4)", locInst) // Numeric analysis loss of precision
+                                concretizeCell(integerAlloc.alloc(locInst, curArg, initializer = {it.integerValue = Constant.makeTop()}),
+                                               devMsg = "$call (4)", locInst) // Numeric analysis loss of precision
                             }
                         }
                         allocatedC.getNode().setWrite()
