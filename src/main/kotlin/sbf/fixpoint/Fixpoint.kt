@@ -111,16 +111,16 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
     }
 
     /**
-     * Return a pair where the first element is the old abstract state recorded for block and
-     * the second element is true if the new abstract state is different from the old one.
+     * Analyze [block] starting with abstract state [inState] and store its effects in [outMap].
+     *
+     * [deadMap] is used as an optimization to forget from abstract states facts about dead variables.
      **/
     fun analyzeBlock(
         block: SbfBasicBlock,
         inState: T,
         outMap: MutableMap<Label, T>,
-        deadMap: Map<Label,LiveRegisters>?,
-        checkChange: Boolean = true
-    ): Pair<T?, Boolean> {
+        deadMap: Map<Label,LiveRegisters>?
+    ) {
 
         if (debugFixpo) {
             if (debugFixpoPrintStatements) {
@@ -133,7 +133,7 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
         if (debugFixpo && debugFixpoPrintStates) {
             sbfLogger.info { "BEFORE ${inState}\n" }
         }
-        val oldOutState = outMap[block.getLabel()]
+
         val outState = inState.analyze(block, globals, memSummaries)
 
         if (deadMap != null) {
@@ -152,18 +152,6 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
             sbfLogger.info { "AFTER ${outState}\n" }
         }
 
-        val change = ((!checkChange ||
-            ((oldOutState == null) || !(outState.lessOrEqual(oldOutState, block.getLabel(), block.getLabel())))))
-
         outMap[block.getLabel()] = outState
-
-        if (debugFixpo && change) {
-            if (debugFixpoPrintStates) {
-                sbfLogger.info { "Block ${block.getLabel()} must be re-analyzed\nOLD=$oldOutState\nNEW=$outState\n" }
-            } else {
-                sbfLogger.info { "Block ${block.getLabel()} must be re-analyzed"}
-            }
-        }
-        return Pair(oldOutState, change)
     }
 }

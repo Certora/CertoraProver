@@ -26,32 +26,55 @@ import sbf.SolanaConfig
 import sbf.disassembler.GlobalVariableMap
 import sbf.domains.*
 
-data class NPDomainState<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
-    val state: NPDomain<ScalarDomain<TNum, TOffset>, TNum, TOffset>) {
+/**
+ * This **backward** analysis computes a fixpoint using the [NPDomain].
+ *
+ * The [NPDomain] computes all the necessary preconditions (NP) at the entry of the CFG to reach every assertion in the CFG.
+ * These NPs can be used to refine the forward invariants, by excluding abstract states that cannot reach any assertion.
+ *
+ * For the fixpoint engine we use the existing [BlockDataFlowAnalysis].
+ * Alternatively, we could have also used the WTO-based fixpoint and reverse the CFG.
+ */
+data class NPDomainState<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain>(
+    val state: NPDomain<ScalarDomain, TNum, TOffset>)
+    where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> {
+
     companion object {
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> mkBottom() = NPDomainState<TNum, TOffset>(NPDomain.mkBottom())
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> join(x: NPDomainState<TNum, TOffset>, y: NPDomainState<TNum, TOffset>) =
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> mkBottom()
+            where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
+            NPDomainState<TNum, TOffset, ScalarDomain>(NPDomain.mkBottom())
+
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> join(
+            x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>
+        ) where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
             NPDomainState(x.state.join(y.state))
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> equiv(x: NPDomainState<TNum, TOffset>, y: NPDomainState<TNum, TOffset>) =
+
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> equiv(
+            x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>
+        ) where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
             x.state.lessOrEqual(y.state) && y.state.lessOrEqual(x.state)
     }
 }
 
-private fun <TNum, TOffset> lattice(): JoinLattice<NPDomainState<TNum, TOffset>>
-    where TNum : INumValue<TNum>, TOffset : IOffset<TOffset> =
-    object : JoinLattice<NPDomainState<TNum, TOffset>> {
-        override fun join(x: NPDomainState<TNum, TOffset>, y: NPDomainState<TNum, TOffset>) = NPDomainState.join(x, y)
-        override fun equiv(x: NPDomainState<TNum, TOffset>, y: NPDomainState<TNum, TOffset>) = NPDomainState.equiv(x,y)
+private fun <TNum, TOffset, ScalarDomain> lattice(): JoinLattice<NPDomainState<TNum, TOffset, ScalarDomain>>
+    where TNum : INumValue<TNum>, TOffset : IOffset<TOffset>,
+          ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
+    object : JoinLattice<NPDomainState<TNum, TOffset, ScalarDomain>> {
+        override fun join(x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>) = NPDomainState.join(x, y)
+        override fun equiv(x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>) = NPDomainState.equiv(x,y)
     }
 
-private typealias TNum = TNumAdaptiveScalarAnalysis
-private typealias TOffset= TOffsetAdaptiveScalarAnalysis
+// For simplicity, [NPAnalysis] is not parametric
+// We choose here the scalar domain used by the forward analysis
+private typealias TNum = ConstantSet
+private typealias TOffset= ConstantSet
+private typealias TScalarDomain = ScalarDomain<TNum, TOffset>
 
 class NPAnalysis(
     val cfg: MutableSbfCFG,
     globalsMap: GlobalVariableMap,
     memSummaries: MemorySummaries) :
-    SbfBlockDataflowAnalysis<NPDomainState<TNum, TOffset>>(
+    SbfBlockDataflowAnalysis<NPDomainState<TNum, TOffset, TScalarDomain>>(
         cfg,
         lattice(),
         NPDomainState.mkBottom(),
@@ -87,23 +110,23 @@ class NPAnalysis(
         runAnalysis()
     }
 
-    fun getPreconditionsAtEntry(label: Label): NPDomain<ScalarDomain<TNum, TOffset>, TNum, TOffset>? {
+    fun getPreconditionsAtEntry(label: Label): NPDomain<TScalarDomain, TNum, TOffset>? {
         return blockOut[label]?.state
     }
 
-    fun contains(np: NPDomain<ScalarDomain<TNum, TOffset>, TNum, TOffset>, cond: Condition): Boolean {
+    fun contains(np: NPDomain<TScalarDomain, TNum, TOffset>, cond: Condition): Boolean {
         return np.contains(NPDomain.getLinCons(cond, vFac))
     }
 
-    fun isBottom(np: NPDomain<ScalarDomain<TNum, TOffset>, TNum, TOffset>, locInst: LocatedSbfInstruction, cond: Condition): Boolean {
+    fun isBottom(np: NPDomain<TScalarDomain, TNum, TOffset>, locInst: LocatedSbfInstruction, cond: Condition): Boolean {
         return np.analyzeAssume(cond, locInst, vFac, registerTypes).isBottom()
     }
 
-    fun populatePreconditionsAtInstruction(label:Label): Map<LocatedSbfInstruction, NPDomain<ScalarDomain<TNum, TOffset>, TNum, TOffset>>{
+    fun populatePreconditionsAtInstruction(label:Label): Map<LocatedSbfInstruction, NPDomain<TScalarDomain, TNum, TOffset>>{
         val block = cfg.getBlock(label)
         return if (block != null) {
             var outVal = if (block.getInstructions().any{ it is SbfInstruction.Exit}) {
-                NPDomain.mkTrue<ScalarDomain<TNum, TOffset>, TNum, TOffset>()
+                NPDomain.mkTrue<TScalarDomain, TNum, TOffset>()
             } else {
                 NPDomain.mkBottom()
             }
@@ -119,7 +142,7 @@ class NPAnalysis(
         }
     }
 
-    override fun transform(inState: NPDomainState<TNum, TOffset>, block: SbfBasicBlock): NPDomainState<TNum, TOffset> {
+    override fun transform(inState: NPDomainState<TNum, TOffset, TScalarDomain>, block: SbfBasicBlock): NPDomainState<TNum, TOffset, TScalarDomain> {
         val inNPVal = if (exits.contains(block.getLabel())) {
             NPDomain.mkTrue()
         } else {

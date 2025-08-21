@@ -37,7 +37,7 @@ sealed class Value {
         }
     }
 
-    data class Reg(val r: SbfRegister): Value() {
+    data class Reg(val r: SbfRegister): Value(), Comparable<Reg> {
         override fun toString(): String {
             return when (r) {
                SbfRegister.R0_RETURN_VALUE -> "r0"
@@ -53,6 +53,8 @@ sealed class Value {
                SbfRegister.R10_STACK_POINTER -> "r10"
            }
         }
+
+        override fun compareTo(other: Reg) = r.compareTo(other.r)
     }
 }
 

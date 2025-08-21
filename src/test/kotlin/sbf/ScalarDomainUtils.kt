@@ -17,13 +17,10 @@
 
 package sbf
 
-import sbf.analysis.AdaptiveScalarAnalysis
-import sbf.analysis.ScalarAnalysis
+import sbf.analysis.*
 import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.domains.*
-import sbf.analysis.AnalysisRegisterTypes
-import sbf.analysis.IAnalysis
 
 data class ScalarAnalysisCheck<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         /** the assertion **/
@@ -55,7 +52,7 @@ class AnalysisProver<D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                     val x = ScalarDomain.makeTop(vfac)
                     for (use in inst.readRegisters) {
                         val scalarVal = ScalarValue(regTypes.typeAtInstruction(locInst, use.r))
-                        x.setRegister(use, scalarVal)
+                        x.setScalarValue(use, scalarVal)
                     }
                     if (x.isBottom()) {
                         checks.add(ScalarAnalysisCheck(locInst, true, x))
@@ -96,6 +93,7 @@ class  ScalarAnalysisProver<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     globals: GlobalVariableMap = newGlobalVariableMap()
 ) {
     private val prover = AnalysisProver(vfac, ScalarAnalysis(cfg, globals, memSummaries, vfac))
+
     fun check(locInst: LocatedSbfInstruction) = prover.check(locInst)
     fun getChecks() = prover.checks
     override fun toString() = prover.toString()
@@ -108,6 +106,21 @@ class  AdaptiveScalarAnalysisProver(
 ) {
     private val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
     private val prover = AnalysisProver(scalarAnalysis.getSbfTypesFac(), scalarAnalysis)
+
+    fun check(locInst: LocatedSbfInstruction) = prover.check(locInst)
+    fun getChecks() = prover.checks
+    override fun toString() = prover.toString()
+}
+
+class  ScalarStackStridePredicateAnalysisProver(
+    cfg: SbfCFG,
+    vFac: ISbfTypeFactory<ConstantSet, ConstantSet>,
+    memSummaries: MemorySummaries = MemorySummaries(),
+    globals: GlobalVariableMap = newGlobalVariableMap()
+) {
+    val domFac = ScalarStackStridePredicateDomainFactory<ConstantSet, ConstantSet>()
+    val analysis = GenericScalarAnalysis(cfg, globals, memSummaries, vFac, domFac)
+    private val prover = AnalysisProver(vFac, analysis)
 
     fun check(locInst: LocatedSbfInstruction) = prover.check(locInst)
     fun getChecks() = prover.checks

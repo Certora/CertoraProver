@@ -668,7 +668,7 @@ class MemoryTest {
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
         // R1 points to something that looks like a dangling pointer
         // Note that the pointer domain doesn't know anything about R1 but the scalar domain does
-        absVal1.getScalars().setRegister(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
+        absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
         absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1_ARG))
 
         val absVal2 = MemoryDomain(nodeAllocator, sbfTypesFac, true)
@@ -705,7 +705,7 @@ class MemoryTest {
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
         absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1_ARG))
-        absVal1.getScalars().setRegister(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
+        absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
 
         val absVal2 = MemoryDomain(nodeAllocator, sbfTypesFac, true)
         val stack2 = absVal2.getRegCell(r10, newGlobalVariableMap())
@@ -714,7 +714,7 @@ class MemoryTest {
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
         // R1 points to (stack, 4040)
         absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
-        absVal2.getScalars().setRegister(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
+        absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
         ConfigScope(SolanaConfig.OptimisticPTAJoin, true).use {
@@ -757,7 +757,7 @@ class MemoryTest {
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
         // R1 points to (stack, 4040)
         absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
-        absVal2.getScalars().setRegister(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
+        absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
         ConfigScope(SolanaConfig.OptimisticPTAJoin, true).use {

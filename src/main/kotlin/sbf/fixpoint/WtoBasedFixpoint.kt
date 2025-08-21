@@ -69,7 +69,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         // Join all predecessors
         val inState = getInState(b, inMap, outMap)
         // Compute transfer functions for the whole basic block. outMap is updated
-        analyzeBlock(b, inState, outMap, deadMap, false)
+        analyzeBlock(b, inState, outMap, deadMap)
     }
 
     private fun processWtoVertex(node: WtoVertex,
@@ -91,8 +91,12 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
     private fun extrapolate(b: SbfBasicBlock, numAscendingIterations: UInt,
                             oldState: T, newState: T): T {
         return if (numAscendingIterations < options.wideningDelay) {
+            oldState.pseudoCanonicalize(newState)
             oldState.join(newState, b.getLabel(), b.getLabel())
         } else {
+            if (debugFixpo) {
+                sbfLogger.info { "Widening at block ${b.getLabel()} (iter=$numAscendingIterations)" }
+            }
             oldState.widen(newState, b.getLabel())
         }
     }
@@ -143,7 +147,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         var ascendingIterations = 0U
         while (true) {
             inMap[b.getLabel()] = inState
-            analyzeBlock(b, inState, outMap, deadMap,false)
+            analyzeBlock(b, inState, outMap, deadMap)
             for (c in node.getComponents()) {
                 if (c !is WtoVertex || c.label != b.getLabel()) { // don't analyze twice the head
                     solveWtoComponent(c, wto, inMap, outMap, deadMap)
@@ -178,7 +182,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         }
         while (descendingIterations < options.descendingIterations) {
             inMap[b.getLabel()] = inState
-            analyzeBlock(b, inState, outMap, deadMap, false)
+            analyzeBlock(b, inState, outMap, deadMap)
             for (c in node.getComponents()) {
                 if (c !is WtoVertex || c.label != b.getLabel()) { // don't analyze twice the head
                     solveWtoComponent(c, wto, inMap, outMap, deadMap)

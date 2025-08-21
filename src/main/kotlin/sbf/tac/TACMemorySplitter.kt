@@ -710,7 +710,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> (
 
             val g = absVal.getPTAGraph()
             val scalars = absVal.getScalars()
-            val len = (scalars.getValue(Value.Reg(SbfRegister.R3_ARG)).type() as? SbfType.NumType)?.value?.toLongOrNull()
+            val len = (scalars.getAsScalarValue(Value.Reg(SbfRegister.R3_ARG)).type() as? SbfType.NumType)?.value?.toLongOrNull()
             val dstSc = g.getRegCell(Value.Reg(SbfRegister.R1_ARG))
             if (dstSc != null && len != null) {
                 if (dstSc.getNode() == g.getStack()) {

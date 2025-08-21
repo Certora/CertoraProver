@@ -287,6 +287,10 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
 class ScalarValue<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(private val type: SbfType<TNum, TOffset>)
     : StackEnvironmentValue<ScalarValue<TNum, TOffset>> {
 
+    companion object {
+        fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> mkBottom() = ScalarValue(SbfType.bottom<TNum, TOffset>())
+    }
+
     fun type() = type
     override fun isBottom() = type.isBottom()
     override fun isTop() = type.isTop()

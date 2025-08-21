@@ -75,7 +75,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         g.doMemcpy(scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
@@ -117,7 +117,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         g.doMemcpy(scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
@@ -160,7 +160,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, dstN.createSymCell(0))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         g.doMemcpy(scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
@@ -211,7 +211,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
 
         println("Before memcpy(r1,r2,24) -> $g")
@@ -266,7 +266,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
@@ -323,7 +323,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, dstN.createSymCell(0))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
@@ -380,7 +380,7 @@ class MemoryMemcpyTest {
 
         val scalars = ScalarDomain(sbfTypesFac)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.anyNum()))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.anyNum()))
         // memcpy(r1, r2, r3)
         println("Before memcpy(r1,r2,r3) with r3=top -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
@@ -500,7 +500,7 @@ class MemoryMemcpyTest {
 
         val scalars = ScalarDomain(sbfTypesFac)
         // memcpy(r1, r2, 24)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         println("Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
@@ -568,7 +568,7 @@ class MemoryMemcpyTest {
 
         val scalars = ScalarDomain(sbfTypesFac)
         // memcpy(r1, r2, 24)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         println("Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
@@ -633,7 +633,7 @@ class MemoryMemcpyTest {
 
         val scalars = ScalarDomain(sbfTypesFac)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
@@ -697,7 +697,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println( "Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
@@ -777,7 +777,7 @@ class MemoryMemcpyTest {
 
         val scalars = ScalarDomain(sbfTypesFac)
         // memcpy(r1, r2, 24)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(32UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32UL)))
         println("Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
@@ -844,7 +844,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println("Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())
@@ -915,7 +915,7 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        scalars.setRegister(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println("Before memcpy(r1,r2,24) -> $g")
         g.doMemcpy(scalars, newGlobalVariableMap())

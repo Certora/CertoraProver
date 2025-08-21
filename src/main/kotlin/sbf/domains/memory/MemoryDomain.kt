@@ -68,13 +68,28 @@ const val enableDefensiveChecks = false
 
 class MemoryDomainError(msg: String): SolanaInternalError("MemoryDomain error: $msg")
 
+/** Special operations that [MemoryDomain] needs from the scalar domain **/
+interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
+    fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>)
+    fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>)
+    /**
+     * This function returns the scalar value for [reg] similar to `getAsScalarValue`.
+     *
+     * However, if the scalar value is a number then it tries to cast it to a pointer
+     * in cases where that number is a known pointer address.
+     */
+    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globalsMap: GlobalVariableMap): ScalarValue<TNum, TOffset>
+}
+
+private typealias TScalarDomain<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
+
 class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
-                   private val scalars: ScalarDomain<TNum, TOffset>,
-                   private val ptaGraph: PTAGraph<TNum, TOffset>)
+    private val scalars: TScalarDomain<TNum, TOffset>,
+    private val ptaGraph: PTAGraph<TNum, TOffset>)
     : AbstractDomain<MemoryDomain<TNum, TOffset>>, ScalarValueProvider<TNum, TOffset> {
 
     constructor(nodeAllocator: PTANodeAllocator, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, initPreconditions: Boolean = false)
-        : this(ScalarDomain(sbfTypeFac, initPreconditions), PTAGraph(nodeAllocator, sbfTypeFac, initPreconditions))
+        : this(TScalarDomain(sbfTypeFac, initPreconditions), PTAGraph(nodeAllocator, sbfTypeFac, initPreconditions))
 
     /**
      *  Check that the subdomains are consistent about the common facts that they infer.
@@ -92,7 +107,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val ptaGraph = getPTAGraph()
         for (v in SbfRegister.values()) {
             val reg = Value.Reg(v)
-            val type = scalars.getValue(reg).type()
+            val type = scalars.getAsScalarValue(reg).type()
             val isStackScalar = type is SbfType.PointerType.Stack<TNum, TOffset>
 
             val c = ptaGraph.getRegCell(reg)
@@ -241,7 +256,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
     fun getPTAGraph(): PTAGraph<TNum, TOffset> = ptaGraph
 
-    @TestOnly fun getScalars(): ScalarDomain<TNum, TOffset> = scalars
+    @TestOnly fun getScalars() = scalars
 
     private fun analyzeUn(locInst: LocatedSbfInstruction,
                           globals: GlobalVariableMap,
@@ -270,7 +285,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
         val readRegs = locInst.inst.readRegisters
         readRegs.forEach { reg ->
-            val offsets = (scalars.getValue(reg).type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongList()
+            val offsets = (scalars.getAsScalarValue(reg).type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongList()
             if (offsets != null && offsets.isNotEmpty()) {
                 // Scalar domain knows that `reg` points to some offset(s) in the stack
                 // but the Pointer domain does not know about `reg` or the stack offset(s)
@@ -282,6 +297,19 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 }
             }
         }
+    }
+
+    /**
+     * Set the value of [reg] to [newVal] only if its old value is top
+     * Return true if the scalar value has been updated.
+     **/
+    private fun refineScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>): Boolean {
+        val oldVal = scalars.getAsScalarValue(reg)
+        if (oldVal.isTop() && !newVal.isTop()) {
+            scalars.setScalarValue(reg, newVal)
+            return true
+        }
+        return false
     }
 
     /**
@@ -300,7 +328,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             if (x != null && x.isConcrete()) {
                 val c = x.concretize()
                 if (c.getNode().mustBeInteger()) {
-                    val change = scalars.refineValue(reg, ScalarValue(scalars.sbfTypeFac.anyNum()))
+                    val change = refineScalarValue(reg, ScalarValue(scalars.sbfTypeFac.anyNum()))
                     if (change) {
                         val topNum =  scalars.sbfTypeFac.anyNum().concretize()
                         check(topNum != null) {"concretize on anyNum cannot be null"}
@@ -317,7 +345,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             /// even if the pointer analysis lost precision and cannot infer that fact anymore.
             locInst.inst.metaData.getVal(SbfMeta.REG_TYPE)?.let { (refinedReg, type) ->
                 if (refinedReg == reg && type is SbfRegisterType.NumType) {
-                    scalars.refineValue(reg, ScalarValue(scalars.sbfTypeFac.anyNum()))
+                    refineScalarValue(reg, ScalarValue(scalars.sbfTypeFac.anyNum()))
                 }
             }
         }
@@ -341,12 +369,12 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
         // @dstType must be obtained before the transfer function on the scalar domain takes place
         // since @dst can be overwritten to top.
-        val dstType = scalars.getValue(dst).type()
+        val dstType = scalars.getAsScalarValue(dst).type()
         scalars.analyze(locInst, globals, memSummaries)
         if (scalars.isBottom()) {
             setToBottom()
         } else  {
-            val srcType = scalars.getValue(src).type()
+            val srcType = scalars.getAsScalarValue(src).type()
             ptaGraph.doBin(locInst, stmt.op, dst, src, dstType, srcType, globals)
         }
     }
@@ -451,24 +479,23 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         // instructions the base register and the lhs can be the same register.
         reductionFromScalarsToPtaGraph(locInst)
 
-        // In the case of a load instruction where base register and lhs are the same register,
-        // `baseValBeforeKilled` contains the type of the register **before** the lhs is processed but after
-        // potentially casting the abstract value of the base register from a number to a global/heap pointer.
-        val baseValBeforeKilled = scalars.analyzeMem(locInst, globals)
+        // In the case of a load instruction where base register and lhs are the same register, we need to remember
+        // the scalar value of the base before it might have been overwritten.
+        val baseType = scalars.getAsScalarValueWithNumToPtrCast(stmt.access.baseReg, globals).type()
+
+        scalars.analyze(locInst, globals, memSummaries)
 
         if (scalars.isBottom()) {
             setToBottom()
         } else  {
+            check(!baseType.isBottom()) { "Unexpected bottom scalar value at $stmt" }
             val base = stmt.access.baseReg
             val isLoad = stmt.isLoad
             if (isLoad) {
-                check(baseValBeforeKilled != null) {"Unexpected null scalar value for $stmt"}
-                val baseType = baseValBeforeKilled.type()
                 ptaGraph.doLoad(locInst, base, baseType, globals, scalars)
             } else {
                 val value = stmt.value
-                val baseType = scalars.getValue(base).type()
-                val valueType = scalars.getValue(value).type()
+                val valueType = scalars.getAsScalarValue(value).type()
                 ptaGraph.doStore(locInst, base, value, baseType, valueType, globals)
             }
         }
@@ -558,7 +585,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
     /** External API for TAC encoding **/
     fun getRegCell(reg: Value.Reg, globalsMap: GlobalVariableMap): PTASymCell? {
-        val scalarVal = getScalars().getValue(reg)
+        val scalarVal = getScalars().getAsScalarValue(reg)
         return getPTAGraph().getRegCell(reg, scalarVal.type(), globalsMap, locInst = null)
     }
 

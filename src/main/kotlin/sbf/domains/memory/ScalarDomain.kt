@@ -18,10 +18,10 @@
 package sbf.domains
 
 import datastructures.stdcollections.*
+import log.*
 import sbf.disassembler.*
 import sbf.callgraph.*
 import sbf.cfg.*
-import sbf.sbfLogger
 import sbf.SolanaConfig
 import sbf.support.*
 import org.jetbrains.annotations.TestOnly
@@ -49,30 +49,25 @@ import org.jetbrains.annotations.TestOnly
  *    not escape and (b) it is reasonable to assume that uninitialized/external memory does not contain stack pointers.
  */
 
-/** For internal errors **/
-private class ScalarDomainError(msg: String): SolanaInternalError("ScalarDomain error: $msg")
+
+private val logger = Logger(LoggerTypes.SBF_SCALAR_ANALYSIS)
+private fun dbg(msg: () -> Any) { logger.info(msg)}
+
+private class ValueFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
+    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): ScalarValueFactory<ScalarValue<TNum, TOffset>> {
+    override fun mkTop() = ScalarValue(sbfTypeFac.mkTop())
+}
 
 class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
-                   // factory for SbfType's
-                   val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
-                   // Model stack's contents
-                   private var stack: StackEnvironment<ScalarValue<TNum, TOffset>>,
-                   // Model each normal register
-                   private val registers: ArrayList<ScalarValue<TNum, TOffset>>,
-                   // Contains the scratch registers of all callers
-                   // This is a stack whose size is multiple of 4 which is the number of scratch registers.
-                   private val scratchRegisters: ArrayList<ScalarValue<TNum, TOffset>>,
-                   // To represent error or unreachable abstract state
-                   private var isBot: Boolean = false)
-    : AbstractDomain<ScalarDomain<TNum, TOffset>>, ScalarValueProvider<TNum, TOffset> {
+    private val base: ScalarBaseDomain<ScalarValue<TNum, TOffset>>,
+    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
+    )
+    : AbstractDomain<ScalarDomain<TNum, TOffset>>,
+      ScalarValueProvider<TNum, TOffset>,
+      MemoryDomainScalarOps<TNum, TOffset> {
 
     constructor(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, initPreconditions: Boolean = false):
-        this(sbfTypeFac,
-             StackEnvironment.makeTop(),
-             ArrayList(NUM_OF_SBF_REGISTERS), arrayListOf(), false) {
-        for (i in 0 until NUM_OF_SBF_REGISTERS) {
-            registers.add(ScalarValue(sbfTypeFac.mkTop()))
-        }
+        this(ScalarBaseDomain(ValueFactory(sbfTypeFac)), sbfTypeFac) {
         if (initPreconditions) {
             setRegister(Value.Reg(SbfRegister.R10_STACK_POINTER), ScalarValue(sbfTypeFac.toStackPtr(SBF_STACK_FRAME_SIZE)))
         }
@@ -87,68 +82,31 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>) = ScalarDomain(sbfTypeFac)
     }
 
-    override fun deepCopy(): ScalarDomain<TNum, TOffset> {
-        val outRegisters = ArrayList<ScalarValue<TNum, TOffset>>(NUM_OF_SBF_REGISTERS)
-        registers.forEach {
-            outRegisters.add(it)
-        }
-        val outScratchRegs = ArrayList<ScalarValue<TNum, TOffset>>(scratchRegisters.size)
-        scratchRegisters.forEach {
-            outScratchRegs.add(it)
-        }
-        return ScalarDomain(sbfTypeFac, stack, outRegisters, outScratchRegs, isBot)
-    }
+    override fun deepCopy(): ScalarDomain<TNum, TOffset> = ScalarDomain(base.deepCopy(), sbfTypeFac)
 
-    private fun pushScratchReg(v: ScalarValue<TNum, TOffset>) {
-        scratchRegisters.add(v)
-    }
+    override fun isBottom() = base.isBottom()
 
-    private fun popScratchReg(): ScalarValue<TNum, TOffset> {
-        if (scratchRegisters.isEmpty()) {
-            throw ScalarDomainError("stack of scratch registers cannot be empty")
-        }
-        return scratchRegisters.removeLast()
-    }
-
-    override fun isBottom() = isBot
-
-    override fun isTop(): Boolean {
-        return !isBottom() && stack.isTop() && registers.all { reg ->
-            reg.isTop()
-        }
-    }
+    override fun isTop() = base.isTop()
 
     override fun setToBottom() {
-        isBot = true
-        stack = StackEnvironment.makeBottom()
-        registers.clear()
-        scratchRegisters.clear()
+        base.setToBottom()
     }
 
     override fun setToTop() {
-        isBot = false
-        stack = StackEnvironment.makeTop()
-        for (i in 0 until NUM_OF_SBF_REGISTERS) {
-            registers[i] = ScalarValue(sbfTypeFac.mkTop())
-        }
-        scratchRegisters.clear()
+        base.setToTop()
     }
 
-    private fun getIndex(reg: Value.Reg): Int {
-        val idx = reg.r.value.toInt()
-        if (idx in 0 until NUM_OF_SBF_REGISTERS) {
-            return idx
-        }
-        throw ScalarDomainError("register $idx out-of-bounds")
-    }
 
-    private fun getRegister(reg: Value.Reg): ScalarValue<TNum, TOffset> {
-        return if (isBottom()) {
-            ScalarValue(sbfTypeFac.mkBottom())
-        } else {
-            registers[getIndex(reg)]
-        }
-    }
+    override fun join(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?) =
+        ScalarDomain(base.join(other.base), sbfTypeFac)
+
+    override fun widen(other: ScalarDomain<TNum, TOffset>, b: Label?) =
+        ScalarDomain(base.widen(other.base), sbfTypeFac)
+
+    override fun lessOrEqual(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?) =
+        base.lessOrEqual(other.base)
+
+    /** TRANSFER FUNCTIONS **/
 
     private fun checkStackAccess(value: ScalarValue<TNum, TOffset>) {
         val valType = value.type()
@@ -160,121 +118,29 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 for (stackOffset in valType.offset.toLongList()) {
                     if (stackOffset < 0) {
                         throw SolanaError(
-                        "Current stack size is ${SolanaConfig.StackFrameSize.get()} and stack offset exceeded max offset by ${-stackOffset}. " +
-                            "Please increase the stack size with option \"-${SolanaConfig.StackFrameSize.name} N\" where N is a multiple of 4096.")
+                            "Current stack size is ${SolanaConfig.StackFrameSize.get()} and stack offset exceeded max offset by ${-stackOffset}. " +
+                                "Please increase the stack size with option \"-${SolanaConfig.StackFrameSize.name} N\" where N is a multiple of 4096.")
                     }
                 }
             }
         }
     }
 
-    @TestOnly
-    fun setRegister(reg: Value.Reg, value: ScalarValue<TNum, TOffset>) {
-        if (!isBottom()) {
-            checkStackAccess(value)
-            registers[getIndex(reg)] = value
-        }
-    }
-
-    private fun joinOrWiden(other: ScalarDomain<TNum, TOffset>, IsJoin: Boolean, left: Label?, right: Label?): ScalarDomain<TNum, TOffset> {
-        if (isBottom()) {
-            return other.deepCopy()
-        } else if (other.isBottom()) {
-            return deepCopy()
+    private fun getRegister(reg: Value.Reg): ScalarValue<TNum, TOffset> {
+        return if (isBottom()) {
+            ScalarValue(sbfTypeFac.mkBottom())
         } else {
-            /**
-             * At a join point, each abstract state has been built analyzing *exactly* the same sequence of calls, so
-             * that's why the number of scratch registers must be the same in the two join operands.
-             * However, their abstract values can be different.
-             */
-            if (scratchRegisters.size != other.scratchRegisters.size) {
-                val dbgMsg = if (left != null && right != null ){
-                    "join between $left and $right"
-                } else if (left != null){
-                    "widening at $left"
-                } else {
-                    ""
-                }
-                throw ScalarDomainError("$dbgMsg failed because disagreement on the number of scratch registers")
-            }
-
-            val outStack = if (IsJoin) {
-                stack.join(other.stack)
-            } else {
-                stack.widen(other.stack)
-            }
-            val outRegisters = ArrayList<ScalarValue<TNum, TOffset>>(NUM_OF_SBF_REGISTERS)
-
-            registers.forEachIndexed {i, it ->
-                if (IsJoin) {
-                    outRegisters.add(it.join(other.registers[i]))
-                } else {
-                    outRegisters.add(it.widen(other.registers[i]))
-                }
-            }
-
-            val outScratchRegs = ArrayList<ScalarValue<TNum, TOffset>>(scratchRegisters.size)
-            scratchRegisters.forEachIndexed{ i, it ->
-                outScratchRegs.add(it.join(other.scratchRegisters[i]))
-            }
-
-            return ScalarDomain(sbfTypeFac, outStack, outRegisters, outScratchRegs)
+            base.getRegister(reg)
         }
     }
 
-    override fun join(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?): ScalarDomain<TNum, TOffset> {
-        return joinOrWiden(other, true, left, right)
+    private fun setRegister(reg: Value.Reg, value: ScalarValue<TNum, TOffset>) {
+        checkStackAccess(value)
+        base.setRegister(reg, value)
     }
-
-    override fun widen(other: ScalarDomain<TNum, TOffset>, b: Label?): ScalarDomain<TNum, TOffset> {
-        return joinOrWiden(other, false, b, null)
-    }
-
-    override fun lessOrEqual(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?): Boolean {
-        if (other.isTop() || isBottom()) {
-            return true
-        } else if (other.isBottom() || isTop()) {
-            return false
-        } else {
-            /**
-             * When comparing two abstract states, each abstract state has been built analyzing *exactly* the same
-             * sequence of calls, so that's why the number of scratch registers must be the same in the two operands.
-             * However, their abstract values can be different.
-             */
-            if (scratchRegisters.size != other.scratchRegisters.size) {
-                val dbgMsg = if (left != null && right != null ){
-                    "inclusion between $left and $right"
-                } else {
-                    "inclusion"
-                }
-                throw ScalarDomainError("$dbgMsg failed because disagreement on the number of scratch registers")
-            }
-            registers.forEachIndexed { i, it ->
-                if (!it.lessOrEqual(other.registers[i])) {
-                    return false
-                }
-            }
-            if (!stack.lessOrEqual(other.stack)) {
-                return false
-            }
-
-            scratchRegisters.forEachIndexed{ i, it ->
-                if (!it.lessOrEqual(other.scratchRegisters[i])) {
-                    return false
-                }
-            }
-
-            return true
-
-        }
-    }
-
-    /** TRANSFER FUNCTIONS **/
 
     override fun forget(reg: Value.Reg) {
-        if (!isBottom()) {
-            registers[getIndex(reg)] = ScalarValue(sbfTypeFac.mkTop())
-        }
+        base.forget(reg)
     }
 
     /**
@@ -524,77 +390,22 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    /** Transfer function for __CVT_save_scratch_registers **/
+    /** Transfer function for `__CVT_save_scratch_registers` **/
     private fun saveScratchRegisters() {
-        pushScratchReg(registers[6])
-        pushScratchReg(registers[7])
-        pushScratchReg(registers[8])
-        pushScratchReg(registers[9])
-    }
-
-    private fun removeDeadStackFields() {
-        val ty = getRegister(Value.Reg(SbfRegister.R10_STACK_POINTER)).type()
-        if (ty is SbfType.PointerType.Stack) {
-            // r10 should point to exactly one stack offset.
-            // Thus, `topStack` shouldn't be null,
-            val topStack = ty.offset.toLongOrNull()
-            if (topStack != null) {
-                val deadFields = ArrayList<ByteRange>()
-                for ((k, _) in stack.iterator()) {
-                    if (k.offset > topStack) {
-                        deadFields.add(k)
-                    }
-                }
-                while (deadFields.isNotEmpty()) {
-                    val k = deadFields.removeLast()
-                    stack = stack.put(k, ScalarValue(sbfTypeFac.mkTop()))
-                }
-            }
-        }
-    }
-
-    /** Transfer function for __CVT_restore_scratch_registers
-     *  Invariant ensured by CFG construction: r10 has been decremented already
-     **/
-    private fun restoreScratchRegisters() {
-        if (scratchRegisters.size < 4) {
-            throw ScalarDomainError("The number of calls to save/restore scratch registers must match")
-        } else {
-            setRegister(Value.Reg(SbfRegister.R9), popScratchReg())
-            setRegister(Value.Reg(SbfRegister.R8), popScratchReg())
-            setRegister(Value.Reg(SbfRegister.R7), popScratchReg())
-            setRegister(Value.Reg(SbfRegister.R6), popScratchReg())
-            removeDeadStackFields()
-        }
-    }
-
-    /** Helper for [analyzeMemTransfer] and [analyzeMem]**/
-    private fun killOffsets(offset: Long, len: Long, onlyPartial: Boolean, pred: (ByteRange) -> Boolean = {_->true}) {
-        val slice = stack.inRange(offset, len, onlyPartial)
-        for ((k,_) in slice) {
-            if (pred(k)) {
-                stack = stack.remove(k)
-            }
-        }
+        base.saveScratchRegisters()
     }
 
     /**
-     *  Helper for [analyzeMemTransfer]
-     *
-     *  Copy environment entries from `[srcOffset, srcOffset+len)` to `[dstOffset, dstOffset+len)`
-     *  As a side effect, it adds in [dstFootprint] any overwritten byte at the destination.
+     *  Transfer function for `__CVT_restore_scratch_registers`
+     *  Invariant ensured by CFG construction: r10 has been decremented already
      **/
-    private fun memTransfer(srcOffset: Long, dstOffset: Long, len: Long, isWeak: Boolean, dstFootprint: MutableSet<ByteRange>) {
-        val delta = dstOffset - srcOffset
-        val slice = stack.inRange(srcOffset, len, onlyPartial = false)
-        for ((k, v) in slice) {
-            val offset = k.offset
-            val width = k.width
-            val dstSlice = ByteRange(offset + delta, width)
-            dstFootprint.add(dstSlice)
-            stack = stack.put(dstSlice, v, isWeak)
-        }
+    private fun restoreScratchRegisters() {
+        val stackPtr = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val topStack = (getRegister(stackPtr).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
+        check(topStack != null){ "r10 should point to a statically known stack offset"}
+        base.restoreScratchRegisters(topStack)
     }
+
 
     /**
      * Analyze `memcpy` and `memmove`
@@ -623,7 +434,11 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
             // For now, we use `toLongOrNull` which means that the length must be exactly known.
             // This is something that we can improve if needed.
             val len = (getRegister(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
-                    ?: throw UnknownMemcpyLenError(DevErrorInfo(locInst, PtrExprErrReg(r3), "memcpy on stack without knowing exact length: ${getRegister(r3).type()}"))
+                    ?: throw UnknownMemcpyLenError(
+                            DevErrorInfo(locInst, PtrExprErrReg(r3),
+                            "memcpy on stack without knowing exact length: ${getRegister(r3).type()}"
+                            )
+                    )
             if (dstType.offset.isTop()) {
                 throw UnknownStackPointerError(DevErrorInfo(locInst, PtrExprErrReg(r1),"memcpy on stack without knowing destination offset"))
             }
@@ -635,7 +450,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 SolanaFunction.SOL_MEMMOVE -> {
                     // We are conservative and remove any overlapping entry at the destination
                     dstOffsets.forEach { dstOffset->
-                        killOffsets(dstOffset, len, onlyPartial = false)
+                        base.removeStackSliceIf(dstOffset, len, onlyPartial = false)
                     }
                 }
                 SolanaFunction.SOL_MEMCPY -> {
@@ -644,7 +459,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                             if (srcType.offset.isTop()) {
                                 // We are conservative and remove any overlapping entry at the destination
                                 dstOffsets.forEach { dstOffset->
-                                    killOffsets(dstOffset, len, onlyPartial = false)
+                                    base.removeStackSliceIf(dstOffset, len, onlyPartial = false)
                                 }
                             } else {
                                 val srcOffsets = srcType.offset.toLongList()
@@ -657,23 +472,23 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                 // We cannot remove directly all destination entries (i.e., `onlyPartial=false`) because we might need to do weak updates,
                                 // so we need to remember old values.
                                 dstOffsets.forEach { dstOffset ->
-                                    killOffsets(dstOffset, len, onlyPartial = true)
+                                    base.removeStackSliceIf(dstOffset, len, onlyPartial = true)
                                 }
 
                                 val dstFootprint = mutableSetOf<ByteRange>()
                                 if (dstOffsets.size == 1) {
                                     val dstOffset = dstOffsets.single()
                                     // strong update
-                                    memTransfer(srcOffsets.first(), dstOffset, len, isWeak = false, dstFootprint)
+                                    base.copyStack(srcOffsets.first(), dstOffset, len, isWeak = false, dstFootprint)
                                     // followed by weak updates
                                     srcOffsets.drop(1).forEach { srcOffset ->
-                                        memTransfer(srcOffset, dstOffset, len, isWeak = true, dstFootprint)
+                                        base.copyStack(srcOffset, dstOffset, len, isWeak = true, dstFootprint)
                                     }
                                 } else {
                                     // weak updates
                                     srcOffsets.forEach { srcOffset ->
                                         dstOffsets.forEach { dstOffset ->
-                                            memTransfer(srcOffset, dstOffset, len, isWeak = true, dstFootprint)
+                                            base.copyStack(srcOffset, dstOffset, len, isWeak = true, dstFootprint)
                                         }
                                     }
                                 }
@@ -682,14 +497,14 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                 // If a destination byte hasn't been overwritten by a source then we must "kill" it.
                                 // This is possible because the analysis might know nothing about the source so `memTransfer` can be a non-op.
                                 dstOffsets.forEach { dstOffset ->
-                                    killOffsets(dstOffset, len, onlyPartial = false) { !dstFootprint.contains(it) }
+                                    base.removeStackSliceIf(dstOffset, len, onlyPartial = false) { !dstFootprint.contains(it) }
                                 }
                             }
                         }
                         else -> {
                             // We are conservative and remove any overlapping entry at the destination
                             dstOffsets.forEach { dstOffset ->
-                                killOffsets(dstOffset, len, onlyPartial = false)
+                                base.removeStackSliceIf(dstOffset, len, onlyPartial = false)
                             }
                         }
                     }
@@ -838,7 +653,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                     // The alternative is to do weak updates.
                     val baseOffset = regType.offset.toLongOrNull()
                     check(baseOffset != null) {"processArgument is accessing stack at a non-constant offset ${regType.offset}"}
-                    stack = stack.put(ByteRange(baseOffset + offset, width), getScalarValue(type))
+                    base.updateStack(ByteRange(baseOffset + offset, width), getScalarValue(type), isWeak = false)
                 }
             }
         }
@@ -1049,11 +864,30 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
+    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globalsMap: GlobalVariableMap): ScalarValue<TNum, TOffset> {
+        check(!isBottom()) {"getAsScalarValueWithNumToPtrCast cannot be called on bottom"}
+        val scalarVal = getRegister(reg)
+        val type = scalarVal.type()
+        if (type is SbfType.NumType) {
+            // We use `toLongOrNull` because we are interested in the case where `n` is definitely `0`
+            val n = type.value.toLongOrNull()
+            if (n == 0L) {
+                 // The constant zero might represent the NULL pointer, de-referencing it is undefined behavior.
+                return ScalarValue.mkBottom()
+            }
+            // Attempt to cast a number to a pointer
+            type.castToPtr(sbfTypeFac, globalsMap)?.let {
+                return ScalarValue(it)
+            }
+        }
+        return scalarVal
+    }
+
     /**
      *  Return the abstract value of the base register if it will be killed by the lhs of a load instruction.
      *  Otherwise, it returns null. This is used by the Memory Domain.
      **/
-    fun analyzeMem(locInst: LocatedSbfInstruction, globalsMap: GlobalVariableMap): ScalarValue<TNum, TOffset>? {
+    private fun analyzeMem(locInst: LocatedSbfInstruction, globalsMap: GlobalVariableMap) {
         check(!isBottom()) {"analyzeMem cannot be called on bottom"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Mem) {"analyzeMem expect a memory instruction instead of $stmt"}
@@ -1063,53 +897,20 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val width = stmt.access.width
         val value = stmt.value
         val isLoad = stmt.isLoad
-        var baseRegType = getRegister(baseReg).type()
-        val loadedAsNumForPTA = stmt.metaData.getVal(SbfMeta.LOADED_AS_NUM_FOR_PTA) != null
 
-        /**
-         *  The type of @baseReg can be updated during this transfer function.
-         *  If the lhs is equal to @baseReg then we remember the type of baseReg
-         *  before redefinition. This is needed by the Memory domain.
-         */
-        var baseRegTypeBeforeKilled: ScalarValue<TNum, TOffset>? = if (isLoad) {
-            ScalarValue(baseRegType)
+        val baseScalarVal = getAsScalarValueWithNumToPtrCast(baseReg, globalsMap)
+        if (baseScalarVal.isBottom()) {
+            setToBottom()
+            return
         } else {
-            null
+            // `baseScalarVal` can be different from `getRegister(baseReg)` if `getRegisterWithNumAsPtrCast`
+            //  performs some cast
+            setRegister(baseReg, baseScalarVal)
         }
 
-        if (baseRegType is SbfType.NumType) {
-            // We use `toLongOrNull` because we are interested in the case where `n` is definitely `0`
-            val n = baseRegType.value.toLongOrNull()
-            if (n != null && n == 0L) {
-                /**
-                 * The constant zero can represent both the number zero and the NULL pointer.
-                 * A de-reference of NULL is not allowed.
-                 *
-                 * However, during the abstract interpretation a NULL dereference can happen without being an actual error.
-                 * This happens, for instance, if the fixpoint strategy analyzes a basic block without analyzing
-                 * first all the predecessors, and in the analyzed predecessors the pointer is so far NULL although
-                 * in reality those predecessors cannot reach its successor but the scalar domain cannot prove it.
-                 *
-                 * Thus, making the abstract state bottom is sound.
-                 */
-                setToBottom()
-                return null
-            }
-            val castedPtrType = baseRegType.castToPtr(sbfTypeFac, globalsMap)
-            if (castedPtrType != null) {
-                /**
-                 * IMPLICIT CASTS TO A POINTER: override the type for baseReg if possible
-                 **/
-                baseRegType = castedPtrType
-                val baseRegVal = ScalarValue(baseRegType)
-                setRegister(baseReg, baseRegVal)
-                if (isLoad && baseReg == (value as Value.Reg)) {
-                    baseRegTypeBeforeKilled = baseRegVal
-                }
-            }
-        }
-
-        when (baseRegType) {
+        val baseType = baseScalarVal.type()
+        val loadedAsNumForPTA = stmt.metaData.getVal(SbfMeta.LOADED_AS_NUM_FOR_PTA) != null
+        when (baseType) {
             is SbfType.Bottom -> {}
             is SbfType.Top -> {
                 // We know that baseReg is an arbitrary pointer, but we don't have such a notion
@@ -1138,10 +939,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 }
             }
             is SbfType.PointerType -> {
-                when (baseRegType) {
+                when (baseType) {
                     is SbfType.PointerType.Stack -> {
                         // We try to be precise when load/store from/to stack
-                        val stackTOffsets = baseRegType.offset.add(offset.toLong())
+                        val stackTOffsets = baseType.offset.add(offset.toLong())
                         check(!stackTOffsets.isBottom())
                         if (stackTOffsets.isTop()) {
                             if (isLoad) {
@@ -1154,7 +955,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                             if (isLoad) {
                                 setRegister(value as Value.Reg,
                                     stackOffsets.fold(ScalarValue(sbfTypeFac.mkBottom())) { acc, stackOffset ->
-                                        val loadedAbsVal = stack.getSingletonOrNull(ByteRange(stackOffset, width.toByte()))
+                                        val loadedAbsVal = base.getStackSingletonOrNull(ByteRange(stackOffset, width.toByte()))
                                         when {
                                             loadedAbsVal != null -> acc.join(loadedAbsVal)
                                             loadedAsNumForPTA -> acc.join(ScalarValue(sbfTypeFac.anyNum()))
@@ -1169,8 +970,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                     val stackOffset = stackOffsets.single()
                                     val slice = ByteRange(stackOffset, width.toByte())
                                     // onlyPartial=false means that any overlapping entry is killed
-                                    killOffsets(slice.offset, slice.width.toLong(), onlyPartial = false)
-                                    stack = stack.put(slice, getValue(value))
+                                    base.removeStackSliceIf(slice.offset, slice.width.toLong(), onlyPartial = false)
+                                    base.updateStack(slice, getValue(value), isWeak = false)
                                 } else {
                                     // Weak update:
                                     // for each possible stack offset
@@ -1181,8 +982,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                         // onlyPartial=true + isWeak=true means that
                                         //   if slice is already in `stack` then its value is not removed and `stack.put` will do a weak update with `value`.
                                         //   Any other overlapping entry will be removed by `killOffsets`
-                                        killOffsets(slice.offset, slice.width.toLong(), onlyPartial = true)
-                                        stack = stack.put(slice, getValue(value), isWeak = true)
+                                        base.removeStackSliceIf(slice.offset, slice.width.toLong(), onlyPartial = true)
+                                        base.updateStack(slice, getValue(value), isWeak = true)
                                     }
                                 }
                             }
@@ -1193,7 +994,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                         if (isLoad) {
                             forgetOrNum(value as Value.Reg, loadedAsNumForPTA)
 
-                            val globalVar = baseRegType.global
+                            val globalVar = baseType.global
                             if (globalVar != null) {
                                 if (globalVar is SbfConstantNumGlobalVariable) {
                                     setRegister(value, ScalarValue(sbfTypeFac.toNum(globalVar.value)))
@@ -1209,7 +1010,6 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 }
             }
         }
-        return baseRegTypeBeforeKilled
     }
 
     fun getValue(value: Value): ScalarValue<TNum, TOffset> {
@@ -1229,23 +1029,18 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         return if (isBottom()) {
             ScalarValue(sbfTypeFac.mkBottom())
         } else {
-            stack.getSingletonOrNull(ByteRange(offset, width)) ?: ScalarValue(sbfTypeFac.mkTop())
+            base.getStackSingletonOrNull(ByteRange(offset, width)) ?: ScalarValue(sbfTypeFac.mkTop())
         }
     }
 
-    @TestOnly
-    fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>) {
-        stack = stack.put(ByteRange(offset, width), value)
-    }
-
-    /** Set the value of [reg] to [newVal] only if its old value is top **/
-    fun refineValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>): Boolean {
-        val oldVal = getRegister(reg)
-        if (oldVal.isTop() && !newVal.isTop()) {
+    override fun setScalarValue(reg: Value.Reg, newVal: ScalarValue<TNum, TOffset>) {
+        if (!isBottom()) {
             setRegister(reg, newVal)
-            return true
         }
-        return false
+    }
+
+    override fun setStackContent(offset: Long, width: Byte, value: ScalarValue<TNum, TOffset>) {
+        base.updateStack(ByteRange(offset, width), value, isWeak = false)
     }
 
     fun analyze(locInst: LocatedSbfInstruction,
@@ -1274,84 +1069,67 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 is SbfInstruction.Exit -> {}
             }
         }
-        if (SolanaConfig.DebugSlicer.get()) {
-            sbfLogger.info { "After SCALAR DOMAIN $s: $this\n" }
-        }
+        dbg { "After $s: $this\n" }
     }
 
     override fun analyze(b: SbfBasicBlock,
                          globals: GlobalVariableMap,
                          memSummaries: MemorySummaries,
-                         listener: InstructionListener<ScalarDomain<TNum, TOffset>>): ScalarDomain<TNum, TOffset> {
+                         listener: InstructionListener<ScalarDomain<TNum, TOffset>>): ScalarDomain<TNum, TOffset> =
+        analyzeBlock(b,
+                    inState = this,
+                    transferFunction = { mutState, locInst ->
+                        mutState.analyze(locInst, globals, memSummaries)
+                    },
+                    listener)
 
-        if (SolanaConfig.DebugSlicer.get()) {
-            sbfLogger.info {"=== Scalar Domain analyzing ${b.getLabel()} ===\n" +
-                             "Before SCALAR DOMAIN: $this\n"
-            }
-        }
-        if (listener is DefaultInstructionListener) {
-            /**
-             * No need to remember abstract states before and after each instruction
-             **/
-            if (isBottom()) {
-                return makeBottom(sbfTypeFac)
-            }
+    override fun toString() = base.toString()
+}
 
-            val out = this.deepCopy()
-            for (locInst in b.getLocatedInstructions()) {
-                out.analyze(locInst, globals, memSummaries)
-                if (out.isBottom()) {
-                    break
-                }
-            }
-            return out
-        } else {
-            /**
-             * This case is when call to reconstruct abstract states at each instruction.
-             * Extra deep copies for the listener.
-             **/
-            var before = this
-            for (locInst in b.getLocatedInstructions()) {
-                val after = before.deepCopy()
-                listener.instructionEventBefore(locInst, before)
-                after.analyze(locInst, globals, memSummaries)
-                listener.instructionEventAfter(locInst, after)
-                // Calling to this listener requires to make an extra copy
-                // It's used by class AnnotateWithTypesListener defined in AnnotateCFG.kt
-                listener.instructionEvent(locInst, before, after)
-                before = after
-            }
-            return before
-        }
+/** To be reused by other scalar domain variants **/
+fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
+    b: SbfBasicBlock,
+    inState: ScalarDomain,
+    transferFunction: (mutState: ScalarDomain, locInst: LocatedSbfInstruction) -> Unit,
+    listener: InstructionListener<ScalarDomain>): ScalarDomain {
+
+
+    dbg { "=== Scalar domain analyzing ${b.getLabel()} ===\n" +
+          "At entry: $inState\n"
     }
 
-    override fun toString(): String {
-        if (isBottom()) {
-            return "bottom"
-        } else if (isTop()) {
-            return "top"
+    if (listener is DefaultInstructionListener) {
+        /**
+         * No need to remember abstract states before and after each instruction
+         **/
+        if (inState.isBottom()) {
+            return inState
         }
 
-        val nonTopRegisters: ArrayList<Pair<Int, ScalarValue<TNum, TOffset>>> = ArrayList()
-        for (i in 0 until registers.size) {
-            if (!registers[i].isTop()) {
-                nonTopRegisters.add(Pair(i, registers[i]))
+        val outState = inState.deepCopy()
+        for (locInst in b.getLocatedInstructions()) {
+            transferFunction(outState, locInst)
+            if (outState.isBottom()) {
+                break
             }
         }
-
-        var registers = "{"
-        var i = 0
-        while(i < nonTopRegisters.size) {
-            val regIdx = nonTopRegisters[i].first
-            val regType = nonTopRegisters[i].second
-            registers += "r$regIdx->$regType"
-            i++
-            if (i < nonTopRegisters.size) {
-                registers += ","
-            }
+        return outState
+    } else {
+        /**
+         * This case is when call to reconstruct abstract states at each instruction.
+         * Extra deep copies for the listener.
+         **/
+        var before = inState
+        for (locInst in b.getLocatedInstructions()) {
+            val after = before.deepCopy()
+            listener.instructionEventBefore(locInst, before)
+            transferFunction(after, locInst)
+            listener.instructionEventAfter(locInst, after)
+            // Calling to this listener requires to make an extra copy
+            // It's used by class AnnotateWithTypesListener defined in AnnotateCFG.kt
+            listener.instructionEvent(locInst, before, after)
+            before = after
         }
-        registers += "}"
-
-        return "(Registers=$registers,ScratchRegs=${scratchRegisters},Stack=$stack)"
+        return before
     }
 }

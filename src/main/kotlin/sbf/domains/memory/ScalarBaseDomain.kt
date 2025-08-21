@@ -1,0 +1,334 @@
+/*
+ *     The Certora Prover
+ *     Copyright (C) 2025  Certora Ltd.
+ *
+ *     This program is free software: you can redistribute it and/or modify
+ *     it under the terms of the GNU General Public License as published by
+ *     the Free Software Foundation, version 3 of the License.
+ *
+ *     This program is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
+ *
+ *     You should have received a copy of the GNU General Public License
+ *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+package sbf.domains
+
+import sbf.disassembler.*
+import sbf.cfg.*
+import sbf.support.*
+
+/** For internal errors **/
+class ScalarDomainError(msg: String): SolanaInternalError("ScalarDomain error: $msg")
+
+interface ScalarValueFactory<ScalarValue> {
+    fun mkTop(): ScalarValue
+}
+
+/**
+ * Base class that contains lattice operations and some helpers to build scalar domains.
+ *
+ * This generic scalar domain consists of:
+ *
+ * - regular registers `r0,r1,...,r10` where each register is mapped to [ScalarValue]
+ * - scratch registers where each register is mapped to [ScalarValue].
+ *   This is a stack whose size is multiple of 4 which is the number of scratch registers.
+ * - stack where each location is mapped to [ScalarValue]
+ */
+class ScalarBaseDomain<ScalarValue>(
+    private var isBot: Boolean, /* to represent error or unreachable state */
+    private val sFac: ScalarValueFactory<ScalarValue>,
+    private var stack: StackEnvironment<ScalarValue>,
+    private val registers: ArrayList<ScalarValue>,
+    private val scratchRegisters: ArrayList<ScalarValue>
+
+) where ScalarValue: StackEnvironmentValue<ScalarValue> {
+
+    init {
+        check(registers.all {!it.isBottom()}) {"ScalarBaseDomain does not expect bottom register"}
+        check(scratchRegisters.all {!it.isBottom()}) {"ScalarBaseDomain does not expect bottom scratch register"}
+    }
+
+    constructor(sFac: ScalarValueFactory<ScalarValue>):
+        this(isBot = false, sFac,
+            StackEnvironment.makeTop(),
+            ArrayList(NUM_OF_SBF_REGISTERS),
+            arrayListOf()) {
+        for (i in 0 until NUM_OF_SBF_REGISTERS) {
+            registers.add(sFac.mkTop())
+        }
+    }
+
+    companion object {
+        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeBottom(sFac: ScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
+            return ScalarBaseDomain(isBot = true, sFac,
+                StackEnvironment.makeBottom(),
+                arrayListOf(),
+                arrayListOf()
+            )
+        }
+
+        fun <ScalarValue: StackEnvironmentValue<ScalarValue>> makeTop(sFac: ScalarValueFactory<ScalarValue>): ScalarBaseDomain<ScalarValue> {
+            return ScalarBaseDomain(sFac)
+        }
+    }
+
+    fun deepCopy(): ScalarBaseDomain<ScalarValue> {
+        val outRegisters = ArrayList<ScalarValue>(NUM_OF_SBF_REGISTERS)
+        val outScratchRegs = ArrayList<ScalarValue>(scratchRegisters.size)
+
+        registers.forEach { outRegisters.add(it) }
+        scratchRegisters.forEach { outScratchRegs.add(it) }
+        return ScalarBaseDomain(isBot, sFac, stack, outRegisters, outScratchRegs)
+    }
+
+    /** Lattice operations **/
+
+    fun isBottom() = isBot
+
+    fun isTop() = !isBottom() && stack.isTop() && registers.all {it.isTop()}
+
+    fun setToBottom() {
+        isBot = true
+        stack = StackEnvironment.makeBottom()
+        registers.clear()
+        scratchRegisters.clear()
+    }
+
+    fun setToTop() {
+        isBot = false
+        stack = StackEnvironment.makeTop()
+        for (i in 0 until NUM_OF_SBF_REGISTERS) {
+            registers[i] = sFac.mkTop()
+        }
+        scratchRegisters.clear()
+    }
+
+    private fun joinOrWiden(
+        other: ScalarBaseDomain<ScalarValue>,
+        mergeRegister: (left: ScalarValue, right: ScalarValue) -> ScalarValue,
+        mergeStack: (left: StackEnvironment<ScalarValue>, right: StackEnvironment<ScalarValue>) -> StackEnvironment<ScalarValue>
+    ): ScalarBaseDomain<ScalarValue> {
+        return if (isBottom()) {
+            other.deepCopy()
+        } else if (other.isBottom()) {
+            deepCopy()
+        } else if (isTop() || other.isTop()) {
+            makeTop(sFac)
+        } else {
+            if (scratchRegisters.size != other.scratchRegisters.size) {
+                throw ScalarDomainError("joinOrWiden failed because disagreement on the number of scratch registers")
+            }
+
+            val outRegisters = ArrayList<ScalarValue>(NUM_OF_SBF_REGISTERS)
+            registers.forEachIndexed { i, it ->
+                outRegisters.add(mergeRegister(it, other.registers[i]))
+            }
+            val outScratchRegs = ArrayList<ScalarValue>(scratchRegisters.size)
+            scratchRegisters.forEachIndexed { i, it ->
+                outScratchRegs.add(mergeRegister(it, other.scratchRegisters[i]))
+            }
+            ScalarBaseDomain(isBot = false, sFac,
+                mergeStack(stack, other.stack),
+                outRegisters,
+                outScratchRegs
+            )
+        }
+    }
+
+    fun join(other: ScalarBaseDomain<ScalarValue>) =  joinOrWiden(other, {x, y-> x.join(y)}, {x, y-> x.join(y)})
+
+    fun widen(other: ScalarBaseDomain<ScalarValue>) = joinOrWiden(other, {x, y-> x.widen(y)}, {x, y-> x.widen(y)})
+
+    fun lessOrEqual(other: ScalarBaseDomain<ScalarValue>): Boolean {
+        if (other.isTop() || isBottom()) {
+            return true
+        } else if (other.isBottom() || isTop()) {
+            return false
+        } else {
+            if (scratchRegisters.size != other.scratchRegisters.size) {
+                throw ScalarDomainError("lessOrEqual failed because disagreement on the number of scratch registers")
+            }
+
+            registers.forEachIndexed { i, it ->
+                if (!it.lessOrEqual(other.registers[i])) {
+                    return false
+                }
+            }
+            if (!stack.lessOrEqual(other.stack)) {
+                return false
+            }
+            scratchRegisters.forEachIndexed{ i, it ->
+                if (!it.lessOrEqual(other.scratchRegisters[i])) {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
+    override fun toString(): String {
+        return if (isBottom()) {
+            "bottom"
+        } else if (isTop()) {
+            "top"
+        } else {
+            val nonTopRegs: ArrayList<Pair<Value.Reg, ScalarValue>> = ArrayList()
+            registers.forEachIndexed {i, scalarValue ->
+                if (!scalarValue.isTop()) {
+                    nonTopRegs.add(Value.Reg(SbfRegister.getByValue(i.toByte())) to scalarValue)
+                }
+            }
+            val sb = StringBuilder()
+            sb.append("{")
+            nonTopRegs.forEachIndexed {i, (reg, scalarVal) ->
+                sb.append("$reg->$scalarVal")
+                if (i < nonTopRegs.size - 1) {
+                    sb.append(",")
+                }
+            }
+            sb.append("}")
+
+            return "(Regs=$sb,ScratchRegs=$scratchRegisters,Stack=$stack)"
+
+        }
+    }
+
+    /** helpers for transfer functions **/
+
+    private fun getIndex(reg: Value.Reg): Int {
+        val idx = reg.r.value.toInt()
+        if (idx in 0 until NUM_OF_SBF_REGISTERS) {
+            return idx
+        }
+        throw ScalarDomainError("register $idx out-of-bounds")
+    }
+
+    fun getRegister(reg: Value.Reg): ScalarValue {
+        check(!isBottom()) {"Unexpected getRegister on bottom"}
+        return registers[getIndex(reg)]
+    }
+
+    fun setRegister(reg: Value.Reg, value: ScalarValue) {
+        check(!isBottom()) {"Unexpected setRegister on bottom"}
+        registers[getIndex(reg)] = value
+    }
+
+    private fun pushScratchReg(v: ScalarValue) {
+        scratchRegisters.add(v)
+    }
+
+    private fun popScratchReg(): ScalarValue {
+        if (scratchRegisters.isEmpty()) {
+            throw ScalarDomainError("stack of scratch registers cannot be empty")
+        }
+        return scratchRegisters.removeLast()
+    }
+
+    private fun removeDeadStackFields(topStack: Long) {
+        val deadFields = ArrayList<ByteRange>()
+        for ((k, _) in stack.iterator()) {
+            if (k.offset > topStack) {
+                deadFields.add(k)
+            }
+        }
+        while (deadFields.isNotEmpty()) {
+            val k = deadFields.removeLast()
+            stack = stack.put(k, sFac.mkTop())
+        }
+    }
+
+    /** Transfer function for `__CVT_save_scratch_registers` **/
+    fun saveScratchRegisters() {
+        check(!isBottom()) {"Unexpected saveScratchRegisters on bottom"}
+
+        if (!isTop()) {
+            pushScratchReg(registers[6])
+            pushScratchReg(registers[7])
+            pushScratchReg(registers[8])
+            pushScratchReg(registers[9])
+        }
+    }
+    /**
+     *  Transfer function for `__CVT_restore_scratch_registers`
+     *  Invariant ensured by CFG construction: `r10` has been decremented already
+     **/
+    fun restoreScratchRegisters(topStack: Long) {
+        check(!isBottom()) {"Unexpected restoreScratchRegisters on bottom"}
+
+        if (!isTop()) {
+            if (scratchRegisters.size < 4) {
+                throw ScalarDomainError("The number of calls to save/restore scratch registers must match: $scratchRegisters")
+            } else {
+                setRegister(Value.Reg(SbfRegister.R9), popScratchReg())
+                setRegister(Value.Reg(SbfRegister.R8), popScratchReg())
+                setRegister(Value.Reg(SbfRegister.R7), popScratchReg())
+                setRegister(Value.Reg(SbfRegister.R6), popScratchReg())
+                removeDeadStackFields(topStack)
+            }
+        }
+    }
+
+    fun forget(reg: Value.Reg) {
+        if (!isBottom()) {
+            setRegister(reg, sFac.mkTop())
+        }
+    }
+
+    fun updateRegisters(pred: (oldVal: ScalarValue) -> Boolean, transformer: (oldVal: ScalarValue) -> ScalarValue) {
+        if (!isBottom()) {
+            for (i in 0 until registers.size) {
+                val oldVal = registers[i]
+                if (pred(oldVal)) {
+                    registers[i] = transformer(oldVal)
+                }
+            }
+        }
+    }
+
+    fun updateScratchRegisters(pred: (oldVal: ScalarValue) -> Boolean, transformer: (oldVal: ScalarValue) -> ScalarValue) {
+        if (!isBottom()) {
+            for (i in 0 until scratchRegisters.size) {
+                val oldVal = scratchRegisters[i]
+                if (pred(oldVal)) {
+                    scratchRegisters[i] = transformer(oldVal)
+                }
+            }
+        }
+    }
+
+    fun updateStack(slice: ByteRange, newVal: ScalarValue, isWeak: Boolean) {
+        stack = stack.put(slice, newVal, isWeak)
+    }
+
+    fun removeStackSliceIf(offset: Long, len: Long, onlyPartial: Boolean, pred: (ByteRange) -> Boolean = {_->true}) {
+        val slice = stack.inRange(offset, len, onlyPartial)
+        for ((k,_) in slice) {
+            if (pred(k)) {
+                stack = stack.remove(k)
+            }
+        }
+    }
+
+    /**
+     * Copy entries from `[srcOffset, srcOffset+len)` to `[dstOffset, dstOffset+len)`
+     *  As a side effect, it adds in [dstFootprint] any overwritten byte at the destination.
+    **/
+    fun copyStack(srcOffset: Long, dstOffset: Long, len: Long, isWeak: Boolean, dstFootprint: MutableSet<ByteRange>) {
+        val delta = dstOffset - srcOffset
+        val slice = stack.inRange(srcOffset, len, onlyPartial = false)
+        for ((k, v) in slice) {
+            val offset = k.offset
+            val width = k.width
+            val dstSlice = ByteRange(offset + delta, width)
+            dstFootprint.add(dstSlice)
+            stack = stack.put(dstSlice, v, isWeak)
+        }
+    }
+
+    fun getStackSingletonOrNull(slice: ByteRange): ScalarValue? = stack.getSingletonOrNull(slice)
+
+}

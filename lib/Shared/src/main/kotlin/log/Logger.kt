@@ -126,6 +126,7 @@ enum class LoggerTypes : LoggerName {
     CALLTRACE_STORAGE,
     REPORT_UTILS,
     SBF,
+    SBF_SCALAR_ANALYSIS,
     WASM,
     WASM_ANALYSIS,
     CVLR,

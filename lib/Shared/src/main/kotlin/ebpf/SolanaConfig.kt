@@ -190,6 +190,14 @@ object SolanaConfig {
         override fun check(newValue: Int) = newValue >= 1
     }
 
+    val UseScalarPredicateDomain = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "solanaUseScalarPredicateDomain", true,
+            "If true then the Scalar+Predicate domain is used by the Memory domain, else the Scalar domain. [default: true]."
+        )
+    ) {}
+
     val EnablePTAPseudoCanonicalize = object : ConfigType.BooleanCmdLine(
         true,
         Option(
