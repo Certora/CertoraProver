@@ -1200,7 +1200,7 @@ object Summarizer {
             if (callSumm.outSize.value == BigInteger.ZERO) {
                 CVTAlertReporter.reportAlert(
                     CVTAlertType.SUMMARIZATION,
-                    CVTAlertSeverity.WARNING,
+                    CVTAlertSeverity.ERROR,
                     jumpToDefinition = summaryRange as? TreeViewLocation,
                     message = "Using a CONSTANT/PER_CALLEE_CONSTANT summary on a function that returns dynamically sized values can cause vacuity.",
                     hint = "Consider using the NONDET summary instead."
