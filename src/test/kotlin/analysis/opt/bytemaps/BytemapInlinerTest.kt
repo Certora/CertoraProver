@@ -312,5 +312,18 @@ class BytemapInlinerTest : TACBuilderAuxiliaries() {
         prog.checkRhs("query") { safeMathNarrow(iS, Tag.Bit256) }
     }
 
+    @Test
+    fun iteBug() {
+        val prog = TACProgramBuilder {
+            havoc(bMap3)
+            havoc(bMap2)
+            bMap1 assign Ite(xS, bMap2.asSym(), bMap3.asSym())
+            label("query")
+            b assign select(bMap1.asSym(), aS)
+            assert(False)
+        }
+        prog.checkRhs("query") { select(bMap1.asSym(), aS)}
+    }
+
 
 }
