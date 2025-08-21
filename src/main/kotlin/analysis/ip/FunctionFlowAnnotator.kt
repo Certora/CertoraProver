@@ -37,7 +37,6 @@ import compiler.JumpType
 import datastructures.PersistentStack
 import datastructures.persistentStackOf
 import datastructures.stdcollections.*
-import decompiler.BLOCK_SOURCE_INFO
 import evm.EVM_WORD_SIZE
 import evm.EVM_WORD_SIZE_INT
 import evm.MASK_SIZE
@@ -1942,11 +1941,7 @@ object FunctionFlowAnnotator {
         while(pos < cmd.size) {
             val c = cmd[pos]
             if(c.cmd is TACCmd.Simple.AnnotationCmd) {
-                if (c.cmd.annot.k == BLOCK_SOURCE_INFO) {
-                    // Just skip over any source info annotations
-                    pos++
-                    continue
-                } else if (c.cmd.annot.k != META_KEY) {
+                if (c.cmd.annot.k != META_KEY) {
                     return noneResult("encountered invalid annotation ${c.cmd.annot}")
                 }
                 val hint = c.cmd.annot.v as InternalFunctionHint

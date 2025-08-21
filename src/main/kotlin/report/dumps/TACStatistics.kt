@@ -21,7 +21,6 @@ package report.dumps
 import analysis.LTACCmd
 import analysis.controlflow.PathCounter
 import datastructures.stdcollections.*
-import decompiler.Decompiler
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import statistics.SDCollectorFactory
@@ -51,8 +50,7 @@ data class TACStatistics(
     val storeCount: Int,
     val branchCount: Int,
     val totalBlockDifficulty: Int,
-    val difficultCmds: Int,
-    val sources: List<SourceStatistics>
+    val difficultCmds: Int
 ): AmbiSerializable {
 
     @KSerializable
@@ -123,14 +121,6 @@ data class TACStatistics(
             val difficultBlocks = countDifficultOps.getDifficultBlocks().size
             val difficultCmds = countDifficultOps.getDifficultCmds().size
 
-            val sources = Decompiler.getBlockSourceInfo(program).let {
-                it.groupBy {
-                    SourceContract(it.contractName, it.contractAddress, it.contractBytecodeHash)
-                }.map { (contract, blocks) ->
-                    SourceStatistics(contract, blocks.associate { it.pc to it.bytecodeCount })
-                }
-            }
-
             return TACStatistics(
                 pathCount,
                 probablyNonLinearCounts,
@@ -141,8 +131,7 @@ data class TACStatistics(
                 storeCount,
                 branchCount,
                 difficultBlocks,
-                difficultCmds,
-                sources
+                difficultCmds
             )
         }
 

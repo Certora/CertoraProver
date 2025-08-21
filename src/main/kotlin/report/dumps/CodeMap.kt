@@ -33,7 +33,6 @@ import config.Config.IsGenerateGraphs
 import config.ReportTypes
 import datastructures.MultiMap
 import datastructures.stdcollections.*
-import decompiler.BLOCK_SOURCE_INFO
 import log.*
 import move.MoveCallTrace
 import report.BigIntPretty.bigIntPretty
@@ -1054,10 +1053,6 @@ data class CodeMap(
         val cmdsToRender = cmds.filter {
             when (it.cmd) {
                 is TACCmd.Simple.NopCmd -> false
-                is TACCmd.Simple.AnnotationCmd -> when (it.cmd.annot.k) {
-                    BLOCK_SOURCE_INFO -> false
-                    else -> true
-                }
                 else -> true
             }
         }.filter {

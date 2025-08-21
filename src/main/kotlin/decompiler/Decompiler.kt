@@ -50,14 +50,10 @@ import utils.ModZm.Companion.asBigInteger
 import vc.data.*
 import verifier.ContractUtils.recordSingleTransformationStats
 import java.math.BigInteger
-import java.util.stream.Collectors
 
 
 private val logger = Logger(LoggerTypes.DECOMPILER)
 private val loggerTimes = Logger(LoggerTypes.TIMES)
-
-val BLOCK_SOURCE_INFO = MetaKey<Decompiler.BlockSourceInfo>("block.source")
-
 
 private typealias EVMStack = PersistentStack<Decompiler.EVMValue>
 
@@ -75,27 +71,6 @@ class Decompiler private constructor(
         val fallback: EVMTACProgram,
         val wholeProgram: EVMTACProgram?
     ) : java.io.Serializable
-
-    @Treapable
-    @KSerializable
-    data class BlockSourceInfo(
-        val contractName: String,
-        val contractAddress: BigInteger,
-        val contractBytecodeHash: BigInteger,
-        val pc: EVMPC,
-        val bytecodeCount: Int,
-        val sources: Set<SourceFileInfo>
-    ) : AmbiSerializable {
-        override fun toString() = "$contractName:$pc"
-    }
-
-    @Treapable
-    @KSerializable
-    data class SourceFileInfo(
-        val source: Int,
-        val begin: Int,
-        val end: Int,
-    ) : AmbiSerializable
 
     companion object {
         /**
@@ -266,11 +241,6 @@ class Decompiler private constructor(
             }
             return jimpleResult
         }
-
-        fun getBlockSourceInfo(tac: CoreTACProgram): Set<BlockSourceInfo> =
-            tac.parallelLtacStream()
-            .mapNotNull { (it.cmd as? TACCmd.Simple.AnnotationCmd)?.annot?.v as? BlockSourceInfo }
-            .collect(Collectors.toSet())
     }
 
     private val jumpDestPCs: Set<BigInteger>
@@ -1065,9 +1035,6 @@ class Decompiler private constructor(
     ): List<TACCmd> {
         val result = mutableListOf<TACCmd>()
 
-        var bytecodeCount = 0
-        val sourceFileInfo = mutableSetOf<SourceFileInfo>()
-
         /*
          Don't propagate constants from other blocks.  We have analyses that depend on this.
          EXCEPTION: solidity may keep function finder constants on the stack. We rely on these to be
@@ -1087,9 +1054,6 @@ class Decompiler private constructor(
             val metaInfo = TACMetaInfo(pc, cmd.meta, address, sourceContext)
             val meta = metaInfo.toMap()
             val inst = cmd.inst
-
-            ++bytecodeCount
-            sourceFileInfo += SourceFileInfo(cmd.meta.source, cmd.meta.begin, cmd.meta.end)
 
             val stack = stackBefore.builder()
             val stackSizeBefore = stack.size
@@ -1505,25 +1469,6 @@ class Decompiler private constructor(
                 )
             )
         }
-
-        // Insert a source info annotation at the top of the block
-        result.add(
-            // FunctionFlowAnnotator assumes JumpdestCmd is first; leave it there.
-            if (result[0] is TACCmd.Simple.JumpdestCmd) { 1 } else { 0 },
-            TACCmd.Simple.AnnotationCmd(
-                TACCmd.Simple.AnnotationCmd.Annotation(
-                    BLOCK_SOURCE_INFO,
-                    BlockSourceInfo(
-                        contractName,
-                        address,
-                        bytecode.bytecodeHash,
-                        origBlock.pc,
-                        bytecodeCount,
-                        sourceFileInfo
-                    )
-                )
-            )
-        )
 
         return result
     }

@@ -34,7 +34,6 @@ import analysis.pta.abi.*
 import analysis.worklist.SimpleWorklist
 import com.certora.collect.*
 import datastructures.stdcollections.*
-import decompiler.BLOCK_SOURCE_INFO
 import evm.ABI_SIZE_BOUND
 import evm.EVM_WORD_SIZE
 import evm.MAX_EVM_INT256
@@ -1197,7 +1196,7 @@ data class BoundaryInformation<U>(
 )
 
 
-private val commonIgnoredAnnots: Set<MetaKey<*>> = setOf(POP_ALLOCATION, TACMeta.SNIPPET, BLOCK_SOURCE_INFO)
+private val commonIgnoredAnnots: Set<MetaKey<*>> = setOf(POP_ALLOCATION, TACMeta.SNIPPET)
 
 
 /**
