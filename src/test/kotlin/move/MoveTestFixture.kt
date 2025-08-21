@@ -239,7 +239,10 @@ abstract class MoveTestFixture() {
             .extend(Config.LoopUnrollConstant, loopIter)
             .use {
                 val moveScene = buildScene(optimize)
-                val selected = moveScene.cvlmManifest.selectedRules.singleOrNull() ?: error("Expected exactly one rule")
+                val (selected, type) = moveScene.cvlmManifest.selectedRules.singleOrNull() ?: error("Expected exactly one rule")
+                check(type == CvlmManifest.RuleType.USER_RULE) {
+                    "Expected a user rule, but got $type"
+                }
                 return MoveToTAC.compileMoveTAC(selected, moveScene) ?: error("Couldn't get MoveTAC for $selected")
             }
     }

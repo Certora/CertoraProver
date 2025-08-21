@@ -37,10 +37,12 @@ import instrumentation.transformers.*
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import log.*
+import move.CvlmManifest.RuleType
 import optimizer.*
 import org.jetbrains.annotations.TestOnly
 import spec.cvlast.RuleIdentifier
 import spec.cvlast.SpecType
+import spec.genericrulegenerators.*
 import spec.rules.*
 import tac.*
 import tac.generation.*
@@ -58,9 +60,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     companion object {
         fun compileRule(
             entryFunc: MoveFunction,
-            scene: MoveScene,
-            optimize: Boolean,
-        ) = MoveToTAC(scene).compileRule(entryFunc, optimize)
+            ruleType: RuleType,
+            scene: MoveScene
+        ) = MoveToTAC(scene).compileRule(entryFunc, ruleType)
 
         @TestOnly
         fun compileMoveTAC(
@@ -69,7 +71,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         ) = scene.maybeDefinition(entryFunc)?.let {
             with(scene) {
                 val fn = MoveFunction(it.function)
-                MoveToTAC(scene).compileMoveTACProgram(fn)
+                MoveToTAC(scene).compileMoveTACProgram(fn, SanityMode.NONE)
             }
         }
 
@@ -153,7 +155,13 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         )
     }
 
-    private fun compileMoveTACProgram (entryFunc: MoveFunction): MoveTACProgram {
+    private enum class SanityMode {
+        NONE,
+        ASSERT_TRUE,
+        SATISFY_TRUE
+    }
+
+    private fun compileMoveTACProgram(entryFunc: MoveFunction, sanityMode: SanityMode): MoveTACProgram {
         val args = entryFunc.params.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_arg_$i", it.toTag()) }
         val returns = entryFunc.returns.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_ret_$i", it.toTag()) }
 
@@ -188,9 +196,30 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             )
         )
 
-        // The exit block is just a place for the entry function to return to
         val exitCode = treapMapOf(
-            exit to label("Exit from $entryFunc")
+            exit to mergeMany(
+                listOfNotNull(
+                    label("Exit from $entryFunc"),
+                    when (sanityMode) {
+                        SanityMode.NONE -> null
+                        SanityMode.ASSERT_TRUE -> {
+                            TACCmd.Simple.AssertCmd(
+                                TACSymbol.True,
+                                "Reached end of function",
+                                MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                            ).withDecls()
+                        }
+                        SanityMode.SATISFY_TRUE -> {
+                            TACCmd.Simple.AssertCmd(
+                                TACSymbol.False,
+                                "Reached end of function",
+                                MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
+                                    (TACMeta.SATISFY_ID to summarizationContext.allocSatisfyId())
+                            ).withDecls()
+                        }
+                    }
+                )
+            )
         )
 
         val allCode = entryCode + callCode + exitCode
@@ -218,27 +247,65 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         return moveTAC
     }
 
-    private fun compileRule(entryFunc: MoveFunction, optimize: Boolean): Pair<EcosystemAgnosticRule, CoreTACProgram> {
-        val moveTAC = compileMoveTACProgram(entryFunc)
-        val ruleName = moveTAC.name
+    private fun compileRuleCoreTACProgram(
+        entryFunc: MoveFunction,
+        sanityMode: SanityMode
+    ): Pair<CoreTACProgram, CompiledRuleType> {
+        val moveTAC = compileMoveTACProgram(entryFunc, sanityMode)
 
         ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
         val coreTAC = MoveMemory(scene).transform(moveTAC)
         ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
 
-        val isSatisfyRule = isSatisfyRule(coreTAC)
+        val ruleType = getRuleType(coreTAC)
 
-        val finalTAC = preprocess(coreTAC, isSatisfyRule).letIf(optimize) { optimize(it) }
+        val finalTAC = preprocess(coreTAC, ruleType).letIf(scene.optimize) { optimize(it) }
 
-        return EcosystemAgnosticRule(
-            ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
-            ruleType = SpecType.Single.FromUser.SpecFile,
-            isSatisfyRule = isSatisfyRule
-        ) to finalTAC
+        return finalTAC to ruleType
     }
 
-    private fun isSatisfyRule(code: CoreTACProgram): Boolean {
+    private fun compileRule(
+        entryFunc: MoveFunction,
+        ruleType: RuleType
+    ): List<Pair<EcosystemAgnosticRule, CoreTACProgram>> {
+        return when (ruleType) {
+            RuleType.USER_RULE -> {
+                val (coreTAC, compiledRuleType) = compileRuleCoreTACProgram(entryFunc, SanityMode.NONE)
+                listOf(
+                    EcosystemAgnosticRule(
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(entryFunc.name.toString()),
+                        ruleType = SpecType.Single.FromUser.SpecFile,
+                        isSatisfyRule = compiledRuleType.isSatisfy
+                    ) to coreTAC
+                )
+            }
+            RuleType.SANITY -> {
+                val (assertTAC, assertTACType) = compileRuleCoreTACProgram(entryFunc, SanityMode.ASSERT_TRUE)
+                check(assertTACType == CompiledRuleType.ASSERT)
+
+                val (satisfyTAC, satisfyTACType) = compileRuleCoreTACProgram(entryFunc, SanityMode.SATISFY_TRUE)
+                check(satisfyTACType == CompiledRuleType.SATISFY)
+
+                listOf(
+                    EcosystemAgnosticRule(
+                        ruleIdentifier = RuleIdentifier.freshIdentifier("${entryFunc.name}-Assertions"),
+                        ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
+                        isSatisfyRule = false
+                    ) to assertTAC,
+                    EcosystemAgnosticRule(
+                        ruleIdentifier = RuleIdentifier.freshIdentifier("${entryFunc.name}-Reaching end of function"),
+                        ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
+                        isSatisfyRule = true
+                    ) to satisfyTAC
+                )
+            }
+        }
+    }
+
+    private enum class CompiledRuleType(val isSatisfy: Boolean) { ASSERT(false), SATISFY(true) }
+
+    private fun getRuleType(code: CoreTACProgram): CompiledRuleType {
         val areSatisfyAsserts = code.parallelLtacStream().mapNotNull { (_, cmd) ->
             (cmd as? TACCmd.Simple.AssertCmd)
                 ?.takeIf { TACMeta.CVL_USER_DEFINED_ASSERT in it.meta }
@@ -250,14 +317,18 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 "Rule ${code.name} contains no assertions after compilation. Assertions may have been trivially unreachable and removed by the compiler."
             )
         }
-        return areSatisfyAsserts.uniqueOrNull() ?: throw CertoraException(
-            CertoraErrorType.CVL,
-            "Rule ${code.name} mixes assert and satisfy commands."
-        )
+        return when(areSatisfyAsserts.uniqueOrNull()) {
+            true -> CompiledRuleType.SATISFY
+            false -> CompiledRuleType.ASSERT
+            null -> throw CertoraException(
+                CertoraErrorType.CVL,
+                "Rule ${code.name} mixes assert and satisfy commands."
+            )
+        }
     }
 
 
-    private fun preprocess(code: CoreTACProgram, isSatisfyRule: Boolean) =
+    private fun preprocess(code: CoreTACProgram, ruleType: CompiledRuleType) =
         CoreTACProgram.Linear(code)
         // ConstantStringPropagator must come before TACDSA
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
@@ -267,7 +338,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
         .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
-        .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
+        .mapIf(ruleType.isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
         .ref
 
     private fun optimize(code: CoreTACProgram) =

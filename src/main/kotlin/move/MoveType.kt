@@ -162,7 +162,7 @@ private fun SignatureToken.toMoveValueType(
 }
 
 context(MoveScene)
-private fun MoveModule.DatatypeHandle.toMoveStructRaw(
+fun MoveModule.DatatypeHandle.toMoveStructRaw(
     typeArgs: List<MoveType.Value> = listOf(),
 ): MoveType.Struct {
     check(typeParameters.size == typeArgs.size) {

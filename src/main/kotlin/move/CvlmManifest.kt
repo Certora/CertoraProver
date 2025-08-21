@@ -47,31 +47,31 @@ private const val moduleManifestName = "cvlm_manifest"
     `cvlr::manifest` is a special module that defines functions for describing rules, summaries, etc.
  */
 class CvlmManifest(val scene: MoveScene) {
-    private val rules: Iterable<MoveFunctionName> get() = rulesBuilder
-
     context(SummarizationContext)
     fun summarize(call: MoveCall) = summarizers[call.callee.name]?.invoke(this@SummarizationContext, call)
 
     fun maybeShadowType(type: MoveType.Struct): MoveType.Value? = shadowedTypes[type.name]?.invoke(type)
 
-    private val rulesBuilder = mutableSetOf<MoveFunctionName>()
+    enum class RuleType { USER_RULE, SANITY }
+
+    private val rulesBuilder = mutableMapOf<MoveFunctionName, RuleType>()
     private val shadowedTypes = mutableMapOf<MoveStructName, (MoveType.Struct) -> MoveType.Value>()
     private val summarizers = mutableMapOf<MoveFunctionName, context(SummarizationContext) (MoveCall) -> MoveBlocks>()
 
     val selectedRules by lazy {
-        rules.filter {
-            Config.MoveRuleModuleIncludes.getOrNull()?.contains(it.module.name) ?: true
+        rulesBuilder.entries.filter {
+            Config.MoveRuleModuleIncludes.getOrNull()?.contains(it.key.module.name) ?: true
         }.filterNot {
-            Config.MoveRuleModuleExcludes.getOrNull()?.contains(it.module.name) ?: false
+            Config.MoveRuleModuleExcludes.getOrNull()?.contains(it.key.module.name) ?: false
         }.filter {
-            Config.MoveRuleNameIncludes.getOrNull()?.contains(it.simpleName) ?: true
+            Config.MoveRuleNameIncludes.getOrNull()?.contains(it.key.simpleName) ?: true
         }.filterNot {
-            Config.MoveRuleNameExcludes.getOrNull()?.contains(it.simpleName) ?: false
+            Config.MoveRuleNameExcludes.getOrNull()?.contains(it.key.simpleName) ?: false
         }
     }
 
-    private fun addRule(rule: MoveFunctionName) {
-        if (!rulesBuilder.add(rule)) {
+    private fun addRule(rule: MoveFunctionName, ruleType: RuleType) {
+        if (rulesBuilder.put(rule, ruleType) != null) {
             throw CertoraException(
                 CertoraErrorType.CVL,
                 "Rule $rule appears multiple times in the CVLM module manifests"
@@ -178,6 +178,7 @@ class CvlmManifest(val scene: MoveScene) {
                 is Instruction.Call -> {
                     when (inst.index.deref().name) {
                         MoveFunctionName(manifestModule, "rule") -> rule(manifestName, stack)
+                        MoveFunctionName(manifestModule, "module_sanity") -> moduleSanity(manifestName, stack)
                         MoveFunctionName(manifestModule, "summary") -> summary(manifestName, stack)
                         MoveFunctionName(manifestModule, "ghost") -> ghost(manifestName, stack)
                         MoveFunctionName(manifestModule, "hash") -> hash(manifestName, stack)
@@ -234,7 +235,38 @@ class CvlmManifest(val scene: MoveScene) {
             )
         }
 
-        addRule(ruleName)
+        addRule(ruleName, RuleType.USER_RULE)
+    }
+
+    private fun moduleSanity(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
+        /*
+            ```
+            public native fun module_sanity(addr: address, mod: vector<u8>);
+            ```
+
+            Generates sanity rules for the public functions in `addr`::`mod`.
+         */
+
+        val moduleNameValue = stack.removeLast() as StackValue.String
+        val moduleAddressValue = stack.removeLast() as StackValue.Address
+        val moduleName = MoveModuleName(
+            moduleAddressValue.value,
+            moduleNameValue.value
+        )
+
+        val module = scene.module(moduleName)
+
+        val functionNames = module.publicFunctionDefinitions.map { it.function.name }
+        if (functionNames.isEmpty()) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Module $moduleName has no public functions to satisfy the module_sanity entry in $manifestName"
+            )
+        }
+
+        functionNames.forEach {
+            addRule(it, RuleType.SANITY)
+        }
     }
 
     private fun summary(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
