@@ -281,4 +281,6 @@ class TestMutatedClient(unittest.TestCase):
 
 if __name__ == '__main__':
     test_argv = [f"{sys.argv[1]}, {sys.argv[2]}"]
-    unittest.main(argv=test_argv, exit=False)
+    runner = unittest.main(argv=test_argv, exit=False)
+    if not runner.result.wasSuccessful():
+        exit(1)
