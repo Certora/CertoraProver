@@ -1,7 +1,9 @@
 use solana_program::{
     account_info::AccountInfo,
+    instruction::Instruction,
     program::{invoke, invoke_signed},
     program_error::ProgramError,
+    pubkey::Pubkey,
 };
 
 use spl_token::instruction::{burn, close_account, mint_to, transfer};
@@ -226,4 +228,45 @@ fn invoke_close_account<'a, const N_SIGNERS: usize>(
         _ => return Err(ProgramError::InvalidArgument),
     }
     Ok(())
+}
+
+pub fn process_unknown_program(
+    accounts: &[AccountInfo],
+    _instruction_data: &[u8],
+) -> Result<(), ProgramError> {
+    let acc1 = &accounts[0];
+    let acc2 = &accounts[1];
+    let acc3 = &accounts[2];
+    invoke_unknown_program(acc1, acc2, acc3)?;
+    Ok(())
+}
+
+fn invoke_unknown_program<'a>(
+    acc1: &AccountInfo<'a>,
+    acc2: &AccountInfo<'a>,
+    acc3: &AccountInfo<'a>,
+) -> Result<(), ProgramError> {
+    let instruction = Instruction {
+        program_id: get_unknown_key(),
+        accounts: vec![],
+        data: vec![],
+    };
+    invoke(&instruction, &[acc1.clone(), acc2.clone(), acc3.clone()])?;
+    Ok(())
+}
+
+/// Generates a key that does not correspond to any known program.
+fn get_unknown_key() -> Pubkey {
+    #[allow(deprecated)]
+    let mut pubkey = Pubkey::default();
+    unsafe {
+        // Get a mutable pointer to the first byte.
+        let ptr = &mut pubkey as *mut Pubkey as *mut u64;
+        // Write u64s directly.
+        *ptr.add(0) = 42;
+        *ptr.add(1) = 42;
+        *ptr.add(2) = 42;
+        *ptr.add(3) = 42;
+    }
+    pubkey
 }

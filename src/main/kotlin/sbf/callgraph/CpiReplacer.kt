@@ -25,7 +25,6 @@ import sbf.cfg.MutableSbfCFG
 import sbf.cfg.SbfInstruction
 import sbf.cfg.SbfMeta
 import datastructures.stdcollections.*
-import sbf.analysis.cpis.CpiCall
 import sbf.analysis.cpis.INVOKE_FUNCTION_NAME
 import sbf.analysis.cpis.INVOKE_SIGNED_FUNCTION_NAME
 import sbf.analysis.cpis.InvokeType
@@ -33,6 +32,13 @@ import sbf.analysis.cpis.TokenInstruction
 import log.*
 import sbf.SolanaConfig
 import sbf.analysis.WholeProgramMemoryAnalysis
+import sbf.analysis.cpis.CpiInstruction
+import sbf.analysis.cpis.LocatedInvoke
+import sbf.cfg.BinOp
+import sbf.cfg.CondOp
+import sbf.cfg.Condition
+import sbf.cfg.Value
+import sbf.disassembler.SbfRegister
 import sbf.domains.INumValue
 import sbf.domains.IOffset
 import sbf.inliner.InlinerConfig
@@ -42,10 +48,10 @@ import sbf.slicer.sliceAndPTAOptLoop
 
 private val cpiLog = Logger(LoggerTypes.CPI)
 
-fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> substituteCpiCalls(
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> substituteCpiCalls(
     analysis: WholeProgramMemoryAnalysis<TNum, TOffset>,
     target: String,
-    cpiCalls: Iterable<CpiCall>,
+    cpiCalls: Map<LocatedInvoke, CpiInstruction?>,
     inliningConfig: InlinerConfig,
     startTime: Long
 ): SbfCallGraph {
@@ -67,7 +73,7 @@ fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> substituteCpiCalls(
  * For example, `call solana_program::program::invoke` could be substituted to
  * `call cvlr_solana_token::cpis::cvlr_invoke_transfer` if the invoked instruction is Token's transfer.
  */
-private fun replaceCpis(prog: SbfCallGraph, cpiCalls: Iterable<CpiCall>): SbfCallGraph {
+private fun replaceCpis(prog: SbfCallGraph, cpiCalls: Map<LocatedInvoke, CpiInstruction?>): SbfCallGraph {
     return CpiReplacer.replaceCpis(prog, cpiCalls)
 }
 
@@ -174,18 +180,21 @@ private object CpiReplacer {
             InvokeTransferCheckedMock
         )
 
+    /** The message of the asserts that are injected by the replacer when a CPI call cannot be resolved. */
+    const val UNRESOLVED_CPI_CALL_ASSERT_COMMENT = "Unresolved CPI call"
+
     init {
         mockFunctionsNames =
             invokeMocks.flatMap { listOf(it.invokeMock.demangledName, it.invokeSignedMock.demangledName) }.toSet()
     }
 
-    fun replaceCpis(prog: SbfCallGraph, cpiCalls: Iterable<CpiCall>): SbfCallGraph {
+    fun replaceCpis(prog: SbfCallGraph, cpiCalls: Map<LocatedInvoke, CpiInstruction?>): SbfCallGraph {
         warnIfMocksAreMissing(prog)
         return prog.transformSingleEntry { cfg ->
             val cfgAfterReplacingCpiCalls = cfg.clone(cfg.getName())
-            for (cpiCall in cpiCalls) {
-                if (cfg.getName() == cpiCall.cfg.getName()) {
-                    replaceCpi(cfgAfterReplacingCpiCalls, cpiCall)
+            for ((locatedInvoke, cpiResolutionResult) in cpiCalls) {
+                if (cfg.getName() == locatedInvoke.cfg.getName()) {
+                    replaceCpi(cfgAfterReplacingCpiCalls, locatedInvoke, cpiResolutionResult)
                 }
             }
             cfgAfterReplacingCpiCalls
@@ -204,33 +213,60 @@ private object CpiReplacer {
         }
     }
 
-    private fun replaceCpi(cfg: MutableSbfCFG, cpiCall: CpiCall) {
-        val block = cfg.getMutableBlock(cpiCall.invokeInstruction.label)
+    private fun replaceCpi(cfg: MutableSbfCFG, locatedInvoke: LocatedInvoke, cpiResolutionResult: CpiInstruction?) {
+        val block = cfg.getMutableBlock(locatedInvoke.inst.label)
         if (block == null) {
-            cpiLog.warn { "Could not find block with label '${cpiCall.invokeInstruction.label}' in CFG ${cfg.getName()}" }
+            cpiLog.warn { "Could not find block with label '${locatedInvoke.inst.label}' in CFG ${cfg.getName()}" }
         } else {
-            replaceCpi(block, cpiCall)
+            replaceCpi(block, locatedInvoke, cpiResolutionResult)
         }
     }
 
-    private fun replaceCpi(block: MutableSbfBasicBlock, cpiCall: CpiCall) {
-        val instructionToBeReplaced = cpiCall.invokeInstruction
-        val replacementInstructions = getReplacementInstructions(cpiCall)
+    private fun replaceCpi(
+        block: MutableSbfBasicBlock,
+        locatedInvoke: LocatedInvoke,
+        cpiResolutionResult: CpiInstruction?
+    ) {
+        val instructionToBeReplaced = locatedInvoke.inst
+        val replacementInstructions = getReplacementInstructions(locatedInvoke, cpiResolutionResult)
         val replacementMap = mapOf(instructionToBeReplaced to replacementInstructions)
         block.replaceInstructions(replacementMap)
     }
 
-    private fun getReplacementInstructions(cpiCall: CpiCall): List<SbfInstruction> {
-        val invokeMock = when (cpiCall.cpiInstruction) {
-            TokenInstruction.Transfer -> InvokeTransferMock
-            TokenInstruction.MintTo -> InvokeMintToMock
-            TokenInstruction.Burn -> InvokeBurnMock
-            TokenInstruction.CloseAccount -> InvokeCloseAccount
-            TokenInstruction.TransferChecked -> InvokeTransferCheckedMock
+    private fun getReplacementInstructions(
+        locatedInvoke: LocatedInvoke,
+        cpiResolutionResult: CpiInstruction?
+    ): List<SbfInstruction> {
+        if (cpiResolutionResult != null) {
+            val invokeMock = when (cpiResolutionResult) {
+                TokenInstruction.Transfer -> InvokeTransferMock
+                TokenInstruction.MintTo -> InvokeMintToMock
+                TokenInstruction.Burn -> InvokeBurnMock
+                TokenInstruction.CloseAccount -> InvokeCloseAccount
+                TokenInstruction.TransferChecked -> InvokeTransferCheckedMock
+            }
+            return when (locatedInvoke.type) {
+                InvokeType.Invoke -> invokeMock.getInvokeReplacementInstructions()
+                InvokeType.InvokeSigned -> invokeMock.getInvokeSignedReplacementInstructions()
+            }
+        } else {
+            // To prevent unsoundness, unresolved CPI calls are substituted with `assert(false)`.
+            return assertFalse(UNRESOLVED_CPI_CALL_ASSERT_COMMENT)
         }
-        return when (cpiCall.invokeType) {
-            InvokeType.Invoke -> invokeMock.getInvokeReplacementInstructions()
-            InvokeType.InvokeSigned -> invokeMock.getInvokeSignedReplacementInstructions()
-        }
+    }
+
+    /**
+     * Returns the list of SBF instructions that encode `assert(false)`.
+     */
+    private fun assertFalse(msg: String): List<SbfInstruction> {
+        return listOf(
+            // R1 = 1
+            SbfInstruction.Bin(BinOp.MOV, Value.Reg(SbfRegister.R1_ARG), Value.Imm(1UL), is64 = true),
+            // assert R1 == 0
+            SbfInstruction.Assert(
+                Condition(CondOp.EQ, Value.Reg(SbfRegister.R1_ARG), right = Value.Imm(0UL)),
+                MetaData(SbfMeta.COMMENT to msg)
+            )
+        )
     }
 }

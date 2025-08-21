@@ -105,25 +105,23 @@ fun getInvokes(analyzedProg: SbfCallGraph): List<LocatedInvoke> {
 /**
  * Listens to the analysis, and once an invoke that is in [invokes] is found, analyzes the memory domain trying to
  * determine which program and which instruction is being called.
- * Can return the list of inferred instructions with the [getInferredCpis] method.
+ * Can return the inferred instructions with the [getCpis] method.
  */
 class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>(
     val invokes: Iterable<LocatedInvoke>, val globals: GlobalVariableMap
 ) : InstructionListener<MemoryDomain<TNum, TOffset>> {
 
-    private val cpiInstructions: MutableMap<LocatedInvoke, CpiInstruction> = mutableMapOf()
+    private val cpiInstructions: MutableMap<LocatedInvoke, CpiInstruction?> = mutableMapOf()
 
     /**
-     * Returns the list of CPI calls that the analysis was able to infer.
-     * This list is in principle not complete as we rely on static analysis to infer the program ids and the
-     * instructions being called.
+     * Returns a map that associates each invoke instruction with a resolution result (which is resolved or unresolved).
+     * If the result for an `invoke` is [null], the CPI has not been resolved.
+     * If the result for an `invoke` is not [null], the CPI has been resolved.
      * Observe that `invoke` should *not* be inlined, as this analysis detects `call solana_program::program::invoke`
      * and `call solana_program::program::invoke_signed`.
      */
-    fun getInferredCpis(): List<CpiCall> {
-        return cpiInstructions.entries.map { (locatedInvoke, cpiInstruction) ->
-            CpiCall(locatedInvoke.cfg, locatedInvoke.inst, cpiInstruction, locatedInvoke.type)
-        }
+    fun getCpis(): Map<LocatedInvoke, CpiInstruction?> {
+        return cpiInstructions
     }
 
     override fun instructionEventBefore(locInst: LocatedSbfInstruction, pre: MemoryDomain<TNum, TOffset>) {
@@ -140,6 +138,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
                             "This is usually due a loss of precision of the static analysis. " +
                             "A possible fix is adding `#[cvlr::early_panic]` to functions that call invoke."
                     }
+                    cpiInstructions[invoke] = null
                     return
                 }
                 cpiLog.info { "Found program id: $programId" }
@@ -147,6 +146,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
                 val program = Program.from(programId)
                 if (program == null) {
                     cpiLog.warn { "Program id `$programId` does not correspond to any known Solana program" }
+                    cpiInstructions[invoke] = null
                     return
                 }
                 cpiLog.info { "Inferred a CPI call to the following program: $program" }
@@ -154,6 +154,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
                 when (program) {
                     Program.SystemProgram -> {
                         cpiLog.warn { "Found system program: no instruction is supported yet" }
+                        cpiInstructions[invoke] = null
                     }
 
                     Program.Token -> {
@@ -161,6 +162,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
                         val instruction = getTokenProgramInstruction(pre, globals)
                         if (instruction == null) {
                             cpiLog.warn { "Could not infer Token program instruction: analysis is not precise enough" }
+                            cpiInstructions[invoke] = null
                         } else {
                             cpiLog.info { "Found token program instruction: `$instruction`" }
                             cpiInstructions[invoke] = instruction

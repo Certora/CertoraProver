@@ -291,7 +291,7 @@ private fun lowerCPICalls(
     val processor = InvokeInstructionListener<ConstantSet, ConstantSet>(invokes, program.getGlobals())
     val memAnalysis = getMemoryAnalysis(target, program, memSummaries, sbfTypesFac, processor = processor)
         ?: return program
-    val cpiCalls = processor.getInferredCpis()
+    val cpiCalls = processor.getCpis()
     return substituteCpiCalls(memAnalysis, target, cpiCalls, inliningConfig, start)
 }
 
