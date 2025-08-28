@@ -20,7 +20,6 @@ package move
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import datastructures.stdcollections.*
 import config.*
-import java.math.BigInteger
 import java.util.concurrent.ConcurrentHashMap
 import tac.*
 import tac.generation.*
@@ -49,18 +48,26 @@ object CvlmHash {
     }
 
     // Type IDs so hashes can include the type arguments of the function.
-    private val typeIds = ConcurrentHashMap<MoveType.Value, BigInteger>()
-    private fun MoveType.Value.typeId() = typeIds.computeIfAbsent(this) { typeIds.size.toBigInteger() }
+    private val typeIds = ConcurrentHashMap<MoveType.Value, TACExpr>()
+    private fun MoveType.Value.typeId() = typeIds.computeIfAbsent(this) { typeIds.size.asTACExpr }
 
     /**
         Generates TAC code to hash the arguments of the given [call] into [dst].
      */
+    context(SummarizationContext)
     fun hashArguments(dst: TACSymbol.Var, call: MoveCall, skipFirstArg: Boolean = false): MoveCmdsWithDecls {
-        val hashArgs = mutableListOf<TACSymbol>()
+        val hashArgs = mutableListOf<TACExpr>()
 
         // Add any type arguments to the hash
         call.callee.typeArguments.forEach { type ->
-            hashArgs.add(TACSymbol.Const(type.typeId()))
+            when (type) {
+                is MoveType.Nondet -> TACExpr.Select(
+                    base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
+                    loc = type.id.asTACExpr
+                )
+                else -> type.typeId()
+            }
+            hashArgs.add(type.typeId())
         }
 
         // Unwrap any reference arguments to get the values
@@ -92,7 +99,7 @@ object CvlmHash {
                 when (it.tag) {
                     is MoveTag -> {
                         val simplified = TACKeyword.TMP(Tag.Bit256, "simplified")
-                        hashArgs.add(simplified)
+                        hashArgs.add(simplified.asSym())
                         TACCmd.Move.HashCmd(
                             dst = simplified,
                             loc = it,
@@ -101,7 +108,7 @@ object CvlmHash {
                     }
                     else -> {
                         // Non-complex arguments can be used directly
-                        hashArgs.add(it)
+                        hashArgs.add(it.asSym())
                         null
                     }
                 }
@@ -115,7 +122,7 @@ object CvlmHash {
             assign(dst) {
                 SimpleHash(
                     hashArgs.size.asTACExpr,
-                    hashArgs.map { it.asSym() },
+                    hashArgs,
                     FunctionHashFamily(call.callee.name)
                 )
             }

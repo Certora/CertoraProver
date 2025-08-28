@@ -108,6 +108,7 @@ class MoveMemory(val scene: MoveScene) {
                     is MoveTag.Struct,
                     is MoveTag.Vec,
                     is MoveTag.GhostArray -> v.copy(namePrefix = v.namePrefix + "!loc", tag = LocTag)
+                    is MoveTag.Nondet -> v.copy(namePrefix = v.namePrefix + "!nondet", tag = Tag.Bit256)
                 }
                 else -> v
             }
@@ -206,7 +207,8 @@ class MoveMemory(val scene: MoveScene) {
                     }
                     is MoveTag.Struct,
                     is MoveTag.Vec,
-                    is MoveTag.GhostArray -> assign(transformLocVar(cmd.lhs), cmd.meta) { transformLocVar(rhs).asSym() }
+                    is MoveTag.GhostArray,
+                    is MoveTag.Nondet -> assign(transformLocVar(cmd.lhs), cmd.meta) { transformLocVar(rhs).asSym() }
                 }
             }
             else -> cmd.withDecls()
@@ -221,7 +223,8 @@ class MoveMemory(val scene: MoveScene) {
                 is MoveTag.Ref -> error("Cannot havoc a reference")
                 is MoveTag.Struct,
                 is MoveTag.Vec,
-                is MoveTag.GhostArray -> assignHavoc(transformLocVar(cmd.lhs), cmd.meta)
+                is MoveTag.GhostArray,
+                is MoveTag.Nondet -> assignHavoc(transformLocVar(cmd.lhs), cmd.meta)
             }
             else -> cmd.withDecls()
         }
@@ -579,7 +582,7 @@ class MoveMemory(val scene: MoveScene) {
 
         fun hashExprs(offset: BigInteger, type: MoveType.Value): List<TACExpr> {
             return when (type) {
-                is MoveType.Bits -> listOf(
+                is MoveType.Bits, is MoveType.Nondet -> listOf(
                     TXF {
                         safeMathNarrow(
                             select(loc.asSym(), offset.asTACExpr),
@@ -666,7 +669,7 @@ class MoveMemory(val scene: MoveScene) {
 
         fun compare(dest: TACSymbol.Var, offset: BigInteger, type: MoveType.Value): SimpleCmdsWithDecls {
             return when(type) {
-                is MoveType.Bits, is MoveType.MathInt -> {
+                is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet -> {
                     assign(dest, cmd.meta) {
                         select(aLoc.asSym(), offset.asTACExpr) eq select(bLoc.asSym(), offset.asTACExpr)
                     }
@@ -809,7 +812,7 @@ class MoveMemory(val scene: MoveScene) {
     ): SimpleCmdsWithDecls {
         check(dst.tag == type.toTag()) { "Expected ${type.toTag()} destination, got ${dst.tag}" }
         return when (type) {
-            is MoveType.Primitive -> {
+            is MoveType.Simple -> {
                 when (ref.loc.tag) {
                     LocTag -> {
                         type.assignFromIntInBounds(dst, meta) { select(ref.loc.asSym(), ref.offset) }
@@ -873,7 +876,7 @@ class MoveMemory(val scene: MoveScene) {
                     else -> error("Expected valid boolean location, got ${ref.loc.tag}")
                 }
             }
-            is MoveType.Bits, is MoveType.MathInt -> {
+            is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet -> {
                 when (ref.loc.tag) {
                     is Tag.Bits, is Tag.Int -> mergeMany(
                         assert("Corrupt reference", meta) { ref.offset eq 0.asTACExpr },
@@ -1018,7 +1021,7 @@ class MoveMemory(val scene: MoveScene) {
      */
     private fun fieldSize(type: MoveType.Value): BigInteger {
         return when (type) {
-            is MoveType.Primitive -> BigInteger.ONE
+            is MoveType.Simple -> BigInteger.ONE
             is MoveType.Struct -> structLayout(type).size
             is MoveType.Vector -> vecElemsOffset + (BigInteger.TWO.pow(256) * fieldSize(type.elemType))
             is MoveType.GhostArray -> BigInteger.TWO.pow(256) * fieldSize(type.elemType)

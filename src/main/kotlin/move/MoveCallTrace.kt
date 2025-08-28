@@ -79,11 +79,11 @@ object MoveCallTrace {
             )
         }
 
+        /** Placeholder for values we don't display in the call trace */
         @KSerializable
-        data object GhostArray : Value() {
+        data class NotDisplayed(val message: String) : Value() {
             override val support get() = treapSetOf<TACSymbol.Var>()
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = this
-            private fun readResolve(): Any = GhostArray
         }
     }
 
@@ -156,6 +156,7 @@ object MoveCallTrace {
                 cmds += TACCmd.Move.BorrowLocCmd(refSym, sym).withDecls(refSym)
                 makeDerefValue(cmds, type, refSym)
             }
+            is MoveType.Nondet -> Value.NotDisplayed("nondet")
         }
     }
 
@@ -174,7 +175,8 @@ object MoveCallTrace {
         }
         is MoveType.Struct -> makeStructValue(cmds, type, refSym)
         is MoveType.Vector -> makeVectorValue(cmds, type, refSym)
-        is MoveType.GhostArray -> makeGhostArrayValue(cmds, type, refSym)
+        is MoveType.GhostArray -> Value.NotDisplayed("ghost array")
+        is MoveType.Nondet -> Value.NotDisplayed("nondet")
     }
 
     /**
@@ -217,20 +219,6 @@ object MoveCallTrace {
         }
         return Value.Vector(lenSym, elems)
     }
-
-    private fun makeGhostArrayValue(
-        cmds: MutableList<MoveCmdsWithDecls>,
-        type: MoveType.GhostArray,
-        arrayRefSym: TACSymbol.Var
-    ): Value.GhostArray {
-        // Ghost arrays are often sparse, so it's not clear how to retrieve a representative set of elements.  For now
-        // we just return a placeholder object.
-        unused(cmds)
-        unused(type)
-        unused(arrayRefSym)
-        return Value.GhostArray
-    }
-
 
     /**
         Generates a function start annotation, along with the code to extract all scalar values from the function's

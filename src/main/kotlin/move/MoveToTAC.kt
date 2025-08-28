@@ -604,7 +604,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                             add(TACCmd.Move.VecPackCmd(push(type), values, meta).withDecls())
                                         }
                                     }
-                                    is MoveType.GhostArray, is MoveType.MathInt -> `impossible!`
+                                    is MoveType.GhostArray, is MoveType.MathInt, is MoveType.Nondet -> `impossible!`
                                 }
                             }
                             decode(inst.type)

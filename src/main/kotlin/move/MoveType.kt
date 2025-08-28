@@ -42,8 +42,12 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     sealed class Value : MoveType()
 
+    /** A [Value] that is represented as a single slot in a memory location */
     @KSerializable
-    sealed class Primitive : Value() {
+    sealed class Simple : Value()
+
+    @KSerializable
+    sealed class Primitive : Simple() {
         override fun toString() = this::class.simpleName ?: super.toString()
     }
 
@@ -122,6 +126,34 @@ sealed class MoveType : HasKSerializable {
         override fun toTag() = Tag.Int
         override fun symNameExt() = "mathint"
         override fun hashCode() = hashObject(this)
+    }
+
+    /**
+        A [Value] whose type is nondeterministic.  This is used as a type argument when instantiating generic functions,
+        e.g. for parametric rules or built-in sanity rules.
+
+        We represent these as 256-bit integers in TAC, always with nondet values.  This numeric value should only be
+        used for equality comparisons!
+
+        Each nondet type argument gets its own unique [id].  If a nondet-typed value has the same [id] as another
+        nondet-typed value, then they are definitely of the same type.  Two nondet-typed values with different [id]s
+        might be of the same type, or different types.  A nondet-typed value might be of the same type as a
+        deterministically-typed value (e.g., a U8).
+
+        When comparing types, we indirect through TACKeyword.MOVE_NONDET_TYPE_EQUIV map, which gives nondeterministic
+        equivalence classes each Nondet type [id].  This allows for instances to hash equal to each other, or to be
+        equal to "real" types, or to be equal to nothing else.
+
+        For example, if we have a function `fun foo<A, B>()` we might instantiate it as `foo<Nondet(1), Nondet(2)>`.  We
+        definitely want it to be the case that all variables of type `Nondet(1)` behave the same, and likewise for
+        `Nondet(2)`.  Additionally, we want it to be possible for `Nondet(1)` and `Nondet(2)` to behave as the same
+        type, otherwise we will miss cases such as `foo<Bar, Bar>`.
+     */
+    @KSerializable
+    data class Nondet(val id: Int) : Simple() {
+        override fun toString() = "nondet#$id"
+        override fun toTag() = MoveTag.Nondet(this)
+        override fun symNameExt() = "nondet!$id"
     }
 }
 
@@ -207,19 +239,19 @@ fun MoveModule.DatatypeHandle.toMoveStructOrShadow(
     is in bounds for the type.  Typically this is because the Int in question was produced from this MoveType
     originally, as in values that are stored in fields of a struct, etc.
  */
-fun MoveType.Primitive.assignFromIntInBounds(
+fun MoveType.Simple.assignFromIntInBounds(
     dest: TACSymbol.Var,
     meta: MetaMap = MetaMap(),
     value: TACExprFact.() -> TACExpr
 ): SimpleCmdsWithDecls {
     return when (this) {
-        is MoveType.Bits -> {
-            val bitsTag = this.toTag()
+        is MoveType.Bits,
+        is MoveType.Nondet -> {
             value.letVar(tag = Tag.Int, meta = meta) { intValue ->
                 mergeMany(
                     assumeBounds(intValue.s, meta),
                     assign(dest, meta) {
-                        safeMathNarrow(intValue, bitsTag, unconditionallySafe = true)
+                        safeMathNarrow(intValue, Tag.Bit256, unconditionallySafe = true)
                     }
                 )
             }
@@ -260,7 +292,8 @@ fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()) = when 
             ).withDecls()
         )
     }
-    is MoveType.Bool, is MoveType.Vector, is MoveType.Struct, is MoveType.GhostArray, is MoveType.MathInt -> {
+    is MoveType.Bool, is MoveType.Vector, is MoveType.Struct,
+    is MoveType.GhostArray, is MoveType.MathInt, is MoveType.Nondet -> {
         tac.generation.assignHavoc(dest, meta)
     }
 }
@@ -269,7 +302,7 @@ fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()) = when 
     Gets the names of all structs used in this type.
  */
 fun MoveType.consituentStructNames(): TreapSet<MoveStructName> = when (this) {
-    is MoveType.Bits, is MoveType.Primitive, MoveType.Bool -> treapSetOf()
+    is MoveType.Bits, is MoveType.Primitive, is MoveType.Nondet, MoveType.Bool -> treapSetOf()
     is MoveType.Vector -> elemType.consituentStructNames()
     is MoveType.Struct -> fields?.map { it.type.consituentStructNames() }?.unionAll().orEmpty() + name
     is MoveType.Reference -> refType.consituentStructNames()

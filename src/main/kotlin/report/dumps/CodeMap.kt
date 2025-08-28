@@ -335,8 +335,8 @@ data class CodeMap(
                     }
                 }
                 is MoveCallTrace.Value.Vector -> "std::vector(${getHtmlRep(v.length)})"
-                is MoveCallTrace.Value.GhostArray -> "ghost array"
                 is MoveCallTrace.Value.Reference -> "&amp;${getHtmlRep(v.value)}"
+                is MoveCallTrace.Value.NotDisplayed -> v.message
             }
         }
 
