@@ -32,6 +32,10 @@ class MetaData private constructor(private val meta: Map<MetaKey<*>, Any>) {
         return MetaData(meta.plus(entry.uncheckedAs<Pair<MetaKey<*>, Any>>()))
     }
 
+    operator fun<T> minus(key: MetaKey<T>): MetaData {
+        return MetaData(meta.minus(key))
+    }
+
     companion object {
         operator fun<T> invoke(entry: Pair<MetaKey<T>, T>): MetaData {
             return MetaData(mutableMapOf(entry.uncheckedAs()))

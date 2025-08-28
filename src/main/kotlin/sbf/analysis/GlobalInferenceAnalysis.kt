@@ -22,7 +22,7 @@ import sbf.disassembler.*
 import sbf.SolanaConfig
 import sbf.callgraph.*
 import sbf.domains.*
-
+import datastructures.stdcollections.*
 
 /**
  * Whole-program analysis that identifies global variables that were not part of the ELF symbol table.
@@ -47,7 +47,13 @@ import sbf.domains.*
  * We do not bother at the moment to change the API of an abstract domain because running `ScalarAnalysis` is
  * currently very cheap, but we might need to revisit these design decisions if `ScalarAnalysis` becomes more expensive.
  *
- * [globalsSymTable] is used to extract constant strings from the ELF file and answer queries about whether an address is a global variable or not.
+ * @param prog is the input program
+ * @param globalsSymTable is used to extract constant strings from the ELF file and answer queries about whether an
+ *        address is a global variable or not.
+ * @return a new [SbfCallGraph] whose global variables consists of the
+ *         original globals plus any new ones identified during the analysis.
+ *         As a side effect, the CFGs may also be annotated with `SET_GLOBAL`
+ *         metadata, intended for use by subsequent scalar analyses.
  **/
 fun runGlobalInferenceAnalysis(
     prog: SbfCallGraph,
@@ -274,6 +280,9 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
      */
     private fun run() {
         for (bb in cfg.getMutableBlocks().values)  {
+            // remove annotations from previous runs
+            bb.removeAnnotations(listOf(SbfMeta.SET_GLOBAL))
+
             for (locInst in bb.getLocatedInstructions()) {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Mem) {

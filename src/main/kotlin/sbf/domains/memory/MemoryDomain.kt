@@ -332,7 +332,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                     if (change) {
                         val topNum =  scalars.sbfTypeFac.anyNum().concretize()
                         check(topNum != null) {"concretize on anyNum cannot be null"}
-                        /// Changing metadata serves here as caching the reduction.
+                        /// HACK: changing metadata serves here as caching the reduction.
                         val newMetadata = locInst.inst.metaData.plus(SbfMeta.REG_TYPE to  (reg to topNum))
                         val newInst = locInst.inst.copyInst(metadata = newMetadata)
                         (b as MutableSbfBasicBlock).replaceInstruction(locInst.pos, newInst)

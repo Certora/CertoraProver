@@ -56,13 +56,14 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> substituteCpiCalls(
     val p1 = replaceCpis(p0, cpiCalls)
     // We need to inline the code of the mocks for the CPI calls
     val p2 = inline(target, target, p1, analysis.memSummaries, inliningConfig)
-    val p3 = annotateWithTypes(p2, analysis.memSummaries)
     // Since we injected new code, this might create new unreachable blocks
-    val p4 = sliceAndPTAOptLoop(target, p3, analysis.memSummaries, startTime)
-    if (SolanaConfig.PrintAnalyzedToDot.get()) {
-        p4.toDot(ArtifactManagerFactory().outputDir, true)
+    val p3 = sliceAndPTAOptLoop(target, p2, analysis.memSummaries, startTime)
+    if (cpiLog.isDebugEnabled && SolanaConfig.PrintAnalyzedToDot.get()) {
+        annotateWithTypes(p3, analysis.memSummaries).also {
+           it.toDot(ArtifactManagerFactory().outputDir, onlyEntryPoint = true, ".cpi.sbf.dot")
+        }
     }
-    return p4
+    return p3
 }
 
 /**

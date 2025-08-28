@@ -43,7 +43,7 @@ interface SbfCallGraph {
     fun getRecursiveFunctions(): Set<CfgName>
     fun callGraphStructureToString(): String
     fun callGraphStructureToDot(prefix: File)
-    fun toDot(prefix: File, onlyEntryPoint: Boolean = false)
+    fun toDot(prefix: File, onlyEntryPoint: Boolean = false, suffix: String = ".sbf.dot")
     fun getStats(): CFGStats
 
     /** Set of CFGs that have to be preserved (i.e., cannot be eliminated or modified) by program transformations. */
@@ -369,14 +369,14 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
         printToFile("$prefix${File.separator}callgraph-$rootsStr.sbf.dot", sb.toString())
     }
 
-    override fun toDot(prefix:File, onlyEntryPoint: Boolean) {
+    override fun toDot(prefix:File, onlyEntryPoint: Boolean, suffix: String) {
         if (onlyEntryPoint) {
             for (cfg in getCallGraphRoots()) {
-                printToFile("$prefix${File.separator}${cfg.getName()}.sbf.dot", cfg.toDot())
+                printToFile("$prefix${File.separator}${cfg.getName()}$suffix", cfg.toDot())
             }
         } else {
             for (cfg in cfgs) {
-                printToFile("$prefix${File.separator}${cfg.getName()}.sbf.dot", cfg.toDot())
+                printToFile("$prefix${File.separator}${cfg.getName()}$suffix", cfg.toDot())
             }
         }
     }

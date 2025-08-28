@@ -108,6 +108,9 @@ class NPAnalysis(
 
         // run the backward analysis
         runAnalysis()
+
+        // Remove the annotations inserted by `propagateAssumptions`
+        cfg.removeAnnotations(listOf(SbfMeta.EQUALITY_REG_AND_STACK))
     }
 
     fun getPreconditionsAtEntry(label: Label): NPDomain<TScalarDomain, TNum, TOffset>? {

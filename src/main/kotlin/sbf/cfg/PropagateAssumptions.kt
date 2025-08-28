@@ -21,7 +21,8 @@ import sbf.analysis.AnalysisRegisterTypes
 import sbf.domains.*
 
 /**
- * This pass adds annotations in the CFG to propagate certain equalities.
+ * This pass adds annotations `EQUALITY_REG_AND_STACK` in the CFG to propagate certain equalities.
+ *
  * This pass would not be needed if scalar domain would be relational.
  */
 fun <D, TNum, TOffset> propagateAssumptions(

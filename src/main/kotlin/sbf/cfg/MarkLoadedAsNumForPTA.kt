@@ -30,6 +30,9 @@ fun markLoadedAsNumForPTA(cfg: MutableSbfCFG) {
 
 private fun markLoadedAsNumForPTA(cfg: MutableSbfCFG, liveness: LivenessAnalysis) {
     for (bb in cfg.getMutableBlocks().values) {
+        // Remove annotations from previous runs
+        bb.removeAnnotations(listOf(SbfMeta.LOADED_AS_NUM_FOR_PTA))
+
         if (!bb.getInstructions().any { inst ->  inst is SbfInstruction.Mem && inst.isLoad }) {
             continue
         }
