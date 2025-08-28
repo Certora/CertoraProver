@@ -21,11 +21,11 @@ import sbf.domains.MemorySummaries
 import sbf.domains.MemorySummary
 import datastructures.stdcollections.*
 
-object AbortFunction {
+object AbortFunctions {
     /**
      * List of known Rust functions that always abort.
      **/
-    private val functions = listOf(
+    private val functions = setOf(
         "__rg_oom",
 
         "alloc::alloc::handle_alloc_error",
@@ -74,4 +74,18 @@ object AbortFunction {
             memSummaries.addSummary(it, MemorySummary(args = listOf(), isAbort = true))
         }
     }
+
+    /**
+     * Return true if [fname] is a function that always abort.
+     *
+     * [fname] can be either mangled or demangled because it can be called very early in the Solana pipeline.
+     */
+    operator fun contains(fname: String): Boolean {
+        if (fname in functions) {
+            return true
+        }
+        // We could cache queries to `fastDemangleRust` if needed.
+        return fastDemangleRust(fname)?.let { it in functions } ?: false
+    }
 }
+

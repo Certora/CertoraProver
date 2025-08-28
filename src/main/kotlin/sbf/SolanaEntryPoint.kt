@@ -376,7 +376,7 @@ private fun addDefaultSummaries(memSummaries: MemorySummaries) {
     CVTFunction.addSummaries(memSummaries)
     SolanaFunction.addSummaries(memSummaries)
     CompilerRtFunction.addSummaries(memSummaries)
-    AbortFunction.addSummaries(memSummaries)
+    AbortFunctions.addSummaries(memSummaries)
 }
 
 /**
