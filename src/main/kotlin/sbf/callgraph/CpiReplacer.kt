@@ -71,7 +71,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> substituteCpiCalls(
 /**
  * Returns [prog] where the CPI calls have been replaced with calls to their respective mocks.
  * For example, `call solana_program::program::invoke` could be substituted to
- * `call cvlr_solana_token::cpis::cvlr_invoke_transfer` if the invoked instruction is Token's transfer.
+ * `call cvlr_spl_token::cpis::cvlr_invoke_transfer` if the invoked instruction is Token's transfer.
  */
 private fun replaceCpis(prog: SbfCallGraph, cpiCalls: Map<LocatedInvoke, CpiInstruction?>): SbfCallGraph {
     return CpiReplacer.replaceCpis(prog, cpiCalls)
@@ -83,7 +83,7 @@ private fun replaceCpis(prog: SbfCallGraph, cpiCalls: Map<LocatedInvoke, CpiInst
  * It is important that these functions are preserved across different program transformations, otherwise it would not
  * be possible to inline them after substituting the calls to invoke with calls to the mocks.
  *
- * Example: `cvlr_solana_token::cpis::cvlr_invoke_transfer`
+ * Example: `cvlr_spl_token::cpis::cvlr_invoke_transfer`
  */
 val CPIS_MOCK_FUNCTION_NAMES: Set<String> = CpiReplacer.mockFunctionsNames
 
@@ -118,55 +118,55 @@ private object CpiReplacer {
 
     val InvokeTransferMock = InvokeMock(
         invokeMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_transfer",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_transfer",
             mangledName = "_ZN11cvlr_solana4cpis20cvlr_invoke_transfer17hf63e9306c568c048E"
         ),
         invokeSignedMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_signed_transfer",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_transfer",
             mangledName = "_ZN11cvlr_solana4cpis27cvlr_invoke_signed_transfer17h9cf75576870ddcb5E"
         )
     )
 
     val InvokeMintToMock = InvokeMock(
         invokeMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_mint_to",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_mint_to",
             mangledName = "_ZN11cvlr_solana4cpis19cvlr_invoke_mint_to17hc448a2e751290a6cE"
         ),
         invokeSignedMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_signed_mint_to",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_mint_to",
             mangledName = "_ZN11cvlr_solana4cpis26cvlr_invoke_signed_mint_to17hb0f540d1263633eeE"
         )
     )
 
     val InvokeBurnMock = InvokeMock(
         invokeMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_burn",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_burn",
             mangledName = "_ZN11cvlr_solana4cpis16cvlr_invoke_burn17hbacfe5fffe9a3668E"
         ),
         invokeSignedMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_signed_burn",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_burn",
             mangledName = "_ZN11cvlr_solana4cpis23cvlr_invoke_signed_burn17h738b62d009b94b13E"
         )
     )
 
     val InvokeCloseAccount = InvokeMock(
         invokeMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_close_account",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_close_account",
             mangledName = "_ZN11cvlr_solana4cpis21process_close_account17h2ec09c6c4e5fb81bE"
         ),
         invokeSignedMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_signed_close_account",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_close_account",
             mangledName = "_ZN11cvlr_solana4cpis32cvlr_invoke_signed_close_account17h150c21d4b60508e6E"
         )
     )
 
     val InvokeTransferCheckedMock = InvokeMock(
         invokeMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_transfer_checked",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_transfer_checked",
             mangledName = "_ZN11cvlr_solana4cpis28cvlr_invoke_transfer_checked17hd0e646d73ad81589E"
         ),
         invokeSignedMock = FunctionIdentifier(
-            demangledName = "cvlr_solana_token::cpis::cvlr_invoke_signed_transfer_checked",
+            demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_transfer_checked",
             mangledName = "_ZN11cvlr_solana4cpis35cvlr_invoke_signed_transfer_checked17hb03a0e94805d7838E"
         )
     )
