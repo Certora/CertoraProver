@@ -267,7 +267,7 @@ private val immutableReferenceComparator =
         .thenComparing(ImmutableReference::varname).thenComparing(ImmutableReference::value)
 
 private fun metadatalessRuntimeBytecode(it: ContractInstanceInSDC) =
-    Disassembler.disassembleRuntimeBytecode(it).code.toByteArray()
+    Disassembler.disassembleRuntimeBytecode(it).bytes.toByteArray()
 
 private fun metadatalessConstructorBytecode(it: ContractInstanceInSDC) =
     Disassembler.disassembleConstructorBytecode(it).code.toByteArray()
