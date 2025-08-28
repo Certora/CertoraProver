@@ -51,12 +51,17 @@ private const val OFFSET_FROM_INSTRUCTION_TO_DATA_VEC = 24
 /** Offset from the start of the data vector to the discriminant of the instruction that is being called for Token. */
 private const val OFFSET_FROM_DATA_VECTOR_TO_TOKEN_INSTRUCTION_DISCRIMINANT = 0
 
-/** Size (in bytes) of the discriminant of a Token instruction. */
-private const val TOKEN_INSTRUCTION_DISCRIMINANT_SIZE: Short = 1
-
 
 /** A call to `invoke` or `invoke_signed` in a specific location. */
 data class LocatedInvoke(val cfg: SbfCFG, val inst: LocatedSbfInstruction, val type: InvokeType)
+
+
+/** The type of the `invoke` instruction, which can be either a simple `invoke`, or an `invoke_signed` */
+sealed interface InvokeType {
+    data object Invoke : InvokeType
+    data object InvokeSigned : InvokeType
+}
+
 
 /**
  * Returns a list of instructions in the program that are calls to `invoke` instructions.
@@ -102,25 +107,27 @@ fun getInvokes(analyzedProg: SbfCallGraph): List<LocatedInvoke> {
     return invokes
 }
 
+
 /**
  * Listens to the analysis, and once an invoke that is in [invokes] is found, analyzes the memory domain trying to
  * determine which program and which instruction is being called.
  * Can return the inferred instructions with the [getCpis] method.
+ * The parameter [cpisSubstitutionMap] describes how to associate program IDs to specific mocking functions.
  */
 class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>(
-    val invokes: Iterable<LocatedInvoke>, val globals: GlobalVariableMap
+    val cpisSubstitutionMap: CpisSubstitutionMap, val invokes: Iterable<LocatedInvoke>, val globals: GlobalVariableMap
 ) : InstructionListener<MemoryDomain<TNum, TOffset>> {
 
-    private val cpiInstructions: MutableMap<LocatedInvoke, CpiInstruction?> = mutableMapOf()
+    private val cpiInstructions: MutableMap<LocatedInvoke, InvokeMock?> = mutableMapOf()
 
     /**
-     * Returns a map that associates each invoke instruction with a resolution result (which is resolved or unresolved).
-     * If the result for an `invoke` is [null], the CPI has not been resolved.
-     * If the result for an `invoke` is not [null], the CPI has been resolved.
+     * Returns a map that associates each `invoke` instruction with a resolution result (which is resolved or unresolved).
+     * If the result for an `invoke` is `null`, the CPI has not been resolved.
+     * If the result for an `invoke` is not `null`, the CPI has been resolved.
      * Observe that `invoke` should *not* be inlined, as this analysis detects `call solana_program::program::invoke`
      * and `call solana_program::program::invoke_signed`.
      */
-    fun getCpis(): Map<LocatedInvoke, CpiInstruction?> {
+    fun getCpis(): Map<LocatedInvoke, InvokeMock?> {
         return cpiInstructions
     }
 
@@ -143,37 +150,27 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
                 }
                 cpiLog.info { "Found program id: $programId" }
 
-                val program = Program.from(programId)
-                if (program == null) {
+
+                val discriminants = cpisSubstitutionMap.map[programId]
+                if (discriminants == null) {
                     cpiLog.warn { "Program id `$programId` does not correspond to any known Solana program" }
                     cpiInstructions[invoke] = null
                     return
                 }
-                cpiLog.info { "Inferred a CPI call to the following program: $program" }
 
-                when (program) {
-                    Program.SystemProgram -> {
-                        cpiLog.warn { "Found system program: no instruction is supported yet" }
-                        cpiInstructions[invoke] = null
-                    }
-
-                    Program.Token -> {
-                        cpiLog.info { "Found token program: trying to infer called instruction" }
-                        val instruction = getTokenProgramInstruction(pre, globals)
-                        if (instruction == null) {
-                            cpiLog.warn { "Could not infer Token program instruction: analysis is not precise enough" }
-                            cpiInstructions[invoke] = null
-                        } else {
-                            cpiLog.info { "Found token program instruction: `$instruction`" }
-                            cpiInstructions[invoke] = instruction
-                        }
-                    }
+                val instruction = getInstruction(discriminants, pre, globals)
+                if (instruction == null) {
+                    cpiLog.warn { "Could not infer program instruction: analysis is not precise enough" }
+                } else {
+                    cpiLog.info { "Success: invoke `${invoke.inst}` must be substituted to instruction `$instruction`" }
                 }
+                cpiInstructions[invoke] = instruction
             }
         }
     }
 
     override fun instructionEventAfter(locInst: LocatedSbfInstruction, post: MemoryDomain<TNum, TOffset>) {}
+
     override fun instructionEvent(
         locInst: LocatedSbfInstruction,
         pre: MemoryDomain<TNum, TOffset>,
@@ -182,15 +179,78 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
     }
 }
 
+
 /**
- * If R2 points to an `Instruction` for which we can follow the pointer to the `data` vector, and in that vector
- * the discriminant is known and can be converted into a [TokenInstruction], return such instruction.
- * Otherwise, return `null`.
+ * Explores the abstract state before a CPI call trying to infer the program id.
+ * If the memory analysis is not precise enough to infer the program id, returns `null`.
+ * We know that before calling `invoke` register R2 points to the `Instruction`, and 48 bytes after the program
+ * id is encoded in 32 bytes.
  */
-private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getTokenProgramInstruction(
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getProgramIdBeforeInvoke(
     memoryDomain: MemoryDomain<TNum, TOffset>,
     globals: GlobalVariableMap
-): TokenInstruction? {
+): ProgramId? {
+    val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
+    if (r2 == null) {
+        cpiLog.warn { "Could not infer register cell associated with R2" }
+        return null
+    }
+
+    val pointerToInstruction = r2.concretize()
+    if (!pointerToInstruction.getNode().isExactNode()) {
+        cpiLog.warn { "The PTA node pointed by register R2 is not exact" }
+        return null
+    }
+    cpiLog.info { "Pointer to instruction: $pointerToInstruction - node ${pointerToInstruction.getNode()}. Offset ${pointerToInstruction.getOffset()}" }
+    val offsetToProgramId = pointerToInstruction.getOffset() + OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID
+
+    // We know collect the chunks composing the program id.
+    // Currently, we expect that the four u64s that compose the program id (overall, 32 bytes) are explicitly
+    // written to memory.
+    // This will change in principle in the future once the value analysis becomes more precise.
+    // For now, we then expect to collect four chunks of the program id (each one is a u64).
+    val chunks = mutableListOf<ULong>()
+    for (i in 0 until 4) {
+        val field = PTAField(offsetToProgramId + (8 * i), 8)
+        val instructionIdChunk = pointerToInstruction.getNode().getSucc(field)
+        if (instructionIdChunk == null) {
+            cpiLog.warn { "Cannot infer program id chunk" }
+            return null
+        }
+
+        if (!instructionIdChunk.getNode().mustBeInteger()) {
+            // We want only precise values.
+            cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (could be something that is not an integer)" }
+            return null
+        }
+
+        val chunk = instructionIdChunk.getNode().integerValue.toLongOrNull()?.toULong()
+        if (chunk == null) {
+            cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (numeric value is not precise enough)" }
+            return null
+        }
+
+        chunks.add(chunk)
+    }
+
+    return if (chunks.size == 4) {
+        ProgramId(chunks[0], chunks[1], chunks[2], chunks[3])
+    } else {
+        null
+    }
+}
+
+
+/**
+ * If R2 points to an `Instruction` for which we can follow the pointer to the `data` vector, and in that vector
+ * the discriminant is known and can be converted into a [InvokeMock], return such mock.
+ * Otherwise, return `null`.
+ */
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getInstruction(
+    discriminants: ProgramDiscriminants,
+    memoryDomain: MemoryDomain<TNum, TOffset>,
+    globals: GlobalVariableMap
+): InvokeMock? {
     val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
     if (r2 == null) {
         cpiLog.warn { "Could not infer register cell associated with R2" }
@@ -220,84 +280,27 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getTokenProgram
     val instructionDiscriminantOffset =
         dataArray.getOffset() + OFFSET_FROM_DATA_VECTOR_TO_TOKEN_INSTRUCTION_DISCRIMINANT
     val instructionDiscriminantPointer =
-        PTAField(instructionDiscriminantOffset, size = TOKEN_INSTRUCTION_DISCRIMINANT_SIZE)
+        PTAField(instructionDiscriminantOffset, size = discriminants.numBytesDiscriminant)
     val pointedInstructionDiscriminant = dataArray.getNode().getSucc(instructionDiscriminantPointer)
     if (pointedInstructionDiscriminant == null) {
-        cpiLog.warn { "Cannot resolve pointer to Token instruction discriminant" }
+        cpiLog.warn { "Cannot resolve pointer to instruction discriminant" }
         return null
     }
     if (!pointedInstructionDiscriminant.getNode().mustBeInteger()) {
-        cpiLog.warn { "PTA node pointing to Token instruction discriminant is not precise enough (could be something that is not an integer)" }
+        cpiLog.warn { "PTA node pointing to instruction discriminant is not precise enough (could be something that is not an integer)" }
         return null
     }
 
-    val instructionDiscriminant = pointedInstructionDiscriminant.getNode().integerValue.toLongOrNull()
+    val instructionDiscriminant = pointedInstructionDiscriminant.getNode().integerValue.toLongOrNull()?.toULong()
     if (instructionDiscriminant == null) {
-        cpiLog.warn { "PTA node pointing to Token instruction discriminant is not precise enough (numeric value is not precise enough)" }
+        cpiLog.warn { "PTA node pointing to instruction discriminant is not precise enough (numeric value is not precise enough)" }
         return null
     }
 
-    val tokenProgramInstruction = TokenInstruction.from(instructionDiscriminant)
-    if (tokenProgramInstruction == null) {
-        cpiLog.info { "Could not convert discriminant `$instructionDiscriminant` to Token program instruction" }
+    val mockFunction: InvokeMock? = discriminants.discriminants[instructionDiscriminant]
+    if (mockFunction == null) {
+        cpiLog.info { "Could not convert discriminant `$instructionDiscriminant` to program instruction" }
         return null
     }
-    return tokenProgramInstruction
-}
-
-/**
- * Explores the abstract state before a CPI call trying to infer the program id.
- * If the memory analysis is not precise enough to infer the program id, returns `null`.
- * We know that before calling `invoke` register R2 points to the `Instruction`, and 48 bytes after the program
- * id is encoded in 32 bytes.
- */
-private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getProgramIdBeforeInvoke(
-    memoryDomain: MemoryDomain<TNum, TOffset>,
-    globals: GlobalVariableMap
-): Program.ProgramId? {
-    val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
-    if (r2 == null) {
-        cpiLog.warn { "Could not infer register cell associated with R2" }
-        return null
-    }
-
-    val pointerToInstruction = r2.concretize()
-    if (!pointerToInstruction.getNode().isExactNode()) {
-        cpiLog.warn { "The PTA node pointed by register R2 is not exact" }
-        return null
-    }
-    cpiLog.info { "Pointer to instruction: $pointerToInstruction - node ${pointerToInstruction.getNode()}. Offset ${pointerToInstruction.getOffset()}" }
-    val offsetToProgramId = pointerToInstruction.getOffset() + OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID
-
-    // We know collect the chunks composing the program id.
-    // Currently, we expect that the four u64s that compose the program id (overall, 32 bytes) are explicitly
-    // written to memory. This will change in principle in the future once the value analysis becomes more
-    // precise.
-    // For now, we then expect to collect four chunks of the program id (each one is a u64).
-    val chunks = mutableListOf<ULong>()
-    for (i in 0 until 4) {
-        val field = PTAField(offsetToProgramId + (8 * i), 8)
-        val instructionIdChunk = pointerToInstruction.getNode().getSucc(field)
-        if (instructionIdChunk == null) {
-            cpiLog.warn { "Cannot infer program id chunk" }
-            return null
-        }
-        if (!instructionIdChunk.getNode().mustBeInteger()) {
-            // We want only precise values.
-            cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (could be something that is not an integer)" }
-            return null
-        }
-        val chunk = instructionIdChunk.getNode().integerValue.toLongOrNull()?.toULong()
-        if (chunk == null) {
-            cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (numeric value is not precise enough)" }
-            return null
-        }
-        chunks.add(chunk)
-    }
-
-    return if (chunks.size == 4) {
-        Program.ProgramId(chunks[0], chunks[1], chunks[2], chunks[3])
-    } else {
-        null
-    }
+    return mockFunction
 }

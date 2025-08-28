@@ -19,6 +19,7 @@ package sbf.callgraph
 
 import datastructures.stdcollections.*
 import sbf.SolanaConfig
+import sbf.analysis.cpis.cpisSubstitutionMap
 import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.domains.MemorySummaries
@@ -198,7 +199,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
             demangler.get(),
             roots,
             prog.globalsMap,
-            preservedCFGs = CPIS_MOCK_FUNCTION_NAMES
+            preservedCFGs = cpisSubstitutionMap.mockFunctionsNames
         ),
         demangler
     ).let {

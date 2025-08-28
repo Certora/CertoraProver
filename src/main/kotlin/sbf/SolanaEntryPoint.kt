@@ -39,6 +39,7 @@ import report.CVTAlertSeverity
 import report.CVTAlertType
 import sbf.analysis.cpis.InvokeInstructionListener
 import sbf.analysis.cpis.getInvokes
+import sbf.analysis.cpis.cpisSubstitutionMap
 import sbf.cfg.*
 import sbf.domains.*
 import utils.Range
@@ -81,23 +82,24 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
         )
     }
 
-    val sanityRules = if (Config.DoSanityChecksForRules.get() != SanityValues.NONE && SolanaConfig.EnableCvlrVacuity.get()) {
-        /**
-         * In the case we are in sanity mode, all rules are duplicated for the vacuity check.
-         * The new rules are derived from the original baseRule, this relationship is maintained
-         * by using the rule type [SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck].
-         *
-         * We rely on this information to be present when building the rule tree via the [report.TreeViewReporter].
-         */
-        targets.filter { !it.isSatisfyRule }.map { baseRule ->
-            baseRule.copy(
-                ruleIdentifier = baseRule.ruleIdentifier.freshDerivedIdentifier(vacuitySuffix),
-                ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(baseRule)
-            )
+    val sanityRules =
+        if (Config.DoSanityChecksForRules.get() != SanityValues.NONE && SolanaConfig.EnableCvlrVacuity.get()) {
+            /**
+             * In the case we are in sanity mode, all rules are duplicated for the vacuity check.
+             * The new rules are derived from the original baseRule, this relationship is maintained
+             * by using the rule type [SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck].
+             *
+             * We rely on this information to be present when building the rule tree via the [report.TreeViewReporter].
+             */
+            targets.filter { !it.isSatisfyRule }.map { baseRule ->
+                baseRule.copy(
+                    ruleIdentifier = baseRule.ruleIdentifier.freshDerivedIdentifier(vacuitySuffix),
+                    ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(baseRule)
+                )
+            }
+        } else {
+            listOf()
         }
-    } else {
-        listOf()
-    }
 
     // Initialize the [InlinedFramesInfo] object for subsequent inlined frames queries.
     DebugInfoReader.init(elfFile)
@@ -145,12 +147,14 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
     return multiAssertChecks(rules)
 }
 
-private fun solanaRuleToTAC(rule: EcosystemAgnosticRule,
-                            prog: SbfCallGraph,
-                            inliningConfig: InlinerConfig,
-                            memSummaries: MemorySummaries,
-                            globalsSymbolTable: GlobalsSymbolTable,
-                            start0: Long): CompiledSolanaRule {
+private fun solanaRuleToTAC(
+    rule: EcosystemAgnosticRule,
+    prog: SbfCallGraph,
+    inliningConfig: InlinerConfig,
+    memSummaries: MemorySummaries,
+    globalsSymbolTable: GlobalsSymbolTable,
+    start0: Long
+): CompiledSolanaRule {
 
     val target = rule.ruleIdentifier.toString()
     // 1. Inline all internal calls starting from `target` as root
@@ -176,7 +180,7 @@ private fun solanaRuleToTAC(rule: EcosystemAgnosticRule,
     val optProg = try {
         sliceAndPTAOptLoop(target, inlinedProg, memSummaries, start0)
     } catch (e: NoAssertionErrorAfterSlicer) {
-        sbfLogger.warn{"$e"}
+        sbfLogger.warn { "$e" }
         vacuousProgram(target, "No assertions found after slicer")
     }
 
@@ -229,7 +233,7 @@ private fun solanaRuleToTAC(rule: EcosystemAgnosticRule,
 /**
  * Run memory analysis and, optionally, process each instruction with [processor]
  */
-private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getMemoryAnalysis(
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getMemoryAnalysis(
     target: String,
     program: SbfCallGraph,
     memSummaries: MemorySummaries,
@@ -293,7 +297,11 @@ private fun lowerCPICalls(
         return program
     }
     val invokes = getInvokes(program)
-    val processor = InvokeInstructionListener<ConstantSet, ConstantSet>(invokes, program.getGlobals())
+    val processor = InvokeInstructionListener<ConstantSet, ConstantSet>(
+        cpisSubstitutionMap,
+        invokes,
+        program.getGlobals()
+    )
     val memAnalysis = getMemoryAnalysis(target, program, memSummaries, sbfTypesFac, processor = processor)
         ?: return program
     val cpiCalls = processor.getCpis()
