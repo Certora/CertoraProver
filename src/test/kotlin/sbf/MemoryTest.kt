@@ -921,32 +921,43 @@ class MemoryTest {
         n3.setWrite()
         val n4 = g.mkIntegerNode()
         n4.setWrite()
+        val scalars = absVal.getScalars()
+
+        scalars.setStackContent(4000, 8, ScalarValue(sbfTypesFac.anyNum()))
+        scalars.setStackContent(4032, 8, ScalarValue(sbfTypesFac.anyNum()))
+        scalars.setStackContent(4040, 4, ScalarValue(sbfTypesFac.anyNum()))
+        scalars.setStackContent(4044, 4, ScalarValue(sbfTypesFac.anyNum()))
+        scalars.setStackContent(4048, 8, ScalarValue(sbfTypesFac.anyNum()))
+
         stack.getNode().mkLink(4000, 8, n3.createCell(0))
         stack.getNode().mkLink(4032, 8, n3.createCell(0))
         stack.getNode().mkLink(4040, 4, n1.createCell(0))
         stack.getNode().mkLink(4044, 4, n2.createCell(0))
         stack.getNode().mkLink(4048, 8, n4.createCell(0))
         g.setRegCell(r10,stack.getNode().createSymCell(PTAOffset(4096)))
-        sbfLogger.warn{"PTAGraph=$g" }
+        println("PTAGraph(test19)=$g")
         val dummyLocInst = LocatedSbfInstruction(Label.fresh(), 1, SbfInstruction.Exit())
 
 
         /** We should reconstruct a cell from (4040,4) and (4044,4) **/
-        val c1 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4040), 8, absVal.getScalars())
+        val c1 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4040), 8, absVal.getScalars())?.getCell()
+        println("ReconstructFromIntegerCells(4040,8)=$c1\nPTAGraph=$g")
         Assertions.assertEquals(true, c1 != null)
-        sbfLogger.warn{"ReconstructFromIntegerCells(4040,8)=$c1\nPTAGraph=$g" }
 
         /** We should reconstruct a cell from (4048,8) **/
-        val c2 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4048), 4, absVal.getScalars())
+        val c2 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4048), 4, absVal.getScalars())?.getCell()
+        println("ReconstructFromIntegerCells(4048,4)=$c2\nPTAGraph=$g")
         Assertions.assertEquals(true, c2 != null)
-        sbfLogger.warn{"ReconstructFromIntegerCells(4048,4)=$c2\nPTAGraph=$g" }
+
 
         /** We cannot reconstruct a cell from (4064,8) **/
-        val c3 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4064), 8, absVal.getScalars())
+        val c3 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4064), 8, absVal.getScalars())?.getCell()
+        println("ReconstructFromIntegerCells(4064,8)=$c3\nPTAGraph=$g")
         Assertions.assertEquals(true, c3 == null)
 
         /** We cannot reconstruct a cell from (4044,8) **/
-        val c4 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4044), 8, absVal.getScalars())
+        val c4 = g.reconstructFromIntegerCells(dummyLocInst, stack.getNode().createCell(4044), 8, absVal.getScalars())?.getCell()
+        println("ReconstructFromIntegerCells(4044,8)=$c4\nPTAGraph=$g")
         Assertions.assertEquals(true, c4 == null)
     }
 

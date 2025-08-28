@@ -2917,7 +2917,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             // Read from uninitialized stack is common due to memcpy from the input region
 
             // 1st special case: the loaded value is a number from looking at overlapping de-referenced memory locations
-            val reconstructedSuccC = reconstructFromIntegerCells(locInst, derefC, field.size, scalars)
+            val reconstructedSuccC = reconstructFromIntegerCells(locInst, derefC, field.size, scalars)?.getCell()
             when {
                 reconstructedSuccC != null -> {
                     // It's possible that the read field was marked as untracked by a previous store.
@@ -3011,7 +3011,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     ): Boolean {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem)
-        check(inst.isLoad) {"doLoad expects a Load instead of $inst"}
+        check(inst.isLoad) {"loadFromCell expects a Load instead of $inst"}
         val field = PTAField(derefC.getOffset(), inst.access.width)
         val succC = derefC.getNode().getSucc(field)
         return if (succC == null) {
@@ -3040,8 +3040,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         scalars: ScalarDomain
     ) {
         val inst = locInst.inst
-        check(inst is SbfInstruction.Mem) {"doLoad expects a Load instead of $inst"}
-        check(inst.isLoad) {"doLoad expects a Load instead of $inst"}
+        check(inst is SbfInstruction.Mem) {"loadFromSymCell expects a Load instead of $inst"}
+        check(inst.isLoad) {"loadFromSymCell expects a Load instead of $inst"}
 
         val lhs = inst.value as Value.Reg
 
@@ -3110,42 +3110,119 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         loadFromSymCell(locInst, derefSc, scalars)
     }
 
+    /**
+     * A reconstructed cell is created either by merging multiple existing cells or
+     * by splitting a single cell into parts.
+     * Reconstructed cells are only created when the last read bytes in the **stack** does not match the last written bytes.
+     *
+     * **Important**: The TAC encoding must be aware of reconstructed cells to ensure soundness.
+     *
+     * @param [fields] is the **sorted** list of **stack** fields.
+     *  - If [fields] has a single element, the cell is created by splitting.
+     *  - If [fields] has multiple elements, the cell is created by merging.
+     * @param [cells] is the list of cells corresponding to each field in [fields]
+     */
+    inner class ReconstructedIntegerCell(
+            val fields: List<PTAField>,
+            val cells: List<PTASymCell>) {
+
+        init {
+            check(fields.size == cells.size) {"Fields and cells must match in size"}
+        }
+
+        // For now, we only use flow-sensitive (only stack) information to extract exact integer values.
+        private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> getIntegerFromField(
+            field: PTAField,
+            scalars: ScalarDomain
+        ): Long? {
+            val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
+            val scalarType = scalarVal.type()
+            return (scalarType as? SbfType.NumType)?.value?.toLongOrNull()
+        }
+
+        /**
+         * Return the reconstructed integer cell.
+         * Note that this function has side effects because it unifies cells.
+         **/
+        fun getCell(): PTASymCell =
+            cells.map{ it.concretize()}. reduce { acc, cur ->
+                acc.unify(cur)
+                acc
+            }.createSymCell()
+
+
+        /**
+         *  Return the reconstructed integer value, if possible.
+         *
+         *  Currently, only supports reconstructing an 8-byte value from two 4-byte fields by merging.
+         *  Otherwise, returns `null`.
+         **/
+        fun <ScalarDomain: ScalarValueProvider<TNum, TOffset>> getIntegerValue(scalars: ScalarDomain): Long? {
+            if (fields.size != 2)  {
+                return null
+            }
+
+            val lowField = fields[0]
+            val highField = fields[1]
+
+            val lowVal = getIntegerFromField(lowField, scalars)
+            val highVal = getIntegerFromField(highField, scalars)
+
+            return if (lowVal != null && highVal != null) {
+                if (highField.size.toInt() == 4 && lowField.size.toInt() == 4) {
+                    (highVal shl 32) or (lowVal and 0xFFFFFFFF)
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+        }
+    }
 
     /**
-     *  Create a fresh cell for slice [deref].getOffset()..[deref].getOffset()+[width] from existing cells.
+     *  Return a [ReconstructedIntegerCell] from
+     *  the **stack** slice `[deref].getOffset()..[deref].getOffset()+[width]` if there is no already a cell.
      **/
     @TestOnly
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> reconstructFromIntegerCells(
-            locInst: LocatedSbfInstruction,
-            deref: PTACell, width: Short,
-            scalars: ScalarDomain
-    ): PTASymCell? {
+        locInst: LocatedSbfInstruction,
+        deref: PTACell,
+        width: Short,
+        scalars: ScalarDomain
+    ): ReconstructedIntegerCell? {
 
-        fun isIntegerCell(field: PTAField, isStackField: Boolean, succC: PTACell): Boolean {
-            // We use first flow-sensitive information
-            if (isStackField) {
-                val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
-                if (scalarVal.type() is SbfType.NumType) {
-                    return true
-                }
+        fun isInteger(field: PTAField, c: PTACell): Boolean {
+            val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
+            return if (scalarVal.type() is SbfType.NumType) {
+                true
+            } else {
+                // If the scalar domain is not precise enough, we use flow-insensitive information.
+                // This might cause a PTA error during invariants replay phase which was did not happen during analysis phase.
+                // But if not PTA error then it is sound to do so.
+                c.getNode().mustBeInteger()
             }
-
-            // Otherwise, we use flow-insensitive information
-            // This might cause a PTA error during invariants replay phase which was did not happen during analysis phase.
-            return succC.getNode().mustBeInteger()
         }
 
+
         val derefNode= deref.getNode()
-        if (derefNode.getSuccs().isEmpty()) {
+
+        if (derefNode.getSucc(PTAField(deref.getOffset(), width)) != null) {
+            // If there is already a cell then there is no need to reconstruct
+            return null
+        }
+
+        if (derefNode != getStack() || derefNode.getSuccs().isEmpty()) {
+            // if no stack or no successor cannot reconstruct
             return null
         }
 
         val slice = FiniteInterval.mkInterval(deref.getOffset().v, width.toLong())
         val mergedSuccs = mutableListOf<PTACell>()
         var cover = SetOfFiniteIntervals(listOf())
-
+        val mergedFields = mutableListOf<PTAField>()
         for ((field, succC) in derefNode.getSuccs()) {
-            if (!isIntegerCell(field, derefNode == getStack(), succC)) { continue }
+            if (!isInteger(field, succC)) { continue }
 
             val fieldRange =  field.toInterval()
             when {
@@ -3154,26 +3231,31 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                 slice.includes(fieldRange) -> {
                     cover = cover.add(fieldRange)
                     mergedSuccs.add(succC)
+                    mergedFields.add(field)
                 }
                 fieldRange.includes(slice) -> {
                     // Found a single field that fully contains the requested slice.
                     // We could actually return `succC` but we allocate a new symbolic integer cell to
                     // avoid creating unnecessary aliasing.
-                    return integerAlloc.alloc(locInst, initializer = { it.integerValue = Constant.makeTop()}) // Numeric analysis loss of precision
+                    val res = ReconstructedIntegerCell(
+                        listOf(field),
+                        listOf(integerAlloc.alloc(locInst, initializer = { it.integerValue = Constant.makeTop()}))
+                    )
+                    sbfLogger.debug {"Reconstructed a cell by splitting"}
+                    return res
                 }
                 else -> {}
             }
         }
 
         /// A bunch of fields together fully covered the requested slice
-        if (cover.getSingleton() == slice) {
-            return mergedSuccs.reduce { acc, cur ->
-                acc.unify(cur)
-                acc
-            }.createSymCell()
+        return if (cover.getSingleton() == slice) {
+            val res = ReconstructedIntegerCell(mergedFields, mergedSuccs.map { it.createSymCell()})
+            sbfLogger.debug {"Reconstructed a cell by merging"}
+            res
+        } else {
+            null
         }
-
-        return null
     }
 
     /**
@@ -3308,8 +3390,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                             isStrongUpdate: Boolean) {
 
         val inst = locInst.inst
-        check(inst is SbfInstruction.Mem) {"doLoad expects a Store instruction instead of $inst"}
-        check(!inst.isLoad) {"doLoad expects a Store instruction instead of $inst"}
+        check(inst is SbfInstruction.Mem) {"storeToCell expects a Store instruction instead of $inst"}
+        check(!inst.isLoad) {"storeToCell expects a Store instruction instead of $inst"}
 
         val width = inst.access.width
         val value = inst.value
