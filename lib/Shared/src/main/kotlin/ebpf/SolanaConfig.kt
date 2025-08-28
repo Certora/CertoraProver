@@ -254,11 +254,11 @@ object SolanaConfig {
 
     // TAC options
     val AddMemLayoutAssumptions = object : ConfigType.BooleanCmdLine(
-        true,
+        false,
         Option(
             "solanaAddMemLayoutAssumptions",
             true,
-            "Add extra assumptions in TAC to restrict valid ranges of addresses. [default: true]"
+            "Add extra assumptions in TAC to restrict valid ranges of addresses. [default: false]"
         )
     ) {}
 
