@@ -2927,12 +2927,22 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     return
                 }
                 untrackedStackFields.contains(field) -> {
-                    var errExp: PtrExprErrStackDeref? = null
-                    for (otherSize in listOf(1, 2, 4, 8)) {
-                        if (otherSize.toShort() != field.size) {
-                            val otherField = PTAField(field.offset, otherSize.toShort())
-                            if (derefC.getNode().getSucc(otherField) != null) {
-                                errExp = PtrExprErrStackDeref(otherField)
+                    // The de-referenced field (offset, size) is marked as inaccessible.
+                    // Possible reasons include:
+                    //   1) Imprecise join
+                    //   2) A previous write at the same offset but with a different size
+                    //
+                    // For debugging, we need an initial pointer expression to guide the
+                    // backward dependency analysis. If there is already a write at the same
+                    // offset but with different size, we start from that write; otherwise, we
+                    // fall back to the de-referenced field itself.
+                    var errExp = PtrExprErrStackDeref(field)
+                    val candidateSizes = listOf<Short>(1, 2, 4, 8)
+                    for (size in candidateSizes) {
+                        if (size != field.size) {
+                            val candidate = PTAField(field.offset, size)
+                            if (derefC.getNode().getSucc(candidate) != null) {
+                                errExp = PtrExprErrStackDeref(candidate)
                                 break
                             }
                         }

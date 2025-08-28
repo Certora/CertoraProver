@@ -292,8 +292,12 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                 inState.kill(lhsV)
             }
             is Value.Reg -> {
-                val rhsV = RegisterVariable(rhs, vFac)
-                inState.flows(lhsV, rhsV)
+                if (rhs.r == SbfRegister.R10_STACK_POINTER) {
+                    inState.kill(lhsV)
+                } else {
+                    val rhsV = RegisterVariable(rhs, vFac)
+                    inState.flows(lhsV, rhsV)
+                }
             }
         }
     }
@@ -464,6 +468,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
     }
 
     private fun analyzeCmd(inState: DataDepsState, cmd: LocatedSbfInstruction): DataDepsState {
+
         val outState = when (val inst = cmd.inst) {
             is SbfInstruction.Assert,
             is SbfInstruction.Assume,
@@ -567,7 +572,15 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             applyAssign = { lhs, rhs ->
                 when (rhs) {
                     is Value.Imm -> addSource(lhs, cmd, inState)
-                    is Value.Reg -> addDep(lhs, cmd, inState)
+                    is Value.Reg -> {
+                        if (rhs.r == SbfRegister.R10_STACK_POINTER) {
+                            // If `lhs := r10` then we don't propagate further, and we consider this assignment
+                            // as a source.
+                            addSource(lhs, cmd, inState)
+                        } else {
+                            addDep(lhs, cmd, inState)
+                        }
+                    }
                 }
             },
             applyBinWithImm = { lhs -> addDep(lhs, cmd, inState) },
