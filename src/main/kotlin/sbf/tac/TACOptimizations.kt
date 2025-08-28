@@ -20,7 +20,7 @@ package sbf.tac
 import analysis.controlflow.InfeasiblePaths
 import analysis.loop.LoopHoistingOptimization
 import analysis.opt.*
-import analysis.opt.bytemaps.BytemapScalarizer
+import analysis.opt.bytemaps.optimizeBytemaps
 import analysis.opt.inliner.GlobalInliner
 import analysis.opt.intervals.IntervalsRewriter
 import analysis.opt.overflow.OverflowPatternRewriter
@@ -77,7 +77,7 @@ fun optimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProgram {
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true, allowAssumes = false) })
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { c -> BoolOptimizer(c).go() })
         // constant propagation + cleanup + merging blocks
-        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1) {
+        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
             ConstantPropagatorAndSimplifier(it).rewrite().let {
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
             }.let(BlockMerger::mergeBlocks)
@@ -91,10 +91,11 @@ fun optimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProgram {
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
             }.let(BlockMerger::mergeBlocks)
         })
-        .mapIf(optLevel >= 3, CoreToCoreTransformer(ReportTypes.BYTEMAP_SCALARIZER) {
-            BytemapScalarizer.go(it).let {
-                optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
-            }.let(BlockMerger::mergeBlocks)
+        .mapIf(optLevel >= 2,   CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
+            // ensure that all commands involving byte maps are unfolded.
+            // Moreover, it applies some byte map simplifications before and after doing bytemap scalarization.
+            optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true), cheap = false)
+                .let(BlockMerger::mergeBlocks)
         })
         // Simplify byte map reads/writes + cleanup + merging blocks
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.GLOBAL_INLINER1) {
@@ -104,7 +105,7 @@ fun optimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProgram {
         })
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
         // constant propagation + cleanup + merging blocks
-        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
+        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
             ConstantPropagatorAndSimplifier(it).rewrite().let {
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
             }.let(BlockMerger::mergeBlocks)
@@ -209,6 +210,12 @@ fun legacyOptimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProg
                 ConstantPropagator.propagateConstants(it, emptySet()).let {
                     BlockMerger.mergeBlocks(it)
                 }
+            })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
+                // ensure that all commands involving byte maps are unfolded.
+                // Moreover, it applies some byte map simplifications before and after doing bytemap scalarization.
+                optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true), cheap = false)
+                    .let(BlockMerger::mergeBlocks)
             })
     }
 
