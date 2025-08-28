@@ -18,7 +18,7 @@
 # ============================================================================
 
 from langchain_anthropic import ChatAnthropic
-from typing import Optional, List, TypedDict, Annotated, Literal, Required, TypeVar, Type, Protocol, Union, Any
+from typing import Optional, List, TypedDict, Annotated, Literal, Required, TypeVar, Type, Protocol, Union, Any, cast
 from langchain_core.messages import ToolMessage, AnyMessage, SystemMessage, HumanMessage, BaseMessage
 from langchain_core.tools import tool, InjectedToolCallId, BaseTool
 from langchain_core.language_models.base import LanguageModelInput
@@ -154,6 +154,70 @@ class ChatNodeFunction(Protocol):
         ...
 
 
+def canonicalize_message(s: AnyMessage) -> AnyMessage:
+    """
+    Canonicalize the `content` of `s` if it is a `HumanMessage` or `ToolMessage`, otherwise
+    leave it unchanged. The canonical representation of `content` for human and tool messages
+    is a list of dicts of the form `{ "type": "text", "text": t }` where `t` is the textual content
+    of the message. Note that the type of `content` also allows a regular old string or a
+    list of strings, which this function transforms into the dict representation described above.
+
+    NB: this function is *pure*; the original object `s` is *unchanged* by this function.
+    """
+    match s:
+        case HumanMessage(content=cont) | ToolMessage(content=cont):
+            cont_list: List[str | dict] = cont if isinstance(cont, list) else [cont]
+            new_cont: List[str | dict] = [
+                d if isinstance(d, dict) else {
+                    "type": "text",
+                    "text": d
+                } for d in cont_list
+            ]
+            s_copy = s.model_copy()
+            s_copy.content = new_cont
+            return s_copy
+        case _:
+            return s
+
+
+def canonicalize(s: List[AnyMessage]) -> List[AnyMessage]:
+    """
+    Canonicalize all messages in `s` via `canonicalize_message`.
+    `s` is unchanged by this function, the list returned is a fresh list,
+    and any canonicalization is performed on copies of the original messages in `s`.
+    """
+    return [canonicalize_message(m) for m in s]
+
+
+def add_cache_control(s: List[AnyMessage]) -> List[AnyMessage]:
+    """
+    Add a `cache_control` directive to the last human/tool message in
+    the canonical representation of `s` (as determined by `canonicalize`).
+    This function returns a copy of `s` with the canonicalization & cache control
+    directives applied.
+    """
+    canon = canonicalize(s)
+    for i in range(len(canon) - 1, -1, -1):
+        curr = canon[i]
+        match curr:
+            case HumanMessage(content=cont) | ToolMessage(content=cont):
+                cont_list = cast(List[dict], cont)
+                new_cont_list = cont_list.copy()
+                final_elem = new_cont_list[-1]
+                new_cont_list[-1] = {
+                    **final_elem,
+                    "cache_control": {"type": "ephemeral"}
+                }
+                mutated = curr.model_copy()
+                mutated.content = cast(List[str | dict], new_cont_list)
+                to_ret = canon.copy()
+                to_ret[i] = mutated
+                return to_ret
+            case _:
+                continue
+    return s
+
+
 def tool_result_generator(llm: Runnable[LanguageModelInput, BaseMessage]) -> ChatNodeFunction:
     """
     Create a LangGraph node function that processes tool results by sending
@@ -167,7 +231,9 @@ def tool_result_generator(llm: Runnable[LanguageModelInput, BaseMessage]) -> Cha
     """
     def tool_result(state: MessagesState) -> dict[str, List[BaseMessage]]:
         logger.debug("Tool result state messages:%s", pretty_print_messages(state["messages"]))
-        return {"messages": [llm.invoke(state["messages"])]}
+        to_send = add_cache_control(state["messages"])
+        result = llm.invoke(to_send)
+        return {"messages": [result]}
     return tool_result
 
 def initial_node(sys_prompt: str, initial_prompt: str, llm: Runnable[LanguageModelInput, BaseMessage]) -> InitNodeFunction:
@@ -192,8 +258,12 @@ def initial_node(sys_prompt: str, initial_prompt: str, llm: Runnable[LanguageMod
                 content=[initial_prompt, state["code_input"]]
             )
         ]
+        # this cast is fine because we don't write into initial_messages
+        to_send = add_cache_control(cast(List[AnyMessage], initial_messages))
+        res = llm.invoke(to_send)
+
         initial_messages.append(
-            llm.invoke(initial_messages)
+            res
         )
         return {"messages": initial_messages}
     return to_return
@@ -476,7 +546,7 @@ are mooted.
    <important>
      The task is complete only when the equivalence checker says the implementations are 'Equivalent'
    </important>
-   <soft_requirement>4
+   <soft_requirement>
      You should *not* add additional error/interface declarations unless absolutely necessary
      for your rewrite to compile.
    </soft_requirement>
@@ -717,7 +787,7 @@ def human_in_the_loop(
     original_function: str,
     attempted_rewrite: str,
     tool_call_id: Annotated[str, InjectedToolCallId]
-) -> Command[Literal["tool_result", "error"]]:
+) -> Command:
     """
     Request human assistance to resolve divergent behaviors during rewriting.
     """
@@ -871,6 +941,7 @@ def execute_rewrite_workflow(rewrite_llm: BaseChatModel, harness: str) -> int:
     """Execute the rewrite workflow with interrupt handling."""
     # Add checkpointer for interrupt functionality
     checkpointer = MemorySaver()
+    print("Calling LLM...")
     rewriter_exec: CompiledStateGraph[RewriterState, None, GraphInput, Any] = build_workflow(
         state_class=RewriterState,
         tools_list=rewrite_tools,
@@ -929,8 +1000,12 @@ def main() -> int:
     harness_llm = create_harness_llm(args)
     rewrite_llm = create_rewrite_llm(args)
 
+    print("Generating wrapper harness contract...")
+
     # Generate harness
     harness = generate_harness(harness_llm, args.input_file)
+
+    print("Harness contract complete, computing rewrite")
 
     # Execute rewrite workflow
     return execute_rewrite_workflow(rewrite_llm, harness)
