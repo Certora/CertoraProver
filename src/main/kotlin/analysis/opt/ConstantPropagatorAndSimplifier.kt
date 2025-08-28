@@ -92,7 +92,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                 ?.takeIf { dom.dominates(it, nbid) }
                 ?.let { blockConstants[it]!![v] }
 
-        fun simplify(exp: TACExpr): TACExpr {
+        private fun simplifyExp(exp: TACExpr): TACExpr {
             when (exp) {
                 is TACExpr.Sym.Const -> return exp
                 is TACExpr.Sym.Var -> return (constants[exp.s] ?: getPrevConstant(exp.s))?.asTACExpr(exp.s.tag) ?: exp
@@ -104,15 +104,23 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                 else -> Unit
             }
             return simplifyTop(
-                exp.rebuild(exp.getOperands().map(::simplify))
+                exp.rebuild(exp.getOperands().map(::simplifyExp))
             )
+        }
+
+        private val mapper = object : DefaultTACCmdMapper() {
+            override fun mapSymbol(t: TACSymbol): TACSymbol =
+                when (t) {
+                    is TACSymbol.Const -> t
+                    is TACSymbol.Var -> (constants[t] ?: getPrevConstant(t))?.asTACSymbol(t.tag) ?: t
+                }
         }
 
         fun process(): Map<TACSymbol.Var, BigInteger> {
             g.lcmdSequence(nbid).forEach { (ptr, cmd) ->
                 when (cmd) {
                     is TACCmd.Simple.AssigningCmd.AssignExpCmd -> {
-                        val newRhs = simplify(cmd.rhs)
+                        val newRhs = simplifyExp(cmd.rhs)
                         if (newRhs != cmd.rhs) {
                             if (newRhs.contains { it is TACExpr.QuantifiedFormula || it is TACExpr.MapDefinition }) {
                                 patcher.replace(ptr, cmd.copy(rhs = newRhs))
@@ -130,7 +138,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                     }
 
                     is TACCmd.Simple.AssumeExpCmd -> {
-                        val newCond = simplify(cmd.cond)
+                        val newCond = simplifyExp(cmd.cond)
                         if (newCond != cmd.cond) {
                             patcher.replace(ptr, cmd.copy(cond = newCond))
                         }
@@ -138,16 +146,19 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
                     is TACCmd.Simple.Assume -> {
                         if (cmd.condExpr !is TACExpr.Sym.Const) {
-                            val newCond = simplify(cmd.condExpr)
+                            val newCond = simplifyExp(cmd.condExpr)
                             val description = (cmd as? TACCmd.Simple.AssumeCmd)?.msg.orEmpty()
                             newCond.getAsConst()?.let {
-                                patcher.replace(ptr, TACCmd.Simple.AssumeCmd(cond = it.asBoolTACSymbol(), msg = description))
+                                patcher.replace(
+                                    ptr,
+                                    TACCmd.Simple.AssumeCmd(cond = it.asBoolTACSymbol(), msg = description)
+                                )
                             }
                         }
                     }
 
                     is TACCmd.Simple.JumpiCmd -> {
-                        val newCond = simplify(cmd.cond.asSym())
+                        val newCond = simplifyExp(cmd.cond.asSym())
                         when (newCond.getAsConst()) {
                             BigInteger.ONE -> patcher.jumpiTojump(ptr.block, cmd.dst)
                             BigInteger.ZERO -> patcher.jumpiTojump(ptr.block, cmd.elseDst)
@@ -156,14 +167,20 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
                     is TACCmd.Simple.AssertCmd -> {
                         if (cmd.o !is TACSymbol.Const) {
-                            val newCond = simplify(cmd.o.asSym())
+                            val newCond = simplifyExp(cmd.o.asSym())
                             newCond.getAsConst()?.let {
                                 patcher.replace(ptr, cmd.copy(o = it.asBoolTACSymbol()))
                             }
                         }
                     }
 
-                    else -> Unit
+                    is TACCmd.Simple.StorageAccessCmd, // because inlining constants will erase important metas
+                    is TACCmd.Simple.AnnotationCmd
+                        -> Unit
+
+                    else -> mapper.map(cmd).takeIf { it != cmd }?.let {
+                        patcher.replace(ptr, it)
+                    }
                 }
             }
             return constants
@@ -173,7 +190,7 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
 
     companion object {
 
-        val TACExpr.defaultTag : Tag
+        val TACExpr.defaultTag: Tag
             get() = when (this) {
                 is TACExpr.QuantifiedFormula,
                 is TACExpr.BinRel,
@@ -611,7 +628,6 @@ class ConstantPropagatorAndSimplifier(val code: CoreTACProgram, private val hand
                             null
                         }
                     }
-
 
                     else -> null
                 }
