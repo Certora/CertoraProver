@@ -1452,7 +1452,16 @@ class CVLCompiler(
                 meta = MetaMap()
             )
 
-        return ParametricMethodInstantiatedCode.merge(havocCmds.plus(storageTargetCompilation).plus(assumingCmds), name)
+        val lastStorageUpdate = CommandWithRequiredDecls(
+            TACCmd.CVL.CopyBlockchainState(
+                lhs = CVLKeywords.lastStorage.toVar(),
+                meta = MetaMap(TACMeta.LAST_STORAGE_UPDATE)
+            ), CVLKeywords.lastStorage.toVar()
+        ).toProg("last storage update after havoc", env).toSimple()
+
+        return ParametricMethodInstantiatedCode.merge(
+            havocCmds.plus(storageTargetCompilation).plus(assumingCmds).plus(lastStorageUpdate), name
+        )
     }
 
     /**
