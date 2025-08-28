@@ -19,17 +19,15 @@ package instrumentation.transformers
 
 import analysis.CmdPointer
 import datastructures.MutableReversibleMap
+import datastructures.stdcollections.*
 import tac.NBId
 import utils.*
-import vc.data.CoreTACProgram
-import vc.data.DefaultTACCmdMapper
-import vc.data.TACCmd
+import vc.data.*
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
-import vc.data.TACSymbol
-import vc.data.tacexprutil.asVar
+import vc.data.tacexprutil.asSym
 import vc.data.tacexprutil.isConst
-import vc.data.tacexprutil.isVar
-import datastructures.stdcollections.*
+import vc.data.tacexprutil.isSym
+import vc.data.tacexprutil.subs
 
 /**
  * Removes loop assignments `x : = x`
@@ -65,6 +63,13 @@ class AssignmentInliner(
     private fun processBlock(b: NBId) {
         val blockDef = mutableMapOf<TACSymbol.Var, CmdPointer>()
 
+        val quantifiedVars = buildSet {
+            g.lcmdSequence(b).map { it.cmd }.filterIsInstance<AssignExpCmd>().forEach {
+                it.rhs.subs.filterIsInstance<TACExpr.QuantifiedFormula>().forEach {
+                    addAll(it.quantifiedVars)
+                }
+            }
+        }
         g.lcmdSequence(b).forEach { (ptr, cmd) ->
             fun def(ptr: CmdPointer, v: TACSymbol.Var): Set<CmdPointer?>? =
                 blockDef[v]
@@ -94,7 +99,11 @@ class AssignmentInliner(
                     }
 
                 override fun mapVar(t: TACSymbol.Var) =
-                    mapSymbol(t) as TACSymbol.Var
+                    if (t in quantifiedVars) {
+                        t
+                    } else {
+                        mapSymbol(t) as? TACSymbol.Var ?: t
+                    }
 
                 /** don't map the lhs */
                 override fun mapLhs(t: TACSymbol.Var) = t
@@ -110,7 +119,8 @@ class AssignmentInliner(
             val newCmd = when (cmd) {
                 is AssignExpCmd,
                 is TACCmd.Simple.AssigningCmd.ByteLoad,
-                is TACCmd.Simple.AssigningCmd.ByteStore ->
+                is TACCmd.Simple.AssigningCmd.ByteStore,
+                is TACCmd.Simple.ByteLongCopy ->
                     mapper.map(cmd)
 
                 else -> null
@@ -123,8 +133,8 @@ class AssignmentInliner(
                 canBeReplacedWith.removeValue(it)
             }
 
-            if (newCmd is AssignExpCmd && newCmd.rhs.isVar) {
-                val rhs = newCmd.rhs.asVar
+            if (newCmd is AssignExpCmd && newCmd.rhs.isSym) {
+                val rhs = newCmd.rhs.asSym
                 val lhs = (cmd as AssignExpCmd).lhs
 
                 // remove `a := a`
@@ -135,7 +145,7 @@ class AssignmentInliner(
 
                 // update the replacement map
                 if (filteringFunctions.isInlineable(lhs) &&
-                    (!strict || rhs.isConst || filteringFunctions.isInlineable(rhs))
+                    (!strict || rhs.isConst || filteringFunctions.isInlineable(rhs as TACSymbol.Var))
                 ) {
                     canBeReplacedWith[ptr] = rhs
                 }

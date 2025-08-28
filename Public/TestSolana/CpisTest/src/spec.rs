@@ -15,26 +15,29 @@ spl_token::cvlr_solana_init!();
 
 #[rule]
 pub fn rule_transfer_token_transfers_same_wallet_0() {
-    rule_transfer_token_transfers_same_wallet::<0>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_transfer_token_transfers_same_wallet::<0>(&account_infos);
 }
 
 #[rule]
 pub fn rule_transfer_token_transfers_same_wallet_1() {
-    rule_transfer_token_transfers_same_wallet::<1>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_transfer_token_transfers_same_wallet::<1>(&account_infos);
 }
 
 #[rule]
 pub fn rule_transfer_token_transfers_same_wallet_2() {
-    rule_transfer_token_transfers_same_wallet::<2>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_transfer_token_transfers_same_wallet::<2>(&account_infos);
 }
 
 #[rule]
 pub fn rule_transfer_token_transfers_same_wallet_3() {
-    rule_transfer_token_transfers_same_wallet::<3>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_transfer_token_transfers_same_wallet::<3>(&account_infos);
 }
 
-pub fn rule_transfer_token_transfers_same_wallet<const N_SIGNERS: usize>() {
-    let account_infos = cvlr_deserialize_nondet_accounts();
+pub fn rule_transfer_token_transfers_same_wallet<const N_SIGNERS: usize>(account_infos: &[AccountInfo]) {
     let account_info_iter = &mut account_infos.iter();
     let token_program: &AccountInfo = next_account_info(account_info_iter).unwrap();
     let from: &AccountInfo = next_account_info(account_info_iter).unwrap();
@@ -64,26 +67,29 @@ pub fn rule_transfer_token_transfers_same_wallet<const N_SIGNERS: usize>() {
 
 #[rule]
 pub fn rule_transfer_token_transfers_different_wallets_0() {
-    rule_transfer_token_transfers_different_wallets::<0>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_transfer_token_transfers_different_wallets::<0>(&account_infos);
 }
 
 #[rule]
 pub fn rule_transfer_token_transfers_different_wallets_1() {
-    rule_transfer_token_transfers_different_wallets::<1>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_transfer_token_transfers_different_wallets::<1>(&account_infos);
 }
 
 #[rule]
 pub fn rule_transfer_token_transfers_different_wallets_2() {
-    rule_transfer_token_transfers_different_wallets::<2>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_transfer_token_transfers_different_wallets::<2>(&account_infos);
 }
 
 #[rule]
 pub fn rule_transfer_token_transfers_different_wallets_3() {
-    rule_transfer_token_transfers_different_wallets::<3>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_transfer_token_transfers_different_wallets::<3>(&account_infos);
 }
 
-pub fn rule_transfer_token_transfers_different_wallets<const N_SIGNERS: usize>() {
-    let account_infos = cvlr_deserialize_nondet_accounts();
+pub fn rule_transfer_token_transfers_different_wallets<const N_SIGNERS: usize>(account_infos: &[AccountInfo]) {
     let account_info_iter = &mut account_infos.iter();
     let token_program: &AccountInfo = next_account_info(account_info_iter).unwrap();
     let from: &AccountInfo = next_account_info(account_info_iter).unwrap();
@@ -142,26 +148,29 @@ pub fn rule_transfer_token_transfers_same_wallet_failing() {
 
 #[rule]
 pub fn rule_mint_token_mints_0() {
-    rule_mint_token_mints::<0>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_mint_token_mints::<0>(&account_infos);
 }
 
 #[rule]
 pub fn rule_mint_token_mints_1() {
-    rule_mint_token_mints::<1>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_mint_token_mints::<1>(&account_infos);
 }
 
 #[rule]
 pub fn rule_mint_token_mints_2() {
-    rule_mint_token_mints::<2>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_mint_token_mints::<2>(&account_infos);
 }
 
 #[rule]
 pub fn rule_mint_token_mints_3() {
-    rule_mint_token_mints::<3>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_mint_token_mints::<3>(&account_infos);
 }
 
-pub fn rule_mint_token_mints<const N_SIGNERS: usize>() {
-    let account_infos = cvlr_deserialize_nondet_accounts();
+pub fn rule_mint_token_mints<const N_SIGNERS: usize>(account_infos: &[AccountInfo]) {
     let account_info_iter = &mut account_infos.iter();
     let token_program: &AccountInfo = next_account_info(account_info_iter).unwrap();
     let mint: &AccountInfo = next_account_info(account_info_iter).unwrap();
@@ -187,26 +196,29 @@ pub fn rule_mint_token_mints<const N_SIGNERS: usize>() {
 
 #[rule]
 pub fn rule_burn_token_burns_0() {
-    rule_burn_token_burns::<0>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_burn_token_burns::<0>(&account_infos);
 }
 
 #[rule]
 pub fn rule_burn_token_burns_1() {
-    rule_burn_token_burns::<1>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_burn_token_burns::<1>(&account_infos);
 }
 
 #[rule]
 pub fn rule_burn_token_burns_2() {
-    rule_burn_token_burns::<2>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_burn_token_burns::<2>(&account_infos);
 }
 
 #[rule]
 pub fn rule_burn_token_burns_3() {
-    rule_burn_token_burns::<3>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_burn_token_burns::<3>(&account_infos);
 }
 
-pub fn rule_burn_token_burns<const N_SIGNERS: usize>() {
-    let account_infos = cvlr_deserialize_nondet_accounts();
+pub fn rule_burn_token_burns<const N_SIGNERS: usize>(account_infos: &[AccountInfo]) {
     let account_info_iter = &mut account_infos.iter();
     let token_program: &AccountInfo = next_account_info(account_info_iter).unwrap();
     let source: &AccountInfo = next_account_info(account_info_iter).unwrap();
@@ -232,26 +244,29 @@ pub fn rule_burn_token_burns<const N_SIGNERS: usize>() {
 
 #[rule]
 pub fn rule_close_account_balance_is_zero_after_success_0() {
-    rule_close_account_balance_is_zero_after_success::<0>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_close_account_balance_is_zero_after_success::<0>(&account_infos);
 }
 
 #[rule]
 pub fn rule_close_account_balance_is_zero_after_success_1() {
-    rule_close_account_balance_is_zero_after_success::<1>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_close_account_balance_is_zero_after_success::<1>(&account_infos);
 }
 
 #[rule]
 pub fn rule_close_account_balance_is_zero_after_success_2() {
-    rule_close_account_balance_is_zero_after_success::<2>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_close_account_balance_is_zero_after_success::<2>(&account_infos);
 }
 
 #[rule]
 pub fn rule_close_account_balance_is_zero_after_success_3() {
-    rule_close_account_balance_is_zero_after_success::<3>();
+    let account_infos = cvlr_deserialize_nondet_accounts();
+    rule_close_account_balance_is_zero_after_success::<3>(&account_infos);
 }
 
-pub fn rule_close_account_balance_is_zero_after_success<const N_SIGNERS: usize>() {
-    let account_infos = cvlr_deserialize_nondet_accounts();
+pub fn rule_close_account_balance_is_zero_after_success<const N_SIGNERS: usize>(account_infos: &[AccountInfo]) {
     let account_info_iter = &mut account_infos.iter();
     let token_program: &AccountInfo = next_account_info(account_info_iter).unwrap();
     let account: &AccountInfo = next_account_info(account_info_iter).unwrap();
@@ -273,12 +288,12 @@ pub fn rule_invoke_unknown_program_check_amount_change() {
     let account_infos = cvlr_deserialize_nondet_accounts();
     let account_info_iter = &mut account_infos.iter();
     let acc1: &AccountInfo = next_account_info(account_info_iter).unwrap();
-    let token_instruction_data = Vec::new();
+    let instruction_data = Vec::new();
 
     let acc_wallet_amount_pre = spl_token_account_get_amount(acc1);
 
     // We are invoking an unknown program.
-    process_unknown_program(&account_infos, &token_instruction_data).unwrap();
+    process_unknown_program(&account_infos, &instruction_data).unwrap();
     let acc_wallet_amount_post = spl_token_account_get_amount(acc1);
 
     // Since we are invoking an unknown program, we cannot make any assumptions
@@ -292,12 +307,12 @@ pub fn rule_invoke_unknown_program_check_amount_does_not_change() {
     let account_infos = cvlr_deserialize_nondet_accounts();
     let account_info_iter = &mut account_infos.iter();
     let acc1: &AccountInfo = next_account_info(account_info_iter).unwrap();
-    let token_instruction_data = Vec::new();
+    let instruction_data = Vec::new();
 
     let acc_wallet_amount_pre = spl_token_account_get_amount(acc1);
 
     // We are invoking an unknown program.
-    process_unknown_program(&account_infos, &token_instruction_data).unwrap();
+    process_unknown_program(&account_infos, &instruction_data).unwrap();
     let acc_wallet_amount_post = spl_token_account_get_amount(acc1);
 
     // Since we are invoking an unknown program, we cannot make any assumptions

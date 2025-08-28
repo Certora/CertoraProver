@@ -7,5 +7,5 @@
 export EXECUTABLE_PATH := "./target/sbf-solana-solana/release/cpis.so"
 
 build-sbf:
-    cargo certora-sbf
+    cargo certora-sbf --tools-version=v1.43
     cp $EXECUTABLE_PATH .

@@ -192,6 +192,18 @@ class MutableSbfBasicBlock(private val label: Label): SbfBasicBlock {
         }
     }
 
+    fun removeAnnotations(annotations: Collection<MetaKey<*>>) {
+        for (locInst in getLocatedInstructions()) {
+            val inst = locInst.inst
+            for (annotation in annotations) {
+                if (inst.metaData.getVal(annotation) != null) {
+                    val newInst = inst.copyInst(inst.metaData.minus(annotation))
+                    replaceInstruction(locInst.pos, newInst)
+                }
+            }
+        }
+    }
+
     /** Fold the first [i] instructions of this block into its predecessors **/
     fun foldIntoPredecessors(i: Int) {
         for (pred in getMutablePreds()) {
@@ -437,6 +449,12 @@ class MutableSbfCFG(private val name: String): SbfCFG {
             exit?.let { if (it.getLabel() == bb.getLabel()) {
                 exit = null
             } }
+        }
+    }
+
+    fun removeAnnotations(annotations: Collection<MetaKey<*>>) {
+        for (bb in this.getMutableBlocks().values) {
+            bb.removeAnnotations(annotations)
         }
     }
 

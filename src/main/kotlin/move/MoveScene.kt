@@ -70,7 +70,7 @@ class MoveScene(
             // Instantiate the function, using the `Nothing` type for all type arguments.
             val func = MoveFunction(
                 def.function,
-                typeArguments = def.function.typeParameters.map { nothingType }
+                typeArguments = def.function.typeParameters.mapIndexed { index, _ -> MoveType.Nondet(index) }
             )
             MoveToTAC.compileRule(func, ruleType, this)
         }.also {
@@ -96,10 +96,4 @@ class MoveScene(
 
     fun maybeDefinition(func: MoveFunctionName) = moduleMap[func.module]?.maybeDefinition(func)
     fun maybeDefinition(type: MoveStructName) = moduleMap[type.module]?.maybeDefinition(type)
-
-    val nothingType by lazy {
-        val name = MoveStructName(MoveModuleName(Config.CvlmAddress.get(), "nothing"), "Nothing")
-        val def = maybeDefinition(name) ?: error("No definition found for $name")
-        def.structHandle.toMoveStructRaw() // "raw" to prevent shadowing
-    }
 }

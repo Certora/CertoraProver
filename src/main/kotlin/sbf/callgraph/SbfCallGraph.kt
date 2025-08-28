@@ -43,7 +43,7 @@ interface SbfCallGraph {
     fun getRecursiveFunctions(): Set<CfgName>
     fun callGraphStructureToString(): String
     fun callGraphStructureToDot(prefix: File)
-    fun toDot(prefix: File, onlyEntryPoint: Boolean = false)
+    fun toDot(prefix: File, onlyEntryPoint: Boolean = false, suffix: String = ".sbf.dot")
     fun getStats(): CFGStats
 
     /** Set of CFGs that have to be preserved (i.e., cannot be eliminated or modified) by program transformations. */
@@ -60,8 +60,13 @@ interface SbfCallGraph {
 }
 
 /**
- *  @params cfgs the set of CFGs
- *  @params globalsMap contains information about global variables
+ *  The callgraph of a SBF program
+ *
+ *  @param cfgs the set of CFGs
+ *  @param rootNames are the entry points of the call graph
+ *  @param globalsMap contains information about global variables
+ *  @param preservedCFGs is the set of CFGs that have to be preserved over different program transformations.
+ *  That is, a CFG in [preservedCFGs] will not be remove even if it cannot be reachable from [rootNames].
  **/
 class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
                           private val rootNames: Set<CfgName>,
@@ -79,16 +84,8 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
     private val sccVector: ArrayList<Set<CfgName>> = arrayListOf()
     // map a CFG to an index in sccs
     private val sccMap: MutableMap<CfgName, Int> = mutableMapOf()
-    /**
-     * Set of CFGs that have to be preserved over different program transformations.
-     * Since the preservedCFGs in the constructor might not exist in [cfgs], this set is the constructor parameter
-     * preservedCFGs filtered by the CFGs that actually exist.
-     */
     private val preservedCFGs: Set<CfgName>
-    /**
-     * Set of CFGs that have to be preserved over different program transformations.
-     * This is the transitive closure of [preservedCFGs] by calls.
-     */
+    // This is the transitive closure of [preservedCFGs] by calls.
     private val transitivelyPreservedCFGs: Set<CfgName>
 
     init {
@@ -102,7 +99,7 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
             preservedCFGs.filter { cfgName ->
                 val keep = cfgName in callGraph
                 if (!keep) {
-                    sbfLogger.info { "Preserved CFG `$cfgName` not found in call graph: proceeding without" }
+                    sbfLogger.debug { "Preserved CFG `$cfgName` not found in call graph: proceeding without" }
                 }
                 keep
             }.toSet()
@@ -372,14 +369,14 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
         printToFile("$prefix${File.separator}callgraph-$rootsStr.sbf.dot", sb.toString())
     }
 
-    override fun toDot(prefix:File, onlyEntryPoint: Boolean) {
+    override fun toDot(prefix:File, onlyEntryPoint: Boolean, suffix: String) {
         if (onlyEntryPoint) {
             for (cfg in getCallGraphRoots()) {
-                printToFile("$prefix${File.separator}${cfg.getName()}.sbf.dot", cfg.toDot())
+                printToFile("$prefix${File.separator}${cfg.getName()}$suffix", cfg.toDot())
             }
         } else {
             for (cfg in cfgs) {
-                printToFile("$prefix${File.separator}${cfg.getName()}.sbf.dot", cfg.toDot())
+                printToFile("$prefix${File.separator}${cfg.getName()}$suffix", cfg.toDot())
             }
         }
     }

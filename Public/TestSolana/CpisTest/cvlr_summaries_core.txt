@@ -12,9 +12,9 @@
 ;;; - precondition: (*i64)(r1+0) is a valid pointer
 ;;; - post-condition: (*i64)(r1+0) points to a new allocated memory after resizing the memory object
 ;;;                   to which r1 pointed to before the call (realloc).
-#[type((*i64)(r1+0):ptr_heap)]
+#[type((*i64)(r1+8):ptr_heap)]
 ^alloc::raw_vec::RawVec<T,A>::reserve_for_push(_[0-9][0-9]*)*$
-#[type((*i64)(r1+0):ptr_heap)]
+#[type((*i64)(r1+8):ptr_heap)]
 ^alloc::raw_vec::RawVec<T,A>::reserve::do_reserve_and_handle(_[0-9][0-9]*)*$
 
 #[type((*i64)(r1+0):num)]
@@ -86,12 +86,15 @@
 ^solana_program::pubkey::Pubkey::find_program_address$
 
 
-#[type((*i32)(r1+0):num)]
+#[type((*i64)(r1+0):num)]
 ^solana_program::program::invoke_signed_unchecked$
 
 ;; This is important for CPI calls.
-#[type((*i32)(r1+0):num)]
+#[type((*i64)(r1+0):num)]
 ^solana_program::program::invoke$
 
-#[type((*i32)(r1+0):num)]
+#[type((*i64)(r1+0):num)]
 ^solana_program::program::invoke_signed$
+
+#[type((*i64)(r1+8):ptr_heap)]
+^alloc::raw_vec::RawVec<T,A>::grow_one(_[0-9][0-9]*)*$

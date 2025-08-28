@@ -757,7 +757,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         for (i in 0 until len) {
             // create an ite that accesses to the right byte at the source
             val stackLocs = srcRange.map {
-                it.key to vFac.getByteStackVar(PTAOffset(it.value.lb + i))
+                it.key to vFac.getByteStackVar(PTAOffset(it.value.lb + i)).tacVar.asSym()
             }.toMap()
             val srcBV = mkFreshIntVar()
             cmds += assign(srcBV, resolveStackAccess(srcReg, zeroC, stackLocs))
@@ -1486,28 +1486,63 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
      * ```
      */
     private fun resolveStackAccess(base: TACExpr.Sym.Var, o: TACExpr.Sym.Const,
-                                   stackLocs : Map<PTAOffset, TACByteStackVariable>): TACExpr {
+                                   stackLocs : Map<PTAOffset, TACExpr.Sym>): TACExpr {
         check(stackLocs.isNotEmpty()) {"resolveStackAccess does not expect an empty map"}
         val reversedStackLocs = stackLocs.toList().reversed()
-        val initialExpr: TACExpr = reversedStackLocs.first().second.tacVar.asSym()
+        val initialExpr: TACExpr = reversedStackLocs.first().second
         return reversedStackLocs
             .drop(1)
-            .fold(initialExpr) { acc, (offset, stackVar) ->
+            .fold(initialExpr) { acc, (offset, symbol) ->
                 TACExpr.TernaryExp.Ite(
                     pointsToStack(base, o, offset),
-                    stackVar.tacVar.asSym(),
+                    symbol,
                     acc
                 )
             }
     }
 
     /**
-     * Emit TAC to model the read from ([base] + [o])
+     * Emit TAC to model the load `*([base] + [o])`
+     *
+     * **Important**: the TAC generation depends on whether the pointer analysis decided to split or merge cells during the transfer
+     * function of the load. The information is encoded in [preservedValues]
+     *
+     * @param variables maps offsets to TAC stack variables. There are potentially multiple offsets in case the pointer analysis kept track of sets.
+     * @param preservedValues maps offsets to [Constant] values corresponding to the left-hand side of the load instruction.
      */
     private fun stackLoad(base: TACExpr.Sym.Var, o: TACExpr.Sym.Const,
-                          stackLocs : Map<PTAOffset, TACByteStackVariable>,
-                          lhs: TACSymbol.Var): TACCmd.Simple.AssigningCmd =
-        assign(lhs, resolveStackAccess(base, o, stackLocs))
+                          variables : Map<PTAOffset, TACByteStackVariable>,
+                          preservedValues: Map<PTAOffset, Constant>,
+                          lhs: TACSymbol.Var): List<TACCmd.Simple> {
+
+        var exactReconstruction = true
+        val stackLocs = variables.mapValues { (offset, tacVar) ->
+            val value = preservedValues[offset]
+            value?.toLongOrNull()
+                // `offset` is mapped to a non-top constant in `stackValues`
+                ?.let { exprBuilder.mkConst(it).asSym() }
+                // `offset` is mapped to a top constant in `stackValues`
+                ?: value?.let {
+                    exactReconstruction = false
+                    mkFreshIntVar(bitwidth = 256).asSym()
+                }
+                // `offset` is not in `stackValues`
+                ?: tacVar.tacVar.asSym()
+        }
+        val debugCmd = if (preservedValues.isNotEmpty()) {
+            val msg = "Warning: this read on the stack does not match the last written bytes, " +
+                if (exactReconstruction) {
+                    "but the pointer analysis is able to reconstruct exactly the bytes from the last writes."
+                } else {
+                    "but the pointer analysis is able to over-approximate the bytes from the last writes. " +
+                    "Because of this over-approximation spurious counterexamples are possible."
+                }
+            listOf(Debug.ptaSplitOrMerge(msg, listOf(lhs)))
+        } else {
+            listOf()
+        }
+        return debugCmd + listOf(assign(lhs, resolveStackAccess(base, o, stackLocs)))
+    }
 
     /**
      *  Emit TAC to model writing [value] to ([base] + [o])
@@ -1555,6 +1590,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                             base,
                             offset,
                             loadOrStore.variables,
+                            loadOrStore.preservedValues,
                             exprBuilder.mkVar((inst.value as Value.Reg).r)
                         )
                     } else {

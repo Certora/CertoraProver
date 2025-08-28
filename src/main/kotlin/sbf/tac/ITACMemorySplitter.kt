@@ -19,6 +19,7 @@ package sbf.tac
 
 import sbf.cfg.LocatedSbfInstruction
 import sbf.disassembler.SbfRegister
+import sbf.domains.Constant
 import sbf.domains.MemSummaryArgumentType
 import sbf.domains.PTAOffset
 
@@ -48,30 +49,39 @@ interface TACMemSplitter {
     fun getTACMemoryFromSummary(locInst: LocatedSbfInstruction): List<SummaryArgInfo>?
 
 
-    /** Class to model in TAC memory load and store instructions **/
+    /** Represent a memory load or store instructions in TAC **/
     sealed class LoadOrStoreInfo
+
     /**
-     *  @param variables: map stack offsets to TAC variables. These offsets are relative to `r10`.
-     *  Therefore, they are always negative offsets.
-     *  @param locationsToHavoc is the scalars or byte map indexes to be havoc
+     *  Represent a memory load or store from/to the stack in TAC.
+     *
+     *  @param variables maps stack offsets (relative to `r10`) to TAC variables. These offsets are always negative.
+     *  @param preservedValues maps a stack offset to [Constant] value corresponding to the left-hand side of a load instruction.
+     *  These constants are used to preserve soundness when the pointer domain creates cells from splitting or merging existing cells.
+     *  If the constant is top then the corresponding left-hand side is havoced.
+     *  @param locationsToHavoc is the scalars or byte map indexes that must be havoced by the memory operation.
      **/
     data class StackLoadOrStoreInfo(val variables: Map<PTAOffset, TACByteStackVariable>,
+                                    val preservedValues: Map<PTAOffset, Constant>,
                                     val locationsToHavoc: HavocMemLocations): LoadOrStoreInfo()
     /**
-     *  @param variable: TAC variable that models the de-referenced memory location.
-     *  @param locationsToHavoc is the scalars or byte map indexes to be havoc
+     *  Represent a memory load or store from/to non-stack in TAC.
+     *
+     *  @param variable: TAC bytemap variable that models the de-referenced memory location.
+     *  @param locationsToHavoc is the scalars or byte map indexes that must be havoced by the memory operation.
      **/
     data class NonStackLoadOrStoreInfo(val variable: TACByteMapVariable,
                                        val locationsToHavoc: HavocMemLocations): LoadOrStoreInfo()
 
     /**
-     * class to model that (*[reg]+[offset]) is mapped to [variable] and has type [type]
+     * Represent that (*[reg]+[offset]) is mapped to [variable] and has type [type]
      */
     data class SummaryArgInfo(val reg: SbfRegister, val offset: PTAOffset, val width: Byte, val allocatedSpace: ULong,
                               val type: MemSummaryArgumentType, val variable: TACVariable)
     /**
-     * class to model in TAC memory instructions: `sol_memcpy_`, `sol_memmove_`, `sol_memcmp_`, or `sol_memset_`
-     * Currently, we only model sol_memcpy_ and sol_memcmp_.
+     * Represent `sol_memcpy_`, `sol_memmove_`, `sol_memcmp_`, or `sol_memset_` in TAC.
+     *
+     * Currently, we only model `sol_memcpy_` and `sol_memcmp_`.
      **/
     sealed class MemInstInfo
     /** class to model sol_memcpy **/

@@ -33,6 +33,9 @@ sealed class MoveTag : Tag.Move(), HasKSerializable {
 
     /** Maps u256 -> elemType */
     @KSerializable data class GhostArray(val elemType: MoveType.Value) : MoveTag()
+
+    /** See [MoveType.Nondet] */
+    @KSerializable data class Nondet(val type: MoveType.Nondet) : MoveTag()
 }
 
 fun MoveTag.toMoveType(): MoveType {
@@ -41,6 +44,7 @@ fun MoveTag.toMoveType(): MoveType {
         is MoveTag.Struct -> type
         is MoveTag.Ref -> MoveType.Reference(refType)
         is MoveTag.GhostArray -> MoveType.GhostArray(elemType)
+        is MoveTag.Nondet -> type
     }
 }
 
@@ -50,5 +54,6 @@ fun MoveTag.toMoveValueType(): MoveType.Value {
         is MoveTag.Struct -> type
         is MoveTag.Ref -> error("MoveTag.Ref cannot be converted to MoveType.Value")
         is MoveTag.GhostArray -> MoveType.GhostArray(elemType)
+        is MoveTag.Nondet -> type
     }
 }

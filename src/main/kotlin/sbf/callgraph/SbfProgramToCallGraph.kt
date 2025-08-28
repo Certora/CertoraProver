@@ -19,6 +19,7 @@ package sbf.callgraph
 
 import datastructures.stdcollections.*
 import sbf.SolanaConfig
+import sbf.analysis.cpis.cpisSubstitutionMap
 import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.domains.MemorySummaries
@@ -50,8 +51,8 @@ private fun sbfProgramWithMocksToSbfCfgs(
     /**
      * We first build a big monolithic CFG representing the whole sbf program.
      * Since an sbf program can have multiple functions,
-     * @monoCFG is actually a set of disconnected CFGs (one per function).
-     * Note that @monoCFG will be thrown away later, so it won't survive beyond this function.
+     * `monoCFG` is actually a set of disconnected CFGs (one per function).
+     * Note that `monoCFG` will be thrown away later, so it won't survive beyond this function.
      **/
     val monoCFG = MutableSbfCFG("mono_cfg")
 
@@ -169,7 +170,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
     }
 
     /***
-     * At this point, we split monoCFG into multiple CFGs (one per function)
+     * At this point, we split `monoCFG` into multiple CFGs (one per function)
      * We know the start address of each function.
      * Each CFG consists of all reachable blocks from each start.
      * We rename basic block labels to avoid any possible clash.
@@ -198,7 +199,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
             demangler.get(),
             roots,
             prog.globalsMap,
-            preservedCFGs = CPIS_MOCK_FUNCTION_NAMES
+            preservedCFGs = cpisSubstitutionMap.mockFunctionsNames
         ),
         demangler
     ).let {
@@ -280,7 +281,9 @@ private fun relinkAbort(cfg: MutableSbfCFG,
     }
 }
 
-
+/**
+ * Collect all function names from [cfgs] and call the external program `rustfilt` to get the demangle names.
+ */
 private class Demangler(private val cfgs: List<MutableSbfCFG>) {
     private val demangledSep = "_"
     private val demangledCFGs = ArrayList<MutableSbfCFG>(cfgs.size)
@@ -296,10 +299,12 @@ private class Demangler(private val cfgs: List<MutableSbfCFG>) {
         run()
     }
 
+    /** Return the list of cfgs with all demangled names **/
     fun get() = demangledCFGs
 
     fun isUnique(name: String) = !nonUniqueNames.contains(name)
 
+    /** Return the demangled version of [name] if [name] is a function name, otherwise, null **/
     fun demangle(name: String): String? = demanglerMap[name]
 
     /**
@@ -389,6 +394,49 @@ private class Demangler(private val cfgs: List<MutableSbfCFG>) {
         }
     }
 }
+
+/**
+ * Demangle [name] without calling the external program `rustfilt`.
+ * It assumes the `_ZN...E` scheme where name is preceded by its length.
+ *
+ * **Important**: it discards the trailing hash, so it can be only used if no symbols collisions are possible.
+ **/
+@Suppress("ForbiddenMethodCall")
+fun fastDemangleRust(name: String): String? {
+    // Check mangling prefix
+    if (!name.startsWith("_ZN") || !name.endsWith("E")) {
+        return null
+    }
+
+    val core = name.removePrefix("_ZN").removeSuffix("E")
+    val parts = mutableListOf<String>()
+
+    var i = 0
+    while (i < core.length) {
+        // parse a decimal length
+        val start = i
+        while (i < core.length && core[i].isDigit()) {
+            i++
+        }
+        if (start == i) {
+            return null // malformed
+        }
+        val len = core.substring(start, i).toInt()
+
+        if (i + len > core.length) {
+            return null // malformed
+        }
+        val part = core.substring(i, i + len)
+        if ((i + len) < core.length) {
+            // don't add the last part because it is the hash
+            parts.add(part)
+        }
+        i += len
+    }
+
+    return parts.joinToString("::")
+}
+
 
 /**
  * Conceptually it replaces all calls to `f` with  some function `g`.

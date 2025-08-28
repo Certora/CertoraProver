@@ -155,7 +155,7 @@ internal class MoveCallTraceGenerator(
                     elements.map { it.toCallTraceValue() }
                 )
             }
-            is MoveCallTrace.Value.GhostArray -> CallTraceValue.Empty
+            is MoveCallTrace.Value.NotDisplayed -> CallTraceValue.Empty
         }
     }
 }

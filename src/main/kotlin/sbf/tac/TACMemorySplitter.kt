@@ -160,10 +160,17 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> (
     /**
      * Given a Deref `*(r+o)` from a load or store instruction:
      * @param c is the symbolic cell pointed by `r+o`.
-     * @param stackPtr: is the concrete cell pointed by `r10`.
-     * @param killedFields: overlapping cells killed by the pointer analysis during the transfer function if instruction is a store
+     * @param stackPtr is the concrete cell pointed by `r10`.
+     * @param getReconstructedIntegerValue is a function to extract the integer value stored in [c] if [c] is a cell constructed from merging/splitting.
+     *   - if returns `null` then no reconstruction took place during the pointer analysis
+     *   - if returns `Top` then reconstruction happened but the exact integer value is not known
+     *   - if returns `non-Top` then reconstruction happened and the exact value is known
+     * @param killedFields overlapping cells killed by the pointer analysis during the transfer function if instruction is a store
      */
-    data class PTALoadOrStoreInfo(val c: PTASymCell, val stackPtr: PTACell, val killedFields: PTAFields?): PTAMemoryInfo() {
+    data class PTALoadOrStoreInfo(val c: PTASymCell,
+                                  val stackPtr: PTACell,
+                                  val getReconstructedIntegerValue: (PTACell) -> Constant?,
+                                  val killedFields: PTAFields?): PTAMemoryInfo() {
         init {
             if (c.getNode().isForwarding()) {
                 throw TACTranslationError("PTALoadOrStoreInfo should take only resolved cells (1)")
@@ -367,22 +374,37 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> (
      **/
     private fun processLoadOrStore(memInfo: PTALoadOrStoreInfo,
                                    @Suppress("UNUSED_PARAMETER") inst: SbfInstruction.Mem): TACMemSplitter.LoadOrStoreInfo {
-        val isStack = memInfo.c.getNode() == memInfo.stackPtr.getNode()
+        val derefN = memInfo.c.getNode()
+        val isStack = derefN == memInfo.stackPtr.getNode()
         return if (isStack) {
             val stackPtrOffset = memInfo.stackPtr.getOffset()
             val derefSymOffset = memInfo.c.getOffset()
-            val stackMap = derefSymOffset.toLongList().map { offset ->
+
+            val stackVarMap = derefSymOffset.toLongList().map { offset ->
                 // the key must be the (negative) offset relative to the stack pointer
                 // the value is a TAC variable constructed from the absolute offset
                 PTAOffset(offset - stackPtrOffset.v) to vFac.getByteStackVar(PTAOffset(offset))
             }.toMap()
-            check(!memInfo.c.isConcrete() || stackMap.size == 1) {"Unexpected result in processLoadOrStore ${memInfo.c} and $stackMap"}
-            TACMemSplitter.StackLoadOrStoreInfo(stackMap, getVarsToHavocAsStack(memInfo.killedFields, stackPtrOffset))
+
+
+            val stackValueMap = derefSymOffset.toLongList()
+                .map { offset ->
+                    PTAOffset(offset - stackPtrOffset.v) to
+                        memInfo.getReconstructedIntegerValue(derefN.createCell(offset))
+                }
+                .filter { it.second != null }
+                .associate { (offset, value) -> offset to value!! }
+
+            check(!memInfo.c.isConcrete() || stackVarMap.size == 1) {"Unexpected result in processLoadOrStore ${memInfo.c} and $stackVarMap"}
+            TACMemSplitter.StackLoadOrStoreInfo(stackVarMap,
+                                                stackValueMap,
+                                                getVarsToHavocAsStack(memInfo.killedFields, stackPtrOffset))
 
         } else {
             val c = memInfo.c.concretize()
             val base = c.getOffset()
-            TACMemSplitter.NonStackLoadOrStoreInfo(vFac.getByteMapVar(c), getVarsToHavocAsNonStack(memInfo.killedFields, base))
+            TACMemSplitter.NonStackLoadOrStoreInfo(vFac.getByteMapVar(c),
+                                                   getVarsToHavocAsNonStack(memInfo.killedFields, base))
         }
     }
 
@@ -832,8 +854,14 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> (
                                 checkNoOverlaps(stackNode, locInst)
                             }
                         }
+
                         PTALoadOrStoreInfo(derefSc, stackPtrC,
-                                           if (inst.isLoad) { null } else { getKilledFields(inst, pre) })
+                            { c: PTACell ->
+                                pre.getPTAGraph().reconstructFromIntegerCells(locInst, c, inst.access.width, pre.getScalars())?.let{
+                                    Constant(it.getIntegerValue(pre.getScalars()))
+                                }
+                            },
+                            if (inst.isLoad) { null } else { getKilledFields(inst, pre) })
                     }
                     is SbfInstruction.Call -> {
                         if (SolanaFunction.from(inst.name) == SolanaFunction.SOL_MEMCPY) {

@@ -127,7 +127,7 @@ class TestMutatedClient(unittest.TestCase):
         bad_location = f'"manual_mutants": [{{ "file_to_mutate": "{_p("A.sol")}", "mutants_location": "{_p("bad_location")}"}}]'
         suite.expect_failure(description="manual_mutants object missing file_to_mutate",
                              replacements=TestUtil.replace_x(bad_location),
-                             expected="Invalid mutants location")
+                             expected="Invalid file for mutants location")
 
     def test_invalid_runs(self) -> None:
         suite = MutantTestSuite(conf_file_template=_p('mutation_conf_top_level.conf'),
@@ -187,7 +187,7 @@ class TestMutatedClient(unittest.TestCase):
         mutation_attrs['manual_mutants'][0]['mutants_location'] = "does_not_exist"
         suite.expect_failure(description="single manual mutation - bad location",
                              replacements=TestUtil.replace_x(TestUtil.json_to_str(mutation_attrs)),
-                             expected="Invalid mutants location")
+                             expected="Invalid file for mutants location")
 
     def test_mutations_flags(self) -> None:
 

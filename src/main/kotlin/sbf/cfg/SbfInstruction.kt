@@ -17,12 +17,9 @@
 
 package sbf.cfg
 
-import sbf.callgraph.CVTFunction
-import sbf.callgraph.CompilerRtFunction
-import sbf.callgraph.SolanaFunction
 import sbf.disassembler.*
 import datastructures.stdcollections.*
-import sbf.callgraph.CVTCore
+import sbf.callgraph.*
 import utils.mapToSet
 
 /**
@@ -480,7 +477,8 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         : SbfInstruction() {
 
         override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
-        override fun isAbort() = SolanaFunction.from(name) == SolanaFunction.ABORT
+        override fun isAbort() =
+                SolanaFunction.from(name) == SolanaFunction.ABORT || name in AbortFunctions
         override fun isTerminator() = isAbort()
         override fun isAssertOrSatisfy() =
                 CVTFunction.from(name) == CVTFunction.Core(CVTCore.ASSERT) ||

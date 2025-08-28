@@ -24,6 +24,7 @@ import vc.data.TACBuilderAuxiliaries
 import vc.data.TACProgramBuilder
 import vc.data.TACProgramBuilder.BuiltTACProgram
 import vc.data.TACProgramBuilder.Companion.testProgString
+import vc.data.asTACSymbol
 
 class AssignmentInlinerTest : TACBuilderAuxiliaries() {
 
@@ -139,6 +140,19 @@ class AssignmentInlinerTest : TACBuilderAuxiliaries() {
             bMap2.byteStore(loc = a, value = b)
         }
         runAndCompare(originalProg, originalProg)
+    }
+
+    @Test
+    fun testBytemaps() {
+        val originalProg = TACProgramBuilder {
+            a assign 7
+            bMap1.byteStore(loc = a, value = b)
+        }
+        val expectedProg = TACProgramBuilder {
+            a assign 7
+            bMap1.byteStore(loc = 7.asTACSymbol(), value = b)
+        }
+        runAndCompare(originalProg, expectedProg)
     }
 
 }

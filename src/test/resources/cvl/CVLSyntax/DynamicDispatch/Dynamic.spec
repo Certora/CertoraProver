@@ -1,5 +1,5 @@
 methods {
-    function _._ external => DISPATCH [
+    unresolved external in _._ => DISPATCH [
         C.bar(uint),
         _.update(uint),
         Other._

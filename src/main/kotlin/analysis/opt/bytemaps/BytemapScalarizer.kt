@@ -30,7 +30,7 @@ import rules.TWOSTAGE_META_VARORIGIN
 import tac.MetaMap
 import tac.NBId
 import tac.Tag
-import utils.runIf
+import utils.*
 import vc.data.*
 import vc.data.TACCmd.Simple.AssigningCmd.AssignExpCmd
 import vc.data.tacexprutil.*
@@ -183,6 +183,17 @@ class BytemapScalarizer private constructor(code: CoreTACProgram, private val go
                         dstOffset = dstOffset.asConst,
                         len = length.asConst
                     )
+                }
+            }
+
+            is TACCmd.Simple.AssigningCmd.AssignHavocCmd -> with(cmd) {
+                if (lhs in goodBases) {
+                    replace(
+                        queries[lhs].orEmpty().map { l ->
+                            TACCmd.Simple.AssigningCmd.AssignHavocCmd(scalarized(lhs, l), cmd.meta)
+                        }
+                    )
+                    newQueries = queries.remove(lhs)
                 }
             }
 

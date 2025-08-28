@@ -69,10 +69,18 @@ class MutateValidator:
                 except Exception as e:
                     raise Util.CertoraUserInputError(f"Invalid file_to_mutate in manual mutant: {mutant[Constants.FILE_TO_MUTATE]}", e)
 
-                try:
-                    Vf.validate_dir(mutant[Constants.MUTANTS_LOCATION])
-                except Exception as e:
-                    raise Util.CertoraUserInputError(f"Invalid mutants location {mutant[Constants.MUTANTS_LOCATION]}", e)
+                mutants_location = mutant[Constants.MUTANTS_LOCATION]
+                if Path(mutants_location).is_dir():
+                    try:
+                        Vf.validate_dir(mutants_location)
+                    except Exception as e:
+                        raise Util.CertoraUserInputError(f"Invalid directory for mutants location {mutants_location}",
+                                                         e)
+                else:
+                    try:
+                        Vf.validate_readable_file(mutants_location, Util.SOL_EXT)
+                    except Exception as e:
+                        raise Util.CertoraUserInputError(f"Invalid file for mutants location {mutants_location}", e)
 
     def mutation_attribute_in_prover(self) -> None:
         gambit_attrs = ['filename', 'contract', 'functions', 'seed', 'num_mutants']

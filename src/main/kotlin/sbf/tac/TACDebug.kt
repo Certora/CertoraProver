@@ -18,8 +18,10 @@
 package sbf.tac
 
 import analysis.opt.DiamondSimplifier.registerMergeableAnnot
+import datastructures.stdcollections.*
 import sbf.cfg.SbfInstruction
-import vc.data.TACCmd
+import utils.*
+import vc.data.*
 
 private val DEBUG_INLINED_FUNC_START_FROM_ANNOT = tac.MetaKey<SbfInlinedFuncStartAnnotation>("debug.sbf.function_start").registerMergeableAnnot()
 private val DEBUG_INLINED_FUNC_END_FROM_ANNOT = tac.MetaKey<SbfInlinedFuncEndAnnotation>("debug.sbf.function_end").registerMergeableAnnot()
@@ -27,6 +29,16 @@ val DEBUG_INLINED_FUNC_START = tac.MetaKey<String>("debug.sbf.function_start").r
 val DEBUG_INLINED_FUNC_END = tac.MetaKey<String>("debug.sbf.function_end").registerMergeableAnnot()
 val DEBUG_UNREACHABLE_CODE = tac.MetaKey<String>("debug.sbf.unreachable").registerMergeableAnnot()
 val DEBUG_EXTERNAL_CALL = tac.MetaKey<String>("debug.sbf.external_call").registerMergeableAnnot()
+private val DEBUG_PTA_SPLIT_OR_MERGE = tac.MetaKey<DebugSnippet>("debug.pta_split_or_merge").registerMergeableAnnot()
+
+@KSerializable
+private data class DebugSnippet(val msg: String, val symbols: List<TACSymbol.Var>)
+    : AmbiSerializable, TransformableVarEntityWithSupport<DebugSnippet> {
+    override val support: Set<TACSymbol.Var> get() = symbols.toSet()
+    override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
+        DebugSnippet(msg = msg, symbols = symbols.map{f(it)})
+}
+
 
 /** This class annotates TAC to make easier debugging (only for devs) **/
 object Debug {
@@ -55,4 +67,8 @@ object Debug {
     fun endFunction(annot: SbfInlinedFuncEndAnnotation): TACCmd.Simple =
         TACCmd.Simple.AnnotationCmd(
             TACCmd.Simple.AnnotationCmd.Annotation(DEBUG_INLINED_FUNC_END_FROM_ANNOT, annot))
+
+    fun ptaSplitOrMerge(msg: String, symbols: List<TACSymbol.Var>): TACCmd.Simple =
+        TACCmd.Simple.AnnotationCmd(
+            TACCmd.Simple.AnnotationCmd.Annotation(DEBUG_PTA_SPLIT_OR_MERGE, DebugSnippet(msg, symbols)))
 }

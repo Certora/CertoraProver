@@ -63,11 +63,29 @@ private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> annotateWithTypes
     try {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
 
-        for ( (l,_) in cfg.getBlocks()) {
-            val absVal = scalarAnalysis.getPre(l)
+        for ( bb in cfg.getMutableBlocks().values) {
+            if (cfg.getExit() == bb) {
+                /** As result of slicing, code typically looks like this:
+                 * ```
+                 * some_bb:
+                 *    call CVT_sanity
+                 *    call abort  /*OUT-COI*/
+                 *    goto exit_bb
+                 * exit_bb:
+                 *    exit()
+                 * ```
+                 * However, if `abort` was translated to `assume(false)` then it would break the `ADVANCED` sanity check
+                 * because it simply adds `assert(false)` at the exit block.
+                 * The solution was to treat `abort` as a non-op if it has the metadata `OUT_COI`
+                 * (see `translateCall` of `abort` in `SbfCFGToTAC.kt`)
+                 * For same reason, we cannot add `abort` at the entry of `exit_bb`.
+                 * That's why we skip the exit block.
+                 **/
+                continue
+            }
+            val label = bb.getLabel()
+            val absVal = scalarAnalysis.getPre(label)
             if (absVal != null && absVal.isBottom()) {
-                val bb = cfg.getMutableBlock(l)
-                check(bb!=null)
                 bb.add(0,
                     SolanaFunction.toCallInst(
                         SolanaFunction.ABORT,
