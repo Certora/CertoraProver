@@ -69,11 +69,11 @@ const val RESERVED_NUM_OF_ASSERTS = 100_000
 class TACTranslationError(msg: String): SolanaInternalError("TAC translation error: $msg")
 
 /** If globalAnalysisResults == null then no memory splitting will be done **/
-fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> sbfCFGsToTAC(
+fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> sbfCFGsToTAC(
     program: SbfCallGraph,
     memSummaries: MemorySummaries,
     globalsSymTable: IGlobalsSymbolTable,
-    globalAnalysisResults: Map<String, MemoryAnalysis<TNum, TOffset>>?): CoreTACProgram {
+    globalAnalysisResults: Map<String, MemoryAnalysis<TNum, TOffset, TFlags>>?): CoreTACProgram {
     val cfg = program.getCallGraphRootSingleOrFail()
     if (cfg.getBlocks().isEmpty()) {
         throw SolanaInternalError("The translation from SBF to TAC failed because the SBF CFG is empty")
@@ -91,12 +91,12 @@ fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> sbfCFGsToTAC(
 
 /** Translate an SBF CFG to a TAC program **/
 @Suppress("ForbiddenComment")
-internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
+internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>(
            private val cfg: SbfCFG,
            globals: GlobalVariableMap,
            private val memSummaries: MemorySummaries,
            private val globalsSymTable: IGlobalsSymbolTable,
-           private val memoryAnalysis: MemoryAnalysis<TNum, TOffset>?) {
+           private val memoryAnalysis: MemoryAnalysis<TNum, TOffset, TFlags>?) {
     private val blockMap: MutableMap<Label, NBId> = mutableMapOf()
     private val blockGraph = MutableBlockGraph()
     private val code: MutableMap<NBId, List<TACCmd.Simple>> = mutableMapOf()
@@ -105,7 +105,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     // needed to build TypeScope
     private val declaredVars: ArrayList<TACSymbol.Var> = ArrayList()
     // Map PTA cells to TAC names
-    private val vFac = TACVariableFactory()
+    private val vFac = TACVariableFactory<TFlags>()
     // Symbolic memory allocators
     private val heapMemAlloc = TACBumpAllocator("TACHeapAllocator", SBF_HEAP_START.toULong(), SBF_HEAP_END.toULong())
     private val accountsAlloc = TACFixedSizeBlockAllocator("TACSolanaAccountAllocator", SBF_INPUT_START.toULong(), MAX_SOLANA_ACCOUNTS.toUShort(), SOLANA_ACCOUNT_SIZE.toULong())
@@ -1442,7 +1442,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
             if (CompilerRtFunction.from(inst.name) != null) {
                 val summarizeCompilerRt = if (SolanaConfig.UseTACMathInt.get()) {
-                    SummarizeCompilerRtWithMathInt<TNum, TOffset>()
+                    SummarizeCompilerRtWithMathInt<TNum, TOffset, TFlags>()
                 } else {
                     SummarizeCompilerRt()
                 }

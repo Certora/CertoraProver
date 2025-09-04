@@ -23,6 +23,7 @@ import sbf.cfg.SbfInstruction
 import sbf.disassembler.SbfRegister
 import sbf.domains.INumValue
 import sbf.domains.IOffset
+import sbf.domains.IPTANodeFlags
 import vc.data.TACCmd
 import vc.data.TACSymbol
 import java.math.BigInteger
@@ -39,8 +40,8 @@ class Clock(mkFreshIntVar: (prefix: String)-> TACSymbol.Var) {
     private val leaderScheduleEpoch: TACSymbol.Var = mkFreshIntVar("clock.leader_schedule_epoch")
     private val unixTimestamp: TACSymbol.Var = mkFreshIntVar("clock.unix_timestamp")
 
-    context(SbfCFGToTAC<TNum, TOffset>)
-    private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getTACVariables(
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getTACVariables(
         locInst: LocatedSbfInstruction,
         cmds: MutableList<TACCmd.Simple>)
     : List<TACSymbol.Var> {
@@ -66,8 +67,10 @@ class Clock(mkFreshIntVar: (prefix: String)-> TACSymbol.Var) {
     }
 
     /** Emit TAC code for `sol_set_clock_sysvar` **/
-    context(SbfCFGToTAC<TNum, TOffset>)
-    fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> set(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> set(
+        locInst: LocatedSbfInstruction
+    ): List<TACCmd.Simple> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
         check(SolanaFunction.from(inst.name) == SolanaFunction.SOL_SET_CLOCK_SYSVAR)
@@ -90,8 +93,10 @@ class Clock(mkFreshIntVar: (prefix: String)-> TACSymbol.Var) {
     }
 
     /** Emit TAC code for `sol_get_clock_sysvar` **/
-    context(SbfCFGToTAC<TNum, TOffset>)
-    fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> get(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> get(
+        locInst: LocatedSbfInstruction
+    ): List<TACCmd.Simple> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
         check(SolanaFunction.from(inst.name) == SolanaFunction.SOL_GET_CLOCK_SYSVAR)

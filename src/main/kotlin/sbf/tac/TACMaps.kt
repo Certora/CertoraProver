@@ -23,10 +23,12 @@ import vc.data.TACSymbol
 import datastructures.stdcollections.*
 import sbf.domains.INumValue
 import sbf.domains.IOffset
+import sbf.domains.IPTANodeFlags
 
 /** Return instructions that havoc the indexes [loc] + [indexes] of the byte map [base] **/
-context(SbfCFGToTAC<TNum, TOffset>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>  havocByteMapLocation(indexes: List<PTAOffset>, base: TACByteMapVariable, loc: TACSymbol.Var): List<TACCmd.Simple> {
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+    havocByteMapLocation(indexes: List<PTAOffset>, base: TACByteMapVariable, loc: TACSymbol.Var): List<TACCmd.Simple> {
     val values = ArrayList<TACSymbol.Var>()
     val cmds = mutableListOf<TACCmd.Simple>()
     indexes.forEach { _ ->
@@ -39,8 +41,9 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>  havocByteMapLocation(i
 }
 
 /** Emit TAC code for index = [base] + [offset] **/
-context(SbfCFGToTAC<TNum, TOffset>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> computeTACMapIndex(base: TACSymbol.Var, offset: PTAOffset, cmds: MutableList<TACCmd.Simple>): TACSymbol.Var {
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+    computeTACMapIndex(base: TACSymbol.Var, offset: PTAOffset, cmds: MutableList<TACCmd.Simple>): TACSymbol.Var {
     val index = mkFreshIntVar(bitwidth = 256)
     cmds.add(assign(index, exprBuilder.mkAddExpr(base.asSym(), exprBuilder.mkConst(offset.v).asSym(), useMathInt = false)))
     return index
@@ -50,8 +53,9 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> computeTACMapIndex(base
  * Emit TAC code that writes [values] in [byteMap] starting at [base] with [offsets]
  * [offsets] must be relative to [base]
  */
-context(SbfCFGToTAC<TNum, TOffset>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>  mapStores(
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+    mapStores(
               byteMap: TACByteMapVariable,
               base: TACSymbol.Var,
               offsets: List<PTAOffset>,
@@ -72,8 +76,9 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>  mapStores(
  * Emit TAC code that writes [value] in [byteMap] starting at [base] with [offset]
  * [offset] must be relative to [base]
  */
-context(SbfCFGToTAC<TNum, TOffset>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> mapStores(
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+    mapStores(
               byteMap: TACByteMapVariable,
               base: TACSymbol.Var,
               offset: PTAOffset,
@@ -83,9 +88,9 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> mapStores(
 /**
  * Emit TAC code that loads each word from [byteMap] starting at [base] up to [length]
  */
-context(SbfCFGToTAC<TNum, TOffset>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> mapLoads(
-             byteMap: TACByteMapVariable,
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+    mapLoads(byteMap: TACByteMapVariable,
              base: TACSymbol.Var,
              wordSize: Byte, length: Long,
              cmds: MutableList<TACCmd.Simple>): List<TACSymbol.Var> {

@@ -24,15 +24,11 @@ import sbf.callgraph.*
 import sbf.cfg.*
 import sbf.disassembler.GlobalVariableMap
 import sbf.disassembler.SbfRegister
-import sbf.domains.InstructionListener
-import sbf.domains.PTAField
-import sbf.domains.MemoryDomain
-import sbf.domains.INumValue
-import sbf.domains.IOffset
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
 import datastructures.stdcollections.*
+import sbf.domains.*
 
 private val cpiLog = Logger(LoggerTypes.CPI)
 
@@ -114,9 +110,9 @@ fun getInvokes(analyzedProg: SbfCallGraph): List<LocatedInvoke> {
  * Can return the inferred instructions with the [getCpis] method.
  * The parameter [cpisSubstitutionMap] describes how to associate program IDs to specific mocking functions.
  */
-class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>(
+class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>(
     val cpisSubstitutionMap: CpisSubstitutionMap, val invokes: Iterable<LocatedInvoke>, val globals: GlobalVariableMap
-) : InstructionListener<MemoryDomain<TNum, TOffset>> {
+) : InstructionListener<MemoryDomain<TNum, TOffset, TFlags>> {
 
     private val cpiInstructions: MutableMap<LocatedInvoke, InvokeMock?> = mutableMapOf()
 
@@ -131,7 +127,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
         return cpiInstructions
     }
 
-    override fun instructionEventBefore(locInst: LocatedSbfInstruction, pre: MemoryDomain<TNum, TOffset>) {
+    override fun instructionEventBefore(locInst: LocatedSbfInstruction, pre: MemoryDomain<TNum, TOffset, TFlags>) {
         for (invoke in invokes) {
             val inst = invoke.inst
             if (locInst.label == inst.label && locInst.pos == inst.pos) {
@@ -169,12 +165,12 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
         }
     }
 
-    override fun instructionEventAfter(locInst: LocatedSbfInstruction, post: MemoryDomain<TNum, TOffset>) {}
+    override fun instructionEventAfter(locInst: LocatedSbfInstruction, post: MemoryDomain<TNum, TOffset, TFlags>) {}
 
     override fun instructionEvent(
         locInst: LocatedSbfInstruction,
-        pre: MemoryDomain<TNum, TOffset>,
-        post: MemoryDomain<TNum, TOffset>
+        pre: MemoryDomain<TNum, TOffset, TFlags>,
+        post: MemoryDomain<TNum, TOffset, TFlags>
     ) {
     }
 }
@@ -186,8 +182,8 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
  * We know that before calling `invoke` register R2 points to the `Instruction`, and 48 bytes after the program
  * id is encoded in 32 bytes.
  */
-private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getProgramIdBeforeInvoke(
-    memoryDomain: MemoryDomain<TNum, TOffset>,
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getProgramIdBeforeInvoke(
+    memoryDomain: MemoryDomain<TNum, TOffset, TFlags>,
     globals: GlobalVariableMap
 ): ProgramId? {
     val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
@@ -224,7 +220,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getProgramIdBef
             return null
         }
 
-        val chunk = instructionIdChunk.getNode().integerValue.toLongOrNull()?.toULong()
+        val chunk = instructionIdChunk.getNode().flags.getInteger().toLongOrNull()?.toULong()
         if (chunk == null) {
             cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (numeric value is not precise enough)" }
             return null
@@ -246,9 +242,9 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getProgramIdBef
  * the discriminant is known and can be converted into a [InvokeMock], return such mock.
  * Otherwise, return `null`.
  */
-private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getInstruction(
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getInstruction(
     discriminants: ProgramDiscriminants,
-    memoryDomain: MemoryDomain<TNum, TOffset>,
+    memoryDomain: MemoryDomain<TNum, TOffset, TFlags>,
     globals: GlobalVariableMap
 ): InvokeMock? {
     val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
@@ -291,7 +287,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getInstruction(
         return null
     }
 
-    val instructionDiscriminant = pointedInstructionDiscriminant.getNode().integerValue.toLongOrNull()?.toULong()
+    val instructionDiscriminant = pointedInstructionDiscriminant.getNode().flags.getInteger().toLongOrNull()?.toULong()
     if (instructionDiscriminant == null) {
         cpiLog.warn { "PTA node pointing to instruction discriminant is not precise enough (numeric value is not precise enough)" }
         return null

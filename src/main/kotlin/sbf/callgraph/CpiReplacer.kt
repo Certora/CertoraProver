@@ -38,6 +38,7 @@ import sbf.cfg.Value
 import sbf.disassembler.SbfRegister
 import sbf.domains.INumValue
 import sbf.domains.IOffset
+import sbf.domains.IPTANodeFlags
 import sbf.inliner.InlinerConfig
 import sbf.inliner.inline
 import sbf.output.annotateWithTypes
@@ -45,8 +46,8 @@ import sbf.slicer.sliceAndPTAOptLoop
 
 private val cpiLog = Logger(LoggerTypes.CPI)
 
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> substituteCpiCalls(
-    analysis: WholeProgramMemoryAnalysis<TNum, TOffset>,
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> substituteCpiCalls(
+    analysis: WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>,
     target: String,
     cpiCalls: Map<LocatedInvoke, InvokeMock?>,
     inliningConfig: InlinerConfig,

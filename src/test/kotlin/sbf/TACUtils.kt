@@ -72,7 +72,13 @@ fun toTAC (cfg: SbfCFG,
     CVTFunction.addSummaries(memSummaries)
     SolanaFunction.addSummaries(memSummaries)
     val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
-    val memAnalysis = WholeProgramMemoryAnalysis(prog, memSummaries, sbfTypesFac, processor = null)
+    val flagsFac = { BasicPTANodeFlags() }
+    val memAnalysis = WholeProgramMemoryAnalysis(
+        prog,
+        memSummaries,
+        sbfTypesFac,
+        flagsFac,
+        processor = null)
     memAnalysis.inferAll()
     return sbfCFGsToTAC(prog, memSummaries, globalsSymbolTable, memAnalysis.getResults())
 }

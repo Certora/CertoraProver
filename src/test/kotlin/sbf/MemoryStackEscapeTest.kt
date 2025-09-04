@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test
 import sbf.analysis.AnalysisRegisterTypes
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
+private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 
 class MemoryStackEscapeTest {
     @Test
@@ -82,7 +83,12 @@ class MemoryStackEscapeTest {
         println(sb.toString())
 
         val prog = MutableSbfCallGraph(mutableListOf(cfg), setOf("entrypoint"), globals)
-        val memAnalysis = WholeProgramMemoryAnalysis(prog, memSummaries, sbfTypesFac, processor = null)
+        val memAnalysis = WholeProgramMemoryAnalysis(
+            prog,
+            memSummaries,
+            sbfTypesFac,
+            nodeAllocator.flagsFactory,
+            processor = null)
         var exception = false
         try {
             memAnalysis.inferAll()
@@ -152,7 +158,12 @@ class MemoryStackEscapeTest {
         println(sb.toString())
 
         val prog = MutableSbfCallGraph(mutableListOf(cfg), setOf("entrypoint"), globals)
-        val memAnalysis = WholeProgramMemoryAnalysis(prog, memSummaries, sbfTypesFac, processor = null)
+        val memAnalysis = WholeProgramMemoryAnalysis(
+            prog,
+            memSummaries,
+            sbfTypesFac,
+            nodeAllocator.flagsFactory,
+            processor = null)
         var exception = false
         try {
             memAnalysis.inferAll()

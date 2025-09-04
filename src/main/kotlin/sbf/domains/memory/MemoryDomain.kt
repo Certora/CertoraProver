@@ -83,12 +83,12 @@ interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>
 
 private typealias TScalarDomain<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
 
-class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
+class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>>(
     private val scalars: TScalarDomain<TNum, TOffset>,
-    private val ptaGraph: PTAGraph<TNum, TOffset>)
-    : AbstractDomain<MemoryDomain<TNum, TOffset>>, ScalarValueProvider<TNum, TOffset> {
+    private val ptaGraph: PTAGraph<TNum, TOffset, Flags>)
+    : AbstractDomain<MemoryDomain<TNum, TOffset, Flags>>, ScalarValueProvider<TNum, TOffset> {
 
-    constructor(nodeAllocator: PTANodeAllocator, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, initPreconditions: Boolean = false)
+    constructor(nodeAllocator: PTANodeAllocator<Flags>, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, initPreconditions: Boolean = false)
         : this(TScalarDomain(sbfTypeFac, initPreconditions), PTAGraph(nodeAllocator, sbfTypeFac, initPreconditions))
 
     /**
@@ -143,7 +143,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    override fun deepCopy(): MemoryDomain<TNum, TOffset> {
+    override fun deepCopy(): MemoryDomain<TNum, TOffset, Flags> {
         return if (isBottom()) {
             val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.sbfTypeFac)
             res.apply { setToBottom() }
@@ -152,7 +152,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun deepCopyOnlyScalars(): MemoryDomain<TNum, TOffset> {
+    private fun deepCopyOnlyScalars(): MemoryDomain<TNum, TOffset, Flags> {
         return if (isBottom()) {
             val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.sbfTypeFac)
             res.apply { setToBottom() }
@@ -163,16 +163,19 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
 
     companion object {
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> initPreconditions(nodeAllocator: PTANodeAllocator, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): MemoryDomain<TNum, TOffset> {
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> initPreconditions(nodeAllocator: PTANodeAllocator<Flags>, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>)
+        : MemoryDomain<TNum, TOffset, Flags> {
             return MemoryDomain(nodeAllocator, sbfTypeFac, true)
         }
 
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeBottom(nodeAllocator: PTANodeAllocator, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): MemoryDomain<TNum, TOffset> {
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> makeBottom(nodeAllocator: PTANodeAllocator<Flags>, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>)
+        : MemoryDomain<TNum, TOffset, Flags> {
             val res = MemoryDomain(nodeAllocator, sbfTypeFac)
             return res.apply { setToBottom() }
         }
 
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(nodeAllocator: PTANodeAllocator, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): MemoryDomain<TNum, TOffset> {
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> makeTop(nodeAllocator: PTANodeAllocator<Flags>, sbfTypeFac: ISbfTypeFactory<TNum, TOffset>)
+        : MemoryDomain<TNum, TOffset, Flags> {
             return MemoryDomain(nodeAllocator, sbfTypeFac)
         }
     }
@@ -206,8 +209,8 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun joinOrWiden(other: MemoryDomain<TNum, TOffset>, isJoin: Boolean,
-                            left: Label?, right: Label?): MemoryDomain<TNum, TOffset> {
+    private fun joinOrWiden(other: MemoryDomain<TNum, TOffset, Flags>, isJoin: Boolean,
+                            left: Label?, right: Label?): MemoryDomain<TNum, TOffset, Flags> {
         if (isBottom()) {
             return other.deepCopy()
         } else if (other.isBottom()) {
@@ -229,22 +232,22 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    override fun pseudoCanonicalize(other: MemoryDomain<TNum, TOffset>) {
+    override fun pseudoCanonicalize(other: MemoryDomain<TNum, TOffset, Flags>) {
         if (!isBottom() && !other.isBottom()) {
             ptaGraph.pseudoCanonicalize(other.getPTAGraph())
             scalars.pseudoCanonicalize(other.scalars)
         }
     }
 
-    override fun join(other: MemoryDomain<TNum, TOffset>, left: Label?, right: Label?): MemoryDomain<TNum, TOffset> {
+    override fun join(other: MemoryDomain<TNum, TOffset, Flags>, left: Label?, right: Label?): MemoryDomain<TNum, TOffset, Flags> {
         return joinOrWiden(other, true, left, right)
     }
 
-    override fun widen(other: MemoryDomain<TNum, TOffset>, b: Label?): MemoryDomain<TNum, TOffset> {
+    override fun widen(other: MemoryDomain<TNum, TOffset, Flags>, b: Label?): MemoryDomain<TNum, TOffset, Flags> {
         return joinOrWiden(other, false, b, null)
     }
 
-    override fun lessOrEqual(other: MemoryDomain<TNum, TOffset>, left: Label?, right: Label?): Boolean {
+    override fun lessOrEqual(other: MemoryDomain<TNum, TOffset, Flags>, left: Label?, right: Label?): Boolean {
         return if (other.isTop() || isBottom()) {
             true
         } else if (other.isBottom() || isTop()) {
@@ -254,7 +257,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    fun getPTAGraph(): PTAGraph<TNum, TOffset> = ptaGraph
+    fun getPTAGraph(): PTAGraph<TNum, TOffset, Flags> = ptaGraph
 
     @TestOnly fun getScalars() = scalars
 
@@ -542,7 +545,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     override fun analyze(b: SbfBasicBlock,
                          globals: GlobalVariableMap,
                          memSummaries: MemorySummaries,
-                         listener: InstructionListener<MemoryDomain<TNum, TOffset>>): MemoryDomain<TNum, TOffset> {
+                         listener: InstructionListener<MemoryDomain<TNum, TOffset, Flags>>): MemoryDomain<TNum, TOffset, Flags> {
 
 
         sbfLogger.debug { "=== Memory Domain analyzing ${b.getLabel()} ===\n$this\n" }
@@ -584,7 +587,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     override fun getStackContent(offset: Long, width: Byte) = getScalars().getStackContent(offset, width)
 
     /** External API for TAC encoding **/
-    fun getRegCell(reg: Value.Reg, globalsMap: GlobalVariableMap): PTASymCell? {
+    fun getRegCell(reg: Value.Reg, globalsMap: GlobalVariableMap): PTASymCell<Flags>? {
         val scalarVal = getScalars().getAsScalarValue(reg)
         return getPTAGraph().getRegCell(reg, scalarVal.type(), globalsMap, locInst = null)
     }

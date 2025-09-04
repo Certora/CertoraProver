@@ -24,6 +24,7 @@ import vc.data.*
 import datastructures.stdcollections.*
 import sbf.domains.INumValue
 import sbf.domains.IOffset
+import sbf.domains.IPTANodeFlags
 
 /**
  * Summarize compiler-rt functions.
@@ -32,9 +33,9 @@ import sbf.domains.IOffset
  **/
 
 /** Default implementation using 256-bit numbers **/
-open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> {
+open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> {
 
-    context(SbfCFGToTAC<TNum, TOffset>)
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     open fun summarizeMulti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
         val cmds = mutableListOf(Debug.externalCall(inst))
         applyU128Operation(args, cmds) { res, x, y ->
@@ -43,7 +44,7 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
         return cmds
     }
 
-    context(SbfCFGToTAC<TNum, TOffset>)
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     open fun summarizeUDivti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
         val cmds = mutableListOf(Debug.externalCall(inst))
         applyU128Operation(args, cmds) { res, x, y ->
@@ -52,7 +53,7 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
         return cmds
     }
 
-    context(SbfCFGToTAC<TNum, TOffset>)
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     open fun summarizeDivti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
         return listOf(
             Debug.externalCall(inst),
@@ -71,7 +72,7 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
      *
      * In SBF, `arg1` and `arg2` are stored in `r1` and `r2` and the result `res` in `r0`.
      */
-     context(SbfCFGToTAC<TNum, TOffset>)
+     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
         private fun summarizeUnorddf2(inst: SbfInstruction.Call,
                                       res: TACSymbol.Var,
                                       arg1: TACSymbol.Var,
@@ -91,7 +92,7 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
         )
     }
 
-    context(SbfCFGToTAC<TNum, TOffset>)
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     operator fun invoke(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call) { "summarizeCompilerRt expects a call instruction instead of $inst" }
@@ -119,7 +120,7 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
         }
     }
 
-    context(SbfCFGToTAC<TNum, TOffset>)
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     private fun getArgsFromU128BinaryCompilerRt(locInst: LocatedSbfInstruction): U128Operands? {
         val (resLow, resHigh) = getLowAndHighFromU128(locInst) ?: return null
         val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
@@ -130,9 +131,10 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
     }
 }
 
-class SummarizeCompilerRtWithMathInt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>: SummarizeCompilerRt<TNum, TOffset>() {
+class SummarizeCompilerRtWithMathInt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
+    : SummarizeCompilerRt<TNum, TOffset, TFlags>() {
 
-    context(SbfCFGToTAC<TNum, TOffset>)
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     override fun summarizeMulti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
         // We are using 256-bits so multiplication of 128-bits cannot overflow
         val (xMath, yMath, resMath) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())
@@ -146,7 +148,7 @@ class SummarizeCompilerRtWithMathInt<TNum : INumValue<TNum>, TOffset : IOffset<T
         return cmds
     }
 
-    context(SbfCFGToTAC<TNum, TOffset>)
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     override fun summarizeUDivti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
         // We are using 256-bits so division of 128-bits cannot overflow
         val (xMath, yMath, resMath) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())

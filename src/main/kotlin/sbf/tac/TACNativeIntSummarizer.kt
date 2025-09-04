@@ -23,6 +23,7 @@ import sbf.cfg.SbfInstruction
 import sbf.disassembler.SbfRegister
 import sbf.domains.INumValue
 import sbf.domains.IOffset
+import sbf.domains.IPTANodeFlags
 import vc.data.TACCmd
 import vc.data.TACExpr
 import vc.data.asTACExpr
@@ -34,8 +35,10 @@ import java.math.BigInteger
  * These intrinsics allow users to write specifications using native integers.
  * Currently, we use 256-bit TAC variables to simulate nativeint.
  */
-context(SbfCFGToTAC<TNum, TOffset>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> summarizeNativeInt(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeNativeInt(
+    locInst: LocatedSbfInstruction
+): List<TACCmd.Simple> {
     val inst = locInst.inst
     check(inst is SbfInstruction.Call) {"summarizeNativeInt expects a call instruction instead of ${locInst.inst}"}
     val function = CVTNativeInt.from(inst.name)

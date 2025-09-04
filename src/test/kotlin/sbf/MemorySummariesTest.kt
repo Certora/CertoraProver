@@ -27,11 +27,17 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.*
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
+private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 
 class MemorySummariesTest {
 
     // Return node pointed by *([baseR] + [offset])
-    private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getNode(g: PTAGraph<TNum, TOffset>, baseR: Value.Reg, offset: Short, width: Short): PTANode {
+    private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> getNode(
+        g: PTAGraph<TNum, TOffset, Flags>,
+        baseR: Value.Reg,
+        offset: Short,
+        width: Short
+    ): PTANode<Flags> {
         val lhs = Value.Reg(SbfRegister.R7)
         check(baseR != lhs)
         val inst = SbfInstruction.Mem(Deref(width, baseR, offset, null), lhs, true, null)
@@ -55,7 +61,7 @@ class MemorySummariesTest {
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         // Create abstract state
-        val absVal = MemoryDomain(PTANodeAllocator(), sbfTypesFac, true)
+        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac, true)
         val stackC = absVal.getRegCell(r10, newGlobalVariableMap())
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
