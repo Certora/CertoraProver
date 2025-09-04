@@ -2700,7 +2700,7 @@ class CertoraBuildGenerator:
                     Ctx.run_local_spec_check(False, context, ["-listCalls",  tmp_file.name], print_errors=False)
                     spec_calls = tmp_file.read().split("\n")
                 except Exception as e:
-                    instrumentation_logger.warning(f"Failed to get calls from spec\n{e}")
+                    instrumentation_logger.debug(f"Failed to get calls from spec\n{e}")
 
         self.context.remappings = []
         for i, build_arg_contract_file in enumerate(sorted(self.input_config.sorted_files)):
@@ -3962,7 +3962,7 @@ def build_from_cache_or_scratch(context: CertoraContext,
                 if output:
                     internal_calls = output.split("\n")
             except Exception as e:
-                instrumentation_logger.warning(f"Failed to get calls from spec\n{e}")
+                instrumentation_logger.debug(f"Failed to get calls from spec\n{e}")
 
             if internal_calls:
                 build_logger.info("Found new internal calls in the spec file, need to recompile anyway")
@@ -4013,9 +4013,6 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
         if Cv.mode_has_spec_file(context) and not context.build_only and not ignore_spec_syntax_check:
             if Ctx.should_run_local_speck_check(context):
                 Ctx.run_local_spec_check(False, context)
-            else:
-                build_logger.warning(
-                    "Local checks of CVL specification files disabled. It is recommended to enable the checks.")
 
         should_save_cache, cached_files = build_from_cache_or_scratch(context,
                                                                       certora_build_generator,
