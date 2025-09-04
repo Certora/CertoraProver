@@ -2688,7 +2688,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
             if (o != null && (op == BinOp.ADD || op == BinOp.SUB)) {
                 val c2 = getRegCell(op2)
-                if (c2 == null) {
+                if (c1.getNode() == getStack() || c2 == null) {
+                    // Pointer arithmetic over stack or no cell associated with op2
+                    //
+                    // Regarding the reply problem described on the else branch.
+                    //    If due to flow-insensitivity we don't know anymore that op2 is a number, then we execute
+                    //    the else case which would probably collapse the stack, so we would get a PTA error.
                     val newOffset = updateOffset(op, c1.getNode(), c1.getOffset(), o)
                     setRegCell(dst, c1.getNode().createSymCell(newOffset))
                 } else {
