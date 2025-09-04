@@ -44,6 +44,61 @@ data class CpisSubstitutionMap(val map: Map<ProgramId, ProgramDiscriminants>) {
             }
         }
     }
+
+    companion object {
+        val CvlrTokenMocks = mapOf(
+            3UL to InvokeMock(
+                invokeMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_transfer",
+                    mangledName = "_ZN14cvlr_spl_token4cpis20cvlr_invoke_transfer17he353c34d6704623eE"
+                ),
+                invokeSignedMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_transfer",
+                    mangledName = "_ZN14cvlr_spl_token4cpis27cvlr_invoke_signed_transfer17he64c95924a0edeb9E"
+                ),
+            ),
+            7UL to InvokeMock(
+                invokeMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_mint_to",
+                    mangledName = "_ZN14cvlr_spl_token4cpis19cvlr_invoke_mint_to17h45137cbd4fb649fcE"
+                ),
+                invokeSignedMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_mint_to",
+                    mangledName = "_ZN14cvlr_spl_token4cpis26cvlr_invoke_signed_mint_to17h068ceaeb3cda8e5dE"
+                ),
+            ),
+            8UL to InvokeMock(
+                invokeMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_burn",
+                    mangledName = "_ZN14cvlr_spl_token4cpis16cvlr_invoke_burn17h28e983b636cdf3a6E"
+                ),
+                invokeSignedMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_burn",
+                    mangledName = "_ZN14cvlr_spl_token4cpis23cvlr_invoke_signed_burn17hebd98860ed7e7bf3E"
+                ),
+            ),
+            9UL to InvokeMock(
+                invokeMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_close_account",
+                    mangledName = "_ZN14cvlr_spl_token4cpis25cvlr_invoke_close_account17he504bd1732d0deabE"
+                ),
+                invokeSignedMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_close_account",
+                    mangledName = "_ZN14cvlr_spl_token4cpis32cvlr_invoke_signed_close_account17h05c0342d0d9be031E"
+                ),
+            ),
+            12UL to InvokeMock(
+                invokeMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_transfer_checked",
+                    mangledName = "_ZN14cvlr_spl_token4cpis28cvlr_invoke_transfer_checked17heaf97f5b1dbcef45E"
+                ),
+                invokeSignedMock = RustFunction(
+                    demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_transfer_checked",
+                    mangledName = "_ZN14cvlr_spl_token4cpis35cvlr_invoke_signed_transfer_checked17h3a6ca2c40c5fa1a5E"
+                ),
+            )
+        )
+    }
 }
 
 
@@ -55,6 +110,9 @@ data class ProgramId(val chunk0: ULong, val chunk1: ULong, val chunk2: ULong, va
 
         val TokenProgramId =
             ProgramId(10637895772709248262UL, 12428223917890587609UL, 10463932726783620124UL, 12178014311288245306UL)
+
+        val Token2022ProgramId =
+            ProgramId(16037166466943343878UL, 15766377600162546200UL, 2814109315776649910UL, 18197816669093084670UL)
     }
 }
 
@@ -104,58 +162,11 @@ val cpisSubstitutionMap: CpisSubstitutionMap = CpisSubstitutionMap(
     mapOf(
         ProgramId.TokenProgramId to ProgramDiscriminants(
             numBytesDiscriminant = 1,
-            discriminants = mapOf(
-                3UL to InvokeMock(
-                    invokeMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_transfer",
-                        mangledName = "_ZN14cvlr_spl_token4cpis20cvlr_invoke_transfer17he353c34d6704623eE"
-                    ),
-                    invokeSignedMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_transfer",
-                        mangledName = "_ZN14cvlr_spl_token4cpis27cvlr_invoke_signed_transfer17he64c95924a0edeb9E"
-                    ),
-                ),
-                7UL to InvokeMock(
-                    invokeMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_mint_to",
-                        mangledName = "_ZN14cvlr_spl_token4cpis19cvlr_invoke_mint_to17h45137cbd4fb649fcE"
-                    ),
-                    invokeSignedMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_mint_to",
-                        mangledName = "_ZN14cvlr_spl_token4cpis26cvlr_invoke_signed_mint_to17h068ceaeb3cda8e5dE"
-                    ),
-                ),
-                8UL to InvokeMock(
-                    invokeMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_burn",
-                        mangledName = "_ZN14cvlr_spl_token4cpis16cvlr_invoke_burn17h28e983b636cdf3a6E"
-                    ),
-                    invokeSignedMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_burn",
-                        mangledName = "_ZN14cvlr_spl_token4cpis23cvlr_invoke_signed_burn17hebd98860ed7e7bf3E"
-                    ),
-                ),
-                9UL to InvokeMock(
-                    invokeMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_close_account",
-                        mangledName = "_ZN14cvlr_spl_token4cpis25cvlr_invoke_close_account17he504bd1732d0deabE"
-                    ),
-                    invokeSignedMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_close_account",
-                        mangledName = "_ZN14cvlr_spl_token4cpis32cvlr_invoke_signed_close_account17h05c0342d0d9be031E"
-                    ),
-                ),
-                12UL to InvokeMock(
-                    invokeMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_transfer_checked",
-                        mangledName = "_ZN14cvlr_spl_token4cpis28cvlr_invoke_transfer_checked17heaf97f5b1dbcef45E"
-                    ),
-                    invokeSignedMock = RustFunction(
-                        demangledName = "cvlr_spl_token::cpis::cvlr_invoke_signed_transfer_checked",
-                        mangledName = "_ZN14cvlr_spl_token4cpis35cvlr_invoke_signed_transfer_checked17h3a6ca2c40c5fa1a5E"
-                    ),
-                )
-            )
+            discriminants = CpisSubstitutionMap.CvlrTokenMocks
+        ),
+        ProgramId.Token2022ProgramId to ProgramDiscriminants(
+            numBytesDiscriminant = 1,
+            discriminants = CpisSubstitutionMap.CvlrTokenMocks
         )
     )
 )

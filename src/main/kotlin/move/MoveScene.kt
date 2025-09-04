@@ -65,14 +65,7 @@ class MoveScene(
 
     val rules by lazy {
         cvlmManifest.selectedRules.flatMap { (funcName, ruleType) ->
-            val def = maybeDefinition(funcName)
-                ?: error("No definition found for rule function $funcName")
-            // Instantiate the function, using the `Nothing` type for all type arguments.
-            val func = MoveFunction(
-                def.function,
-                typeArguments = def.function.typeParameters.mapIndexed { index, _ -> MoveType.Nondet(index) }
-            )
-            MoveToTAC.compileRule(func, ruleType, this)
+            MoveToTAC.compileRule(funcName, ruleType, this)
         }.also {
             if (it.isEmpty()) {
                 throw CertoraException(
@@ -82,6 +75,8 @@ class MoveScene(
             }
         }
     }
+
+    fun targetFunctions(module: MoveModuleName) = cvlmManifest.selectedTargetFunctions[module].orEmpty()
 
     context(SummarizationContext)
     fun summarize(call: MoveCall): MoveBlocks? {

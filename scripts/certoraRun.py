@@ -132,10 +132,6 @@ def run_certora(args: List[str], app: Type[App.CertoraApp] = App.EvmApp,
                 Ctx.run_local_spec_check(True, context)
                 typechecking_end = time.perf_counter()
                 timings['typecheckingTime'] = round(typechecking_end - typechecking_start, 4)
-            else:
-                run_logger.warning(
-                    "Local checks of CVL specification files disabled. It is recommended to enable "
-                    "the checks.")
 
         # Remove debug logger and run remote verification
         logging_manager.remove_debug_logger()

@@ -20,6 +20,8 @@ package sbf.domains
 import sbf.disassembler.*
 import sbf.cfg.*
 import sbf.support.*
+import datastructures.stdcollections.*
+import sbf.callgraph.SolanaFunction
 
 /** For internal errors **/
 class ScalarDomainError(msg: String): SolanaInternalError("ScalarDomain error: $msg")
@@ -230,7 +232,7 @@ class ScalarBaseDomain<ScalarValue>(
 
     private fun removeDeadStackFields(topStack: Long) {
         val deadFields = ArrayList<ByteRange>()
-        for ((k, _) in stack.iterator()) {
+        for ((k, _) in stack) {
             if (k.offset > topStack) {
                 deadFields.add(k)
             }
@@ -272,6 +274,8 @@ class ScalarBaseDomain<ScalarValue>(
         }
     }
 
+    fun stackIterator() = stack.map { it.key to it.value}.iterator()
+
     fun forget(reg: Value.Reg) {
         if (!isBottom()) {
             setRegister(reg, sFac.mkTop())
@@ -300,8 +304,34 @@ class ScalarBaseDomain<ScalarValue>(
         }
     }
 
+    fun updateStack(pred: (oldVal: ScalarValue) -> Boolean, transformer: (oldVal: ScalarValue) -> ScalarValue) {
+        if (!isBottom()) {
+            val updates = mutableMapOf<ByteRange, ScalarValue>()
+            for ((slice, oldVal) in stackIterator()) {
+                if (pred(oldVal)) {
+                    updates[slice] = transformer(oldVal)
+                }
+            }
+            for ((slice, newVal) in updates) {
+                updateStack(slice, newVal, isWeak= false)
+            }
+        }
+    }
+
     fun updateStack(slice: ByteRange, newVal: ScalarValue, isWeak: Boolean) {
-        stack = stack.put(slice, newVal, isWeak)
+        if (isBottom()) {
+            return
+        }
+        if (newVal.isBottom()) {
+            setToBottom()
+            return
+        }
+
+        stack = if (newVal.isTop()) {
+            stack.remove(slice)
+        } else {
+            stack.put(slice, newVal, isWeak)
+        }
     }
 
     fun removeStackSliceIf(offset: Long, len: Long, onlyPartial: Boolean, pred: (ByteRange) -> Boolean = {_->true}) {
@@ -311,6 +341,10 @@ class ScalarBaseDomain<ScalarValue>(
                 stack = stack.remove(k)
             }
         }
+    }
+
+    fun removeStack() {
+        stack = StackEnvironment.makeTop()
     }
 
     /**
@@ -331,4 +365,87 @@ class ScalarBaseDomain<ScalarValue>(
 
     fun getStackSingletonOrNull(slice: ByteRange): ScalarValue? = stack.getSingletonOrNull(slice)
 
+    /**
+     * Default abstract transformer for external functions
+     **/
+    fun<D, TNum, TOffset> analyzeExternalCall(
+        locInst: LocatedSbfInstruction,
+        scalars: D,
+        memSummaries: MemorySummaries
+    ) where TNum: INumValue<TNum>,
+            TOffset: IOffset<TOffset>,
+            D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset>  {
+        class ScalarPredicateSummaryVisitor: SummaryVisitor {
+            override fun noSummaryFound(locInst: LocatedSbfInstruction) {
+                forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+            }
+            override fun processReturnArgument(locInst: LocatedSbfInstruction, type: MemSummaryArgumentType) {
+                forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
+            }
+            override fun processArgument(locInst: LocatedSbfInstruction,
+                                         reg: SbfRegister,
+                                         offset: Long,
+                                         width: Byte,
+                                         @Suppress("UNUSED_PARAMETER") allocatedSpace: ULong,
+                                         type: MemSummaryArgumentType) {
+                val regType = scalars.getAsScalarValue(Value.Reg(reg)).type()
+                if (regType is SbfType.PointerType.Stack) {
+                    val baseOffset = regType.offset.toLongOrNull()
+                    check(baseOffset != null) {"processArgument is accessing stack at a non-constant offset ${regType.offset}"}
+                    removeStackSliceIf(offset, width.toLong(), onlyPartial = false)
+                }
+            }
+        }
+        val vis = ScalarPredicateSummaryVisitor()
+        memSummaries.visitSummary(locInst, vis)
+    }
+
+    /**
+     * Default abstract transformer for `memcpy`/`memmove`/`memset`
+     **/
+    fun<D, TNum, TOffset> analyzeMemIntrinsics(
+        locInst: LocatedSbfInstruction,
+        scalars: D)
+    where TNum: INumValue<TNum>,
+          TOffset: IOffset<TOffset>,
+          D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
+
+        val stmt = locInst.inst
+        check(stmt is SbfInstruction.Call)
+
+        val solanaFunction = SolanaFunction.from(stmt.name)
+        check (solanaFunction == SolanaFunction.SOL_MEMCPY ||
+            solanaFunction == SolanaFunction.SOL_MEMMOVE ||
+            solanaFunction == SolanaFunction.SOL_MEMSET)
+
+        val r1 = Value.Reg(SbfRegister.R1_ARG) // destination
+        val r3 = Value.Reg(SbfRegister.R3_ARG) // length
+
+        val dstType = scalars.getAsScalarValue(r1).type()
+        if (dstType is SbfType.PointerType.Stack) {
+            val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
+                ?: throw UnknownMemcpyLenError(
+                    DevErrorInfo(
+                        locInst, PtrExprErrReg(r3),
+                        "memcpy on stack without knowing exact length: ${scalars.getAsScalarValue(r3).type()}"
+                    )
+                )
+            if (dstType.offset.isTop()) {
+                throw UnknownStackPointerError(
+                    DevErrorInfo(
+                        locInst,
+                        PtrExprErrReg(r1),
+                        "memcpy on stack without knowing destination offset"
+                    )
+                )
+            }
+
+            val dstOffsets = dstType.offset.toLongList()
+            check(dstOffsets.isNotEmpty()) { "Scalar+predicate domain expects non-empty list" }
+
+            dstOffsets.forEach { dstOffset ->
+                removeStackSliceIf(dstOffset, len, onlyPartial = false)
+            }
+        }
+    }
 }

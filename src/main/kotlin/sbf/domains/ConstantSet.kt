@@ -243,8 +243,14 @@ data class ConstantSet(private val values: Set<Constant>, private val maxNumDisj
     }
 
     override fun filter(op: CondOp, other: ConstantSet): ConstantSet {
-        return if (isBottom() || isTop() || other.isBottom() || other.isTop()) {
+        return if (isBottom() || other.isBottom()) {
             this
+        } else if (isTop() || other.isTop()){
+            if(op == CondOp.EQ) {
+                this.meet(other)
+            } else {
+                this
+            }
         } else {
             this.values.filter { o1 ->
                 other.values.any { o2 ->

@@ -33,26 +33,27 @@ import java.io.File
  *  The analysis is flow-sensitive but it is INTRA-PROCEDURAL.
  *  Therefore, call functions should be INLINED to get reasonable results.
 **/
-class WholeProgramMemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
+class WholeProgramMemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>(
     val program: SbfCallGraph,
     val memSummaries: MemorySummaries,
     val sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
-    val processor: InstructionListener<MemoryDomain<TNum, TOffset>>?) {
-    private val results : MutableMap<String, MemoryAnalysis<TNum, TOffset>> = mutableMapOf()
+    private val flagsFac: () -> TFlags,
+    val processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?) {
+    private val results : MutableMap<String, MemoryAnalysis<TNum, TOffset, TFlags>> = mutableMapOf()
 
     fun inferAll() {
         val cfg = program.getCallGraphRootSingleOrFail()
         sbfLogger.info {"  Started memory analysis of ${cfg.getName()}... "}
-        val analysis = MemoryAnalysis(cfg, program.getGlobals(), memSummaries, sbfTypesFac, processor)
+        val analysis = MemoryAnalysis(cfg, program.getGlobals(), memSummaries, sbfTypesFac, flagsFac, processor)
         sbfLogger.info {"  Finished memory analysis of ${cfg.getName()} ... "}
         results[cfg.getName()] = analysis
     }
 
-    fun getResults(): Map<String, MemoryAnalysis<TNum, TOffset>> = results
+    fun getResults(): Map<String, MemoryAnalysis<TNum, TOffset, TFlags>> = results
 
     override fun toString(): String {
         val printInvariants = true
-        class PrettyPrinter(val analysis: MemoryAnalysis<TNum, TOffset>, val sb: StringBuilder): DfsVisitAction {
+        class PrettyPrinter(val analysis: MemoryAnalysis<TNum, TOffset, TFlags>, val sb: StringBuilder): DfsVisitAction {
             override fun applyBeforeChildren(b: SbfBasicBlock) {
                 val pre = analysis.getPre(b.getLabel())
                 sb.append("/** PRE-invariants \n")
@@ -140,18 +141,19 @@ class WholeProgramMemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset
  * @param sbfTypesFac factory to create numbers and offsets used by SBF types
  * @param processor post-process each basic block after fixpoint has been computed
  **/
-open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
+open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
     (open val cfg: SbfCFG,
      open val globalsMap: GlobalVariableMap,
      open val memSummaries: MemorySummaries,
      open val sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
-     open val processor: InstructionListener<MemoryDomain<TNum, TOffset>>?,
-     private val isEntryPoint: Boolean = true): IAnalysis<MemoryDomain<TNum, TOffset>> {
+     open val flagsFac: () -> TFlags,
+     open val processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?,
+     private val isEntryPoint: Boolean = true): IAnalysis<MemoryDomain<TNum, TOffset, TFlags>> {
 
     // Invariants that hold at the beginning of each basic block
-    private val preMap: MutableMap<Label, MemoryDomain<TNum, TOffset>> = mutableMapOf()
+    private val preMap: MutableMap<Label, MemoryDomain<TNum, TOffset, TFlags>> = mutableMapOf()
     // Invariants that hold at the end of each basic block
-    private val postMap: MutableMap<Label, MemoryDomain<TNum, TOffset>> = mutableMapOf()
+    private val postMap: MutableMap<Label, MemoryDomain<TNum, TOffset, TFlags>> = mutableMapOf()
 
     init {
         run()
@@ -161,7 +163,7 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
     override fun getPost(block: Label) = postMap[block]
 
     private fun run() {
-        val nodeAllocator = PTANodeAllocator()
+        val nodeAllocator = PTANodeAllocator(flagsFac)
         val entry = cfg.getEntry()
         val bot = MemoryDomain.makeBottom(nodeAllocator, sbfTypesFac)
         val top = MemoryDomain.makeTop(nodeAllocator, sbfTypesFac)

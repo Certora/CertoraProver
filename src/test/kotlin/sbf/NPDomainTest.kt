@@ -523,7 +523,7 @@ class NPDomainTest {
             }
         }
         cfg.lowerBranchesIntoAssume()
-
+        println("$cfg")
         val globals = newGlobalVariableMap()
         val memSummaries = MemorySummaries()
         val (_, slicedProg) = sliceAssertions(MutableSbfCallGraph(mutableListOf(cfg), setOf("test"), globals), memSummaries)
@@ -548,7 +548,6 @@ class NPDomainTest {
 
     /**
      *  As test15 but with a select.
-     *  It cannot be handled precisely at the moment.
      **/
     @Test
     fun test16() {
@@ -592,7 +591,7 @@ class NPDomainTest {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Call && SolanaFunction.from(inst.name) == SolanaFunction.SOL_MEMCPY) {
                     val ty = regTypes.typeAtInstruction(locInst, SbfRegister.R3_ARG)
-                    Assertions.assertEquals(false, (ty as? SbfType.NumType)?.value?.toLongOrNull() == 32L)
+                    Assertions.assertEquals(true, (ty as? SbfType.NumType)?.value?.toLongOrNull() == 32L)
                 }
             }
         }

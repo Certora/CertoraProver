@@ -346,9 +346,18 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
     fun analyzeAssume(cond:Condition,
                       inst: LocatedSbfInstruction,
                       vFac: VariableFactory,
-                      registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
+                      registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>?): NPDomain<D, TNum, TOffset> {
         if (isBottom()) {
             return mkBottom()
+        }
+
+        if (registerTypes == null) {
+            val linCons = getLinCons(cond, vFac)
+            return if (linCons.isContradiction()) {
+                mkBottom()
+            } else {
+                NPDomain<D, TNum, TOffset>(csts.add(linCons)).normalize()
+            }
         }
 
         var linCons = getLinCons(cond, vFac)

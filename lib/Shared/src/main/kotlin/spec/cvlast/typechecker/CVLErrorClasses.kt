@@ -2688,7 +2688,10 @@ class AddressFuncCallNoEnv private constructor(override val location: Range, ove
     """
 )
 class AddressFuncCallNoFuncs private constructor(override val location: Range, override val message: String) : CVLError() {
-    constructor(exp: CVLExp.UnresolvedApplyExp) : this(exp.getRangeOrEmpty(), "Did not find any contract functions that match the given name and arguments")
+    constructor(location: Range, methodId: String, args: List<CVLExp>) : this(
+        location,
+        "Did not find any implementations of $methodId with arguments of types ${args.map { it.getCVLType() }} in the scene."
+    )
 }
 
 @KSerializable

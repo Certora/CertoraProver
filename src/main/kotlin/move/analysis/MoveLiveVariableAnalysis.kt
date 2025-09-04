@@ -15,16 +15,13 @@
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package move
+package move.analysis
 
 import datastructures.stdcollections.*
 import analysis.dataflow.GenericLiveVariableAnalysis
-import utils.`impossible!`
-import utils.mapNotNullToTreapSet
-import vc.data.AnalysisCache
-import vc.data.AssigningSummary
-import vc.data.TACCmd
-import vc.data.TACSymbol
+import move.*
+import utils.*
+import vc.data.*
 
 class MoveLiveVariableAnalysis private constructor(val g: MoveTACCommandGraph)
     : GenericLiveVariableAnalysis<TACCmd, MoveTACProgram.LCmd, MoveTACProgram.Block, MoveTACCommandGraph>(g, cmdFilter = { _ -> true}, MoveBlockView) {

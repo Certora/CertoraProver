@@ -1,2 +1,2 @@
-Error in spec file: Could not find a method named C.foo(uint256,bool[3][]) in the scene. Did you mean C.foo((uint256,bool[3][]))?
-Error in spec file: Could not find a method named D.foo((uint256,bool[3][])) in the scene. Did you mean C.foo((uint256,bool[3][])) or E.foo((uint256,bool[3][]))?
+Error in spec file: Could not find a method named C.foo(uint256,bool[3][2]) in the scene. Did you mean C.foo((uint256,bool[3][2]))?
+Error in spec file: Could not find a method named D.foo((uint256,bool[3][2])) in the scene. Did you mean C.foo((uint256,bool[3][2])) or E.foo((uint256,bool[3][2]))?

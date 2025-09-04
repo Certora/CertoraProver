@@ -203,11 +203,18 @@ class PresetImmutableReference(ImmutableReference):
 # this function is Solidity specific.
 # todo: create certoraBuildUtilsSol.py file, where such solidity specific functions will be.
 def generate_finder_body(f: Func, internal_id: int, sym: int, compiler_collector: CompilerCollectorSol,
-                         compressed: bool = False) -> Optional[Tuple[List[int], str]]:
+                         compressed: bool = False,
+                         should_generate_inlining: bool = True) -> Optional[Tuple[List[int], str]]:
     if compressed:
         return generate_compressed_finder(
             f, internal_id, sym, compiler_collector
         )
+    elif not should_generate_inlining:
+        # We should not generate inlining as reported in CERT-9399, only when compressed=False.
+        # used_symbols is being generated the exact same way as in generate_full_finder
+        used_symbols = [i for i in range(len(f.fullArgs))]
+        return used_symbols, ''
+
     else:
         return generate_full_finder(
             f, internal_id, sym, compiler_collector
@@ -403,8 +410,9 @@ def get_modifier_param_type_name(ind: int, def_node: Dict[str, Any], f: Func) ->
 
 def generate_modifier_finder(f: Func, internal_id: int, sym: int,
                              compiler_collector: CompilerCollectorSol, def_node: Dict[str, Any],
-                             compress: bool) -> Optional[Tuple[str, str]]:
-    compressed = generate_finder_body(f, internal_id, sym, compiler_collector, compressed=compress)
+                             compress: bool, should_generate_inlining: bool) -> Optional[Tuple[str, str]]:
+    compressed = generate_finder_body(f, internal_id, sym, compiler_collector, compressed=compress,
+                                      should_generate_inlining=should_generate_inlining)
     if compressed is None:
         return None
     modifier_name = f"logInternal{internal_id}"
@@ -427,9 +435,10 @@ def generate_modifier_finder(f: Func, internal_id: int, sym: int,
         return f'{modifier_name}({",".join(arg_strings)})', modifier_body
 
 
-def generate_inline_finder(f: Func, internal_id: int, sym: int,
-                           compiler_collector: CompilerCollectorSol, should_compress: bool) -> Optional[str]:
-    finder = generate_finder_body(f, internal_id, sym, compiler_collector, compressed=should_compress)
+def generate_inline_finder(f: Func, internal_id: int, sym: int, compiler_collector: CompilerCollectorSol,
+                           should_compress: bool, should_generate_inlining: bool) -> Optional[str]:
+    finder = generate_finder_body(f, internal_id, sym, compiler_collector, compressed=should_compress,
+                                  should_generate_inlining=should_generate_inlining)
     if finder is None:
         return None
     return finder[1]
@@ -2448,6 +2457,19 @@ class CertoraBuildGenerator:
                     # (deprecate this option later)
                     should_compress = self.context.function_finder_mode == Vf.FunctionFinderMode.DEFAULT.name
 
+                if self.context.solc_optimize and self.get_solc_via_ir_value(Path(contract_file)) and \
+                   any(param_name == "" for param_name in f.paramNames):
+                    # As reported in CERT-9399, we should not generate function finder for this edge case
+
+                    instrumentation_logger.warning(f"Failed to generate auto finder for {f.name} @ {f.where()}.")
+                    instrumentation_logger.warning(
+                        "Cannot apply summaries for internal functions with unnamed argument when compiling "
+                        "using solc_optimize and solc_via_ir"
+                    )
+                    should_generate_inlining = False
+                else:
+                    should_generate_inlining = True
+
                 if len(mods) > 0:
                     # we need to add the instrumentation in a modifer because solidity modifiers will (potentially)
                     # appear before any instrumentation we add to the literal source body, which will tank the detection
@@ -2459,8 +2481,10 @@ class CertoraBuildGenerator:
                     # where in the source such modifiers will go. In order to insert a modifier, we have to have at
                     # least one modifier already present, and then insert before the first modifier's location in the
                     # source code
-                    mod_inst = generate_modifier_finder(f, internal_id, function_symbol, sdc.compiler_collector,
-                                                        def_node, compress=should_compress)
+                    mod_inst = generate_modifier_finder(
+                        f, internal_id, function_symbol, sdc.compiler_collector, def_node,
+                        compress=should_compress, should_generate_inlining=should_generate_inlining
+                    )
                     if mod_inst is None:
                         instrumentation_logger.debug(f"Modifier generation for {f.name} @ {f.where()} failed")
                         return None
@@ -2494,8 +2518,8 @@ class CertoraBuildGenerator:
                     per_file_inst[first_mod_offset] = Instrumentation(expected=bytes(modifier_name[0:1], "utf-8"),
                                                                       to_ins=modifier_invocation, mut=InsertBefore())
                 else:
-                    finder_res = generate_inline_finder(f, internal_id, function_symbol,
-                                                        sdc.compiler_collector, should_compress)
+                    finder_res = generate_inline_finder(f, internal_id, function_symbol, sdc.compiler_collector,
+                                                        should_compress, should_generate_inlining)
                     if finder_res is None:
                         instrumentation_logger.debug(f"Generating auto finder for {f.name} @ {f.where()}"
                                                      f" failed, giving up generation")
@@ -2676,7 +2700,7 @@ class CertoraBuildGenerator:
                     Ctx.run_local_spec_check(False, context, ["-listCalls",  tmp_file.name], print_errors=False)
                     spec_calls = tmp_file.read().split("\n")
                 except Exception as e:
-                    instrumentation_logger.warning(f"Failed to get calls from spec\n{e}")
+                    instrumentation_logger.debug(f"Failed to get calls from spec\n{e}")
 
         self.context.remappings = []
         for i, build_arg_contract_file in enumerate(sorted(self.input_config.sorted_files)):
@@ -3938,7 +3962,7 @@ def build_from_cache_or_scratch(context: CertoraContext,
                 if output:
                     internal_calls = output.split("\n")
             except Exception as e:
-                instrumentation_logger.warning(f"Failed to get calls from spec\n{e}")
+                instrumentation_logger.debug(f"Failed to get calls from spec\n{e}")
 
             if internal_calls:
                 build_logger.info("Found new internal calls in the spec file, need to recompile anyway")
@@ -3989,9 +4013,6 @@ def build(context: CertoraContext, ignore_spec_syntax_check: bool = False) -> No
         if Cv.mode_has_spec_file(context) and not context.build_only and not ignore_spec_syntax_check:
             if Ctx.should_run_local_speck_check(context):
                 Ctx.run_local_spec_check(False, context)
-            else:
-                build_logger.warning(
-                    "Local checks of CVL specification files disabled. It is recommended to enable the checks.")
 
         should_save_cache, cached_files = build_from_cache_or_scratch(context,
                                                                       certora_build_generator,

@@ -17,25 +17,13 @@
 
 package move.analysis
 
-import analysis.Direction
-import analysis.JoinLattice
-import com.certora.collect.TreapMap
-import com.certora.collect.TreapSet
-import com.certora.collect.orEmpty
-import com.certora.collect.plus
-import com.certora.collect.treapMapOf
-import com.certora.collect.treapSetOf
-import datastructures.PersistentStack
-import datastructures.persistentStackOf
-import datastructures.stdcollections.mutableMapOf
-import move.MoveTACCommandGraph
-import move.MoveTACProgram
-import move.MoveTag
-import utils.mapToTreapSet
-import vc.data.AnalysisCache
-import vc.data.TACCmd
-import vc.data.TACExpr
-import vc.data.TACSymbol
+import analysis.*
+import com.certora.collect.*
+import datastructures.*
+import datastructures.stdcollections.*
+import move.*
+import utils.*
+import vc.data.*
 
 typealias LocId = Long
 
@@ -120,4 +108,9 @@ class ReferenceAnalysis private constructor(
         mapToTreapSet { it.copy(path = it.path.push(PathComponent.GhostArrayElem)) }
 
     init { runAnalysis() }
+
+    /**
+        Gets the variables possibly referenced by the given [ref] at the given [ptr].
+     */
+    fun refTargetsOf(ref: TACSymbol.Var, ptr: CmdPointer) = cmdIn[ptr]!![ref]!!.map { idToVar[it.locId]!! }
 }

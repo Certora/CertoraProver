@@ -5,12 +5,23 @@
 			"FAIL": [],
 			"SANITY_FAIL": [],
 			"SUCCESS": [
-				"C.foo((uint256,bool[3][]))",
-				"D.bar((uint256,bool[3][]))",
-				"E.baz((uint256,bool[3][]))"
+				"C.foo((uint256,bool[3][2]))",
+				"D.bar((uint256,bool[3][2]))",
+				"E.baz((uint256,bool[3][2]))"
 			],
 			"TIMEOUT": [],
 			"UNKNOWN": []
-		}
-	}
+		},
+    "i": {
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "SANITY_FAIL": [
+            "C.foo((uint256,bool[3][2]))",
+            "D.bar((uint256,bool[3][2]))",
+            "E.baz((uint256,bool[3][2]))"
+          ]
+        }
+      }
+    }
+  }
 }

@@ -915,7 +915,7 @@ fun test09() {
 
     @Test
     fun test20() {
-        /** The transformation should not take place **/
+        /** The transformation should take place because we reorder loads before promoting **/
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
                 BinOp.ADD(r10, 8192)
@@ -940,7 +940,7 @@ fun test09() {
             promoteStoresToMemcpy(cfg, scalarAnalysisOld)
         }
         println("After transformation\n$cfg")
-        Assertions.assertEquals(false, checkMemcpy(cfg))
+        Assertions.assertEquals(true, checkMemcpy(cfg))
     }
 
     @Test
@@ -972,7 +972,7 @@ fun test09() {
 
     @Test
     fun test22() {
-        /** The transformation should not take place **/
+        /** The transformation should take place because we reorder loads before promoting **/
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
                 BinOp.ADD(r10, 8192)
@@ -994,7 +994,7 @@ fun test09() {
             promoteStoresToMemcpy(cfg, scalarAnalysisOld)
         }
         println("After transformation\n$cfg")
-        Assertions.assertEquals(false, checkMemcpy(cfg))
+        Assertions.assertEquals(true, checkMemcpy(cfg))
     }
 
     @Test

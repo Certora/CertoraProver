@@ -162,6 +162,24 @@ object Config {
         pythonName = "--ranger_failure_limit"
     ) {}
 
+    val BoundedModelCheckingUseMerger = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "bmcMerger",
+            true,
+            "Enable merger (a dispatcher) within BMC sequences [default: true]"
+        )
+    ) {}
+
+    val BoundedModelCheckingMergerTACThreshold = object : ConfigType.IntCmdLine(
+        500,
+        Option(
+            "boundedModelCheckingMergerTACThreshold",
+            true,
+            "Methods with a TAC size smaller than the threshold will be merged if the merger is enabled [default=500]"
+        ),
+    ) {}
+
     val AutoDispatcher = object : ConfigType.BooleanCmdLine(
         false,
         Option(
@@ -901,6 +919,26 @@ object Config {
     val MoveRuleNameExcludes = object : ConfigType.StringSetCmdLine(
         null,
         Option("excludeMoveRules", true, "List of Move rule names to exclude from the rule set.  Default is none.")
+    ) {}
+
+    val MoveTargetModuleIncludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("includeMoveTargetModules", true, "List of Move modules to include in the target set.  Default is all modules.  Note that this only applies to function named as targets in the spec module manifest(s).")
+    ) {}
+
+    val MoveTargetModuleExcludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("excludeMoveTargetModules", true, "List of Move modules to exclude from the target set.  Default is none.")
+    ) {}
+
+    val MoveTargetNameIncludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("includeMoveTargetNames", true, "List of Move function names to include in the target set.  Default is all functions.  Note that this only applies to function named as targets in the spec module manifest(s).")
+    ) {}
+
+    val MoveTargetNameExcludes = object : ConfigType.StringSetCmdLine(
+        null,
+        Option("excludeMoveTargetNames", true, "List of Move function names to exclude from the target set.  Default is none.")
     ) {}
 
     val MoveCallTraceVecElemCount = object : ConfigType.IntCmdLine(

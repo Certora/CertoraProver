@@ -66,8 +66,10 @@ data class CompiledSolanaRule(
 const val devVacuitySuffix = "\$sanity"
 const val vacuitySuffix = "rule_not_vacuous_cvlr"
 
-// SBF type factory used by WholeProgramMemoryAnalysis
+/** SBF type factory used by `WholeProgramMemoryAnalysis` **/
 private val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+/** `PTANode` flags used by `WholeProgramMemoryAnalysis` **/
+private val ptaFlagsFac = { SolanaPTANodeFlags() }
 
 /* Entry point to the Solana SBF front-end */
 @Suppress("ForbiddenMethodCall")
@@ -185,7 +187,15 @@ private fun solanaRuleToTAC(
     }
 
     // 3. Remove CPI calls and run analysis to infer global variables
-    val optProgWithoutCPIs = lowerCPICalls(target, optProg, inliningConfig, memSummaries, globalsSymbolTable, sbfTypesFac, start0).let {
+    val optProgWithoutCPIs = lowerCPICalls(
+        target,
+        optProg,
+        inliningConfig,
+        memSummaries,
+        globalsSymbolTable,
+        sbfTypesFac,
+        ptaFlagsFac,
+        start0).let {
         runGlobalInferenceAnalysis(it, memSummaries, globalsSymbolTable)
     }
 
@@ -207,7 +217,13 @@ private fun solanaRuleToTAC(
 
     // 4. Perform memory analysis to map each memory operation to a memory partitioning
     val analysisResults =
-        getMemoryAnalysis(target, analyzedProg, memSummaries, sbfTypesFac, processor = null)?.getResults()
+        getMemoryAnalysis(
+            target,
+            analyzedProg,
+            memSummaries,
+            sbfTypesFac,
+            ptaFlagsFac,
+            processor = null)?.getResults()
 
     // 5. Convert to TAC
     sbfLogger.info { "[$target] Started translation to CoreTACProgram" }
@@ -234,17 +250,18 @@ private fun solanaRuleToTAC(
 /**
  * Run memory analysis and, optionally, process each instruction with [processor]
  */
-private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getMemoryAnalysis(
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getMemoryAnalysis(
     target: String,
     program: SbfCallGraph,
     memSummaries: MemorySummaries,
     sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
-    processor: InstructionListener<MemoryDomain<TNum, TOffset>>?
-): WholeProgramMemoryAnalysis<TNum, TOffset>? = if (SolanaConfig.UsePTA.get()) {
+    ptaFlagsFac: () -> TFlags,
+    processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?
+): WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>? = if (SolanaConfig.UsePTA.get()) {
     sbfLogger.info { "[$target] Started whole-program memory analysis " }
 
     val start = System.currentTimeMillis()
-    val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, processor)
+    val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, ptaFlagsFac, processor)
     try {
         analysis.inferAll()
     } catch (e: PointerAnalysisError) {
@@ -287,13 +304,14 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> getMemoryAnalys
 /**
  * Try to replace CPI calls (i.e., `invoke` or `invoke_signed calls`) with direct calls
  */
-private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> lowerCPICalls(
+private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> lowerCPICalls(
     target: CfgName,
     p1: SbfCallGraph,
     inliningConfig: InlinerConfig,
     memSummaries: MemorySummaries,
     globals: GlobalsSymbolTable,
     sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
+    ptaFlagsFac: () -> Flags,
     start: Long
 ): SbfCallGraph {
     if (!SolanaConfig.EnableCpiAnalysis.get()) {
@@ -306,13 +324,13 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> lowerCPICalls(
     val p2 = runGlobalInferenceAnalysis(p1, memSummaries, globals)
 
     val invokes = getInvokes(p2)
-    val processor = InvokeInstructionListener<TNum, TOffset>(
+    val processor = InvokeInstructionListener<TNum, TOffset, Flags>(
         cpisSubstitutionMap,
         invokes,
         p2.getGlobals()
     )
-    val memAnalysis = getMemoryAnalysis(target, p2, memSummaries, sbfTypesFac, processor = processor)
-    if(memAnalysis== null) {
+    val memAnalysis = getMemoryAnalysis(target, p2, memSummaries, sbfTypesFac, ptaFlagsFac, processor = processor)
+    if (memAnalysis == null) {
         val end = System.currentTimeMillis()
         sbfLogger.info { "\tUnexpected problem during memory analysis. Skipped lowering of CPI calls" }
         sbfLogger.info { "[$target] Finished lowering of CPI calls in ${(end - start0) / 1000}s" }

@@ -23,9 +23,10 @@ import sbf.domains.PTAOffset
 import tac.Tag
 import vc.data.TACSymbol
 import datastructures.stdcollections.*
+import sbf.domains.IPTANodeFlags
 import vc.data.TACKeyword
 
-private typealias ByteMapCache = MutableMap<PTANode, TACByteMapVariable>
+private typealias ByteMapCache<NodeFlags> = MutableMap<PTANode<NodeFlags>, TACByteMapVariable>
 private typealias ByteStackCache = MutableMap<PTAOffset, TACByteStackVariable>
 
 sealed class TACVariable(open val tacVar: TACSymbol.Var)
@@ -50,8 +51,8 @@ data class TACByteMapVariable(override val tacVar: TACSymbol.Var): TACVariable(t
 
 
 /** Assign names to points-to graph nodes and cells **/
-class TACVariableFactory {
-    private val byteMapCache: ByteMapCache = mutableMapOf()
+class TACVariableFactory<Flags: IPTANodeFlags<Flags>> {
+    private val byteMapCache: ByteMapCache<Flags> = mutableMapOf()
     private val byteStackCache: ByteStackCache = mutableMapOf()
     // State for the TAC translation
     private val declaredVars = ArrayList<TACSymbol.Var>()
@@ -81,7 +82,7 @@ class TACVariableFactory {
     }
 
     /** Map a cell [c] to a TAC ByteMap variable **/
-    fun getByteMapVar(c: PTACell): TACByteMapVariable {
+    fun getByteMapVar(c: PTACell<Flags>): TACByteMapVariable {
         return byteMapCache.getOrPut(c.getNode()) {
             val byteMapVar = TACSymbol.Var("M_${c.getNode().id}", Tag.ByteMap)
             declaredVars.add(byteMapVar)

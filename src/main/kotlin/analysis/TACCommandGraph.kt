@@ -297,6 +297,9 @@ interface LTACCmdGen<out T: TACCmd> {
     val cmd: T
 }
 
+operator fun <T : TACCmd> LTACCmdGen<T>.component1() = ptr
+operator fun <T : TACCmd> LTACCmdGen<T>.component2() = cmd
+
 interface TACBlockGen<out T: TACCmd, out U: LTACCmdGen<T>> {
     val id: NBId
     val commands: List<U>
@@ -318,6 +321,7 @@ abstract class GenericTACCommandGraph<T: TACCmd, U: LTACCmdGen<T>, V: TACBlockGe
     abstract val blockGraph: BlockGraph
     abstract val code: BlockNodes<T>
     abstract val symbolTable: TACSymbolTable
+    open val name: String? get() = this.toString()
 
     fun succCommand(node: CmdPointer) = succ(node).map(::elab)
 
@@ -741,7 +745,7 @@ class TACCommandGraph(
     override val code: BlockNodes<TACCmd.Simple>,
     override val symbolTable: TACSymbolTable,
     cache: TACCommandGraphAnalysisCache? = null,
-    val name: String
+    override val name: String
 ): GenericTACCommandGraph<TACCmd.Simple, LTACCmd, TACBlock>(), GraphPathConditions, HasDominanceAnalysis {
 
     companion object {

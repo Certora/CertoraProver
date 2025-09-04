@@ -27,9 +27,35 @@ import sbf.callgraph.MutableSbfCallGraph
 import sbf.output.annotateWithTypes
 
 private const val entrypointCfgName = "entrypoint"
-private typealias MemoryDomainT = MemoryDomain<ConstantSet, ConstantSet>
+private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
+private typealias MemoryDomainT = MemoryDomain<ConstantSet, ConstantSet, BasicPTANodeFlags>
 
 class NumericPTAAnalysisTest {
+
+    /** Returns the post-state in CFG [entrypointCfgName] at block `Label.Address(0)` */
+    private fun getPost(
+        cfg: MutableSbfCFG,
+        label: Label = Label.Address(0)
+    ): MemoryDomainT {
+        val cfgs = mutableListOf(cfg)
+        val entrypoints = setOf(entrypointCfgName)
+        val globals = newGlobalVariableMap()
+        val prog = MutableSbfCallGraph(cfgs, entrypoints, globals, preservedCFGs = setOf())
+        val memSummaries = MemorySummaries()
+        val progWithTypes = annotateWithTypes(prog, memSummaries)
+        val sbfTypeFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+        val analysis = WholeProgramMemoryAnalysis(
+            progWithTypes,
+            memSummaries,
+            sbfTypeFac,
+            nodeAllocator.flagsFactory,
+            processor = null)
+        analysis.inferAll()
+        val analysisResults = analysis.getResults()[entrypointCfgName]!!
+        val post = analysisResults.getPost(label)
+        assert(post != null)
+        return post!!
+    }
 
     @Test
     fun test01() {
@@ -50,7 +76,7 @@ class NumericPTAAnalysisTest {
         val pointedNode = cell!!.getNode()
         assert(pointedNode.isExactNode())
         assert(pointedNode.mustBeInteger())
-        assert(pointedNode.integerValue == Constant(42))
+        assert(pointedNode.flags.getInteger() == Constant(42))
     }
 
     @Test
@@ -73,7 +99,7 @@ class NumericPTAAnalysisTest {
         val pointedNode = cell!!.getNode()
         assert(pointedNode.isExactNode())
         assert(pointedNode.mustBeInteger())
-        assert(pointedNode.integerValue == Constant(42))
+        assert(pointedNode.flags.getInteger() == Constant(42))
     }
 
     @Test
@@ -102,7 +128,7 @@ class NumericPTAAnalysisTest {
         val pointedNode1 = cell1!!.getNode()
         assert(pointedNode1.isExactNode())
         assert(pointedNode1.mustBeInteger())
-        assert(pointedNode1.integerValue == Constant(42))
+        assert(pointedNode1.flags.getInteger() == Constant(42))
 
         // Second number.
         val cell = stack.getSucc(PTAField(PTAOffset((4096 - 200) + 8), 8))
@@ -110,7 +136,7 @@ class NumericPTAAnalysisTest {
         val pointedNode = cell!!.getNode()
         assert(pointedNode.isExactNode())
         assert(pointedNode.mustBeInteger())
-        assert(pointedNode.integerValue == Constant(42))
+        assert(pointedNode.flags.getInteger() == Constant(42))
     }
 
     @Test
@@ -140,7 +166,7 @@ class NumericPTAAnalysisTest {
         val pointedNode1 = cell1!!.getNode()
         assert(pointedNode1.isExactNode())
         assert(pointedNode1.mustBeInteger())
-        assert(pointedNode1.integerValue == Constant(42))
+        assert(pointedNode1.flags.getInteger() == Constant(42))
 
         // Second number.
         val cell = stack.getSucc(PTAField(PTAOffset((4096 - 200) + 8), 8))
@@ -148,7 +174,7 @@ class NumericPTAAnalysisTest {
         val pointedNode = cell!!.getNode()
         assert(pointedNode.isExactNode())
         assert(pointedNode.mustBeInteger())
-        assert(pointedNode.integerValue == Constant(43))
+        assert(pointedNode.flags.getInteger() == Constant(43))
     }
 
 
@@ -200,24 +226,7 @@ class NumericPTAAnalysisTest {
         // Assert that we lost precision, but we are not unsound.
         assert(!pointedNode.isExactNode())
         assert(!pointedNode.mustBeInteger())
-        assert(pointedNode.integerValue == Constant.makeTop())
-    }
-
-    /** Returns the post-state in CFG [entrypointCfgName] at block `Label.Address(0)` */
-    private fun getPost(cfg: MutableSbfCFG, label: Label = Label.Address(0)): MemoryDomainT {
-        val cfgs = mutableListOf(cfg)
-        val entrypoints = setOf(entrypointCfgName)
-        val globals = newGlobalVariableMap()
-        val prog = MutableSbfCallGraph(cfgs, entrypoints, globals, preservedCFGs = setOf())
-        val memSummaries = MemorySummaries()
-        val progWithTypes = annotateWithTypes(prog, memSummaries)
-        val sbfTypeFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
-        val analysis = WholeProgramMemoryAnalysis(progWithTypes, memSummaries, sbfTypeFac, processor = null)
-        analysis.inferAll()
-        val analysisResults = analysis.getResults()[entrypointCfgName]!!
-        val post = analysisResults.getPost(label)
-        assert(post != null)
-        return post!!
+        assert(pointedNode.flags.getInteger() == Constant.makeTop())
     }
 
 }

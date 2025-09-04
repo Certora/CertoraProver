@@ -668,7 +668,7 @@ class GenerateRulesForInvariantsAndEnvFree(
 
 
     private fun initstateInvariantScenario(inv: CVLInvariant): CVLSingleRule? {
-        if (Config.methodsAreFiltered) {
+        if (Config.MethodChoices != null) {
             // The user specified specific methods to test, so skip generating the initstate rule
             return null
         }

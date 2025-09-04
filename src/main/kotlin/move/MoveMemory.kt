@@ -30,6 +30,7 @@ import tac.*
 import tac.generation.*
 import utils.*
 import vc.data.*
+import vc.data.tacexprutil.*
 import java.math.BigInteger
 
 private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
@@ -194,10 +195,10 @@ class MoveMemory(val scene: MoveScene) {
     private fun transformAssignExpCmd(cmd: TACCmd.Simple.AssigningCmd.AssignExpCmd): SimpleCmdsWithDecls {
         return when (val tag = cmd.lhs.tag) {
             is MoveTag -> {
-                val rhs = (cmd.rhs as? TACExpr.Sym.Var)?.s ?: error("Expected variable, got ${cmd.rhs}")
-                check(cmd.lhs.tag == rhs.tag) { "Cannot copy between different types: ${cmd.lhs}, $rhs" }
                 when (tag) {
                     is MoveTag.Ref -> {
+                        val rhs = (cmd.rhs as? TACExpr.Sym.Var)?.s ?: error("Expected variable, got ${cmd.rhs}")
+                        check(cmd.lhs.tag == rhs.tag) { "Cannot copy between different types: ${cmd.lhs}, $rhs" }
                         val dstVars = transformRefVar(cmd.lhs)
                         val srcVars = transformRefVar(rhs)
                         mergeMany(
@@ -208,7 +209,12 @@ class MoveMemory(val scene: MoveScene) {
                     is MoveTag.Struct,
                     is MoveTag.Vec,
                     is MoveTag.GhostArray,
-                    is MoveTag.Nondet -> assign(transformLocVar(cmd.lhs), cmd.meta) { transformLocVar(rhs).asSym() }
+                    is MoveTag.Nondet -> {
+                        val transformer = object : DefaultTACExprTransformer() {
+                            override fun transformVar(exp: TACExpr.Sym.Var): TACExpr = transformLocVar(exp.s).asSym()
+                        }
+                        assign(transformLocVar(cmd.lhs), cmd.meta) { transformer.transform(cmd.rhs) }
+                    }
                 }
             }
             else -> cmd.withDecls()
@@ -582,7 +588,7 @@ class MoveMemory(val scene: MoveScene) {
 
         fun hashExprs(offset: BigInteger, type: MoveType.Value): List<TACExpr> {
             return when (type) {
-                is MoveType.Bits, is MoveType.Nondet -> listOf(
+                is MoveType.Bits, is MoveType.Nondet, is MoveType.Function -> listOf(
                     TXF {
                         safeMathNarrow(
                             select(loc.asSym(), offset.asTACExpr),
@@ -669,7 +675,7 @@ class MoveMemory(val scene: MoveScene) {
 
         fun compare(dest: TACSymbol.Var, offset: BigInteger, type: MoveType.Value): SimpleCmdsWithDecls {
             return when(type) {
-                is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet -> {
+                is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet, is MoveType.Function -> {
                     assign(dest, cmd.meta) {
                         select(aLoc.asSym(), offset.asTACExpr) eq select(bLoc.asSym(), offset.asTACExpr)
                     }
@@ -876,7 +882,7 @@ class MoveMemory(val scene: MoveScene) {
                     else -> error("Expected valid boolean location, got ${ref.loc.tag}")
                 }
             }
-            is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet -> {
+            is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet, is MoveType.Function -> {
                 when (ref.loc.tag) {
                     is Tag.Bits, is Tag.Int -> mergeMany(
                         assert("Corrupt reference", meta) { ref.offset eq 0.asTACExpr },

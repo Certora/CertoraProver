@@ -122,4 +122,66 @@ class LowerSelectToAssumeTest {
         Assertions.assertEquals(true,  getNumOfSelect(cfg) == 1U)
     }
 
+    @Test
+    fun test05() {
+        val cfg = SbfTestDSL.makeCFG("test5", normalize = false) {
+            bb(1) {
+                select(r6, CondOp.NE(r1, 0), 0, r6)
+                assume(CondOp.NE(r6, 0))
+                assert(CondOp.EQ(r1, 1))
+                exit()
+            }
+        }
+
+        println("Before $cfg")
+        cfg.verify(false)
+        val globals = newGlobalVariableMap()
+        val memSummaries = MemorySummaries()
+        val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
+        lowerSelectToAssume(cfg, npAnalysis)
+        println("After $cfg")
+        Assertions.assertEquals(true,  getNumOfSelect(cfg) == 0U)
+    }
+
+    @Test
+    fun test06() {
+        val cfg = SbfTestDSL.makeCFG("test6", normalize = false) {
+            bb(1) {
+                select(r6, CondOp.NE(r1, 0), r6, 0)
+                assume(CondOp.NE(r6, 0))
+                assert(CondOp.EQ(r1, 1))
+                exit()
+            }
+        }
+
+        println("Before $cfg")
+        cfg.verify(false)
+        val globals = newGlobalVariableMap()
+        val memSummaries = MemorySummaries()
+        val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
+        lowerSelectToAssume(cfg, npAnalysis)
+        println("After $cfg")
+        Assertions.assertEquals(true,  getNumOfSelect(cfg) == 0U)
+    }
+
+    @Test
+    fun test07() {
+        val cfg = SbfTestDSL.makeCFG("test7", normalize = false) {
+            bb(1) {
+                r1 = 1
+                select(r1, CondOp.NE(r1, 1), 2, r1)
+                assert(CondOp.EQ(r1, 1))
+                exit()
+            }
+        }
+
+        println("Before $cfg")
+        cfg.verify(false)
+        val globals = newGlobalVariableMap()
+        val memSummaries = MemorySummaries()
+        val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
+        lowerSelectToAssume(cfg, npAnalysis)
+        println("After $cfg")
+        Assertions.assertEquals(true,  getNumOfSelect(cfg) == 0U)
+    }
 }

@@ -6,7 +6,7 @@ contract Test {
 		_;
 	}
 
-	function int_f(string memory) internal initOnly returns (uint) {
+	function int_f(string memory y) internal initOnly returns (uint) {
 		return 0;
 	}
 

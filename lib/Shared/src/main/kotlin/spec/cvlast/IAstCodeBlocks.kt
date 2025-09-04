@@ -37,7 +37,7 @@ interface IAstCodeBlocks {
             CVLCmd.Simple.Apply(exp.getRangeOrEmpty(), exp, exp.getScope())
 
         return (
-            rules.flatMap { rule -> (rule as CVLSingleRule).block } +
+            rules.flatMap { rule -> (rule as? CVLSingleRule)?.block.orEmpty() } +
                 subs.flatMap { sub -> sub.block } +
                 invs.flatMap { inv ->
                     inv.exp.subExprsOfType<CVLExp.UnresolvedApplyExp>().map(::wrapExpWithApplyCmd)

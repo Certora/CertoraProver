@@ -47,7 +47,7 @@ class StackEnvironment<Value: StackEnvironmentValue<Value>>(
     /** Denote empty environment:
     *  If any value stored in the environment is bottom the whole environment becomes bottom
     **/
-    private val isBot: Boolean = false)  {
+    private val isBot: Boolean = false):  Iterable<Map.Entry<ByteRange, Value>>  {
 
 
     companion object {
@@ -140,7 +140,7 @@ class StackEnvironment<Value: StackEnvironmentValue<Value>>(
         return map[bytes]
     }
 
-    fun iterator() = map.iterator()
+    override fun iterator() = map.iterator()
 
     private fun joinOrWiden(other: StackEnvironment<Value>, isJoin: Boolean): StackEnvironment<Value> {
         if (isBottom() || other.isTop()) {

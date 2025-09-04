@@ -2335,7 +2335,7 @@ class CVLExpTypeCheckerWithContext(
             // In Foundry we use this feature to implement the vm.deal cheatcode. But it's only relevant if there are
             // ERC20 contracts in the scene, so we don't want to fail typechecking for foundry if we don't happen to
             // have such contracts in the scene.
-            returnError(AddressFuncCallNoFuncs(exp))
+            returnError(AddressFuncCallNoFuncs(exp.getRangeOrEmpty(), exp.methodId, args))
         }
 
         val returnTypes = relevantFuncs.mapToSet { getContractReturnType(it) }

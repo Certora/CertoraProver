@@ -112,7 +112,7 @@ private const val useSummarizeNodeWithStride = false
 /** For internal errors **/
 @TestOnly
 class PointerDomainError(msg: String): SolanaInternalError("PointerDomain error: $msg")
-private fun checkNotForward(operation: String, vararg nodes: PTANode) {
+private fun<Flags: IPTANodeFlags<Flags>> checkNotForward(operation: String, vararg nodes: PTANode<Flags>) {
     nodes.forEach {
         if (it.isForwarding()) {
             throw PointerDomainError("$operation does not expect a forwarding node $it")
@@ -171,15 +171,15 @@ data class PTAOffset(val v: Long): Comparable<PTAOffset>  {
  * A concrete cell: this is just a wrapper to a pair of node and offset.
  * Only [PTANode] should create [PTACell] instances.
  **/
-sealed class PTACell(
-    protected open var _node: PTANode,
+sealed class PTACell<Flags: IPTANodeFlags<Flags>>(
+    protected open var _node: PTANode<Flags>,
     protected open var _offset: PTAOffset) {
 
     /** Follow the forward link to resolve the actual node and offset while doing path-compression **/
-    protected fun resolve(): PTACell {
+    protected fun resolve(): PTACell<Flags> {
         val forwardC = _node.forward
         if (forwardC != null) {
-            if (_node.isMayStack) {
+            if (_node.flags.isMayStack) {
                 throw PointerDomainError("A node that might represent the stack shouldn't not be unified")
             }
             val resolvedC = forwardC.resolve()
@@ -190,7 +190,7 @@ sealed class PTACell(
         return this
     }
 
-    fun getNode(): PTANode {
+    fun getNode(): PTANode<Flags> {
         return resolve()._node
     }
 
@@ -206,7 +206,7 @@ sealed class PTACell(
      *  The idea is to unify `(n1,0)` with `(n2, o2-o1)`.
      *  Then, we unify recursively each `(n1,oi)` to `(n2, o2-o1 +oi)`
      */
-    fun unify(other: PTACell) {
+    fun unify(other: PTACell<Flags>) {
         resolve()
         other.resolve()
 
@@ -243,7 +243,7 @@ sealed class PTACell(
 
 
     /** Only used to rename PTA nodes that represent the stack **/
-    fun renameNode(oldNode: PTANode, newNode: PTANode): PTACell {
+    fun renameNode(oldNode: PTANode<Flags>, newNode: PTANode<Flags>): PTACell<Flags> {
         resolve()
         checkNotForward("PTACell::renameNode", oldNode, newNode)
 
@@ -254,7 +254,7 @@ sealed class PTACell(
         }
     }
 
-    fun lessOrEqual(other: PTACell): Boolean {
+    fun lessOrEqual(other: PTACell<Flags>): Boolean {
         resolve()
         other.resolve()
 
@@ -266,7 +266,7 @@ sealed class PTACell(
         }
     }
 
-    fun createSymCell(): PTASymCell {
+    fun createSymCell(): PTASymCell<Flags> {
         resolve()
 
         return _node.createSymCell(_offset)
@@ -341,7 +341,7 @@ sealed class PTACell(
         if (other == null) {
             return false
         }
-        if (other !is PTACell) {
+        if (other !is PTACell<*>) {
             return false
         }
         resolve()
@@ -393,14 +393,14 @@ data class PTASymOffset(private val v: ConstantSet) {
  *  Note: [PTASymCell] should be parametric on the offset, and it should match [PTAGraph] `TOffset` parameter.
  *  But for now we use [PTASymOffset]
  **/
-sealed class PTASymCell(
-    protected open var _node: PTANode,
+sealed class PTASymCell<Flags: IPTANodeFlags<Flags>>(
+    protected open var _node: PTANode<Flags>,
     protected open var _offset: PTASymOffset) {
 
     // To access PTACell::resolve without making it public.
-    private class Cell(n: PTANode, o: PTAOffset): PTACell(n, o) {
+    private inner class Cell(n: PTANode<Flags>, o: PTAOffset): PTACell<Flags>(n, o) {
         // it will do path-compression while resolving
-        operator fun invoke(): PTACell = super.resolve()
+        operator fun invoke(): PTACell<Flags> = super.resolve()
     }
 
     private fun resolve() {
@@ -415,7 +415,7 @@ sealed class PTASymCell(
         }
     }
 
-    fun getNode(): PTANode {
+    fun getNode(): PTANode<Flags> {
         resolve()
         return _node
     }
@@ -428,7 +428,7 @@ sealed class PTASymCell(
     fun isConcrete() = _offset.toLongOrNull() != null
 
     // Return a concrete cell where the node is summarized if the offset is top
-    fun concretize(): PTACell {
+    fun concretize(): PTACell<Flags> {
         resolve()
 
         val concreteOffset = _offset.toLongOrNull()
@@ -455,7 +455,7 @@ sealed class PTASymCell(
         }
     }
 
-    fun renameNode(oldNode: PTANode, newNode: PTANode): PTASymCell {
+    fun renameNode(oldNode: PTANode<Flags>, newNode: PTANode<Flags>): PTASymCell<Flags> {
         resolve()
         checkNotForward("PTASymCell::renameNode", oldNode, newNode)
 
@@ -466,7 +466,7 @@ sealed class PTASymCell(
         }
     }
 
-    fun lessOrEqual(other: PTASymCell): Boolean {
+    fun lessOrEqual(other: PTASymCell<Flags>): Boolean {
         resolve()
         other.resolve()
 
@@ -482,7 +482,7 @@ sealed class PTASymCell(
         if (other == null) {
             return false
         }
-        if (other !is PTASymCell) {
+        if (other !is PTASymCell<*>) {
             return false
         }
         resolve()
@@ -519,20 +519,181 @@ data class PTAField(val offset: PTAOffset, val size: Short): Comparable<PTAField
     fun toInterval() =  FiniteInterval.mkInterval(offset.v, size.toLong())
 }
 
-enum class NodeAccess(val value: Int) {
-    None(0x0),
-    Read(0x1),
-    Write(0x2),
-    Any(0x3);
-    companion object {
-        val values = arrayListOf(None, Read, Write, Any)
+/**
+ * Class that defines basic [PTANode] flags.
+ */
+data class BasicPTANodeFlags(
+    // whether this node is from the stack area. This is may information
+    override val isMayStack: Boolean = false,
+    // whether this node is a global variable. This is may information
+    override val isMayGlobal: Boolean = false,
+    // whether this node is from the heap area. This is may information
+    override val isMayHeap: Boolean = false,
+    // whether this node is allocated outside the program under analysis. This is may information
+    override val isMayExternal: Boolean = false,
+    // non-null if this node represents an integer. This is may information.
+    // if not null then it contains an over-approximation of the possible integer value.
+    private val isMayInteger: Constant? = null,
+    // keep track of whether the node has been written, read, or none.
+    override val access: NodeAccess = NodeAccess.None,
+    // if the node represents a solana account then this is the start address of the account
+    override val accountStart: Constant = Constant.makeTop()
+): IPTANodeFlags<BasicPTANodeFlags> {
+
+    override fun isMayInteger() = isMayInteger != null
+    override fun isMustInteger() = isMayInteger() && !isMayExternal && !isMayGlobal && !isMayHeap && !isMayStack
+
+    override fun setWrite() = copy(access = access.join(NodeAccess.Write))
+    override fun setRead() = copy(access = access.join(NodeAccess.Read))
+
+    override fun stackInitializer() = copy(isMayStack = true)
+    override fun globalInitializer() = copy(isMayGlobal = true)
+    override fun heapInitializer() = copy(isMayHeap = true)
+    override fun externalInitializer() = copy(isMayExternal = true)
+    override fun externalAccountSpaceInitializer(accountStart: Constant) = copy(isMayExternal = true, accountStart = accountStart)
+    override fun externalAccountSliceInitializer(base: Constant, offset: Long) = externalInitializer()
+    override fun integerInitializer(value: Constant) = copy(isMayInteger = value)
+
+    override fun join(other: BasicPTANodeFlags) =
+        BasicPTANodeFlags(
+            isMayStack or other.isMayStack,
+            isMayGlobal or other.isMayGlobal,
+            isMayHeap or other.isMayHeap,
+            isMayExternal or other.isMayExternal,
+            if (isMayInteger == null || other.isMayInteger == null) { null } else { isMayInteger.join(other.isMayInteger)},
+            access.join(other.access),
+            accountStart.join(other.accountStart)
+        )
+
+    override fun getInteger(): Constant =
+        if (!isMustInteger()) {
+            Constant.makeTop()
+        } else {
+            check(isMayInteger != null)
+            isMayInteger
+        }
+
+    override fun toString(): String {
+        val parts = buildList {
+            when {
+                isMayStack -> add("Stack")
+                isMayExternal -> add("Extern")
+                isMayInteger != null -> add("Int($isMayInteger)")
+                isMayGlobal -> add("Global")
+                isMayHeap -> add("Heap")
+                else -> {}
+            }
+
+        }
+        return (parts + "$access").joinToString(":")
     }
-    fun join(other: NodeAccess): NodeAccess {
-        return values[value.or(other.value)]
+
+    override fun toDot(): String = ""
+}
+
+/**
+ * This class extends [BasicPTANodeFlags] with extra flags that can determine whether a [PTANode]
+ * represents Solana entities such as Account pubkeys or data.
+ **/
+data class SolanaPTANodeFlags(
+    private val base: BasicPTANodeFlags = BasicPTANodeFlags(),
+    private val isMayAccKey: Constant? = null,
+    private val isMayAccOwner: Constant? = null,
+    private val isMayAccData: Constant? = null
+): IPTANodeFlags<SolanaPTANodeFlags> {
+
+    override val isMayStack get() = base.isMayStack
+    override val isMayGlobal get() = base.isMayGlobal
+    override val isMayHeap get() = base.isMayHeap
+    override val isMayExternal get() = base.isMayExternal
+    override val access get() = base.access
+    override val accountStart get() = base.accountStart
+    override fun isMayInteger() = base.isMayInteger()
+    override fun isMustInteger() = base.isMustInteger()
+    override fun setWrite() = copy(base = base.setWrite())
+    override fun setRead() = copy(base = base.setRead())
+    override fun stackInitializer() = copy(base = base.stackInitializer())
+    override fun globalInitializer() = copy(base = base.globalInitializer())
+    override fun heapInitializer() = copy(base = base.heapInitializer())
+    override fun externalInitializer() = copy(base = base.externalInitializer())
+    override fun getInteger() = base.getInteger()
+    override fun integerInitializer(value: Constant) = copy(base = base.integerInitializer(value))
+    override fun externalAccountSpaceInitializer(accountStart: Constant) =
+        copy(base = base.externalAccountSpaceInitializer(accountStart))
+
+
+    override fun externalAccountSliceInitializer(base: Constant, offset: Long): SolanaPTANodeFlags {
+        return if (base.toLongOrNull() != null) {
+                when (offset) {
+                    4L   -> copy(isMayAccKey = base)   // len + key pointer
+                    40L  -> copy(isMayAccOwner = base) // owner pointer
+                    80L  -> copy(isMayAccData = base)  // len + data pointer
+                    else -> this
+                }
+            } else {
+                this
+            }
+    }
+
+    override fun join(other: SolanaPTANodeFlags): SolanaPTANodeFlags {
+        fun join(v1: Constant?, v2: Constant?): Constant? {
+            return if (v1 == null && v2 == null) {
+                null
+            } else if (v1 != null && v2 != null) {
+                v2.join(v1)
+            } else {  // join(null, constant(x)) = constant(top)
+                Constant.makeTop()
+            }
+        }
+
+        return SolanaPTANodeFlags(
+            base = base.join(other.base),
+            isMayAccData  = join(isMayAccData, other.isMayAccData),
+            isMayAccKey   = join(isMayAccKey, other.isMayAccKey),
+            isMayAccOwner = join(isMayAccOwner, other.isMayAccOwner)
+        )
+    }
+
+    override fun toString(): String {
+        fun getAccount(address: Constant): String {
+            val exactAddress = address.toLongOrNull()
+            return if (exactAddress != null) {
+                val numOfAccount = ((exactAddress - SBF_INPUT_START) / SOLANA_ACCOUNT_SIZE) + 1
+                "#$numOfAccount(0x${exactAddress.toString(16)})"
+            } else {
+                ""
+            }
+        }
+        return "$base " +
+            when {
+                isMayAccKey   != null -> "Acc(Key)${getAccount(isMayAccKey)}"
+                isMayAccOwner != null -> "Acc(Owner)${getAccount(isMayAccOwner)}"
+                isMayAccData  != null -> "Acc(Data)${getAccount(isMayAccData)}"
+                else -> ""
+        }
+    }
+
+
+    override fun toDot(): String {
+        // add color attribute in dot format
+
+        val flags = listOfNotNull(isMayAccKey, isMayAccOwner, isMayAccData)
+        return when (flags.size) {
+            0 -> ""
+            1 ->  when {
+                    isMayAccKey != null -> "color=yellow"
+                    isMayAccOwner != null -> "color=blue"
+                    else -> {
+                        check(isMayAccData != null)
+                        "color=orange"
+                    }
+            }
+            else -> "color=red"
+        }
     }
 }
 
-data class PTALink(val field: PTAField, val cell: PTACell)
+data class PTALink<Flags: IPTANodeFlags<Flags>>(val field: PTAField, val cell: PTACell<Flags>)
 
 /**
  * [PTANode] is a struct of fields that can point to other nodes' offsets ([PTACell]).
@@ -540,37 +701,26 @@ data class PTALink(val field: PTAField, val cell: PTACell)
  * are not known statically).
  * A [PTANode] can be only allocated by a [PTANodeAllocator].
  **/
-open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocator) {
-    // whether this node is from the stack area. This is may information
-    var isMayStack: Boolean = false
-    // whether this node is a global variable. This is may information
-    var isMayGlobal: Boolean = false
-    // whether this node is from the heap area. This is may information
-    var isMayHeap: Boolean = false
-    // whether this node is allocated outside the program under analysis. This is may information
-    var isMayExternal: Boolean = false
-    // whether this node represents an integer. This is may information.
-    var isMayInteger: Boolean = false
-    // If the node could potentially be an integer, this is an overapproximation of the value.
-    var integerValue: Constant = Constant.makeTop()
-    // keep track of whether the node has been written, read, or none.
-    var access: NodeAccess = NodeAccess.None
+open class PTANode<Flags: IPTANodeFlags<Flags>> constructor(
+    val id: ULong,
+    var flags: Flags,
+    val nodeAllocator: PTANodeAllocator<Flags>) {
 
     // When the node is unified, the memory cell at which the
     // node begins in some other memory object
-    var forward: PTACell? = null
+    var forward: PTACell<Flags>? = null
 
     /**
     * @property succs is indexed by PTAField so that we could have multiple edges between the same
     * two cells: one per PTAField. It is a sorted map so that we can detect overlaps efficiently.
     **/
-    private val succs: MutableMap<PTAField, PTACell> = MutableNonInjectiveMap(
+    private val succs: MutableMap<PTAField, PTACell<Flags>> = MutableNonInjectiveMap(
         sortedMapOf()) { f -> fieldEquivClass(f) }
 
     /* "Non-injective" because i != j does not imply m[i] !== m[k] (note that this is reference inequality) */
     private inner class MutableNonInjectiveMap<K,V>(
         private val theMap: MutableMap<K, V>,
-        private val mapper: PTANode.(K) -> K,
+        private val mapper: PTANode<Flags>.(K) -> K,
     ): MutableMap<K, V> by theMap {
         override fun remove(key: K): V? = theMap.remove(mapper(key))
         override fun putAll(from: Map<out K, V>) = theMap.putAll(from.mapKeys { mapper(it.key) })
@@ -625,30 +775,30 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     /** Return true if the node must be an integer **/
     open fun mustBeInteger(): Boolean {
         return if (!isForwarding()) {
-            isMayInteger && !isMayExternal && !isMayGlobal && !isMayHeap && !isMayStack
+            flags.isMustInteger()
         } else {
             getNode().mustBeInteger()
         }
     }
 
     /** To enforce that **only** PTANode (and its subclasses) can create instances of PTACell **/
-    protected class Cell(override var _node: PTANode,
-                         override var _offset: PTAOffset) : PTACell(_node, _offset)
+    protected inner class Cell(override var _node: PTANode<Flags>,
+                               override var _offset: PTAOffset) : PTACell<Flags>(_node, _offset)
 
-    fun createCell(o: Long): PTACell = createCell(PTAOffset(o))
+    fun createCell(o: Long): PTACell<Flags> = createCell(PTAOffset(o))
 
-    open fun createCell(o: PTAOffset): PTACell = Cell(this, offsetEquivClass(o))
+    open fun createCell(o: PTAOffset): PTACell<Flags> = Cell(this, offsetEquivClass(o))
 
     /** To enforce that **only** PTANode (and its subclasses) can create instances of PTASymCell **/
-    protected class SymCell(
-        override var _node: PTANode,
-        override var _offset: PTASymOffset): PTASymCell(_node, _offset)
+    protected inner class SymCell(
+        override var _node: PTANode<Flags>,
+        override var _offset: PTASymOffset): PTASymCell<Flags>(_node, _offset)
 
     fun createSymCell(o: Long) = createSymCell(PTAOffset(o))
 
     fun createSymCell(o: PTAOffset) = createSymCell(PTASymOffset(o))
 
-    open fun createSymCell(o: PTASymOffset): PTASymCell = SymCell(this, o)
+    open fun createSymCell(o: PTASymOffset): PTASymCell<Flags> = SymCell(this, o)
 
     // We could cache results
     private fun allAccessedFieldsDivisibleBy(stride: Int): Boolean {
@@ -688,10 +838,10 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
          *  }
          *  ```
          ***/
-        fun smash(n: PTANode) {
+        fun<Flags: IPTANodeFlags<Flags>> smash(n: PTANode<Flags>) {
             checkNotForward("smash", n)
 
-            if (n is PTASummarizedNode) {
+            if (n is PTASummarizedNode<Flags>) {
                 return
             }
             /**
@@ -714,9 +864,9 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
             }
         }
 
-        fun summarizeWithStride(n: PTANode, stride: UInt) {
+        fun<Flags: IPTANodeFlags<Flags>> summarizeWithStride(n: PTANode<Flags>, stride: UInt) {
             checkNotForward("summarizeWithStride", n)
-            if (n is PTASummarizedNode || n is PTASummarizedWithStrideNode) {
+            if (n is PTASummarizedNode<Flags> || n is PTASummarizedWithStrideNode<Flags>) {
                 return
             }
             val summarizedN = n.nodeAllocator.mkSummarizedWithStrideNode(stride)
@@ -728,18 +878,16 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
 
     fun setWrite() {
         checkNotForward("setWrite", this)
-        // weak update semantics
-        access = access.join(NodeAccess.Write)
+        flags = flags.setWrite()
     }
 
     fun setRead() {
         checkNotForward("setRead", this)
-        // weak update semantics
-        access = access.join(NodeAccess.Read)
+        flags = flags.setRead()
     }
 
     fun isUnaccessed(): Boolean {
-        return getNode().access == NodeAccess.None
+        return getNode().flags.access == NodeAccess.None
     }
 
     fun isForwarding() = forward != null
@@ -754,11 +902,11 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
      *        add edge from (n2, o+i) to succ
      * ```
     **/
-    private fun redirectSuccessors(other: PTANode, o: PTAOffset) {
+    private fun redirectSuccessors(other: PTANode<Flags>, o: PTAOffset) {
         checkNotForward("redirectSuccs", other)
         check(id != other.id) {"Cannot redirect successors to itself"}
 
-        val unifications = mutableListOf<Pair<PTACell, PTACell>>()
+        val unifications = mutableListOf<Pair<PTACell<Flags>, PTACell<Flags>>>()
         while (succs.iterator().hasNext()) {
             val it = succs.iterator()
             val (i, succC) = it.next()
@@ -804,15 +952,15 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     }
 
     /** Redirect all edges from this to [other] and reset this **/
-    private fun redirectEdges(other: PTANode, o: PTAOffset) {
+    private fun redirectEdges(other: PTANode<Flags>, o: PTAOffset) {
         checkNotForward("redirectEdges", other)
 
         forward = other.createCell(o)
 
-        if (isMayStack) {
+        if (flags.isMayStack) {
             throw PointerDomainError("cannot redirect nodes that might represent the program stack")
         }
-        if (other.isMayStack) {
+        if (other.flags.isMayStack) {
             throw PointerDomainError("cannot redirect nodes that might represent the program stack")
         }
 
@@ -824,14 +972,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         n1.redirectSuccessors(n2, o)
         dbgUnify2 {"\tFinished redirection of successors of $n1"}
 
-        n2.isMayStack   = n2.isMayStack   or n1.isMayStack
-        n2.isMayGlobal  = n2.isMayGlobal  or n1.isMayGlobal
-        n2.isMayHeap    = n2.isMayHeap    or n1.isMayHeap
-        n2.isMayExternal= n2.isMayExternal or n1.isMayExternal
-        n2.isMayInteger = n2.isMayInteger or n1.isMayInteger
-        n2.integerValue = n2.integerValue.join(n1.integerValue)
-
-        n2.access = n2.access.join(n1.access)
+        n2.flags = n2.flags.join(n1.flags)
 
         if (n1.succs.isNotEmpty()) {
             throw PointerDomainError("node ${n1.id} has a dangling successor")
@@ -842,10 +983,10 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
      *  Unify `n1` at offset `0` with `n2` at offset [o]
      *  Upon completion `n1` at offset `0` points to `(n2,o)`
      **/
-    fun unify(other: PTANode, o: PTAOffset) {
+    fun unify(other: PTANode<Flags>, o: PTAOffset) {
         checkNotForward("PTANode::unify", this, other)
 
-        fun smashAndUnifyWith(n1: PTANode,n2: PTANode, o: PTAOffset) {
+        fun smashAndUnifyWith(n1: PTANode<Flags>,n2: PTANode<Flags>, o: PTAOffset) {
             dbgCollapses {"LOSING FIELD SENSITIVITY: unifying Node${n1.id} with collapsed Node${n2.id}"}
             smash(n1)
             n1.unify(n2, o)
@@ -854,12 +995,12 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         val n1 = this
         val n2 = other
 
-        if (n1 is PTASummarizedNode && n2 !is PTASummarizedNode){
+        if (n1 is PTASummarizedNode<Flags> && n2 !is PTASummarizedNode<Flags>){
             n2.unify(n1, PTAOffset(0))
             return
-        } else if (n1 !is PTASummarizedNode && n2 is PTASummarizedNode) {
+        } else if (n1 !is PTASummarizedNode<Flags> && n2 is PTASummarizedNode<Flags>) {
             // fallback: go to redirect edges
-        } else if (n1 is PTASummarizedWithStrideNode  && n2 !is PTASummarizedWithStrideNode) {
+        } else if (n1 is PTASummarizedWithStrideNode<Flags>  && n2 !is PTASummarizedWithStrideNode<Flags>) {
             if (!n2.equalOffsets(o, PTAOffset(0) )) {
                 // Cannot unify with an array at non-zero offset
                 smashAndUnifyWith(n1, n2, o)
@@ -868,7 +1009,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
                 n2.unify(n1, o) // flip the arguments and call again
                 return
             }
-        } else if (n1 !is PTASummarizedWithStrideNode && n2 is PTASummarizedWithStrideNode) {
+        } else if (n1 !is PTASummarizedWithStrideNode<Flags> && n2 is PTASummarizedWithStrideNode<Flags>) {
             if (n2.getStride() == 0U || !n2.equalOffsets(o, PTAOffset(0))) {
                 // Cannot unify with an array at non-zero offset
                 smashAndUnifyWith(n1, n2, o)
@@ -882,7 +1023,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
                     return
                 }
             }
-        } else if (n1 is PTASummarizedWithStrideNode && n2 is PTASummarizedWithStrideNode) {
+        } else if (n1 is PTASummarizedWithStrideNode<Flags> && n2 is PTASummarizedWithStrideNode<Flags>) {
             if (n1.getStride() == 0U || n2.getStride() == 0U) {
                 smashAndUnifyWith(n1, n2, o) // it doesn't matter the order
                 return
@@ -939,14 +1080,14 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     }
 
     @TestOnly
-    fun mkLink(o: Int, width: Short, cell: PTACell, isStrongUpdate: Boolean = false) =
+    fun mkLink(o: Int, width: Short, cell: PTACell<Flags>, isStrongUpdate: Boolean = false) =
         mkLink(PTAOffset(o.toLong()), width, cell, isStrongUpdate)
 
     /**
      *  Add a *direct* edge from (this, [o]) to [cell]
      *  Used for the transfer function of, for instance, memory stores.
      **/
-    fun mkLink(o: PTAOffset, width: Short, cell: PTACell, isStrongUpdate: Boolean = false) {
+    fun mkLink(o: PTAOffset, width: Short, cell: PTACell<Flags>, isStrongUpdate: Boolean = false) {
         checkNotForward("mkLink", this)
 
         if (this is PTASummarizedWithStrideNode) {
@@ -982,12 +1123,12 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         }
     }
 
-    fun getSucc(field: PTAField): PTACell? = getNode().succs[field]
+    fun getSucc(field: PTAField): PTACell<Flags>? = getNode().succs[field]
 
     /**
      * Add one edge from (this, [field]) to [succC]
      **/
-    fun addSucc(field: PTAField, succC: PTACell) {
+    fun addSucc(field: PTAField, succC: PTACell<Flags>) {
         checkNotForward("addSucc", this)
 
         succs[field] = succC
@@ -995,7 +1136,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     }
 
     /** Remove one edge from (this, [field]) to [succC] **/
-    fun removeSucc(field: PTAField, succC: PTACell) {
+    fun removeSucc(field: PTAField, succC: PTACell<Flags>) {
         checkNotForward("removeSucc", this)
 
         val oldSucc = succs[field]
@@ -1024,25 +1165,18 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         this.succs.remove(f)
     }
 
-    fun getSuccs(): Map<PTAField, PTACell> = getNode().succs
+    fun getSuccs(): Map<PTAField, PTACell<Flags>> = getNode().succs
 
-    fun copyFlags(other: PTANode) {
+    fun copyFlags(other: PTANode<Flags>) {
         checkNotForward("copyFlags", other)
-
-        other.isMayStack = isMayStack
-        other.isMayGlobal = isMayGlobal
-        other.isMayHeap = isMayHeap
-        other.isMayExternal = isMayExternal
-        other.isMayInteger = isMayInteger
-        other.integerValue = integerValue
-        other.access =  access
+        other.flags = flags
     }
 
     /**
      * Copy [sliceFields] from this to [other].
      * If sliceFields is null then all fields from this are copied.
      **/
-    fun copyLinksTo(other: PTANode, sliceFields: Set<PTAField>?, renameFn: (c: PTACell) -> PTACell) {
+    fun copyLinksTo(other: PTANode<Flags>, sliceFields: Set<PTAField>?, renameFn: (c: PTACell<Flags>) -> PTACell<Flags>) {
         checkNotForward("copyLinksTo", this, other)
 
         // This function should be only used during initialization of a PTANode
@@ -1058,7 +1192,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     /**
      * Update this with [links].
      */
-    fun updateLinks(links: List<PTALink>,
+    fun updateLinks(links: List<PTALink<Flags>>,
                     adjustedOffset: PTAOffset,
                     notify: (PTAField) -> Unit = {}) {
         checkNotForward("updateLinks", this)
@@ -1073,7 +1207,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     /**
      *  Remove [links] from this
      */
-    fun removeLinks(links: List<PTALink>,
+    fun removeLinks(links: List<PTALink<Flags>>,
                     notify: (PTAField) -> Unit = {}) {
         checkNotForward("removeLinks", this)
 
@@ -1084,7 +1218,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
     }
 
     /** Check for **partial** overlaps between this and [other] **/
-    fun findOverlaps(other: PTANode): List<Pair<PTAField, PTAField>> {
+    fun findOverlaps(other: PTANode<Flags>): List<Pair<PTAField, PTAField>> {
         checkNotForward("findOverlaps", this, other)
         check(isExactNode()) {"failed precondition of findOverlaps"}
         check(other.isExactNode()) {"failed precondition of findOverlaps"}
@@ -1133,14 +1267,14 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
      * - `onlyPartial=false`: `{[10,29]}`
      *
      */
-    fun getLinksInRange(start: PTAOffset, size: Long, isStrict: Boolean = true, onlyPartial: Boolean = false): List<PTALink>   {
+    fun getLinksInRange(start: PTAOffset, size: Long, isStrict: Boolean = true, onlyPartial: Boolean = false): List<PTALink<Flags>>   {
         checkNotForward("getLinksInRange", this)
         check(isExactNode()) {"failed precondition of getLinksInRange"}
         // pre-condition: getSuccs() returns the successors in a sorted manner
         // post-condition: result is sorted in the same way that getSuccs()
 
         val fullRange = FiniteInterval.mkInterval(start.v, size)
-        val links = ArrayList<PTALink>(getSuccs().size)
+        val links = ArrayList<PTALink<Flags>>(getSuccs().size)
         for ((field, succC) in getSuccs()) {
             val fieldRange = field.toInterval()
 
@@ -1173,7 +1307,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
      * such that (1) each pair is disjoint from each other and (2) the list of pairs fully cover the interval represented by
      * this_field.
     */
-    private fun findCovers(other: PTANode): List<Pair<PTAField, List<Pair<PTAField,ULong>>>> {
+    private fun findCovers(other: PTANode<Flags>): List<Pair<PTAField, List<Pair<PTAField,ULong>>>> {
         fun isCover(l: List<Pair<PTAField, ULong>>, start: Long, end: Long): Boolean {
             if (l.isEmpty()) {
                 return false
@@ -1242,8 +1376,8 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
      *  3. Add F1,...,Fn in this
      *  4. Add Succ as the successor of F1,...,Fn in this
      */
-    fun splitFields(other: PTANode,
-                    splitPred: (PTANode, PTAField) -> Boolean,
+    fun splitFields(other: PTANode<Flags>,
+                    splitPred: (PTANode<Flags>, PTAField) -> Boolean,
                     copyLinksFn: (PTAField) -> Unit) {
         checkNotForward("splitFields", this, other)
         for ((field, subFields) in findCovers(other)) {
@@ -1255,7 +1389,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
                 // Step 2: remove field
                 removeField(field)
                 // Step 3,4
-                val newSubfields = mutableListOf<PTALink>()
+                val newSubfields = mutableListOf<PTALink<Flags>>()
                 for ((subField, _) in subFields) {
                     newSubfields.add(PTALink(subField, leftSucc))
                 }
@@ -1268,7 +1402,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
         if (other == null) {
             return false
         }
-        if (other !is PTANode) {
+        if (other !is PTANode<*>) {
             return false
         }
         // Node id's are global so this comparison makes sense
@@ -1281,11 +1415,9 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
 
     override fun toString(): String {
         // We don't enforce this to be resolved.
-        // If we would want to then do not call checkNotForward because it will call again toString()
-
+        // If we wanted to then do not call checkNotForward because it will call again toString()
         val sb = StringBuilder()
         sb.append("Node${id}[")
-        var addSep = false
         if (this is PTASummarizedNode) {
             sb.append("Summary")
             sb.append("|")
@@ -1293,51 +1425,7 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
             sb.append("Summary(stride=${getStride()})")
             sb.append("|")
         }
-
-        if (this.isMayStack) {
-            if (addSep) {
-                sb.append(":")
-            }
-            sb.append("Stack")
-            addSep = true
-        }
-        if (this.isMayExternal) {
-            if (addSep) {
-                sb.append(":")
-            }
-            sb.append("Extern")
-            addSep = true
-        }
-        if (this.isMayInteger) {
-            if (addSep) {
-                sb.append(":")
-            }
-            sb.append("Int(${this.integerValue})")
-            addSep = true
-        }
-        if (this.isMayGlobal) {
-            if (addSep) {
-                sb.append(":")
-            }
-            sb.append("Global")
-            addSep = true
-        }
-        if (this.isMayHeap) {
-            if (addSep) {
-                sb.append(":")
-            }
-            sb.append("Heap")
-            //addSep = true
-        }
-
-        sb.append("<")
-        when (this.access) {
-            NodeAccess.Any   -> sb.append("RX")
-            NodeAccess.Read  -> sb.append("R")
-            NodeAccess.Write -> sb.append("X")
-            NodeAccess.None  -> sb.append("U")
-        }
-        sb.append(">]")
+        sb.append("$flags")
         sb.append("(fwd=${forward?.getNode()?.id})")
         return sb.toString()
     }
@@ -1351,7 +1439,12 @@ open class PTANode constructor(val id: ULong, val nodeAllocator: PTANodeAllocato
  *  `PTASummarizedNode` represents a summarized node with no information about its accessed
  *  fields (i.e., field-insensitive)
  **/
-class PTASummarizedNode(id: ULong, nodeAllocator: PTANodeAllocator): PTANode(id, nodeAllocator) {
+class PTASummarizedNode<Flags: IPTANodeFlags<Flags>>(
+    id: ULong,
+    flags: Flags,
+    nodeAllocator: PTANodeAllocator<Flags>
+): PTANode<Flags>(id, flags, nodeAllocator) {
+
     override fun isExactNode() = false
 
     override fun offsetEquivClass(o: PTAOffset) =
@@ -1383,10 +1476,10 @@ class PTASummarizedNode(id: ULong, nodeAllocator: PTANodeAllocator): PTANode(id,
         }
 
     override fun createCell(o: PTAOffset) =
-        Cell(this, PTAOffset(0)) as PTACell
+        Cell(this, PTAOffset(0)) as PTACell<Flags>
 
     override fun createSymCell(o: PTASymOffset) =
-        SymCell(this, PTASymOffset(0)) as PTASymCell
+        SymCell(this, PTASymOffset(0)) as PTASymCell<Flags>
 }
 
 /**
@@ -1403,8 +1496,12 @@ class PTASummarizedNode(id: ULong, nodeAllocator: PTANodeAllocator): PTANode(id,
  * @param stride can be zero at constructor time because we need to create PTASummarizedWithStrideNode
  * objects before we can know the stride.
  **/
-class PTASummarizedWithStrideNode(private var stride: UInt, id: ULong, nodeAllocator: PTANodeAllocator)
-    : PTANode(id, nodeAllocator) {
+class PTASummarizedWithStrideNode<Flags: IPTANodeFlags<Flags>>(
+    private var stride: UInt,
+    id: ULong,
+    flags: Flags,
+    nodeAllocator: PTANodeAllocator<Flags>)
+    : PTANode<Flags>(id, flags, nodeAllocator) {
 
     fun getStride() = stride
 
@@ -1454,43 +1551,43 @@ class PTASummarizedWithStrideNode(private var stride: UInt, id: ULong, nodeAlloc
         }
 
     override fun createCell(o: PTAOffset) =
-        Cell(this, PTAOffset(0)) as PTACell
+        Cell(this, PTAOffset(0)) as PTACell<Flags>
 
     override fun createSymCell(o: PTASymOffset) =
-        SymCell(this, PTASymOffset(0)) as PTASymCell
+        SymCell(this, PTASymOffset(0)) as PTASymCell<Flags>
 }
 
 /**
  * Allocate points-to graph nodes.
  **/
-class PTANodeAllocator {
+class PTANodeAllocator<Flags: IPTANodeFlags<Flags>>(val flagsFactory: () -> Flags) {
     private var value:ULong = 0UL
-    private val addressMap: MutableMap<ULong, PTANode> = mutableMapOf()
+    private val addressMap: MutableMap<ULong, PTANode<Flags>> = mutableMapOf()
     // To allocate different nodes per instruction operand (e.g., call argument).
-    private val instMap: MutableMap<LocatedSbfInstruction,  MutableMap<Int, PTANode>> = mutableMapOf()
-    private val globalsMap: MutableMap<SbfGlobalVariable, PTANode> = mutableMapOf()
+    private val instMap: MutableMap<LocatedSbfInstruction,  MutableMap<Int, PTANode<Flags>>> = mutableMapOf()
+    private val globalsMap: MutableMap<SbfGlobalVariable, PTANode<Flags>> = mutableMapOf()
 
-    fun mkNode(): PTANode {
-        return PTANode(value++, this)
+    fun mkNode(): PTANode<Flags> {
+        return PTANode(value++, flagsFactory(),this)
     }
 
-    fun mkSummarizedNode(): PTANode {
-        return PTASummarizedNode(value++, this)
+    fun mkSummarizedNode(): PTANode<Flags> {
+        return PTASummarizedNode(value++, flagsFactory(),this)
     }
 
-    fun mkSummarizedWithStrideNode(stride: UInt): PTANode {
-        return PTASummarizedWithStrideNode(stride, value++, this)
+    fun mkSummarizedWithStrideNode(stride: UInt): PTANode<Flags> {
+        return PTASummarizedWithStrideNode(stride, value++,  flagsFactory(),this)
     }
 
     @TestOnly
-    fun mkIntegerNode(): PTANode {
+    fun mkIntegerNode(): PTANode<Flags> {
         // Don't need (and we shouldn't because we might lose precision) to cache integers
         // because integers do not alias with other integers. This assumes that our disassembler
         // identified all global variables so that global variables are not confused with integers.
         // However, we need to treat specially nodes that contain integers in the inclusion operation
         // to ensure termination of the fixpoint.
         val n = mkNode()
-        n.isMayInteger = true
+        n.flags = n.flags.integerInitializer(Constant.makeTop())
         return n
     }
 
@@ -1498,7 +1595,7 @@ class PTANodeAllocator {
      *  Return a cell for [address]
      *  @param [initializer]: function only applied on the node when it is first created.
      */
-    fun mkCell(address: ULong, initializer: (PTANode) -> Unit): PTACell {
+    fun mkCell(address: ULong, initializer: (PTANode<Flags>) -> Unit): PTACell<Flags> {
         val c = addressMap.getOrPut(address) {
             val n = mkNode()
             initializer(n)
@@ -1512,7 +1609,7 @@ class PTANodeAllocator {
      *  Return a cell for pair ([locInst], [i])
      *  @param [initializer]: function only applied on the node when it is first created.
      */
-    fun mkCell(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode) -> Unit): PTACell {
+    fun mkCell(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode<Flags>) -> Unit): PTACell<Flags> {
         val indexMap = instMap[locInst]
         return if (indexMap == null) {
             val n = mkNode()
@@ -1539,7 +1636,7 @@ class PTANodeAllocator {
      *  Return a cell for [global]
      *  @param [initializer]: function only applied on the node when it is first created.
      */
-    fun mkCell(global: SbfGlobalVariable, initializer: (PTANode) -> Unit): PTACell {
+    fun mkCell(global: SbfGlobalVariable, initializer: (PTANode<Flags>) -> Unit): PTACell<Flags> {
         val c = globalsMap.getOrPut(global) {
             val n = mkNode()
             initializer(n)
@@ -1551,25 +1648,25 @@ class PTANodeAllocator {
 }
 
 /** Model an allocation in the Global memory region **/
-class GlobalAllocation(private val allocator: PTANodeAllocator) {
+class GlobalAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTANodeAllocator<Flags>) {
     /**
      * Each global variable is modeled by a **different** node.
      * Therefore, we assume that there is no aliasing between global variables.
      **/
-    fun alloc(gv: SbfGlobalVariable, offset: Constant, initializer: (PTANode) -> Unit = {}): PTASymCell {
-        val c = allocator.mkCell(gv, initializer)
-        c.getNode().isMayGlobal = true
+    fun alloc(gv: SbfGlobalVariable, offset: Constant): PTASymCell<Flags> {
+        val c = allocator.mkCell(gv) { n -> n.flags = n.flags.globalInitializer() }
+        val node = c.getNode()
         val o = offset.toLongOrNull()
         return if (o != null) {
-            c.getNode().createSymCell(PTAOffset(o) + c.getOffset())
+            node.createSymCell(PTAOffset(o) + c.getOffset())
         } else {
-            c.getNode().createSymCell(PTASymOffset.mkTop())
+            node.createSymCell(PTASymOffset.mkTop())
         }
     }
 }
 
 /** Model an allocation in the Heap memory region **/
-class HeapAllocation(private val allocator: PTANodeAllocator) {
+class HeapAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTANodeAllocator<Flags>) {
     /**
      *  In Solana, we cannot use both low- and high-level APIs within the same program
      *  https://docs.solana.com/developing/on-chain-programs/developing-c#heap
@@ -1585,20 +1682,18 @@ class HeapAllocation(private val allocator: PTANodeAllocator) {
      * This ensures sound results but better abstractions will be needed if programs
      * use heavily the heap via absolute addresses.
      */
-    fun lowLevelAlloc(offset: Constant, initializer: (PTANode) -> Unit = {}): PTASymCell {
+    fun lowLevelAlloc(offset: Constant): PTASymCell<Flags> {
         if (usedHighLevel) {
             throw PointerDomainError("Cannot use both low-level and high-level heap allocation APIs")
         }
         usedLowLevel = true
         val o = offset.toLongOrNull()
         return if (o != null) {
-            val c = allocator.mkCell(SBF_HEAP_START.toULong(), initializer)
-            c.getNode().isMayHeap = true
+            val c = allocator.mkCell(SBF_HEAP_START.toULong()) { n -> n.flags = n.flags.heapInitializer() }
             c.getNode().createSymCell(PTAOffset(o) + c.getOffset())
 
         } else {
-            val c = allocator.mkCell(SBF_HEAP_START.toULong(), initializer)
-            c.getNode().isMayHeap = true
+            val c = allocator.mkCell(SBF_HEAP_START.toULong()) { n -> n.flags = n.flags.heapInitializer()}
             c.getNode().createSymCell(PTASymOffset.mkTop())
         }
     }
@@ -1610,14 +1705,13 @@ class HeapAllocation(private val allocator: PTANodeAllocator) {
      * Unchecked assumption: each time one of these functions is called, it returns either null
      * or a pointer that is disjoint from any other pointer returned by previous calls.
      */
-    fun highLevelAlloc(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode) -> Unit = {}): PTASymCell {
+    fun highLevelAlloc(locInst: LocatedSbfInstruction, i: Int = 0): PTASymCell<Flags> {
         if (usedLowLevel) {
             throw PointerDomainError("Cannot use both low-level and high-level heap allocation APIs")
         }
         usedHighLevel = true
 
-        val c = allocator.mkCell(locInst, i, initializer)
-        c.getNode().isMayHeap = true
+        val c = allocator.mkCell(locInst, i) { n -> n.flags = n.flags.heapInitializer() }
         return c.createSymCell()
     }
 }
@@ -1627,24 +1721,43 @@ class HeapAllocation(private val allocator: PTANodeAllocator) {
  *  outside the code under analysis. This external memory should be allocated in one of Input, Heap, or Global
  *  memory regions, but we cannot tell.
  **/
-class ExternalAllocation(private val allocator: PTANodeAllocator) {
-    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode) -> Unit = {}): PTASymCell {
-        val c = allocator.mkCell(locInst, i, initializer)
-        c.getNode().isMayExternal = true
+class ExternalAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTANodeAllocator<Flags>) {
+    // Abstract counter to return the next Solana Account's start address
+    private var nextAccountInfoAddress = Constant(SBF_INPUT_START)
+
+    private fun nextAccountInfo(): Constant {
+        val res = nextAccountInfoAddress
+        // In TAC, we assume a fixed-block allocator, so we do the same here
+        nextAccountInfoAddress = nextAccountInfoAddress.add(SOLANA_ACCOUNT_SIZE.toLong())
+        return res
+    }
+
+    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0): PTASymCell<Flags> {
+        val c = allocator.mkCell(locInst, i) { n -> n.flags = n.flags.externalInitializer() }
         return c.createSymCell()
     }
 
-    fun alloc(address: ULong, initializer: (PTANode) -> Unit = {}): PTASymCell {
-        val c = allocator.mkCell(address, initializer)
-        c.getNode().isMayExternal = true
+    // Called when `NONDET_SOLANA_ACCOUNT_SPACE`
+    fun allocSolanaAccountSpace(locInst: LocatedSbfInstruction): PTASymCell<Flags> {
+        val c = allocator.mkCell(locInst) { n -> n.flags = n.flags.externalAccountSpaceInitializer(nextAccountInfo()) }
+        return c.createSymCell()
+    }
+
+    // Called when `ALLOC_SLICE`
+    fun allocSolanaAccountSlice(locInst: LocatedSbfInstruction, base: Constant, offset: Long): PTASymCell<Flags> {
+        val c = allocator.mkCell(locInst) { n -> n.flags = n.flags.externalAccountSliceInitializer(base, offset) }
+        return c.createSymCell()
+    }
+
+    fun alloc(address: ULong): PTASymCell<Flags> {
+        val c = allocator.mkCell(address) { n -> n.flags = n.flags.externalInitializer() }
         return c.createSymCell()
     }
 }
 
-class IntegerAllocation(private val allocator: PTANodeAllocator) {
-    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0, initializer: (PTANode) -> Unit): PTASymCell {
-        val c = allocator.mkCell(locInst, i, initializer)
-        c.getNode().isMayInteger = true
+class IntegerAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTANodeAllocator<Flags>) {
+    fun alloc(locInst: LocatedSbfInstruction, i: Int = 0, initValue: Constant = Constant.makeTop()): PTASymCell<Flags> {
+        val c = allocator.mkCell(locInst, i) { n -> n.flags = n.flags.integerInitializer(initValue) }
         return c.createSymCell()
     }
 }
@@ -1656,8 +1769,9 @@ private val usedMemoryBitwidths = listOf(1, 2, 4, 8)
  *  The roots of the graph are (normal and scratch) registers.
  *  That is, cells in the graphs are only accessible directly by registers or by following transitively edges.
  **/
-class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node allocator **/
-               val nodeAllocator: PTANodeAllocator,
+class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>>(
+               /** Global node allocator **/
+               val nodeAllocator: PTANodeAllocator<Flags>,
                val sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
                init: Boolean = false,
                /**
@@ -1669,10 +1783,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                /* It needs to be "var" because SetUnionDomain is an immutable class but PTAGraph is not */
                private var untrackedStackFields: SetDomain<PTAField> = SetUnionDomain(),
                /** To do allocations depending on the memory region **/
-               private val globalAlloc: GlobalAllocation = GlobalAllocation(nodeAllocator),
-               private val heapAlloc: HeapAllocation = HeapAllocation(nodeAllocator),
-               private val externAlloc: ExternalAllocation = ExternalAllocation(nodeAllocator),
-               private val integerAlloc: IntegerAllocation = IntegerAllocation(nodeAllocator)){
+               private val globalAlloc: GlobalAllocation<Flags> = GlobalAllocation(nodeAllocator),
+               private val heapAlloc: HeapAllocation<Flags> = HeapAllocation(nodeAllocator),
+               private val externAlloc: ExternalAllocation<Flags> = ExternalAllocation(nodeAllocator),
+               private val integerAlloc: IntegerAllocation<Flags> = IntegerAllocation(nodeAllocator)){
 
     /* Note: why registers and scratchRegisters are not arguments in the constructor.
 
@@ -1690,11 +1804,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *  Setting a register to null is always sound because the analysis will throw an exception if a
      *  memory instruction access to a null register.
      **/
-    private val registers: ArrayList<PTASymCell?> = ArrayList(NUM_OF_SBF_REGISTERS)
+    private val registers: ArrayList<PTASymCell<Flags>?> = ArrayList(NUM_OF_SBF_REGISTERS)
     /** Contains the scratch registers of all callers
      * This is a stack whose size is multiple of 4 which is the number of scratch registers.
      **/
-    private val scratchRegisters: ArrayList<PTASymCell?> = arrayListOf()
+    private val scratchRegisters: ArrayList<PTASymCell<Flags>?> = arrayListOf()
 
     init {
         for (i in 0 until NUM_OF_SBF_REGISTERS) {
@@ -1703,7 +1817,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         if (init) {
             /** This node represents the Stack memory region **/
             val stackNode = mkNode()
-            stackNode.isMayStack = true
+            stackNode.flags = stackNode.flags.stackInitializer()
             setRegCell(Value.Reg(SbfRegister.R10_STACK_POINTER),
                        stackNode.createSymCell(SBF_STACK_FRAME_SIZE))
         }
@@ -1717,16 +1831,16 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         return idx
     }
 
-    fun getRegCell(reg: Value.Reg): PTASymCell? {
+    fun getRegCell(reg: Value.Reg): PTASymCell<Flags>? {
         val idx = getIndex(reg)
         return registers[idx]
     }
 
-    fun setRegCell(reg: Value.Reg, sc: PTASymCell?) {
+    fun setRegCell(reg: Value.Reg, sc: PTASymCell<Flags>?) {
         registers[getIndex(reg)] = sc
     }
 
-    private fun pushScratchReg(sc: PTASymCell?) {
+    private fun pushScratchReg(sc: PTASymCell<Flags>?) {
         scratchRegisters.add(null)
         if (sc != null) {
             val idx = scratchRegisters.size - 1
@@ -1734,20 +1848,20 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         }
     }
 
-    private fun popScratchReg(): PTASymCell? {
+    private fun popScratchReg(): PTASymCell<Flags>? {
         val idx = scratchRegisters.size - 1
         val sc = scratchRegisters[idx]
         scratchRegisters.removeLast()
         return sc
     }
 
-    fun getStack(): PTANode {
+    fun getStack(): PTANode<Flags> {
         val stackC = getRegCell(Value.Reg(SbfRegister.R10_STACK_POINTER))
         check(stackC != null) {"getStack() expects to find the stack node in $this"}
         return stackC.getNode()
     }
 
-    private fun concretizeCell(sc: PTASymCell, devMsg: String, locInst: LocatedSbfInstruction?): PTACell {
+    private fun concretizeCell(sc: PTASymCell<Flags>, devMsg: String, locInst: LocatedSbfInstruction?): PTACell<Flags> {
         if (!sc.isConcrete() && sc.getNode() == getStack()) {
             throw UnknownPointerDerefError(DevErrorInfo(locInst, null,  devMsg))
         }
@@ -1757,12 +1871,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     /**
      * Return the result of offset op n.
      **/
-    private fun updateOffset(op: BinOp, node: PTANode, offset: PTASymOffset, n: Long): PTASymOffset {
+    private fun updateOffset(op: BinOp, node: PTANode<Flags>, offset: PTASymOffset, n: Long): PTASymOffset {
         return when (node) {
-            is PTASummarizedNode -> {
+            is PTASummarizedNode<Flags> -> {
                 PTASymOffset(0)
             }
-            is PTASummarizedWithStrideNode -> {
+            is PTASummarizedWithStrideNode<Flags> -> {
                 throw PointerDomainError("updateOffset not implemented with PTASummarizedWithStrideNode")
             }
             else -> {
@@ -1780,15 +1894,15 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * Return a copy of this but all nodes reachable from this's stack and registers are
      * shared.
      **/
-    fun copy(): PTAGraph<TNum, TOffset> {
+    fun copy(): PTAGraph<TNum, TOffset, Flags> {
         return copy(registers, scratchRegisters, null)
     }
 
     // Add a new node into this with same markers and successors than stack
-    private fun importStack(stack: PTANode, sliceFields: Set<PTAField>?): PTANode {
+    private fun importStack(stack: PTANode<Flags>, sliceFields: Set<PTAField>?): PTANode<Flags> {
         val newNode = when (stack) {
-            is PTASummarizedNode -> mkSummarizedNode()
-            is PTASummarizedWithStrideNode -> mkSummarizedWithStrideNode(stack.getStride())
+            is PTASummarizedNode<Flags> -> mkSummarizedNode()
+            is PTASummarizedWithStrideNode<Flags> -> mkSummarizedWithStrideNode(stack.getStride())
             else -> mkNode()
         }
         stack.copyFlags(newNode)
@@ -1803,9 +1917,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         return newNode
     }
 
-    private fun copy(sliceNormalRegisters: ArrayList<PTASymCell?>,
-                     sliceScratchRegisters: ArrayList<PTASymCell?>,
-                     sliceStackFields: Set<PTAField>?): PTAGraph<TNum, TOffset> {
+    private fun copy(sliceNormalRegisters: ArrayList<PTASymCell<Flags>?>,
+                     sliceScratchRegisters: ArrayList<PTASymCell<Flags>?>,
+                     sliceStackFields: Set<PTAField>?): PTAGraph<TNum, TOffset, Flags> {
 
         check(sliceNormalRegisters.size == registers.size)
         { "sliceNormalRegisters should have same size than registers" }
@@ -1843,7 +1957,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
     fun mkSummarizedNode() = nodeAllocator.mkSummarizedNode()
 
-    private fun mkSummarizedWithStrideNode(stride: UInt): PTANode {
+    private fun mkSummarizedWithStrideNode(stride: UInt): PTANode<Flags> {
         return nodeAllocator.mkSummarizedWithStrideNode(stride)
     }
 
@@ -1861,8 +1975,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * If some conditions hold, some fields of the stack node from this are split into multiple
      * subfields such that the stack node from this and other have the same fields.
     **/
-    fun pseudoCanonicalize(other: PTAGraph<TNum, TOffset>) {
-        fun splitCond(node: PTANode, field: PTAField): Boolean {
+    fun pseudoCanonicalize(other: PTAGraph<TNum, TOffset, Flags>) {
+        fun splitCond(node: PTANode<Flags>, field: PTAField): Boolean {
             val succ = node.getSucc(field)
             return succ?.getNode()?.mustBeInteger() ?: false
         }
@@ -1876,7 +1990,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         }
     }
 
-    fun checkStackInvariant(g: PTAGraph<TNum, TOffset>, msg: String) {
+    fun checkStackInvariant(g: PTAGraph<TNum, TOffset, Flags>, msg: String) {
         if (SolanaConfig.SanityChecks.get()) {
             val stackN = g.getStack()
             for (field in g.untrackedStackFields.iterator()) {
@@ -1924,13 +2038,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * @return a pair of untracked and tracked stack fields
      */
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinStacks(/** input parameters **/
-                           leftStack: PTANode,
-                           rightStack: PTANode,
+                           leftStack: PTANode<Flags>,
+                           rightStack: PTANode<Flags>,
                            scalars: ScalarDomain,
                            /** input/output parameters **/
-                           onlyLeft: MutableList<Pair<PTAField, PTACell>>,
-                           onlyRight: MutableList<Pair<PTAField, PTACell>>,
-                           unificationList: MutableList<Pair<PTASymCell, PTASymCell>>):
+                           onlyLeft: MutableList<Pair<PTAField, PTACell<Flags>>>,
+                           onlyRight: MutableList<Pair<PTAField, PTACell<Flags>>>,
+                           unificationList: MutableList<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>):
         Pair<SetDomain<PTAField>, Set<PTAField>> {
 
         if (!leftStack.isExactNode() || !rightStack.isExactNode()) {
@@ -2055,13 +2169,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *       This means that it cannot contain any reference to [rightStack].
      */
      private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinRegister(reg: SbfRegister,
-                              leftStack: PTANode,
-                              rightStack: PTANode,
-                              leftC: PTASymCell?,
-                              rightC: PTASymCell?,
+                              leftStack: PTANode<Flags>,
+                              rightStack: PTANode<Flags>,
+                              leftC: PTASymCell<Flags>?,
+                              rightC: PTASymCell<Flags>?,
                               leftScalars: ScalarDomain,
                               rightScalars: ScalarDomain,
-                              unificationList: MutableList<Pair<PTASymCell, PTASymCell>>): PTASymCell? {
+                              unificationList: MutableList<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>): PTASymCell<Flags>? {
 
         if (leftC != null && rightC != null) {
             val renamedLeftC = leftC.renameNode(leftStack, rightStack)
@@ -2163,17 +2277,17 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         return null
      }
 
-    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinRegisters(leftStack: PTANode,
-                              rightStack: PTANode,
+    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinRegisters(leftStack: PTANode<Flags>,
+                              rightStack: PTANode<Flags>,
                               // null means that the register is "top"
-                              leftRegisters: List<PTASymCell?>,
+                              leftRegisters: List<PTASymCell<Flags>?>,
                               // null means that the register is "top"
-                              rightRegisters: List<PTASymCell?>,
+                              rightRegisters: List<PTASymCell<Flags>?>,
                               leftScalars: ScalarDomain,
                               rightScalars: ScalarDomain,
-                              unificationList: MutableList<Pair<PTASymCell, PTASymCell>>): ArrayList<PTASymCell?> {
+                              unificationList: MutableList<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>): ArrayList<PTASymCell<Flags>?> {
 
-        val commonRegisters = ArrayList<PTASymCell?>(registers.size)
+        val commonRegisters = ArrayList<PTASymCell<Flags>?>(registers.size)
         leftRegisters.forEachIndexed { i, leftC ->
             val rightC = rightRegisters[i]
             commonRegisters.add(joinRegister(SbfRegister.getByValue(i.toByte()),
@@ -2190,11 +2304,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * Same logic than in joinRegisters but we don't need to unify cells because it shouldn't be the case
      * that the same register is pointing to different cells at a joint point.
      */
-    private fun joinScratchRegisters(leftStack: PTANode,
-                                     rightStack: PTANode,
-                                     leftScratchRegisters: List<PTASymCell?>,
-                                     rightScratchRegisters: List<PTASymCell?>): ArrayList<PTASymCell?> {
-        val commonScratchRegisters = ArrayList<PTASymCell?>(scratchRegisters.size)
+    private fun joinScratchRegisters(leftStack: PTANode<Flags>,
+                                     rightStack: PTANode<Flags>,
+                                     leftScratchRegisters: List<PTASymCell<Flags>?>,
+                                     rightScratchRegisters: List<PTASymCell<Flags>?>): ArrayList<PTASymCell<Flags>?> {
+        val commonScratchRegisters = ArrayList<PTASymCell<Flags>?>(scratchRegisters.size)
         leftScratchRegisters.forEachIndexed {i, leftC ->
             commonScratchRegisters.add(null)
             val rightC = rightScratchRegisters[i]
@@ -2225,7 +2339,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     }
 
     /// Helper for join
-    private fun removeFieldFromStack(stack: PTANode, field: PTAField, g: PTAGraph<TNum, TOffset>,
+    private fun removeFieldFromStack(stack: PTANode<Flags>, field: PTAField, g: PTAGraph<TNum, TOffset, Flags>,
                                      @Suppress("UNUSED_PARAMETER")
                                      msg: String) {
 
@@ -2253,11 +2367,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * @param left: basic block for the left operand (for debugging)
      * @param right: basic block for the right operand (for debugging)
      */
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> join(other: PTAGraph<TNum, TOffset>,
+    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> join(other: PTAGraph<TNum, TOffset, Flags>,
              leftScalars: ScalarDomain,
              rightScalars: ScalarDomain,
              outScalars: ScalarDomain,
-             left: Label?, right: Label?): PTAGraph<TNum, TOffset> {
+             left: Label?, right: Label?): PTAGraph<TNum, TOffset, Flags> {
         if (scratchRegisters.size != other.scratchRegisters.size) {
             val msg = if (left != null && right != null ){
                 "join between $left and $right"
@@ -2269,7 +2383,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             throw PointerDomainError("$msg failed because disagreement on the number of scratch registers")
         }
 
-        val dotDebugger = BinaryOperationToDot<TNum, TOffset>("join")
+        val dotDebugger = BinaryOperationToDot<TNum, TOffset, Flags>("join")
         if (debugPTAJoin) {
             dotDebugger.addOperands(this, other, left, right)
         }
@@ -2289,10 +2403,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
 
         /** To perform stack additions to preserve union semantics **/
-        val onlyLeft = mutableListOf<Pair<PTAField, PTACell>>()
-        val onlyRight = mutableListOf<Pair<PTAField, PTACell>>()
+        val onlyLeft = mutableListOf<Pair<PTAField, PTACell<Flags>>>()
+        val onlyRight = mutableListOf<Pair<PTAField, PTACell<Flags>>>()
         /** To perform unifications **/
-        val unificationList = mutableListOf<Pair<PTASymCell, PTASymCell>>()
+        val unificationList = mutableListOf<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>()
 
         val (outUntrackedStackFields, outTrackedStackFields) =
             joinStacks(leftStack, rightStack,
@@ -2421,11 +2535,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         return outG
     }
 
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> widen(other: PTAGraph<TNum, TOffset>,
+    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> widen(other: PTAGraph<TNum, TOffset, Flags>,
               leftScalars: ScalarDomain,
               rightScalars: ScalarDomain,
               outScalars: ScalarDomain,
-              left: Label?, right: Label?): PTAGraph<TNum, TOffset> =
+              left: Label?, right: Label?): PTAGraph<TNum, TOffset, Flags> =
         join(other, leftScalars, rightScalars, outScalars, left, right)
 
     /**
@@ -2434,11 +2548,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * - If a register is mapped to null then it means "top"
      * - If a stack field is empty then it means it has not been accessed
      **/
-    fun lessOrEqual(other: PTAGraph<TNum, TOffset>, left: Label?, right: Label?): Boolean {
+    fun lessOrEqual(other: PTAGraph<TNum, TOffset, Flags>, left: Label?, right: Label?): Boolean {
 
         // For registers
-        fun lessOrEqual(left: ArrayList<PTASymCell?>, right: ArrayList<PTASymCell?>,
-                        leftStack: PTANode, rightStack: PTANode): Boolean {
+        fun lessOrEqual(left: ArrayList<PTASymCell<Flags>?>, right: ArrayList<PTASymCell<Flags>?>,
+                        leftStack: PTANode<Flags>, rightStack: PTANode<Flags>): Boolean {
             left.forEachIndexed{i, leftC ->
                 val rightC = right[i]
                 if (leftC == null && rightC != null) {
@@ -2464,7 +2578,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             throw PointerDomainError("$msg failed because disagreement on the number of scratch registers")
         }
 
-        val dotDebugger = BinaryOperationToDot<TNum, TOffset>("leq")
+        val dotDebugger = BinaryOperationToDot<TNum, TOffset, Flags>("leq")
         if (debugPTALeq) {
             dotDebugger.addOperands(this, other, left, right)
             dotDebugger.print()
@@ -2598,7 +2712,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                    type: SbfType<TNum, TOffset>,
                    globalsMap: GlobalVariableMap,
                    locInst: LocatedSbfInstruction?,
-                   stopIfError: Boolean = true): PTASymCell? {
+                   stopIfError: Boolean = true): PTASymCell<Flags>? {
 
         val sc = getRegCell(reg)
         return if (sc != null) {
@@ -2619,8 +2733,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     }
 
     /** dst points to n at an unknown offset **/
-    private fun doUnknownPointerArithmetic(dst: Value.Reg, n: PTANode) {
-        setRegCell(dst, if (n is PTASummarizedNode) {
+    private fun doUnknownPointerArithmetic(dst: Value.Reg, n: PTANode<Flags>) {
+        setRegCell(dst, if (n is PTASummarizedNode<Flags>) {
             n.createSymCell(0)
         } else {
             n.createSymCell(PTASymOffset.mkTop())
@@ -2673,7 +2787,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                                             op1: Value.Reg,
                                             op2: Value.Reg,
                                             op2Type: SbfType.NumType<TNum, TOffset>) {
-
         val o = op2Type.value.toLongOrNull()
         if (o != null && o == 0L) {
             doPointerAssign(dst, op1)
@@ -2685,10 +2798,14 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         forget(dst)
                         return
                     }
-
             if (o != null && (op == BinOp.ADD || op == BinOp.SUB)) {
                 val c2 = getRegCell(op2)
-                if (c2 == null) {
+                if (c1.getNode() == getStack() || c2 == null) {
+                    // Pointer arithmetic over stack or no cell associated with op2
+                    //
+                    // Regarding the reply problem described on the else branch.
+                    //    If due to flow-insensitivity we don't know anymore that op2 is a number, then we execute
+                    //    the else case which would probably collapse the stack, so we would get a PTA error.
                     val newOffset = updateOffset(op, c1.getNode(), c1.getOffset(), o)
                     setRegCell(dst, c1.getNode().createSymCell(newOffset))
                 } else {
@@ -2713,11 +2830,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     // know that at this time `op2` is a number.
                     concretizeCell(c1, "$dst:= $op1 $op $op2", locInst)
                         .unify(concretizeCell(c2, "$dst:= $op1 $op $op2", locInst))
-                    // after unification, `op1` and `op2` point to the same cell, so we don't need to update `dst` unless
-                    // it is different from both `op1` and `op2`
-                    if (dst != op1 && dst != op2) {
-                        setRegCell(dst, getRegCell(op1))
-                    }
+
+                    val newOffset = updateOffset(op, c1.getNode(), c1.getOffset(), o)
+                    setRegCell(dst, c1.getNode().createSymCell(newOffset))
                 }
             } else {
                 doUnknownPointerArithmetic(dst, c1.getNode())
@@ -2743,14 +2858,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
              * op1 and op2 could be either pointers or integers.
              * This might be unnecessarily imprecise, but it's sound.
              */
-             // If we know that one of the operands cannot be a pointer then we can
-             // avoid the unification
+
+            // 1. unify `c1` and `c2`
             concretizeCell(c1, "$dst:= $op1 $op $op2", locInst)
                 .unify(concretizeCell(c2, "$dst:= $op1 $op $op2", locInst))
-            // after unification, op1 and op2 point to the same cell.
-            if (dst != op1 && dst != op2) {
-                setRegCell(dst, getRegCell(op1))
-            }
+
+            // 2. `dst` points to an unknown offset at c1 so next time `dst` is de-referenced it will produce a collapse.
+            doUnknownPointerArithmetic(dst, c1.getNode())
             true
         } else {
             false
@@ -2878,7 +2992,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         val trueC = if (trueVal is Value.Reg) { getRegCell(trueVal) } else { null }
         val falseC = if (falseVal is Value.Reg) { getRegCell(falseVal) } else { null }
 
-        val unificationList = mutableListOf<Pair<PTASymCell, PTASymCell>>()
+        val unificationList = mutableListOf<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>()
         // set destination (the result of joinRegister can be null)
         setRegCell(Value.Reg(dst.r),
             joinRegister(dst.r, getStack(), getStack(), trueC, falseC, scalars, scalars, unificationList))
@@ -2907,7 +3021,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             isStack: Boolean,
             lhs: Value.Reg,
             field: PTAField,
-            derefC: PTACell,
+            derefC: PTACell<Flags>,
             scalars: ScalarDomain
     ) {
 
@@ -2977,9 +3091,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
     /** Set [reg] to the "join" of [oldSymCell] and [newSymCell] **/
     private fun merge(reg: Value.Reg,
-                      oldSymCell: PTASymCell?,
-                      newSymCell: PTASymCell?,
-                      locInst: LocatedSbfInstruction): PTASymCell? {
+                      oldSymCell: PTASymCell<Flags>?,
+                      newSymCell: PTASymCell<Flags>?,
+                      locInst: LocatedSbfInstruction): PTASymCell<Flags>? {
         val weakenSymCell =
             if (oldSymCell != null && newSymCell != null) {
                 val oldNode = oldSymCell.getNode()
@@ -3016,7 +3130,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> loadFromCell(
             locInst: LocatedSbfInstruction,
             lhs: Value.Reg,
-            derefC: PTACell,
+            derefC: PTACell<Flags>,
             scalars: ScalarDomain
     ): Boolean {
         val inst = locInst.inst
@@ -3046,7 +3160,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      **/
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> loadFromSymCell(
         locInst: LocatedSbfInstruction,
-        derefSc: PTASymCell,
+        derefSc: PTASymCell<Flags>,
         scalars: ScalarDomain
     ) {
         val inst = locInst.inst
@@ -3134,7 +3248,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      */
     inner class ReconstructedIntegerCell(
             val fields: List<PTAField>,
-            val cells: List<PTASymCell>) {
+            val cells: List<PTASymCell<Flags>>) {
 
         init {
             check(fields.size == cells.size) {"Fields and cells must match in size"}
@@ -3154,7 +3268,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          * Return the reconstructed integer cell.
          * Note that this function has side effects because it unifies cells.
          **/
-        fun getCell(): PTASymCell =
+        fun getCell(): PTASymCell<Flags> =
             cells.map{ it.concretize()}. reduce { acc, cur ->
                 acc.unify(cur)
                 acc
@@ -3197,12 +3311,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     @TestOnly
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> reconstructFromIntegerCells(
         locInst: LocatedSbfInstruction,
-        deref: PTACell,
+        deref: PTACell<Flags>,
         width: Short,
         scalars: ScalarDomain
     ): ReconstructedIntegerCell? {
 
-        fun isInteger(field: PTAField, c: PTACell): Boolean {
+        fun isInteger(field: PTAField, c: PTACell<Flags>): Boolean {
             val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
             return if (scalarVal.type() is SbfType.NumType) {
                 true
@@ -3228,7 +3342,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         }
 
         val slice = FiniteInterval.mkInterval(deref.getOffset().v, width.toLong())
-        val mergedSuccs = mutableListOf<PTACell>()
+        val mergedSuccs = mutableListOf<PTACell<Flags>>()
         var cover = SetOfFiniteIntervals(listOf())
         val mergedFields = mutableListOf<PTAField>()
         for ((field, succC) in derefNode.getSuccs()) {
@@ -3249,7 +3363,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     // avoid creating unnecessary aliasing.
                     val res = ReconstructedIntegerCell(
                         listOf(field),
-                        listOf(integerAlloc.alloc(locInst, initializer = { it.integerValue = Constant.makeTop()}))
+                        listOf(integerAlloc.alloc(locInst))
                     )
                     sbfLogger.debug {"Reconstructed a cell by splitting"}
                     return res
@@ -3273,7 +3387,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *  We check that it is not an edge from non-stack memory to stack.
      *  This is sufficient to check that whether a stack address escapes.
      */
-    private fun checkStackDoesNotEscape(locInst: LocatedSbfInstruction?, src: PTACell, dst: PTACell) {
+    private fun checkStackDoesNotEscape(locInst: LocatedSbfInstruction?, src: PTACell<Flags>, dst: PTACell<Flags>) {
         if (src.getNode() != getStack() && dst.getNode() == getStack()) {
             throw PointerStackEscapingError(DevErrorInfo(locInst, null,"stack is escaping: $dst is being stored into $src"))
         }
@@ -3284,7 +3398,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *
      * Precondition: [c].node cannot be a summarized node.
      **/
-    private fun getAllLinks(c: PTACell, len: Long): List<PTALink> {
+    private fun getAllLinks(c: PTACell<Flags>, len: Long): List<PTALink<Flags>> {
         check(c.getNode().isExactNode()) {"getAllLinks expects a exact PTA node"}
         return c.getNode().getLinksInRange(c.getOffset(), len, isStrict = false)
     }
@@ -3294,7 +3408,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *
      *  Precondition: [c].node is the stack
      */
-    private fun getAllLinksExceptIfFullRange(c: PTACell, len: Long): List<PTALink> {
+    private fun getAllLinksExceptIfFullRange(c: PTACell<Flags>, len: Long): List<PTALink<Flags>> {
         check(c.getNode() == getStack()) {"getAllLinksExceptIfFullRange expects only a stack node"}
         return c.getNode().getLinksInRange(c.getOffset(), len, isStrict = false, onlyPartial = true)
     }
@@ -3304,7 +3418,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *
      *  Precondition: [c].node is the stack
      */
-    private fun getOverlapLinks(c: PTACell, len: Long): List<PTALink> {
+    private fun getOverlapLinks(c: PTACell<Flags>, len: Long): List<PTALink<Flags>> {
         val fullRange = FiniteInterval.mkInterval(c.getOffset().v, len)
         return getAllLinksExceptIfFullRange(c, len).filter {
             !fullRange.includes(it.field.toInterval())
@@ -3322,7 +3436,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *  **Important note**: partial overlapping fields over the stack are always removed even if in some cases
      *  ([isStrongUpdate]=`false`) it might not be needed. This is always sound, but it might cause some PTA error.
      */
-    private fun updateLink(locInst: LocatedSbfInstruction, src: PTACell, width: Short, dst: PTACell, isStore: Boolean, isStrongUpdate: Boolean) {
+    private fun updateLink(locInst: LocatedSbfInstruction, src: PTACell<Flags>, width: Short, dst: PTACell<Flags>, isStore: Boolean, isStrongUpdate: Boolean) {
         checkStackDoesNotEscape(locInst, src, dst)
         val srcNode = src.getNode()
         val isStack = srcNode == getStack()
@@ -3358,10 +3472,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         value: Value,
         valueType: SbfType<TNum, TOffset>,
         locInst: LocatedSbfInstruction
-    ): PTASymCell? {
+    ): PTASymCell<Flags>? {
         return when (value) {
             is Value.Imm -> {
-                integerAlloc.alloc(locInst, initializer = { it.integerValue = Constant(value.v.toLong())})
+                integerAlloc.alloc(locInst, initValue = Constant(value.v.toLong()))
             }
             is Value.Reg -> {
                 getRegCell(value) ?:
@@ -3375,7 +3489,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         } else {
                             Constant.makeTop()
                         }
-                        integerAlloc.alloc(locInst, initializer = { it.integerValue = constant})
+                        integerAlloc.alloc(locInst, initValue = constant)
                     }
                     is SbfType.PointerType.Global -> {
                         val gv = valueType.global
@@ -3395,8 +3509,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     }
 
     private fun storeToCell(locInst: LocatedSbfInstruction,
-                            derefC: PTACell,
-                            valueSc: PTASymCell?,
+                            derefC: PTACell<Flags>,
+                            valueSc: PTASymCell<Flags>?,
                             isStrongUpdate: Boolean) {
 
         val inst = locInst.inst
@@ -3426,8 +3540,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
 
     private fun storeToSymCell(locInst: LocatedSbfInstruction,
-                               derefSc: PTASymCell,
-                               valueSc: PTASymCell?) {
+                               derefSc: PTASymCell<Flags>,
+                               valueSc: PTASymCell<Flags>?) {
 
         if (derefSc.getNode() != getStack()) {
             // If the access is not on the stack then calling concretizeCell is okay because it should not collapse
@@ -3494,7 +3608,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * Remove only overlap fields but not fully included in the range `[c.offset, c.offset + len]`.
      * Used by `doMemcpy`.
      */
-    private fun removeOnlyOverlapLinks(c: PTACell, len: Long) {
+    private fun removeOnlyOverlapLinks(c: PTACell<Flags>, len: Long) {
         val node = c.getNode()
         check(node == getStack()) {"removeOnlyOverlapLinks can be called only on the stack"}
         val links = getOverlapLinks(c, len)
@@ -3510,7 +3624,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * Remove any overwritten field on `[c.offset, c.offset + len]`, included partial overlaps.
      * Used by `doMemcpy` and `doMemset`.
      */
-    private fun removeLinks(c: PTACell, len: Long) {
+    private fun removeLinks(c: PTACell<Flags>, len: Long) {
         val node = c.getNode()
         check(node == getStack()) {"removeLinks can be called only on the stack"}
         val offset = c.getOffset()
@@ -3542,8 +3656,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * The caller ensures that [srcLinks] are actually links from [srcC].node
      * [adjustedOffset] allows translating offsets from the source to the destination.
      **/
-    private fun copyLinks(srcC: PTACell, dstC: PTACell,
-                          srcLinks: List<PTALink>,
+    private fun copyLinks(srcC: PTACell<Flags>, dstC: PTACell<Flags>,
+                          srcLinks: List<PTALink<Flags>>,
                           adjustedOffset: PTAOffset,
                           locInst: LocatedSbfInstruction?) {
         val dstNode = dstC.getNode()
@@ -3559,7 +3673,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     }
 
     /** Unify each link in [links] with each other. [links] are links inside [n] **/
-    private fun unifyLinks(n: PTANode, links: List<PTAField>) {
+    private fun unifyLinks(n: PTANode<Flags>, links: List<PTAField>) {
         check(n.isExactNode()) {"unifyLinks expects exact node" }
         check(links.isNotEmpty()) {"unifyLinks expects a non-empty list"}
 
@@ -3635,7 +3749,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         /**
          * Transfer function: [srcC] can be stack, but if it's not the stack then its fields are at least tracked precisely.
          **/
-        fun memcpyExactToStack(srcC: PTACell, len: Long, dstC: PTACell) {
+        fun memcpyExactToStack(srcC: PTACell<Flags>, len: Long, dstC: PTACell<Flags>) {
             val srcNode = srcC.getNode()
             val srcOffset = srcC.getOffset()
             val dstNode = dstC.getNode()
@@ -3677,7 +3791,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         }
 
         /** Transfer function: memcpy from summarized memory to stack **/
-        fun  memcpySummToStack(srcC: PTACell, len: Long, dstC: PTACell, isWeak: Boolean = false) {
+        fun  memcpySummToStack(srcC: PTACell<Flags>, len: Long, dstC: PTACell<Flags>, isWeak: Boolean = false) {
             val srcNode = srcC.getNode()
             val dstNode = dstC.getNode()
             val dstOffset = dstC.getOffset()
@@ -3745,7 +3859,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          *  Unify all links in the slice between [srcC].offset and [srcC].offset + [len] - 1, and then
          *  unify them with [dstC].
          */
-        fun memcpyExactToSumm(srcC: PTACell, len: Long, dstC: PTACell) {
+        fun memcpyExactToSumm(srcC: PTACell<Flags>, len: Long, dstC: PTACell<Flags>) {
             val srcNode = srcC.getNode()
             val srcOffset = srcC.getOffset()
             val dstNode = dstC.getNode()
@@ -3790,7 +3904,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          * Note that both source and destination can be stack.
          * If destination is stack then this transformer behaves as memcpy to stack with **weak** semantics.
          */
-        fun memcpyExactToExact(srcC: PTACell, len: Long, dstC: PTACell) {
+        fun memcpyExactToExact(srcC: PTACell<Flags>, len: Long, dstC: PTACell<Flags>) {
             val srcNode = srcC.getNode()
             val srcOffset = srcC.getOffset()
             val dstNode = dstC.getNode()
@@ -3802,8 +3916,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             val srcLinks = srcNode.getLinksInRange(srcOffset, len)
             val dstLinks = dstNode.getLinksInRange(dstOffset, len)
             val adjustedOffset = dstOffset - srcOffset
-            val unifications = mutableListOf<Pair<PTASymCell, PTASymCell>>()
-            val additions = mutableListOf<PTALink>()
+            val unifications = mutableListOf<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>()
+            val additions = mutableListOf<PTALink<Flags>>()
             // 1. If a link exists in both source and destination we unify them
             // 2. If a link doesn't exist on the source but exists on the destination we do nothing.
             //    Note that we don't remove on destination because that would be a strong update.
@@ -3830,7 +3944,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             }
         }
 
-        fun memcpyExactToWeakStack(srcC: PTACell, len: Long, dstC: PTACell) {
+        fun memcpyExactToWeakStack(srcC: PTACell<Flags>, len: Long, dstC: PTACell<Flags>) {
             check(dstC.getNode() == getStack()) { "memcpyExactToWeakStack: destination node is not stack" }
             // Even if the memcpy is weak, we remove any overlapping field.
             // This is similar to what we do in stores.
@@ -3843,7 +3957,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
          *  Transfer function: memcpy from non-stack to non-stack
          *  Note that length is not needed.
          **/
-        fun memcpyNonStackToNonStack(srcC: PTACell, dstC: PTACell) {
+        fun memcpyNonStackToNonStack(srcC: PTACell<Flags>, dstC: PTACell<Flags>) {
             check(srcC.getNode() != getStack()) { "Precondition of memcpyNonStackToNonStack (1)" }
             check(dstC.getNode() != getStack()) { "Precondition of memcpyNonStackToNonStack (2)" }
 
@@ -3991,7 +4105,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         scalars: ScalarDomain,
         globals: GlobalVariableMap
     ) {
-        fun readWords(c1: PTACell, c2: PTACell, len: Int) {
+        fun readWords(c1: PTACell<Flags>, c2: PTACell<Flags>, len: Int) {
             val node1 = c1.getNode()
             val o1 = c1.getOffset()
             val node2 = c2.getNode()
@@ -4112,7 +4226,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         val topStack = c.getOffset().toLongOrNull() ?: return
 
         // 1. Remove all dead links
-        val deadLinks = mutableListOf<PTALink>()
+        val deadLinks = mutableListOf<PTALink<Flags>>()
         for ((field, succC) in stack.getSuccs()) {
             if (field.offset > topStack) {
                 deadLinks.add(PTALink(field, succC))
@@ -4155,7 +4269,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      * Note that we always have the assumption of memory safety. Thus, the code shouldn't access to that unreachable memory.
      */
     private fun doDealloc() {
-        fun isSingletonHeaplet(n: PTANode): Boolean {
+        fun isSingletonHeaplet(n: PTANode<Flags>): Boolean {
             if (!SolanaConfig.OptimisticDealloc.get()) {
                 /**
                  * Enable optimisticDealloc is potentially unsound.
@@ -4165,7 +4279,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                  **/
                 return false
             }
-            return n.isExactNode() && n.isMayHeap && (!n.isMayInteger && !n.isMayStack && !n.isMayExternal)
+            val flags = n.flags
+            return n.isExactNode() && flags.isMayHeap && (!flags.isMayInteger() && !flags.isMayStack && !flags.isMayExternal)
         }
 
         val r1Sc = getRegCell(Value.Reg(SbfRegister.R1_ARG))
@@ -4188,7 +4303,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
                     // If some stack field points to the singleton object then we can set it to top
                     val stackN = getStack()
-                    val links = mutableListOf<PTALink>()
+                    val links = mutableListOf<PTALink<Flags>>()
                     for ((field, c) in stackN.getSuccs()) {
                         if (c.getNode() == n) {
                             links.add(PTALink(field, c))
@@ -4242,8 +4357,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                                     "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
                             }
                             CVTCore.SATISFY, CVTCore.SANITY -> {}
-                            CVTCore.NONDET_ACCOUNT_INFO,  CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
+                            CVTCore.NONDET_ACCOUNT_INFO -> {
                                 summarizeCall(calleeLocInst, globals, scalars, memSummaries)
+                            }
+                            CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
+                                summarizeSolanaAccountSpace(calleeLocInst)
                             }
                             CVTCore.ALLOC_SLICE -> {
                                 summarizeAllocSlice(calleeLocInst, globals, scalars)
@@ -4294,7 +4412,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                         setRegCell(r0, heapAlloc.highLevelAlloc(locInst))
                     }
                     MemSummaryArgumentType.NUM -> {
-                        setRegCell(r0, integerAlloc.alloc(locInst, initializer = { it.integerValue = Constant.makeTop() })) // Numeric analysis loss of precision
+                        setRegCell(r0, integerAlloc.alloc(locInst))
                     }
                     else -> {
                         forget(r0)
@@ -4343,8 +4461,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                                 concretizeCell(externAlloc.alloc(locInst, curArg), devMsg = "$call (3)", locInst)
                             }
                             else -> {
-                                concretizeCell(integerAlloc.alloc(locInst, curArg, initializer = {it.integerValue = Constant.makeTop()}),
-                                               devMsg = "$call (4)", locInst) // Numeric analysis loss of precision
+                                concretizeCell(integerAlloc.alloc(locInst, curArg), devMsg = "$call (4)", locInst)
                             }
                         }
                         allocatedC.getNode().setWrite()
@@ -4360,6 +4477,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
         val vis = PointerSummaryVisitor()
         memSummaries.visitSummary(locInst, vis)
+    }
+
+    private fun summarizeSolanaAccountSpace(locInst: LocatedSbfInstruction) {
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+
+        setRegCell(r0, externAlloc.allocSolanaAccountSpace(locInst))
     }
 
     /**
@@ -4413,15 +4536,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
         // We cannot tell for sure whether a node is allocated in a particular region because we keep track of that as may information.
         // If a node might be allocated in more than one region we allocated first in external and then heap.
-        if (baseN.isMayExternal) {
-            val allocC = externAlloc.alloc(locInst)
+        if (baseN.flags.isMayExternal) {
+            val allocC = externAlloc.allocSolanaAccountSlice(locInst, baseN.flags.accountStart, offset)
             val returnedC = allocC.getNode().createSymCell(allocC.getOffset().add(PTASymOffset(offset)))
-            baseN.copyFlags(returnedC.getNode())
             setRegCell(r0, returnedC)
-        } else if (baseN.isMayHeap) {
+        } else if (baseN.flags.isMayHeap) {
             val allocC = heapAlloc.highLevelAlloc(locInst)
             val returnedC = allocC.getNode().createSymCell(allocC.getOffset().add(PTASymOffset(offset)))
-            baseN.copyFlags(returnedC.getNode())
             setRegCell(r0, returnedC)
         } else {
             throw PointerDomainError("The base pointer (r1) is from an unexpected region:\n" +
@@ -4441,11 +4562,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
      *  This will create, for instance, the warning `Warning: node Node13239_2370_PTA_NODE_250, port f40 unrecognized`
      *  when the dot file is converted to svg or similar format.
      */
-    private fun pointedByPredecessors(): Map<PTANode, Set<PTAOffset>> {
-        val references = mutableMapOf<PTANode, MutableSet<PTAOffset>>()
+    private fun pointedByPredecessors(): Map<PTANode<Flags>, Set<PTAOffset>> {
+        val references = mutableMapOf<PTANode<Flags>, MutableSet<PTAOffset>>()
 
         /** Mark that some register or other cell `c'` points to [c] **/
-        fun updateRef(c: PTACell) {
+        fun updateRef(c: PTACell<Flags>) {
             val node = c.getNode()
             val offset = c.getOffset()
             val offsets = references.getOrDefault(node, mutableSetOf(offset))
@@ -4453,7 +4574,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             references[node] = offsets
         }
 
-        fun updateRef(c: PTASymCell) {
+        fun updateRef(c: PTASymCell<Flags>) {
             if (c.isConcrete()) {
                 updateRef(c.concretize())
             }
@@ -4461,8 +4582,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
         for (cell in registers) {
             if (cell != null) {
-                val visited = mutableSetOf<PTANode>()
-                val worklist = mutableListOf<PTANode>()
+                val visited = mutableSetOf<PTANode<Flags>>()
+                val worklist = mutableListOf<PTANode<Flags>>()
                 val rootNode = cell.getNode()
                 worklist.add(rootNode)
                 visited.add(rootNode)
@@ -4486,11 +4607,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
         return references
     }
 
-    private class PrettyPrinterVisitor(val sb: StringBuilder): PTAGraphVisitAction {
+    private inner class PrettyPrinterVisitor(val sb: StringBuilder): PTAGraphVisitAction<Flags> {
         var numNodes = 0
-        val visited = mutableSetOf<PTANode>()
+        val visited = mutableSetOf<PTANode<Flags>>()
 
-        override fun applyBeforeSuccessor(n: PTANode) {
+        override fun applyBeforeSuccessor(n: PTANode<Flags>) {
             if (!visited.add(n)) {
                 return
             }
@@ -4520,12 +4641,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             }
             numNodes += 1
         }
-        override fun applyAfterSuccessor(n: PTANode) {}
-        override fun skipSuccessors(n: PTANode) = false
+        override fun applyAfterSuccessor(n: PTANode<Flags>) {}
+        override fun skipSuccessors(n: PTANode<Flags>) = false
     }
 
     override fun toString(): String {
-        fun registersToString(regs: List<PTASymCell?>, start: Int): String {
+        fun registersToString(regs: List<PTASymCell<Flags>?>, start: Int): String {
             val sb = StringBuilder()
             var numPrintedReg = 0
             for ((i, cell) in regs.withIndex()) {
@@ -4559,7 +4680,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
     // Precondition: graphName must be a single word without spaces in between
     fun toDot(isEmbedded: Boolean, graphName: String, bgColor:String = "lightblue"): String {
-        fun nodeToId(n: PTANode): String {
+        fun nodeToId(n: PTANode<Flags>): String {
             // assume graphName are unique
             // return System.identityHashCode(n)
             return graphName + "_PTA_NODE_" + n.id.toString()
@@ -4582,14 +4703,14 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             }
         }
 
-        class DotVisitor(val sb: StringBuilder, val predRefs: Map<PTANode, Set<PTAOffset>>): PTAGraphVisitAction {
-            val visited = mutableSetOf<PTANode>()
+        class DotVisitor(val sb: StringBuilder, val predRefs: Map<PTANode<Flags>, Set<PTAOffset>>): PTAGraphVisitAction<Flags> {
+            val visited = mutableSetOf<PTANode<Flags>>()
 
-            fun skipNode(@Suppress("UNUSED_PARAMETER") n: PTANode): Boolean {
+            fun skipNode(@Suppress("UNUSED_PARAMETER") n: PTANode<Flags>): Boolean {
               return false
             }
 
-            override fun applyBeforeSuccessor(n: PTANode) {
+            override fun applyBeforeSuccessor(n: PTANode<Flags>) {
 
                 if (!visited.add(n)) {
                     return
@@ -4600,88 +4721,22 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                 }
 
                 sb.append("Node${nodeToId(n)}  ")
-                sb.append("[shape=record,fontname=Helvetica,fontsize=10,label=\"{")
-
-                var addSep = false
+                sb.append("[shape=record,fontname=Helvetica,${n.flags.toDot()} fontsize=10,label=\"{")
                 sb.append("Id=${n.id} ")
-
-                if (n.access != NodeAccess.None) {
-                    if (n is PTASummarizedNode) {
+                if (n.flags.access != NodeAccess.None) {
+                    if (n is PTASummarizedNode<Flags>) {
                         sb.append("SUMMARY ")
-                    } else if (n is PTASummarizedWithStrideNode) {
+                    } else if (n is PTASummarizedWithStrideNode<Flags>) {
                         sb.append("SUMMARY(stride=${n.getStride()}) ")
                     }
                 }
-
-                if (n.isMayGlobal) {
-                    if (addSep) {
-                        sb.append(":")
-                    }
-                    sb.append("Global")
-                    addSep = true
-                }
-                if (n.isMayExternal) {
-                    if (addSep) {
-                        sb.append(":")
-                    }
-                    sb.append("Extern")
-                    addSep = true
-                }
-                if (n.isMayInteger) {
-                    if (addSep) {
-                        sb.append(":")
-                    }
-                    sb.append("Int(${n.integerValue})")
-                    addSep = true
-                }
-                if (n.isMayHeap) {
-                    if (addSep) {
-                        sb.append(":")
-                    }
-                    sb.append("Heap")
-                    addSep = true
-                }
-                if (n.isMayStack) {
-                    if (addSep) {
-                        sb.append(":")
-                    }
-                    sb.append("Stack")
-                }
-
-                when (n.access) {
-                    NodeAccess.Any -> {
-                        if (addSep) {
-                            sb.append(":")
-                        }
-                        sb.append("RX")
-                    }
-                    NodeAccess.Read -> {
-                        if (addSep) {
-                            sb.append(":")
-                        }
-                        sb.append("R")
-                    }
-                    NodeAccess.Write -> {
-                        if (addSep) {
-                            sb.append(":")
-                        }
-                        sb.append("X")
-                    }
-                    NodeAccess.None -> {
-                        if (addSep) {
-                            sb.append(":")
-                        }
-                        sb.append("U")
-                    }
-                }
-
-
+                sb.append("${n.flags}")
                 sb.append("|{")
 
                 val offsets: MutableSet<PTAOffset> = mutableSetOf()
                 offsets.add(PTAOffset(0))
 
-                if (n.access != NodeAccess.None) {
+                if (n.flags.access != NodeAccess.None) {
                     for ((field, succC) in n.getSuccs()) {
                         if (!skipNode(succC.getNode())) {
                             offsets.add(field.offset)
@@ -4700,10 +4755,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
 
                 var i = 0
                 for (offset in offsets.toSortedSet()) {
-                    sb.append(if (n !is PTASummarizedNode || n.access == NodeAccess.None) {
-                        "<f${normalizeOffset(offset, n.access)}>${offset}"
+                    sb.append(if (n !is PTASummarizedNode || n.flags.access == NodeAccess.None) {
+                        "<f${normalizeOffset(offset, n.flags.access)}>${offset}"
                     } else {
-                        "<f${normalizeOffset(offset, n.access)}>oo"
+                        "<f${normalizeOffset(offset, n.flags.access)}>oo"
                     })
                     i++
                     if (i < offsets.size) {
@@ -4717,14 +4772,14 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
                     val succNode = succC.getNode()
                     val succOffset = succC.getOffset()
                     if (succC != null && !skipNode(succNode)) {
-                        sb.append("Node${nodeToId(n)}:f${normalizeOffset(field.offset, n.access)} -> ")
-                        sb.append("Node${nodeToId(succNode)}:f${normalizeOffset(succOffset, succNode.access)} [arrowsize=0.3,label=\"$succOffset\"]\n")
+                        sb.append("Node${nodeToId(n)}:f${normalizeOffset(field.offset, n.flags.access)} -> ")
+                        sb.append("Node${nodeToId(succNode)}:f${normalizeOffset(succOffset, succNode.flags.access)} [arrowsize=0.3,label=\"$succOffset\"]\n")
                     }
                 }
             }
 
-            override fun applyAfterSuccessor(n: PTANode) {}
-            override fun skipSuccessors(n: PTANode) = false
+            override fun applyAfterSuccessor(n: PTANode<Flags>) {}
+            override fun skipSuccessors(n: PTANode<Flags>) = false
         }
 
         val sb = StringBuilder()
@@ -4757,7 +4812,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
             sb.append("[shape=plaintext,fontname=Helvetica,fontsize=10,label=\"r${i}\"]\n")
             val o = cell.getOffset().toLongOrNull()
             if (o != null) {
-                sb.append("Node${regToId(i)} -> Node${nodeToId(cell.getNode())}:f${normalizeOffset(PTAOffset(o), cell.getNode().access)} [arrowtail=tee,arrowsize=0.3]\n")
+                sb.append("Node${regToId(i)} -> Node${nodeToId(cell.getNode())}:f${normalizeOffset(PTAOffset(o), cell.getNode().flags.access)} [arrowtail=tee,arrowsize=0.3]\n")
             } else {
                 sb.append("Node${regToId(i)} -> Node${nodeToId(cell.getNode())}:f0 [arrowtail=tee,arrowsize=0.3,style=\"dashed\",color=\"red\",label=\"top\"]\n")
             }
@@ -4770,15 +4825,15 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(/** Global node
     }
 }
 
-interface PTAGraphVisitAction {
-    fun applyBeforeSuccessor(n: PTANode)
-    fun applyAfterSuccessor(n: PTANode)
-    fun skipSuccessors(n: PTANode): Boolean
+interface PTAGraphVisitAction<Flags: IPTANodeFlags<Flags>> {
+    fun applyBeforeSuccessor(n: PTANode<Flags>)
+    fun applyAfterSuccessor(n: PTANode<Flags>)
+    fun skipSuccessors(n: PTANode<Flags>): Boolean
 }
 
-fun ptaGraphVisit(n: PTANode, vis:PTAGraphVisitAction) {
-    val visited = mutableSetOf<PTANode>()
-    val worklist = mutableListOf<PTANode>()
+fun<Flags: IPTANodeFlags<Flags>> ptaGraphVisit(n: PTANode<Flags>, vis:PTAGraphVisitAction<Flags>) {
+    val visited = mutableSetOf<PTANode<Flags>>()
+    val worklist = mutableListOf<PTANode<Flags>>()
     worklist.add(n)
     visited.add(n)
     while (worklist.isNotEmpty()) {
@@ -4807,11 +4862,11 @@ class OpCounter {
     }
 }
 
-class BinaryOperationToDot<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(private val opName:String) {
+class BinaryOperationToDot<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>>(private val opName:String) {
     private var strDot:String = ""
     private var lastOpId = 0UL
 
-    fun addOperands(g1: PTAGraph<TNum, TOffset>, g2: PTAGraph<TNum, TOffset>, b1: Label?, b2: Label?) {
+    fun addOperands(g1: PTAGraph<TNum, TOffset, Flags>, g2: PTAGraph<TNum, TOffset, Flags>, b1: Label?, b2: Label?) {
         lastOpId = OpCounter.value
         val leftOp = if (b1 != null) {
             "Block $b1"
@@ -4840,7 +4895,7 @@ class BinaryOperationToDot<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(pri
     }
 
     // If the binary operation returns a graph
-    fun addResultAndPrint(g: PTAGraph<TNum, TOffset>, b1: Label?, b2: Label?) {
+    fun addResultAndPrint(g: PTAGraph<TNum, TOffset, Flags>, b1: Label?, b2: Label?) {
         strDot += "subgraph cluster_result {\n" +
                 "label=\"Result\";\n" +
                 g.toDot(true, "result") +

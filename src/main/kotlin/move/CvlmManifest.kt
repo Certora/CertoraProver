@@ -21,6 +21,7 @@ import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import datastructures.stdcollections.*
 import com.certora.collect.*
 import config.*
+import datastructures.*
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import move.MoveModule.*
@@ -57,9 +58,23 @@ class CvlmManifest(val scene: MoveScene) {
     private val rulesBuilder = mutableMapOf<MoveFunctionName, RuleType>()
     private val shadowedTypes = mutableMapOf<MoveStructName, (MoveType.Struct) -> MoveType.Value>()
     private val summarizers = mutableMapOf<MoveFunctionName, context(SummarizationContext) (MoveCall) -> MoveBlocks>()
+    private val targetFunctionsBuilder = mutableMapOf<MoveModuleName, MutableSet<MoveFunctionName>>()
+    private val targetSanityModules = mutableSetOf<MoveModuleName>()
+
+    private fun targetSanityRules() = targetSanityModules.flatMap { module ->
+        selectedTargetFunctions[module].orEmpty().map {
+            if (it in rulesBuilder) {
+                throw CertoraException(
+                    CertoraErrorType.CVL,
+                    "Target function $it appears in both user and sanity rules"
+                )
+            }
+            it to RuleType.SANITY
+        }
+    }
 
     val selectedRules by lazy {
-        rulesBuilder.entries.filter {
+        (rulesBuilder + targetSanityRules()).entries.filter {
             Config.MoveRuleModuleIncludes.getOrNull()?.contains(it.key.module.name) ?: true
         }.filterNot {
             Config.MoveRuleModuleExcludes.getOrNull()?.contains(it.key.module.name) ?: false
@@ -67,6 +82,20 @@ class CvlmManifest(val scene: MoveScene) {
             Config.MoveRuleNameIncludes.getOrNull()?.contains(it.key.simpleName) ?: true
         }.filterNot {
             Config.MoveRuleNameExcludes.getOrNull()?.contains(it.key.simpleName) ?: false
+        }
+    }
+
+    val selectedTargetFunctions: Map<MoveModuleName, List<MoveFunctionName>> by lazy {
+        targetFunctionsBuilder.mapValues { (_, funcs) ->
+            funcs.filter {
+                Config.MoveTargetModuleIncludes.getOrNull()?.contains(it.module.name) ?: true
+            }.filterNot {
+                Config.MoveTargetModuleExcludes.getOrNull()?.contains(it.module.name) ?: false
+            }.filter {
+                Config.MoveTargetNameIncludes.getOrNull()?.contains(it.simpleName) ?: true
+            }.filterNot {
+                Config.MoveTargetNameExcludes.getOrNull()?.contains(it.simpleName) ?: false
+            }
         }
     }
 
@@ -103,7 +132,28 @@ class CvlmManifest(val scene: MoveScene) {
         }
     }
 
+    private fun addTargetFunction(
+        manifestModule: MoveModuleName,
+        func: MoveFunctionName
+    ) {
+        val moduleFunctions = targetFunctionsBuilder.getOrPut(manifestModule) { mutableSetOf() }
+        if (!moduleFunctions.add(func)) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Target function $func appears multiple times in the $manifestModule module manifest"
+            )
+        }
+    }
+
+    private val functionStructName = MoveStructName(
+        MoveModuleName(Config.CvlmAddress.get(), "function"),
+        "Function"
+    )
+
     init {
+        // Ensure cvlm::function::Function is represented as MoveType.Function, and no user code can override this.
+        addShadowedType(functionStructName) { MoveType.Function }
+
         // Load all module manifest functions in the scene.
         scene.modules.forEach { moduleName ->
             scene.module(moduleName).functionDefinitions?.forEach { funcDef ->
@@ -184,6 +234,9 @@ class CvlmManifest(val scene: MoveScene) {
                         MoveFunctionName(manifestModule, "hash") -> hash(manifestName, stack)
                         MoveFunctionName(manifestModule, "shadow") -> shadow(manifestName, stack)
                         MoveFunctionName(manifestModule, "field_access") -> fieldAccessor(manifestName, stack)
+                        MoveFunctionName(manifestModule, "target") -> target(manifestName, stack)
+                        MoveFunctionName(manifestModule, "target_sanity") -> targetSanity(manifestName, stack)
+                        MoveFunctionName(manifestModule, "invoker") -> invoker(manifestName, stack)
                         else -> {
                             throw CertoraException(
                                 CertoraErrorType.CVL,
@@ -228,12 +281,6 @@ class CvlmManifest(val scene: MoveScene) {
                 "Rule function $ruleName is not defined in the scene, but is referenced in module manifest function $manifestName"
             )
         }
-        if (ruleDef.function.typeParameters.isNotEmpty()) {
-            throw CertoraException(
-                CertoraErrorType.CVL,
-                "Rule function $ruleName has type parameters; generic rules are not supported."
-            )
-        }
 
         addRule(ruleName, RuleType.USER_RULE)
     }
@@ -266,6 +313,23 @@ class CvlmManifest(val scene: MoveScene) {
 
         functionNames.forEach {
             addRule(it, RuleType.SANITY)
+        }
+    }
+
+    private fun targetSanity(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
+        /*
+            ```
+            public native fun target_sanity();
+            ```
+
+            Generates sanity rules for this module's target functions
+         */
+        unused(stack)
+        if (!targetSanityModules.add(manifestName.module)) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Target function sanity for module ${manifestName.module} defined more than once"
+            )
         }
     }
 
@@ -563,7 +627,7 @@ class CvlmManifest(val scene: MoveScene) {
         if (shadowFunc.typeParameters != shadowedTypeHandle.typeParameters.map { it.constraints }) {
             throw CertoraException(
                 CertoraErrorType.CVL,
-                "Shadow mapping $shadowFuncName must have the same type parameters as the shadowed type ${shadowedTypeHandle.qualifiedName}."
+                "Shadow mapping $shadowFuncName must have the same type parameters as the shadowed type ${shadowedTypeHandle.name}."
             )
         }
         if (shadowedToken.typeArguments.withIndex().any { (index, type) ->
@@ -571,7 +635,7 @@ class CvlmManifest(val scene: MoveScene) {
         }) {
             throw CertoraException(
                 CertoraErrorType.CVL,
-                "Shadowed type ${shadowedTypeHandle.qualifiedName} must have the same type arguments as shadow mapping $shadowFuncName."
+                "Shadowed type ${shadowedTypeHandle.name} must have the same type arguments as shadow mapping $shadowFuncName."
             )
         }
         val shadowedTypeDef = scene.definition(shadowedTypeHandle)
@@ -740,6 +804,105 @@ class CvlmManifest(val scene: MoveScene) {
                     srcRef = srcRef,
                     fieldIndex = fieldIndex
                 ).withDecls(dstRef)
+            }
+        }
+    }
+
+    private fun target(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
+        /*
+            public native fun target(module_address: address, module_name: vector<u8>, function_name: vector<u8>);
+
+            Names a target function for the parametric rules in this scene
+         */
+
+        val targetNameValue = stack.removeLast() as StackValue.String
+        val targetModuleValue = stack.removeLast() as StackValue.String
+        val targetAddressValue = stack.removeLast() as StackValue.Address
+
+        val targetName = MoveFunctionName(
+            MoveModuleName(
+                targetAddressValue.value,
+                targetModuleValue.value
+            ),
+            targetNameValue.value
+        )
+
+        val targetDef = scene.maybeDefinition(targetName)
+        if (targetDef == null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Target $targetName is not defined in the scene, but is referenced in module manifest function $manifestName"
+            )
+        }
+
+        addTargetFunction(manifestName.module, targetName)
+    }
+
+    private fun invoker(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
+        /*
+            public native fun invoker(function_name: vector<u8>);
+
+            Registers `function_name` in this module as an "invoker" function for the targets of parametric rules.
+
+            The invoker's first parameter must be of type `cvlm::function::Function`.  No other parameters can be
+            functions.  Additional parameters will be forwarded to the target function, by matching parameters by type.
+            Any target function parameters that do not have corresponding invoker parameters will be havoc'd.
+         */
+        val invokerNameValue = stack.removeLast() as StackValue.String
+
+        val invokerName = MoveFunctionName(manifestName.module, invokerNameValue.value)
+        val invokerDef = scene.maybeDefinition(invokerName)
+        if (invokerDef == null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Invoker function $invokerName is not defined in the scene, but is referenced in module manifest function $manifestName"
+            )
+        }
+        if (invokerDef.code != null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Invoker function $invokerName must be declared as a `native fun`."
+            )
+        }
+        if (invokerDef.function.returns.isNotEmpty()) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Invoker function $invokerName must not have any return values."
+            )
+        }
+        if (invokerDef.function.typeParameters.isNotEmpty()) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Invoker function $invokerName must not have type parameters."
+            )
+        }
+        if (invokerDef.function.params.size < 1 ||
+            (invokerDef.function.params[0] as? SignatureToken.Datatype)?.handle?.name != functionStructName
+        ) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Invoker function $invokerName must have an initial parameter of type $functionStructName."
+            )
+        }
+        if (
+            invokerDef.function.params.drop(1).any {
+                (it as? SignatureToken.Datatype)?.handle?.name == functionStructName
+            }
+        ) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Invoker function $invokerName must have only one parameter of type $functionStructName."
+            )
+        }
+
+        addSummarizer(invokerName) { invokerCall ->
+            singleBlockSummary(invokerCall) {
+                TACCmd.Simple.SummaryCmd(
+                    InvokerCall(
+                        invokerName,
+                        invokerCall.args
+                    )
+                ).withDecls()
             }
         }
     }

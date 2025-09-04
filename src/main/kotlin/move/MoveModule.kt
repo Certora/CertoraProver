@@ -480,7 +480,7 @@ class MoveModule(val path: Path) {
     ) {
         val definingModule get() = module.deref().name
         val simpleName get() = nameIndex.deref().value
-        val qualifiedName get() = "$definingModule::$simpleName"
+        val name get() = MoveStructName(definingModule, simpleName)
 
         val id get() = DatatypeId(
             module = module.deref().name,

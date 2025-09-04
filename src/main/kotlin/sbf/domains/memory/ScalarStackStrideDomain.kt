@@ -25,6 +25,7 @@ import sbf.callgraph.CVTCore
 import sbf.callgraph.CVTFunction
 import datastructures.stdcollections.*
 import log.*
+import sbf.callgraph.SolanaFunction
 
 private val logger = Logger(LoggerTypes.SBF_SCALAR_ANALYSIS)
 private fun dbg(msg: () -> Any) { logger.info(msg) }
@@ -223,46 +224,46 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
     /**
      * Performs reduction from predicates to scalar values
      *
-     * If the abstract value of [reg] has been refined in [scalars], this function checks whether
-     * any other register or stack location is mapped to a predicate [StackStridePredicate] that depends on [reg].
-     * In such cases, it evaluates the predicate using the updated abstract value of [reg].
+     * If the abstract value of [regs] has been refined in [scalars], this function checks whether
+     * any other register is mapped to a predicate [StackStridePredicate] that depends on [regs].
+     * In such cases, it evaluates the predicate using the updated abstract value of [regs].
      * If it produces a more precise scalar value, the result is returned for the caller to apply the update.
-     *
      **/
-    fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> reduceScalars(
-        reg: Value.Reg,
+    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> reduceRegistersInScalars(
+        regs: Set<Value.Reg>,
         scalars: ScalarDomain<TNum, TOffset>
     ): Map<Value.Reg, ScalarValue<TNum, TOffset>> {
 
         if (!SolanaConfig.UseScalarPredicateDomain.get()) {
-            return mapOf()
+            return emptyMap()
         }
 
-        val regVal = scalars.getValue(reg).type()
-        if (regVal !is SbfType.NumType) {
-            return mapOf()
-        }
+        // build a map from register to TNum
+        val regValMap = regs.mapNotNull { reg ->
+            val regVal = scalars.getValue(reg).type()
+            if (regVal is SbfType.NumType) { reg to regVal.value } else { null }
+        }.toMap()
 
         val refinements = mutableMapOf<Value.Reg, ScalarValue<TNum, TOffset>>()
-        // If register spilling is supported then we also need to update the stack entries that depends on `reg`
-        for (i in 0 until NUM_OF_SBF_REGISTERS) {
-            val regToRefine = Value.Reg(SbfRegister.getByValue(i.toByte()))
-            val preds = base.getRegister(regToRefine)
+        val elements = (0 until NUM_OF_SBF_REGISTERS).map { i ->
+            val reg = Value.Reg(SbfRegister.getByValue(i.toByte()))
+            reg to base.getRegister(reg)
+        }
+
+        for ((reg, preds) in elements) {
             if (!preds.isTop() && !preds.isBottom()) {
-                val oldScalarVal = scalars.getValue(regToRefine)
-                // We iterate over all predicates to get the most precise scalar value for `regToRefine`
+                val oldScalarVal = scalars.getValue(reg)
                 var refinedScalarVal = oldScalarVal
                 for (pred in preds) {
-                    if (pred.reg == reg) {
-                        val offset = scalars.sbfTypeFac.numToOffset(pred.evalS(regVal.value))
-                        val newScalarVal = ScalarValue(SbfType.PointerType.Stack<TNum, TOffset>(offset))
-                        if (!refinedScalarVal.lessOrEqual(newScalarVal)) {
-                            refinedScalarVal = newScalarVal
-                        }
+                    val regVal = regValMap[pred.reg] ?: continue
+                    val offset = scalars.sbfTypeFac.numToOffset(pred.evalS(regVal))
+                    val newScalarVal = ScalarValue(SbfType.PointerType.Stack<TNum, TOffset>(offset))
+                    if (!refinedScalarVal.lessOrEqual(newScalarVal)) {
+                        refinedScalarVal = newScalarVal
                     }
                 }
                 if (refinedScalarVal != oldScalarVal) {
-                    refinements[regToRefine] = refinedScalarVal
+                    refinements[reg] = refinedScalarVal
                 }
             }
         }
@@ -536,9 +537,9 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
     fun forget(reg: Value.Reg) {
         base.forget(reg)
 
-        // This is not efficient because it iterates over all registers.
         base.updateRegisters({ !it.isTop()}, transformer = { it.removeAll(reg) })
         base.updateScratchRegisters({ !it.isTop()}, transformer = { it.removeAll(reg) })
+        base.updateStack( { !it.isTop()}, transformer = {it.removeAll(reg)} )
     }
 
     /**
@@ -588,6 +589,8 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
                                     base.setRegister(lhs, post)
                                 }
                             }
+                            // remove stack locations that contains predicates referring to `lhs`
+                            base.updateStack( { !it.isTop()}, transformer = {it.removeAll(lhs)} )
                         } else {
                             forget(lhs)
                         }
@@ -601,6 +604,8 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
                                 { !it.isTop() },
                                 { it.transform( { pred -> pred.reg == lhs}, { pred -> pred.substitute(inst.op, k)}) }
                             )
+                            // remove stack locations that contains predicates referring to `lhs`
+                            base.updateStack( { !it.isTop()}, transformer = {it.removeAll(lhs)} )
                         } else {
                             forget(lhs)
                         }
@@ -616,50 +621,186 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         }
     }
 
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCall(
-        locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>) {
 
+
+
+    /** Return true iff [locInst] is a call to a CVT function **/
+    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCVTCall(
+        locInst: LocatedSbfInstruction,
+        scalars: ScalarDomain<TNum, TOffset>,
+        memSummaries: MemorySummaries
+    ): Boolean {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
-        /** CVT call **/
-        val cvtFunction = CVTFunction.from(inst.name)
-        if (cvtFunction != null) {
-            when (cvtFunction) {
-                is CVTFunction.Core -> {
-                    when (cvtFunction.value) {
-                        CVTCore.SAVE_SCRATCH_REGISTERS -> {
-                            base.saveScratchRegisters()
+        val cvtFunction = CVTFunction.from(inst.name)  ?: return false
+        when (cvtFunction) {
+            is CVTFunction.Core -> {
+                when (cvtFunction.value) {
+                    CVTCore.SAVE_SCRATCH_REGISTERS -> {
+                        base.saveScratchRegisters()
+                        return true
+                    }
+                    CVTCore.RESTORE_SCRATCH_REGISTERS -> {
+                        val topStack = (scalars.getValue(Value.Reg(SbfRegister.R10_STACK_POINTER)).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
+                        check(topStack != null){ "r10 should point to a statically known stack offset"}
+                        base.restoreScratchRegisters(topStack)
+                        return true
+
+                    }
+                    else -> {}
+                }
+            }
+            else -> {}
+        }
+        base.analyzeExternalCall(locInst, scalars, memSummaries)
+        return true
+    }
+
+
+    /** Return true iff [locInst] is a call to a Solana syscall **/
+    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeSolanaCall(
+        locInst: LocatedSbfInstruction,
+        scalars: ScalarDomain<TNum, TOffset>,
+        memSummaries: MemorySummaries
+    ): Boolean {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+
+        val solFunction = SolanaFunction.from(inst.name) ?: return false
+        when (solFunction) {
+            SolanaFunction.SOL_MEMCPY,
+            SolanaFunction.SOL_MEMMOVE,
+            SolanaFunction.SOL_MEMSET -> base.analyzeMemIntrinsics(locInst, scalars)
+            else -> base.analyzeExternalCall(locInst, scalars, memSummaries)
+        }
+        return true
+    }
+
+    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCall(
+        locInst: LocatedSbfInstruction,
+        scalars: ScalarDomain<TNum, TOffset>,
+        memSummaries: MemorySummaries
+    ) {
+        if (analyzeCVTCall(locInst, scalars, memSummaries)) {
+            return
+        }
+
+        if (analyzeSolanaCall(locInst, scalars, memSummaries)) {
+            return
+        }
+
+        // default case
+        base.analyzeExternalCall(locInst, scalars, memSummaries)
+    }
+
+    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeStore(
+        locInst: LocatedSbfInstruction,
+        scalars: ScalarDomain<TNum, TOffset>
+    ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Mem)
+        check(!inst.isLoad)
+
+        val baseType = scalars.getAsScalarValue(inst.access.baseReg).type()
+        if (baseType is SbfType.PointerType.Stack) {
+            val stackTOffsets = baseType.offset.add(inst.access.offset.toLong())
+            check(!stackTOffsets.isBottom())
+
+            // Determine the stack offset.
+            // As a side effect, we can completely wipe out the stack in the worst-case
+            val stackOffset = when {
+                stackTOffsets.isTop() -> {
+                    base.removeStack()
+                    null
+                }
+                else -> {
+                    val stackOffsets = stackTOffsets.toLongList()
+                    when (stackOffsets.size) {
+                        0 -> {
+                            base.removeStack()
+                            null
                         }
-                        CVTCore.RESTORE_SCRATCH_REGISTERS -> {
-                            val topStack = (scalars.getValue(Value.Reg(SbfRegister.R10_STACK_POINTER)).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
-                            check(topStack != null){ "r10 should point to a statically known stack offset"}
-                            base.restoreScratchRegisters(topStack)
+                        1 -> {
+                            stackOffsets.first()
                         }
-                        else -> {}
+                        else -> {
+                            stackOffsets.forEach {
+                                base.removeStackSliceIf(
+                                    it,
+                                    inst.access.width.toLong(),
+                                    onlyPartial = false
+                                )
+                            }
+                            null
+                        }
                     }
                 }
-                else -> {}
+            }
+
+            // Do the actual store in the stack at the determined location
+            if (stackOffset != null) {
+                val slice = ByteRange(stackOffset, inst.access.width.toByte())
+                val x = when (inst.value) {
+                    is Value.Imm -> SetOfStackStridePredicate.mkTop()
+                    is Value.Reg -> base.getRegister(inst.value)
+                }
+                // onlyPartial=false means that any overlapping entry is killed
+                base.removeStackSliceIf(slice.offset, slice.width.toLong(), onlyPartial = false)
+                base.updateStack(slice, x, isWeak = false)
+            }
+        }
+    }
+
+
+    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeLoad(
+        locInst: LocatedSbfInstruction,
+        scalars: ScalarDomain<TNum, TOffset>
+    ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Mem)
+        check(inst.isLoad)
+
+        val baseType = scalars.getAsScalarValue(inst.access.baseReg).type()
+        if (baseType is SbfType.PointerType.Stack) {
+            val stackTOffsets = baseType.offset.add(inst.access.offset.toLong())
+            check(!stackTOffsets.isBottom())
+
+            // Determine the offset
+            val stackOffset = when {
+                stackTOffsets.isTop() -> null
+                else -> {
+                    val stackOffsets = stackTOffsets.toLongList()
+                    when (stackOffsets.size) {
+                        0 -> null
+                        1 -> stackOffsets.first()
+                        else -> null
+                    }
+                }
+            }
+
+            // Read from the stack at the determined offset and return
+            if (stackOffset != null) {
+                val slice = ByteRange(stackOffset, inst.access.width.toByte())
+                val x = base.getStackSingletonOrNull(slice)
+                if (x == null) {
+                    forget(inst.value as Value.Reg)
+                } else {
+                    base.setRegister(inst.value as Value.Reg, x)
+                }
+                return
             }
         }
 
-        // Since we are ignoring the stack it suffices to forget `r0`
-        forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
-    }
-
-    private fun analyzeMem(locInst: LocatedSbfInstruction) {
-        val inst = locInst.inst
-        check(inst is SbfInstruction.Mem)
-
-        if (inst.isLoad) {
-            forget(inst.value as Value.Reg)
-        }
+        // default: havoc lhs
+        forget(inst.value as Value.Reg)
     }
 
     fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyze(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain<TNum, TOffset>) {
+        scalars: ScalarDomain<TNum, TOffset>,
+        memSummaries: MemorySummaries
+    ) {
 
         if (!SolanaConfig.UseScalarPredicateDomain.get()) {
             return
@@ -670,14 +811,14 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
             when (s) {
                 is SbfInstruction.Un -> forget(s.dst)
                 is SbfInstruction.Bin -> analyzeBin(locInst, scalars)
-                is SbfInstruction.Call -> analyzeCall(locInst, scalars)
+                is SbfInstruction.Call -> analyzeCall(locInst, scalars, memSummaries)
                 is SbfInstruction.CallReg -> {}
                 is SbfInstruction.Select -> forget(s.dst)
                 is SbfInstruction.Havoc -> forget(s.dst)
                 is SbfInstruction.Jump.ConditionalJump -> {}
                 is SbfInstruction.Assume -> { /* do nothing is sound */}
                 is SbfInstruction.Assert -> { /* do nothing is sound */}
-                is SbfInstruction.Mem -> analyzeMem(locInst)
+                is SbfInstruction.Mem -> if (s.isLoad) { analyzeLoad(locInst, scalars) } else { analyzeStore(locInst, scalars)}
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
             }
@@ -846,16 +987,14 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
             }
 
             scalars.analyze(locInst, globals, memSummaries)
-            predicates.analyze(locInst, scalars)
+            predicates.analyze(locInst, scalars, memSummaries)
 
             if (SolanaConfig.UseScalarPredicateDomain.get()) {
                 if (inst is SbfInstruction.Assume) {
                     // REDUCTION: if a loop counter is constrained then restrict stack pointers for which we hold a predicate
-                    inst.readRegisters.forEach {
-                        predicates.reduceScalars(it, scalars).also { updates ->
-                            for ((reg, scalarVal) in updates) {
-                                scalars.setScalarValue(reg, scalarVal)
-                            }
+                    predicates.reduceRegistersInScalars(inst.readRegisters, scalars).also { updates ->
+                        for ((reg, scalarVal) in updates) {
+                            scalars.setScalarValue(reg, scalarVal)
                         }
                     }
                 }

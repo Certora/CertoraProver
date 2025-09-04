@@ -60,14 +60,15 @@ object CvlmHash {
 
         // Add any type arguments to the hash
         call.callee.typeArguments.forEach { type ->
-            when (type) {
-                is MoveType.Nondet -> TACExpr.Select(
-                    base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
-                    loc = type.id.asTACExpr
-                )
-                else -> type.typeId()
-            }
-            hashArgs.add(type.typeId())
+            hashArgs.add(
+                when (type) {
+                    is MoveType.Nondet -> TACExpr.Select(
+                        base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
+                        loc = type.id.asTACExpr
+                    )
+                    else -> type.typeId()
+                }
+            )
         }
 
         // Unwrap any reference arguments to get the values

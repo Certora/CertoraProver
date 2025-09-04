@@ -22,6 +22,7 @@ import vc.data.*
 import datastructures.stdcollections.*
 import sbf.domains.INumValue
 import sbf.domains.IOffset
+import sbf.domains.IPTANodeFlags
 
 sealed class TACAllocator {
     /**
@@ -30,8 +31,10 @@ sealed class TACAllocator {
      *   2) assume([ptr] == [address]) if [useTACAssume] = true
      */
 
-    context(SbfCFGToTAC<TNum, TOffset>)
-    protected fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> mkEq(ptr: TACSymbol.Var, address: ULong, useTACAssume:Boolean): List<TACCmd.Simple> {
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    protected fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mkEq(
+        ptr: TACSymbol.Var, address: ULong, useTACAssume:Boolean
+    ): List<TACCmd.Simple> {
         return if (useTACAssume) {
             val b = mkFreshBoolVar()
             listOf(
@@ -65,8 +68,10 @@ class TACBumpAllocator(val name:String, val start: ULong, val end: ULong): TACAl
     /**
      *   Emit TAC code that ensures [ptr] is equal to the bump pointer.
      */
-    context(SbfCFGToTAC<TNum, TOffset>)
-    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> alloc(ptr: TACSymbol.Var, size: ULong, useTACAssume:Boolean = false): List<TACCmd.Simple> {
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> alloc(
+        ptr: TACSymbol.Var, size: ULong, useTACAssume:Boolean = false
+    ): List<TACCmd.Simple> {
         val nextAddress = next(size)
         return mkEq(ptr, nextAddress, useTACAssume)
     }
@@ -91,8 +96,10 @@ class TACFixedSizeBlockAllocator(val name:String, val start:ULong, private val m
     /**
      *   Emit TAC code that ensures [ptr] is equal to the start address of a new allocated block.
      */
-    context(SbfCFGToTAC<TNum, TOffset>)
-    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> alloc(ptr: TACSymbol.Var, size: Long, useTACAssume:Boolean = false): List<TACCmd.Simple> {
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> alloc(
+        ptr: TACSymbol.Var, size: Long, useTACAssume:Boolean = false
+    ): List<TACCmd.Simple> {
         if (size <= 0) {
             throw TACTranslationError("$name: expects non-zero, positive sizes but given $size")
         }

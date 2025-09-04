@@ -30,8 +30,11 @@ import java.math.BigInteger
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.stream.Collectors
 
-abstract class DefAnalysis(
-    val graph: TACCommandGraph,
+abstract class DefAnalysis<
+    T : TACCmd, U : LTACCmdGen<T>, V : TACBlockGen<T, U>, G : GenericTACCommandGraph<T, U, V>
+>(
+    val graph: G,
+    val blockView: GraphBlockView<G, V, NBId>,
     /**
         The set of variables that should initially be treated as undefined.
 
@@ -41,20 +44,20 @@ abstract class DefAnalysis(
     private val initialUndefinedVars: TreapSet<TACSymbol.Var>
 ) {
     /**
-        Gets the variable defined by this command, or null if it doesn't define any variable.
+        Gets the variables defined by this command, if any.
 
         Different subclasses may have different ideas of which commands define variables.
      */
-    abstract protected fun TACCmd.getDefinedVar(): TACSymbol.Var?
+    abstract protected fun U.getDefinedVars(): Iterable<TACSymbol.Var>
 
     /**
         All definitions of every variable.  Maps (block, v) to an array of locations of defs in that block
      */
     private val allDefs: Map<Pair<NBId, TACSymbol.Var>, IntArray> =
         groupToArrays(
-            graph.commands.mapNotNull { (ptr, cmd) ->
-                cmd.getDefinedVar()?.let { v ->
-                    (ptr.block to v) to ptr.pos
+            graph.commands.flatMap {
+                it.getDefinedVars().map { v ->
+                    (it.ptr.block to v) to it.ptr.pos
                 }
             }
         )
@@ -121,7 +124,7 @@ abstract class DefAnalysis(
         The [DefState] at the entry to each block.
      */
     private val entryStates: Map<NBId, DefState> by lazy {
-        object : TACBlockDataflowAnalysis<DefState>(
+        object : BlockDataflowAnalysis<G, V, NBId, DefState>(
             graph,
             JoinLattice.ofJoin(::join),
             DefState(
@@ -129,7 +132,8 @@ abstract class DefAnalysis(
                 hard = treapMapOf(),
                 undef = initialUndefinedVars
             ),
-            Direction.FORWARD
+            Direction.FORWARD,
+            blockView
         ) {
             /**
                 Find a set of "easy" variables (see [DefState.easy]).  We could do a very thorough search here, but that
@@ -147,14 +151,14 @@ abstract class DefAnalysis(
                 }
             }
 
-            override fun transform(inState: DefState, block: TACBlock): DefState {
+            override fun transform(inState: DefState, block: V): DefState {
                 var (easy, hard, undef) = inState
-                block.commands.forEach { (ptr, cmd) ->
-                    cmd.getDefinedVar()?.let { v ->
+                block.commands.forEach {
+                    it.getDefinedVars().forEach { v ->
                         if (v in easyVars) {
                             easy += v
                         } else {
-                            hard += v to treapSetOf(ptr)
+                            hard += v to treapSetOf(it.ptr)
                         }
                         undef -= v
                     }
@@ -182,17 +186,16 @@ abstract class DefAnalysis(
     Fast and loose def analysis.  Does not care whether a variable might be undefined (unless it is definitely
     undefined). Only considers definitions via [TACCmd.Simple.AssigningCmd].
  */
-open class LooseDefAnalysis protected constructor(
-    graph: TACCommandGraph
-) : DefAnalysis(
+abstract class GenericLooseDefAnalysis<
+    T : TACCmd, U : LTACCmdGen<T>, V : TACBlockGen<T, U>, G : GenericTACCommandGraph<T, U, V>
+> (
+    graph: G,
+    blockView: GraphBlockView<G, V, NBId>
+) : DefAnalysis<T, U, V, G>(
     graph,
+    blockView,
     initialUndefinedVars = treapSetOf()
 ), IDefAnalysis {
-    companion object : AnalysisCache.Key<TACCommandGraph, LooseDefAnalysis> {
-        override fun createCached(graph: TACCommandGraph) = LooseDefAnalysis(graph)
-    }
-
-    override protected fun TACCmd.getDefinedVar() = (this as? TACCmd.Simple.AssigningCmd)?.lhs
 
     override fun defSitesOf(v: TACSymbol.Var, pointer: CmdPointer) =
         findDefs(v, pointer).first
@@ -238,14 +241,29 @@ open class LooseDefAnalysis protected constructor(
     private val slowQueryCount = AtomicInteger(0)
 }
 
+class LooseDefAnalysis private constructor(
+    graph: TACCommandGraph
+) : GenericLooseDefAnalysis<TACCmd.Simple, LTACCmd, TACBlock, TACCommandGraph>(
+    graph,
+    TACBlockView()
+) {
+    companion object : AnalysisCache.Key<TACCommandGraph, LooseDefAnalysis> {
+        override fun createCached(graph: TACCommandGraph) = LooseDefAnalysis(graph)
+    }
+
+    override protected fun LTACCmd.getDefinedVars() =
+        (cmd as? TACCmd.Simple.AssigningCmd)?.let { listOf(it.lhs) }.orEmpty()
+}
+
 /**
     More strict def analysis than [LooseDefAnalysis].  Returns [null] along with the known defintitions, if the variable
     might be undefined.  Considers more commands to be "defining" commands (see [getModifiedVar]).
  */
-open class StrictDefAnalysis protected constructor(
+class StrictDefAnalysis private constructor(
     graph: TACCommandGraph
-) : DefAnalysis(
+) : DefAnalysis<TACCmd.Simple, LTACCmd, TACBlock, TACCommandGraph>(
     graph,
+    TACBlockView(),
     initialUndefinedVars = graph.blocks.parallelStream().flatMap {
         it.commands.flatMapToSet { it.cmd.freeVars() }.stream()
     }.collect(Collectors.toCollection { treapSetBuilderOf() }).build()
@@ -254,7 +272,7 @@ open class StrictDefAnalysis protected constructor(
         override fun createCached(graph: TACCommandGraph) = StrictDefAnalysis(graph)
     }
 
-    override protected fun TACCmd.getDefinedVar() = getModifiedVar()
+    override protected fun LTACCmd.getDefinedVars() = cmd.getModifiedVar()?.let { listOf(it) }.orEmpty()
 
     fun defSitesOf(v: TACSymbol.Var, pointer: CmdPointer) =
         findDefs(v, pointer).let { (defs, maybeUndefined) ->

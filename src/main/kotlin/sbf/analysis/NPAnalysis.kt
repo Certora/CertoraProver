@@ -70,11 +70,14 @@ private typealias TNum = ConstantSet
 private typealias TOffset= ConstantSet
 private typealias TScalarDomain = ScalarDomain<TNum, TOffset>
 
+typealias NPDomainT = NPDomain<TScalarDomain, TNum, TOffset>
+private typealias NPDomainStateT = NPDomainState<TNum, TOffset, TScalarDomain>
+
 class NPAnalysis(
     val cfg: MutableSbfCFG,
     globalsMap: GlobalVariableMap,
     memSummaries: MemorySummaries) :
-    SbfBlockDataflowAnalysis<NPDomainState<TNum, TOffset, TScalarDomain>>(
+    SbfBlockDataflowAnalysis<NPDomainStateT>(
         cfg,
         lattice(),
         NPDomainState.mkBottom(),
@@ -113,19 +116,19 @@ class NPAnalysis(
         cfg.removeAnnotations(listOf(SbfMeta.EQUALITY_REG_AND_STACK))
     }
 
-    fun getPreconditionsAtEntry(label: Label): NPDomain<TScalarDomain, TNum, TOffset>? {
+    fun getPreconditionsAtEntry(label: Label): NPDomainT? {
         return blockOut[label]?.state
     }
 
-    fun contains(np: NPDomain<TScalarDomain, TNum, TOffset>, cond: Condition): Boolean {
+    fun contains(np: NPDomainT, cond: Condition): Boolean {
         return np.contains(NPDomain.getLinCons(cond, vFac))
     }
 
-    fun isBottom(np: NPDomain<TScalarDomain, TNum, TOffset>, locInst: LocatedSbfInstruction, cond: Condition): Boolean {
-        return np.analyzeAssume(cond, locInst, vFac, registerTypes).isBottom()
+    fun isBottom(np: NPDomainT, locInst: LocatedSbfInstruction, cond: Condition, useForwardInvariants: Boolean = true): Boolean {
+        return np.analyzeAssume(cond, locInst, vFac, if (useForwardInvariants) {registerTypes} else {null} ).isBottom()
     }
 
-    fun populatePreconditionsAtInstruction(label:Label): Map<LocatedSbfInstruction, NPDomain<TScalarDomain, TNum, TOffset>>{
+    fun populatePreconditionsAtInstruction(label:Label): Map<LocatedSbfInstruction, NPDomainT>{
         val block = cfg.getBlock(label)
         return if (block != null) {
             var outVal = if (block.getInstructions().any{ it is SbfInstruction.Exit}) {
@@ -145,7 +148,7 @@ class NPAnalysis(
         }
     }
 
-    override fun transform(inState: NPDomainState<TNum, TOffset, TScalarDomain>, block: SbfBasicBlock): NPDomainState<TNum, TOffset, TScalarDomain> {
+    override fun transform(inState: NPDomainStateT, block: SbfBasicBlock): NPDomainStateT {
         val inNPVal = if (exits.contains(block.getLabel())) {
             NPDomain.mkTrue()
         } else {

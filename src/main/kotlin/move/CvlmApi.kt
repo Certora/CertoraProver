@@ -49,10 +49,12 @@ object CvlmApi {
     }
 
     private val assertsModule = MoveModuleName(cvlmAddr, "asserts")
+    private val internalAssertsModule = MoveModuleName(cvlmAddr, "internal_asserts")
     private val nondetModule = MoveModuleName(cvlmAddr, "nondet")
     private val ghostModule = MoveModuleName(cvlmAddr, "ghost")
     private val conversionsModule = MoveModuleName(cvlmAddr, "conversions")
     private val mathIntModule = MoveModuleName(cvlmAddr, "math_int")
+    private val functionModule = MoveModuleName(cvlmAddr, "function")
 
     private val mathIntTypeName = MoveStructName(mathIntModule, "MathInt")
 
@@ -63,10 +65,12 @@ object CvlmApi {
 
     init {
         addAssertsSummaries()
+        addInternalAssertsSummaries()
         addNondetSummaries()
         addGhostSummaries()
         addConversionsSummaries()
         addMathIntSummaries()
+        addFunctionSummaries()
     }
 
     private fun addAssertsSummaries() {
@@ -209,6 +213,42 @@ object CvlmApi {
                         ).withDecls()
                     )
                 }
+            }
+        }
+    }
+
+    private fun addInternalAssertsSummaries() {
+        /*
+            ```
+            public native fun cvlm_internal_assert(cond: bool);
+            ```
+            This is an assertion that does not appear as a user assertion; used mainly for testing.
+         */
+        addSummary(internalAssertsModule, "cvlm_internal_assert") { call ->
+            singleBlockSummary(call) {
+                mergeMany(
+                    TACCmd.Simple.AssertCmd(
+                        call.args[0],
+                        "cvlm_internal_assert"
+                    ).withDecls()
+                )
+            }
+        }
+
+        /*
+            ```
+            public native fun cvlm_internal_assume(cond: bool);
+            ```
+            This is an assume that does not appear as a user assume; used mainly for testing.
+         */
+        addSummary(internalAssertsModule, "cvlm_internal_assume") { call ->
+            singleBlockSummary(call) {
+                mergeMany(
+                    TACCmd.Simple.AssumeCmd(
+                        call.args[0],
+                        "cvlm_internal_assume"
+                    ).withDecls()
+                )
             }
         }
     }
@@ -395,6 +435,80 @@ object CvlmApi {
         addSummary(mathIntModule, "ge") { call ->
             singleBlockSummary(call) {
                 assign(call.returns[0]) { call.args[0].asSym() ge call.args[1].asSym() }
+            }
+        }
+    }
+
+    /**
+        Summarizes a call that extracts info from the name of a parametric function target:
+        ```
+        public native fun name(function: Function): vector<u8>;
+        public native fun module_name(function: Function): vector<u8>;
+        public native fun module_address(function: Function): address;
+        ```
+     */
+    context(SummarizationContext)
+    private fun summarizeFunctionInfo(
+        call: MoveCall,
+        resultType: MoveType,
+        extract: (MoveFunctionName) -> Pair<TACSymbol, MoveCmdsWithDecls>
+    ) = singleBlockSummary(call) {
+        mergeMany(
+            buildList {
+                val targetNames = parametricTargets.mapValues { (_, func) ->
+                    val (nameVar, nameInit) = extract(func.name)
+                    add(nameInit)
+                    nameVar
+                }
+                val functionSelector = call.args[0]
+                add(
+                    assign(call.returns[0]) {
+                        targetNames.entries.fold(
+                            TACExpr.Unconstrained(resultType.toTag()) as TACExpr
+                        ) { acc, (id, name) ->
+                            ite(
+                                id.asTACExpr eq functionSelector,
+                                name,
+                                acc
+                            )
+                        }
+                    }
+                )
+            }
+        )
+    }
+
+    private fun addFunctionSummaries() {
+        /*
+            ```
+            public native fun name(function: Function): vector<u8>;
+            ```
+         */
+        addSummary(functionModule, "name") { call ->
+            summarizeFunctionInfo(call, MoveType.Vector(MoveType.U8)) {
+                MoveToTAC.packString(it.simpleName)
+            }
+        }
+
+        /*
+            ```
+            public native fun module_name(function: Function): vector<u8>;
+            ```
+         */
+        addSummary(functionModule, "module_name") { call ->
+            summarizeFunctionInfo(call, MoveType.Vector(MoveType.U8)) {
+                MoveToTAC.packString(it.module.name)
+            }
+        }
+
+        /*
+            ```
+            public native fun module_address(function: Function): vector<u8>;
+            ```
+         */
+        addSummary(functionModule, "module_address") { call ->
+            summarizeFunctionInfo(call, MoveType.Address) {
+                TACSymbol.Const(it.module.address, MoveType.Address.toTag()) to MoveCmdsWithDecls()
             }
         }
     }

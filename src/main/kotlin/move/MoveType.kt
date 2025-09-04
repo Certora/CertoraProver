@@ -155,6 +155,21 @@ sealed class MoveType : HasKSerializable {
         override fun toTag() = MoveTag.Nondet(this)
         override fun symNameExt() = "nondet!$id"
     }
+
+    /**
+        Represents a function passed to a parametric rule.  This type shadows the CVLM type cvlm::function::Function.
+
+        In TAC, this is represented as an integer, which is the index of the rule argument that this function came from.
+        This allows us to dynamically dispatch to the correct function, in the case where a parametric rule has more
+        than one function parameter.
+     */
+    @KSerializable
+    object Function : Simple() {
+        override fun toString() = "fun"
+        override fun toTag() = Tag.Bit256
+        override fun symNameExt() = "fun"
+        override fun hashCode() = hashObject(this)
+    }
 }
 
 context(MoveScene)
@@ -198,17 +213,22 @@ fun MoveModule.DatatypeHandle.toMoveStructRaw(
     typeArgs: List<MoveType.Value> = listOf(),
 ): MoveType.Struct {
     check(typeParameters.size == typeArgs.size) {
-        "Type parameters size mismatch for ${qualifiedName}: expected ${typeParameters.size}, got ${typeArgs.size}"
+        "Type parameters size mismatch for $name: expected ${typeParameters.size}, got ${typeArgs.size}"
     }
     val def = definition(this)
     return MoveType.Struct(
         MoveStructName(definingModule, simpleName),
         typeArgs,
         def.fields?.map {
-            MoveType.Struct.Field(
-                it.name,
-                it.signature.toMoveValueType { typeArgs[it.index.index] }
-            )
+            val fieldType = it.signature.toMoveValueType { typeArgs[it.index.index] }
+            if (fieldType == MoveType.Function) {
+                // We only allow functions as parameters of rules, not as fields of structs.
+                throw CertoraException(
+                    CertoraErrorType.CVL,
+                    "Functions cannot appear as fields of structs."
+                )
+            }
+            MoveType.Struct.Field(it.name, fieldType)
         }
     )
 }
@@ -246,7 +266,8 @@ fun MoveType.Simple.assignFromIntInBounds(
 ): SimpleCmdsWithDecls {
     return when (this) {
         is MoveType.Bits,
-        is MoveType.Nondet -> {
+        is MoveType.Nondet,
+        is MoveType.Function -> {
             value.letVar(tag = Tag.Int, meta = meta) { intValue ->
                 mergeMany(
                     assumeBounds(intValue.s, meta),
@@ -296,13 +317,14 @@ fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()) = when 
     is MoveType.GhostArray, is MoveType.MathInt, is MoveType.Nondet -> {
         tac.generation.assignHavoc(dest, meta)
     }
+    is MoveType.Function -> error("Function values should always be deterministic")
 }
 
 /**
     Gets the names of all structs used in this type.
  */
 fun MoveType.consituentStructNames(): TreapSet<MoveStructName> = when (this) {
-    is MoveType.Bits, is MoveType.Primitive, is MoveType.Nondet, MoveType.Bool -> treapSetOf()
+    is MoveType.Bits, is MoveType.Primitive, is MoveType.Nondet, MoveType.Bool, MoveType.Function -> treapSetOf()
     is MoveType.Vector -> elemType.consituentStructNames()
     is MoveType.Struct -> fields?.map { it.type.consituentStructNames() }?.unionAll().orEmpty() + name
     is MoveType.Reference -> refType.consituentStructNames()

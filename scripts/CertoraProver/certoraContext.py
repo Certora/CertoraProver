@@ -523,7 +523,15 @@ def __rename_key(context: CertoraContext, old_key: str, new_key: str) -> None:
 
 
 def should_run_local_speck_check(context: CertoraContext) -> bool:
-    return not (context.disable_local_typechecking or Util.is_ci_or_git_action())
+    output = context.compilation_steps_only or not (context.disable_local_typechecking or Util.is_ci_or_git_action())
+    if not output:
+        if context.disable_local_typechecking:
+            context_logger.warning(
+                "Local checks of CVL specification files disabled. It is recommended to enable the checks."
+            )
+        else:
+            context_logger.info("Local checks of CVL specification files skipped in CI and will run remotely.")
+    return output
 
 
 def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[str], print_errors: bool) -> None:
@@ -550,18 +558,13 @@ def run_typechecker(typechecker_name: str, with_typechecking: bool, args: List[s
     context_logger.debug(f"typechecking cmd: {' '.join(cmd_str_list)}")
 
     exit_code = Util.run_jar_cmd(cmd_str_list, False,
-                                 custom_error_message="Failed to run Certora Prover locally. Please check the errors "
-                                                      "below for problems in the specifications (.spec files) or the "
-                                                      "prover_args defined in the .conf file.",
+                                 custom_error_message="Failed to run Certora Prover typechecker locally.\n"
+                                                      "Please check the errors below for problems in the specifications"
+                                                      " (.spec files) or the prover_args defined in the .conf file.",
                                  logger_topic="type_check",
                                  print_err=print_errors)
     if exit_code != 0:
-        raise Util.CertoraUserInputError(
-            "CVL syntax or type check failed.\n Please fix the issue. "
-            "Using --disable_local_typechecking to skip this check is strongly discouraged, "
-            "as simple syntax errors will only be detected during the cloud run."
-            "with --disable_local_typechecking is not recommended is not recommended as "
-            "simple syntax failures will be visible only on the cloud run.")
+        raise Util.CertoraUserInputError("CVL syntax or type check failed, please fix the issue.")
 
 
 def run_local_spec_check(with_typechecking: bool, context: CertoraContext, extra_args: List[str] = list(), print_errors: bool = True) -> None:
