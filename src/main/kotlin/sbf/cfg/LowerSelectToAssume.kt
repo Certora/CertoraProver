@@ -21,59 +21,159 @@ import sbf.analysis.NPAnalysis
 import datastructures.stdcollections.*
 
 /**
- *  Replace
- *     dst := select(cond, trueVal, falseVal)
- *  with
- *     dst := trueVal
- *     assume(cond)   if we can infer that dst == trueVal is a necessary precondition to reach all the assert's
- *  or
- *     dst := falseVal
- *     assume(!cond)  if we can infer that dst == falseVal otherwise
+ * Remove select instructions
  */
 fun lowerSelectToAssume(cfg: MutableSbfCFG, npAnalysis: NPAnalysis) {
     for (block in cfg.getMutableBlocks().values) {
-        val selects = ArrayList<LocatedSbfInstruction>()
-        for (locInst in block.getLocatedInstructions()) {
-            if (locInst.inst is SbfInstruction.Select) {
-                selects.add(locInst)
-            }
+        val selectInsts = block.getLocatedInstructions().filter {it.inst is SbfInstruction.Select }
+        if (selectInsts.isEmpty()) {
+            continue
         }
-        if (selects.isEmpty()) {
+        replaceSelectWithAssign(block, selectInsts, npAnalysis)
+        replaceSelectWithAssignAndAssume(block, selectInsts, npAnalysis)
+    }
+}
+
+/**
+ *  Replace
+ *  ```
+ *     dst := select(cond, trueVal, falseVal)
+ *  ```
+ *
+ *  with:
+ *
+ *  ```
+ *     dst := trueVal
+ *     assume(cond)
+ *  ```
+ *  if we can infer that `dst == trueVal` is a necessary precondition to reach all the assert's, or with:
+ *
+ *  ```
+ *     dst := falseVal
+ *     assume(!cond)
+ *  ```
+ *  if we can infer that `dst == falseVal` otherwise
+ *
+ *  **Post-condition**: [npAnalysis] should not be used for [block] after this transformation because
+ *  the transformed [block] and [npAnalysis] will be out-of-sync once the transformation is done.
+ */
+private fun replaceSelectWithAssignAndAssume(
+    block: MutableSbfBasicBlock,
+    selectInsts: List<LocatedSbfInstruction>,
+    npAnalysis: NPAnalysis
+) {
+
+    val npAtInst = npAnalysis.populatePreconditionsAtInstruction(block.getLabel())
+    // In this loop we cannot modify the block because we are accessing to npAnalysis
+    val replacer = mutableMapOf<LocatedSbfInstruction, Pair<SbfInstruction.Assume, SbfInstruction.Bin?>>()
+
+    for (locSelectInst in selectInsts) {
+        val select = locSelectInst.inst
+        check(select is SbfInstruction.Select)
+        val np = npAtInst[locSelectInst] ?: continue
+        if (np.isBottom()) {
+            continue
+        }
+        val trueCst = Condition(CondOp.EQ, select.dst, select.trueVal)
+        val falseCst = Condition(CondOp.EQ, select.dst, select.falseVal)
+        val newMetadata = select.metaData.plus(SbfMeta.LOWERED_SELECT to "")
+
+        val (newAssumeInst, newAssignInst) =
+            when {
+                // case 1: the true value always holds after select
+                npAnalysis.contains(np, trueCst) && npAnalysis.isBottom(np, locSelectInst, falseCst) -> {
+                    SbfInstruction.Assume(select.cond, newMetadata) to
+                        SbfInstruction.Bin(BinOp.MOV, select.dst, select.trueVal, is64 = true, metaData = newMetadata)
+                }
+                // case 2: the false value always holds after select
+                npAnalysis.contains(np, falseCst) && npAnalysis.isBottom(np, locSelectInst, trueCst) -> {
+                    SbfInstruction.Assume(select.cond.negate(), newMetadata) to
+                        SbfInstruction.Bin(BinOp.MOV, select.dst, select.falseVal, is64 = true, metaData = newMetadata)
+                }
+                // case 3: lhs appears on the rhs -> r7 := select(cond, r7, 0)
+                select.dst == select.trueVal && npAnalysis.isBottom(np, locSelectInst, falseCst, useForwardInvariants = false)-> {
+                    SbfInstruction.Assume(select.cond, newMetadata) to null
+                }
+                // case 4: lhs appears on the rhs -> r7 := select(cond, 0, r7)
+                select.dst == select.falseVal && npAnalysis.isBottom(np, locSelectInst, trueCst, useForwardInvariants = false) -> {
+                    SbfInstruction.Assume(select.cond.negate(), newMetadata) to null
+                }
+                else -> {
+                    null to null
+                }
+            }
+
+        if (newAssumeInst != null) {
+            replacer[locSelectInst] = newAssumeInst to newAssignInst
+        }
+    }
+
+    // ---- Do the actual transformation ----
+    var numAdded = 0 // Used to adjust indices after a new assignment is inserted
+    for ((locSelectInst, newInsts) in replacer) {
+        val (newAssumeInst, newAssignInst) = newInsts
+        // Replace original select with assume
+        block.replaceInstruction(locSelectInst.pos + numAdded, newAssumeInst)
+
+        // Insert assignment **after** the assume (for soundness)
+        if (newAssignInst != null) {
+            block.add(locSelectInst.pos + numAdded + 1, newAssignInst)
+            numAdded++
+        }
+    }
+}
+
+/**
+ *  Replace
+ *  ```
+ *     dst := select(cond, trueVal, falseVal)
+ *  ```
+ *
+ *  with:
+ *
+ *  ```
+ *     dst := trueVal
+ *  ```
+ *
+ *  If `cond` is always true, or with:
+ *
+ *  ```
+ *     dst := falseVal
+ *  ```
+ *  If `cond` is always false.
+ *
+ *  **Post-condition**: The transformation preserves the validity of [npAnalysis].
+ */
+private fun replaceSelectWithAssign(
+    block: MutableSbfBasicBlock,
+    selectInsts: List<LocatedSbfInstruction>,
+    npAnalysis: NPAnalysis
+) {
+    val npAtInst = npAnalysis.populatePreconditionsAtInstruction(block.getLabel())
+    for (locSelectInst in selectInsts) {
+        val select = locSelectInst.inst
+        check(select is SbfInstruction.Select)
+        val np = npAtInst[locSelectInst] ?: continue
+        if (np.isBottom()) {
             continue
         }
 
-        val npAtInst = npAnalysis.populatePreconditionsAtInstruction(block.getLabel())
-        // In this loop we cannot modify the block because we are accessing to npAnalysis
-        val replaceMap = mutableMapOf<LocatedSbfInstruction, Pair<SbfInstruction, SbfInstruction>>()
-        for (locSelectInst in selects) {
-            val select = locSelectInst.inst
-            check(select is SbfInstruction.Select)
-            val np = npAtInst[locSelectInst] ?: continue
-            if (!np.isBottom()) {
-                val trueCst = Condition(CondOp.EQ, select.dst, select.trueVal)
-                val falseCst = Condition(CondOp.EQ, select.dst, select.falseVal)
-                val newMetadata = select.metaData.plus(Pair(SbfMeta.LOWERED_SELECT, ""))
-                val (newAssumeInst, newSelectDstVal) = if (npAnalysis.contains(np, trueCst) && npAnalysis.isBottom(np, locSelectInst, falseCst)) {
-                        Pair(SbfInstruction.Assume(select.cond, newMetadata), select.trueVal)
-                    } else if (npAnalysis.contains(np, falseCst) && npAnalysis.isBottom(np, locSelectInst, trueCst)) {
-                        Pair(SbfInstruction.Assume(select.cond.negate(), newMetadata), select.falseVal)
-                    } else {
-                        Pair(null, null)
-                    }
-                if (newAssumeInst != null && newSelectDstVal != null) {
-                    val newAssignInst = SbfInstruction.Bin(BinOp.MOV, select.dst, newSelectDstVal, true, null, null, null, newMetadata)
-                    replaceMap[locSelectInst] = Pair(newAssignInst, newAssumeInst)
-                }
-            }
+        val newMetadata = select.metaData.plus(SbfMeta.LOWERED_SELECT to "")
+        val newAssignInst = when {
+            // cond is always false -> dst := falseVal
+            npAnalysis.isBottom(np, locSelectInst, select.cond) ->
+                SbfInstruction.Bin(BinOp.MOV, select.dst, select.falseVal, is64 = true, metaData = newMetadata)
+
+            // cond is always true -> dst := trueVal
+            npAnalysis.isBottom(np, locSelectInst, select.cond.negate()) ->
+                SbfInstruction.Bin(BinOp.MOV, select.dst, select.trueVal, is64 = true, metaData = newMetadata)
+
+            else -> null
         }
 
-        var numAdded = 0 // Used to adjust indices after a havoc instruction is inserted
-        for ((locSelectInst, pairOfInsts) in replaceMap) {
-            val newAssignInst = pairOfInsts.first
-            val newAssumeInst = pairOfInsts.second
-            block.add(locSelectInst.pos + numAdded, newAssignInst)
-            block.replaceInstruction(locSelectInst.pos + numAdded + 1, newAssumeInst)
-            numAdded++
+        // -- Do the actual replacement --
+        if (newAssignInst != null) {
+            block.replaceInstruction(locSelectInst.pos, newAssignInst)
         }
     }
 }
