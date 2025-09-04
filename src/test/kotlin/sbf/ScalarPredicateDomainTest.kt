@@ -22,18 +22,32 @@ import sbf.cfg.*
 import sbf.domains.*
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
+import sbf.callgraph.AbortFunctions
+import sbf.callgraph.CVTFunction
+import sbf.callgraph.CompilerRtFunction
+import sbf.callgraph.SolanaFunction
+import sbf.support.UnknownStackPointerError
 
 class ScalarPredicateDomainTest {
 
     private fun checkWithScalarPredicateAnalysis(cfg: SbfCFG,
                                                 expectedResult: Boolean,
                                                 maxVals: ULong = SolanaConfig.ScalarMaxVals.get().toULong()) {
+        val memSummaries = MemorySummaries()
+        addDefaultSummaries(memSummaries)
         ConfigScope(SolanaConfig.UseScalarPredicateDomain, true).use {
-            val prover = ScalarStackStridePredicateAnalysisProver(cfg, ConstantSetSbfTypeFactory(maxVals))
+            val prover = ScalarStackStridePredicateAnalysisProver(cfg, ConstantSetSbfTypeFactory(maxVals), memSummaries)
             prover.getChecks().forEach { check ->
                 Assertions.assertEquals(expectedResult, check.result)
             }
         }
+    }
+
+    private fun addDefaultSummaries(memSummaries: MemorySummaries) {
+        CVTFunction.addSummaries(memSummaries)
+        SolanaFunction.addSummaries(memSummaries)
+        CompilerRtFunction.addSummaries(memSummaries)
+        AbortFunctions.addSummaries(memSummaries)
     }
 
     /**
@@ -404,4 +418,131 @@ class ScalarPredicateDomainTest {
         checkWithScalarPredicateAnalysis(cfg, true, 20UL)
     }
 
+
+    /**
+     *   Spill the register that contains the stack pointer
+     *
+     *   ```
+     *     r2 = 0              // r2 is the loop counter
+     *     r3 = r10 - 500      // r3 is a stack pointer
+     * loop:
+     *       *(r10 - 260) = r3 // register spilling
+     *       r3 = 0
+     *       ...
+     *       r3 = *(r10 - 260)
+     *       r3 += 8
+     *       if (r2 < 5) {
+     *         r2 += 1
+     *         goto loop
+     *       } else {
+     *         *r3 = 0   // no PTA error
+     *       }
+     *   ```
+     **/
+    @Test
+    fun test8() {
+        println("====== TEST 8  =======")
+        val cfg = SbfTestDSL.makeCFG("test8") {
+            bb(0) {
+                r1 = 5
+                r2 = 0
+                r3 = r10
+                BinOp.SUB(r3, 500)
+                goto (1)
+            }
+            bb(1) {
+                r10[-260] = r3 // spilling
+                r3 = 0         // ARBITRARILY LARGE CODE
+                goto (2)
+            }
+            bb(2) {
+                r3 = r10[-260]
+                BinOp.ADD(r3, 8)
+                br(CondOp.GT(r1, r2), 3, 4)
+            }
+            bb(3) {
+                BinOp.ADD(r2, 1)
+                goto(1)
+            }
+            bb(4) {
+                //r3 = r10[-260]
+                "foo"()
+                r3[0] = 5 // it should not raise a PTA error
+                assert(CondOp.EQ(r2, 5))
+                //assert(CondOp.EQ(r3, 0))
+                exit()
+            }
+        }
+        cfg.lowerBranchesIntoAssume()
+        println("$cfg")
+        checkWithScalarPredicateAnalysis(cfg, true, 20UL)
+    }
+
+    /**
+     *   Spill the register that contains the loop counter.
+     *   Currently unsupported.
+     *
+     *   ```
+     *     *(r10 - 260) = 0    // r2 is the loop counter
+     *     r3 = r10 - 500      // r3 is a stack pointer
+     * loop:
+     *       r2 = *(r10 - 260)
+     *       r3 += 8
+     *       if (r2 < 5) {
+     *         r2 += 1
+     *         *(r10 - 260) = r2
+     *         r2 = 0
+     *         goto loop
+     *       } else {
+     *         *r3 = 0   // PTA error
+     *       }
+     *   ```
+     **/
+    @Test
+    fun test9() {
+        println("====== TEST 9  =======")
+        val cfg = SbfTestDSL.makeCFG("test8") {
+            bb(0) {
+                r1 = 5
+                r10[-260] = 0 // the loop counter
+                r3 = r10
+                BinOp.SUB(r3, 500)
+                goto (1)
+            }
+            bb(1) {
+                goto (2)
+            }
+            bb(2) {
+                r2 = r10[-260]
+                BinOp.ADD(r3, 8)
+                br(CondOp.GT(r1, r2), 3, 4)
+            }
+            bb(3) {
+                BinOp.ADD(r2, 1)
+                r10[-260] = r2
+                r2 = 0
+                goto(1)
+            }
+            bb(4) {
+                r2 = r10[-260]
+                "foo"()
+                r3[0] = 5 // it should not raise a PTA error
+                assert(CondOp.EQ(r2, 5))
+                //assert(CondOp.EQ(r3, 0))
+                exit()
+            }
+        }
+        cfg.lowerBranchesIntoAssume()
+        println("$cfg")
+
+        run {
+            var exception = false
+            try {
+                checkWithScalarPredicateAnalysis(cfg, true, 20UL)
+            } catch (e: UnknownStackPointerError) {
+                exception = true
+            }
+            Assertions.assertEquals(true, exception)
+        }
+    }
 }
