@@ -678,7 +678,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         }
 
         if (srcRange.size == 1 && dstRange.size == 1) {
-            // common case
+            // common case: one source and one destination
             val srcSlice = srcRange.toList().single().second
             val dstSlice = dstRange.toList().single().second
             for (i in 0 until len) {
@@ -729,11 +729,18 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         }
 
         val byteVarsAtSrc = mapLoads(info.byteMap, srcReg, 1, len, cmds)
-        // for each destination byte we create an ite with the old and new value from the source map
         byteVarsAtSrc.forEachIndexed { i, srcV ->
-            for ( (dstOffset, dstSlice) in dstRange) {
+            if (dstRange.size == 1) {
+                // one single destination
+                val dstSlice = dstRange.toList().single().second
                 val dstV = vFac.getByteStackVar(PTAOffset(dstSlice.lb + i)).tacVar
-                cmds += weakAssign(dstV, pointsToStack(dstReg, zeroC, dstOffset), srcV.asSym())
+                cmds += assign(dstV, srcV.asSym())
+            } else {
+                // for each destination byte we create an ite with the old and new value from the source map
+                for ((dstOffset, dstSlice) in dstRange) {
+                    val dstV = vFac.getByteStackVar(PTAOffset(dstSlice.lb + i)).tacVar
+                    cmds += weakAssign(dstV, pointsToStack(dstReg, zeroC, dstOffset), srcV.asSym())
+                }
             }
         }
         cmds += Debug.endFunction("memcpy")

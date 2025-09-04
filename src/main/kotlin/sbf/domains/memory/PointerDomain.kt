@@ -2787,7 +2787,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                                             op1: Value.Reg,
                                             op2: Value.Reg,
                                             op2Type: SbfType.NumType<TNum, TOffset>) {
-
         val o = op2Type.value.toLongOrNull()
         if (o != null && o == 0L) {
             doPointerAssign(dst, op1)
@@ -2799,7 +2798,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         forget(dst)
                         return
                     }
-
             if (o != null && (op == BinOp.ADD || op == BinOp.SUB)) {
                 val c2 = getRegCell(op2)
                 if (c1.getNode() == getStack() || c2 == null) {
@@ -2832,11 +2830,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     // know that at this time `op2` is a number.
                     concretizeCell(c1, "$dst:= $op1 $op $op2", locInst)
                         .unify(concretizeCell(c2, "$dst:= $op1 $op $op2", locInst))
-                    // after unification, `op1` and `op2` point to the same cell, so we don't need to update `dst` unless
-                    // it is different from both `op1` and `op2`
-                    if (dst != op1 && dst != op2) {
-                        setRegCell(dst, getRegCell(op1))
-                    }
+
+                    val newOffset = updateOffset(op, c1.getNode(), c1.getOffset(), o)
+                    setRegCell(dst, c1.getNode().createSymCell(newOffset))
                 }
             } else {
                 doUnknownPointerArithmetic(dst, c1.getNode())
@@ -2862,14 +2858,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
              * op1 and op2 could be either pointers or integers.
              * This might be unnecessarily imprecise, but it's sound.
              */
-             // If we know that one of the operands cannot be a pointer then we can
-             // avoid the unification
+
+            // 1. unify `c1` and `c2`
             concretizeCell(c1, "$dst:= $op1 $op $op2", locInst)
                 .unify(concretizeCell(c2, "$dst:= $op1 $op $op2", locInst))
-            // after unification, op1 and op2 point to the same cell.
-            if (dst != op1 && dst != op2) {
-                setRegCell(dst, getRegCell(op1))
-            }
+
+            // 2. `dst` points to an unknown offset at c1 so next time `dst` is de-referenced it will produce a collapse.
+            doUnknownPointerArithmetic(dst, c1.getNode())
             true
         } else {
             false
