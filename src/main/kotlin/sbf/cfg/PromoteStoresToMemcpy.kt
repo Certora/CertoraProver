@@ -47,6 +47,9 @@ fun promoteStoresToMemcpy(cfg: MutableSbfCFG,
 @TestOnly
 fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(cfg: MutableSbfCFG, scalarAnalysis: IAnalysis<D>)
     where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
+
+    reorderLoads(cfg, scalarAnalysis)
+
     val scalarsAtInst = AnalysisRegisterTypes(scalarAnalysis)
     var numOfInsertedMemcpy = 0
     for (b in cfg.getMutableBlocks().values) {
@@ -249,7 +252,7 @@ where TNum: INumValue<TNum>,
 }
 
 /** if [locatedInst] accesses the stack then the returned value is always normalized wrt r10 **/
-private fun <D, TNum, TOffset> normalizeLoadOrStore(
+fun <D, TNum, TOffset> normalizeLoadOrStore(
     locatedInst: LocatedSbfInstruction,
     regTypes: AnalysisRegisterTypes<D, TNum, TOffset>): MemAccess
 where TNum: INumValue<TNum>,
@@ -522,12 +525,12 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
     return true
 }
 
-private enum class MemAccessRegion {
+enum class MemAccessRegion {
     STACK,
     NON_STACK,
     ANY
 }
-private data class MemAccess(val reg: SbfRegister, val offset: Long, val width: Short, val region: MemAccessRegion) {
+data class MemAccess(val reg: SbfRegister, val offset: Long, val width: Short, val region: MemAccessRegion) {
     fun overlap(other: FiniteInterval): Boolean {
         val x = FiniteInterval.mkInterval(offset, width.toLong())
         return x.overlap(other)
