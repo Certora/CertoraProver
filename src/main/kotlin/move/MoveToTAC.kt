@@ -48,6 +48,7 @@ import tac.*
 import tac.generation.*
 import utils.*
 import vc.data.*
+import verifier.CodeTransformer
 import verifier.*
 
 private val logger = Logger(LoggerTypes.MOVE)
@@ -59,23 +60,101 @@ private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
 class MoveToTAC private constructor (val scene: MoveScene) {
     companion object {
         fun compileRule(
-            entryFunc: MoveFunction,
+            entryFuncName: MoveFunctionName,
             ruleType: RuleType,
             scene: MoveScene
-        ) = MoveToTAC(scene).compileRule(entryFunc, ruleType)
+        ) = with(Instantiator(scene)) {
+            val entryFunc = instantiate(entryFuncName)
+            targetPermutations(entryFunc).flatMap { parametricTargets ->
+                MoveToTAC(scene).compileRule(entryFunc, ruleType, parametricTargets)
+            }
+        }
 
         @TestOnly
         fun compileMoveTAC(
-            entryFunc: MoveFunctionName,
+            entryFuncName: MoveFunctionName,
             scene: MoveScene,
-        ) = scene.maybeDefinition(entryFunc)?.let {
-            with(scene) {
-                val fn = MoveFunction(it.function)
-                MoveToTAC(scene).compileMoveTACProgram(fn, SanityMode.NONE)
+        ) = with(Instantiator(scene)) {
+            MoveToTAC(scene).compileMoveTACProgram(
+                entryFuncName.toString(),
+                instantiate(entryFuncName),
+                SanityMode.NONE,
+                parametricTargets = mapOf()
+            )
+        }
+
+        /**
+            Instantiates generic functions, using [MoveType.Nondet] as the type arguments.  Each type argument receives
+            a unique [MoveType.Nondet] ID.
+         */
+        private class Instantiator(val scene: MoveScene) {
+            private var nextNondetTypeId = 0
+
+            fun instantiate(func: MoveFunctionName) = with(scene) {
+                val def = maybeDefinition(func)
+                    ?: error("No definition found for function $func")
+                MoveFunction(
+                    def.function,
+                    typeArguments = def.function.typeParameters.map { MoveType.Nondet(nextNondetTypeId++) }
+                )
+            }
+        }
+
+        /** Produces all permutations of target functions for possibly-parametric rule [ruleFunc] */
+        context(Instantiator)
+        private fun targetPermutations(ruleFunc: MoveFunction): List<Map<Int, MoveFunction>> {
+            val positions = ruleFunc.params.mapIndexedNotNull { i, param -> i.takeIf { param is MoveType.Function } }
+            val targets = scene.targetFunctions(ruleFunc.name.module).map { instantiate(it) }
+            if (positions.isNotEmpty() && targets.isEmpty()) {
+                throw CertoraException(
+                    CertoraErrorType.CVL,
+                    "No target functions for parametric rule ${ruleFunc.name}.  Add targets to the module manifest."
+                )
+            }
+            return targetPermutations(positions, targets).toList()
+        }
+
+        private fun targetPermutations(
+            positions: List<Int>,
+            targets: List<MoveFunction>
+        ): Sequence<Map<Int, MoveFunction>> {
+            if (positions.isEmpty()) {
+                return sequenceOf(emptyMap())
+            }
+            return targetPermutations(positions.drop(1), targets).flatMap { map ->
+                targets.asSequence().map { target ->
+                    map + (positions.first() to target)
+                }
             }
         }
 
         val CONST_STRING = MetaKey<String>("move.const.string")
+
+        /**
+            Produces TAC code to pack a string value into a std::vector<u8>.  We store the original string value in the
+            vector variable's meta, so we can find it later in [ConstantStringPropagator].
+         */
+        fun packString(
+            bytes: ByteArray,
+            string: String = String(bytes, Charsets.UTF_8)
+        ): Pair<TACSymbol.Var, MoveCmdsWithDecls> {
+            val stringVar = TACKeyword.TMP(
+                MoveType.Vector(MoveType.U8).toTag(),
+                "string",
+                MetaMap(CONST_STRING to string)
+            )
+            val commands = buildList<MoveCmdsWithDecls> {
+                val values = bytes.map { byte ->
+                    val byteVar = TACKeyword.TMP(MoveType.U8.toTag(), "byte")
+                    add(assign(byteVar) { byte.toUByte().toBigInteger().asTACExpr })
+                    byteVar
+                }
+                add(TACCmd.Move.VecPackCmd(stringVar, values).withDecls(stringVar))
+            }
+            return stringVar to mergeMany(commands)
+        }
+
+        fun packString(string: String) = packString(string.toByteArray(Charsets.UTF_8), string)
 
         private const val REACHED_END_OF_FUNCTION = "Reached end of function"
     }
@@ -83,14 +162,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     private val uniqueNameAllocator = mutableMapOf<String, Int>()
     private fun String.toUnique() =
         uniqueNameAllocator.compute(this) { _, count -> count?.let { it + 1 } ?: 0 }.let { "$this!$it" }
-
-    private var blockIdAllocator = 0
-    private fun newBlockId() =
-        BlockIdentifier(
-            ++blockIdAllocator,
-            stkTop = 1, // avoids conflicts with Allocator.getNBId()
-            0, 0, 0, 0
-        )
 
     private fun PersistentStack<MoveCall>.format() = joinToString(" ← ") { it.callee.toString() }
 
@@ -102,17 +173,20 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         SATISFY_TRUE
     }
 
-    private fun compileMoveTACProgram(entryFunc: MoveFunction, sanityMode: SanityMode): MoveTACProgram {
-        val args = entryFunc.params.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_arg_$i", it.toTag()) }
-        val returns = entryFunc.returns.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_ret_$i", it.toTag()) }
+    private fun compileMoveTACProgram(
+        name: String,
+        entryFunc: MoveFunction,
+        sanityMode: SanityMode,
+        parametricTargets: Map<Int, MoveFunction>
+    ): MoveTACProgram {
+        with (SummarizationContext(scene, this, parametricTargets)) {
+            val args = entryFunc.params.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_arg_$i", it.toTag()) }
+            val returns = entryFunc.returns.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_ret_$i", it.toTag()) }
 
-        val calleeEntry = newBlockId()
-        val exit = newBlockId()
+            val calleeEntry = newBlockId()
+            val exit = newBlockId()
 
-        val summarizationContext = SummarizationContext(scene, this)
-
-        val callCode = with(summarizationContext) {
-            compileFunctionCall(
+            val callCode = compileFunctionCall(
                 MoveCall(
                     callee = entryFunc,
                     args = args,
@@ -123,64 +197,103 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     source = null
                 )
             )
-        }
 
-        val entryCode = treapMapOf(
-            StartBlock to mergeMany(
-                // Havoc MEMORY (we don't use it, but it's referenced by Trap asserts)
-                assignHavoc(TACKeyword.MEMORY.toVar()),
-                // Initialization for summaries
-                summarizationContext.allInitialization,
-                // Havoc the entry function arguments
-                mergeMany(entryFunc.params.zip(args).map { (type, arg) -> type.assignHavoc(arg) }),
-                // Jump to the entry function
-                TACCmd.Simple.JumpCmd(calleeEntry).withDecls()
-            )
-        )
-
-        val exitCode = treapMapOf(
-            exit to mergeMany(
-                listOfNotNull(
-                    label("Exit from $entryFunc"),
-                    when (sanityMode) {
-                        SanityMode.NONE -> null
-                        SanityMode.ASSERT_TRUE -> {
-                            mergeMany(
-                                MoveCallTrace.annotateUserAssert(
-                                    isSatisfy = false,
-                                    condition = TACSymbol.True,
-                                    messageText = REACHED_END_OF_FUNCTION,
-                                ),
-                                TACCmd.Simple.AssertCmd(
-                                    TACSymbol.True,
-                                    REACHED_END_OF_FUNCTION,
-                                    MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
-                                ).withDecls()
-                            )
+            val entryCode = treapMapOf(
+                StartBlock to mergeMany(
+                    // Initialization from SummarizationContext
+                    getAndResetInitialization(),
+                    // Havoc MEMORY (we don't use it, but it's referenced by Trap asserts)
+                    assignHavoc(TACKeyword.MEMORY.toVar()),
+                    // Initialize the entry function arguments
+                    mergeMany(
+                        entryFunc.params.zip(args).mapIndexed { i, (type, arg) ->
+                            when (type) {
+                                // The value of each incoming function argument is its index, which must also appear in
+                                // `parametricTargets`
+                                is MoveType.Function -> {
+                                    check(i in parametricTargets) { "Missing function argument value" }
+                                    assign(arg) { i.asTACExpr }
+                                }
+                                // All other arguments are non-deterministic
+                                else -> type.assignHavoc(arg)
+                            }
                         }
-                        SanityMode.SATISFY_TRUE -> {
-                            mergeMany(
-                                MoveCallTrace.annotateUserAssert(
-                                    isSatisfy = true,
-                                    condition = TACSymbol.True,
-                                    messageText = REACHED_END_OF_FUNCTION
-                                ),
-                                TACCmd.Simple.AssertCmd(
-                                    TACSymbol.False,
-                                    REACHED_END_OF_FUNCTION,
-                                    MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
-                                        (TACMeta.SATISFY_ID to summarizationContext.allocSatisfyId())
-                                ).withDecls()
-                            )
-                        }
-                    }
+                    ),
+                    // Jump to the entry function
+                    TACCmd.Simple.JumpCmd(calleeEntry).withDecls()
                 )
             )
-        )
 
-        val allCode = entryCode + callCode + exitCode
+            val exitCode = treapMapOf(
+                exit to mergeMany(
+                    listOfNotNull(
+                        label("Exit from $entryFunc"),
+                        when (sanityMode) {
+                            SanityMode.NONE -> null
+                            SanityMode.ASSERT_TRUE -> {
+                                mergeMany(
+                                    MoveCallTrace.annotateUserAssert(
+                                        isSatisfy = false,
+                                        condition = TACSymbol.True,
+                                        messageText = REACHED_END_OF_FUNCTION,
+                                    ),
+                                    TACCmd.Simple.AssertCmd(
+                                        TACSymbol.True,
+                                        REACHED_END_OF_FUNCTION,
+                                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                                    ).withDecls()
+                                )
+                            }
+                            SanityMode.SATISFY_TRUE -> {
+                                mergeMany(
+                                    MoveCallTrace.annotateUserAssert(
+                                        isSatisfy = true,
+                                        condition = TACSymbol.True,
+                                        messageText = REACHED_END_OF_FUNCTION
+                                    ),
+                                    TACCmd.Simple.AssertCmd(
+                                        TACSymbol.False,
+                                        REACHED_END_OF_FUNCTION,
+                                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
+                                            (TACMeta.SATISFY_ID to allocSatisfyId())
+                                    ).withDecls()
+                                )
+                            }
+                        }
+                    )
+                )
+            )
 
-        val blockgraph = allCode.mapValuesTo(MutableBlockGraph()) { (block, code) ->
+            val allCode = entryCode + callCode + exitCode
+
+            return allCode.toProgram(name, StartBlock, exit)
+                .transform(ReportTypes.INLINE_PARAMETRIC_CALLS) { InvokerCall.materialize(it) }
+        }
+    }
+
+    context(SummarizationContext)
+    private fun MoveTACProgram.transform(
+        reportType: ReportTypes,
+        transform: context(SummarizationContext)(MoveTACProgram) -> MoveTACProgram
+    ): MoveTACProgram {
+        check(getAndResetInitialization().cmds.isEmpty()) { "Unconsumed initialization" }
+
+        val transformed = CodeTransformer<MoveTACProgram, MoveTACProgram>(reportType) {
+            transform(this@SummarizationContext, it)
+        }.applyTransformer(this)
+
+        val initialization = getAndResetInitialization()
+        return if (initialization.cmds.isEmpty() && initialization.varDecls.isEmpty()) {
+            transformed
+        } else {
+            val patch = transformed.toPatchingProgram()
+            patch.addBefore(CmdPointer(entryBlock, 0), initialization)
+            return patch.toCode(transformed)
+        }
+    }
+
+    private fun MoveBlocks.toBlockGraph(exit: NBId) =
+        mapValuesTo(MutableBlockGraph()) { (block, code) ->
             when (val c = code.cmds.last()) {
                 is TACCmd.Simple.JumpCmd -> treapSetOf(c.dst)
                 is TACCmd.Simple.JumpiCmd -> treapSetOf(c.dst, c.elseDst)
@@ -192,24 +305,50 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             }
         }
 
-        val ruleName = "${entryFunc.name}"
-        val moveTAC = MoveTACProgram(
-            name = ruleName,
-            code = allCode.mapValues { (_, code) -> code.cmds },
-            blockgraph = blockgraph,
-            entryBlock = StartBlock,
-            symbolTable = TACSymbolTable(allCode.values.flatMapToSet { it.varDecls })
+    private fun MoveBlocks.toProgram(name: String, start: NBId, exit: NBId) =
+        MoveTACProgram(
+            name = name,
+            code = mapValues { (_, code) -> code.cmds },
+            blockgraph = toBlockGraph(exit),
+            entryBlock = start,
+            symbolTable = TACSymbolTable(values.flatMapToSet { it.varDecls })
         )
-        return moveTAC
+
+    /**
+        Compiles a function as a subprogram, suitable for patching into another program via [PatchingTACProgram].
+        Arguments are left uninitialized in the subprogram (and should be initialized in the outer program).
+     */
+    context(SummarizationContext)
+    fun compileSubprogram(
+        entryFunc: MoveFunction,
+        args: List<TACSymbol.Var>,
+        returns: List<TACSymbol.Var>
+    ): MoveTACProgram {
+        val entryBlock = newBlockId()
+        val exitBlock = newBlockId()
+        val code = compileFunctionCall(
+            MoveCall(
+                callee = entryFunc,
+                args = args,
+                returns = returns,
+                entryBlock = entryBlock,
+                returnBlock = exitBlock,
+                callStack = persistentStackOf(),
+                source = null
+            )
+        ) + (exitBlock to TACCmd.Simple.NopCmd.withDecls())
+
+        return code.toProgram(entryFunc.name.toString(), entryBlock, exitBlock)
     }
 
     private fun compileRuleCoreTACProgram(
         ruleName: String,
         entryFunc: MoveFunction,
-        sanityMode: SanityMode
+        sanityMode: SanityMode,
+        parametricTargets: Map<Int, MoveFunction>
     ): Pair<CoreTACProgram, CompiledRuleType> {
         return annotateCallStack("rule.$ruleName") {
-            val moveTAC = compileMoveTACProgram(entryFunc, sanityMode)
+            val moveTAC = compileMoveTACProgram(ruleName, entryFunc, sanityMode, parametricTargets)
 
             ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
@@ -226,12 +365,18 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
     private fun compileRule(
         entryFunc: MoveFunction,
-        ruleType: RuleType
+        ruleType: RuleType,
+        parametricTargets: Map<Int, MoveFunction>
     ): List<Pair<EcosystemAgnosticRule, CoreTACProgram>> {
+        val ruleName = (listOf(entryFunc.name) + parametricTargets.values.map { it.name }).joinToString("-")
         return when (ruleType) {
             RuleType.USER_RULE -> {
-                val ruleName = entryFunc.name.toString()
-                val (coreTAC, compiledRuleType) = compileRuleCoreTACProgram(ruleName, entryFunc, SanityMode.NONE)
+                val (coreTAC, compiledRuleType) = compileRuleCoreTACProgram(
+                    ruleName,
+                    entryFunc,
+                    SanityMode.NONE,
+                    parametricTargets
+                )
                 listOf(
                     EcosystemAgnosticRule(
                         ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
@@ -241,13 +386,23 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 )
             }
             RuleType.SANITY -> {
-                val assertRuleName = "${entryFunc.name}-Assertions"
-                val satisfyRuleName = "${entryFunc.name}-$REACHED_END_OF_FUNCTION"
+                val assertRuleName = "$ruleName-Assertions"
+                val satisfyRuleName = "$ruleName-$REACHED_END_OF_FUNCTION"
 
-                val (assertTAC, assertTACType) = compileRuleCoreTACProgram(assertRuleName, entryFunc, SanityMode.ASSERT_TRUE)
+                val (assertTAC, assertTACType) = compileRuleCoreTACProgram(
+                    assertRuleName,
+                    entryFunc,
+                    SanityMode.ASSERT_TRUE,
+                    parametricTargets
+                )
                 check(assertTACType == CompiledRuleType.ASSERT)
 
-                val (satisfyTAC, satisfyTACType) = compileRuleCoreTACProgram(satisfyRuleName, entryFunc, SanityMode.SATISFY_TRUE)
+                val (satisfyTAC, satisfyTACType) = compileRuleCoreTACProgram(
+                    satisfyRuleName,
+                    entryFunc,
+                    SanityMode.SATISFY_TRUE,
+                    parametricTargets
+                )
                 check(satisfyTACType == CompiledRuleType.SATISFY)
 
                 listOf(
@@ -582,21 +737,11 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                     is MoveType.Vector -> {
                                         if (type.elemType == MoveType.U8) {
                                             // vector<u8> is most likely a string constant.  Let's keep the string value
-                                            // for later use (for things like assert messages).  We pack the string to
-                                            // an intermediate vector variable, with the UTF8 string value in the meta,
-                                            // before pushing it on the stack.  We should be able to find this
-                                            // intermediate variable later via NonTrivialDefAnalysis.
+                                            // for later use (for things like assert messages).
                                             val length = buf.getLeb128UInt().toInt()
                                             val bytes = ByteArray(length).also { buf.get(it) }
-                                            val string = String(bytes, Charsets.UTF_8)
-                                            val stringVar = TACKeyword.TMP(
-                                                type.toTag(),
-                                                "string",
-                                                MetaMap(CONST_STRING to string)
-                                            )
-                                            bytes.forEach { add(push(MoveType.U8, it.toUByte().toBigInteger())) }
-                                            val values = (0..<length).map { pop().s }.reversed()
-                                            add(TACCmd.Move.VecPackCmd(stringVar, values).withDecls())
+                                            val (stringVar, commands) = packString(bytes)
+                                            add(commands)
                                             add(push(type, stringVar.asSym()))
                                         } else {
                                             val length = buf.parseList { decode(type.elemType) }.size
@@ -604,7 +749,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                             add(TACCmd.Move.VecPackCmd(push(type), values, meta).withDecls())
                                         }
                                     }
-                                    is MoveType.GhostArray, is MoveType.MathInt, is MoveType.Nondet -> `impossible!`
+                                    is MoveType.GhostArray, is MoveType.MathInt,
+                                    is MoveType.Nondet, is MoveType.Function -> `impossible!`
                                 }
                             }
                             decode(inst.type)

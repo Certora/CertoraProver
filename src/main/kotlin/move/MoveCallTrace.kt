@@ -157,6 +157,7 @@ object MoveCallTrace {
                 makeDerefValue(cmds, type, refSym)
             }
             is MoveType.Nondet -> Value.NotDisplayed("nondet")
+            is MoveType.Function -> Value.NotDisplayed("fun")
         }
     }
 
@@ -177,6 +178,7 @@ object MoveCallTrace {
         is MoveType.Vector -> makeVectorValue(cmds, type, refSym)
         is MoveType.GhostArray -> Value.NotDisplayed("ghost array")
         is MoveType.Nondet -> Value.NotDisplayed("nondet")
+        is MoveType.Function -> Value.NotDisplayed("fun")
     }
 
     /**

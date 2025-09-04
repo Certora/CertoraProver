@@ -218,7 +218,7 @@ fun MoveModule.Instruction.toMoveInstruction(
     is MoveModule.Instruction.Shl -> MoveInstruction.Shl
     is MoveModule.Instruction.Shr -> MoveInstruction.Shr
 
-    is MoveModule.Instruction.Call -> MoveInstruction.Call(MoveFunction(index.deref()))
+    is MoveModule.Instruction.Call -> MoveInstruction.Call(MoveFunction(index.deref(), typeArguments = listOf()))
     is MoveModule.Instruction.CallGeneric -> MoveInstruction.Call(
         index.deref().let { inst ->
             MoveFunction(

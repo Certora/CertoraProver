@@ -886,9 +886,13 @@ open class PatchingTACProgram<T : TACCmd> protected constructor(
                     symbolTable = newTACSymbolTable
                 ).uncheckedAs<R>()
             }
-            else -> error("Impossible to get $base")
+            else -> base.copyWith(
+                code = newCode,
+                blockgraph = newBlockgraph,
+                symbolTable = newTACSymbolTable,
+                procedures = (base as? IProcedural)?.procedures.orEmpty() + newProcedures,
+            ).uncheckedAs<R>()
         }
-
     }
 
     /**
@@ -1168,40 +1172,36 @@ open class PatchingTACProgram<T : TACCmd> protected constructor(
  * block with no successors, [code] will be appended to the block of [p]. As with [PatchingTACProgram.splitBlockAfter],
  * [p] may not be the last command of a block with multiple successors.
  */
-fun PatchingTACProgram<TACCmd.Simple>.replaceCommand(p: CmdPointer, code: CoreTACProgram) {
+fun <T : TACCmd> PatchingTACProgram<T>.replaceCommand(p: CmdPointer, code: TACProgram<T>) {
     val retPoint = splitBlockAfter(p)
     val root = this.addCode(code, retPoint)
-    replaceCommand(p, listOf(TACCmd.Simple.JumpCmd(root)), treapSetOf(root))
-}
-
-fun PatchingTACProgram<TACCmd.Spec>.replaceCommand(p: CmdPointer, code: CVLTACProgram) {
-    val retPointer = splitBlockAfter(p)
-    val root = this.addCode(code, retPointer)
-    replaceCommand(p, listOf(TACCmd.Simple.JumpCmd(root)), treapSetOf(root))
+    replaceCommand(p, listOf(TACCmd.Simple.JumpCmd(root)).uncheckedAs(), treapSetOf(root))
 }
 
 /**
  * Same as [replaceCommand], but has additional [preamble] to add to the program before [code].
  */
-fun PatchingTACProgram<TACCmd.Simple>.replaceCommand(
+fun <T : TACCmd> PatchingTACProgram<T>.replaceCommand(
     p: CmdPointer,
-    preamble: List<TACCmd.Simple>,
-    code: CoreTACProgram
+    preamble: List<T>,
+    code: TACProgram<T>
 ) {
     val retPoint = splitBlockAfter(p)
     val root = this.addCode(code, retPoint)
-    replaceCommand(p, preamble + TACCmd.Simple.JumpCmd(root), treapSetOf(root))
+    replaceCommand(p, preamble + TACCmd.Simple.JumpCmd(root).uncheckedAs<T>(), treapSetOf(root))
 }
 
-fun PatchingTACProgram<TACCmd.Spec>.addCode(code: CVLTACProgram, retPoint: NBId) : NBId {
-    return this.addCodeUnsafe(code, retPoint)
+fun <T : TACCmd> PatchingTACProgram<T>.replaceCommand(
+    p: CmdPointer,
+    preamble: CommandWithRequiredDecls<T>,
+    code: TACProgram<T>
+) {
+    addRequiredDecls(preamble)
+    replaceCommand(p, preamble.cmds, code)
 }
 
-fun PatchingTACProgram<TACCmd.Simple>.addCode(code: CoreTACProgram, retPoint: NBId) : NBId {
-    return this.addCodeUnsafe(code, retPoint)
-}
 
-private fun <T : TACCmd> PatchingTACProgram<T>.addCodeUnsafe(code: TACProgram<T>, retPoint: NBId) : NBId {
+fun <T : TACCmd> PatchingTACProgram<T>.addCode(code: TACProgram<T>, retPoint: NBId) : NBId {
     val leaves = code.getEndingBlocks()
     val sink = Allocator.getNBId().copy(calleeIdx = retPoint.calleeIdx) // UI reasons to update calleeIdx
     val root = code.getStartingBlock()

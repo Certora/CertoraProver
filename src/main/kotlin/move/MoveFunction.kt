@@ -30,7 +30,7 @@ class MoveFunction private constructor(
     val typeArguments: List<MoveType.Value>,
     val params: List<MoveType>,
     val returns: List<MoveType>,
-    private val definition: MoveModule.FunctionDefinition,
+    val definition: MoveModule.FunctionDefinition,
     private val scene: MoveScene
 ) {
     override fun toString() = when {
@@ -130,7 +130,7 @@ class MoveFunction private constructor(
         context(MoveScene)
         operator fun invoke(
             func: MoveModule.FunctionHandle,
-            typeArguments: List<MoveType.Value> = listOf()
+            typeArguments: List<MoveType.Value>
         ): MoveFunction {
             check(func.typeParameters.size == typeArguments.size) {
                 "Function ${func.qualifiedName} expects ${func.typeParameters.size} type parameters, but got ${typeArguments.size}"

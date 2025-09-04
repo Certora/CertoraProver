@@ -62,7 +62,8 @@ class MoveLiveVariableAnalysisTest {
         val graph = MoveTACCommandGraph(
             blockGraph = BlockGraph(b to treapSetOf()),
             code = mapOf(b to block),
-            symbolTable = TACSymbolTable(l0, r0, tmp, x)
+            symbolTable = TACSymbolTable(l0, r0, tmp, x),
+            name = "test"
         )
         val lva = graph.cache.lva
         Assertions.assertTrue(l0 in lva.liveVariablesBefore(b.pos(1)))
@@ -93,7 +94,8 @@ class MoveLiveVariableAnalysisTest {
         val graph = MoveTACCommandGraph(
             blockGraph = BlockGraph(b to treapSetOf()),
             code = mapOf(b to block),
-            symbolTable = TACSymbolTable(l0, r0, r1, idx, tmp, x)
+            symbolTable = TACSymbolTable(l0, r0, r1, idx, tmp, x),
+            name = "test"
         )
         val lva = graph.cache.lva
         for (i in (1..5)) {
@@ -133,7 +135,8 @@ class MoveLiveVariableAnalysisTest {
         val graph = MoveTACCommandGraph(
             blockGraph = BlockGraph(b to treapSetOf()),
             code = mapOf(b to block),
-            symbolTable = TACSymbolTable(l0, r0, r1, idx, tmp, x)
+            symbolTable = TACSymbolTable(l0, r0, r1, idx, tmp, x),
+            name = "test"
         )
         val lva = graph.cache.lva
         for (i in 1..4) {

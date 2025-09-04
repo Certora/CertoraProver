@@ -30,8 +30,18 @@ import vc.data.*
  */
 class SummarizationContext(
     val scene: MoveScene,
-    private val moveToTAC: MoveToTAC
+    private val moveToTAC: MoveToTAC,
+    /** Maps MoveType.Function values (which are integers) to their corresponding function instantiations */
+    val parametricTargets: Map<Int, MoveFunction>
 ) {
+    private var blockIdAllocator = 0
+    fun newBlockId() =
+        BlockIdentifier(
+            ++blockIdAllocator,
+            stkTop = 1, // avoids conflicts with Allocator.getNBId()
+            0, 0, 0, 0
+        )
+
     private var satisfyCount = 0
     /** Allocate a new SATISFY_ID */
     fun allocSatisfyId() = satisfyCount++
@@ -54,6 +64,15 @@ class SummarizationContext(
      */
     fun compileFunctionCall(call: MoveCall) = moveToTAC.compileFunctionCall(call)
 
+    /**
+        Call back into MoveToTAC to compile a function as a subprogram
+     */
+    fun compileSubprogram(
+        entryFunc: MoveFunction,
+        args: List<TACSymbol.Var>,
+        returns: List<TACSymbol.Var>
+    ) = moveToTAC.compileSubprogram(entryFunc, args, returns)
+
     private val initializers = mutableSetOf<Initializer>()
 
     /** Run `initializer.initialization` once at the start of the TAC program. */
@@ -65,8 +84,7 @@ class SummarizationContext(
     fun TACSymbol.Var.ensureHavocInit(type: MoveType? = null): TACSymbol.Var =
         apply { ensureInit(HavocInitializer(this, type)) }
 
-    val allInitialization get() = mergeMany(initializers.map { it.initialize() })
-
+    fun getAndResetInitialization() = mergeMany(initializers.map { it.initialize() } ).also { initializers.clear() }
 
     /**
         Produces a sequence of TAC commands to be executed at the start of the TAC program.  Subclasses must implement

@@ -64,6 +64,10 @@ abstract class MoveTestFixture() {
                 public native fun cvlm_assume(cond: bool);
                 public native fun cvlm_assume_msg(cond: bool, msg: vector<u8>);
             }
+            module cvlm::internal_asserts {
+                public native fun cvlm_internal_assert(cond: bool);
+                public native fun cvlm_internal_assume(cond: bool);
+            }
             module cvlm::nondet {
                 public native fun nondet<T>(): T;
             }
@@ -79,6 +83,9 @@ abstract class MoveTestFixture() {
                 public native fun hash(hashFunName: vector<u8>);
                 public native fun shadow(shadowFunName: vector<u8>);
                 public native fun field_access(accessorFunName: vector<u8>, fieldName: vector<u8>);
+                public native fun target(module_address: address, module_name: vector<u8>, function_name: vector<u8>);
+                public native fun invoker(function_name: vector<u8>);
+                public native fun target_sanity();
             }
             module cvlm::ghost {
                 public native fun ghost_write<T>(ref: &mut T, value: T);
@@ -100,6 +107,12 @@ abstract class MoveTestFixture() {
                 public native fun gt(a: MathInt, b: MathInt): bool;
                 public native fun ge(a: MathInt, b: MathInt): bool;
             }
+            module cvlm::function {
+                public native struct Function has drop, copy;
+                public native fun name(function: Function): vector<u8>;
+                public native fun module_name(function: Function): vector<u8>;
+                public native fun module_address(function: Function): address;
+            }
         """.trimIndent()
 
         @JvmStatic
@@ -118,6 +131,9 @@ abstract class MoveTestFixture() {
 
         @JvmStatic
         protected val testModuleAddr = 123
+
+        @JvmStatic
+        protected val testModuleAddrHex = "0x${testModuleAddr.toString(16)}"
 
         @JvmStatic
         protected val testModuleName = MoveModuleName(testModuleAddr, "test")
@@ -156,7 +172,7 @@ abstract class MoveTestFixture() {
                     "--bytecode-version", "6",
                     "--addresses", "std=0x1",
                     "--addresses", "cvlm=0x${Config.CvlmAddress.get().toString(16)}",
-                    "--addresses", "test_addr=0x${testModuleAddr.toString(16)}",
+                    "--addresses", "test_addr=$testModuleAddrHex",
                     "--out-dir", moveDir.toString(),
                     moveDir.toString()
                 ) + runIf(loadStdlib) {
@@ -230,7 +246,7 @@ abstract class MoveTestFixture() {
                 check(type == CvlmManifest.RuleType.USER_RULE) {
                     "Expected a user rule, but got $type"
                 }
-                return MoveToTAC.compileMoveTAC(selected, moveScene) ?: error("Couldn't get MoveTAC for $selected")
+                return MoveToTAC.compileMoveTAC(selected, moveScene)
             }
     }
 
@@ -240,13 +256,13 @@ abstract class MoveTestFixture() {
         We don't optimize by default, which improves test execution time (since these are all very small programs).
         Tests that are explicitly testing the optimization pass can set the `optimize` parameter to true.
     */
-    protected fun verify(
+    protected fun verifyMany(
         assumeNoTraps: Boolean = true,
         recursionLimit: Int = 3,
         recursionLimitIsError: Boolean = false,
         loopIter: Int = 1,
         optimize: Boolean = false
-    ): Boolean {
+    ): Map<String, Boolean> {
         maybeEnableReportGeneration()
         ConfigScope(Config.TrapAsAssert, !assumeNoTraps)
         .extend(Config.QuietMode, true)
@@ -255,23 +271,37 @@ abstract class MoveTestFixture() {
         .extend(Config.LoopUnrollConstant, loopIter)
         .use {
             val moveScene = buildScene(optimize)
-            val (_, program) = moveScene.rules.singleOrNull() ?: error("Expected exactly one rule")
-
             val scene = SceneFactory.getScene(DegenerateContractSource("dummyScene"))
 
-            val vRes = runBlocking {
-                TACVerifier.verify(scene, program, DummyLiveStatsReporter)
-            }
-            val joinedRes = Verifier.JoinedResult(vRes)
+            return moveScene.rules.associate { (rule, program) ->
+                val vRes = runBlocking {
+                    TACVerifier.verify(scene, program, DummyLiveStatsReporter)
+                }
+                val joinedRes = Verifier.JoinedResult(vRes)
 
-            // Fake rule to allow report generation
-            val reportRule = CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
-                AssertRule(RuleIdentifier.freshIdentifier(program.name), false, program.name, scope)
+                // Fake rule to allow report generation
+                val reportRule = CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
+                    AssertRule(RuleIdentifier.freshIdentifier(program.name), false, program.name, scope)
+                }
+                joinedRes.reportOutput(reportRule)
+                rule.ruleIdentifier.displayName to (joinedRes.finalResult.isSuccess() xor rule.isSatisfyRule)
             }
-            joinedRes.reportOutput(reportRule)
-            return joinedRes.finalResult.isSuccess()
         }
     }
+
+    protected fun verify(
+        assumeNoTraps: Boolean = true,
+        recursionLimit: Int = 3,
+        recursionLimitIsError: Boolean = false,
+        loopIter: Int = 1,
+        optimize: Boolean = false
+    ) = verifyMany(
+        assumeNoTraps,
+        recursionLimit,
+        recursionLimitIsError,
+        loopIter,
+        optimize
+    ).values.singleOrNull() ?: error("Expected exactly one rule")
 }
 
 class MoveTestFixtureTest : MoveTestFixture() {
