@@ -1,7 +1,7 @@
 contract C {
     struct S {
         uint a;
-        bool[3][] b;
+        bool[3][2] b;
     }
 
     function foo(S memory s) external {}
@@ -11,7 +11,7 @@ contract C {
 contract D {
     struct S {
         uint a;
-        bool[3][] b;
+        bool[3][2] b;
     }
 
     function bar(S memory s) external {}
@@ -21,7 +21,7 @@ contract D {
 contract E {
     struct S {
         uint a;
-        bool[3][] b;
+        bool[3][2] b;
     }
 
     function foo(S memory s) external {}
