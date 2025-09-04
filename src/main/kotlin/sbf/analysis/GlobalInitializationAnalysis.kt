@@ -24,7 +24,7 @@ import sbf.SolanaConfig
 import sbf.domains.INumValue
 import sbf.domains.IOffset
 import sbf.domains.SbfType
-import java.math.BigInteger
+import utils.*
 
 /**
  * This class contains the information needed to emit TAC code that initializes the content of the global variable [gv]
@@ -159,14 +159,14 @@ private fun populateValues(gvInit: GlobalVarInitializer,
         word.add(byte)
         j++
         if (j == gvInit.stride.toInt()) {
-            // Convert the unsigned value of each byte to hex and concatenate all the hex values
-            val hexStr = if (globalsSymTable.isLittleEndian()) {
+            // Converts the unsigned value a BigInteger
+            val bigInteger = if (globalsSymTable.isLittleEndian()) {
                 word.reversed()
             } else {
                 word
-            }.joinToString("") { it.toString(16) }
-            // Convert from hexadecimal to a signed decimal
-            val decimalVal = BigInteger(hexStr, 16).toLong()
+            }.toPositiveBigInteger()
+            // Converts the positive BigInteger to a signed decimal
+            val decimalVal = bigInteger.toLong()
             values.add(decimalVal)
             // reset word
             j = 0
