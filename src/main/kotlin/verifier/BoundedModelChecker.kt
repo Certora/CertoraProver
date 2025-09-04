@@ -27,7 +27,10 @@ import com.certora.collect.*
 import config.Config
 import config.Config.containsMethodFilteredByConfig
 import config.ReportTypes
+import datastructures.NonEmptyList
+import datastructures.nonEmptyListOf
 import datastructures.stdcollections.*
+import datastructures.toNonEmptyList
 import instrumentation.transformers.InitialCodeInstrumentation
 import kotlinx.serialization.Serializable
 import kotlin.time.measureTimedValue
@@ -49,6 +52,8 @@ import spec.rules.CVLSingleRule
 import spec.rules.IRule
 import spec.rules.SingleRuleGenerationMeta
 import spec.cvlast.typedescriptors.ToVMContext
+import statistics.data.NonLinearStats
+import statistics.data.PrettyPrintableStats
 import tac.*
 import tac.NBId.Companion.ROOT_CALL_ID
 import utils.*
@@ -92,6 +97,27 @@ class BoundedModelChecker(
         private fun param(n: Int, i: Int) = "param_${n}_$i"
         private fun selectorVarName(n: Int) = "SelectorVar_$n"
         private const val SETUP_FUNC_NAME = "setup"
+
+        @JvmInline
+        value class FunctionSequence(val funs: TreapList<SequenceElement>) : List<SequenceElement> by funs {
+            fun sequenceStr() = this.joinToString(" -> ") { it.dispatchStr() }
+            operator fun plus(el: SequenceElement) = FunctionSequence(this.funs + listOf(el))
+            companion object {
+                fun emptySequence() = FunctionSequence(treapListOf())
+            }
+            val numFlatSequencesRepresented
+                get() = funs.fold(1) { acc, el ->  acc * el.size }
+        }
+
+        @JvmInline
+        value class SequenceElement(val el: NonEmptyList<ContractFunction>) : List<ContractFunction> by el {
+            fun dispatchStr() =
+                this.el.singleOrNull()?.methodSignature?.qualifiedMethodName?.printQualifiedFunctionName() // avoids the prefix for the singleton case
+                    ?: this.el.toSet().map { it.methodSignature.qualifiedMethodName.printQualifiedFunctionName() }
+                        .sorted().joinToString(prefix = "Any of: ")
+
+            fun abiWithContractStr() = this.joinToString("|") { it.abiWithContractStr() }
+        }
 
         /**
          * @param addCallId0Sink Set this to `true` to make sure the program ends with a block with callId=0. This could
@@ -240,12 +266,6 @@ class BoundedModelChecker(
         }
 
         private fun ContractFunction.abiWithContractStr() = this.methodSignature.qualifiedMethodName.host.name + "." + this.methodSignature.computeCanonicalSignature(PrintingContext(false))
-
-        private fun Collection<ContractFunction>.dispatchStr() =
-            this.singleOrNull()?.methodSignature?.qualifiedMethodName?.printQualifiedFunctionName() // avoids the prefix for the singleton case
-                ?: this.toSet().map { it.methodSignature.qualifiedMethodName.printQualifiedFunctionName() }.sorted().joinToString(prefix = "Any of: ")
-
-        private fun Collection<Collection<ContractFunction>>.sequenceStr() = this.joinToString(" -> ") { it.dispatchStr() }
     }
 
     private val maxSequenceLen = Config.BoundedModelChecking.get()
@@ -297,6 +317,7 @@ class BoundedModelChecker(
      * A mapping from a [ContractFunction] to its [FuncData]..
      */
     private val compiledFuncs: SortedMap<ContractFunction, FuncData>
+    private val easyFuncs: Set<ContractFunction>
 
     private val invToRule: Map<CVLInvariant, CVLSingleRule>
     private val invProgs: Map<CVLSingleRule, CVLPrograms>
@@ -507,6 +528,19 @@ class BoundedModelChecker(
                 }.toSortedMap(compareBy<ContractFunction> { it.abiWithContractStr() })
         }
 
+        easyFuncs = compiledFuncs.filter { fdata ->
+            fdata.value.funcProg.let { tac ->
+                val cmds = tac.code.map { it.value.size }.sum()
+                val stats = NonLinearStats.compute(
+                    tac, null
+                )
+                logger.info{ "${fdata.key} cmds: $cmds, nonlins: ${stats.numberOfNonlinearOps}, severity: ${stats.severityGlobal}" }
+                cmds < Config.BoundedModelCheckingMergerTACThreshold.get() && stats.severityGlobal == PrettyPrintableStats.Severity.LOW
+            }
+        }.keys
+
+        logger.info{ "easy: ${easyFuncs.size}, total: ${compiledFuncs.size}" }
+
         val funcWritesAndReads = stats.collectGlobalStats("funcWritesAndReads") {
             compiledFuncs.mapValues { (_, funcData) ->
                 getAllWritesAndReads(funcData.funcProg, funcData.callId)
@@ -574,7 +608,7 @@ class BoundedModelChecker(
      * At the end of the sequence we postpend an assertion of the invariant ([CVLPrograms.assert]).
      */
     private fun generateProgForSequence(
-        funcsList: List<List<ContractFunction>>,
+        funcsList: FunctionSequence,
         progs: CVLPrograms,
         includeAssertion: Boolean = true
     ): CoreTACProgram {
@@ -591,10 +625,6 @@ class BoundedModelChecker(
         val functionCallsProg = funcsList.foldIndexed(
             initializationProg andThen setupFunctionProg andThen progs.params
         ) { idx, outerAcc, contractFunctions ->
-            if (contractFunctions.isEmpty()) {
-                // the constructor only case
-                return@foldIndexed outerAcc
-            }
             val selectorVar = TACSymbol.Var(selectorVarName(idx), Tag.Int).withMeta(TACMeta.CVL_DISPLAY_NAME, selectorVarName(idx))
             val dispatchProg = CommandWithRequiredDecls(TACCmd.Simple.AssumeCmd(TACSymbol.False, "dispatch")).toCore("dispatch", scene)
             val newDispatch = contractFunctions.fold(dispatchProg) { acc, contractFunction ->
@@ -880,7 +910,7 @@ class BoundedModelChecker(
          */
         suspend fun checkRecursive(
             parentRule: CVLSingleRule,
-            parentFuncs: TreapList<ContractFunction>
+            parentFuncs: FunctionSequence
         ): TreapList<out RuleCheckResult> {
             if (failLimit > 0 && nSatResults.get() >= failLimit) {
                 // Hit the max number of errors that should be found. Bail out
@@ -888,8 +918,10 @@ class BoundedModelChecker(
             }
 
             val allLastFuncsToFailedFilters = allFuncsForLastStep.associateWith { func ->
-                BoundedModelCheckerFilters.filter(parentFuncs + func, baseRule, funcReads, funcWrites)
+                BoundedModelCheckerFilters.filter(parentFuncs, func, baseRule, funcReads, funcWrites)
             }
+
+            logger.debug { "For sequence ${parentFuncs}, filtering extension candidates gives:\n $allLastFuncsToFailedFilters\n"}
 
             val sequenceLen = parentFuncs.size + 1
             val rangeRule = getRangeRule(sequenceLen)
@@ -897,17 +929,18 @@ class BoundedModelChecker(
 
             // The last element of the sequence will be a dispatch on the functions in lastFuncs, so the functions that
             // got filtered out correspond to sequences that are skipped, so count them as done.
-            treeViewReporter.updateFinishedChildren(rangeRule, allFuncs.size - lastFuncs.size)
+            treeViewReporter.updateFinishedChildren(rangeRule, (allFuncs.size - lastFuncs.size) * parentFuncs.numFlatSequencesRepresented)
 
             val res = if (lastFuncs.isNotEmpty()) {
+                val newSequenceElement = SequenceElement(lastFuncs.toNonEmptyList()!!)
                 val seqRule = parentRule.copy(
-                    ruleIdentifier = parentRule.ruleIdentifier.freshDerivedIdentifier(lastFuncs.dispatchStr()),
+                    ruleIdentifier = parentRule.ruleIdentifier.freshDerivedIdentifier(newSequenceElement.dispatchStr()),
                     ruleType = SpecType.Single.BMC.Sequence(baseRule)
                 )
                 treeViewReporter.registerSubruleOf(seqRule, rangeRule)
 
                 val prog = generateProgForSequence(
-                    parentFuncs.map { listOf(it) } + listOf(lastFuncs),
+                    parentFuncs + newSequenceElement,
                     progs
                 )
 
@@ -926,19 +959,25 @@ class BoundedModelChecker(
                     }?.second as? TACValue.PrimitiveValue.Integer
                     val theFunc = lastFuncs.singleOrNull()
                         ?: run {
-                            check(sighash != null) { "Expected to find an integer-typed selectorVar variable" }
-                            lastFuncs.find { it.sigHash == sighash.value }
-                                ?: error("the selectorVar's value should have been one of the last functions' sighash")
+                            // the sighash can be null if there are not multiple functions among lastFuncs feasible
+                            // as per static analysis, optimizing the selection away (can happen if a func must e.g. revert,
+                            // but is not generally an always reverting function that we would filter out, only with the sequence before)
+                            if(sighash != null) {
+                                lastFuncs.find { it.sigHash == sighash.value }
+                                    ?: error("the selectorVar's value should have been one of the last functions' sighash")
+                            } else { null }
                         }
 
-                    // Found it :) Now replace the dispatch list from the identifier of the rule with theFunc.
-                    treeViewReporter.updateDisplayName(seqRule, theFunc.abiWithContractStr())
+                    if(theFunc != null) {
+                        // Found it :) Now replace the dispatch list from the identifier of the rule with theFunc.
+                        treeViewReporter.updateDisplayName(seqRule, theFunc.abiWithContractStr())
+                    }
                 }
 
                 treeViewReporter.signalEnd(seqRule, res)
 
                 // This seqRule accounted for lastFuncs.size sequences, update the finished children with this info
-                treeViewReporter.updateFinishedChildren(rangeRule, lastFuncs.size)
+                treeViewReporter.updateFinishedChildren(rangeRule, lastFuncs.size * parentFuncs.numFlatSequencesRepresented)
 
                 nSequencesChecked.addAndGet(lastFuncs.size)
 
@@ -956,31 +995,36 @@ class BoundedModelChecker(
                 return listOfNotNull(res).toTreapList()
             }
 
-            val childFuncs = allLastFuncsToFailedFilters.filterValues { it == null || !it.appliesToChildren }.keys
+            val extensions = pickExtensions(allLastFuncsToFailedFilters.filterValues { it == null || !it.appliesToChildren }.keys)
+
+            logger.debug { "For sequence $parentFuncs, picked extensions $extensions" }
 
             // OK, this is a little confusing.
             // We want to count how many sequences are going to be skipped for each range due to us not calling checkRecursive
             // on the sequence parentFuncs + child.
             // So for each range r larger than the one we're currently checking (which we already updated before) we will skip
             // funcs^(r-seqLen) for each of the children we aren't calling the recursive function on.
+            // Times the number of sequences represented by parentFuncs, since we skip this number of further extensions for each of them.
             for (r in sequenceLen+1..maxSequenceLen) {
                 treeViewReporter.updateFinishedChildren(
                     getRangeRule(r),
-                    (allFuncs.size - childFuncs.size) * allFuncs.size.toBigInteger().pow(r - sequenceLen).toInt()
+                    (allFuncs.size - extensions.sumOf { it.size }) * allFuncs.size.toBigInteger().pow(r - sequenceLen).toInt()
+                        * parentFuncs.numFlatSequencesRepresented
                 )
             }
 
-            return (listOfNotNull(res) + childFuncs.parallelMapOrdered { _, func ->
+            return (listOfNotNull(res) + extensions.parallelMapOrdered { _, func ->
                 val funcs = parentFuncs + func
-                val childVacuityProg = generateProgForSequence(funcs.map { listOf(it) }, progs, includeAssertion = false)
+                val childVacuityProg = generateProgForSequence(funcs, progs, includeAssertion = false)
                 val childRule = parentRule.copy(ruleIdentifier = parentRule.ruleIdentifier.freshDerivedIdentifier(func.abiWithContractStr()))
 
                 if (isVacuous(childVacuityProg, childRule)) {
+                    logger.debug { "Determined ${childRule.ruleIdentifier} is vacuous, no recursive check." }
                     // similar to the logic in the previous call to updateFinishedChildren, just we're only talking about one child here.
                     for (r in sequenceLen+1..maxSequenceLen) {
                         treeViewReporter.updateFinishedChildren(
                             getRangeRule(r),
-                            allFuncs.size.toBigInteger().pow(r - sequenceLen).toInt()
+                            allFuncs.size.toBigInteger().pow(r - sequenceLen).toInt() * parentFuncs.numFlatSequencesRepresented
                         )
                     }
                     treapListOf()
@@ -994,10 +1038,10 @@ class BoundedModelChecker(
             treeViewReporter.registerSubruleOf(it, baseRule)
         }
 
-        val constructorVacuityProg = generateProgForSequence(listOf(), progs, includeAssertion = false)
+        val constructorVacuityProg = generateProgForSequence(FunctionSequence.emptySequence(), progs, includeAssertion = false)
 
         val allResults = if (!isVacuous(constructorVacuityProg, constructorsRule, registerTreeView = true)) {
-            val constructorProg = generateProgForSequence(listOf(), progs)
+            val constructorProg = generateProgForSequence(FunctionSequence.emptySequence(), progs)
             treeViewReporter.signalStart(constructorsRule)
             val constructorRes = stats.collectRuleStats(baseRule.ruleIdentifier.toString(), "Range 0: ${constructorsRule.ruleIdentifier}") {
                 checkProg(constructorProg, constructorsRule)
@@ -1009,7 +1053,7 @@ class BoundedModelChecker(
             }
 
             listOf(constructorRes) + if (maxSequenceLen > 0) {
-                checkRecursive(constructorsRule, treapListOf())
+                checkRecursive(constructorsRule, FunctionSequence.emptySequence())
             } else {
                 listOf()
             }
@@ -1022,6 +1066,18 @@ class BoundedModelChecker(
 
         return allResults
     }
+
+    private fun pickExtensions(funs: Set<ContractFunction>): Set<SequenceElement> =
+        if (Config.BoundedModelCheckingUseMerger.get()) {
+            funs.partition { it in easyFuncs }.let {
+                val easy = listOf(it.first)
+                val hard = it.second.map { listOf(it) }
+                (easy + hard).mapNotNull { it.toNonEmptyList() }.map { SequenceElement(it) }.toSet()
+            }
+        } else {
+            funs.map { SequenceElement(nonEmptyListOf(it)) }.toSet()
+        }
+
 
     suspend fun checkAll(): List<RuleCheckResult> {
         StatusReporter.freeze()

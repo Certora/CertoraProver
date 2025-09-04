@@ -43,6 +43,7 @@ import vc.data.TACProgramCombiners.andThen
 import verifier.BoundedModelChecker.Companion.copyFunction
 import verifier.BoundedModelChecker.Companion.optimize
 import verifier.BoundedModelChecker.Companion.toCore
+import verifier.BoundedModelChecker.Companion.FunctionSequence
 import java.util.concurrent.ConcurrentHashMap
 
 private val logger = Logger(LoggerTypes.BOUNDED_MODEL_CHECKER)
@@ -51,12 +52,14 @@ private val logger = Logger(LoggerTypes.BOUNDED_MODEL_CHECKER)
  * An enum of filters on function sequences generated for [BoundedModelChecker].
  *
  * Note that the order of the list is the order in which the filters are checked in the [filter] function, so it should
- * be ordered by how expensive it is to check each filter.
+ * be ordered by how expensive it is to check each filter and filters that apply to children should come first
+ * (otherwise we would keep extending a sequence that would have been filtered by a later filter that applies to children,
+ * just because it failed one that doesn't apply to children first).
  */
 enum class BoundedModelCheckerFilters(private val filter: BoundedModelCheckerFilter, val appliesToChildren: Boolean, val message: String) {
     COMMUTATIVITY(CommutativityFilter, true, "this squence is commutative with another one"),
-    FUNCTION_NON_MODIFYING(FunctionNonModifyingFilter, false, "a function doesn't modify the invariant's storage"),
     IDEMPOTENCY(IdempotencyFilter, true, "this sequence contains consecutive calls to an idempotent function"),
+    FUNCTION_NON_MODIFYING(FunctionNonModifyingFilter, false, "a function doesn't modify the invariant's storage"),
     ;
 
     companion object {
@@ -77,13 +80,13 @@ enum class BoundedModelCheckerFilters(private val filter: BoundedModelCheckerFil
          * that this [sequence] failed to pass, or `null` if the [sequence] passed all filters
          */
         suspend fun filter(
-            sequence: List<ContractFunction>,
+            sequence: FunctionSequence,
+            extensionCandidate: ContractFunction,
             testRule: CVLSingleRule,
             funcReads: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>,
             funcWrites: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>
         ): BoundedModelCheckerFilters? {
-            require(sequence.isNotEmpty())
-            return entries.firstOrNull { !it.filter.filter(sequence, testRule, funcReads, funcWrites) }
+            return entries.firstOrNull { !it.filter.filter(sequence, extensionCandidate, testRule, funcReads, funcWrites) }
         }
     }
 }
@@ -100,7 +103,8 @@ private sealed interface BoundedModelCheckerFilter {
     )
 
     suspend fun filter(
-        sequence: List<ContractFunction>,
+        sequence: FunctionSequence,
+        extensionCandidate: ContractFunction,
         testRule: CVLSingleRule,
         funcReads: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>,
         funcWrites: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>
@@ -163,14 +167,18 @@ private data object CommutativityFilter : BoundedModelCheckerFilter {
     }
 
     override suspend fun filter(
-        sequence: List<ContractFunction>,
+        sequence: FunctionSequence,
+        extensionCandidate: ContractFunction,
         testRule: CVLSingleRule,
         funcReads: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>,
         funcWrites: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>
     ): Boolean {
-        return sequence.size < 2 || sequence.zipWithNext { a, b ->
-            (a to b) !in commutativeFuncs
-        }.all { it }
+        return sequence.isEmpty() || sequence.last().any {
+            // if any of the functions in the previous sequence element should appear in this order with the candidate,
+            // we need to keep it
+            (it to extensionCandidate) !in commutativeFuncs
+        }
+
     }
 
 }
@@ -341,16 +349,16 @@ private data object IdempotencyFilter : BoundedModelCheckerFilter {
     }
 
     override suspend fun filter(
-        sequence: List<ContractFunction>,
+        sequence: FunctionSequence,
+        extensionCandidate: ContractFunction,
         testRule: CVLSingleRule,
         funcReads: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>,
         funcWrites: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>
     ): Boolean = coroutineScope {
-        sequence.size < 2 || sequence.zipWithNext { a, b ->
-            a != b || !idempotentFuncs.computeIfAbsent(a) {
-                async { computeIdempotency(a) }
-            }.await()
-        }.all { it }
+        sequence.isEmpty() || sequence.last().size > 1 || sequence.last()[0] != extensionCandidate
+            || !idempotentFuncs.computeIfAbsent(extensionCandidate) {
+            async { computeIdempotency(extensionCandidate) }
+        }.await()
     }
 }
 
@@ -358,8 +366,6 @@ private data object IdempotencyFilter : BoundedModelCheckerFilter {
  * If a function doesn't write to any storage/ghost that the invariant's condition accesses, then having it as the last
  * function in a sequence will always return the same result as that sequence without this function at the end, so skip
  * it.
- * Note - Currently the filter just blindly passes sequences where there are multiple possible functions in the last
- * step of the sequence.
  */
 private data object FunctionNonModifyingFilter : BoundedModelCheckerFilter {
     /** Mapping of whether a given invariant assertion program and contract function have "interacting" storage or ghosts */
@@ -399,29 +405,39 @@ private data object FunctionNonModifyingFilter : BoundedModelCheckerFilter {
     }
 
     override suspend fun filter(
-        sequence: List<ContractFunction>,
+        sequence: FunctionSequence,
+        extensionCandidate: ContractFunction,
         testRule: CVLSingleRule,
         funcReads: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>,
         funcWrites: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>
     ): Boolean {
-        for (i in sequence.indices.reversed()) {
-            val g = sequence[i]
-            if (testProgAndFuncInteract[testRule to g]!!) {
+        if (sequence.isEmpty()) {
+            return testProgAndFuncInteract[testRule to extensionCandidate]!!
+        }
+        if (!testProgAndFuncInteract[testRule to extensionCandidate]!!) {
+            return false
+        }
+
+        // If there is a function in the sequence that interacts neither with the rule nor any further function,
+        // there is an equivalent sequence without it that is good enough to check.
+        // Note that this filter does not apply to children, we can still extend a sequence with this extensionCandidate
+        // and further functions that may read from both.
+        for (i in sequence.indices) {
+            val f = sequence[i]
+            if (f.any { testProgAndFuncInteract[testRule to it]!! }) {
                 continue
             }
-            if (i == sequence.lastIndex) {
-                return false
-            }
-
-            val readFromG = sequence.subList(i + 1, sequence.size).map { func ->
-                secondReadsFromFirst.computeIfAbsent(g to func) {
-                    check(g in funcWrites) { "$g not in funcWrites!" }
-                    check(func in funcReads) { "$func not in funcReads!" }
-                    funcWrites[g]?.overlaps(funcReads[func]) ?: true
-                }
-            }
-
-            if (readFromG.none { it }) {
+            if (f.none { g ->
+                    val possibleReaders =
+                        sequence.subList(i + 1, sequence.size).flatten() + listOf(extensionCandidate)
+                    possibleReaders.any { reader ->
+                        secondReadsFromFirst.computeIfAbsent(g to reader) {
+                            check(g in funcWrites) { "$g not in funcWrites!" }
+                            check(reader in funcReads) { "$reader not in funcReads!" }
+                            funcWrites[g]?.overlaps(funcReads[reader]) != false
+                        }
+                    }
+                }) {
                 return false
             }
         }

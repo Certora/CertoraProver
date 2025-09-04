@@ -162,6 +162,24 @@ object Config {
         pythonName = "--ranger_failure_limit"
     ) {}
 
+    val BoundedModelCheckingUseMerger = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "bmcMerger",
+            true,
+            "Enable merger (a dispatcher) within BMC sequences [default: true]"
+        )
+    ) {}
+
+    val BoundedModelCheckingMergerTACThreshold = object : ConfigType.IntCmdLine(
+        500,
+        Option(
+            "boundedModelCheckingMergerTACThreshold",
+            true,
+            "Methods with a TAC size smaller than the threshold will be merged if the merger is enabled [default=500]"
+        ),
+    ) {}
+
     val AutoDispatcher = object : ConfigType.BooleanCmdLine(
         false,
         Option(
