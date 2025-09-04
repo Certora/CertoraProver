@@ -317,5 +317,53 @@ class ScalarDomainTest {
             Assertions.assertEquals(true, check.result)
         }
     }
+    @Test
+    fun test11() {
+        println( "====== TEST 11: precision gain due to assume =======")
+        /**
+         * 0:
+         *         if (r10 != 0) then goto 1 else goto 2
+         * 1:
+         *         r4 := r10
+         *         r3 := 1
+         *         goto 3
+         * 2:
+         *         r4 := 5
+         *         r3 := 1
+         *         goto 3
+         *
+         * 3:
+         *         // [r4 -> TOP, r3 -> 1]
+         *         assume(r3 == r4)
+         *
+         *         // as of the assume and the knowledge of r3 == 1,
+         *         // we can infer [r4 -> 1, r3 -> 1]
+         *         assert(r4 == 1) // it's true
+          */
 
+        val cfg = SbfTestDSL.makeCFG("entrypoint") {
+            bb(0) {
+                br(CondOp.NE(r10,0), 1, 2)
+            }
+            bb(1) {
+                r4 = r10 // loads TOP
+                r3 = 1
+                goto(3)
+            }
+            bb(2) {
+                r4 = 5
+                r3 = 1
+                goto(3)
+            }
+            bb(3) {
+                assume(CondOp.EQ(r3, r4))
+                assert(CondOp.EQ(r4, 1))
+            }
+        }
+        println("$cfg")
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
 }

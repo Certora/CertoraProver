@@ -790,6 +790,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 // do nothing
             } else if (leftAbsVal.isTop() || rightAbsVal.isTop()) {
                 analyzeAssumeTopNonTop(op, leftReg, leftAbsVal.type(), rightAbsVal.type())
+                analyzeAssumeTopNonTop(op, rightVal, leftAbsVal.type(), rightAbsVal.type())
             } else {
                 val leftType = leftAbsVal.type()
                 val rightType = rightAbsVal.type()
