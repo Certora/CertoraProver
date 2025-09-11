@@ -174,6 +174,24 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFla
         }
         val liveMapAtExit = LivenessAnalysis(cfg).getLiveRegistersAtExit()
         fixpo.solve(cfg, preMap, postMap, liveMapAtExit, processor)
+
+        /**
+         * The transfer function of `memcpy` requires knowledge of all possible source links to correctly transfer them
+         * to the destination. However, because the analysis allows copying uninitialized memory, some or all of these links
+         * may not yet be known when the forward analysis first encounters the `memcpy`. They become available only after
+         * the forward analysis completes, since all memory regions except the stack are analyzed in a __flow-insensitive__ manner.
+         *
+         * Therefore, some `memcpy` transfer functions are skipped or only partially executed until the forward analysis converges.
+         * After convergence, we must execute again all `memcpy` that transfer memory from non-stack regions.
+         * Because invariants are stored only at block entry/exit, this extra pass re-applies the transfer functions
+         * to generate invariants at each instruction. Importantly, no fixpoint is required.
+         * A single pass suffices, since the additional unifications from `memcpy` cannot introduce new links.
+         **/
+        for (block in cfg.getBlocks().values) {
+            getPre(block.getLabel())
+                ?.takeUnless { it.isBottom() }
+                ?.analyze(block, globalsMap, memSummaries)
+        }
     }
 
     // Print the CFG annotated with invariants to dot format

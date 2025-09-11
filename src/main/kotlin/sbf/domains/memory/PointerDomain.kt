@@ -3741,6 +3741,15 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      *  If length is statically known then we cover all possible cases.
      *  However, if length is unknown then we only cover the cases where stack is not involved and
      *  throw a runtime exception for the rest of cases.
+     *
+     *  ## Important note
+     *
+     *  If the source's node is not the stack then source's node may have new links after this transfer
+     *  function runs because this kind of nodes are analyzed in a flow-insensitive manner.
+     *  That could cause us to miss some unifications if those links would exist at the time the transfer function
+     *  was executed.
+     *  To avoid this, we re-run the transfer function after the flow-sensitive forward analysis has converged,
+     *  ensuring that no new links can appear.
      */
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
         locInst: LocatedSbfInstruction?,
