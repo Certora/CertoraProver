@@ -19,6 +19,7 @@ rule sanity() {
     calldataarg args;
     method f;
     f(e, args);
+
     // originally we had satisfy true, but final result is flaky with it until we fix satisfy+assert in same rule
     // see CERT-3833
     assert false;

@@ -126,6 +126,9 @@ class FormatterInput private constructor(private val batches: List<Batch>) {
         val indents = this@FormatterInput.indentDepth * indentSize
         val indentLiteral =  " ".repeat(indents)
 
+        // trim line before linebreak
+        this.deleteIndent()
+
         appendLine()
         append(indentLiteral)
 

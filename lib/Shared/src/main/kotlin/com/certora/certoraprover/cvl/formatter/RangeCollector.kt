@@ -32,9 +32,15 @@ import utils.Range
  * also implemented by [Tokenizer], to avoid all this code duplication
  * between this and [Tokenizer]
  */
-internal class RangeCollector {
+internal class RangeCollector(topLevels: List<TopLevel<*>>) {
     val nodeToRange: MutableMap<HasRange, Range.Range> = mutableMapOf()
     val rangeToNode: MutableMap<Range.Range, HasRange> = mutableMapOf()
+
+    init {
+        for (top in topLevels) {
+            this.traverse(top)
+        }
+    }
 
     private fun visit(ctx: HasRange) {
         val range = ctx.range.nonEmpty()
@@ -48,7 +54,7 @@ internal class RangeCollector {
     }
 
     /** entry point */
-    fun traverse(top: TopLevel<*>) {
+    private fun traverse(top: TopLevel<*>) {
         when (top) {
             is GhostDecl -> this.ghostDecl(top)
 

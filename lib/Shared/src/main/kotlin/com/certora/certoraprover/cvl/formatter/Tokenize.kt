@@ -691,7 +691,18 @@ internal class Tokenizer(
                 beforeList.partition { it.binding.token.range.end == ctx.range.end }
             val list = ctx
                 .cmds
-                .flatMap(::cmd)
+                .zipWithNextPartial { curr, next ->
+                    val tokens = this.cmd(curr)
+
+                    if (hadLinebreaksBetween(curr, next)) {
+                        // try and respect user's line breaks in this case,
+                        // by compressing multiple line breaks to a single one
+                        tokens + Token.LineBreak.Hard
+                    } else {
+                        tokens
+                    }
+                }
+                .flatten()
                 .plus(afterLastElementInList)
                 .surround(Token.Delimiter.CurlyBracket)
             beforeStartOfList + list + afterList
@@ -1201,4 +1212,17 @@ private fun List<Param>.needsLineBreaks(): Boolean {
         this.sumOf(Param::length) > maxLength -> true
         else -> false
     }
+}
+
+/**
+ * if the code originally had extra linebreaks between [curr] and [next].
+ *
+ * also returns true if the only tokens between [curr] and [next]
+ * are a comment which contains any linebreaks.
+ */
+private fun hadLinebreaksBetween(curr: Cmd, next: Cmd?): Boolean {
+    val nextLineStart = next?.range?.nonEmpty()?.start?.line ?: return false
+    val currLineEnd = curr.range.nonEmpty()?.end?.line ?: return false
+
+    return nextLineStart > currLineEnd + 1U
 }
