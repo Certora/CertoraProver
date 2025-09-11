@@ -789,10 +789,19 @@ class CVLAstBuilder(
                                     }
                                 } else {
                                     check(annot.methodParameterSignature is MethodSignature)
-                                    MergeableSignature.mergeReturns(matching.first().second, annot.methodParameterSignature).bindEither(
-                                        errorCallback = { errorList -> CVLError.General(annot.range, "Bad internal method returns: ${errorList.joinToString(", ")}").asError()},
-                                        resultCallback = { ok }
-                                    )
+                                    val matchedSignature = matching.first().second
+                                    // Special handling for internal functions: if the bytecode signature has no return types
+                                    // but the CVL signature does, use the CVL signature's return types
+                                    if (matchedSignature.res.isEmpty() && annot.methodParameterSignature.res.isNotEmpty()) {
+                                        // Internal functions from bytecode often don't have return type information
+                                        // In this case, trust the CVL specification
+                                        ok
+                                    } else {
+                                        MergeableSignature.mergeReturns(matchedSignature, annot.methodParameterSignature).bindEither(
+                                            errorCallback = { errorList -> CVLError.General(annot.range, "Bad internal method returns: ${errorList.joinToString(", ")}").asError()},
+                                            resultCallback = { ok }
+                                        )
+                                    }
                                 }
                             }
                         }
