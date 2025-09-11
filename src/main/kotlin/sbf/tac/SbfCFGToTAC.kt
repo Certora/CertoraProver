@@ -1448,12 +1448,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             }
 
             if (CompilerRtFunction.from(inst.name) != null) {
-                val summarizeCompilerRt = if (SolanaConfig.UseTACMathInt.get()) {
-                    SummarizeCompilerRtWithMathInt<TNum, TOffset, TFlags>()
-                } else {
-                    SummarizeCompilerRt()
-                }
-                return summarizeCompilerRt(locInst).ifEmpty {
+                return SummarizeCompilerRt<TNum, TOffset, TFlags>()(locInst).ifEmpty {
                     summarizeCall(locInst)
                 }
             }

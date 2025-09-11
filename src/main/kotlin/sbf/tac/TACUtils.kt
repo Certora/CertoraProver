@@ -231,3 +231,42 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     op(res, x, y)
     cmds.addAll(splitU128(res, args.resLow, args.resHigh))
 }
+
+
+/** Return this sequence of TAC commands:
+ *
+ * ```
+ *   v := havoc()
+ *   b1 := e1
+ *   assume(b1)
+ *   b2 := e2
+ *   assume(b2)
+ *   ...
+ * ```
+ * where each `ei` is an element of [assumptions] and refers to `v`
+ **/
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  nondetWithAssumptions(
+    v: TACSymbol.Var,
+    assumptions: List<TACExpr> = listOf()
+): List<TACCmd.Simple> {
+    val cmds = mutableListOf<TACCmd.Simple>()
+    cmds += TACCmd.Simple.AssigningCmd.AssignHavocCmd(v)
+    for (assumption in assumptions) {
+        val b = mkFreshBoolVar()
+        cmds += assign(b, assumption)
+        cmds += TACCmd.Simple.AssumeCmd(b, "")
+    }
+    return cmds
+}
+
+/** Return a nested ITE term from [keyValPairs] and [default] **/
+fun switch(keyValPairs: List<Pair<TACExpr, TACExpr>>, default: TACExpr): TACExpr {
+    return keyValPairs.reversed().fold(default) { acc, (key, value) ->
+        TACExpr.TernaryExp.Ite(
+            key,
+            value,
+            acc
+        )
+    }
+}
