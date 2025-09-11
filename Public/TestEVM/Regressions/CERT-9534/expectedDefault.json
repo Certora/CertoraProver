@@ -1,0 +1,10 @@
+{
+	"rules": {
+		"trivial": {
+			"SUCCESS": [
+				"doStuff(uint256)"
+			]
+		},
+		"whatever": "SUCCESS"
+	}
+}

@@ -1239,7 +1239,9 @@ private class SimpleInitializationAnalysisWorker(private val graph: TACCommandGr
                                 special check to see if we do ye olde extra write 0 trick
                              */
                             val specialClose = run {
-                                val loc = graph.iterateBlock(it).firstMapped {
+                                val loc = graph.iterateBlock(it).takeWhile {
+                                    it.cmd.getLhs() != TACKeyword.MEM64.toVar()
+                                }.firstMapped {
                                     if(it.cmd is TACCmd.Simple.AssigningCmd.ByteStore && it.cmd.value is TACSymbol.Const && it.cmd.value.value == BigInteger.ZERO
                                             && it.cmd.base == TACKeyword.MEMORY.toVar() && it.cmd.loc is TACSymbol.Var) {
                                         it.narrow<TACCmd.Simple.AssigningCmd.ByteStore>()
