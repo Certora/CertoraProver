@@ -37,6 +37,7 @@ import kotlinx.coroutines.sync.withPermit
 import log.*
 import parallel.coroutines.parallelMapOrdered
 import report.*
+import report.callresolution.CallResolutionTable
 import report.callresolution.CallResolutionTableBase
 import rules.RuleSplitter.getTopoSortedAssertsWithMeta
 import rules.dpgraph.DPResult
@@ -101,24 +102,32 @@ class RuleChecker(
 
                 SDCollectorFactory.collector().recordAny("${TimeSinceStart()}", "startTime", compiledCVLRule.tac.name)
                 @OptIn(Config.DestructiveOptimizationsOption::class)
-                val res = when (Config.DestructiveOptimizationsMode.get()) {
-                    DestructiveOptimizationsModeEnum.TWOSTAGE,
-                    DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> twoStageDestructiveOptimizationsCheck(
-                        scene,
-                        compiledCVLRule
-                    )
+                val res = if (Config.GetCallResolutionOnly.get()) {
+                    val origProgWithAssertIdMeta = CompiledRule.addAssertIDMetaToAsserts(compiledCVLRule.tac, rule)
+                    val callResolutionTable = CallResolutionTable.Factory(origProgWithAssertIdMeta, scene, rule).tableBase()
+                    val message = "Only dumping call resolution (-${Config.GetCallResolutionOnly.name} was set)"
+                    RuleCheckResult.Skipped(rule, listOf(RuleAlertReport.Info(message)), callResolutionTable)
+                } else {
+                    when (Config.DestructiveOptimizationsMode.get()) {
+                        DestructiveOptimizationsModeEnum.TWOSTAGE,
+                        DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> twoStageDestructiveOptimizationsCheck(
+                            scene,
+                            compiledCVLRule
+                        )
 
-                    DestructiveOptimizationsModeEnum.ENABLE ->
-                        CompiledRule.create(
-                            compiledCVLRule.rule,
-                            compiledCVLRule.tac.withDestructiveOptimizations(true),
-                            compiledCVLRule.liveStatsReporter
-                        ).check(scene.toIdentifiers())
+                        DestructiveOptimizationsModeEnum.ENABLE ->
+                            CompiledRule.create(
+                                compiledCVLRule.rule,
+                                compiledCVLRule.tac.withDestructiveOptimizations(true),
+                                compiledCVLRule.liveStatsReporter
+                            ).check(scene.toIdentifiers())
 
-                    DestructiveOptimizationsModeEnum.DISABLE -> compiledCVLRule.check(scene.toIdentifiers())
+                        DestructiveOptimizationsModeEnum.DISABLE -> compiledCVLRule.check(scene.toIdentifiers())
+                    }
+                        .toCheckResult(scene, compiledCVLRule)
+                        .getOrElse { RuleCheckResult.Error(compiledCVLRule.rule, it) }
                 }
-                    .toCheckResult(scene, compiledCVLRule)
-                    .getOrElse { RuleCheckResult.Error(compiledCVLRule.rule, it) }
+
                 SDCollectorFactory.collector().recordAny("${TimeSinceStart()}", "finishTime", compiledCVLRule.tac.name)
                 res
             } catch (e: Exception) {

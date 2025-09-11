@@ -1052,7 +1052,8 @@ sealed class RuleCheckResult(open val rule: IRule) {
      */
     data class Skipped(
         override val rule: IRule,
-        override val ruleAlerts: List<RuleAlertReport>
+        override val ruleAlerts: List<RuleAlertReport>,
+        val callResolutionTable: CallResolutionTable<*>? = null
     ) : Leaf(rule) {
         constructor(rule: IRule, ruleAlert: RuleAlertReport) : this(rule, listOf(ruleAlert))
 
@@ -1065,6 +1066,52 @@ sealed class RuleCheckResult(open val rule: IRule) {
         }
 
         override fun copyWithResult(res: SolverResult): RuleCheckResult = this
+
+        private fun baseTreeViewRepBuilder(
+            location: TreeViewLocation?,
+            breadcrumbs: String
+        ): TreeViewRepBuilder<JsonObjectBuilder> = TreeViewRepJsonObjectBuilder {
+
+            put(Single.OutputReportViewAttribute.TREE_VIEW_PATH(), breadcrumbs)
+
+            put(
+                Single.OutputReportViewAttribute.JUMP_TO_DEFINITION(),
+                location,
+            )
+
+            /** call_resolution */
+            callResolutionTable?.let { table ->
+                val callResWithNoWarnings =
+                    table.copyAndFilterTable(isWarning = false)
+                put(
+                    CallResolutionTableReportView.Attribute.CALL_RESOLUTION(),
+                    callResWithNoWarnings.toCallResTableReporterView(CallResolutionTableWithExampleMeta.ExampleMeta.None)
+                )
+                val callResWithWarningsOnly =
+                    table.copyAndFilterTable(isWarning = true)
+                put(
+                    CallResolutionTableReportView.Attribute.CALL_RESOLUTION_WARNINGS(),
+                    callResWithWarningsOnly.toCallResTableReporterView(CallResolutionTableWithExampleMeta.ExampleMeta.None )
+                )
+            }
+
+        }
+
+        fun toOutputReportView(
+            location: TreeViewLocation?,
+            treeViewNode: DisplayableIdentifier
+        ): OutputReportView {
+            val baseBuilder = baseTreeViewRepBuilder(
+                location,
+                treeViewNode.toString()
+            )
+            return OutputReportView(
+                rule.ruleIdentifier,
+                TreeViewRepJsonObjectBuilder {
+                    baseBuilder.builderAction(this)
+                },
+            )
+        }
     }
 
     data class Error(

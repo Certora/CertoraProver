@@ -200,6 +200,11 @@ object Config {
         )
     ), RuleCacheAgnosticConfig {}
 
+    val GetCallResolutionOnly: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option("callResolutionOnly", true, "Skips the rule checking and dumps the rule call resolution early."),
+    ), TransformationAgnosticConfig {}
+
     /* If not given, the typechecker will only check the syntax of the specification files.
     using this option requires the existence of a build JSON file in the build directory.
     */

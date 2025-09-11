@@ -897,9 +897,10 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         // update the global CallResolution table
         if (result is RuleCheckResult.Single) {
             tree.globalCallResolutionBuilder.joinWith(result.callResolutionTable)
+        } else if (result is RuleCheckResult.Skipped) {
+            result.callResolutionTable?.let { tree.globalCallResolutionBuilder.joinWith(it) }
         }
     }
-
 
     /**
      * Signals skipping of
@@ -1034,10 +1035,9 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
     private inner class PerAssertReporter {
         fun addResults(node: RuleIdentifier, results: RuleCheckResult.Leaf): List<String> {
             val rule = results.rule
+            val location = rule.treeViewLocation()
             return when (results) {
                 is RuleCheckResult.Single -> {
-                    val location = rule.treeViewLocation()
-
                     when (results) {
                         is RuleCheckResult.Single.Basic -> {
                             val ruleOutputReportView = results.toOutputReportView(
@@ -1093,7 +1093,15 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                     }
                 }
 
-                is RuleCheckResult.Skipped, is RuleCheckResult.Error -> {
+                is RuleCheckResult.Skipped -> {
+                    val ruleOutputReportView = results.toOutputReportView(
+                        location,
+                        node,
+                    )
+                    val outputFileName = ruleOutputReportView.writeToFile()
+                    listOfNotNull(outputFileName)
+                }
+                is RuleCheckResult.Error -> {
                     // Skipped or Error - ignore no output
                     listOf()
                 }
