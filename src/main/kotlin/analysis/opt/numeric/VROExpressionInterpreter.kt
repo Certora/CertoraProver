@@ -59,7 +59,7 @@ abstract class VROExpressionInterpreter<S: Map<TACSymbol.Var, VROInt>>(override 
                 (rhs.ops.single() as? TACExpr.Sym.Var)?.s?.let(toStep::get)
             }
             when (rhs.f) {
-                TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym() -> {
+                TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym() -> {
                     val op = opValue ?: return default
                     return this.assign(
                         toStep = toStep,

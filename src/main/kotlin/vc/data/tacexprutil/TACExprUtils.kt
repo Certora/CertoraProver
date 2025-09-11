@@ -274,7 +274,7 @@ data class CastToUnsignedInt(val bitWidth: Int) : TACFunForCastExpression() {
         check(bitWidth <= EVM_BITWIDTH256) { "a bitwidth over $EVM_BITWIDTH256 makes narrowing unsafe here" }
         // if we are going to be asserting or assuming in-bounds anyway, let's give smt and constant propagation
         // a break and use this "unsafe" narrowing from Int to Bit256
-        val dangerousNarrow = TACBuiltInFunction.SafeMathNarrow(Tag.Bit256)
+        val dangerousNarrow = TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256)
         val sanityVar = TACSymbol.Var("boundsCheck", Tag.Bool).toUnique(".")
         return CommandWithRequiredDecls(
             listOf(

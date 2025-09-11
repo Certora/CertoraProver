@@ -111,22 +111,26 @@ fun assume(meta: MetaMap = MetaMap(), cond: TACExprFact.() -> TACExpr) =
 
 fun label(label: String, meta: MetaMap = MetaMap()) = TACCmd.Simple.LabelCmd(label, meta).withDecls()
 
+fun TACExprFact.mapDefinition(
+    mapType: Tag.Map,
+    def: TACExprFact.(List<TACExpr.Sym.Var>) -> TACExpr
+): TACExpr.MapDefinition {
+    val queryVars = mapType.paramSorts.map { TACKeyword.TMP(it) }
+    val queryParams = queryVars.map { it.asSym() }
+    return MapDefinition(
+        queryParams,
+        def(queryParams),
+        mapType
+    )
+}
+
 fun defineMap(
     map: TACSymbol.Var,
     meta: MetaMap = MetaMap(),
     def: TACExprFact.(List<TACExpr.Sym.Var>) -> TACExpr
 ): CommandWithRequiredDecls<TACCmd.Simple> {
     val mapType = map.tag as Tag.Map
-    val queryVars = mapType.paramSorts.map { TACKeyword.TMP(it) }
-    val queryParams = queryVars.map { it.asSym() }
-
-    return assign(map, meta) {
-        MapDefinition(
-            queryParams,
-            def(queryParams),
-            mapType
-        )
-    }
+    return assign(map, meta) { mapDefinition(mapType, def) }
 }
 
 val LONG_COPY_STRIDE = MetaKey<Int>("tac.generation.long.copy.stride")

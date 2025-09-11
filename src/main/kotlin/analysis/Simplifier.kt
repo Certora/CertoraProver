@@ -479,7 +479,7 @@ object EthereumVariables {
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 trgNewValue,
                 TACExpr.Apply(
-                    TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                    TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                     listOf(trgNewValueInt.asSym()),
                     Tag.Bit256
                 ),

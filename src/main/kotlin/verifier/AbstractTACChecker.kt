@@ -39,8 +39,7 @@ import testing.TacPipelineDebuggers.oneStateInvariant
 import utils.*
 import vc.FullProgramReachabilityResult
 import vc.data.*
-import vc.data.transformations.DivisionUnderapproximation
-import vc.data.transformations.DropBwNops
+import vc.data.transformations.*
 import vc.gen.TACSimpleSimple
 import verifier.mus.UnsatCoreInputData
 import verifier.splits.SplitAddress
@@ -274,6 +273,7 @@ abstract class AbstractTACChecker {
             oneStateInvariant(fullySSAd, ReportTypes.PRELASTOPT_RULE)
 
             val preSolverProgram = lastOptimizations(fullySSAd, enableHeuristicalFolding)
+                .let(AssumeSafeMathGuarantees::transform)
                 .let(AnnotateSkeyBifs::annotate)
                 .let { QuantifierNormalizer(it).go() }
 

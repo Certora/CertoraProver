@@ -927,7 +927,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
                                 Tag.CVLArray.UserArray.ElementEncoding.Unsigned -> {
                                     toReturn.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                         tmp,
-                                        TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                                        TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                                         listOf(c.value.asSym())
                                     ))
                                 }

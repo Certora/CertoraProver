@@ -91,7 +91,8 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         is UnsignedPromotion -> "_${paramSort.bitwidth}_${returnSort.bitwidth}"
         is SafeSignedNarrow -> "_${paramSort.bitwidth}_${returnSort.bitwidth}"
         is SafeUnsignedNarrow -> "_${paramSort.bitwidth}_${returnSort.bitwidth}"
-        is SafeMathNarrow -> "_${returnSort}"
+        is SafeMathNarrow.Implicit -> "_${returnSort}"
+        is SafeMathNarrow.Assuming -> "_${returnSort}_${upperBound.toString(16)}"
         is SafeMathPromotion -> "_${paramSort}"
 
         is NoSMulOverAndUnderflowCheck -> "_${tag.bitwidth}"
@@ -179,6 +180,7 @@ sealed class TACBuiltInFunction : AmbiSerializable {
         from_skey,
         safe_math_promotion,
         safe_math_narrow,
+        safe_math_narrow_assuming,
         signed_promotion,
         unsigned_promotion,
         signed_narrow,
@@ -618,13 +620,11 @@ sealed class TACBuiltInFunction : AmbiSerializable {
     }
 
     /**
-     * An "experts only" promise that a math int definitely falls within the uint256 range, and can be safely
-     * reinterpreted as such without conversions or modulo application. Nothing happens if this check is violated,
-     * this function only exists to make the type checking work and is an internal function in every sense of the term
+     * Narrows from an int to a bits type.  Can be either [Implicit] or [Assuming].  See comments on those types.
      */
     @KSerializable
-    data class SafeMathNarrow(override val returnSort: Tag.Bits) : TACBuiltInFunction() {
-
+    sealed class SafeMathNarrow : TACBuiltInFunction() {
+        abstract override val returnSort: Tag.Bits
         override val eName: BuiltInFuncName
             get() = BuiltInFuncName.safe_math_narrow
         override val paramSorts: List<Tag>
@@ -661,6 +661,27 @@ sealed class TACBuiltInFunction : AmbiSerializable {
                 params.single().takeIf { it.inBounds(returnSort) }
             }
 
+        /**
+         * An "experts only" promise that a math int definitely falls within the uint256 range, and can be safely
+         * reinterpreted as such without conversions or modulo application. Nothing happens if this check is violated,
+         * this function only exists to make the type checking work and is an internal function in every sense of the term
+        */
+        @KSerializable
+        data class Implicit(override val returnSort: Tag.Bits) : SafeMathNarrow() {
+            override val eName: BuiltInFuncName
+                get() = BuiltInFuncName.safe_math_narrow
+        }
+
+        /**
+         * The success of this narrowing operation will be guaranteed by a TACCmd.Simple.AssumeCmd, which will be added
+         * to the program by AssumeSafeMathGuarantees.  The idea is that the assumption might *not* be added, if the
+         * use of this function is optimized away.
+         */
+        @KSerializable
+        data class Assuming(override val returnSort: Tag.Bits, val upperBound: BigInteger = returnSort.maxUnsigned) : SafeMathNarrow() {
+            override val eName: BuiltInFuncName
+                get() = BuiltInFuncName.safe_math_narrow_assuming
+        }
     }
 
     /**

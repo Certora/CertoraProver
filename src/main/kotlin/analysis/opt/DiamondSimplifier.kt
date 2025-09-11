@@ -360,39 +360,37 @@ object DiamondSimplifier {
 
     private fun TACExpr.disposition(): CommandDisposition {
         val shallowDisposition = when (this) {
-            is TACExpr.Apply -> when {
-                unconditionallySafe -> MERGEABLE
-                else -> when (val f = f) {
-                    is TACExpr.TACFunctionSym.BuiltIn -> when (f.bif) {
-                        is TACBuiltInFunction.TwosComplement.Wrap -> NON_MERGEABLE
-                        is TACBuiltInFunction.TwosComplement.Unwrap -> MERGEABLE
-                        is TACBuiltInFunction.SafeMathPromotion -> MERGEABLE
-                        is TACBuiltInFunction.SafeMathNarrow -> NON_MERGEABLE
-                        is TACBuiltInFunction.SignedPromotion -> MERGEABLE
-                        is TACBuiltInFunction.UnsignedPromotion -> MERGEABLE
-                        is TACBuiltInFunction.SafeSignedNarrow -> NON_MERGEABLE
-                        is TACBuiltInFunction.SafeUnsignedNarrow -> NON_MERGEABLE
-                        is TACBuiltInFunction.NoSMulOverAndUnderflowCheck -> MERGEABLE
-                        is TACBuiltInFunction.NoSAddOverAndUnderflowCheck -> MERGEABLE
-                        is TACBuiltInFunction.NoSSubOverAndUnderflowCheck -> MERGEABLE
-                        is TACBuiltInFunction.DisjointSighashes -> MERGEABLE
-                        is TACBuiltInFunction.LinkContractAddress -> MERGEABLE
-                        is TACBuiltInFunction.NoAddOverflowCheck -> MERGEABLE
-                        is TACBuiltInFunction.NoMulOverflowCheck -> MERGEABLE
-                        is TACBuiltInFunction.OpaqueIdentity -> MERGEABLE
-                        is TACBuiltInFunction.PrecompiledECRecover -> MERGEABLE
-                        is TACBuiltInFunction.ToStorageKey -> MERGEABLE
-                        is TACBuiltInFunction.Hash.Basic -> MERGEABLE
-                        is TACBuiltInFunction.Hash.SimpleHashApplication -> MERGEABLE
-                        is TACBuiltInFunction.Hash.Addition -> MERGEABLE
-                        is TACBuiltInFunction.Hash.ToSkey -> MERGEABLE
-                        is TACBuiltInFunction.Hash.FromSkey -> MERGEABLE
-                        is TACBuiltInFunction.PartitionInitialize -> MERGEABLE
-                        is TACBuiltInFunction.ReadTransientPartition -> MERGEABLE
-                        is TACBuiltInFunction.NondetFunction -> MERGEABLE
-                    }
-                    is TACExpr.TACFunctionSym.Adhoc -> NON_MERGEABLE
+            is TACExpr.Apply -> when (val f = f) {
+                is TACExpr.TACFunctionSym.BuiltIn -> when (f.bif) {
+                    is TACBuiltInFunction.TwosComplement.Wrap -> NON_MERGEABLE
+                    is TACBuiltInFunction.TwosComplement.Unwrap -> MERGEABLE
+                    is TACBuiltInFunction.SafeMathPromotion -> MERGEABLE
+                    is TACBuiltInFunction.SafeMathNarrow.Implicit -> NON_MERGEABLE
+                    is TACBuiltInFunction.SafeMathNarrow.Assuming -> MERGEABLE
+                    is TACBuiltInFunction.SignedPromotion -> MERGEABLE
+                    is TACBuiltInFunction.UnsignedPromotion -> MERGEABLE
+                    is TACBuiltInFunction.SafeSignedNarrow -> NON_MERGEABLE
+                    is TACBuiltInFunction.SafeUnsignedNarrow -> NON_MERGEABLE
+                    is TACBuiltInFunction.NoSMulOverAndUnderflowCheck -> MERGEABLE
+                    is TACBuiltInFunction.NoSAddOverAndUnderflowCheck -> MERGEABLE
+                    is TACBuiltInFunction.NoSSubOverAndUnderflowCheck -> MERGEABLE
+                    is TACBuiltInFunction.DisjointSighashes -> MERGEABLE
+                    is TACBuiltInFunction.LinkContractAddress -> MERGEABLE
+                    is TACBuiltInFunction.NoAddOverflowCheck -> MERGEABLE
+                    is TACBuiltInFunction.NoMulOverflowCheck -> MERGEABLE
+                    is TACBuiltInFunction.OpaqueIdentity -> MERGEABLE
+                    is TACBuiltInFunction.PrecompiledECRecover -> MERGEABLE
+                    is TACBuiltInFunction.ToStorageKey -> MERGEABLE
+                    is TACBuiltInFunction.Hash.Basic -> MERGEABLE
+                    is TACBuiltInFunction.Hash.SimpleHashApplication -> MERGEABLE
+                    is TACBuiltInFunction.Hash.Addition -> MERGEABLE
+                    is TACBuiltInFunction.Hash.ToSkey -> MERGEABLE
+                    is TACBuiltInFunction.Hash.FromSkey -> MERGEABLE
+                    is TACBuiltInFunction.PartitionInitialize -> MERGEABLE
+                    is TACBuiltInFunction.ReadTransientPartition -> MERGEABLE
+                    is TACBuiltInFunction.NondetFunction -> MERGEABLE
                 }
+                is TACExpr.TACFunctionSym.Adhoc -> NON_MERGEABLE
             }
             is TACExpr.Sym -> MERGEABLE
             is TACExpr.Unconstrained -> MERGEABLE

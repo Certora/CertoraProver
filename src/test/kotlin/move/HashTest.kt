@@ -94,6 +94,31 @@ class HashTest : MoveTestFixture() {
     }
 
     @Test
+    fun `hash of one struct argument with one field`() {
+        addMoveSource("""
+            module 0::hashes;
+            public struct S has copy, drop {
+                x: u32,
+            }
+            public fun s(x: u32): S { S { x } }
+            public native fun hash(s: S): u256;
+            public fun cvlm_manifest() {
+                cvlm::manifest::hash(b"hash");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::hashes::{hash, s};
+            public fun test() {
+                cvlm_assert(hash(s(1)) == hash(s(1)));
+                cvlm_assert(hash(s(2)) == hash(s(2)));
+                cvlm_assert(hash(s(1)) != hash(s(2)));
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
     fun `generic hash`() {
         addMoveSource("""
             module 0::hashes;

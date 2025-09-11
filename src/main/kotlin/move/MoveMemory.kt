@@ -17,8 +17,8 @@
 
 package move
 
+import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
-import analysis.SimpleCmdsWithDecls
 import datastructures.PersistentStack
 import datastructures.persistentStackOf
 import datastructures.stdcollections.*
@@ -34,6 +34,9 @@ import vc.data.tacexprutil.*
 import java.math.BigInteger
 
 private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
+
+typealias TACExprWithSimpleCmds = TACExprWithRequiredCmdsAndDecls<TACCmd.Simple>
+fun TACExpr.withCmds(cmds: SimpleCmdsWithDecls = SimpleCmdsWithDecls()) = TACExprWithSimpleCmds(this, cmds.varDecls, cmds.cmds)
 
 /**
     Implements the Move memory model in Core TAC.
@@ -53,7 +56,7 @@ private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
 
     Taken together, these properties make it somewhat natural for us to represent each "location" as a separate variable
     in TAC.  Locations with primitive types are represented as Tag.Bit256/Tag.Bool variables. Locations with struct or
-    vector types are represented as a map variable, laid out as follows:
+    vector types are represented as a map variable (see exception below), laid out as follows:
 
     - Structs are laid out as a series of fields, with the entire contents of each field stored in contiguous keys in
       the map.  Primitive fields take up one key, while struct fields might take up multiple keys.
@@ -71,12 +74,15 @@ private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
     do not do a lot of bitwise operations).  (If this does become a problem, we will need to add/infer constraints on
     the vector lengths, but let's cross that bridge when we come to it.)
 
+    Note: as an optimization, a location that holds a struct with only a single scalar field will be represented in TAC
+    as a scalar variable.
+
     References are represented as a pair of variables: a location ID, and an offset.  The location ID is an integer
     identifying a referenced location variable, and the offset is the start offset of the referenced item in the map (or
     0 if the referenced variable is a primitive).
 
-    Location IDs are assigned by [move.analysis.ReferenceAnalysis], which also tracks the set of location IDs that might be
-    reachable by each reference at each point in the program.  This is used to implement dereferencing: we simply
+    Location IDs are assigned by [move.analysis.ReferenceAnalysis], which also tracks the set of location IDs that might
+    be reachable by each reference at each point in the program.  This is used to implement dereferencing: we simply
     "switch" over the possible locations for that reference at the point of the deference.  (Typically we can determine
     statically that only one location is reachable, so this does not really lead to much overhead.)
  */
@@ -99,19 +105,41 @@ class MoveMemory(val scene: MoveScene) {
         }
 
         /**
-            Given a possibly-MoveTag-tagged location variable, returns the variable that represents that location in core
-            TAC.
+            Given a possibly-MoveTag-tagged location variable, returns the variable that represents that location in
+            core TAC.
         */
         private fun transformLocVar(v: TACSymbol.Var): TACSymbol.Var {
             return when (val tag = v.tag) {
                 is MoveTag -> when (tag) {
                     is MoveTag.Ref -> error("MoveTag.Ref is not a location variable tag: $v")
-                    is MoveTag.Struct,
+                    // Structs with only a single scalar field are modeled as a TAC scalar; otherwise we use LocTag.
+                    is MoveTag.Struct -> v.copy(
+                        namePrefix = v.namePrefix + "!loc",
+                        tag = singleSimpleFieldTagOrNull(tag.type) ?: LocTag
+                    )
                     is MoveTag.Vec,
                     is MoveTag.GhostArray -> v.copy(namePrefix = v.namePrefix + "!loc", tag = LocTag)
                     is MoveTag.Nondet -> v.copy(namePrefix = v.namePrefix + "!nondet", tag = Tag.Bit256)
                 }
                 else -> v
+            }
+        }
+
+        /** If [struct] can be modeled as a single scalar value, returns the type of that value. */
+        private fun singleSimpleFieldTypeOrNull(struct: MoveType.Struct): MoveType.Simple? {
+            return when (val type = struct.fields?.singleOrNull()?.type) {
+                null, is MoveType.Vector, is MoveType.GhostArray -> null
+                is MoveType.Simple -> type
+                is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)
+            }
+        }
+
+        /** If [struct] can be modeled as a single scalar value, returns the tag to use in TAC. */
+        private fun singleSimpleFieldTagOrNull(struct: MoveType.Struct): Tag? {
+            return when (val type = singleSimpleFieldTypeOrNull(struct)) {
+                null -> null
+                is MoveType.Primitive, is MoveType.Function -> type.toTag()
+                is MoveType.Nondet -> Tag.Bit256
             }
         }
 
@@ -227,7 +255,11 @@ class MoveMemory(val scene: MoveScene) {
         return when (val tag = cmd.lhs.tag) {
             is MoveTag -> when (tag) {
                 is MoveTag.Ref -> error("Cannot havoc a reference")
-                is MoveTag.Struct,
+                is MoveTag.Struct -> {
+                    val lhs = transformLocVar(cmd.lhs)
+                    singleSimpleFieldTypeOrNull(tag.type)?.assignHavoc(lhs, cmd.meta)
+                        ?: assignHavoc(lhs, cmd.meta)
+                }
                 is MoveTag.Vec,
                 is MoveTag.GhostArray,
                 is MoveTag.Nondet -> assignHavoc(transformLocVar(cmd.lhs), cmd.meta)
@@ -456,20 +488,17 @@ class MoveMemory(val scene: MoveScene) {
                 TXF {
                     deref.offset intAdd vecElemsOffset intAdd (len intMul elemSize)
                 }.letVar("elemOffset", Tag.Int, cmd.meta) { elemOffset ->
-                    TXF { len intAdd 1.asTACExpr }.letVar("newLen", Tag.Int, cmd.meta) { newLen ->
+                    TXF {
+                        safeMathNarrowAssuming(len intAdd 1.asTACExpr, Tag.Bit256, Tag.Bit64.maxUnsigned)
+                    }.letVar("newLen", Tag.Bit256, cmd.meta) { newLen ->
                         val elemRef = deref.copy(
                             offset = elemOffset,
                             path = deref.path.push(ReferenceAnalysis.PathComponent.VecElem)
                         )
                         mergeMany(
-                            assign(oldVecDigest, cmd.meta) {
-                                safeMathNarrow(
-                                    select(deref.loc.asSym(), deref.offset intAdd vecDigestOffset.asTACExpr),
-                                    Tag.Bit256,
-                                    unconditionallySafe = true // The vector digest is always 256 bits
-                                )
+                            MoveType.U256.assignFromIntInBounds(oldVecDigest, cmd.meta) {
+                                select(deref.loc.asSym(), deref.offset intAdd vecDigestOffset.asTACExpr)
                             },
-                            MoveType.U64.assumeBounds(newLen.s, cmd.meta),
                             assign(deref.loc, cmd.meta) {
                                 Store(deref.loc.asSym(), listOf(deref.offset), newLen)
                             },
@@ -514,12 +543,8 @@ class MoveMemory(val scene: MoveScene) {
                     )
                     mergeMany(
                         Trap.assert("Empty vector", cmd.meta) { len gt 0.asTACExpr },
-                        assign(oldVecDigest, cmd.meta) {
-                            safeMathNarrow(
-                                select(deref.loc.asSym(), deref.offset intAdd vecDigestOffset.asTACExpr),
-                                Tag.Bit256,
-                                unconditionallySafe = true // The vector digest is always 256 bits
-                            )
+                        MoveType.U256.assignFromIntInBounds(oldVecDigest, cmd.meta) {
+                            select(deref.loc.asSym(), deref.offset intAdd vecDigestOffset.asTACExpr)
                         },
                         assign(deref.loc, cmd.meta) {
                             Store(deref.loc.asSym(), listOf(deref.offset), len intSub 1.asTACExpr)
@@ -586,46 +611,45 @@ class MoveMemory(val scene: MoveScene) {
         @Suppress("NAME_SHADOWING")
         val loc = transformLocVar(loc)
 
-        fun hashExprs(offset: BigInteger, type: MoveType.Value): List<TACExpr> {
-            return when (type) {
-                is MoveType.Bits, is MoveType.Nondet, is MoveType.Function -> listOf(
-                    TXF {
-                        safeMathNarrow(
-                            select(loc.asSym(), offset.asTACExpr),
-                            Tag.Bit256,
-                            unconditionallySafe = true // This cannot be larger than 256 bits
-                        )
+        fun hashExprs(offset: BigInteger, type: MoveType.Value): List<TACExprWithSimpleCmds> {
+            fun MoveType.Simple.hashSimple(): List<TACExprWithSimpleCmds> {
+                return when (this) {
+                    is MoveType.Bits, is MoveType.Nondet, is MoveType.Function -> listOf(
+                        when (loc.tag) {
+                            LocTag -> getIntInBounds { select(loc.asSym(), offset.asTACExpr) }
+                            Tag.Bit256 -> loc.asSym().withCmds()
+                            else -> error("Unexpected location tag ${loc.tag} for $this")
+                        }
+                    )
+                    is MoveType.Bool -> listOf(
+                        when (loc.tag) {
+                            LocTag -> TXF {
+                                ite(select(loc.asSym(), offset.asTACExpr) neq 0.asTACExpr, 1.asTACExpr, 0.asTACExpr)
+                            }.withCmds()
+                            Tag.Bool -> TXF {
+                                ite(loc.asSym(), 1.asTACExpr, 0.asTACExpr)
+                            }.withCmds()
+                            else -> error("Unexpected location tag ${loc.tag} for $this")
+                        }
+                    )
+                    is MoveType.MathInt -> {
+                        // TODO CERT-9258 TACExpr.SimpleHash does not support Tag.Int arguments
+                        loggerSetupHelpers.warn { "Havocing hash of MathInt in $origCmd" }
+                        listOf(TACExpr.Unconstrained(Tag.Bit256).withCmds())
                     }
-                )
-                is MoveType.Bool -> listOf(
-                    TXF { ite(select(loc.asSym(), offset.asTACExpr) eq 0.asTACExpr, 0.asTACExpr, 1.asTACExpr) }
-                )
-                is MoveType.MathInt -> {
-                    // TODO CERT-9258 TACExpr.SimpleHash does not support Tag.Int arguments
-                    loggerSetupHelpers.warn { "Havocing hash of MathInt in $origCmd" }
-                    listOf(TACExpr.Unconstrained(Tag.Bit256))
                 }
+            }
+
+            return when (type) {
+                is MoveType.Simple -> type.hashSimple()
                 is MoveType.Vector -> listOf(
-                    TXF {
-                        safeMathNarrow(
-                            select(loc.asSym(), (offset + vecLengthOffset).asTACExpr),
-                            Tag.Bit256,
-                            unconditionallySafe = true // The vector length is always 256 bits
-                        )
-                    },
-                    TXF {
-                        safeMathNarrow(
-                            select(loc.asSym(),
-                            (offset + vecDigestOffset).asTACExpr),
-                            Tag.Bit256,
-                            unconditionallySafe = true // The vector digest is always 256 bits
-                        )
-                    }
+                    MoveType.U64.getIntInBounds { select(loc.asSym(), (offset + vecLengthOffset).asTACExpr) },
+                    MoveType.U256.getIntInBounds { select(loc.asSym(), (offset + vecDigestOffset).asTACExpr) },
                 )
-                is MoveType.Struct -> {
+                is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)?.hashSimple() ?: run {
                     val fields = type.fields ?: run {
                         loggerSetupHelpers.warn { "Havocing hash of native struct type $type in $origCmd" }
-                        return listOf(TACExpr.Unconstrained(Tag.Bit256))
+                        return listOf(TACExpr.Unconstrained(Tag.Bit256).withCmds())
                     }
                     var fieldOffset = offset
                     fields.flatMap { field ->
@@ -636,20 +660,23 @@ class MoveMemory(val scene: MoveScene) {
                 }
                 is MoveType.GhostArray -> {
                     loggerSetupHelpers.warn { "Havocing hash of ghost array type in $origCmd" }
-                    listOf(TACExpr.Unconstrained(Tag.Bit256))
+                    listOf(TACExpr.Unconstrained(Tag.Bit256).withCmds())
                 }
             }
         }
 
         val exprs = hashExprs(BigInteger.ZERO, tag.toMoveValueType())
 
-        return assign(dst, meta) {
-            SimpleHash(
-                length = exprs.size.asTACExpr,
-                args = exprs,
-                hashFamily = hashFamily
-            )
-        }
+        return mergeMany(
+            mergeMany(exprs.map { it.toCRD() }),
+            assign(dst, meta) {
+                SimpleHash(
+                    length = exprs.size.asTACExpr,
+                    args = exprs.map { it.exp },
+                    hashFamily = hashFamily
+                )
+            }
+        )
     }
 
     /**
@@ -674,18 +701,32 @@ class MoveMemory(val scene: MoveScene) {
         val bLoc = transformLocVar(cmd.b)
 
         fun compare(dest: TACSymbol.Var, offset: BigInteger, type: MoveType.Value): SimpleCmdsWithDecls {
+            fun MoveType.Simple.compareSimple(): SimpleCmdsWithDecls {
+                return when (this) {
+                    is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet, is MoveType.Function -> {
+                        when (aLoc.tag) {
+                            LocTag -> assign(dest, cmd.meta) {
+                                select(aLoc.asSym(), offset.asTACExpr) eq
+                                select(bLoc.asSym(), offset.asTACExpr)
+                            }
+                            is Tag.Bits, Tag.Int -> assign(dest, cmd.meta) { aLoc eq bLoc }
+                            else -> error("Unexpected location tag ${aLoc.tag} for $this")
+                        }
+                    }
+                    is MoveType.Bool -> {
+                        when (aLoc.tag) {
+                            LocTag -> assign(dest, cmd.meta) {
+                                (select(aLoc.asSym(), offset.asTACExpr) neq 0.asTACExpr) eq
+                                (select(bLoc.asSym(), offset.asTACExpr) neq 0.asTACExpr)
+                            }
+                            Tag.Bool -> assign(dest, cmd.meta) { aLoc eq bLoc }
+                            else -> error("Unexpected location tag ${aLoc.tag} for $this")
+                        }
+                    }
+                }
+            }
             return when(type) {
-                is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet, is MoveType.Function -> {
-                    assign(dest, cmd.meta) {
-                        select(aLoc.asSym(), offset.asTACExpr) eq select(bLoc.asSym(), offset.asTACExpr)
-                    }
-                }
-                is MoveType.Bool -> {
-                    assign(dest, cmd.meta) {
-                        (select(aLoc.asSym(), offset.asTACExpr) neq 0.asTACExpr) eq
-                        (select(bLoc.asSym(), offset.asTACExpr) neq 0.asTACExpr)
-                    }
-                }
+                is MoveType.Simple -> type.compareSimple()
                 is MoveType.Vector -> {
                     // Compare length and digest
                     val lengthOffset = (offset + vecLengthOffset).asTACExpr
@@ -695,7 +736,7 @@ class MoveMemory(val scene: MoveScene) {
                         (select(aLoc.asSym(), digestOffset) eq select(bLoc.asSym(), digestOffset))
                     }
                 }
-                is MoveType.Struct -> {
+                is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)?.compareSimple() ?: run {
                     val fields = type.fields ?: run {
                         loggerSetupHelpers.warn { "Havocing equality of native struct type $type in $origCmd" }
                         return assignHavoc(dest, cmd.meta)
@@ -771,7 +812,7 @@ class MoveMemory(val scene: MoveScene) {
         }
 
         // Otherwise, we need to "switch" over the location ID
-        val noneMatched = assert("Corrupt reference") { false.asTACExpr }
+        val noneMatched = assume { false.asTACExpr }
         return refTargets.fold(noneMatched) { noMatch, refTarget ->
             DerefCase(
                 locId = refTarget.locId,
@@ -817,38 +858,33 @@ class MoveMemory(val scene: MoveScene) {
         meta: MetaMap
     ): SimpleCmdsWithDecls {
         check(dst.tag == type.toTag()) { "Expected ${type.toTag()} destination, got ${dst.tag}" }
-        return when (type) {
-            is MoveType.Simple -> {
-                when (ref.loc.tag) {
-                    LocTag -> {
-                        type.assignFromIntInBounds(dst, meta) { select(ref.loc.asSym(), ref.offset) }
-                    }
-                    type.toTag() -> {
-                        mergeMany(
-                            assert("Corrupt reference", meta) { ref.offset eq 0.asTACExpr },
-                            assign(dst, meta) { ref.loc.asSym() }
-                        )
-                    }
-                    else -> error("Expected valid location for $type, got ${ref.loc.tag}")
-                }
-            }
-            is MoveType.Struct, is MoveType.Vector, is MoveType.GhostArray -> {
-                readAggregate(transformLocVar(dst), ref, meta)
-            }
-        }
-    }
 
-    /**
-        Reads a vector or struct from the location [loc] at the given [offset], putting the result in [dst].
-     */
-    context(CommandContext)
-    private fun readAggregate(
-        dst: TACSymbol.Var,
-        ref: DereferencedRef,
-        meta: MetaMap
-    ): SimpleCmdsWithDecls {
-        return defineMap(dst, meta) { (pos) ->
-            select(ref.loc.asSym(), pos intAdd ref.offset)
+        @Suppress("NAME_SHADOWING") // only use the transformed loc
+        val dst = transformLocVar(dst)
+
+        fun MoveType.Simple.readSimple() = when (ref.loc.tag) {
+            LocTag -> assignFromIntInBounds(dst, meta) { select(ref.loc.asSym(), ref.offset) }
+            is Tag.Bits, Tag.Int, Tag.Bool -> assign(dst, meta) { ref.loc.asSym() }
+            else -> error("Unexpected location tag ${ref.loc.tag} for $this")
+        }
+
+        fun readAggregate() = assign(dst, meta) {
+            ite(
+                // If we're reading from the start of the location...
+                ref.offset eq 0.asTACExpr,
+                // ...then just copy the whole map...
+                ref.loc.asSym(),
+                // ...else we need to adjust the offsets.
+                mapDefinition(LocTag) { (pos) ->
+                    select(ref.loc.asSym(), pos intAdd ref.offset)
+                }
+            )
+        }
+
+        return when (type) {
+            is MoveType.Simple -> type.readSimple()
+            is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)?.readSimple() ?: readAggregate()
+            is MoveType.Vector, is MoveType.GhostArray -> readAggregate()
         }
     }
 
@@ -863,11 +899,14 @@ class MoveMemory(val scene: MoveScene) {
         meta: MetaMap
     ): SimpleCmdsWithDecls {
         check(src.tag == type.toTag()) { "Expected ${type.toTag()} source, got ${src.tag}" }
-        val write = when (type) {
+
+        @Suppress("NAME_SHADOWING") // only use the transformed src
+        val src = transformLocVar(src)
+
+        fun MoveType.Simple.writeSimple() = when (this) {
             MoveType.Bool -> {
                 when (ref.loc.tag) {
                     Tag.Bool -> mergeMany(
-                        assert("Corrupt reference", meta) { ref.offset eq 0.asTACExpr },
                         assign(ref.loc, meta) { src.asSym() }
                     )
                     LocTag -> {
@@ -885,7 +924,6 @@ class MoveMemory(val scene: MoveScene) {
             is MoveType.Bits, is MoveType.MathInt, is MoveType.Nondet, is MoveType.Function -> {
                 when (ref.loc.tag) {
                     is Tag.Bits, is Tag.Int -> mergeMany(
-                        assert("Corrupt reference", meta) { ref.offset eq 0.asTACExpr },
                         assign(ref.loc, meta) { src.asSym() }
                     )
                     LocTag -> {
@@ -900,33 +938,37 @@ class MoveMemory(val scene: MoveScene) {
                     else -> error("Expected valid bits location, got ${ref.loc.tag}")
                 }
             }
-            is MoveType.Struct, is MoveType.Vector, is MoveType.GhostArray -> {
-                writeAggregate(ref, transformLocVar(src), fieldSize(type).asTACExpr, meta)
+        }
+
+        fun writeAggregate(): SimpleCmdsWithDecls {
+            val srcSize = fieldSize(type).asTACExpr
+            val dstSize = fieldSize((ref.origLoc.tag as MoveTag).toMoveValueType()).asTACExpr
+            return assign(ref.loc, meta) {
+                ite(
+                    // If we will overwrite the whole destination location...
+                    (ref.offset eq 0.asTACExpr) and (srcSize ge dstSize),
+                    // ...then just copy the whole source...
+                    src.asSym(),
+                    // ...else we need to adjust the offsets.
+                    mapDefinition(LocTag) { (pos) ->
+                        ite(
+                            (ref.offset le pos) and (pos lt (ref.offset intAdd srcSize)),
+                            select(src.asSym(), pos intSub ref.offset),
+                            select(ref.loc.asSym(), pos)
+                        )
+                    }
+                )
             }
         }
+
         return mergeMany(
-            write,
+            when (type) {
+                is MoveType.Simple -> type.writeSimple()
+                is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)?.writeSimple() ?: writeAggregate()
+                is MoveType.Vector, is MoveType.GhostArray -> writeAggregate()
+            },
             invalidateVectorDigests(ref, meta)
         )
-    }
-
-    /**
-        Writes the vector or struct in [src], of overall size [size], to the location [loc] at the given [offset].
-     */
-    context(CommandContext)
-    private fun writeAggregate(
-        ref: DereferencedRef,
-        src: TACSymbol.Var,
-        size: TACExpr,
-        meta: MetaMap
-    ): SimpleCmdsWithDecls {
-        return defineMap(ref.loc, meta) { (pos) ->
-            ite(
-                (ref.offset le pos) and (pos lt (ref.offset intAdd size)),
-                select(src.asSym(), pos intSub ref.offset),
-                select(ref.loc.asSym(), pos)
-            )
-        }
     }
 
     /**

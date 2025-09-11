@@ -128,7 +128,7 @@ fun narrowFromMathInt(from: TACExpr.Sym, to: TACSymbol.Var, toTag: Tag.Bits = Ta
     return TACCmd.Simple.AssigningCmd.AssignExpCmd(
         lhs = to,
         rhs = TACExpr.Apply(
-            TACExpr.TACFunctionSym.BuiltIn(TACBuiltInFunction.SafeMathNarrow(toTag)),
+            TACExpr.TACFunctionSym.BuiltIn(TACBuiltInFunction.SafeMathNarrow.Implicit(toTag)),
             listOf(from),
             toTag
         )

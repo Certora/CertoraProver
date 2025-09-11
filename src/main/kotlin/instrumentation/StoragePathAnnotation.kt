@@ -612,7 +612,7 @@ object StoragePathAnnotation {
     private fun mathIntSub(e1: TACExpr, e2: TACExpr): TACExpr {
         return TACExpr.Apply(
             f = TACExpr.TACFunctionSym.BuiltIn(
-                bif = TACBuiltInFunction.SafeMathNarrow(Tag.Bit256)
+                bif = TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256)
             ),
             ops = listOf(TACExpr.BinOp.IntSub(e1, e2)),
             tag = Tag.Bit256,

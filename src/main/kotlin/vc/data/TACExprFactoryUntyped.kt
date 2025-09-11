@@ -291,16 +291,11 @@ interface TACExprFact {
             t.returnSort
         )
 
-    fun applyBIF(t: TACBuiltInFunction, unconditionallySafe: Boolean, vararg ops: TACExpr) =
-        TACExpr.Apply(
-            TACExpr.TACFunctionSym.BuiltIn(t),
-            ops.toList(),
-            t.returnSort,
-            unconditionallySafe
-        )
+    fun safeMathNarrow(op: TACExpr, to: Tag.Bits) =
+        applyBIF(TACBuiltInFunction.SafeMathNarrow.Implicit(to), op)
 
-    fun safeMathNarrow(op: TACExpr, to: Tag.Bits, unconditionallySafe: Boolean = false) =
-        applyBIF(TACBuiltInFunction.SafeMathNarrow(to), unconditionallySafe, op)
+    fun safeMathNarrowAssuming(op: TACExpr, to: Tag.Bits, upperBound: BigInteger = to.maxUnsigned) =
+        applyBIF(TACBuiltInFunction.SafeMathNarrow.Assuming(to, upperBound), op)
 
     fun safeMathPromotion(op: TACExpr) =
         applyBIF(TACBuiltInFunction.SafeMathPromotion(op.tag as Tag.Bits), op)

@@ -581,6 +581,12 @@ class IntervalsCalculator(
                 if (e is TACExpr.LongStore) {
                     limitTo(Spot.Expr(ptr, e.length), S(BigInteger.ZERO, LONGSTORE_MAX_LENGTH))
                 }
+                if (e is TACExpr.Apply) {
+                    val bif = (e.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif
+                    if (bif is TACBuiltInFunction.SafeMathNarrow.Assuming) {
+                        limitTo(Spot.Expr(ptr, e.ops.single()), S(BigInteger.ZERO, bif.upperBound))
+                    }
+                }
                 val opSpots = e.getOperands().map { processExpr(it, ptr) }
                 if (null in opSpots) {
                     return null

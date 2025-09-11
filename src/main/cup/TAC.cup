@@ -144,8 +144,7 @@ terminal            LBRACE,RBRACE,LP, RP, UNDERSCORE, LSQB,
 terminal            PROGRAM,METAS,META,TACSYMBOLTABLE,AXIOMS,ASSIGNMENT,BLOCK,SUCCESORS, GHOSTMAP,
                     UNINTERP_SORT, UNINTERP_FUNC, UNINTERP_FUNCTIONS, UNINTERP_LOWER,USERDEFINED, STRUCT, BIF, IMPORT,
                     BUILTINFUNCS, AXIOM, UFATTRIBUTE,
-                    APPLYFN, SAFE_APPLYFN,
-                    FORALL, EXISTS, QVARS, UNCONSTRAINED, STRUCTCONSTANT, STRUCTACCESS, MAPDEFINITION, SIMPLEHASH;
+                    APPLYFN, FORALL, EXISTS, QVARS, UNCONSTRAINED, STRUCTCONSTANT, STRUCTACCESS, MAPDEFINITION, SIMPLEHASH;
 
 terminal            JSONInExpPrefix;
 
@@ -332,14 +331,7 @@ expression      ::= Symbol:s {:RESULT = TACExpr.Sym.Companion.invoke(s);:}
                             RESULT = TACExpr.Apply.Companion.invoke(
                                 getDeclaredBif(func),
                                 expList,
-                                null,
-                                false);:}
-                    | SAFE_APPLYFN LP IDENTIFIER:func COLON BIF expressionList:expList RP {:
-                            RESULT = TACExpr.Apply.Companion.invoke(
-                                getDeclaredBif(func),
-                                expList,
-                                null,
-                                true);:}
+                                null);:}
                     | FORALL LP QVarsList:qList expression:e RP {:
                         removeFromScope(qList);
                         RESULT = new TACExpr.QuantifiedFormula(true /*forall*/, qList, e, null);:}

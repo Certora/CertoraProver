@@ -451,31 +451,23 @@ object CvlmApi {
     private fun summarizeFunctionInfo(
         call: MoveCall,
         resultType: MoveType,
-        extract: (MoveFunctionName) -> Pair<TACSymbol, MoveCmdsWithDecls>
+        extract: (MoveFunctionName) -> TACSymbol
     ) = singleBlockSummary(call) {
-        mergeMany(
-            buildList {
-                val targetNames = parametricTargets.mapValues { (_, func) ->
-                    val (nameVar, nameInit) = extract(func.name)
-                    add(nameInit)
-                    nameVar
-                }
-                val functionSelector = call.args[0]
-                add(
-                    assign(call.returns[0]) {
-                        targetNames.entries.fold(
-                            TACExpr.Unconstrained(resultType.toTag()) as TACExpr
-                        ) { acc, (id, name) ->
-                            ite(
-                                id.asTACExpr eq functionSelector,
-                                name,
-                                acc
-                            )
-                        }
-                    }
+        val targetNames = parametricTargets.mapValues { (_, func) ->
+            extract(func.name)
+        }
+        val functionSelector = call.args[0]
+        assign(call.returns[0]) {
+            targetNames.entries.fold(
+                TACExpr.Unconstrained(resultType.toTag()) as TACExpr
+            ) { acc, (id, name) ->
+                ite(
+                    id.asTACExpr eq functionSelector,
+                    name,
+                    acc
                 )
             }
-        )
+        }
     }
 
     private fun addFunctionSummaries() {
@@ -508,7 +500,7 @@ object CvlmApi {
          */
         addSummary(functionModule, "module_address") { call ->
             summarizeFunctionInfo(call, MoveType.Address) {
-                TACSymbol.Const(it.module.address, MoveType.Address.toTag()) to MoveCmdsWithDecls()
+                TACSymbol.Const(it.module.address, MoveType.Address.toTag())
             }
         }
     }
