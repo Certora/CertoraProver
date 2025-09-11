@@ -132,6 +132,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     val regTypes: IRegisterTypes<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
     // To model clock syscalls
     val clock: Clock = Clock { prefix -> mkFreshIntVar(prefix = prefix) }
+    // To model rent syscalls
+    val rent: Rent = Rent { prefix -> mkFreshIntVar(prefix = prefix) }
 
     init {
         val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
@@ -1440,6 +1442,9 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     }
                     SolanaFunction.SOL_SET_CLOCK_SYSVAR -> {
                         clock.set(locInst)
+                    }
+                    SolanaFunction.SOL_GET_RENT_SYSVAR -> {
+                        rent.get(locInst)
                     }
                     else -> {
                         summarizeCall(locInst)

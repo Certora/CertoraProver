@@ -4335,7 +4335,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE, SolanaFunction.SOL_MEMSET, SolanaFunction.SOL_MEMCMP ->
                     doSolMemInst(solFunction, globals, scalars, calleeLocInst)
                 SolanaFunction.SOL_ALLOC_FREE -> throw PointerDomainError("TODO(4): support sol_alloc_free")
-                SolanaFunction.SOL_GET_CLOCK_SYSVAR -> summarizeCall(calleeLocInst, globals, scalars, memSummaries)
+                SolanaFunction.SOL_GET_CLOCK_SYSVAR,
+                SolanaFunction.SOL_GET_RENT_SYSVAR -> summarizeCall(calleeLocInst, globals, scalars, memSummaries)
                 SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
                 else -> {

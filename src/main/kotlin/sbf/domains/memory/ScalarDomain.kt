@@ -543,7 +543,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 SolanaFunction.SOL_GET_STACK_HEIGHT -> {
                     setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(sbfTypeFac.anyNum()))
                 }
-                SolanaFunction.SOL_GET_CLOCK_SYSVAR -> {
+                SolanaFunction.SOL_GET_CLOCK_SYSVAR, SolanaFunction.SOL_GET_RENT_SYSVAR -> {
                     summarizeCall(locInst, memSummaries)
                 }
                 SolanaFunction.SOL_SET_CLOCK_SYSVAR -> {

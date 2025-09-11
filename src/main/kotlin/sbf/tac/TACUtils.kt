@@ -22,6 +22,7 @@ import tac.Tag
 import vc.data.*
 import java.math.BigInteger
 import datastructures.stdcollections.*
+import sbf.cfg.CondOp
 import sbf.cfg.SbfInstruction
 import sbf.domains.INumValue
 import sbf.domains.IOffset
@@ -232,6 +233,25 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     cmds.addAll(splitU128(res, args.resLow, args.resHigh))
 }
 
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> assume(
+    op: CondOp,
+    left: TACExpr,
+    right: TACExpr,
+    msg: String
+): List<TACCmd.Simple> = assume(exprBuilder.mkBinRelExp(op, left, right), msg)
+
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> assume(
+    e: TACExpr,
+    msg: String
+): List<TACCmd.Simple> {
+    val cmds = mutableListOf<TACCmd.Simple>()
+    val b = mkFreshBoolVar()
+    cmds += assign(b, e)
+    cmds += TACCmd.Simple.AssumeCmd(b, msg)
+    return cmds
+}
 
 /** Return this sequence of TAC commands:
  *
@@ -253,9 +273,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     val cmds = mutableListOf<TACCmd.Simple>()
     cmds += TACCmd.Simple.AssigningCmd.AssignHavocCmd(v)
     for (assumption in assumptions) {
-        val b = mkFreshBoolVar()
-        cmds += assign(b, assumption)
-        cmds += TACCmd.Simple.AssumeCmd(b, "")
+        cmds += assume(assumption, "")
     }
     return cmds
 }
@@ -269,4 +287,31 @@ fun switch(keyValPairs: List<Pair<TACExpr, TACExpr>>, default: TACExpr): TACExpr
             acc
         )
     }
+}
+
+/** Extract TAC variables used by a summary **/
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getTACVariables(
+    locInst: LocatedSbfInstruction,
+    cmds: MutableList<TACCmd.Simple>
+) : List<TACSymbol.Var> {
+    val summaryArgs = mem.getTACMemoryFromSummary(locInst) ?: listOf()
+    val tacVars = mutableListOf<TACSymbol.Var>()
+    if (summaryArgs.isNotEmpty()) {
+        for (arg in summaryArgs) {
+            val tacV = when (val v = arg.variable) {
+                is TACByteStackVariable -> {
+                    v.tacVar
+                }
+                is TACByteMapVariable -> {
+                    val lhs = mkFreshIntVar()
+                    val loc = computeTACMapIndex(exprBuilder.mkVar(arg.reg), arg.offset, cmds)
+                    cmds.add(TACCmd.Simple.AssigningCmd.ByteLoad(lhs, loc, v.tacVar))
+                    lhs
+                }
+            }
+            tacVars.add(tacV)
+        }
+    }
+    return tacVars
 }
