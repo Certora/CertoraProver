@@ -107,7 +107,7 @@ class PatternRewriter private constructor(private val prog: CoreTACProgram) {
         return synchronized(bypassVarsCache) {
             bypassVarsCache.getOrPut(ptr, sym) {
                 val newVar = patcher.newTempVar("bypass", sym.tag)
-                patcher.insertBefore(
+                patcher.prependBefore(
                     ptr,
                     listOf(AssignExpCmd(newVar, sym))
                 )

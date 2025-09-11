@@ -1904,6 +1904,14 @@ object Config {
         )
     )
 
+    val AssumeNoUnderOverflows = ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "assumeNoUnderOverflows",
+            true,
+            "if true then it is assumed that no under/overflows happen (with caveats) [default: false]"
+        )
+    )
 
     val ParallelSplitting: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         false,

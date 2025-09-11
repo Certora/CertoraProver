@@ -177,6 +177,10 @@ fun TACExpr.postTransform(f : (TACExpr) -> TACExpr): TACExpr =
 fun <T> TACExpr.postFold(f : (TACExpr, List<T>) -> T): T =
     f(this, getOperands().map { it.postFold(f) })
 
+/** f(originalE, E with operands already transformed) -> newTransformedE */
+fun TACExpr.postTransformWithOriginal(f : (TACExpr, TACExpr) -> TACExpr): TACExpr =
+    f(this, rebuild(getOperands().map { it.postTransformWithOriginal(f) }))
+
 
 fun TACExpr.evalAsExprOrNull(vararg args : BigInteger) = eval(args.toList())?.asTACExpr(tag ?: defaultTag)
 fun TACExpr.evalAsExpr(vararg args : BigInteger) = evalAsExprOrNull(*args)!!

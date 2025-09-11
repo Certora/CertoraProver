@@ -126,10 +126,17 @@ class ConcurrentPatchingProgram(private val code: CoreTACProgram) {
         addVarDecls(cmdsAndVars.varDecls)
     }
 
-    /** This can accumulate such statememts */
-    fun insertBefore(where: CmdPointer, newCmds: List<TACCmd.Simple>) {
+    /** Adds the new commands before those already accumulated in [appendBefore] and [prependBefore]` calls. */
+    fun prependBefore(where: CmdPointer, newCmds: List<TACCmd.Simple>) {
         befores.compute(where) { _, old ->
             newCmds + old.orEmpty()
+        }
+    }
+
+    /** Adds the new commands after those already accumulated in [appendBefore] and [prependBefore] calls. */
+    fun appendBefore(where: CmdPointer, newCmds: List<TACCmd.Simple>) {
+        befores.compute(where) { _, old ->
+            old.orEmpty() + newCmds
         }
     }
 

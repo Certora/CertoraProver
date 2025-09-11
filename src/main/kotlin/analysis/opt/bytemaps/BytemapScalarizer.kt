@@ -74,7 +74,7 @@ class BytemapScalarizer private constructor(code: CoreTACProgram, private val go
         }
         // add a havoc statement for any query that still remains at the root block.
         if (nbid in g.rootBlockIds && newQueries.isNotEmpty()) {
-            patcher.insertBefore(
+            patcher.prependBefore(
                 CmdPointer(nbid, 0),
                 newQueries.pairs.map { (v, loc) ->
                     TACCmd.Simple.AssigningCmd.AssignHavocCmd(scalarized(v, loc))
