@@ -40,10 +40,7 @@ internal fun preprocess(ast: Ast): List<Batch> {
         return listOf(batch)
     }
 
-    val rangeCollector = RangeCollector()
-    for (top in topLevels) {
-        rangeCollector.traverse(top)
-    }
+    val rangeCollector = RangeCollector(topLevels)
 
     val tokenizer = Tokenizer(
         tokenTable.fileComments,

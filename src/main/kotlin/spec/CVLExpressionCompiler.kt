@@ -1414,7 +1414,7 @@ class CVLExpressionCompiler(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                 lhs = out,
                                 rhs = TACExpr.Apply(
-                                    TACBuiltInFunction.SafeMathNarrow(Tag.Bit256),
+                                    TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256),
                                     listOf(compiledExpression.out.asSym()),
                                     Tag.Bit256
                                 )
@@ -1924,7 +1924,7 @@ class CVLExpressionCompiler(
                         listOf(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                 narrowed,
-                                TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                                TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                                 listOf(argOut.asSym())
                             ),
                             TACCmd.Simple.AnnotationCmd(TACMeta.FOUNDRY_CHEATCODE, FoundryCheatcodes.Prank(narrowed))
@@ -1946,7 +1946,7 @@ class CVLExpressionCompiler(
                         listOf(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                 narrowed,
-                                TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                                TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                                 listOf(argOut.asSym())
                             ),
                             TACCmd.Simple.AnnotationCmd(TACMeta.FOUNDRY_CHEATCODE, FoundryCheatcodes.StartPrank(narrowed))
@@ -1978,7 +1978,7 @@ class CVLExpressionCompiler(
                         listOf(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                 narrowed,
-                                TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                                TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                                 listOf(argOut.asSym())
                             ),
                             TACCmd.Simple.AnnotationCmd(TACMeta.FOUNDRY_CHEATCODE, FoundryCheatcodes.Warp(narrowed))
@@ -2000,7 +2000,7 @@ class CVLExpressionCompiler(
                         listOf(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                                 narrowed,
-                                TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                                TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                                 listOf(argOut.asSym())
                             ),
                             TACCmd.Simple.AnnotationCmd(TACMeta.FOUNDRY_CHEATCODE, FoundryCheatcodes.Roll(narrowed))
@@ -2028,7 +2028,7 @@ class CVLExpressionCompiler(
                     val narrowed = TACSymbol.Var("mockCallValue", Tag.Bit256).toUnique("!")
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(
                         narrowed,
-                        TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                        TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                         listOf(value.asSym())
                     ) to narrowed
                 } else {
@@ -2980,8 +2980,15 @@ class CVLExpressionCompiler(
             }
         }
 
-        val prog = progsToAppend.fold(expProg) {
-            acc, toAppend -> mergeProgs(acc, toAppend)
+        val lastStorageUpdate = buildTACFromCommand(
+            TACCmd.CVL.CopyBlockchainState(
+                lhs = CVLKeywords.lastStorage.toVar(),
+                meta = MetaMap(TACMeta.LAST_STORAGE_UPDATE)
+            )
+        ).toSimple()
+
+        val prog = (progsToAppend + listOf(lastStorageUpdate)).fold(expProg) { acc, toAppend ->
+            mergeProgs(acc, toAppend)
         }
 
         return prog
@@ -3009,7 +3016,7 @@ class CVLExpressionCompiler(
                         TACCmd.Simple.AssigningCmd.AssignExpCmd(
                             lhs = symbol,
                             rhs = TACExpr.Apply(
-                                TACBuiltInFunction.SafeMathNarrow(Tag.Bit256),
+                                TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256),
                                 listOf(idx.asSym()),
                                 Tag.Bit256
                             )

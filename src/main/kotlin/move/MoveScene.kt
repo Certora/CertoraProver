@@ -64,9 +64,9 @@ class MoveScene(
     val cvlmManifest by lazy { CvlmManifest(this) }
 
     val rules by lazy {
-        cvlmManifest.selectedRules.flatMap { (funcName, ruleType) ->
-            MoveToTAC.compileRule(funcName, ruleType, this)
-        }.also {
+        cvlmManifest.selectedRules.parallelStream().flatMap { (funcName, ruleType) ->
+            MoveToTAC.compileRule(funcName, ruleType, this).stream()
+        }.toList().also {
             if (it.isEmpty()) {
                 throw CertoraException(
                     CertoraErrorType.CVL,

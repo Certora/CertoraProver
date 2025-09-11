@@ -34,7 +34,7 @@ import kotlin.math.absoluteValue
 
 
 /**
- *  Promote sequence of loads and stores into memcpy instructions.
+ *  Promote sequence of loads and stores into `memcpy` instructions.
  *  The transformation is intra-block.
  */
 fun promoteStoresToMemcpy(cfg: MutableSbfCFG,
@@ -45,7 +45,11 @@ fun promoteStoresToMemcpy(cfg: MutableSbfCFG,
 }
 
 @TestOnly
-fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(cfg: MutableSbfCFG, scalarAnalysis: IAnalysis<D>)
+fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
+    cfg: MutableSbfCFG,
+    scalarAnalysis: IAnalysis<D>,
+    // For tests, it's sometimes convenient to disable it
+    aggressivePromotion: Boolean = true)
     where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
 
     reorderLoads(cfg, scalarAnalysis)
@@ -57,6 +61,30 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
         numOfInsertedMemcpy += memcpyList.size
         replaceStoresWithMemcpy(b, memcpyList)
     }
+
+    if (aggressivePromotion) {
+        /*
+        * Since we promote `memcpy` instructions in a greedy manner we might lose some simple promotions.
+        * For instance, with this code:
+        * ```
+        *    r1 := *(u64 *) (r10 + -528):sp(40432)
+        *    *(u64 *) (r10 + -376):sp(40584) := r1
+        *    r1 := *(u64 *) (r10 + -520):sp(40440)
+        *    *(u64 *) (r10 + -384):sp(40576) := r1
+        * ```
+        * we fail to promote the two loads and stores to a memcpy of 16 bytes because of the "ordering". That is,
+        * the content of 40432 (low) is written to 40584 (high) and the content of 40440 (high) to 40576 (low).
+        *
+        * However, we can promote the two pairs of load-store to two separate `memcpy` of 8 bytes each one.
+        * To do that, we do another round where we search for single pairs of load-store.
+        */
+        for (b in cfg.getMutableBlocks().values) {
+            val memcpyList = findStoresToBePromoted(b, scalarsAtInst, 1)
+            numOfInsertedMemcpy += memcpyList.size
+            replaceStoresWithMemcpy(b, memcpyList)
+        }
+    }
+
     sbfLogger.debug{"Number of memcpy instructions inserted by promoting stores: $numOfInsertedMemcpy"}
 }
 
@@ -119,7 +147,7 @@ private fun replaceStoresWithMemcpy(bb: MutableSbfBasicBlock, memcpyInfos: List<
 }
 
 /**
- * Match the maximal number of load and stores in a greedy manner.
+ * Match at most [maxNumOfPairs] pairs of load and stores in a greedy manner.
  *
  * We scan all instructions within [bb]
  * 1. If the instruction is a load then we remember it in defLoads map.
@@ -135,7 +163,8 @@ private fun replaceStoresWithMemcpy(bb: MutableSbfBasicBlock, memcpyInfos: List<
  */
 private fun <D, TNum, TOffset> findStoresToBePromoted(
     bb: SbfBasicBlock,
-    scalarsAtInst: AnalysisRegisterTypes<D, TNum, TOffset>
+    scalarsAtInst: AnalysisRegisterTypes<D, TNum, TOffset>,
+    maxNumOfPairs: Int = Int.MAX_VALUE
 ): List<MemcpyRanges>
 where TNum: INumValue<TNum>,
       TOffset: IOffset<TOffset>,
@@ -159,18 +188,21 @@ where TNum: INumValue<TNum>,
                     continue
                 }
                 val loadInst = defLoads[value.r] ?: continue
-                if (!processStoreOfLoad(bb, locInst,
+
+                if (curMemcpy.getLoads().size >= maxNumOfPairs ||
+                    !processStoreOfLoad(bb, locInst,
                         loadInst,
                         scalarsAtInst,
                         curMemcpy)) {
+
                     // If we cannot insert the store-of-load pair, then we check if we can promote
                     // the pairs we have so far.
                     val memcpyInfoToEmit = curMemcpy.canBePromoted()
                     if (memcpyInfoToEmit != null ){
                         curMemcpy.emitMemcpy(memcpyInfoToEmit)
                         memcpyInfos.add(curMemcpy)
-
                     }
+
                     // We start a fresh sequence of store-of-load pairs
                     curMemcpy = MemcpyRanges.initialize()
                     processStoreOfLoad(bb, locInst,
@@ -654,6 +686,7 @@ private data class MemcpyRanges(private val loads: ArrayList<MemAccess>, private
                         val storeDist = store.offset - prevStore.offset
                         if (loadDist != storeDist) {
                             // loads and stores have different ordering, so it's not a memcpy
+                            // Note that we completely give up here even if we could also try smaller number of pairs of load-store.
                             return null
                         }
                     }

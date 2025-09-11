@@ -22,76 +22,21 @@ import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import vc.data.*
 import datastructures.stdcollections.*
+import sbf.SolanaConfig
+import sbf.callgraph.FPCompilerRtFunction
+import sbf.callgraph.IntegerU128CompilerRtFunction
 import sbf.domains.INumValue
 import sbf.domains.IOffset
 import sbf.domains.IPTANodeFlags
 
 /**
  * Summarize compiler-rt functions.
+ *
  * Not all functions are currently summarized.
- * Return empty list if function is not summarized.
  **/
-
-/** Default implementation using 256-bit numbers **/
 open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> {
 
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    open fun summarizeMulti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
-        val cmds = mutableListOf(Debug.externalCall(inst))
-        applyU128Operation(args, cmds) { res, x, y ->
-            cmds.add(assign(res, TACExpr.Vec.Mul(listOf(x.asSym(), y.asSym()))))
-        }
-        return cmds
-    }
-
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    open fun summarizeUDivti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
-        val cmds = mutableListOf(Debug.externalCall(inst))
-        applyU128Operation(args, cmds) { res, x, y ->
-            cmds.add(assign(res, TACExpr.BinOp.Div(x.asSym(), y.asSym())))
-        }
-        return cmds
-    }
-
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    open fun summarizeDivti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
-        return listOf(
-            Debug.externalCall(inst),
-            assign(args.resLow, TACExpr.BinOp.SDiv(args.xLow, args.yLow)),
-            TACCmd.Simple.AssigningCmd.AssignHavocCmd(args.resHigh)
-        )
-    }
-
-    /**
-     * ```
-     * int __unorddf2(double arg1, double arg2) {
-     *    return (isnan(arg1) || isnan(arg2)) ? 1 : 0;
-     * }
-     * ```
-     * Any number with all ones for exponent bits and non-zero mantissa bits is a NaN.
-     *
-     * In SBF, `arg1` and `arg2` are stored in `r1` and `r2` and the result `res` in `r0`.
-     */
-     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-        private fun summarizeUnorddf2(inst: SbfInstruction.Call,
-                                      res: TACSymbol.Var,
-                                      arg1: TACSymbol.Var,
-                                      arg2: TACSymbol.Var): List<TACCmd.Simple> {
-
-        // Bit pattern `0x7FF0000000000000` (exponent is 7FF, all 1's)
-        val nan = exprBuilder.mkConst(2047L shl 52).asSym()
-        return listOf(
-            Debug.externalCall(inst),
-            assign(res, TACExpr.TernaryExp.Ite(
-                                TACExpr.BinBoolOp.LOr(TACExpr.BinRel.Gt(arg1.asSym(), nan),
-                                                      TACExpr.BinRel.Gt(arg2.asSym(), nan)),
-                                exprBuilder.ONE.asSym(),
-                                exprBuilder.ZERO.asSym()
-                        )
-            )
-        )
-    }
-
+    /** @return empty list if function is not summarized **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     operator fun invoke(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
@@ -99,66 +44,64 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
 
         val function = CompilerRtFunction.from(inst.name) ?: return listOf()
         return when (function) {
-            CompilerRtFunction.MULTI3 -> {
-                val args = getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
-                summarizeMulti3(inst, args)
+            is CompilerRtFunction.IntegerU128 -> {
+                val summarizer = if (SolanaConfig.UseTACMathInt.get()) {
+                    SummarizeIntegerU128CompilerRtWithMathInt<TNum, TOffset, TFlags>()
+                } else {
+                    SummarizeIntegerU128CompilerRt()
+                }
+                listOf(Debug.startFunction(inst.name)) +
+                when (function.value) {
+                    IntegerU128CompilerRtFunction.MULTI3 -> {
+                        val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
+                        summarizer.summarizeMulti3(args)
+                    }
+                    IntegerU128CompilerRtFunction.UDIVTI3 -> {
+                        val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
+                        summarizer.summarizeUDivti3(args)
+                    }
+                    IntegerU128CompilerRtFunction.DIVTI3 -> {
+                        val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
+                        summarizer.summarizeDivti3(args)
+                    }
+                } + listOf(Debug.endFunction(inst.name))
             }
-            CompilerRtFunction.UDIVTI3 -> {
-                val args = getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
-                summarizeUDivti3(inst, args)
-            }
-            CompilerRtFunction.DIVTI3 -> {
-                val args = getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
-                summarizeDivti3(inst, args)
-            }
-            CompilerRtFunction.UNORDDF2 -> {
+            is CompilerRtFunction.FP -> {
                 val res = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
                 val arg1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
                 val arg2 = exprBuilder.mkVar(SbfRegister.R2_ARG)
-                summarizeUnorddf2(inst, res, arg1, arg2)
+                val cmds = when (function.value) {
+                    FPCompilerRtFunction.UNORDDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeUnorddf2(res, arg1, arg2)
+                    FPCompilerRtFunction.ADDDF3 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeAdddf3(res, arg1, arg2)
+                    FPCompilerRtFunction.SUBDF3 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeSubdf3(res, arg1, arg2)
+                    FPCompilerRtFunction.MULDF3 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeMuldf3(res, arg1, arg2)
+                    FPCompilerRtFunction.DIVDF3 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeDivdf3(res, arg1, arg2)
+                    FPCompilerRtFunction.NEGDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeNegdf3(res, arg1)
+                    FPCompilerRtFunction.FIXUNSDFDI -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeFixunsdfdi(res, arg1)
+                    FPCompilerRtFunction.FLOATUNDIDF -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeFloatundidf(res, arg1)
+                    FPCompilerRtFunction.EQDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeEqdf2(res, arg1, arg2)
+                    FPCompilerRtFunction.NEDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeNedf2(res, arg1, arg2)
+                    FPCompilerRtFunction.GEDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeGedf2(res, arg1, arg2)
+                    FPCompilerRtFunction.LTDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeLtdf2(res, arg1, arg2)
+                    FPCompilerRtFunction.LEDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeLedf2(res, arg1, arg2)
+                    FPCompilerRtFunction.GTDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeGtdf2(res, arg1, arg2)
+                }
+                debugCompilerRtFunction(inst, function.value.function.readRegisters.size, cmds)
             }
         }
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    private fun getArgsFromU128BinaryCompilerRt(locInst: LocatedSbfInstruction): U128Operands? {
-        val (resLow, resHigh) = getLowAndHighFromU128(locInst) ?: return null
-        val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
-        val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3_ARG))
-        val yLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R4_ARG))
-        val yHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R5_ARG))
-        return U128Operands(resLow.tacVar, resHigh.tacVar, xLowE, xHighE, yLowE, yHighE)
+    private fun debugCompilerRtFunction(inst: SbfInstruction.Call, numArgs: Int, cmds: List<TACCmd.Simple>): List<TACCmd.Simple> {
+        val inputArgs = mutableListOf<Pair<TACSymbol.Var, SbfFuncArgInfo>>()
+        for (i in 1..numArgs) {
+            inputArgs.add(exprBuilder.mkVar(SbfRegister.getByValue(i.toByte())) to SbfFuncArgInfo(SbfArgSort.SCALAR, true))
+        }
+        val fakeStartFuncAnnotation = SbfInlinedFuncStartAnnotation(inst.name, inst.name, id = -1, inputArgs, mockFor = null)
+        val fakeEndFuncAnnotation = SbfInlinedFuncEndAnnotation(inst.name, -1, exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE))
+        return  listOf(Debug.startFunction(fakeStartFuncAnnotation)) +
+            cmds +
+            listOf(Debug.endFunction(fakeEndFuncAnnotation))
     }
 }
 
-class SummarizeCompilerRtWithMathInt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
-    : SummarizeCompilerRt<TNum, TOffset, TFlags>() {
-
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    override fun summarizeMulti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
-        // We are using 256-bits so multiplication of 128-bits cannot overflow
-        val (xMath, yMath, resMath) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())
-        val cmds = mutableListOf(Debug.externalCall(inst))
-        applyU128Operation(args, cmds) { res, x, y ->
-            cmds.add(promoteToMathInt(x.asSym(), xMath))
-            cmds.add(promoteToMathInt(y.asSym(), yMath))
-            cmds.add(assign(resMath, TACExpr.Vec.IntMul(listOf(xMath.asSym(), yMath.asSym()))))
-            cmds.add(narrowFromMathInt(resMath.asSym(), res))
-        }
-        return cmds
-    }
-
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    override fun summarizeUDivti3(inst: SbfInstruction.Call, args: U128Operands): List<TACCmd.Simple> {
-        // We are using 256-bits so division of 128-bits cannot overflow
-        val (xMath, yMath, resMath) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())
-        val cmds = mutableListOf(Debug.externalCall(inst))
-        applyU128Operation(args, cmds) { res, x, y ->
-            cmds.add(promoteToMathInt(x.asSym(), xMath))
-            cmds.add(promoteToMathInt(y.asSym(), yMath))
-            cmds.add(assign(resMath, TACExpr.BinOp.IntDiv(xMath.asSym(), yMath.asSym())))
-            cmds.add(narrowFromMathInt(resMath.asSym(), res))
-        }
-        return cmds
-    }
-}

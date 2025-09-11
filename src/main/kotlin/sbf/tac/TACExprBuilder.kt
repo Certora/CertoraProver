@@ -42,7 +42,7 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
     }
 
     /** Return a TAC constant from BigInteger **/
-    private fun mkConst(value: BigInteger, useTwosComplement: Boolean = true, bitwidth: Short = 256): TACSymbol.Const {
+    fun mkConst(value: BigInteger, useTwosComplement: Boolean = true, bitwidth: Short = 256): TACSymbol.Const {
         @Suppress("ForbiddenComment")
         // FIXME: 256-bit integer is hardcoded. More info in Jira SOL-27
         return if (useTwosComplement && value < BigInteger.ZERO) {
@@ -174,7 +174,7 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
     }
 
     /** Return the equivalent TAC expression of logical [value] >> [shift] **/
-    private fun mkRshExpr(value: TACExpr.Sym, shift: TACExpr): TACExpr {
+    fun mkRshExpr(value: TACExpr.Sym, shift: TACExpr): TACExpr {
         /* mask64 because TAC uses 256bits but SBF uses 64bits */
         return TACExpr.BinOp.ShiftRightLogical(mask64(value), shift)
     }

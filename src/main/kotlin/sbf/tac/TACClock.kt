@@ -40,32 +40,6 @@ class Clock(mkFreshIntVar: (prefix: String)-> TACSymbol.Var) {
     private val leaderScheduleEpoch: TACSymbol.Var = mkFreshIntVar("clock.leader_schedule_epoch")
     private val unixTimestamp: TACSymbol.Var = mkFreshIntVar("clock.unix_timestamp")
 
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getTACVariables(
-        locInst: LocatedSbfInstruction,
-        cmds: MutableList<TACCmd.Simple>)
-    : List<TACSymbol.Var> {
-        val summaryArgs = mem.getTACMemoryFromSummary(locInst) ?: datastructures.stdcollections.listOf()
-        val tacVars = mutableListOf<TACSymbol.Var>()
-        if (summaryArgs.isNotEmpty()) {
-            for (arg in summaryArgs) {
-                val tacV = when (val v = arg.variable) {
-                    is TACByteStackVariable -> {
-                        v.tacVar
-                    }
-                    is TACByteMapVariable -> {
-                        val lhs = mkFreshIntVar()
-                        val loc = computeTACMapIndex(exprBuilder.mkVar(arg.reg), arg.offset, cmds)
-                        cmds.add(TACCmd.Simple.AssigningCmd.ByteLoad(lhs, loc, v.tacVar))
-                        lhs
-                    }
-                }
-                tacVars.add(tacV)
-            }
-        }
-        return tacVars
-    }
-
     /** Emit TAC code for `sol_set_clock_sysvar` **/
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> set(

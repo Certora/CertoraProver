@@ -177,6 +177,10 @@ fun TACExpr.postTransform(f : (TACExpr) -> TACExpr): TACExpr =
 fun <T> TACExpr.postFold(f : (TACExpr, List<T>) -> T): T =
     f(this, getOperands().map { it.postFold(f) })
 
+/** f(originalE, E with operands already transformed) -> newTransformedE */
+fun TACExpr.postTransformWithOriginal(f : (TACExpr, TACExpr) -> TACExpr): TACExpr =
+    f(this, rebuild(getOperands().map { it.postTransformWithOriginal(f) }))
+
 
 fun TACExpr.evalAsExprOrNull(vararg args : BigInteger) = eval(args.toList())?.asTACExpr(tag ?: defaultTag)
 fun TACExpr.evalAsExpr(vararg args : BigInteger) = evalAsExprOrNull(*args)!!
@@ -274,7 +278,7 @@ data class CastToUnsignedInt(val bitWidth: Int) : TACFunForCastExpression() {
         check(bitWidth <= EVM_BITWIDTH256) { "a bitwidth over $EVM_BITWIDTH256 makes narrowing unsafe here" }
         // if we are going to be asserting or assuming in-bounds anyway, let's give smt and constant propagation
         // a break and use this "unsafe" narrowing from Int to Bit256
-        val dangerousNarrow = TACBuiltInFunction.SafeMathNarrow(Tag.Bit256)
+        val dangerousNarrow = TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256)
         val sanityVar = TACSymbol.Var("boundsCheck", Tag.Bool).toUnique(".")
         return CommandWithRequiredDecls(
             listOf(

@@ -28,6 +28,7 @@ import analysis.opt.intervals.*
 import analysis.opt.overflow.*
 import analysis.split.*
 import com.certora.collect.*
+import compiler.applyKeccak
 import config.*
 import datastructures.*
 import datastructures.stdcollections.*
@@ -134,26 +135,39 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             Produces TAC code to pack a string value into a std::vector<u8>.  We store the original string value in the
             vector variable's meta, so we can find it later in [ConstantStringPropagator].
          */
+        context(SummarizationContext)
         fun packString(
             bytes: ByteArray,
             string: String = String(bytes, Charsets.UTF_8)
-        ): Pair<TACSymbol.Var, MoveCmdsWithDecls> {
-            val stringVar = TACKeyword.TMP(
+        ): TACSymbol.Var {
+            // We create a single variable for each unique string
+            val stringHash = applyKeccak(bytes).toString(16)
+            val stringVar = TACSymbol.Var(
+                "mv.str.${stringHash}",
                 MoveType.Vector(MoveType.U8).toTag(),
-                "string",
-                MetaMap(CONST_STRING to string)
+                meta = MetaMap(CONST_STRING to string)
             )
-            val commands = buildList<MoveCmdsWithDecls> {
-                val values = bytes.map { byte ->
-                    val byteVar = TACKeyword.TMP(MoveType.U8.toTag(), "byte")
-                    add(assign(byteVar) { byte.toUByte().toBigInteger().asTACExpr })
-                    byteVar
+            data class Initializer(
+                val stringVar: TACSymbol.Var,
+                val bytes: ByteArray
+            ) : SummarizationContext.Initializer() {
+                override fun initialize(): MoveCmdsWithDecls {
+                    val commands = buildList<MoveCmdsWithDecls> {
+                        val values = bytes.map { byte ->
+                            val byteVar = TACKeyword.TMP(MoveType.U8.toTag(), "byte")
+                            add(assign(byteVar) { byte.toUByte().toBigInteger().asTACExpr })
+                            byteVar
+                        }
+                        add(TACCmd.Move.VecPackCmd(stringVar, values).withDecls(stringVar))
+                    }
+                    return mergeMany(commands)
                 }
-                add(TACCmd.Move.VecPackCmd(stringVar, values).withDecls(stringVar))
             }
-            return stringVar to mergeMany(commands)
+            ensureInit(Initializer(stringVar, bytes))
+            return stringVar
         }
 
+        context(SummarizationContext)
         fun packString(string: String) = packString(string.toByteArray(Charsets.UTF_8), string)
 
         private const val REACHED_END_OF_FUNCTION = "Reached end of function"
@@ -740,8 +754,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                             // for later use (for things like assert messages).
                                             val length = buf.getLeb128UInt().toInt()
                                             val bytes = ByteArray(length).also { buf.get(it) }
-                                            val (stringVar, commands) = packString(bytes)
-                                            add(commands)
+                                            val stringVar = packString(bytes)
                                             add(push(type, stringVar.asSym()))
                                         } else {
                                             val length = buf.parseList { decode(type.elemType) }.size

@@ -208,7 +208,7 @@ class TACExprFactTypeCheckedTest : TACBuilderAuxiliaries() {
 
     @Test
     fun apply() {
-        assertHasTypes(txf.Apply(TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(), listOf(xInt)))
+        assertHasTypes(txf.Apply(TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(), listOf(xInt)))
     }
 
     @Test

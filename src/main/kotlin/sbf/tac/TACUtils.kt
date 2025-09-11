@@ -22,6 +22,7 @@ import tac.Tag
 import vc.data.*
 import java.math.BigInteger
 import datastructures.stdcollections.*
+import sbf.cfg.CondOp
 import sbf.cfg.SbfInstruction
 import sbf.domains.INumValue
 import sbf.domains.IOffset
@@ -128,7 +129,7 @@ fun narrowFromMathInt(from: TACExpr.Sym, to: TACSymbol.Var, toTag: Tag.Bits = Ta
     return TACCmd.Simple.AssigningCmd.AssignExpCmd(
         lhs = to,
         rhs = TACExpr.Apply(
-            TACExpr.TACFunctionSym.BuiltIn(TACBuiltInFunction.SafeMathNarrow(toTag)),
+            TACExpr.TACFunctionSym.BuiltIn(TACBuiltInFunction.SafeMathNarrow.Implicit(toTag)),
             listOf(from),
             toTag
         )
@@ -230,4 +231,87 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     val y = mergeU128(args.yLow, args.yHigh, cmds)
     op(res, x, y)
     cmds.addAll(splitU128(res, args.resLow, args.resHigh))
+}
+
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> assume(
+    op: CondOp,
+    left: TACExpr,
+    right: TACExpr,
+    msg: String
+): List<TACCmd.Simple> = assume(exprBuilder.mkBinRelExp(op, left, right), msg)
+
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> assume(
+    e: TACExpr,
+    msg: String
+): List<TACCmd.Simple> {
+    val cmds = mutableListOf<TACCmd.Simple>()
+    val b = mkFreshBoolVar()
+    cmds += assign(b, e)
+    cmds += TACCmd.Simple.AssumeCmd(b, msg)
+    return cmds
+}
+
+/** Return this sequence of TAC commands:
+ *
+ * ```
+ *   v := havoc()
+ *   b1 := e1
+ *   assume(b1)
+ *   b2 := e2
+ *   assume(b2)
+ *   ...
+ * ```
+ * where each `ei` is an element of [assumptions] and refers to `v`
+ **/
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  nondetWithAssumptions(
+    v: TACSymbol.Var,
+    assumptions: List<TACExpr> = listOf()
+): List<TACCmd.Simple> {
+    val cmds = mutableListOf<TACCmd.Simple>()
+    cmds += TACCmd.Simple.AssigningCmd.AssignHavocCmd(v)
+    for (assumption in assumptions) {
+        cmds += assume(assumption, "")
+    }
+    return cmds
+}
+
+/** Return a nested ITE term from [keyValPairs] and [default] **/
+fun switch(keyValPairs: List<Pair<TACExpr, TACExpr>>, default: TACExpr): TACExpr {
+    return keyValPairs.reversed().fold(default) { acc, (key, value) ->
+        TACExpr.TernaryExp.Ite(
+            key,
+            value,
+            acc
+        )
+    }
+}
+
+/** Extract TAC variables used by a summary **/
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getTACVariables(
+    locInst: LocatedSbfInstruction,
+    cmds: MutableList<TACCmd.Simple>
+) : List<TACSymbol.Var> {
+    val summaryArgs = mem.getTACMemoryFromSummary(locInst) ?: listOf()
+    val tacVars = mutableListOf<TACSymbol.Var>()
+    if (summaryArgs.isNotEmpty()) {
+        for (arg in summaryArgs) {
+            val tacV = when (val v = arg.variable) {
+                is TACByteStackVariable -> {
+                    v.tacVar
+                }
+                is TACByteMapVariable -> {
+                    val lhs = mkFreshIntVar()
+                    val loc = computeTACMapIndex(exprBuilder.mkVar(arg.reg), arg.offset, cmds)
+                    cmds.add(TACCmd.Simple.AssigningCmd.ByteLoad(lhs, loc, v.tacVar))
+                    lhs
+                }
+            }
+            tacVars.add(tacV)
+        }
+    }
+    return tacVars
 }

@@ -33,6 +33,7 @@ import vc.data.TACExpr
 import vc.data.TACSymbol
 import vc.data.getOperands
 import vc.data.tacexprutil.eval
+import java.math.BigInteger
 import analysis.opt.intervals.Intervals as S
 
 
@@ -157,8 +158,11 @@ object ForwardCalculator {
                     is TACBuiltInFunction.SafeMathPromotion ->
                         values[0]
 
-                    is TACBuiltInFunction.SafeMathNarrow ->
+                    is TACBuiltInFunction.SafeMathNarrow.Implicit ->
                         values[0] intersect sFull(bif.returnSort)
+
+                    is TACBuiltInFunction.SafeMathNarrow.Assuming ->
+                        values[0] intersect S(BigInteger.ZERO, bif.upperBound)
 
                     is TACBuiltInFunction.UnsignedPromotion ->
                         values[0]

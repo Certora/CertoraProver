@@ -1,0 +1,8 @@
+{
+  "assertMessages": {},
+    "rules": {
+        "rent_minimum_balance_nonzero": "SUCCESS",
+	"rent_minimum_balance_nonzero2": "SUCCESS",
+	"rent_minimum_balance_nonzero3": "FAIL"
+  }
+}

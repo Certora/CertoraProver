@@ -109,7 +109,7 @@ class BytemapConeOfInf private constructor(
     /** the bytemap `i -> 0` */
     private val zeroBytemap by lazy {
         patcher.newTempVar("zero", Tag.ByteMap).also {
-            patcher.insertBefore(
+            patcher.prependBefore(
                 CmdPointer(g.rootBlockIds.single(), 0),
                 listOf(AssignExpCmd(it, simpleMapDef(0.asTACExpr)))
             )

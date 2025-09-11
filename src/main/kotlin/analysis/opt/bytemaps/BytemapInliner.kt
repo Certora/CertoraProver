@@ -312,7 +312,7 @@ class BytemapInliner private constructor(
             val newCmds = listOf(AssignExpCmd(temp, v))
             defs.forEach { defPtr ->
                 if (defPtr == null) {
-                    patcher.insertBefore(CmdPointer(g.rootBlockIds.single(), 0), newCmds)
+                    patcher.prependBefore(CmdPointer(g.rootBlockIds.single(), 0), newCmds)
                 } else {
                     patcher.insertAfter(defPtr, newCmds)
                 }

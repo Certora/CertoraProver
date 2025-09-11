@@ -24,7 +24,9 @@ import analysis.opt.*
 import analysis.opt.bytemaps.optimizeBytemaps
 import analysis.opt.intervals.IntervalsRewriter
 import analysis.opt.overflow.OverflowPatternRewriter
+import analysis.opt.signed.NoUnderOverflowUnderApprox
 import analysis.split.BoolOptimizer
+import config.Config
 import config.ReportTypes
 import config.ReportTypes.*
 import datastructures.stdcollections.*
@@ -57,6 +59,12 @@ interface CTPOptimizationPass {
 
         fun constantPropagatorAndSimplifier(mergeBlocks: Boolean) = make(PROPAGATOR_SIMPLIFIER) { ctp ->
             ConstantPropagatorAndSimplifier(ctp).rewrite().letIf(mergeBlocks, BlockMerger::mergeBlocks)
+        }
+
+        val noUnderOverflowUnderApprox = make(NO_UNDEROVERFLOW_UNDERAPPROX) { code ->
+            code.letIf(Config.AssumeNoUnderOverflows.get()) {
+                NoUnderOverflowUnderApprox(it).go()
+            }
         }
 
         fun simplifyDiamonds(iterative: Boolean, allowAssumes: Boolean = true) = make(OPTIMIZE_DIAMONDS) { ctp ->

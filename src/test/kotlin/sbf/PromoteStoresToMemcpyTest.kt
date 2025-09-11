@@ -464,7 +464,7 @@ fun test09() {
         val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteStoresToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
         println("After transformation\n$cfg")
         Assertions.assertEquals(false, checkMemcpy(cfg))
     }
@@ -494,7 +494,7 @@ fun test09() {
         val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteStoresToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
         println("After transformation\n$cfg")
         Assertions.assertEquals(false, checkMemcpy(cfg))
     }
@@ -1081,7 +1081,7 @@ fun test09() {
         val globals = newGlobalVariableMap()
         val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
-        promoteStoresToMemcpy(cfg, scalarAnalysis)
+        promoteStoresToMemcpy(cfg, scalarAnalysis, aggressivePromotion = false)
         println("After transformation\n$cfg")
         removeUselessDefinitions(cfg)
         println("After remove useless loads transformation\n$cfg")

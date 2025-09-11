@@ -107,7 +107,7 @@ object InsertMapDefinitions {
                 TACCmd.Simple.AssigningCmd.AssignHavocCmd(map)
             }
 
-        patcher.insertBefore(
+        patcher.prependBefore(
             CmdPointer(g.rootBlockIds.single(), 0),
             newCmds
         )

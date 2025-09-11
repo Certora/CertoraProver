@@ -1,0 +1,22 @@
+// a rule with custom linebreaks
+rule custom_linebreaks_in_block(env e, uint256 count, address addr2, address addr3) {
+    address asset = asset();
+
+    // comments the first require
+    require (currentContract == 0x10, "requirement");
+    require (addr1 == 0x11, "requirement");
+    require (addr2 == 0x12, "requirement");
+
+    uint256 b4 = ERC20.balanceOf(asset, addr2);
+    uint256 b3 = ERC20.balanceOf(asset, currentContract);
+
+    require (currentContract.liquidityAdapter == 0x0, "requirement");
+
+    withdraw(e, count, addr2, addr3);
+
+    uint256 b1 = ERC20.balanceOf(asset, addr2);
+    uint256 b2 = ERC20.balanceOf(asset, currentContract);
+
+    assert assert_uint256(b3 - b2) == count;
+    assert assert_uint256(b1 - b4) == count;
+}

@@ -265,16 +265,19 @@ fun MoveType.Simple.assignFromIntInBounds(
     value: TACExprFact.() -> TACExpr
 ): SimpleCmdsWithDecls {
     return when (this) {
-        is MoveType.Bits,
+        is MoveType.Bits -> {
+            value.letVar(tag = Tag.Int, meta = meta) { intValue ->
+                assign(dest, meta) {
+                    safeMathNarrowAssuming(intValue, Tag.Bit256, MASK_SIZE(size))
+                }
+            }
+        }
         is MoveType.Nondet,
         is MoveType.Function -> {
             value.letVar(tag = Tag.Int, meta = meta) { intValue ->
-                mergeMany(
-                    assumeBounds(intValue.s, meta),
-                    assign(dest, meta) {
-                        safeMathNarrow(intValue, Tag.Bit256, unconditionallySafe = true)
-                    }
-                )
+                assign(dest, meta) {
+                    safeMathNarrowAssuming(intValue, Tag.Bit256)
+                }
             }
         }
         is MoveType.Bool -> {
@@ -286,38 +289,43 @@ fun MoveType.Simple.assignFromIntInBounds(
     }
 }
 
-fun MoveType.assumeBounds(value: TACSymbol.Var, meta: MetaMap = MetaMap()) = when (val type = this) {
-    is MoveType.Bits -> {
-        assume(meta) { (0.asTACExpr le value) and (value le MASK_SIZE(type.size).asTACExpr) }
-    }
-    else -> SimpleCmdsWithDecls()
+fun MoveType.Simple.getIntInBounds(meta: MetaMap = MetaMap(), value: TACExprFact.() -> TACExpr): TACExprWithSimpleCmds {
+    val s = TACKeyword.TMP(this.toTag())
+    return s.asSym().withCmds(assignFromIntInBounds(s, meta, value))
 }
 
-fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()) = when (val type = this) {
-    is MoveType.Bits -> {
-        mergeMany(
-            tac.generation.assignHavoc(dest, meta),
-            type.assumeBounds(dest, meta)
-        )
+fun MoveType.Simple.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()): SimpleCmdsWithDecls {
+    return when (this) {
+        is MoveType.Bits -> {
+            assignFromIntInBounds(dest, meta) { unconstrained(Tag.Int) }
+        }
+        is MoveType.Bool, is MoveType.MathInt, is MoveType.Nondet -> {
+            tac.generation.assignHavoc(dest, meta)
+        }
+        is MoveType.Function -> error("Function values should always be deterministic")
     }
-    is MoveType.Reference -> {
-        // For reference types, we create a temporary location, havoc it, and then borrow it.
-        // TODO CERT-9083: this isn't right in all situations; we will probably need more contol over this.
-        val havocLoc = TACKeyword.TMP(type.refType.toTag(), "havocLoc")
-        mergeMany(
-            tac.generation.assignHavoc(havocLoc, meta),
-            TACCmd.Move.BorrowLocCmd(
-                ref = dest,
-                loc = havocLoc,
-                meta = meta
-            ).withDecls()
-        )
+}
+
+fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()): MoveCmdsWithDecls {
+    return when (val type = this) {
+        is MoveType.Reference -> {
+            // For reference types, we create a temporary location, havoc it, and then borrow it.
+            // TODO CERT-9083: this isn't right in all situations; we will probably need more contol over this.
+            val havocLoc = TACKeyword.TMP(type.refType.toTag(), "havocLoc")
+            mergeMany(
+                tac.generation.assignHavoc(havocLoc, meta),
+                TACCmd.Move.BorrowLocCmd(
+                    ref = dest,
+                    loc = havocLoc,
+                    meta = meta
+                ).withDecls()
+            )
+        }
+        is MoveType.Simple -> type.assignHavoc(dest, meta)
+        is MoveType.Vector, is MoveType.Struct, is MoveType.GhostArray -> {
+            tac.generation.assignHavoc(dest, meta)
+        }
     }
-    is MoveType.Bool, is MoveType.Vector, is MoveType.Struct,
-    is MoveType.GhostArray, is MoveType.MathInt, is MoveType.Nondet -> {
-        tac.generation.assignHavoc(dest, meta)
-    }
-    is MoveType.Function -> error("Function values should always be deterministic")
 }
 
 /**

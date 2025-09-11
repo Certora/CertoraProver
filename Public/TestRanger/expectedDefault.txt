@@ -1,0 +1,4 @@
+nNonNegativeRule: FAIL
+nNonNegative: FAIL
+mInvariantParamInPreserved: FAIL
+mCurrentContractNonNegative: FAIL

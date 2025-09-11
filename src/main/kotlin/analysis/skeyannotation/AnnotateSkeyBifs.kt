@@ -506,7 +506,7 @@ object AnnotateSkeyBifs {
                 TACExpr.TACFunctionSym.BuiltIn(ToSkey),
                 listOf(
                     Apply(
-                        TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                        TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                         listOf(exp),
                         Tag.Bit256
                     )

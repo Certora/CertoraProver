@@ -135,6 +135,7 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
             SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
     SOL_GET_RENT_SYSVAR(ExternalFunction(
         name = "sol_get_rent_sysvar",
+        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = setOf(Value.Reg(SbfRegister.R1_ARG)))),
     SOL_GET_FEES_SYSVAR(ExternalFunction(
         name = "sol_get_fees_sysvar",
@@ -174,15 +175,24 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
                     SOL_CREATE_PROGRAM_ADDRESS, SOL_INVOKE_SIGNED_C, SOL_INVOKE_SIGNED_RUST -> {}
                     SOL_CURVE_VALIDATE_POINT, SOL_CURVE_GROUP_OP,
                     SOL_GET_STACK_HEIGHT, SOL_GET_PROCESSED_SIBLING_INSTRUCTION,
-                    SOL_GET_RENT_SYSVAR, SOL_GET_FEES_SYSVAR, SOL_SET_RETURN_DATA, SOL_GET_RETURN_DATA -> {}
+                    SOL_GET_FEES_SYSVAR, SOL_SET_RETURN_DATA, SOL_GET_RETURN_DATA -> {}
                     // Syscalls that require summaries
                     SOL_GET_CLOCK_SYSVAR, SOL_SET_CLOCK_SYSVAR-> {
                         val summaryArgs = listOf(
+                            MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.ANY),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 16, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 24, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 32, width = 8, type = MemSummaryArgumentType.NUM))
+                        memSummaries.addSummary(f.syscall.name, MemorySummary(summaryArgs))
+                    }
+                    SOL_GET_RENT_SYSVAR -> {
+                        val summaryArgs = listOf(
+                            MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.ANY),
+                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),   /* u64 */
+                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),   /* f64 */
+                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 16, width = 1, type = MemSummaryArgumentType.NUM))  /* u8 */
                         memSummaries.addSummary(f.syscall.name, MemorySummary(summaryArgs))
                     }
 

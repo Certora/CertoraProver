@@ -388,9 +388,14 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
                     optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
                     overflowPatternRewriter,
                     patternRewriter(PatternRewriter::basicPatternsList),
+                    optimizeAssignments(keepRevertManagement = true, bmcAware = bmcMode),
+                    noUnderOverflowUnderApprox,
                     ternarySimplifier,
                     intervalsRewriter,
                     bytemapOptimizer(2, bmcAware = bmcMode),
+                    // we run it again after the bytemap optimizer because bytemaps may contain both signed and unsigned
+                    // values, which can confuse this underapproximation. The `bytemapOptimizer` makes these simpler.
+                    noUnderOverflowUnderApprox,
                     simplifyDiamonds(iterative = false),
                     constantPropagator(2, mergeBlocks = false),
                     pruner(2),

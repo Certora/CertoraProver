@@ -124,7 +124,7 @@ object CodeGenUtils {
                 TACCmd.Simple.AssigningCmd.AssignExpCmd(
                     lhs = bumpAmount,
                     rhs = TACExpr.Apply(
-                        TACBuiltInFunction.SafeMathNarrow(Tag.Bit256),
+                        TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256),
                         listOf(idxMul.asSym()),
                         Tag.Bit256
                     )

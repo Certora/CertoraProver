@@ -230,7 +230,7 @@ object TACUnboundedHashingUtils {
                     BWAnd( // toMask & max_uint - ((1 << (256 - oddbits)) - 1)
                         toMask,
                         TACExpr.Apply(
-                            TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                            TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                             listOf(
                                 IntSub( // max_uint - ((1 << (256 - oddbits)) - 1)
                                     number(MAX_EVM_UINT256),
@@ -239,7 +239,7 @@ object TACUnboundedHashingUtils {
                                             // (1 << (256 - oddbits))
                                             number(1),
                                             TACExpr.Apply(
-                                                TACBuiltInFunction.SafeMathNarrow(Tag.Bit256).toTACFunctionSym(),
+                                                TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256).toTACFunctionSym(),
                                                 listOf(
                                                     IntSub( // 256 - oddBits
                                                         number(EVM_BITWIDTH256), //256

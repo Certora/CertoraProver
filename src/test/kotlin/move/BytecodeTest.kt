@@ -475,6 +475,23 @@ class BytecodeTest : MoveTestFixture() {
     }
 
     @Test
+    fun `eq struct one field`() {
+        addMoveSource("""
+            $testModule
+            public struct Foo has copy, drop {
+                n: u32,
+            }
+            public fun test() {
+                let a = Foo { n: 2 };
+                let b = Foo { n: 2 };
+                cvlm_assert(a == b);
+            }
+        """.trimIndent())
+
+        assertTrue(verify(assumeNoTraps = false))
+    }
+
+    @Test
     fun `not eq struct`() {
         addMoveSource("""
             $testModule
@@ -490,6 +507,23 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = Bar { n: 1, f: Foo { n: 2, m: 3 }, m: 4 };
                 let b = Bar { n: 1, f: Foo { n: 2, m: 4 }, m: 4 };
+                cvlm_assert(a == b);
+            }
+        """.trimIndent())
+
+        assertFalse(verify(assumeNoTraps = false))
+    }
+
+    @Test
+    fun `not eq struct one field`() {
+        addMoveSource("""
+            $testModule
+            public struct Foo has copy, drop {
+                n: u32,
+            }
+            public fun test() {
+                let a = Foo { n: 2 };
+                let b = Foo { n: 3 };
                 cvlm_assert(a == b);
             }
         """.trimIndent())
