@@ -396,9 +396,6 @@ class MoveMemory(val scene: MoveScene) {
                 },
                 // Initialize the vector location
                 assignHavoc(transformedLoc, cmd.meta),
-                // Store the length and digest
-                assign(transformedLoc, cmd.meta) { Store(transformedLoc.asSym(), listOf(vecLengthOffset.asTACExpr), elemCount.asTACExpr) },
-                assign(transformedLoc, cmd.meta) { Store(transformedLoc.asSym(), listOf(vecDigestOffset.asTACExpr), digest.asSym()) },
             ) + cmd.srcs.map { src ->
                 // Store each element
                 writeLoc(
@@ -409,7 +406,12 @@ class MoveMemory(val scene: MoveScene) {
                 ).also {
                     elemOffset += elemSize
                 }
-            }
+            } + listOf(
+                // Store the length and digest last, so that they are the most recent updates to the map.  This helps
+                // solver performance.
+                assign(transformedLoc, cmd.meta) { Store(transformedLoc.asSym(), listOf(vecLengthOffset.asTACExpr), elemCount.asTACExpr) },
+                assign(transformedLoc, cmd.meta) { Store(transformedLoc.asSym(), listOf(vecDigestOffset.asTACExpr), digest.asSym()) },
+            )
         )
     }
 
