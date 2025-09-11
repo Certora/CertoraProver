@@ -1052,13 +1052,16 @@ class BoundedModelChecker(
                 nSatResults.getAndIncrement()
             }
 
-            listOf(constructorRes) + if (maxSequenceLen > 0) {
+            val res = listOf(constructorRes) + if (maxSequenceLen > 0) {
                 checkRecursive(constructorsRule, FunctionSequence.emptySequence())
             } else {
                 listOf()
             }
+            Logger.regression { "${baseRule.declarationId}: ${if(nSatResults.get() == 0) {"SUCCESS"} else {"FAIL"} }" }
+            res
         } else {
             logger.warn { "${baseRule.declarationId} is vacuous even when running only on the constructors!" }
+            Logger.regression { "${baseRule.declarationId}: CONSTRUCTOR VACUITY" }
             listOf()
         }
 
