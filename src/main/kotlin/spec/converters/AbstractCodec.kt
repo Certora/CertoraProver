@@ -45,7 +45,8 @@ abstract class AbstractCodec : SafeMathCodeGen {
                                 lhs = pointer,
                                 rhs = offset.asSym()
                             )
-                        )
+                        ),
+                        pointer
                     )
                 }
                 is TACSymbol.Var -> {
