@@ -988,10 +988,10 @@ class CallTraceTest {
             ?.scalarValue
             ?: fail()
 
-        assertEquals(valueAtInitial("non_persi"), TACValue.PrimitiveValue.Bool.True)
-        assertEquals(valueAtInitial("persi"), TACValue.PrimitiveValue.Bool.False)
+        assertEquals(TACValue.PrimitiveValue.Bool.True, valueAtInitial("non_persi"))
+        assertEquals(TACValue.PrimitiveValue.Bool.False, valueAtInitial("persi"))
 
-        assertEquals(callTrace.assertMessage, "test should end here")
+        assertEquals("test should end here", callTrace.assertMessage)
     }
 }
 

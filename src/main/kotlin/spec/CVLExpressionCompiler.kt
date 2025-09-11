@@ -2980,8 +2980,15 @@ class CVLExpressionCompiler(
             }
         }
 
-        val prog = progsToAppend.fold(expProg) {
-            acc, toAppend -> mergeProgs(acc, toAppend)
+        val lastStorageUpdate = buildTACFromCommand(
+            TACCmd.CVL.CopyBlockchainState(
+                lhs = CVLKeywords.lastStorage.toVar(),
+                meta = MetaMap(TACMeta.LAST_STORAGE_UPDATE)
+            )
+        ).toSimple()
+
+        val prog = (progsToAppend + listOf(lastStorageUpdate)).fold(expProg) { acc, toAppend ->
+            mergeProgs(acc, toAppend)
         }
 
         return prog

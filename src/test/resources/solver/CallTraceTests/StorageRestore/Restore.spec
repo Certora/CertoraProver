@@ -18,9 +18,9 @@ rule persistence(method f, env e, calldataarg args) {
 
     f(e, args) at initial;
 
-    // storage load values should be scoped to the function call
+    // persistent ghost should not be affected by storage load
     assert !persi;
-    assert !non_persi;
+    assert non_persi;
 
     assert false, "test should end here";
 }
