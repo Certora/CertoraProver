@@ -18,20 +18,17 @@
 # ============================================================================
 
 from langchain_anthropic import ChatAnthropic
-from typing import Optional, List, TypedDict, Annotated, Literal, Required, TypeVar, Type, Protocol, Union, Any, cast
-from langchain_core.messages import ToolMessage, AnyMessage, SystemMessage, HumanMessage, BaseMessage
-from langchain_core.tools import tool, InjectedToolCallId, BaseTool
-from langchain_core.language_models.base import LanguageModelInput
+from typing import Optional, List, TypedDict, Annotated, Required, Union, Any
+from langchain_core.messages import AnyMessage
+from langchain_core.tools import tool, InjectedToolCallId
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.runnables import Runnable, RunnableConfig
-from langgraph.graph import StateGraph, START, MessagesState
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-from langgraph._internal._typing import StateLike
 from langgraph.graph.message import add_messages
 from langgraph.types import Command, interrupt
-from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 from pydantic import BaseModel, Field
+from graphcore.graph import build_workflow, WithToolCallId, tool_output, tool_return, FlowInput
 import os
 import tempfile
 import json
@@ -55,59 +52,8 @@ tool_logger = logger.getChild("tools")
 
 
 class GraphInput(TypedDict):
-    code_input: str
+    input: list[str]
 
-
-class WithToolCallId(BaseModel):
-    tool_call_id: Annotated[str, InjectedToolCallId]
-
-
-def tool_return(
-    tool_call_id: str,
-    content: str
-) -> Command:
-    """
-    Create a LangGraph Command for tool responses that need to continue processing.
-
-    Used by tools that want to return a result and continue the workflow by routing
-    back to the tool_result node for LLM processing.
-
-    Args:
-        tool_call_id: The ID of the tool call being responded to
-        content: The response content from the tool execution
-
-    Returns:
-        Command that updates messages and continues workflow
-    """
-    return Command(
-        update={
-            "messages": [ToolMessage(tool_call_id=tool_call_id, content=content)]
-        }
-    )
-
-
-def tool_output(tool_call_id: str, res: dict) -> Command:
-    """
-    Create a LangGraph Command for final tool outputs that update workflow state.
-
-    Used by completion tools (like harness_output, rewrite_output) to set final
-    results in the workflow state. The workflow's conditional edge will detect
-    these state updates and route to completion.
-
-    Args:
-        tool_call_id: The ID of the tool call being responded to
-        res: Dictionary containing the final workflow results to merge into state
-
-    Returns:
-        Command that updates state with final results and a success message
-    """
-    return Command(update={
-        **res,
-        "messages": [ToolMessage(
-            tool_call_id=tool_call_id,
-            content="Success"
-        )]
-    })
 
 def pretty_print_messages(messages: list[AnyMessage]) -> str:
     """Format a list of AnyMessage objects for readable debug output."""
@@ -141,191 +87,6 @@ def pretty_print_messages(messages: list[AnyMessage]) -> str:
         formatted_lines.append(f"  [{i}] {msg_type} (role: {role}): {content_preview}{tool_info}")
 
     return "\n" + "\n".join(formatted_lines) if formatted_lines else " <no messages>"
-
-
-class InitNodeFunction(Protocol):
-    """Protocol defining the signature for LangGraph node functions."""
-    def __call__(self, state: GraphInput) -> dict[str, List[BaseMessage]]:
-        ...
-
-
-class ChatNodeFunction(Protocol):
-    def __call__(self, state: MessagesState) -> dict[str, List[BaseMessage]]:
-        ...
-
-
-def canonicalize_message(s: AnyMessage) -> AnyMessage:
-    """
-    Canonicalize the `content` of `s` if it is a `HumanMessage` or `ToolMessage`, otherwise
-    leave it unchanged. The canonical representation of `content` for human and tool messages
-    is a list of dicts of the form `{ "type": "text", "text": t }` where `t` is the textual content
-    of the message. Note that the type of `content` also allows a regular old string or a
-    list of strings, which this function transforms into the dict representation described above.
-
-    NB: this function is *pure*; the original object `s` is *unchanged* by this function.
-    """
-    match s:
-        case HumanMessage(content=cont) | ToolMessage(content=cont):
-            cont_list: List[str | dict] = cont if isinstance(cont, list) else [cont]
-            new_cont: List[str | dict] = [
-                d if isinstance(d, dict) else {
-                    "type": "text",
-                    "text": d
-                } for d in cont_list
-            ]
-            s_copy = s.model_copy()
-            s_copy.content = new_cont
-            return s_copy
-        case _:
-            return s
-
-
-def canonicalize(s: List[AnyMessage]) -> List[AnyMessage]:
-    """
-    Canonicalize all messages in `s` via `canonicalize_message`.
-    `s` is unchanged by this function, the list returned is a fresh list,
-    and any canonicalization is performed on copies of the original messages in `s`.
-    """
-    return [canonicalize_message(m) for m in s]
-
-
-def add_cache_control(s: List[AnyMessage]) -> List[AnyMessage]:
-    """
-    Add a `cache_control` directive to the last human/tool message in
-    the canonical representation of `s` (as determined by `canonicalize`).
-    This function returns a copy of `s` with the canonicalization & cache control
-    directives applied.
-    """
-    canon = canonicalize(s)
-    for i in range(len(canon) - 1, -1, -1):
-        curr = canon[i]
-        match curr:
-            case HumanMessage(content=cont) | ToolMessage(content=cont):
-                cont_list = cast(List[dict], cont)
-                new_cont_list = cont_list.copy()
-                final_elem = new_cont_list[-1]
-                new_cont_list[-1] = {
-                    **final_elem,
-                    "cache_control": {"type": "ephemeral"}
-                }
-                mutated = curr.model_copy()
-                mutated.content = cast(List[str | dict], new_cont_list)
-                to_ret = canon.copy()
-                to_ret[i] = mutated
-                return to_ret
-            case _:
-                continue
-    return s
-
-
-def tool_result_generator(llm: Runnable[LanguageModelInput, BaseMessage]) -> ChatNodeFunction:
-    """
-    Create a LangGraph node function that processes tool results by sending
-    the current message history to the LLM for the next response.
-
-    Args:
-        llm: The LLM bound with tools to invoke for generating responses
-
-    Returns:
-        A node function that takes MessagesState and returns updated messages
-    """
-    def tool_result(state: MessagesState) -> dict[str, List[BaseMessage]]:
-        logger.debug("Tool result state messages:%s", pretty_print_messages(state["messages"]))
-        to_send = add_cache_control(state["messages"])
-        result = llm.invoke(to_send)
-        return {"messages": [result]}
-    return tool_result
-
-def initial_node(sys_prompt: str, initial_prompt: str, llm: Runnable[LanguageModelInput, BaseMessage]) -> InitNodeFunction:
-    """
-    Create a LangGraph node function that initializes a workflow with system and human messages,
-    then gets the first LLM response.
-
-    Args:
-        sys_prompt: System message content to set the LLM's role and context
-        initial_prompt: Human message template to start the conversation
-        llm: The LLM bound with tools to invoke for generating the initial response
-
-    Returns:
-        A node function that takes GraphInput and returns initial message history
-    """
-    def to_return(state: GraphInput) -> dict[str, List[BaseMessage]]:
-        initial_messages : List[BaseMessage] = [
-            SystemMessage(
-                sys_prompt
-            ),
-            HumanMessage(
-                content=[initial_prompt, state["code_input"]]
-            )
-        ]
-        # this cast is fine because we don't write into initial_messages
-        to_send = add_cache_control(cast(List[AnyMessage], initial_messages))
-        res = llm.invoke(to_send)
-
-        initial_messages.append(
-            res
-        )
-        return {"messages": initial_messages}
-    return to_return
-
-
-# TypeVars for generic typing
-StateT = TypeVar('StateT', bound=StateLike)
-OutputT = TypeVar('OutputT', bound=StateLike)
-
-
-def build_workflow(
-    state_class: Type[StateT],
-    tools_list: List[BaseTool],
-    sys_prompt: str,
-    initial_prompt: str,
-    output_key: str,
-    unbound_llm: BaseChatModel,
-    output_schema: Optional[Type[OutputT]] = None,
-) -> StateGraph[StateT, None, GraphInput, OutputT]:
-    """
-    Build a standard workflow with initial node -> tools -> tool_result pattern.
-    Uses fixed GraphInput schema and explicit LLM currying.
-    """
-    # Node name constants
-    INITIAL_NODE = "initial"
-    TOOLS_NODE = "tools"
-    TOOL_RESULT_NODE = "tool_result"
-
-    def should_end(state: StateT) -> Literal["__end__", "tool_result"]:
-        """Check if workflow should end based on output key being defined."""
-        assert isinstance(state, dict)
-        if state.get(output_key, None) is not None:
-            return "__end__"
-        return TOOL_RESULT_NODE
-
-    llm = unbound_llm.bind_tools(tools_list)
-
-    # Create initial node and tool node with curried LLM
-    init_node = initial_node(sys_prompt=sys_prompt, initial_prompt=initial_prompt, llm=llm)
-    tool_node = ToolNode(tools_list)
-    tool_result_node = tool_result_generator(llm)
-
-    # Build the graph with fixed input schema, no context
-    builder = StateGraph(
-        state_class,
-        input_schema=GraphInput,
-        output_schema=output_schema
-    )
-    builder.add_node(INITIAL_NODE, init_node)
-    builder.add_edge(START, INITIAL_NODE)
-    builder.add_node(TOOLS_NODE, tool_node)
-    builder.add_edge(INITIAL_NODE, TOOLS_NODE)
-    builder.add_node(TOOL_RESULT_NODE, tool_result_node)
-    builder.add_edge(TOOL_RESULT_NODE, TOOLS_NODE)
-
-    # Add conditional edge from tools
-    builder.add_conditional_edges(
-        TOOLS_NODE,
-        should_end
-    )
-
-    return builder
 
 
 # ============================================================================
@@ -411,7 +172,6 @@ class HarnessedOutput(TypedDict):
 
 
 class HarnessingState(TypedDict):
-    GraphInput: str
     harness_definition: Optional[str]
     messages: Annotated[list[AnyMessage], add_messages]
 
@@ -813,7 +573,6 @@ class ToolError(TypedDict, total=False):
 
 class RewriterState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
-    code_input: str
     error: Optional[ToolError]
     result: Optional[RewriteResultSchema]
 
@@ -887,15 +646,16 @@ def create_rewrite_llm(args: argparse.Namespace) -> BaseChatModel:
 
 def generate_harness(harness_llm: BaseChatModel, input_file: str) -> str:
     """Generate harness for the input function."""
-    runner = build_workflow(
+    runner: CompiledStateGraph[HarnessingState, None, FlowInput, HarnessedOutput] = build_workflow(
         state_class=HarnessingState,
+        input_type=FlowInput,
         tools_list=HARNESS_TOOLS,
         sys_prompt=harness_system_prompt,
         initial_prompt=harnessing_prompt,
         output_key="harness_definition",
         output_schema=HarnessedOutput,
         unbound_llm=harness_llm
-    ).compile()
+    )[0].compile()
 
     # Read input file
     with open(input_file, "r") as f:
@@ -903,7 +663,7 @@ def generate_harness(harness_llm: BaseChatModel, input_file: str) -> str:
 
     # Generate harness
     return runner.invoke(
-        input=GraphInput(code_input=f_def),
+        input=FlowInput(input=[f_def]),
     )["harness_definition"]
 
 def handle_human_interrupt(interrupt_data: dict) -> str:
@@ -942,21 +702,22 @@ def execute_rewrite_workflow(rewrite_llm: BaseChatModel, harness: str) -> int:
     # Add checkpointer for interrupt functionality
     checkpointer = MemorySaver()
     print("Calling LLM...")
-    rewriter_exec: CompiledStateGraph[RewriterState, None, GraphInput, Any] = build_workflow(
+    rewriter_exec: CompiledStateGraph[RewriterState, None, FlowInput, Any] = build_workflow(
         state_class=RewriterState,
+        input_type=FlowInput,
         tools_list=rewrite_tools,
         sys_prompt=simplification_system_prompt,
         initial_prompt=rewriting_prompt,
         output_key="result",
         unbound_llm=rewrite_llm
-    ).compile(checkpointer=checkpointer)
+    )[0].compile(checkpointer=checkpointer)
 
     # Execute rewrite workflow with interrupt handling
     thread_id = "rewrite_session"
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
     # Start with initial input
-    current_input: Union[None, Command, GraphInput] = GraphInput(code_input=harness)
+    current_input: Union[None, Command, FlowInput] = FlowInput(input=[harness])
 
     while True:
         assert current_input is not None

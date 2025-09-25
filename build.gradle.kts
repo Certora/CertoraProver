@@ -807,7 +807,8 @@ val scripts = project.fileTree("scripts") {
 		"EquivalenceCheck/*.conf",
 		"EquivalenceCheck/*.spec",
 		"certora-select",
-		"certoraCVLFormatter.py"
+		"certoraCVLFormatter.py",
+		"graphcore/*",
 	)
 	exclude("**/__init__.py")
 }
