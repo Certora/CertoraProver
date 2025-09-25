@@ -26,8 +26,11 @@ import utils.*
 
 /**
  * For cases that users should be able to solve themselves
+ *
+ * @param errorLocation is provided and the errors is displayed in the global notifications of the rule report,
+ * this is the location in source code associated to the failure.
  */
-open class SolanaError(msg:String): CertoraException(CertoraErrorType.SOLANA, msg)
+open class SolanaError(msg:String, val errorLocation: Range.Range? = null): CertoraException(CertoraErrorType.SOLANA, msg)
 /**
  * For cases that that users cannot solve but should report to us
  */
@@ -58,7 +61,7 @@ class PtrExprErrStackDeref(val field: PTAField): PointerExpressionError()
  * Pointer analysis specific errors
  */
 open class PointerAnalysisError(val devInfo: DevErrorInfo, userInfo: UserErrorInfo)
-    : SolanaError(FormattedErrorMessage(devInfo.locInst, devInfo.msg, userInfo).toString())
+    : SolanaError(FormattedErrorMessage(devInfo.locInst, devInfo.msg, userInfo).toString(), devInfo.locInst?.getSourceLocationInSourcesDir())
 
 private const val helpSummarizationIsNeeded = "check if there are unexpected external functions that return references (directly or indirectly) and summarize them explicitly.\n" +
 "To add a pointer analysis summary, add the summary in one of the summary files passed to the option \"solana_summaries\".\n" +

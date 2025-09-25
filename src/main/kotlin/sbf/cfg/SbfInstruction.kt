@@ -19,8 +19,9 @@ package sbf.cfg
 
 import sbf.disassembler.*
 import datastructures.stdcollections.*
+import dwarf.DebugInfoReader
 import sbf.callgraph.*
-import utils.mapToSet
+import utils.*
 
 /**
  * This file defines the instruction set for SBF v1 programs
@@ -561,4 +562,22 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
  **/
 data class LocatedSbfInstruction(val label: Label, val pos: Int, val inst: SbfInstruction) {
     override fun toString() = "$label-$pos: $inst"
+
+    /**
+     * For the given [LocatedSbfInstruction] retrieves the [Range.Range] in
+     * source code that is associated with it. This method returns the first location
+     * on the stack that is also in [config.ConfigKt.SOURCES_SUBDIR], which are the files
+     * that are present in the rule report.
+     *
+     * I.e., if the [LocatedSbfInstruction] is in a system file, this method returns a range
+     * to the next source code location in user code that lead to the instruction in the system file.
+     */
+    fun getSourceLocationInSourcesDir(): Range.Range? {
+        val address = this.inst.metaData.getVal(SbfMeta.SBF_ADDRESS)
+        if (address != null) {
+            val frames = DebugInfoReader.getInlinedFramesInSourcesDir(listOf(address))
+            return frames[address]?.firstOrNull()
+        }
+        return null
+    }
 }

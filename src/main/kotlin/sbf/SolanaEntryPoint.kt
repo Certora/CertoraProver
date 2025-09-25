@@ -135,7 +135,7 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
             CVTAlertReporter.reportAlert(
                 type = CVTAlertType.ANALYSIS,
                 severity = CVTAlertSeverity.ERROR,
-                jumpToDefinition = null,
+                jumpToDefinition = e.errorLocation,
                 message = "Cannot analyze rule ${target.ruleIdentifier.displayName}:\n$e",
                 hint = null
             )
