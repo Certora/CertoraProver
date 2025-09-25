@@ -234,7 +234,7 @@ object AutosummarizedMonitor {
 class SummaryMonitor(
     externalCvlSummaries: Map<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>,
     internalCvlSummaries: Map<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>,
-    unresolvedSummary: Map<CVL.SummarySignature.External, SpecCallSummary.DispatchList>,
+    unresolvedSummary: Map<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>,
     ) {
 
     private val summaryKeyToIsApplied: ConcurrentHashMap<SummaryMonitorKey, Boolean> =

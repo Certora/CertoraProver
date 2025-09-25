@@ -649,6 +649,28 @@ class DispatcherSummaryOnInternalMethod(override val location: Range) : CVLError
 class DispatcherSummaryNoImplementation(override val location: Range) : CVLError() {
     override val message: String = "Optimistic dispatcher summaries must have at least one matching contract method."
 }
+// UnresolvedExternalForbiddenSummaryKind ///////////////////////////////////////////////////////////////////////////////////
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.METHODS_BLOCK,
+    description =
+    """
+    An unresolved external method entry can only have dispatch list or havocing summaries.
+    """
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        methods {
+            #unresolved external in _._ => DISPATCHER(true);#
+        }
+        """,
+    exampleMessage = "A DISPATCHER(optimistic = true) summary is not allowed on an unresolved external entry."
+)
+class UnresolvedExternalForbiddenSummaryKind private constructor(override val location: Range, override val message : String) : CVLError() {
+    constructor(summary : SpecCallSummary.ExpressibleInCVL, location : Range) : this(location, "A ${summary.toUIString()} summary is not allowed on an unresolved external entry.")
+}
 
 // DuplicateDeclaration ////////////////////////////////////////////////////////////////////////////////////////////////
 

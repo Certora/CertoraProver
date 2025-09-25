@@ -187,7 +187,7 @@ class CVLAstBuilder(
 
     private data class AstSummaries(val internal: Map<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>,
                             val external: Map<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>,
-                            val unresolved: Map<CVL.SummarySignature.External, SpecCallSummary.DispatchList>)
+                            val unresolved: Map<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>)
 
     private fun extractSummaries(
         methodAnnotations: List<MethodBlockEntry>,
@@ -196,7 +196,7 @@ class CVLAstBuilder(
         val externalSummaries =
             mutableMapOf<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>() // TODO better classification
         val internalSummaries = mutableMapOf<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>()
-        val unresolved = mutableMapOf<CVL.SummarySignature.External, SpecCallSummary.DispatchList>()
+        val unresolved = mutableMapOf<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>()
         return methodAnnotations.map { annot ->
             when(annot) {
                 is CatchAllSummaryAnnotation -> {
@@ -226,7 +226,7 @@ class CVLAstBuilder(
                     if (k in unresolved) {
                         return@map MultipleCatchUnresolvedSummaries(annot).asError()
                     }
-                    unresolved[k] = annot.dispatchList
+                    unresolved[k] = annot.summary
                     ok
                 }
                 is ConcreteMethodBlockAnnotation -> handleConcreteMethodAnnotation(

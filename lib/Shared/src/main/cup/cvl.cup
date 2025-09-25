@@ -296,7 +296,7 @@ non terminal /* Nullable */ CallSummary summary_opt;
 non terminal CallSummary summary;
 non terminal HavocingCallSummary havoc_summary;
 non terminal List<DispatchList.PatternSig> dispatch_pattern_list_or_empty, dispatch_pattern_list;
-non terminal /* Nullable (error) */ DispatchList unresolved_dynamic_summary;
+non terminal /* Nullable (error) */ DispatchList dispatch_list_summary;
 non terminal /* Nullable */ List<CVLParam> with_env_opt;
 non terminal ExpectClause expect_opt;
 non terminal /* Nullable */ SpecCallSummary.SummarizationMode resolution;
@@ -507,7 +507,7 @@ summary ::=
   :}
   | AUTO:a                          resolution:r {: RESULT = new CallSummary.Auto              (range(axleft, rxright), r);            :}
   | exp:e expect_opt:expect         resolution:r {: RESULT = new CallSummary.Expression        (range(exleft, rxright), r, e, expect); :}
-  | unresolved_dynamic_summary:d                 {: RESULT = d;                                                                 :}
+  | dispatch_list_summary:d                 {: RESULT = d;                                                                 :}
 ;
 
 dispatch_pattern_list_or_empty ::=
@@ -527,7 +527,7 @@ dispatch_pattern_list ::=
   | dispatch_pattern_list:l COMMA catch_any_method_signature:m {: RESULT = append(l, m);     :}
 ;
 
-unresolved_dynamic_summary ::=
+dispatch_list_summary ::=
     DISPATCH:d dispatch_pattern_list_or_empty:l DEFAULT havoc_summary:s {: RESULT = new DispatchList(range(dxleft, sxright), l, s, null, null); :}
   | DISPATCH:d LP flag_list:fl RP dispatch_pattern_list_or_empty:l summary_or_null:s {:
         FlagSyntax.FlagList flags = new FlagSyntax.FlagList(
@@ -600,13 +600,13 @@ method_dec ::=
         }
         RESULT = new CatchAllSummary(range(fxleft, scxright), m, s, preflags);
     :}
-  | UNRESOLVED_LOWERCASE:u pre_return_method_dec_flags:preflags IN method_reference:m vm_param_list_or_empty:pl IMPLIES unresolved_dynamic_summary:dl sc_opt:sc {:
+  | UNRESOLVED_LOWERCASE:u pre_return_method_dec_flags:preflags IN method_reference:m vm_param_list_or_empty:pl IMPLIES summary:s sc_opt:sc {:
         expectSemicolon(sc, CVL2MissingSemicolon.ExpectedLocation.METHODS_ENTRIES);
-        RESULT = new UnresolvedDynamicSummary(range(uxleft, scxright), m, pl, preflags, dl);
+        RESULT = new UnresolvedDynamicSummary(range(uxleft, scxright), m, pl, preflags, s);
    :}
-  | UNRESOLVED_LOWERCASE:u pre_return_method_dec_flags:preflags IN method_reference:m                           IMPLIES unresolved_dynamic_summary:dl sc_opt:sc {:
+  | UNRESOLVED_LOWERCASE:u pre_return_method_dec_flags:preflags IN method_reference:m                           IMPLIES summary:s sc_opt:sc {:
         expectSemicolon(sc, CVL2MissingSemicolon.ExpectedLocation.METHODS_ENTRIES);
-        RESULT = new UnresolvedDynamicSummary(range(uxleft, scxright), m, null, preflags, dl);
+        RESULT = new UnresolvedDynamicSummary(range(uxleft, scxright), m, null, preflags, s);
    :}
   | error SC
 ;

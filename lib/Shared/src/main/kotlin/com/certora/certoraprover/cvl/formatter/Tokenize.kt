@@ -410,7 +410,7 @@ internal class Tokenizer(
             is UnresolvedDynamicSummary -> {
                 // TODO: CERT-9281
                 ensure(
-                    ctx.dispatchList != null,
+                    ctx.summary != null,
                     "this is an error value and should not appear in valid code that passed compilation",
                 )
 
@@ -424,7 +424,7 @@ internal class Tokenizer(
                     methodReferenceExp(ctx.methodReferenceExp),
                     ctx.params?.let(::params).orEmpty(),
                     Token.fromSym(sym.IMPLIES).asList(),
-                    unresolvedDynamicSummary(ctx.dispatchList),
+                    summary(ctx.summary),
                     Token.endStatement(),
                 ).context(ctx)
             }

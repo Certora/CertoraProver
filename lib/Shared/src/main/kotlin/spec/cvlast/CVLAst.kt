@@ -193,6 +193,7 @@ sealed interface MethodBlockEntry : AmbiSerializable {
      * @return a [List] of [ContractFunction]s that this [MethodBlockEntry] "covers"
      */
     fun getMatchingContractFunctions(functionInfo: Map<ContractInstanceInSDC, List<ContractFunction>>): List<ContractFunction>
+    fun prettyPrint(): String
 }
 
 @Serializable
@@ -208,6 +209,8 @@ data class CatchAllSummaryAnnotation(
         return functionInfo.findEntry { instance, _ -> instance.name == this.target.contract.name}?.second
             ?: error("expected to find contract ${this.target.contract.name} in the scene")
     }
+    override fun prettyPrint(): String = target.prettyPrint() + "._"
+
 }
 
 @Serializable
@@ -236,7 +239,7 @@ data class ConcreteMethodBlockAnnotation(
         ) { "internal invariant broken: $this"}
     }
 
-    fun prettyPrint(): String {
+    override fun prettyPrint(): String {
         val m = target.prettyPrint() + "." + methodParameterSignature.functionName
         return m + methodParameterSignature.paramTypes.joinToString(separator = ",", prefix = "(", postfix = ")") {
             it.prettyPrint()
@@ -278,13 +281,22 @@ data class CatchUnresolvedSummaryAnnotation(
     override val range: Range,
     override val target: MethodEntryTargetContract,
     val sig: MethodParameterSignature?,
-    val dispatchList: SpecCallSummary.DispatchList,
+    override val summary: SpecCallSummary.ExpressibleInCVL,
 ) : AmbiSerializable, MethodBlockEntry {
-    override val summary = null
 
     override fun getMatchingContractFunctions(functionInfo: Map<ContractInstanceInSDC, List<ContractFunction>>): List<ContractFunction> {
         // This only applies to unresolved functions, so no known contract function is being summarized.
         return listOf()
+    }
+
+    override fun prettyPrint(): String {
+        val m = sig?.let { methodParameterSignature ->
+            methodParameterSignature.functionName +
+                methodParameterSignature.paramTypes.joinToString(separator = ",", prefix = "(", postfix = ")") {
+                    it.prettyPrint()
+                }
+        } ?: "_"
+        return "unresolved external in " + target.prettyPrint() + "." + m
     }
 }
 

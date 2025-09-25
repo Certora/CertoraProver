@@ -212,13 +212,13 @@ internal class RangeCollector(topLevels: List<TopLevel<*>>) {
             is UnresolvedDynamicSummary -> {
                 // TODO: CERT-9281
                 ensure(
-                    ctx.dispatchList != null,
+                    ctx.summary != null,
                     "this is an error value and should not appear in valid code that passed compilation",
                 )
 
                 ctx.preFlags.forEach(::locatedToken)
                 methodReferenceExp(ctx.methodReferenceExp)
-                unresolvedDynamicSummary(ctx.dispatchList)
+                summary(ctx.summary)
             }
 
             is ImportedFunction -> {
@@ -229,7 +229,7 @@ internal class RangeCollector(topLevels: List<TopLevel<*>>) {
         }
     }
 
-    private fun unresolvedDynamicSummary(ctx: CallSummary.DispatchList) {
+    private fun dispatchList(ctx: CallSummary.DispatchList) {
         fun havocSummary(ctx: CallSummary.HavocingCallSummary) {
             visit(ctx)
         }
@@ -257,9 +257,10 @@ internal class RangeCollector(topLevels: List<TopLevel<*>>) {
                 expectClause(ctx.expectedType)
             }
 
+            is CallSummary.DispatchList -> dispatchList(ctx)
+
             is CallSummary.Constant,
             is CallSummary.Dispatcher,
-            is CallSummary.DispatchList,
             is CallSummary.AssertFalse,
             is CallSummary.Auto,
             is CallSummary.HavocAll,

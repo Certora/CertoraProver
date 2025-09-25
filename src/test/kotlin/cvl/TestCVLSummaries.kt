@@ -440,7 +440,7 @@ class TestCVLSummaries : AbstractCVLTest() {
                 is ProverQuery.CVLQuery.Single -> it.cvl
             }
         }
-        val unresolvedSummaries = cvl.unresolvedSummaries[CVL.ExternalUnresolved]
+        val unresolvedSummaries = cvl.unresolvedSummaries[CVL.ExternalUnresolved] as? SpecCallSummary.DispatchList
         assert(unresolvedSummaries != null) {"Expecting unresolved summary, none found"}
         val allMethods = unresolvedSummaries!!.getMethods(scene, setOf(), null)
         val dl = unresolvedSummaries.dispatcherList

@@ -60,7 +60,19 @@ class CVLMethodsBlockTypeChecker(
      */
     private fun typeCheckCatchUnresolvedAnnotation(symbolTable: CVLSymbolTable, entry: CatchUnresolvedSummaryAnnotation)
     : CollectingResult<MethodBlockEntry, CVLError>  {
-        return typeCheckDispatchListSummary(symbolTable, entry.dispatchList, null).map { entry }
+        when (entry.summary) {
+            is SpecCallSummary.DispatchList,
+            is SpecCallSummary.HavocSummary -> { /* ok, these are allowed, HavocSummary is what is already allowed in the DEFAULT of a DispatchList */ }
+            is SpecCallSummary.Always,
+            is SpecCallSummary.Constant,
+            is SpecCallSummary.Dispatcher,
+            is SpecCallSummary.Exp,
+            is SpecCallSummary.PerCalleeConstant,
+            is SpecCallSummary.Reroute -> {
+                return UnresolvedExternalForbiddenSummaryKind(entry.summary, entry.range).asError()
+            }
+        }
+        return typeCheckSummary(symbolTable, entry.summary, null, entry).map { entry }
     }
 
     /**
@@ -145,12 +157,12 @@ class CVLMethodsBlockTypeChecker(
         symbolTable: CVLSymbolTable,
         summary : SpecCallSummary.ExpressibleInCVL?,
         res : List<VMTypeDescriptor>?,
-        entry : ConcreteMethodBlockAnnotation
+        entry : MethodBlockEntry
     ) : CollectingResult<SpecCallSummary.ExpressibleInCVL?, CVLError> {
             if(summary == null) {
                 return null.lift()
             }
-            if(entry.qualifiers.visibility == Visibility.INTERNAL && summary !is SpecCallSummary.InternalSummary) {
+            if(entry is ConcreteMethodBlockAnnotation && entry.qualifiers.visibility == Visibility.INTERNAL && summary !is SpecCallSummary.InternalSummary) {
                 return CVLError.General(
                     message = "Cannot use summary ${summary.summaryName} for internal functions.",
                     range = summary.range
@@ -173,9 +185,12 @@ class CVLMethodsBlockTypeChecker(
 
     private fun typeCheckRerouteSummary(
         symbolTable: CVLSymbolTable,
-        entry: ConcreteMethodBlockAnnotation,
+        entry: MethodBlockEntry,
         summary: SpecCallSummary.Reroute
     ): CollectingResult<SpecCallSummary.ExpressibleInCVL?, CVLError> {
+        if(entry !is ConcreteMethodBlockAnnotation) {
+            return CVLError.General(message = "Cannot use Rerouting Summary for method block entry ${entry.prettyPrint()}.", range = entry.range).asError()
+        }
         val expectedReturns = when(entry.methodParameterSignature) {
             is MethodSignature -> entry.methodParameterSignature.resType
             else -> listOf()
@@ -213,9 +228,9 @@ class CVLMethodsBlockTypeChecker(
     private fun typeCheckNondetSummary(
         summary: SpecCallSummary.HavocSummary.Nondet,
         res: List<VMTypeDescriptor>?,
-        entry: ConcreteMethodBlockAnnotation
+        entry: MethodBlockEntry
     ): CollectingResult<SpecCallSummary.ExpressibleInCVL?, CVLError> {
-        if(entry.qualifiers.visibility == Visibility.EXTERNAL) {
+        if(entry is ConcreteMethodBlockAnnotation && entry.qualifiers.visibility == Visibility.EXTERNAL) {
             return summary.lift()
         }
         /*
@@ -244,9 +259,12 @@ class CVLMethodsBlockTypeChecker(
     private fun typeCheckAlwaysSummary(
         summary : SpecCallSummary.Always,
         res : List<VMTypeDescriptor>?,
-        entry : ConcreteMethodBlockAnnotation,
+        entry : MethodBlockEntry,
     ) : CollectingResult<SpecCallSummary.Always, CVLError> = collectingErrors {
         // TODO CERT-2680: modulo error messages, this is basically the same as Exp summaries
+        if(entry !is ConcreteMethodBlockAnnotation) {
+            returnError(CVLError.General(message = "An always summary can not be applied on method block entry ${entry.prettyPrint()}.", range = entry.range))
+        }
         return@collectingErrors when (val summExp = summary.exp) {
             is CVLExp.Constant.BoolLit,
             is CVLExp.Constant.NumberLit,
@@ -317,7 +335,7 @@ class CVLMethodsBlockTypeChecker(
     private fun typeCheckConstantSummary(
         summary : SpecCallSummary.ExpressibleInCVL,
         res : List<VMTypeDescriptor>?,
-        entry : ConcreteMethodBlockAnnotation,
+        entry : MethodBlockEntry,
     ) : CollectingResult<SpecCallSummary.ExpressibleInCVL, CVLError> {
         require(summary is SpecCallSummary.Constant || summary is SpecCallSummary.PerCalleeConstant)
         return if (res == null) {
@@ -350,9 +368,11 @@ class CVLMethodsBlockTypeChecker(
     private fun typeCheckExpSummary(
         summary : SpecCallSummary.Exp,
         declaredReturn : List<VMTypeDescriptor>?,
-        entry : ConcreteMethodBlockAnnotation,
+        entry : MethodBlockEntry,
     ) : CollectingResult<SpecCallSummary.Exp, CVLError> = collectingErrors<SpecCallSummary.Exp,CVLError> {
-
+        if(entry !is ConcreteMethodBlockAnnotation) {
+            returnError(CVLError.General(message = "An expression summary can not be applied on method block entry ${entry.prettyPrint()}.", range = entry.range))
+        }
         // get the expected return type (from `returns` or `expect` as appropriate)
         val expectedReturn = when(entry.target) {
             is MethodEntryTargetContract.WildcardTarget -> {
@@ -452,13 +472,16 @@ class CVLMethodsBlockTypeChecker(
     private fun typeCheckDispatcherSummary(
         symbolTable: CVLSymbolTable,
         summary : SpecCallSummary.Dispatcher,
-        entry: ConcreteMethodBlockAnnotation,
+        entry: MethodBlockEntry,
     ) : CollectingResult<SpecCallSummary.Dispatcher, CVLError> = collectingErrors {
         if (summary.summarizeAllCalls) {
             // a dispatcher only really makes sense on unresolved calls
             returnError(CVLError.General(message = "A summary ${SpecCallSummary.FORCED_KEYWORD} is not allowed for " +
                 "dispatcher summaries, please remove the ${SpecCallSummary.FORCED_KEYWORD} keyword " +
                 "or add the ${SpecCallSummary.UNRESOLVED_KEYWORD} for the summary ${entry.summary}", range = entry.range))
+        }
+        if (entry !is ConcreteMethodBlockAnnotation) {
+            returnError(CVLError.General(message = "A dispatcher summary can not be applied on method block entry ${entry.prettyPrint()}.", range = entry.range))
         }
         if (summary.optimistic && matchingFunctionsInSymbolTable(symbolTable, entry.methodParameterSignature).isEmpty()) {
             collectError(DispatcherSummaryNoImplementation(entry.range))
@@ -481,7 +504,7 @@ class CVLMethodsBlockTypeChecker(
         }
     }
 
-    private fun typeCheckDispatchListSummary(symbolTable: CVLSymbolTable, dispatchList: SpecCallSummary.DispatchList, entry: ConcreteMethodBlockAnnotation?) = collectingErrors {
+    private fun typeCheckDispatchListSummary(symbolTable: CVLSymbolTable, dispatchList: SpecCallSummary.DispatchList, entry: MethodBlockEntry) = collectingErrors {
         check(dispatchList.summarizationMode == SpecCallSummary.SummarizationMode.UNRESOLVED_ONLY) {
             "Dispatch list should only be applied to unresolved summaries."
         }
@@ -489,7 +512,7 @@ class CVLMethodsBlockTypeChecker(
             when(p) {
                 is SpecCallSummary.DispatchList.Pattern.QualifiedMethod -> {
                     check(p.sig.sighashInt != null) {"Expecting to always know sighash of methods in dispatch list patterns"}
-                    if (entry != null && !p.sig.matchesNameAndParams(entry.methodParameterSignature)) {
+                    if (entry is ConcreteMethodBlockAnnotation && !p.sig.matchesNameAndParams(entry.methodParameterSignature)) {
                         collectError(DispatchListWithMismatchedMethodSig(p, entry.methodParameterSignature))
                     } else if (symbolTable.getContractScope(p.sig.qualifiedMethodName.host) == null) {
                         collectError(DispatchListContractNotFound(p))
@@ -502,7 +525,7 @@ class CVLMethodsBlockTypeChecker(
                 }
                 is SpecCallSummary.DispatchList.Pattern.WildcardContract -> {
                     check(p.sig.sighashInt != null) {"Expecting to always know sighash of methods in dispatch list patterns"}
-                    if (entry != null && !p.sig.matchesNameAndParams(entry.methodParameterSignature)) {
+                    if (entry is ConcreteMethodBlockAnnotation && !p.sig.matchesNameAndParams(entry.methodParameterSignature)) {
                         collectError(DispatchListWithMismatchedMethodSig(p, entry.methodParameterSignature))
                     } else {
                         val scopes = symbolTable.getAllContractScopes()
@@ -516,7 +539,7 @@ class CVLMethodsBlockTypeChecker(
                     }
                 }
                 is SpecCallSummary.DispatchList.Pattern.WildcardMethod -> {
-                    check(entry == null || dispatchList.useFallback) { "We should have replaced the wildcard method in the dispatch list for an entry with given sighash and no use_fallback" }
+                    check(entry !is ConcreteMethodBlockAnnotation || dispatchList.useFallback) { "We should have replaced the wildcard method in the dispatch list for an entry with given sighash and no use_fallback" }
                     if (null == symbolTable.getContractNameFromContractId(p.contract.contract)) {
                         collectError(DispatchListContractNotFound(p))
                     }

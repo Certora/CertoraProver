@@ -22,5 +22,5 @@ import spec.cvlast.SpecCallSummary
 interface IWithSummaryInfo {
     val internalSummaries: Map<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>
     val externalSummaries: Map<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>
-    val unresolvedSummaries: Map<CVL.SummarySignature.External, SpecCallSummary.DispatchList>
+    val unresolvedSummaries: Map<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>
 }
