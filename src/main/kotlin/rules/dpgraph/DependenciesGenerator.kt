@@ -71,13 +71,13 @@ object TrivialRuleDependencies : DependenciesGenerator<ICVLRule, RuleCheckResult
  * same component. For invariants, "vacuous asserts checks" is the same in each such component.
  */
 object SanityRulesDependencies :
-    DependenciesGenerator<CompiledRule, RuleCheckResult, RuleCheckResult, RuleCheckResult.Error, SanityCheckNode> {
+    DependenciesGenerator<CompiledRule<CVLSingleRule>, RuleCheckResult, RuleCheckResult, RuleCheckResult.Error, SanityCheckNode> {
 
     override fun DependenciesGenerator<
-        CompiledRule, RuleCheckResult, RuleCheckResult, RuleCheckResult.Error, SanityCheckNode
+        CompiledRule<CVLSingleRule>, RuleCheckResult, RuleCheckResult, RuleCheckResult.Error, SanityCheckNode
         >.doGenerate(
-        payloads: List<CompiledRule>
-    ): DPGraph<CompiledRule, RuleCheckResult, RuleCheckResult, RuleCheckResult.Error, SanityCheckNode> {
+        payloads: List<CompiledRule<CVLSingleRule>>
+    ): DPGraph<CompiledRule<CVLSingleRule>, RuleCheckResult, RuleCheckResult, RuleCheckResult.Error, SanityCheckNode> {
 
         // lifting payloads to nodes
         val nodes = payloads.map { compiledCVLRule ->

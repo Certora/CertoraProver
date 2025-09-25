@@ -1,9 +1,7 @@
 {
 	"rules": {
 		"noneStorageInvariant": {
-			"Initial State": {
-				"noneStorageInvariant-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"noneStorageInvariant-Initial State-C.getAndAdd(uint40)|C.setBar()"

@@ -370,6 +370,7 @@ class SymbolTableFiller(
                     )
                 }.flattenToVoid()
             }
+            is DynamicGroupRule, // nothing to traverse in it
             is AssertRule, // nothing to traverse in it
             is StaticRule -> { // nothing to traverse in it
                 ok
@@ -381,7 +382,7 @@ class SymbolTableFiller(
             is GroupRule -> {
                 rule.rules.map { registerRuleId(it, registerRuleOp) }.flattenToVoid()
             }
-            is CVLSingleRule, is AssertRule, is StaticRule -> {
+            is DynamicGroupRule, is CVLSingleRule, is AssertRule, is StaticRule -> {
                 ok
             }
         }.bind(registerRuleOp(rule))

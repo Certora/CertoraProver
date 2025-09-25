@@ -931,7 +931,17 @@ class GenerateRulesForInvariantsAndEnvFree(
         val invRules = if (Config.BoundedModelChecking.getOrNull() == null) {
             collectAndFilter(cvlAst.invs.filter { it.needsVerification }.map { rulesOfInvariant(it) })
         } else {
-            listOf()
+            cvlAst.invs.filter { it.needsVerification }.map { inv ->
+                CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { invScope ->
+                    DynamicGroupRule(
+                        RuleIdentifier.freshIdentifier(inv.id),
+                        inv.range,
+                        SpecType.Group.InvariantCheck.Root(inv),
+                        inv.methodParamFilters,
+                        invScope,
+                    )
+                }
+            }
         }
         invRules + listOfNotNull(ruleEnvfreeFuncsStatic())
     }

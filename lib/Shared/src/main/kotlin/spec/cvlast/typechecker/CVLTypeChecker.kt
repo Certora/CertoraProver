@@ -456,6 +456,10 @@ class CVLAstTypeChecker(
             }
             is GroupRule -> rule.rules.map { r -> typeCheckRule(r) }.flatten()
                 .map { rule.copy(rules = it) }
+            is DynamicGroupRule -> {
+                typeCheckMethodParamFilters(rule.methodParamFilters,CVLTypeEnvironment.empty(rule.range, rule.scope))
+                    .map { rule.copy(methodParamFilters = it) }
+            }
             is AssertRule -> rule.lift() // nothing to type check
             is StaticRule -> rule.lift() // nothing to type check
         }

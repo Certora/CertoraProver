@@ -518,7 +518,7 @@ class CVLSymbolTable(
                         rule.range
                     }
 
-                    is AssertRule, is GroupRule, is StaticRule -> {
+                    is AssertRule, is GroupRule, is DynamicGroupRule, is StaticRule -> {
                         throw IllegalStateException(
                             "Expected SingleRuleWithCode, but got a from-user rule of a different type ($rule)"
                         )

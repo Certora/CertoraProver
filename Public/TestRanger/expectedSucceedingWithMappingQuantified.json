@@ -1,9 +1,7 @@
 {
 	"rules": {
 		"succeedingWithMappingQuantified": {
-			"Initial State": {
-				"succeedingWithMappingQuantified-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"succeedingWithMappingQuantified-Initial State-WithMapping.setFoo()|WithMapping.setFooConditionally(address)"

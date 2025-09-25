@@ -1150,6 +1150,12 @@ interface CVLDeclarationWithCode : HasRange {
     val block: List<CVLCmd>
 }
 
+interface CVLDeclarationWithMethodParamFilters {
+    val methodParamFilters: MethodParamFilters
+
+    val methodParamIds: List<String>
+}
+
 /**
  * A function declared in a CVL Spec which encapsulates some common specification, calculation or other behavior.
  */

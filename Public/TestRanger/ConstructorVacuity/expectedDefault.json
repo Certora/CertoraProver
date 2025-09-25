@@ -1,0 +1,7 @@
+{
+	"rules": {
+		"inv": {
+			"Initial State": "SANITY_FAIL"
+		}
+	}
+}

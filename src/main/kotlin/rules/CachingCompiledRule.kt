@@ -31,7 +31,7 @@ import rules.IsFromCache.*
 import scene.SceneIdentifiers
 import smt.CoverageInfoEnum
 import solver.SolverResult
-import spec.rules.CVLSingleRule
+import spec.rules.SingleRule
 import statistics.IStatsJson
 import statistics.IStatsJson.Companion.collect
 import statistics.IStatsJson.Companion.totalMs
@@ -61,15 +61,15 @@ enum class IsFromCache(val ratio: Pair<Numerator, Denominator>) {
 /**
  * Extends [CompiledRule] to save intermediate optimized TAC and non SAT results
  */
-class CachingCompiledRule(
-    rule: CVLSingleRule,
+class CachingCompiledRule<T: SingleRule>(
+    rule: T,
     tac: CoreTACProgram,
     baseCacheKey: String,
     private val nonCanonicalTable: normalizer.NonCanonicalTranslationTable,
     private val cache: ICacheManager,
     liveStatsReporter: LiveStatsReporter,
 ) :
-    CompiledRule(rule, tac, liveStatsReporter) {
+    CompiledRule<T>(rule, tac, liveStatsReporter) {
 
     private val timedDigest = measureTimedValue {
         tac.digest()

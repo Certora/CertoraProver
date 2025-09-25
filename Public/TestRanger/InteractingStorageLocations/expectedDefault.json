@@ -1,9 +1,7 @@
 {
   "rules": {
     "bNot1": {
-      "Initial State": {
-        "bNot1-Initial State-vacuity": "SUCCESS"
-      },
+      "Initial State": "SUCCESS",
       "Range 1": {
         "SUCCESS": [
           "bNot1-Initial State-C.setBTo7()|C.setBToA()"
@@ -30,9 +28,7 @@
       }
     },
     "cNot2": {
-      "Initial State": {
-        "cNot2-Initial State-vacuity": "SUCCESS"
-      },
+      "Initial State": "SUCCESS",
       "Range 1": {
         "SUCCESS": [
           "cNot2-Initial State-C.setCToSumAB()"
@@ -61,9 +57,7 @@
       }
     },
     "cNot8": {
-      "Initial State": {
-        "cNot8-Initial State-vacuity": "SUCCESS"
-      },
+      "Initial State": "SUCCESS",
       "Range 1": {
         "SUCCESS": [
           "cNot8-Initial State-C.setCToSumAB()"
@@ -92,9 +86,7 @@
       }
     },
     "dNot1": {
-      "Initial State": {
-        "dNot1-Initial State-vacuity": "SUCCESS"
-      },
+      "Initial State": "SUCCESS",
       "Range 1": {
         "SUCCESS": [
           "dNot1-Initial State-C.setDToB()"

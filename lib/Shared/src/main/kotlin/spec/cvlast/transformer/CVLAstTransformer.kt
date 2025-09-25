@@ -112,6 +112,7 @@ open class CVLAstTransformer<E>(
         is GroupRule -> rule.rules.map { rule -> rule(rule) }.flatten().bind { rules ->
             rule.copy(rules = rules).lift()
         }
+        is DynamicGroupRule -> rule.lift()
         is AssertRule -> rule.lift()
         is StaticRule -> rule.lift()
     }

@@ -1,9 +1,7 @@
 {
 	"rules": {
 		"succeedingLessThanFiveParamConditional": {
-			"Initial State": {
-				"succeedingLessThanFiveParamConditional-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"succeedingLessThanFiveParamConditional-Initial State-InvParams.setFoo()|InvParams.setFooConditionally((uint256))"

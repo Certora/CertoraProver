@@ -47,6 +47,7 @@ class RuleFilterWithScene(val scene: IScene) {
         if(!includeRule(rule)) {return null}
         return when(rule){
             is GroupRule -> rule.copy(rules = rule.rules.mapNotNull { copyFiltered(it) })
+            is DynamicGroupRule,
             is CVLSingleRule,
             is AssertRule,
             is StaticRule -> rule

@@ -81,6 +81,7 @@ import verifier.Verifier
 import java.io.IOException
 import java.util.*
 import java.util.stream.Collectors
+import spec.rules.SingleRule
 
 
 private val logger = Logger(LoggerTypes.COMMON)
@@ -133,7 +134,7 @@ fun ICheckableTAC.withSanity(sanityChecks: NonEmptyList<CheckableTAC>): Checkabl
 /**
  * A single [CVLSingleRule] with its [CheckableTAC] ready to be checked by [AbstractTACChecker.runVerifier]
  **/
-open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: CoreTACProgram, val liveStatsReporter: LiveStatsReporter) {
+open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val tac: CoreTACProgram, val liveStatsReporter: LiveStatsReporter) {
 
     data class CompileRuleCheckResult(
         val result: Result<ResultAndTime<Verifier.JoinedResult>>,
@@ -143,7 +144,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
     ) {
         suspend fun toCheckResult(
             scene: ISceneIdentifiers,
-            compiledRule: CompiledRule,
+            compiledRule: CompiledRule<*>,
             generateReport: Boolean = true,
         ): Result<RuleCheckResult.Single> {
             return toCheckResult(
@@ -211,7 +212,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
             }
         }
 
-        private fun computeSanityAlerts(rule: CVLSingleRule, res: Verifier.JoinedResult): Iterable<RuleAlertReport> {
+        private fun computeSanityAlerts(rule: SingleRule, res: Verifier.JoinedResult): Iterable<RuleAlertReport> {
             val ruleType = rule.ruleType
             if (ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule) {
                 return listOfNotNull(SanityCheckSort(ruleType).getRuleNotificationForResult(res.finalResult))
@@ -423,7 +424,7 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
         /**
          * Create a new CompiledRule object
          */
-        fun create(rule: CVLSingleRule, codeToCheck: CoreTACProgram, liveStatsReporter: LiveStatsReporter): CompiledRule {
+        fun <T: SingleRule>create(rule: T, codeToCheck: CoreTACProgram, liveStatsReporter: LiveStatsReporter): CompiledRule<T> {
             return if (Config.getIsUseCache() && Config.UsePerRuleCache.get()) {
                 val baseCache = Base64.getUrlEncoder().withoutPadding()
                     .encodeToString(StandardCache.baseCacheKeyForRuleLevelCache)

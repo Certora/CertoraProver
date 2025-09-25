@@ -1,9 +1,7 @@
 {
 	"rules": {
 		"preservedParamsLinkedToFunctionCall": {
-			"Initial State": {
-				"preservedParamsLinkedToFunctionCall-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"preservedParamsLinkedToFunctionCall-Initial State-C.foo(uint256)"
@@ -11,6 +9,7 @@
 			},
 			"Range 2": {
 				"SUCCESS": [
+					"preservedParamsLinkedToFunctionCall-Initial State-C.bar(uint256)-C.foo(uint256)",
 					"preservedParamsLinkedToFunctionCall-Initial State-C.foo(uint256)-C.foo(uint256)"
 				]
 			}

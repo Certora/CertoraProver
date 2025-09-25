@@ -1,9 +1,7 @@
 {
 	"rules": {
 		"mCurrentContractNonNegative": {
-			"Initial State": {
-				"mCurrentContractNonNegative-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"mCurrentContractNonNegative-Initial State-C.addM1(address)|C.addNandM1(address)|C.setM1(address)|C.setNandM1(address)|C.subM2(address)"
@@ -23,9 +21,7 @@
 			}
 		},
 		"mInvariantParamInPreserved": {
-			"Initial State": {
-				"mInvariantParamInPreserved-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"mInvariantParamInPreserved-Initial State-C.addM1(address)|C.addNandM1(address)|C.setM1(address)|C.setNandM1(address)|C.subM2(address)"
@@ -45,9 +41,7 @@
 			}
 		},
 		"nNonNegative": {
-			"Initial State": {
-				"nNonNegative-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"nNonNegative-Initial State-C.addN1()|C.addNandM1(address)|C.setN1()|C.setNandM1(address)|C.subN2()"
@@ -67,9 +61,7 @@
 			}
 		},
 		"nNonNegativeRule": {
-			"Initial State": {
-				"nNonNegativeRule-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"nNonNegativeRule-Initial State-C.addN1()|C.addNandM1(address)|C.setN1()|C.setNandM1(address)|C.subN2()"

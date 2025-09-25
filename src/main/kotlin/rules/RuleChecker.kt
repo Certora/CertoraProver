@@ -85,7 +85,7 @@ class RuleChecker(
      */
     private suspend fun computeAndMergeAssertResults(
         originalRule: IRule,
-        compiledSubRuleList: List<CompiledRule>
+        compiledSubRuleList: List<CompiledRule<CVLSingleRule>>
     ): RuleCheckResult = coroutineScope {
         val ruleCheckResults = compiledSubRuleList.parallelMapOrdered { _, compiledCVLRule ->
             val rule = compiledCVLRule.rule
@@ -248,7 +248,7 @@ class RuleChecker(
          * @param compiledSubRule: the original rule to split; it is assumed that it has exactly one checkableTAC
          * @return list of rules, one for each assert
          */
-        fun splitRuleOnAsserts(compiledSubRule: CompiledRule): List<CompiledRule> {
+        fun splitRuleOnAsserts(compiledSubRule: CompiledRule<CVLSingleRule>): List<CompiledRule<CVLSingleRule>> {
             val tacProg = compiledSubRule.tac
             val satisfyPtrs = tacProg.analysisCache.graph.commands.filter {
                 it.cmd.meta.containsKey(SATISFY_ID)
@@ -289,7 +289,7 @@ class RuleChecker(
                 }
             }
 
-            val compiledPerAssertSubRules = mutableListOf<CompiledRule>()
+            val compiledPerAssertSubRules = mutableListOf<CompiledRule<CVLSingleRule>>()
 
             // Creating all satisfy rules
             if (satisfyPtrs.isNotEmpty()) {
@@ -423,7 +423,7 @@ class RuleChecker(
             rule: CVLSingleRule,
             tac: CoreTACProgram,
             parentRule: CVLSingleRule?
-        ): Result<List<CompiledRule>> = runCatching {
+        ): Result<List<CompiledRule<CVLSingleRule>>> = runCatching {
             // this is the real-real preoptimized
             ArtifactManagerFactory().dumpMandatoryCodeArtifacts(
                 tac,
@@ -576,7 +576,7 @@ class RuleChecker(
             fun createCompiledRule(
                 newSingleRule: CVLSingleRule,
                 subCode: CoreTACProgram
-            ): CompiledRule {
+            ): CompiledRule<CVLSingleRule> {
                 return CompiledRule.create(
                     newSingleRule,
                     subCode.copy(name = newSingleRule.ruleIdentifier.toString()),
@@ -685,7 +685,7 @@ class RuleChecker(
             /**
              * Checks the compiled rule [compiledSubRule] and returns the result.
              */
-            suspend fun evalRule(compiledSubRule: CompiledRule): RuleCheckResult {
+            suspend fun evalRule(compiledSubRule: CompiledRule<CVLSingleRule>): RuleCheckResult {
                 throttle.withPermit {
                     StatusReporter.registerSubrule(compiledSubRule.rule)
 
@@ -796,7 +796,7 @@ class RuleChecker(
                 .resultComputation(
                     ::evalRule,
                     ::reduceResults
-                ) { r ->
+                ) { r: CompiledRule<CVLSingleRule> ->
                     "${rule.declarationId} ${
                         if (rule.parentIdentifier != null) {
                             "of ${rule.parentIdentifier}"
@@ -1003,7 +1003,7 @@ class RuleChecker(
                         treeViewReporter.registerSubruleOf(subrule, rule);
                         codesToCheck(subrule).getOrThrow() }
             is CVLSingleRule -> CompiledRule.subRules(scene, cvl, rule).getOrThrow()
-            is AssertRule, is StaticRule -> emptyList()
+            is DynamicGroupRule, is AssertRule, is StaticRule -> emptyList()
         }
     }
 
@@ -1015,6 +1015,7 @@ class RuleChecker(
         // We have a builtin rule with a custom checker
         return builtinCustomChecker?.check(this, rule)
             ?: when (rule) {
+                is DynamicGroupRule -> throw UnsupportedOperationException("Cannot handle dynamic rules, but got $rule")
                 is AssertRule -> throw UnsupportedOperationException("Cannot handle AssertRules, but got $rule")
                 is CVLSingleRule -> singleRuleCheck(rule)
                 is GroupRule -> this.handleAllSubRules(rule)

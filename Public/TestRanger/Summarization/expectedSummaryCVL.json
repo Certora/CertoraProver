@@ -1,9 +1,7 @@
 {
 	"rules": {
 		"violatedLessThanFive": {
-			"Initial State": {
-				"violatedLessThanFive-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"violatedLessThanFive-Initial State-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)"

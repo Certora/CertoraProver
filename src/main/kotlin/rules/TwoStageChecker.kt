@@ -29,6 +29,7 @@ import rules.RuleChecker.CmdPointerList
 import scene.IScene
 import solver.CounterexampleModel
 import spec.rules.IRule
+import spec.rules.SingleRule
 import tac.DumpTime
 import tac.MetaKey
 import tac.NBId
@@ -266,11 +267,11 @@ suspend fun twoStageDestructiveOptimizationsCheck(
     }
 }
 
-suspend fun twoStageDestructiveOptimizationsCheck(
+suspend fun <T: SingleRule> twoStageDestructiveOptimizationsCheck(
     scene: IScene,
-    rule: CompiledRule,
+    rule: CompiledRule<T>,
 ): CompiledRule.CompileRuleCheckResult {
-    return twoStageDestructiveOptimizationsCheck(rule.rule, rule.rule.description, rule.tac) { tac ->
+    return twoStageDestructiveOptimizationsCheck(rule.rule, rule.rule.declarationId, rule.tac) { tac ->
         CompiledRule.create(rule.rule, tac, rule.liveStatsReporter).check(scene.toIdentifiers())
     }
 }

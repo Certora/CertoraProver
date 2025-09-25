@@ -1,9 +1,7 @@
 {
 	"rules": {
 		"succeedingWithHook": {
-			"Initial State": {
-				"succeedingWithHook-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
 					"succeedingWithHook-Initial State-InvParams.setFoo()|InvParams.setFooConditionally((uint256))"
