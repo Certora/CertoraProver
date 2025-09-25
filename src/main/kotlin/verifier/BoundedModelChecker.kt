@@ -26,6 +26,7 @@ import bridge.NamedContractIdentifier
 import com.certora.collect.*
 import config.Config
 import config.Config.containsMethodFilteredByConfig
+import config.Config.containsMethodFilteredByRangerConfig
 import config.ReportTypes
 import datastructures.NonEmptyList
 import datastructures.nonEmptyListOf
@@ -307,6 +308,13 @@ class BoundedModelChecker(
     private val allFuncs get() = compiledFuncs.keys.toList()
     private val easyFuncs: Set<ContractFunction>
 
+    /**
+     * The functions that should be considered for extending sequences
+     * based on the user choices with the ranger_include_method and ranger_exclude_method flags.
+     * These are not taken into account for the last element in the sequence, which is controlled by the normal method filtering flags instead.
+     */
+    private val sequenceChosenFunctions: Set<ContractFunction>
+
     private val invProgs: Map<ICVLRule, CVLPrograms>
 
     private val ruleProgs: Map<ICVLRule, CVLPrograms>
@@ -533,6 +541,18 @@ class BoundedModelChecker(
                 logger.info{ "${fdata.key} cmds: $cmds, nonlins: ${stats.numberOfNonlinearOps}, severity: ${stats.severityGlobal}" }
                 cmds < Config.BoundedModelCheckingMergerTACThreshold.get() && stats.severityGlobal == PrettyPrintableStats.Severity.LOW
             }
+        }.keys
+
+        sequenceChosenFunctions = compiledFuncs.filterKeys { func ->
+            this.cvl.importedFuncs.values.flatten().map { it.abiWithContractStr() }
+                .containsMethodFilteredByRangerConfig(
+                    func.methodSignature.computeCanonicalSignatureWithContract(
+                        spec.cvlast.typedescriptors.PrintingContext(
+                            false
+                        )
+                    ),
+                    mainContract.name
+                )
         }.keys
 
         logger.info{ "easy: ${easyFuncs.size}, total: ${compiledFuncs.size}" }
@@ -874,9 +894,10 @@ class BoundedModelChecker(
                 return treapListOf()
             }
 
-            val allFuncsToFailedFilters = allFuncs.associateWith { func ->
-                BoundedModelCheckerFilters.filter(parentFuncs, func, baseRule, funcReads, funcWrites)
-            }
+            val allFuncsToFailedFilters = allFuncs.filter { it in allFuncsForLastStep || it in sequenceChosenFunctions }
+                .associateWith { func ->
+                    BoundedModelCheckerFilters.filter(parentFuncs, func, baseRule, funcReads, funcWrites)
+                }
 
             logger.debug { "For sequence ${parentFuncs.sequenceStr()}, filtering extension candidates gives:\n $allFuncsToFailedFilters\n"}
 
@@ -956,7 +977,8 @@ class BoundedModelChecker(
                 return listOfNotNull(res).toTreapList()
             }
 
-            val extensions = pickExtensions(allFuncsToFailedFilters.filterValues { it == null || !it.appliesToChildren }.keys)
+            val extensionCandidates = allFuncsToFailedFilters.filterKeys { it in sequenceChosenFunctions }.filterValues { it == null || !it.appliesToChildren }.keys
+            val extensions = pickExtensions(extensionCandidates)
 
             logger.debug { "For sequence ${parentFuncs.sequenceStr()}, picked extensions $extensions" }
 

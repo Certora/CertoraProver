@@ -37,11 +37,13 @@ import utils.CollectingResult.Companion.ok
 
 private val logger = Logger(LoggerTypes.SPEC)
 
-@Suppress("ForbiddenMethodCall")
-fun validateMethodChoices(knownFunctions: List<ContractFunction>, mainContract: String): VoidResult<CVLError> {
-    val choices = Config.MethodChoices
-    val excludeChoices = Config.ExcludeMethodChoices
 
+fun validateMethodChoices(knownFunctions: List<ContractFunction>, mainContract: String): VoidResult<CVLError> =
+    validateMethodChoicesParametric(knownFunctions, mainContract, Config.MethodChoices, Config.ExcludeMethodChoices)
+fun validateRangerMethodChoices(knownFunctions: List<ContractFunction>, mainContract: String): VoidResult<CVLError> =
+    validateMethodChoicesParametric(knownFunctions, mainContract, Config.RangerMethodChoices, Config.RangerExcludeMethodChoices)
+@Suppress("ForbiddenMethodCall")
+private fun validateMethodChoicesParametric(knownFunctions: List<ContractFunction>, mainContract: String, choices: Set<String>?, excludeChoices: Set<String>?): VoidResult<CVLError> {
     val relevantFunctions = knownFunctions
         .filter { it.methodSignature.functionName !in listOf(CONSTRUCTOR, CVLReservedVariables.certorafallback_0.name) }
         .mapNotNull {

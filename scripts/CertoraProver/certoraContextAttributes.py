@@ -939,6 +939,34 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
+    RANGER_INCLUDE_METHOD = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_method_flag,
+        jar_flag='-rangerMethod',
+        arg_type=AttrUtil.AttrArgType.LIST,
+        help_msg="Filter methods to be included in ranger sequences by their signature",
+        default_desc="All methods are considered in constructing ranger sequences",
+        argparse_args={
+            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
+    RANGER_EXCLUDE_METHOD = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_method_flag,
+        jar_flag='-rangerExcludeMethod',
+        arg_type=AttrUtil.AttrArgType.LIST,
+        help_msg="Filter out methods to be included in ranger sequences by their signature",
+        default_desc="All methods are considered in constructing ranger sequences",
+        argparse_args={
+            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
     OPTIMISTIC_CONTRACT_RECURSION = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.BOOLEAN,
         help_msg="Assume the recursion limit is never reached in cases of "

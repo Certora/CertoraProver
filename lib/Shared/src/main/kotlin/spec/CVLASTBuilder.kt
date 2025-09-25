@@ -133,6 +133,7 @@ class CVLAstBuilder(
 
         collect(validateRuleChoices(ast))
         collect(validateMethodChoices(functionInfo.values.flatten(), mainContract.name))
+        collect(validateRangerMethodChoices(functionInfo.values.flatten(), mainContract.name))
 
         ast = bind(CleanEmptyHooks.check(ast))
         ast = bind(SingleVariableDefinitionChecker(contracts.map { it.name }).check(ast))

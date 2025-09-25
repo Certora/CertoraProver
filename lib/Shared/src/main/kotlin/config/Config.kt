@@ -848,23 +848,50 @@ object Config {
      *
      * Note: Signatures that don't have an explicit host name are assumed to belong to the [mainContract]
      */
-    fun Collection<String>.containsMethodFilteredByConfig(methodSigWithContract: String, mainContract: String): Boolean {
+    fun Collection<String>.containsMethodFilteredByConfig(methodSigWithContract: String, mainContract: String): Boolean = containsMethodFilteredByConfigParametric(methodSigWithContract, mainContract, MethodChoices, ExcludeMethodChoices)
+    private fun Collection<String>.containsMethodFilteredByConfigParametric(methodSigWithContract: String, mainContract: String, includedChoices: Set<String>?, excludedChoices: Set<String>?): Boolean {
         val (contract, methodSig) = methodSigWithContract.splitToContractAndMethod(mainContract)
-        return getMethodChoices(this, mainContract).containsMethod(methodSig, contract, mainContract)
+        return getMethodChoices(this, mainContract, includedChoices, excludedChoices).containsMethod(methodSig, contract, mainContract)
     }
 
-    private fun getMethodChoices(allMethods: Collection<String>, defaultContract: String): Set<String>? {
-        if (MethodChoices == null && ExcludeMethodChoices == null) {
+    private fun getMethodChoices(allMethods: Collection<String>, defaultContract: String, includedChoices: Set<String>?, excludedChoices: Set<String>?): Set<String>? {
+        if (includedChoices == null && excludedChoices == null) {
             return null
         }
 
         val all = allMethods.map { it.splitToContractAndMethod(defaultContract) }
-        val base = all.filter { MethodChoices.containsMethod(it.second, it.first, defaultContract) }
+        val base = all.filter { includedChoices.containsMethod(it.second, it.first, defaultContract) }
 
-        return base.filterNot { ExcludeMethodChoices.orEmpty().containsMethod(it.second, it.first, defaultContract) }.map { "${it.first}.${it.second}" }.toSet()
+        return base.filterNot { excludedChoices.orEmpty().containsMethod(it.second, it.first, defaultContract) }.map { "${it.first}.${it.second}" }.toSet()
     }
 
     val methodsAreFiltered get() = MethodChoices != null || ExcludeMethodChoices != null
+
+    private val RangerMethodChoicesInput: ConfigType.StringCmdLine = "Methods to include in ranger sequences".let { desc ->
+        object :
+            ConfigType.StringCmdLine(
+                null,
+                Option("rangerMethod", true, desc),
+                pythonName = "--ranger_include_method"
+            ),
+            RuleCacheAgnosticConfig {}
+    }
+
+    private val RangerExcludeMethodChoicesInput: ConfigType.StringCmdLine = "Methods to not include in ranger sequences".let { desc ->
+        object :
+            ConfigType.StringCmdLine(
+                null,
+                Option("rangerExcludeMethod", true, desc),
+                pythonName = "--ranger_exclude_method"
+            ),
+            RuleCacheAgnosticConfig {}
+    }
+
+    // These are not private only because they're required for validation in [validateRuleChoices]. Please don't use them otherwise :)
+    val RangerMethodChoices by lazy { RangerMethodChoicesInput.getOrNull()?.let(::parseMethodInput) }
+    val RangerExcludeMethodChoices by lazy { RangerExcludeMethodChoicesInput.getOrNull()?.let(::parseMethodInput) }
+
+    fun Collection<String>.containsMethodFilteredByRangerConfig(methodSigWithContract: String, mainContract: String): Boolean = containsMethodFilteredByConfigParametric(methodSigWithContract, mainContract, RangerMethodChoices, RangerExcludeMethodChoices)
 
     val contractChoice: ConfigType.StringSetCmdLine = "contract(s) to check in parameterized rules".let { desc ->
         object :
