@@ -216,6 +216,28 @@ class CannotParseInliningFile(line: String, filename: String, grammar: String, h
         ),
         devMsg = "").toString())
 
+private fun nearestPowerOfTwo(n: Int): Int {
+    check(n > 0)
+    return Integer.highestOneBit(n).let {
+        if (it < n) {
+            it shl 1
+        } else {
+            it
+        }
+    }
+}
+
+class SmashedStack(locInst: LocatedSbfInstruction?, extraSpace: Int) : SolanaError(
+    FormattedErrorMessage(
+        locInst = locInst,
+        userInfo = UserErrorInfo(
+            msg  = "Current stack size is ${SolanaConfig.StackFrameSize.get()} and stack offset exceeded max offset by $extraSpace.",
+            note = "",
+            help = "Please increase the stack size with option \"-${SolanaConfig.StackFrameSize.name} ${nearestPowerOfTwo(SolanaConfig.StackFrameSize.get() + extraSpace)}\".",
+            code = 6000
+        ),
+        devMsg = if (locInst != null) {"${locInst.inst}"} else { "" }).toString())
+
 /**
  * To create formatted user messages
  */

@@ -108,23 +108,78 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
     /** TRANSFER FUNCTIONS **/
 
+    /**
+     * This check is probably redundant because of [checkStackInBounds] but we still keep it.
+     */
     private fun checkStackAccess(value: ScalarValue<TNum, TOffset>) {
-        val valType = value.type()
-        if (valType is SbfType.PointerType.Stack<TNum, TOffset>) {
-            if (valType.offset.isBottom()) {
-                throw SolanaError("Stack offset is bottom and this is unexpected")
-            }
-            if (!valType.offset.isTop()) {
-                for (stackOffset in valType.offset.toLongList()) {
-                    if (stackOffset < 0) {
-                        throw SolanaError(
-                            "Current stack size is ${SolanaConfig.StackFrameSize.get()} and stack offset exceeded max offset by ${-stackOffset}. " +
-                                "Please increase the stack size with option \"-${SolanaConfig.StackFrameSize.name} N\" where N is a multiple of 4096.")
-                    }
+        val offset = (value.type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset ?: return
+        if (offset.isBottom()) {
+            throw SolanaError("Stack offset is bottom and this is unexpected")
+        }
+        if (!offset.isTop()) {
+            offset.toLongList().forEach { o ->
+                if (o < 0) {
+                    throw SmashedStack(locInst = null, -o.toInt())
                 }
             }
         }
     }
+
+    /**
+     * Check that stack is not being smashed after pointer arithmetic [locInst]
+     * @param [oldType] is the type of destination before executing the instruction.
+     * @param [newType] is the type of destination after executing the instruction.
+     **/
+    private fun checkStackInBounds(
+        oldType: SbfType<TNum, TOffset>,
+        newType: SbfType<TNum, TOffset>,
+        locInst: LocatedSbfInstruction
+    ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Bin)
+
+        if (locInst.inst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null) {
+            // When we do `memcpy` promotion we create stack pointer arithmetic instructions whose offsets can be
+            // greater than the stack frame's size. This is because the promotion "normalizes" the stack pointer with
+            // respect to `r10` so the offset in the pointer arithmetic instruction can be far bigger than stack
+            // frame's size if the pointer points to some caller's stack.
+            return
+        }
+
+        val oldOffset = (oldType as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongOrNull() ?: return
+        val newOffset = (newType as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongOrNull() ?: return
+        val isDecreasing = newOffset < oldOffset
+        if (isDecreasing) {
+            val diff = oldOffset - newOffset
+            val frameSize = SolanaConfig.StackFrameSize.get()
+            if (diff > frameSize) {
+                val extraSpace = diff - frameSize
+                throw SmashedStack(locInst, extraSpace.toInt())
+            }
+        }
+    }
+
+    /**
+     * Check that stack is not being smashed after a load or store instruction [locInst].
+     * @param [baseType] is the type of base register being de-referenced.
+     **/
+    private fun checkStackInBounds(baseType: SbfType<TNum, TOffset>, locInst: LocatedSbfInstruction) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Mem)
+
+        val baseOffset = (baseType as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset?.toLongOrNull() ?: return
+        val derefOffset = baseOffset + inst.access.offset
+        val isDecreasing = derefOffset < baseOffset
+        if (isDecreasing) {
+            val diff = baseOffset - derefOffset
+            val frameSize = SolanaConfig.StackFrameSize.get()
+            if (diff > frameSize) {
+                val extraSpace = diff - frameSize
+                throw SmashedStack(locInst, extraSpace.toInt())
+            }
+        }
+    }
+
 
     private fun getRegister(reg: Value.Reg): ScalarValue<TNum, TOffset> {
         return if (isBottom()) {
@@ -193,7 +248,12 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun doConstantPointerArithmetic(op: BinOp, dst: Value.Reg, src: SbfType.NumType<TNum, TOffset>) {
+    private fun doConstantPointerArithmetic(
+        op: BinOp,
+        dst: Value.Reg,
+        src: SbfType.NumType<TNum, TOffset>,
+        locInst: LocatedSbfInstruction
+    ) {
         val dstType = getRegister(dst).type()
         if (dstType is SbfType.PointerType) {
             val dstOffset = dstType.offset
@@ -208,15 +268,19 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                     }
                 }
             }
+            checkStackInBounds(dstType, newVal.type(), locInst)
             setRegister(dst, newVal)
         } else {
             forget(dst)
         }
     }
 
-    private fun doNormalizedPointerArithmetic(op: BinOp, dst: Value.Reg,
-                                              op1: Value.Reg, op1Type: SbfType.PointerType<TNum, TOffset>,
-                                              op2: Value.Reg, op2Type: SbfType<TNum, TOffset>) {
+    private fun doNormalizedPointerArithmetic(
+        op: BinOp, dst: Value.Reg,
+        op1: Value.Reg, op1Type: SbfType.PointerType<TNum, TOffset>,
+        op2: Value.Reg, op2Type: SbfType<TNum, TOffset>,
+        locInst: LocatedSbfInstruction
+    ) {
         check(op2Type !is SbfType.Bottom) {"failed preconditions on doNormalizedPointerArithmetic"}
 
         when (op2Type) {
@@ -232,6 +296,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                         }
                     }
                 }
+                checkStackInBounds(getRegister(dst).type(), newVal.type(), locInst)
                 setRegister(dst, newVal)
             }
             is SbfType.PointerType -> {
@@ -256,14 +321,14 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         } // end when
     }
 
-    private fun doPointerArithmetic(op: BinOp, dst: Value.Reg, src: Value.Reg) {
+    private fun doPointerArithmetic(op: BinOp, dst: Value.Reg, src: Value.Reg, locInst: LocatedSbfInstruction) {
         val dstType = getRegister(dst).type()
         val srcType = getRegister(src).type()
 
         if (dstType is SbfType.PointerType) {
-            doNormalizedPointerArithmetic(op, dst, dst, dstType, src, srcType)
+            doNormalizedPointerArithmetic(op, dst, dst, dstType, src, srcType, locInst)
         } else if (srcType is SbfType.PointerType && op.isCommutative) {
-            doNormalizedPointerArithmetic(op, dst, src, srcType, dst, dstType)
+            doNormalizedPointerArithmetic(op, dst, src, srcType, dst, dstType, locInst)
         } else {
             forget(dst)
         }
@@ -307,8 +372,12 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun analyzeBin(stmt: SbfInstruction.Bin, globals: GlobalVariableMap) {
+    private fun analyzeBin(locInst: LocatedSbfInstruction, globals: GlobalVariableMap) {
         check(!isBottom()) {"analyzeBin cannot be called on bottom"}
+
+        val stmt = locInst.inst
+        check(stmt is SbfInstruction.Bin)
+
         val dst = stmt.dst
         val src = stmt.v
         if (src is Value.Imm) {
@@ -334,7 +403,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                          * We don't know for sure whether dst is a pointer or not.
                          * doConstantPointerArithmetic will deal with that.
                          **/
-                        doConstantPointerArithmetic(stmt.op, dst, sbfTypeFac.toNum(src.v))
+                        doConstantPointerArithmetic(stmt.op, dst, sbfTypeFac.toNum(src.v), locInst)
                     }
                 }
             }
@@ -379,11 +448,11 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                     } else {
                         if (srcType is SbfType.NumType) {
                             if (!srcType.value.isTop()) {
-                                doConstantPointerArithmetic(stmt.op, dst, srcType)
+                                doConstantPointerArithmetic(stmt.op, dst, srcType, locInst)
                                 return
                             }
                         }
-                        doPointerArithmetic(stmt.op, dst, src)
+                        doPointerArithmetic(stmt.op, dst, src, locInst)
                     }
                 }
             }
@@ -910,6 +979,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
 
         val baseType = baseScalarVal.type()
+        checkStackInBounds(baseType, locInst)
         val loadedAsNumForPTA = stmt.metaData.getVal(SbfMeta.LOADED_AS_NUM_FOR_PTA) != null
         when (baseType) {
             is SbfType.Bottom -> {}
@@ -1051,7 +1121,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         if (!isBottom()) {
             when (s) {
                 is SbfInstruction.Un -> analyzeUn(s)
-                is SbfInstruction.Bin -> analyzeBin(s, globals)
+                is SbfInstruction.Bin -> analyzeBin(locInst, globals)
                 is SbfInstruction.Call -> analyzeCall(locInst, globals, memSummaries)
                 is SbfInstruction.CallReg -> {
                     if (!SolanaConfig.SkipCallRegInst.get()) {
