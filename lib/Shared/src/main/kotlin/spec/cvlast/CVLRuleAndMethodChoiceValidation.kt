@@ -77,6 +77,31 @@ private fun validateMethodChoicesParametric(knownFunctions: List<ContractFunctio
     return validateSet(choices).map(validateSet(excludeChoices))
 }
 
+/** Validates method choices without parsing the names (used for non-EVM targets) */
+fun validateSimpleMethodChoices(knownFunctions: Set<String>): VoidResult<CVLError> {
+    val choices = Config.MethodChoices
+    val excludeChoices = Config.ExcludeMethodChoices
+
+    fun validateSet(s: Set<String>?): VoidResult<CVLError> {
+        if (s == null) {
+            return ok
+        }
+        return s.map { methodChoice ->
+            if (methodChoice in knownFunctions) {
+                ok
+            } else {
+                val suggestions = getClosestStrings(
+                    methodChoice,
+                    knownFunctions
+                )
+                NoSuchMethodChoice(methodChoice, suggestions).asError()
+            }
+        }.flattenToVoid()
+    }
+
+    return validateSet(choices).map(validateSet(excludeChoices))
+}
+
 /**
  * Makes sure that if the user used --rule <rulename> and/or --rules <rule1,rule2,...> , that all such rules exists.
  * If just one rule does not exist, throw an exception with an appropriate error message.
@@ -86,7 +111,10 @@ private fun validateMethodChoicesParametric(knownFunctions: List<ContractFunctio
 fun validateRuleChoices(cvlAst: CVLAst) : VoidResult<CVLError> {
     val allRules = cvlAst.rules.map { it.declarationId }.toSet() + cvlAst.invs.map { it.id }.toSet() +
         cvlAst.useDeclarations.builtInRulesInUse.map { it.id }
+    return validateRuleChoices(allRules)
+}
 
+fun validateRuleChoices(allRules: Set<String>) : VoidResult<CVLError> {
     // First, check if the user provided any non-existent rules.
     val unknownRules =  Config.getNonPatternRuleChoices()?.let { it - allRules }
     if (unknownRules?.isNotEmpty() == true) {

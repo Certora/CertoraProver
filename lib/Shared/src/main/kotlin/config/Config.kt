@@ -865,6 +865,13 @@ object Config {
         return base.filterNot { excludedChoices.orEmpty().containsMethod(it.second, it.first, defaultContract) }.map { "${it.first}.${it.second}" }.toSet()
     }
 
+    fun getSimpleMethodChoices(all: Set<String>): Set<String> {
+        if (MethodChoices == null && ExcludeMethodChoices == null) {
+            return all
+        }
+        return all.filter { MethodChoices?.contains(it) ?: true }.filterNot { ExcludeMethodChoices?.contains(it) ?: false }.toSet()
+    }
+
     val methodsAreFiltered get() = MethodChoices != null || ExcludeMethodChoices != null
 
     private val RangerMethodChoicesInput: ConfigType.StringCmdLine = "Methods to include in ranger sequences".let { desc ->
@@ -932,46 +939,6 @@ object Config {
             0x436572746f7261.toBigInteger(),
             Option("cvlmAddress", true, "The address of the CVLM Move modules")
         ) {}
-
-    val MoveRuleModuleIncludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("includeMoveRuleModules", true, "List of Move modules to include in the rule set.  Default is all modules with rules.")
-    ) {}
-
-    val MoveRuleModuleExcludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("excludeMoveRuleModules", true, "List of Move modules to exclude from the rule set.  Default is none.")
-    ) {}
-
-    val MoveRuleNameIncludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("includeMoveRules", true, "List of Move rule names to include in the rule set.  Default is all rules in included modules.")
-    ) {}
-
-    val MoveRuleNameExcludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("excludeMoveRules", true, "List of Move rule names to exclude from the rule set.  Default is none.")
-    ) {}
-
-    val MoveTargetModuleIncludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("includeMoveTargetModules", true, "List of Move modules to include in the target set.  Default is all modules.  Note that this only applies to function named as targets in the spec module manifest(s).")
-    ) {}
-
-    val MoveTargetModuleExcludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("excludeMoveTargetModules", true, "List of Move modules to exclude from the target set.  Default is none.")
-    ) {}
-
-    val MoveTargetNameIncludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("includeMoveTargetNames", true, "List of Move function names to include in the target set.  Default is all functions.  Note that this only applies to function named as targets in the spec module manifest(s).")
-    ) {}
-
-    val MoveTargetNameExcludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("excludeMoveTargetNames", true, "List of Move function names to exclude from the target set.  Default is none.")
-    ) {}
 
     val MoveCallTraceVecElemCount = object : ConfigType.IntCmdLine(
         3,

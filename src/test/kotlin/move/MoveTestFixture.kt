@@ -239,7 +239,7 @@ abstract class MoveTestFixture() {
             .extend(Config.RecursionEntryLimit, recursionLimit)
             .use {
                 val moveScene = buildScene()
-                val (selected, type) = moveScene.cvlmManifest.selectedRules.singleOrNull() ?: error("Expected exactly one rule")
+                val (selected, type) = moveScene.cvlmManifest.rules.entries.singleOrNull() ?: error("Expected exactly one rule")
                 check(type == CvlmManifest.RuleType.USER_RULE) {
                     "Expected a user rule, but got $type"
                 }
@@ -262,29 +262,30 @@ abstract class MoveTestFixture() {
     ): Map<String, Boolean> {
         maybeEnableReportGeneration()
         ConfigScope(Config.TrapAsAssert, !assumeNoTraps)
-        .extend(Config.QuietMode, true)
-        .extend(Config.RecursionErrorAsAssertInAllCases, recursionLimitIsError)
-        .extend(Config.RecursionEntryLimit, recursionLimit)
-        .extend(Config.LoopUnrollConstant, loopIter)
-        .use {
-            val moveScene = buildScene()
-            val scene = SceneFactory.getScene(DegenerateContractSource("dummyScene"))
+            .extend(Config.QuietMode, true)
+            .extend(Config.RecursionErrorAsAssertInAllCases, recursionLimitIsError)
+            .extend(Config.RecursionEntryLimit, recursionLimit)
+            .extend(Config.LoopUnrollConstant, loopIter)
+            .use {
+                val moveScene = buildScene()
+                val scene = SceneFactory.getScene(DegenerateContractSource("dummyScene"))
 
-            return moveScene.rules.associate { (rule, program) ->
-                val optimized = program.letIf(optimize) { MoveToTAC.optimize(it) }
-                val vRes = runBlocking {
-                    TACVerifier.verify(scene, optimized, DummyLiveStatsReporter)
-                }
-                val joinedRes = Verifier.JoinedResult(vRes)
+                return moveScene.allCvlmRules.associate { rule ->
+                    val compiled = MoveToTAC.compileRule(rule, moveScene)
+                    val code = compiled.code.letIf(optimize) { MoveToTAC.optimize(it) }
+                    val vRes = runBlocking {
+                        TACVerifier.verify(scene, code, DummyLiveStatsReporter)
+                    }
+                    val joinedRes = Verifier.JoinedResult(vRes)
 
-                // Fake rule to allow report generation
-                val reportRule = CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
-                    AssertRule(RuleIdentifier.freshIdentifier(program.name), false, program.name, scope)
+                    // Fake rule to allow report generation
+                    val reportRule = CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
+                        AssertRule(RuleIdentifier.freshIdentifier(code.name), false, code.name, scope)
+                    }
+                    joinedRes.reportOutput(reportRule)
+                    rule.ruleInstanceName to (joinedRes.finalResult.isSuccess() xor compiled.isSatisfy)
                 }
-                joinedRes.reportOutput(reportRule)
-                rule.ruleIdentifier.displayName to (joinedRes.finalResult.isSuccess() xor rule.isSatisfyRule)
             }
-        }
     }
 
     protected fun verify(

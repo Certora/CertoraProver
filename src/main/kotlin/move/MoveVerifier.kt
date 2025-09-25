@@ -28,6 +28,9 @@ import rules.*
 import rules.CompiledRule.Companion.mapCheckResult
 import scene.*
 import scene.source.*
+import spec.cvlast.*
+import spec.cvlast.typechecker.*
+import spec.genericrulegenerators.*
 import spec.rules.*
 import tac.*
 import utils.*
@@ -37,6 +40,7 @@ import verifier.mus.*
 
 class MoveVerifier {
     private val modulePath = Config.MoveModulePath.get()
+    private val moveScene = MoveScene(Path(modulePath))
     private val cvlScene = SceneFactory.getScene(DegenerateContractSource(modulePath))
     private val reporterContainer = ReporterContainer(listOf(ConsoleReporter))
     private val treeView = TreeViewReporter("MoveMainProgram", "", cvlScene)
@@ -53,8 +57,21 @@ class MoveVerifier {
             )
         }
 
-        val moveScene = MoveScene(Path(modulePath))
-        val rules = moveScene.rules
+        val rules = moveScene
+            .getSelectedCvlmRules()
+            .resultOrExitProcess(1, CVLError::printErrors)
+            .parallelStream().map {
+                MoveToTAC.compileRule(it, moveScene)
+            }.map {
+                EcosystemAgnosticRule(
+                    ruleIdentifier = RuleIdentifier.freshIdentifier(it.rule.ruleInstanceName),
+                    ruleType = when (it.rule) {
+                        is CvlmRule.UserRule -> SpecType.Single.FromUser.SpecFile
+                        is CvlmRule.TargetSanity -> SpecType.Single.BuiltIn(BuiltInRuleId.sanity)
+                    },
+                    isSatisfyRule = it.isSatisfy
+                ) to it.code
+            }.toList()
 
         treeView.buildRuleTree(rules.map { (rule, _) -> rule })
 

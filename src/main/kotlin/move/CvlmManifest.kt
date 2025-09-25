@@ -61,43 +61,22 @@ class CvlmManifest(val scene: MoveScene) {
     private val targetFunctionsBuilder = mutableMapOf<MoveModuleName, MutableSet<MoveFunctionName>>()
     private val targetSanityModules = mutableSetOf<MoveModuleName>()
 
-    private fun targetSanityRules() = targetSanityModules.flatMap { module ->
-        selectedTargetFunctions[module].orEmpty().map {
-            if (it in rulesBuilder) {
-                throw CertoraException(
-                    CertoraErrorType.CVL,
-                    "Target function $it appears in both user and sanity rules"
-                )
-            }
-            it to RuleType.SANITY
-        }
-    }
-
-    val selectedRules by lazy {
-        (rulesBuilder + targetSanityRules()).entries.filter {
-            Config.MoveRuleModuleIncludes.getOrNull()?.contains(it.key.module.name) ?: true
-        }.filterNot {
-            Config.MoveRuleModuleExcludes.getOrNull()?.contains(it.key.module.name) ?: false
-        }.filter {
-            Config.MoveRuleNameIncludes.getOrNull()?.contains(it.key.simpleName) ?: true
-        }.filterNot {
-            Config.MoveRuleNameExcludes.getOrNull()?.contains(it.key.simpleName) ?: false
-        }
-    }
-
-    val selectedTargetFunctions: Map<MoveModuleName, List<MoveFunctionName>> by lazy {
-        targetFunctionsBuilder.mapValues { (_, funcs) ->
-            funcs.filter {
-                Config.MoveTargetModuleIncludes.getOrNull()?.contains(it.module.name) ?: true
-            }.filterNot {
-                Config.MoveTargetModuleExcludes.getOrNull()?.contains(it.module.name) ?: false
-            }.filter {
-                Config.MoveTargetNameIncludes.getOrNull()?.contains(it.simpleName) ?: true
-            }.filterNot {
-                Config.MoveTargetNameExcludes.getOrNull()?.contains(it.simpleName) ?: false
+    val rules: Map<MoveFunctionName, RuleType> by lazy {
+        rulesBuilder + targetSanityModules.flatMap { module ->
+            targetFunctions(module).map {
+                if (it in rulesBuilder) {
+                    throw CertoraException(
+                        CertoraErrorType.CVL,
+                        "Target function $it appears in both user and sanity rules"
+                    )
+                }
+                it to RuleType.SANITY
             }
         }
     }
+
+    fun targetFunctions(module: MoveModuleName): Set<MoveFunctionName> =
+        targetFunctionsBuilder[module].orEmpty()
 
     private fun addRule(rule: MoveFunctionName, ruleType: RuleType) {
         if (rulesBuilder.put(rule, ruleType) != null) {

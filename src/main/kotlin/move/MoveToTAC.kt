@@ -38,13 +38,8 @@ import instrumentation.transformers.*
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import log.*
-import move.CvlmManifest.RuleType
 import optimizer.*
 import org.jetbrains.annotations.TestOnly
-import spec.cvlast.RuleIdentifier
-import spec.cvlast.SpecType
-import spec.genericrulegenerators.*
-import spec.rules.*
 import tac.*
 import tac.generation.*
 import utils.*
@@ -56,29 +51,27 @@ private val logger = Logger(LoggerTypes.MOVE)
 private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
 
 /**
-    Conversion from a Move bytecode to TAC
+    Conversion from Move bytecode to TAC
  */
 class MoveToTAC private constructor (val scene: MoveScene) {
+    data class CompiledRule(
+        val rule: CvlmRule,
+        val code: CoreTACProgram,
+        val isSatisfy: Boolean
+    )
+
     companion object {
-        fun compileRule(
-            entryFuncName: MoveFunctionName,
-            ruleType: RuleType,
-            scene: MoveScene
-        ) = with(Instantiator(scene)) {
-            val entryFunc = instantiate(entryFuncName)
-            targetPermutations(entryFunc).flatMap { parametricTargets ->
-                MoveToTAC(scene).compileRule(entryFunc, ruleType, parametricTargets)
-            }
-        }
+        fun compileRule(rule: CvlmRule, scene: MoveScene) = MoveToTAC(scene).compileRule(rule)
 
         @TestOnly
         fun compileMoveTAC(
             entryFuncName: MoveFunctionName,
             scene: MoveScene,
-        ) = with(Instantiator(scene)) {
+        ) = with(scene) {
+            val def = maybeDefinition(entryFuncName) ?: error("No function found with name $entryFuncName")
             MoveToTAC(scene).compileMoveTACProgram(
                 entryFuncName.toString(),
-                instantiate(entryFuncName),
+                MoveFunction(def.function, typeArguments = listOf()),
                 SanityMode.NONE,
                 parametricTargets = mapOf()
             )
@@ -133,52 +126,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
             .ref
-
-
-        /**
-            Instantiates generic functions, using [MoveType.Nondet] as the type arguments.  Each type argument receives
-            a unique [MoveType.Nondet] ID.
-         */
-        private class Instantiator(val scene: MoveScene) {
-            private var nextNondetTypeId = 0
-
-            fun instantiate(func: MoveFunctionName) = with(scene) {
-                val def = maybeDefinition(func)
-                    ?: error("No definition found for function $func")
-                MoveFunction(
-                    def.function,
-                    typeArguments = def.function.typeParameters.map { MoveType.Nondet(nextNondetTypeId++) }
-                )
-            }
-        }
-
-        /** Produces all permutations of target functions for possibly-parametric rule [ruleFunc] */
-        context(Instantiator)
-        private fun targetPermutations(ruleFunc: MoveFunction): List<Map<Int, MoveFunction>> {
-            val positions = ruleFunc.params.mapIndexedNotNull { i, param -> i.takeIf { param is MoveType.Function } }
-            val targets = scene.targetFunctions(ruleFunc.name.module).map { instantiate(it) }
-            if (positions.isNotEmpty() && targets.isEmpty()) {
-                throw CertoraException(
-                    CertoraErrorType.CVL,
-                    "No target functions for parametric rule ${ruleFunc.name}.  Add targets to the module manifest."
-                )
-            }
-            return targetPermutations(positions, targets).toList()
-        }
-
-        private fun targetPermutations(
-            positions: List<Int>,
-            targets: List<MoveFunction>
-        ): Sequence<Map<Int, MoveFunction>> {
-            if (positions.isEmpty()) {
-                return sequenceOf(emptyMap())
-            }
-            return targetPermutations(positions.drop(1), targets).flatMap { map ->
-                targets.asSequence().map { target ->
-                    map + (positions.first() to target)
-                }
-            }
-        }
 
         val CONST_STRING = MetaKey<String>("move.const.string")
 
@@ -407,88 +354,61 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     }
 
     private fun compileRuleCoreTACProgram(
-        ruleName: String,
+        rule: CvlmRule,
         entryFunc: MoveFunction,
         sanityMode: SanityMode,
         parametricTargets: Map<Int, MoveFunction>
-    ): Pair<CoreTACProgram, CompiledRuleType> {
-        return annotateCallStack("rule.$ruleName") {
-            val moveTAC = compileMoveTACProgram(ruleName, entryFunc, sanityMode, parametricTargets)
+    ): CompiledRule {
+        return annotateCallStack("rule.${rule.ruleInstanceName}") {
+            val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
 
             ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
             val coreTAC = MoveMemory(scene).transform(moveTAC)
             ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
 
-            val ruleType = getRuleType(coreTAC)
+            val isSatisfy = isSatisfyRule(coreTAC)
 
-            val finalTAC = preprocess(coreTAC, ruleType)
+            val finalTAC = preprocess(coreTAC, isSatisfy)
 
-            finalTAC to ruleType
+            CompiledRule(rule, finalTAC, isSatisfy)
         }
     }
 
-    private fun compileRule(
-        entryFunc: MoveFunction,
-        ruleType: RuleType,
-        parametricTargets: Map<Int, MoveFunction>
-    ): List<Pair<EcosystemAgnosticRule, CoreTACProgram>> {
-        val ruleName = (listOf(entryFunc.name) + parametricTargets.values.map { it.name }).joinToString("-")
-        return when (ruleType) {
-            RuleType.USER_RULE -> {
-                val (coreTAC, compiledRuleType) = compileRuleCoreTACProgram(
-                    ruleName,
-                    entryFunc,
+    private fun compileRule(rule: CvlmRule): CompiledRule {
+        return when (rule) {
+            is CvlmRule.UserRule -> {
+                compileRuleCoreTACProgram(
+                    rule,
+                    rule.entry,
                     SanityMode.NONE,
-                    parametricTargets
-                )
-                listOf(
-                    EcosystemAgnosticRule(
-                        ruleIdentifier = RuleIdentifier.freshIdentifier(ruleName),
-                        ruleType = SpecType.Single.FromUser.SpecFile,
-                        isSatisfyRule = compiledRuleType.isSatisfy
-                    ) to coreTAC
+                    rule.parametricTargets
                 )
             }
-            RuleType.SANITY -> {
-                val assertRuleName = "$ruleName-Assertions"
-                val satisfyRuleName = "$ruleName-$REACHED_END_OF_FUNCTION"
-
-                val (assertTAC, assertTACType) = compileRuleCoreTACProgram(
-                    assertRuleName,
-                    entryFunc,
+            is CvlmRule.TargetSanity.AssertTrue -> {
+                compileRuleCoreTACProgram(
+                    rule,
+                    rule.target,
                     SanityMode.ASSERT_TRUE,
-                    parametricTargets
-                )
-                check(assertTACType == CompiledRuleType.ASSERT)
-
-                val (satisfyTAC, satisfyTACType) = compileRuleCoreTACProgram(
-                    satisfyRuleName,
-                    entryFunc,
+                    parametricTargets = mapOf()
+                ).also {
+                    check(it.isSatisfy == false) { "AssertTrue rule compiled to a satisfy rule" }
+                }
+            }
+            is CvlmRule.TargetSanity.SatisfyTrue -> {
+                compileRuleCoreTACProgram(
+                    rule,
+                    rule.target,
                     SanityMode.SATISFY_TRUE,
-                    parametricTargets
-                )
-                check(satisfyTACType == CompiledRuleType.SATISFY)
-
-                listOf(
-                    EcosystemAgnosticRule(
-                        ruleIdentifier = RuleIdentifier.freshIdentifier(assertRuleName),
-                        ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
-                        isSatisfyRule = false
-                    ) to assertTAC,
-                    EcosystemAgnosticRule(
-                        ruleIdentifier = RuleIdentifier.freshIdentifier(satisfyRuleName),
-                        ruleType = SpecType.Single.BuiltIn(BuiltInRuleId.sanity),
-                        isSatisfyRule = true
-                    ) to satisfyTAC
-                )
+                    parametricTargets = mapOf()
+                ).also {
+                    check(it.isSatisfy == true) { "SatisfyTrue rule compiled to an assert rule" }
+                }
             }
         }
     }
 
-    private enum class CompiledRuleType(val isSatisfy: Boolean) { ASSERT(false), SATISFY(true) }
-
-    private fun getRuleType(code: CoreTACProgram): CompiledRuleType {
+    private fun isSatisfyRule(code: CoreTACProgram): Boolean {
         val areSatisfyAsserts = code.parallelLtacStream().mapNotNull { (_, cmd) ->
             (cmd as? TACCmd.Simple.AssertCmd)
                 ?.takeIf { TACMeta.CVL_USER_DEFINED_ASSERT in it.meta }
@@ -500,18 +420,15 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 "Rule ${code.name} contains no assertions after compilation. Assertions may have been trivially unreachable and removed by the compiler."
             )
         }
-        return when(areSatisfyAsserts.uniqueOrNull()) {
-            true -> CompiledRuleType.SATISFY
-            false -> CompiledRuleType.ASSERT
-            null -> throw CertoraException(
+        return areSatisfyAsserts.uniqueOrNull()
+            ?:throw CertoraException(
                 CertoraErrorType.CVL,
                 "Rule ${code.name} mixes assert and satisfy commands."
             )
-        }
     }
 
 
-    private fun preprocess(code: CoreTACProgram, ruleType: CompiledRuleType) =
+    private fun preprocess(code: CoreTACProgram, isSatisfy: Boolean) =
         CoreTACProgram.Linear(code)
         // ConstantStringPropagator must come before TACDSA
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
@@ -521,7 +438,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
         .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
         .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
-        .mapIf(ruleType.isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
+        .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
         .ref
 
     context(SummarizationContext)

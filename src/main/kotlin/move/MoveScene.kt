@@ -26,8 +26,13 @@ import java.nio.file.*
 import java.util.stream.*
 import kotlin.streams.*
 import log.*
+import spec.cvlast.typechecker.CVLError
+import spec.cvlast.validateRuleChoices
+import spec.cvlast.validateSimpleMethodChoices
 import tac.*
 import utils.*
+import utils.CollectingResult.Companion.bind
+import utils.CollectingResult.Companion.lift
 import vc.data.*
 
 private val logger = Logger(LoggerTypes.MOVE)
@@ -62,20 +67,26 @@ class MoveScene(
 
     val cvlmManifest by lazy { CvlmManifest(this) }
 
-    val rules by lazy {
-        cvlmManifest.selectedRules.parallelStream().flatMap { (funcName, ruleType) ->
-            MoveToTAC.compileRule(funcName, ruleType, this).stream()
-        }.toList().also {
-            if (it.isEmpty()) {
-                throw CertoraException(
-                    CertoraErrorType.CVL,
-                    "No CVLM rules found. Check that the rules are defined in the module manifest(s)."
-                )
+    val allCvlmRules: List<CvlmRule> by lazy { CvlmRule.loadAll() }
+
+    fun getSelectedCvlmRules(): CollectingResult<List<CvlmRule>, CVLError> {
+        val allRuleNames = allCvlmRules.mapToSet { it.ruleName }
+        return validateRuleChoices(allRuleNames).bind {
+            val selectedRuleNames = Config.getRuleChoices(allRuleNames)
+
+            val allTargetNames = allCvlmRules.flatMapToSet { it.parametricTargetNames }
+
+            validateSimpleMethodChoices(allTargetNames).bind {
+                val selectedTargetNames = Config.getSimpleMethodChoices(allTargetNames)
+
+                allCvlmRules.filter {
+                    it.ruleName in selectedRuleNames && selectedTargetNames.containsAll(it.parametricTargetNames)
+                }.lift()
             }
         }
     }
 
-    fun targetFunctions(module: MoveModuleName) = cvlmManifest.selectedTargetFunctions[module].orEmpty()
+    fun targetFunctions(module: MoveModuleName) = cvlmManifest.targetFunctions(module)
 
     context(SummarizationContext)
     fun summarize(call: MoveCall): MoveBlocks? {
