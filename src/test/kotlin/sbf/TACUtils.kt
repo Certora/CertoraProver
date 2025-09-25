@@ -17,6 +17,10 @@
 
 package sbf
 
+import annotations.PollutesGlobalState
+import config.CommandLineParser
+import config.Config
+import config.ConfigType
 import datastructures.stdcollections.*
 import sbf.analysis.WholeProgramMemoryAnalysis
 import sbf.callgraph.CVTFunction
@@ -25,14 +29,27 @@ import sbf.cfg.SbfCFG
 import sbf.tac.sbfCFGsToTAC
 import kotlinx.coroutines.runBlocking
 import report.DummyLiveStatsReporter
+import sbf.callgraph.CompilerRtFunction
 import sbf.callgraph.SolanaFunction
 import sbf.disassembler.*
 import sbf.domains.*
 import scene.SceneFactory
 import scene.source.DegenerateContractSource
+import smt.SmtDumpEnum
+import spec.cvlast.CVLScope
+import spec.cvlast.RuleIdentifier
+import spec.rules.AssertRule
 import vc.data.CoreTACProgram
 import verifier.TACVerifier
 import verifier.Verifier
+
+@OptIn(PollutesGlobalState::class)
+fun maybeEnableReportGeneration() {
+    CommandLineParser.setExecNameAndDirectory()
+    ConfigType.WithArtifacts.set(log.ArtifactManagerFactory.WithArtifactMode.WithArtifacts)
+    Config.Smt.DumpAll.set(SmtDumpEnum.TOFILE)
+    Config.ShouldDeleteSMTFiles.set(false)
+}
 
 fun dumpTAC(program: CoreTACProgram): String {
     val sb = StringBuilder()
@@ -60,10 +77,7 @@ object EmptyGlobalsSymbolTable: IGlobalsSymbolTable {
 }
 
 fun toTAC (cfg: SbfCFG,
-           summaryFileContents: List<String> = listOf(
-               "#[type((*i64)(r1+0):num)]", "#[type((*i64)(r1+8):num)]", "^__multi3$",
-               "#[type((*i64)(r1+0):num)]", "#[type((*i64)(r1+8):num)]", "^__udivti3$",
-               "#[type((*i64)(r1+0):num)]", "#[type((*i64)(r1+8):num)]", "^__divti3$"),
+           summaryFileContents: List<String> = listOf(),
            globals: GlobalVariableMap = newGlobalVariableMap(),
            globalsSymbolTable: IGlobalsSymbolTable = EmptyGlobalsSymbolTable
 ): CoreTACProgram {
@@ -71,6 +85,7 @@ fun toTAC (cfg: SbfCFG,
     val memSummaries = MemorySummaries.readSpecFile(summaryFileContents,"unknown")
     CVTFunction.addSummaries(memSummaries)
     SolanaFunction.addSummaries(memSummaries)
+    CompilerRtFunction.addSummaries(memSummaries)
     val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
     val flagsFac = { BasicPTANodeFlags() }
     val memAnalysis = WholeProgramMemoryAnalysis(
@@ -83,9 +98,19 @@ fun toTAC (cfg: SbfCFG,
     return sbfCFGsToTAC(prog, memSummaries, globalsSymbolTable, memAnalysis.getResults())
 }
 
-fun verify(program: CoreTACProgram): Boolean {
+fun verify(program: CoreTACProgram, report: Boolean = false): Boolean {
+    if (report) {
+        maybeEnableReportGeneration()
+    }
     val scene = SceneFactory.getScene(DegenerateContractSource("dummyScene"))
     val vRes = runBlocking { TACVerifier.verify(scene, program, DummyLiveStatsReporter) }
     val joinedRes = Verifier.JoinedResult(vRes)
+    if (report) {
+        // Fake rule to allow report generation
+        val reportRule = CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
+            AssertRule(RuleIdentifier.freshIdentifier(program.name), false, program.name, scope)
+        }
+        joinedRes.reportOutput(reportRule)
+    }
     return joinedRes.finalResult.isSuccess()
 }

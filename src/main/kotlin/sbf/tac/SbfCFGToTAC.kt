@@ -1304,6 +1304,12 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         }
     }
 
+    private fun translateMask64(): List<TACCmd.Simple> {
+        val v0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+        val v1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
+        return listOf(assign(v0, exprBuilder.mask64(v1.asSym())))
+    }
+
     private fun translateCall(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call) {"TAC translateCall expects a call instead of $inst"}
@@ -1347,6 +1353,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                                 translateSaveScratchRegisters(locInst)
                             CVTCore.RESTORE_SCRATCH_REGISTERS ->
                                 translateRestoreScratchRegisters(inst)
+                            CVTCore.MASK_64 ->
+                                translateMask64()
                             CVTCore.NONDET_ACCOUNT_INFO -> {
                                 if (!SolanaConfig.CvtNondetAccountInfo.get()) {
                                     /**

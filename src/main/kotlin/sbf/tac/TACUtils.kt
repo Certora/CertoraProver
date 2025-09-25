@@ -107,7 +107,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
 }
 
 /** Cast a TAC.Bits to TAC.Int **/
-fun promoteToMathInt(from: TACExpr.Sym, to: TACSymbol.Var): TACCmd.Simple.AssigningCmd.AssignExpCmd {
+fun promoteToMathInt(from: TACExpr, to: TACSymbol.Var): TACCmd.Simple.AssigningCmd.AssignExpCmd {
     val tag = from.tag
     check(tag != null) { "promoteToMathInt cannot find tag for $from" }
     check(tag is Tag.Bits) { "promoteToMathInt parameter should be a Tag.Bits, but is $tag in $from" }
@@ -124,7 +124,7 @@ fun promoteToMathInt(from: TACExpr.Sym, to: TACSymbol.Var): TACCmd.Simple.Assign
 }
 
 /** Cast from TAC.Int to TAC.Bits **/
-fun narrowFromMathInt(from: TACExpr.Sym, to: TACSymbol.Var, toTag: Tag.Bits = Tag.Bit256): TACCmd.Simple.AssigningCmd.AssignExpCmd {
+fun narrowFromMathInt(from: TACExpr, to: TACSymbol.Var, toTag: Tag.Bits = Tag.Bit256): TACCmd.Simple.AssigningCmd.AssignExpCmd {
     check(from.tag == Tag.Int) {"narrowToBit expects an Int variable"}
     return TACCmd.Simple.AssigningCmd.AssignExpCmd(
         lhs = to,
@@ -195,26 +195,31 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
      assign(high, TACExpr.BinOp.ShiftRightLogical(x.asSym(), c64E)))
 }
 
-/** Get the symbolic TAC variables corresponding to the low and high bits of the returned u128 value **/
+data class ResultU128(val low: TACVariable, val high: TACVariable, val overflow: TACVariable?)
+
+/** Get the symbolic TAC variables corresponding to the result of u128 operation **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getLowAndHighFromU128(
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getResFromU128(
     locInst: LocatedSbfInstruction
-): Pair<TACVariable, TACVariable>? {
+): ResultU128? {
     val summaryArgs = mem.getTACMemoryFromSummary(locInst) ?: return null
-    if (summaryArgs.size != 2) {
+    val numArgs = summaryArgs.size
+    if (numArgs != 2 && numArgs != 3) {
         return null
     }
-    val resLow  = summaryArgs[0].variable
-    val resHigh = summaryArgs[1].variable
-    return if (resLow !is TACByteStackVariable || resHigh !is TACByteStackVariable) {
-        null
+    val resLow  = summaryArgs[0].variable as? TACByteStackVariable ?: return null
+    val resHigh = summaryArgs[1].variable as? TACByteStackVariable ?: return null
+    return if (numArgs == 3) {
+        val overflow = summaryArgs[2].variable as? TACByteStackVariable ?: return null
+        ResultU128(resLow, resHigh, overflow)
     } else {
-        Pair(resLow, resHigh)
+        ResultU128(resLow, resHigh, null)
     }
 }
 
 data class U128Operands(val resLow: TACSymbol.Var,
                         val resHigh: TACSymbol.Var,
+                        val overflow: TACSymbol.Var?,
                         val xLow: TACExpr.Sym,
                         val xHigh: TACExpr.Sym,
                         val yLow: TACExpr.Sym,
@@ -225,11 +230,11 @@ context(SbfCFGToTAC<TNum, TOffset, TFlags>)
 fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128Operation(
         args: U128Operands,
         cmds: MutableList<TACCmd.Simple>,
-        op: (res: TACSymbol.Var, x: TACSymbol.Var, y: TACSymbol.Var) -> Unit) {
+        op: (res: TACSymbol.Var, overflow: TACSymbol.Var?, x: TACSymbol.Var, y: TACSymbol.Var) -> Unit) {
     val res = mkFreshIntVar()
     val x = mergeU128(args.xLow, args.xHigh, cmds)
     val y = mergeU128(args.yLow, args.yHigh, cmds)
-    op(res, x, y)
+    op(res, args.overflow, x, y)
     cmds.addAll(splitU128(res, args.resLow, args.resHigh))
 }
 

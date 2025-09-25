@@ -4367,7 +4367,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                                     "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
                             }
                             CVTCore.SATISFY, CVTCore.SANITY -> {}
-                            CVTCore.NONDET_ACCOUNT_INFO -> {
+                            CVTCore.NONDET_ACCOUNT_INFO, CVTCore.MASK_64 -> {
                                 summarizeCall(calleeLocInst, globals, scalars, memSummaries)
                             }
                             CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {

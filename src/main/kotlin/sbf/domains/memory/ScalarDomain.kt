@@ -647,7 +647,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                 CVTCore.SATISFY, CVTCore.SANITY -> {}
                                 CVTCore.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
                                 CVTCore.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
-                                CVTCore.NONDET_ACCOUNT_INFO -> {
+                                CVTCore.MASK_64, CVTCore.NONDET_ACCOUNT_INFO -> {
                                     summarizeCall(locInst, memSummaries)
                                 }
                                 CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {

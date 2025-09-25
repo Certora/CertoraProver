@@ -67,6 +67,12 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
             SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
+    MULOTI4(ExternalFunction(
+        name = "__muloti4",
+        writeRegisters = setOf(),
+        readRegisters = listOf(
+            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
+            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
     UDIVTI3(ExternalFunction(
         name = "__udivti3",
         writeRegisters = setOf(),
@@ -91,6 +97,14 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
                         val summaryArgs = listOf(
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM)
+                        )
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
+                    }
+                    MULOTI4 -> {
+                        val summaryArgs = listOf(
+                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
+                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),
+                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 16, width = 8, type = MemSummaryArgumentType.NUM)
                         )
                         memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }

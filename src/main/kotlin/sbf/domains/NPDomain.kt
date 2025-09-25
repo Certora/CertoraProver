@@ -651,7 +651,8 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                                 CVTCore.SATISFY, CVTCore.SANITY -> {
                                     curVal
                                 }
-                                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE, CVTCore.ALLOC_SLICE, CVTCore.NONDET_ACCOUNT_INFO -> {
+                                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE, CVTCore.ALLOC_SLICE, CVTCore.NONDET_ACCOUNT_INFO,
+                                CVTCore.MASK_64 -> {
                                     curVal.summarizeCall(
                                         locatedInst,
                                         vFac,
