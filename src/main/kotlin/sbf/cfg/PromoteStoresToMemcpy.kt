@@ -791,7 +791,7 @@ private data class MemcpyRanges(private val loads: ArrayList<MemAccess>, private
         val oldMetaData = memcpyInfo.metadata
         val callId = Allocator.getFreshId(Allocator.Id.INTERNAL_FUNC)
         check(callId >= 0) {"expected non-negative call id"}
-        val metaData = oldMetaData.plus(Pair(SbfMeta.CALL_ID, callId.toULong())).plus(Pair(SbfMeta.MEMCPY_PROMOTION, ""))
+        val metaData = oldMetaData.plus(SbfMeta.CALL_ID to callId.toULong()).plus(SbfMeta.MEMCPY_PROMOTION to "")
 
         emittedInsts.add(SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData))
 
@@ -810,14 +810,14 @@ private data class MemcpyRanges(private val loads: ArrayList<MemAccess>, private
         if (r1.r != dstReg) {
             emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r1, rename(Value.Reg(dstReg)), true))
         }
-        emittedInsts.add(SbfInstruction.Bin(BinOp.ADD, r1, Value.Imm(dstStart.toULong()), true))
+        emittedInsts.add(SbfInstruction.Bin(BinOp.ADD, r1, Value.Imm(dstStart.toULong()), true, metaData = MetaData(SbfMeta.MEMCPY_PROMOTION to "")))
         if (r2.r != srcReg) {
             emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r2, rename(Value.Reg(srcReg)), true))
         }
-        emittedInsts.add(SbfInstruction.Bin(BinOp.ADD, r2, Value.Imm(srcStart.toULong()), true))
+        emittedInsts.add(SbfInstruction.Bin(BinOp.ADD, r2, Value.Imm(srcStart.toULong()), true, metaData = MetaData(SbfMeta.MEMCPY_PROMOTION to "")))
         emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r3, Value.Imm(size), true))
 
-        emittedInsts.add(SolanaFunction.toCallInst(SolanaFunction.SOL_MEMCPY, oldMetaData.plus(Pair(SbfMeta.MEMCPY_PROMOTION, ""))))
+        emittedInsts.add(SolanaFunction.toCallInst(SolanaFunction.SOL_MEMCPY, oldMetaData.plus(SbfMeta.MEMCPY_PROMOTION to "")))
 
         emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r1, temp1, true))
         emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r2, temp2, true))

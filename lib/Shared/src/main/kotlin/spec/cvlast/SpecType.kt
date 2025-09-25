@@ -20,7 +20,7 @@ package spec.cvlast
 import com.certora.collect.*
 import kotlinx.serialization.Serializable
 import spec.genericrulegenerators.BuiltInRuleId
-import spec.rules.CVLSingleRule
+import spec.rules.ICVLRule
 import spec.rules.IRule
 import utils.*
 
@@ -336,20 +336,10 @@ sealed class SpecType: AmbiSerializable {
         }
 
         @Serializable
-        sealed class BMC : Single() {
+        data class BMCInitialState(val baseRule: ICVLRule) : Single()
 
-            @Serializable
-            object Invariant : BMC() {
-                private fun readResolve(): Any = Invariant
-                override fun hashCode() = hashObject(this)
-            }
-
-            @Serializable
-            data class Range(val len: Int) : BMC()
-
-            @Serializable
-            data class Sequence(val baseRule: CVLSingleRule) : BMC()
-        }
+        @Serializable
+        data class BMCSequence(val baseRule: ICVLRule) : Single()
     }
 
     @Serializable
@@ -381,6 +371,9 @@ sealed class SpecType: AmbiSerializable {
 
         @Serializable
         data class ContractRuleType(val contractName: String) : Single()
+
+        @Serializable
+        data class BMCRange(val len: Int) : Group()
     }
 
 }

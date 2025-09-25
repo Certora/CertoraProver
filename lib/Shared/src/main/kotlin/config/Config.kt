@@ -848,23 +848,57 @@ object Config {
      *
      * Note: Signatures that don't have an explicit host name are assumed to belong to the [mainContract]
      */
-    fun Collection<String>.containsMethodFilteredByConfig(methodSigWithContract: String, mainContract: String): Boolean {
+    fun Collection<String>.containsMethodFilteredByConfig(methodSigWithContract: String, mainContract: String): Boolean = containsMethodFilteredByConfigParametric(methodSigWithContract, mainContract, MethodChoices, ExcludeMethodChoices)
+    private fun Collection<String>.containsMethodFilteredByConfigParametric(methodSigWithContract: String, mainContract: String, includedChoices: Set<String>?, excludedChoices: Set<String>?): Boolean {
         val (contract, methodSig) = methodSigWithContract.splitToContractAndMethod(mainContract)
-        return getMethodChoices(this, mainContract).containsMethod(methodSig, contract, mainContract)
+        return getMethodChoices(this, mainContract, includedChoices, excludedChoices).containsMethod(methodSig, contract, mainContract)
     }
 
-    private fun getMethodChoices(allMethods: Collection<String>, defaultContract: String): Set<String>? {
-        if (MethodChoices == null && ExcludeMethodChoices == null) {
+    private fun getMethodChoices(allMethods: Collection<String>, defaultContract: String, includedChoices: Set<String>?, excludedChoices: Set<String>?): Set<String>? {
+        if (includedChoices == null && excludedChoices == null) {
             return null
         }
 
         val all = allMethods.map { it.splitToContractAndMethod(defaultContract) }
-        val base = all.filter { MethodChoices.containsMethod(it.second, it.first, defaultContract) }
+        val base = all.filter { includedChoices.containsMethod(it.second, it.first, defaultContract) }
 
-        return base.filterNot { ExcludeMethodChoices.orEmpty().containsMethod(it.second, it.first, defaultContract) }.map { "${it.first}.${it.second}" }.toSet()
+        return base.filterNot { excludedChoices.orEmpty().containsMethod(it.second, it.first, defaultContract) }.map { "${it.first}.${it.second}" }.toSet()
+    }
+
+    fun getSimpleMethodChoices(all: Set<String>): Set<String> {
+        if (MethodChoices == null && ExcludeMethodChoices == null) {
+            return all
+        }
+        return all.filter { MethodChoices?.contains(it) ?: true }.filterNot { ExcludeMethodChoices?.contains(it) ?: false }.toSet()
     }
 
     val methodsAreFiltered get() = MethodChoices != null || ExcludeMethodChoices != null
+
+    private val RangerMethodChoicesInput: ConfigType.StringCmdLine = "Methods to include in ranger sequences".let { desc ->
+        object :
+            ConfigType.StringCmdLine(
+                null,
+                Option("rangerMethod", true, desc),
+                pythonName = "--ranger_include_method"
+            ),
+            RuleCacheAgnosticConfig {}
+    }
+
+    private val RangerExcludeMethodChoicesInput: ConfigType.StringCmdLine = "Methods to not include in ranger sequences".let { desc ->
+        object :
+            ConfigType.StringCmdLine(
+                null,
+                Option("rangerExcludeMethod", true, desc),
+                pythonName = "--ranger_exclude_method"
+            ),
+            RuleCacheAgnosticConfig {}
+    }
+
+    // These are not private only because they're required for validation in [validateRuleChoices]. Please don't use them otherwise :)
+    val RangerMethodChoices by lazy { RangerMethodChoicesInput.getOrNull()?.let(::parseMethodInput) }
+    val RangerExcludeMethodChoices by lazy { RangerExcludeMethodChoicesInput.getOrNull()?.let(::parseMethodInput) }
+
+    fun Collection<String>.containsMethodFilteredByRangerConfig(methodSigWithContract: String, mainContract: String): Boolean = containsMethodFilteredByConfigParametric(methodSigWithContract, mainContract, RangerMethodChoices, RangerExcludeMethodChoices)
 
     val contractChoice: ConfigType.StringSetCmdLine = "contract(s) to check in parameterized rules".let { desc ->
         object :
@@ -905,46 +939,6 @@ object Config {
             0x436572746f7261.toBigInteger(),
             Option("cvlmAddress", true, "The address of the CVLM Move modules")
         ) {}
-
-    val MoveRuleModuleIncludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("includeMoveRuleModules", true, "List of Move modules to include in the rule set.  Default is all modules with rules.")
-    ) {}
-
-    val MoveRuleModuleExcludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("excludeMoveRuleModules", true, "List of Move modules to exclude from the rule set.  Default is none.")
-    ) {}
-
-    val MoveRuleNameIncludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("includeMoveRules", true, "List of Move rule names to include in the rule set.  Default is all rules in included modules.")
-    ) {}
-
-    val MoveRuleNameExcludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("excludeMoveRules", true, "List of Move rule names to exclude from the rule set.  Default is none.")
-    ) {}
-
-    val MoveTargetModuleIncludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("includeMoveTargetModules", true, "List of Move modules to include in the target set.  Default is all modules.  Note that this only applies to function named as targets in the spec module manifest(s).")
-    ) {}
-
-    val MoveTargetModuleExcludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("excludeMoveTargetModules", true, "List of Move modules to exclude from the target set.  Default is none.")
-    ) {}
-
-    val MoveTargetNameIncludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("includeMoveTargetNames", true, "List of Move function names to include in the target set.  Default is all functions.  Note that this only applies to function named as targets in the spec module manifest(s).")
-    ) {}
-
-    val MoveTargetNameExcludes = object : ConfigType.StringSetCmdLine(
-        null,
-        Option("excludeMoveTargetNames", true, "List of Move function names to exclude from the target set.  Default is none.")
-    ) {}
 
     val MoveCallTraceVecElemCount = object : ConfigType.IntCmdLine(
         3,

@@ -20,6 +20,7 @@ package rules.dpgraph
 import datastructures.stdcollections.*
 import rules.*
 import rules.sanity.sorts.SanityCheckSort
+import spec.rules.CVLSingleRule
 import spec.rules.ICVLRule
 
 /**
@@ -38,8 +39,8 @@ interface DPNode<T, R, S: R, E: R, N: DPNode<T, R, S, E, N>> {
     ): R?
 }
 
-data class SanityCheckNode(override val payload: CompiledRule, val type: SanityCheckNodeType):
-    DPNode<CompiledRule, RuleCheckResult, RuleCheckResult, RuleCheckResult.Error, SanityCheckNode> {
+data class SanityCheckNode(override val payload: CompiledRule<CVLSingleRule>, val type: SanityCheckNodeType):
+    DPNode<CompiledRule<CVLSingleRule>, RuleCheckResult, RuleCheckResult, RuleCheckResult.Error, SanityCheckNode> {
 
     /**
      * For base there are no dependencies so the conclusion is always null. For sanity check, the conclusion is

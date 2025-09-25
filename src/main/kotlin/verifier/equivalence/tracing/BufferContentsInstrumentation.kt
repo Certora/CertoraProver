@@ -22,6 +22,7 @@ import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.`=`
 import tac.Tag
 import vc.data.*
 import vc.data.TACProgramCombiners.andThen
+import vc.data.TACProgramCombiners.wrap
 import vc.data.tacexprutil.ExprUnfolder
 
 /**
@@ -88,7 +89,7 @@ internal data class BufferContentsInstrumentation(
             }
             is IWriteSource.EnvCopy,
             is IWriteSource.Other -> {
-                return conditionalUpdateOf(overlapSym, preciseBuffer, TACSymbol.Zero) andThen TXF {
+                return (conditionalUpdateOf(overlapSym, preciseBuffer, TACSymbol.Zero) andThen TXF {
                     CommandWithRequiredDecls(
                         listOf(
                             TACCmd.Simple.AssigningCmd.AssignExpCmd(
@@ -101,7 +102,7 @@ internal data class BufferContentsInstrumentation(
                             )
                         )
                     )
-                }
+                }).wrap("Havoc write for ${baseInstrumentation.id}")
             }
         }
 
@@ -112,13 +113,13 @@ internal data class BufferContentsInstrumentation(
          * 3. update the precise buffer flag to be 1
          * 4. increment write count
          */
-        return conditionalUpdateOf(overlapSym, bufferOffsetHolder) {
+        return (conditionalUpdateOf(overlapSym, bufferOffsetHolder) {
             s.updateLoc sub baseInstrumentation.baseProphecy
         }.merge(s.updateLoc, baseInstrumentation.baseProphecy) andThen conditionalUpdateOf(overlapSym, characteristicMap) {
             writtenVal
         } andThen conditionalUpdateOf(overlapSym, preciseBuffer, TACSymbol.One) andThen (bufferWriteCountVar `=` {
             ite(overlapSym, (bufferWriteCountVar add TACSymbol.One), bufferWriteCountVar)
-        })
+        })).wrap("Precise update for ${baseInstrumentation.id}")
     }
 
     override fun atLongRead(s: ILongRead): CommandWithRequiredDecls<TACCmd.Simple> {

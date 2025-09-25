@@ -1,17 +1,15 @@
 {
 	"rules": {
 		"checkSum": {
-			"Initial State": {
-				"checkSum-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
-					"checkSum-Initial State-C.set_m"
+					"checkSum-Initial State-C.set_m(address,address,uint256)"
 				]
 			},
 			"Range 2": {
 				"SUCCESS": [
-					"checkSum-Initial State-C.set_m(address,address,uint256)-C.set_m"
+					"checkSum-Initial State-C.set_m(address,address,uint256)-C.set_m(address,address,uint256)"
 				]
 			}
 		}

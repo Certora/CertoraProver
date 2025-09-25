@@ -111,7 +111,10 @@ object SolverResultStatusToTreeViewStatusMapper {
                 getStatusForRegularRule(solverResult)
             }
 
+            is DynamicGroupRule,
             is GroupRule -> error("Unexpected Behaviour: Tried to map the status for the rule ${rule}")
+
+            is BMCRule,
             is EcosystemAgnosticRule ->
                 if (rule.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
                     getStatusForSanityRule(solverResult)
@@ -346,10 +349,16 @@ class TreeViewReporter(
          */
         val uuid: Int) {
             data class ChildrenNumbers(
-                val total: Int,
-                val finished: Int
+                val total: BigInteger,
+                val finished: BigInteger
             ) {
-                constructor(total: Int) : this(total, 0)
+                constructor(total: BigInteger) : this(total, BigInteger.ZERO)
+                fun normalize() : ChildrenNumbers {
+                    if(total < Int.MAX_VALUE.toBigInteger()) { return this }
+                    val normalizedFinished = finished * Int.MAX_VALUE.toBigInteger() / total
+                    logger.info { "Normalizing ChildrenNumbers since they exceed maxint: $finished finished out of $total will be shown as $normalizedFinished out of ${Int.MAX_VALUE}" }
+                    return ChildrenNumbers(Int.MAX_VALUE.toBigInteger(), normalizedFinished)
+                }
             }
 
         fun printForErrorLog(): String = listOf(
@@ -378,8 +387,8 @@ class TreeViewReporter(
         val debugAdapterCallTraceFileName: String?,
         val duration: Long,
         val isRunning: Boolean,
-        val childrenTotalNum: Int?,
-        val childrenFinishedNum: Int?,
+        val childrenTotalNum: BigInteger?,
+        val childrenFinishedNum: BigInteger?,
     ) : TreeViewReportable {
 
         override val treeViewRepBuilder = TreeViewRepJsonObjectBuilder {
@@ -444,7 +453,7 @@ class TreeViewReporter(
             parent: DisplayableIdentifier,
             nodeType: NodeType,
             rule: IRule?,
-            childrenTotalNum: Int? = null,
+            childrenTotalNum: BigInteger? = null,
         ) {
             synchronized(this) {
                 identifierToNode[child] = TreeViewNodeResult(
@@ -489,10 +498,10 @@ class TreeViewReporter(
             updateStatus(node) { it.copy(displayName = displayName) }
         }
 
-        fun updateFinishedChildren(node: RuleIdentifier, numFinished: Int) {
+        fun updateFinishedChildren(node: RuleIdentifier, numFinished: BigInteger) {
             updateStatus(node) {
                 check(it.childrenNumbers != null) { "can't update finished children" }
-                require(numFinished >= 0)
+                require(numFinished >= BigInteger.ZERO)
                 val newVal = it.childrenNumbers.finished + numFinished
                 check(newVal <= it.childrenNumbers.total) { "Range $node: can't have more children finished ($newVal) than the total num of children (${it.childrenNumbers.total})" }
                 it.copy(childrenNumbers = it.childrenNumbers.copy(finished = newVal))
@@ -606,19 +615,20 @@ class TreeViewReporter(
                     .filter { (_, treeViewResult) -> treeViewResult.status != TreeViewStatusEnum.BENIGN_SKIPPED }
                     .filter { (childDI, treeViewResult) ->
                         // In BMC mode we want to show only:
-                        // * The "initial state rule" (has type SpecType.Single.BMC.Range(0))
-                        // * The vacuity of the initial state rule if it's vacuous (has the same type but is marked as a sanity check)
-                        // * All the Range N rules that already have some child
-                        // * Sequences that failed in some way
+                        // * The "initial state rule" (A BMCRule with sequenceLen == 0)
+                        // * The vacuity of the initial state rule if it's vacuous
+                        // * All the Range N rules (DynamicGroupRule) that already have some child
+                        // * Sequences (BMCRule) that failed in some way
                         treeViewResult.rule?.let { rule ->
-                            when (val type = rule.ruleType) {
-                                is SpecType.Single.BMC.Sequence -> !treeViewResult.status.isRunning() && treeViewResult.status != TreeViewStatusEnum.VERIFIED
-                                is SpecType.Single.BMC.Range ->
-                                    when (type.len) {
-                                        0 -> !(rule as CVLSingleRule).isSanityCheck() || treeViewResult.status != TreeViewStatusEnum.VERIFIED
-                                        else -> getChildren(childDI).isNotEmpty()
+                            when (rule) {
+                                is BMCRule -> {
+                                    if (rule.sequenceLen == 0) {
+                                        rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck || treeViewResult.status != TreeViewStatusEnum.VERIFIED
+                                    } else {
+                                        !treeViewResult.status.isRunning() && treeViewResult.status != TreeViewStatusEnum.VERIFIED
                                     }
-
+                                }
+                                is DynamicGroupRule -> rule.ruleType !is SpecType.Group.BMCRange || getChildren(childDI).isNotEmpty()
                                 else -> true
                             }
                         } ?: true
@@ -632,13 +642,16 @@ class TreeViewReporter(
             val duration = currTreeViewResult.verifyTime.timeSeconds
             val isRunning = currTreeViewResult.isRunning
 
-            val displayName = (getResultForNode(curr).rule?.ruleType as? SpecType.Single.BMC.Sequence)?.baseRule?.let { baseRule ->
-                val count = bmcDisplayedSequencesCounter.compute(baseRule.declarationId) { _, m ->
+            val sequence = getResultForNode(curr).rule?.ruleType as? SpecType.Single.BMCSequence
+            val displayName = if (sequence != null) {
+                val count = bmcDisplayedSequencesCounter.compute(sequence.baseRule.declarationId) { _, m ->
                     val mapping = m ?: mapOf()
                     mapping.update(curr, mapping.size + 1) { it }
                 }!![curr]!!
                 "$count: ${currTreeViewResult.displayName}"
-            } ?: currTreeViewResult.displayName
+            } else {
+                currTreeViewResult.displayName
+            }
 
             return JSONSerializableTreeNode(
                 name = displayName,
@@ -654,8 +667,8 @@ class TreeViewReporter(
                 status = statusString,
                 duration = duration,
                 isRunning = isRunning,
-                childrenTotalNum = currTreeViewResult.childrenNumbers?.total,
-                childrenFinishedNum = currTreeViewResult.childrenNumbers?.finished,
+                childrenTotalNum = currTreeViewResult.childrenNumbers?.normalize()?.total,
+                childrenFinishedNum = currTreeViewResult.childrenNumbers?.normalize()?.finished,
                 debugAdapterCallTraceFileName = currTreeViewResult.debugAdapterCallTraceFileName
             )
         }
@@ -809,7 +822,6 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         return when (child.ruleType) {
             //All these rules are top-level elements in the tree.
             SpecType.Group.StaticEnvFree,
-            SpecType.Single.BMC.Invariant,
             is SpecType.Group.InvariantCheck.Root,
             is SpecType.Single.BuiltIn,
             is SpecType.Single.FromUser,
@@ -818,12 +830,13 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
 
 
             //Logic related to Invariants
-            is SpecType.Single.BMC.Range,
+            is SpecType.Group.BMCRange,
+            is SpecType.Single.BMCInitialState,
             is SpecType.Single.InvariantCheck.TransientStorageStep,
             is SpecType.Single.InvariantCheck.InductionBase,
             is SpecType.Group.InvariantCheck.InductionSteps -> NodeType.INVARIANT_SUBCHECK
 
-            is SpecType.Single.BMC.Sequence,
+            is SpecType.Single.BMCSequence,
             is SpecType.Single.InvariantCheck.ExplicitPreservedInductionStep,
             is SpecType.Single.InvariantCheck.GenericPreservedInductionStep -> NodeType.INDUCTION_STEPS
 
@@ -842,7 +855,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         }
     }
 
-    fun registerSubruleOf(child: IRule, parent: IRule, childrenTotalNum: Int? = null) {
+    fun registerSubruleOf(child: IRule, parent: IRule, childrenTotalNum: BigInteger? = null) {
         synchronized(this) {
             tree.addChildNode(child.ruleIdentifier, parent.ruleIdentifier, mapRuleToNodeType(child), child, childrenTotalNum)
         }
@@ -879,7 +892,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         tree.updateDisplayName(rule.ruleIdentifier, displayName)
     }
 
-    fun updateFinishedChildren(rule: IRule, numFinished: Int) {
+    fun updateFinishedChildren(rule: IRule, numFinished: BigInteger) {
         tree.updateFinishedChildren(rule.ruleIdentifier, numFinished)
     }
 
@@ -1055,7 +1068,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                                         ?: error("Could not find meta for node")
 
                                     val nodeResult = tree.getResultForNode(node)
-                                    val breadcrumbs = if (nodeResult.rule?.ruleType is SpecType.Single.BMC.Sequence) {
+                                    val breadcrumbs = if (nodeResult.rule?.ruleType is SpecType.Single.BMCSequence) {
                                         assertMeta.identifier.parentIdentifier!!.parentIdentifier!!.freshDerivedIdentifier(nodeResult.displayName).toString() +
                                             "-" +
                                             assertMeta.identifier.displayName
@@ -1295,7 +1308,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                 val currRes = tree.getResultForNode(node)
                 buildSortedMap {
                     if (currRes.status != TreeViewStatusEnum.SKIPPED) {
-                        val outputJsonKey = if (currRes.rule?.ruleType is SpecType.Single.BMC) {
+                        val outputJsonKey = if (currRes.rule?.ruleType is SpecType.Single.BMCSequence){
                             // In BMC mode we use the full rule identifier to identify nodes as the
                             // the rule identifier contains the entire sequence.
                             node.toString()

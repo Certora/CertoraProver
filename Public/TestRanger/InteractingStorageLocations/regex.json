@@ -1,0 +1,4 @@
+{
+  "includes": [".*setA.*", ".*setBToA().*"],
+  "excludes": [".*setD.*"]
+}

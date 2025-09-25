@@ -1,0 +1,134 @@
+{
+	"rules": {
+		"inv": {
+			"Initial State": "SUCCESS",
+			"Range 1": {
+				"SUCCESS": [
+					"inv-Initial State-C.baz()|C.qux()"
+				]
+			},
+			"Range 2": {
+				"SUCCESS": [
+					"inv-Initial State-C.bar()-C.baz()|C.qux()",
+					"inv-Initial State-C.baz()-C.qux()",
+					"inv-Initial State-C.foo()-C.baz()|C.qux()",
+					"inv-Initial State-C.qux()-C.baz()"
+				]
+			},
+			"Range 3": {
+				"SUCCESS": [
+					"inv-Initial State-C.bar()-C.baz()-C.qux()",
+					"inv-Initial State-C.bar()-C.foo()-C.baz()|C.qux()",
+					"inv-Initial State-C.bar()-C.qux()-C.baz()",
+					"inv-Initial State-C.baz()-C.bar()-C.baz()|C.qux()",
+					"inv-Initial State-C.baz()-C.foo()-C.baz()|C.qux()",
+					"inv-Initial State-C.baz()-C.qux()-C.baz()",
+					"inv-Initial State-C.foo()-C.bar()-C.baz()|C.qux()",
+					"inv-Initial State-C.foo()-C.baz()-C.qux()",
+					"inv-Initial State-C.foo()-C.qux()-C.baz()",
+					"inv-Initial State-C.qux()-C.bar()-C.baz()|C.qux()",
+					"inv-Initial State-C.qux()-C.baz()-C.qux()",
+					"inv-Initial State-C.qux()-C.foo()-C.baz()|C.qux()"
+				]
+			}
+		},
+		"r": {
+			"bar()": {
+				"Initial State": "SUCCESS",
+				"Range 1": {
+					"SUCCESS": [
+						"r-bar()-Initial State-C.bar()|C.baz()|C.foo()|C.qux()"
+					]
+				},
+				"Range 2": {
+					"SUCCESS": [
+						"r-bar()-Initial State-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-bar()-Initial State-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-bar()-Initial State-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-bar()-Initial State-C.qux()-C.bar()|C.baz()|C.foo()"
+					]
+				},
+				"Range 3": {
+					"SUCCESS": [
+						"r-bar()-Initial State-C.bar()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-bar()-Initial State-C.bar()-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-bar()-Initial State-C.bar()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-bar()-Initial State-C.baz()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-bar()-Initial State-C.baz()-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-bar()-Initial State-C.baz()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-bar()-Initial State-C.foo()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-bar()-Initial State-C.foo()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-bar()-Initial State-C.foo()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-bar()-Initial State-C.qux()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-bar()-Initial State-C.qux()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-bar()-Initial State-C.qux()-C.foo()-C.bar()|C.baz()|C.qux()"
+					]
+				}
+			},
+			"baz()": {
+				"Initial State": "SUCCESS",
+				"Range 1": {
+					"SUCCESS": [
+						"r-baz()-Initial State-C.bar()|C.baz()|C.foo()|C.qux()"
+					]
+				},
+				"Range 2": {
+					"SUCCESS": [
+						"r-baz()-Initial State-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-baz()-Initial State-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-baz()-Initial State-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-baz()-Initial State-C.qux()-C.bar()|C.baz()|C.foo()"
+					]
+				},
+				"Range 3": {
+					"SUCCESS": [
+						"r-baz()-Initial State-C.bar()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-baz()-Initial State-C.bar()-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-baz()-Initial State-C.bar()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-baz()-Initial State-C.baz()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-baz()-Initial State-C.baz()-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-baz()-Initial State-C.baz()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-baz()-Initial State-C.foo()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-baz()-Initial State-C.foo()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-baz()-Initial State-C.foo()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-baz()-Initial State-C.qux()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-baz()-Initial State-C.qux()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-baz()-Initial State-C.qux()-C.foo()-C.bar()|C.baz()|C.qux()"
+					]
+				}
+			},
+			"qux()": {
+				"Initial State": "SUCCESS",
+				"Range 1": {
+					"SUCCESS": [
+						"r-qux()-Initial State-C.bar()|C.baz()|C.foo()|C.qux()"
+					]
+				},
+				"Range 2": {
+					"SUCCESS": [
+						"r-qux()-Initial State-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-qux()-Initial State-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-qux()-Initial State-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-qux()-Initial State-C.qux()-C.bar()|C.baz()|C.foo()"
+					]
+				},
+				"Range 3": {
+					"SUCCESS": [
+						"r-qux()-Initial State-C.bar()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-qux()-Initial State-C.bar()-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-qux()-Initial State-C.bar()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-qux()-Initial State-C.baz()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-qux()-Initial State-C.baz()-C.foo()-C.bar()|C.baz()|C.qux()",
+						"r-qux()-Initial State-C.baz()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-qux()-Initial State-C.foo()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-qux()-Initial State-C.foo()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-qux()-Initial State-C.foo()-C.qux()-C.bar()|C.baz()|C.foo()",
+						"r-qux()-Initial State-C.qux()-C.bar()-C.baz()|C.foo()|C.qux()",
+						"r-qux()-Initial State-C.qux()-C.baz()-C.bar()|C.foo()|C.qux()",
+						"r-qux()-Initial State-C.qux()-C.foo()-C.bar()|C.baz()|C.qux()"
+					]
+				}
+			}
+		}
+	}
+}

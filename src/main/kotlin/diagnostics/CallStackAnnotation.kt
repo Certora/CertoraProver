@@ -167,6 +167,7 @@ internal fun getCallStackAnnotator(name: String): CallStackAnnotator {
 /**
     Calls [f], potentially annotating the JVM stack trace with information about [method]
  */
+@OptIn(ExperimentalContracts::class)
 inline fun <T> inCode(method: NamedCode<ReportTypes>, crossinline f: () -> T): T {
     contract {
         callsInPlace(f, InvocationKind.EXACTLY_ONCE)

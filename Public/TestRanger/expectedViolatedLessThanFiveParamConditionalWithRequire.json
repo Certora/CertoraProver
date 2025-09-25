@@ -1,20 +1,18 @@
 {
 	"rules": {
 		"violatedLessThanFiveParamConditionalWithRequire": {
-			"Initial State": {
-				"violatedLessThanFiveParamConditionalWithRequire-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
-					"violatedLessThanFiveParamConditionalWithRequire-Initial State-Any of: InvParams.setFoo, InvParams.setFooConditionally"
+					"violatedLessThanFiveParamConditionalWithRequire-Initial State-InvParams.setFoo()|InvParams.setFooConditionally((uint256))"
 				]
 			},
 			"Range 2": {
 				"FAIL": [
-					"violatedLessThanFiveParamConditionalWithRequire-Initial State-InvParams.setBar(uint256)-InvParams.setFooConditionally"
+					"violatedLessThanFiveParamConditionalWithRequire-Initial State-InvParams.setBar(uint256)-InvParams.setFooConditionally((uint256))"
 				],
 				"SUCCESS": [
-					"violatedLessThanFiveParamConditionalWithRequire-Initial State-InvParams.setFoo()-InvParams.setFooConditionally"
+					"violatedLessThanFiveParamConditionalWithRequire-Initial State-InvParams.setFoo()-InvParams.setFooConditionally((uint256))"
 				]
 			}
 		}

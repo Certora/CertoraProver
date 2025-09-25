@@ -1,12 +1,10 @@
 {
 	"rules": {
 		"violatedLessThanFive": {
-			"Initial State": {
-				"violatedLessThanFive-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"FAIL": [
-					"violatedLessThanFive-Initial State-Any of: C.getAndAdd, C.setBar"
+					"violatedLessThanFive-Initial State-C.getAndAdd(uint40)|C.setBar()"
 				]
 			}
 		}

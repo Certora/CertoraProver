@@ -111,6 +111,8 @@ def handle_override_base_config(context: CertoraContext) -> None:
             if hasattr(context, attr):
                 value = getattr(context, attr, False)
                 if not value:
+                    if attr in context.conf_file_attr and value is False:
+                        continue  # skip override if a boolean attribute was explicitly set to False in the conf file
                     setattr(context, attr, override_base_config_attrs.get(attr))
             else:
                 raise Util.CertoraUserInputError(f"{attr} appears in the base conf file {context.override_base_config} but is not a known attribute.")

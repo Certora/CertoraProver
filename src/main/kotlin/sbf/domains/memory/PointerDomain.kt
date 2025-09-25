@@ -1682,9 +1682,9 @@ class HeapAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTANode
      * This ensures sound results but better abstractions will be needed if programs
      * use heavily the heap via absolute addresses.
      */
-    fun lowLevelAlloc(offset: Constant): PTASymCell<Flags> {
+    fun lowLevelAlloc(offset: Constant, locInst: LocatedSbfInstruction?): PTASymCell<Flags> {
         if (usedHighLevel) {
-            throw PointerDomainError("Cannot use both low-level and high-level heap allocation APIs")
+            throw ConflictingHeapUsage(DevErrorInfo(locInst, null," cannot use both low-level and high-level heap allocation APIs"))
         }
         usedLowLevel = true
         val o = offset.toLongOrNull()
@@ -1707,7 +1707,7 @@ class HeapAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTANode
      */
     fun highLevelAlloc(locInst: LocatedSbfInstruction, i: Int = 0): PTASymCell<Flags> {
         if (usedLowLevel) {
-            throw PointerDomainError("Cannot use both low-level and high-level heap allocation APIs")
+            throw ConflictingHeapUsage(DevErrorInfo(locInst, null," cannot use both low-level and high-level heap allocation APIs"))
         }
         usedHighLevel = true
 
@@ -2675,7 +2675,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     setRegCell(reg, sc)
                 }
                 is SbfType.PointerType.Heap -> {
-                    val sc = heapAlloc.lowLevelAlloc(pointerType.offset.toLongOrNull().let {Constant(it)})
+                    val sc = heapAlloc.lowLevelAlloc(pointerType.offset.toLongOrNull().let {Constant(it)}, locInst)
                     setRegCell(reg, sc)
                 }
                 is SbfType.PointerType.Input -> {
@@ -4367,7 +4367,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                                     "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
                             }
                             CVTCore.SATISFY, CVTCore.SANITY -> {}
-                            CVTCore.NONDET_ACCOUNT_INFO -> {
+                            CVTCore.NONDET_ACCOUNT_INFO, CVTCore.MASK_64 -> {
                                 summarizeCall(calleeLocInst, globals, scalars, memSummaries)
                             }
                             CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {

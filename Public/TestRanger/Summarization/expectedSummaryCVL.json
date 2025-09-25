@@ -1,52 +1,50 @@
 {
 	"rules": {
 		"violatedLessThanFive": {
-			"Initial State": {
-				"violatedLessThanFive-Initial State-vacuity": "SUCCESS"
-			},
+			"Initial State": "SUCCESS",
 			"Range 1": {
 				"SUCCESS": [
-					"violatedLessThanFive-Initial State-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall"
+					"violatedLessThanFive-Initial State-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)"
 				]
 			},
 			"Range 2": {
 				"SUCCESS": [
-					"violatedLessThanFive-Initial State-Summary.setFoo()-Any of: Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Any of: Summary.setFoo, Summary.setFooConditionally",
-					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall"
+					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFoo()|Summary.setFooConditionally((uint256))",
+					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)"
 				]
 			},
 			"Range 3": {
 				"SUCCESS": [
-					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.unresolvedCall(address)-Any of: Summary.setFoo, Summary.setFooConditionally",
-					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFoo()-Any of: Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFoo()-Any of: Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Any of: Summary.setFoo, Summary.setFooConditionally"
+					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.unresolvedCall(address)-Summary.setFoo()|Summary.setFooConditionally((uint256))",
+					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFoo()-Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFoo()-Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Summary.setFoo()|Summary.setFooConditionally((uint256))"
 				],
 				"FAIL": [
-					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall"
+					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)"
 				]
 			},
 			"Range 4": {
 				"SUCCESS": [
-					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.unresolvedCall(address)-Summary.setFoo()-Any of: Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFoo()-Summary.unresolvedCall(address)-Any of: Summary.setFoo, Summary.setFooConditionally",
-					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.setFoo()-Any of: Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFoo()-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.setFoo()-Any of: Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Any of: Summary.setFoo, Summary.setFooConditionally",
-					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Any of: Summary.setFoo, Summary.setFooConditionally",
-					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFoo()-Summary.unresolvedCall(address)-Any of: Summary.setFoo, Summary.setFooConditionally",
-					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Summary.setFoo()-Any of: Summary.setFooConditionally, Summary.unresolvedCall"
+					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.unresolvedCall(address)-Summary.setFoo()-Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFoo()-Summary.unresolvedCall(address)-Summary.setFoo()|Summary.setFooConditionally((uint256))",
+					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.setFoo()-Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.setFoo()-Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Summary.setFoo()|Summary.setFooConditionally((uint256))",
+					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Summary.setFoo()|Summary.setFooConditionally((uint256))",
+					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFoo()-Summary.unresolvedCall(address)-Summary.setFoo()|Summary.setFooConditionally((uint256))",
+					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Summary.setFoo()-Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)"
 				],
 				"FAIL": [
-					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall",
-					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFoo()-Summary.setFooConditionally((uint256))-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall"
+					"violatedLessThanFive-Initial State-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.unresolvedCall(address)-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)",
+					"violatedLessThanFive-Initial State-Summary.setFooConditionally((uint256))-Summary.setFoo()-Summary.setFooConditionally((uint256))-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)"
 				]
 			}
 		}

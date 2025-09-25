@@ -474,6 +474,7 @@ class EquivalenceChecker private constructor(
 
                         override fun print(s: String) {
                             o.write(s)
+                            o.newLine()
                         }
                     };
                 } ?: object : OutputF {

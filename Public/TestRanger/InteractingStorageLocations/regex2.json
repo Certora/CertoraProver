@@ -1,0 +1,7 @@
+{
+  "includes": [
+    "^C.setATo1..|C.setBTo7..~>C.setCToSumAB..",
+    "C.setATo1..->C.setBToA..",
+    ".*~>C.setDToB.."
+  ]
+}

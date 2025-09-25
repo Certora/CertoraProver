@@ -307,7 +307,7 @@ class ExitException(Exception):
         super().__init__(message)
         self.exit_code = exit_code  # Store the integer data
 
-MIN_JAVA_VERSION = 11  # minimal java version to run the local type checker jar
+MIN_JAVA_VERSION = 19  # minimal java version to run the local type checker jar
 
 
 def text_style(txt: str, style: str) -> str:
@@ -1417,6 +1417,8 @@ def handle_remappings_file(context: SimpleNamespace) -> List[str]:
             raise CertoraUserInputError(f"Invalid remappings file: {REMAPPINGS_FILE}", e)
     elif find_nearest_foundry_toml():
         remappings = get_mappings_from_forge_remappings()
+
+    context.forge_remappings = remappings
 
     return remappings
 

@@ -24,7 +24,7 @@ import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.domains.*
 import sbf.output.annotateWithTypes
-import sbf.support.NoAssertionErrorAfterSlicer
+import sbf.support.NoAssertionAfterSlicerError
 import sbf.support.printToFile
 import datastructures.stdcollections.*
 import log.*
@@ -63,7 +63,7 @@ fun sliceAndPTAOptLoop(rule: String, prog: SbfCallGraph, memSummaries: MemorySum
                           "${optProg.getCallGraphRootSingleOrFail().getStats()}"}
         if (!hasAssertions) {
             sbfLogger.info { "End Solana front-end in ${(end1 - start) / 1000}s" }
-            throw NoAssertionErrorAfterSlicer(rule)
+            throw NoAssertionAfterSlicerError(rule)
         }
 
         // Run PTA optimizations that must be run after program has been inlined and sliced

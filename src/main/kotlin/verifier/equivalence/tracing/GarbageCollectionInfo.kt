@@ -16,6 +16,7 @@
  */
 package verifier.equivalence.tracing
 
+import analysis.CmdPointer
 import analysis.CommandWithRequiredDecls
 import evm.MAX_EVM_UINT256
 import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.`=`
@@ -24,6 +25,8 @@ import vc.data.*
 import vc.data.tacexprutil.ExprUnfolder
 import datastructures.stdcollections.*
 import vc.data.TACProgramCombiners.andThen
+import vc.data.TACProgramCombiners.flatten
+import vc.data.TACProgramCombiners.wrap
 
 /**
  * Mixin that manages the garbage collection instrumentation for some long read.
@@ -39,15 +42,37 @@ internal data class GarbageCollectionInfo(
      * AKA: r.seenGC
      */
     val seenGCVar: TACSymbol.Var,
-    /**
-     * AKA: r.hashInitProphecy
-     */
-    val gcInitHashVar: TACSymbol.Var,
-    /**
-     * AKA: r.hashBackup
-     */
-    val hashBackupVar: TACSymbol.Var
+
+    val gcSiteInfo: Map<CmdPointer, InstrumentationPoint>
 ) : InstrumentationMixin {
+    private data class BackupPair(
+        val default: TACExpr,
+        val backupVar: TACSymbol.Var,
+        val initVar: TACSymbol.Var
+    )
+
+    data class InstrumentationPoint(
+        val gcHashBackupVar: TACSymbol.Var,
+        val gcHashInitVar: TACSymbol.Var,
+
+        val gcAlignedBackupVar: TACSymbol.Var,
+        val gcAlignedInitVar: TACSymbol.Var,
+        val gcPointId: Int
+    )
+
+    private val InstrumentationPoint.backups get() = listOf(
+        BackupPair(
+            default = 0.asTACExpr,
+            backupVar = gcHashBackupVar,
+            initVar = gcHashInitVar
+        ),
+        BackupPair(
+            default = TACSymbol.True.asSym(),
+            backupVar = gcAlignedBackupVar,
+            initVar = gcAlignedInitVar
+        )
+    )
+
     override fun atPrecedingUpdate(
         s: IBufferUpdate,
         overlapSym: TACSymbol.Var,
@@ -62,7 +87,7 @@ internal data class GarbageCollectionInfo(
                     TACCmd.Simple.AssigningCmd.AssignExpCmd(
                         boundsOverlapVar,
                         rhs =
-                        overlapSym and (seenGCVar eq TACSymbol.One) and (
+                        overlapSym and (not(seenGCVar eq TACSymbol.Zero)) and (
                             // uninit case
                             (lowerBoundVar eq uninitMarker) or /*
                                 init and overlap case, between (lowerBoundVar, upperBoundVar) and (offs, writeEndPoint)
@@ -102,8 +127,27 @@ internal data class GarbageCollectionInfo(
                     )
                 ), boundsOverlapVar
             )
-        }
+        }.wrap("GC update for ${baseInstrumentation.id}")
 
+    }
+
+    private fun generateInitCond(
+        id: Int,
+        backup: BackupPair,
+        predVar: TACSymbol.Var
+    ) : CommandWithRequiredDecls<TACCmd.Simple> {
+        return ExprUnfolder.unfoldPlusOneCmd(
+            "gcInit",
+            TXF {
+                backup.initVar eq ite(
+                    predVar and (seenGCVar eq id),
+                    backup.default,
+                    backup.backupVar
+                )
+            }
+        ) {
+            TACCmd.Simple.AssumeCmd(it.s, "init assume")
+        }
     }
 
     override fun atLongRead(s: ILongRead): CommandWithRequiredDecls<TACCmd.Simple> {
@@ -111,7 +155,13 @@ internal data class GarbageCollectionInfo(
         val (lowerBound, upperBound) = gcInfo.writeBoundVars
         val isCompleteInit = TACSymbol.Var("isCompleteInit", Tag.Bool).toUnique("!")
 
-        return with(TACExprFactTypeCheckedOnlyPrimitives) {
+        val initTerms = gcSiteInfo.flatMap { (_, ip) ->
+            ip.backups.map { bkp ->
+                generateInitCond(ip.gcPointId, bkp, isCompleteInit)
+            }
+        }.flatten()
+
+        val toRet = with(TACExprFactTypeCheckedOnlyPrimitives) {
             CommandWithRequiredDecls(
                 listOf(
                     /**
@@ -119,37 +169,27 @@ internal data class GarbageCollectionInfo(
                      * `r.seenGC && r.gcLower != MAX_UINT && r.gcLower <= r.bpProphecy && r.gcUpper >= (r.bpProphecy + r.lenProphecy)`
                      * AKA whether we've seen a GC point, and since that point, the writes cover the entire buffer
                      */
-                    isCompleteInit `=` ((seenGCVar eq TACSymbol.One) and (
+                    isCompleteInit `=` (
                             not(lowerBound eq uninitMarker) and (
                                     lowerBound le s.loc and ((s.loc add s.length) le upperBound)
                                     )
-                            ))
+                            )
                 )
-            ) andThen ExprUnfolder.unfoldPlusOneCmd(
-                /*
-                 * does:
-                 * `assume(r.hashInitProphecy == (isComplete ? 0 : r.hashBackup)`
-                 * which is the initialization in the EC writeup, folded into a single assume
-                 */
-                "hashInitBound", ite(
-                    isCompleteInit,
-                    TACExpr.zeroExpr,
-                    gcInfo.hashBackupVar
-                ) eq gcInfo.gcInitHashVar
-            ) {
-                TACCmd.Simple.AssumeCmd(it.s, "init bound for ${s.where}")
-            }
+            ) andThen initTerms
         }.merge(
             isCompleteInit
         )
+        return toRet.wrap("Init GC prophecy for ${s.id}")
     }
 
     companion object {
-        private val uninitMarker = MAX_EVM_UINT256.asTACExpr
+        val uninitMarker = MAX_EVM_UINT256.asTACExpr
     }
 
     override val havocInitVars: List<TACSymbol.Var>
-        get() = listOf(hashBackupVar, gcInitHashVar)
+        get() = gcSiteInfo.flatMap { (_, ip) ->
+            listOf(ip.gcHashInitVar, ip.gcHashBackupVar, ip.gcAlignedInitVar, ip.gcAlignedBackupVar)
+        }
     override val constantInitVars: List<Pair<TACSymbol.Var, ToTACExpr>>
         get() = listOf(
             writeBoundVars.first to uninitMarker,

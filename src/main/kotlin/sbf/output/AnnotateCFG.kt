@@ -64,7 +64,7 @@ private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> annotateWithTypes
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
 
         for ( bb in cfg.getMutableBlocks().values) {
-            if (cfg.getExit() == bb) {
+            if (cfg.hasExit() && cfg.getExit() == bb) {
                 /** As result of slicing, code typically looks like this:
                  * ```
                  * some_bb:

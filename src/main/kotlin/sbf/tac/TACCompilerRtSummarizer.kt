@@ -56,6 +56,10 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
                         val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
                         summarizer.summarizeMulti3(args)
                     }
+                    IntegerU128CompilerRtFunction.MULOTI4 -> {
+                        val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
+                        summarizer.summarizeMuloti4(args)
+                    }
                     IntegerU128CompilerRtFunction.UDIVTI3 -> {
                         val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
                         summarizer.summarizeUDivti3(args)

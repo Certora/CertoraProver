@@ -204,7 +204,7 @@ data class UnresolvedDynamicSummary(
     internal val methodReferenceExp: MethodReferenceExp,
     internal val params: List<VMParam>?,
     internal val preFlags: List<LocatedToken>,
-    internal val dispatchList: CallSummary.DispatchList?,
+    internal val summary: CallSummary?,
 ) : MethodEntry {
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<MethodBlockEntry, CVLError> = collectingErrors {
 
@@ -223,8 +223,8 @@ data class UnresolvedDynamicSummary(
             .filter { it.value != Visibility.EXTERNAL.toString() }
             .forEach { collectError(OnlyExternalSummaryAllowed(it)) }
 
-        val dispatchList = if (dispatchList != null) {
-            bind(dispatchList.kotlinize(
+        val summary = if (summary != null) {
+            bind(summary.kotlinize(
                 resolver, scope,
                 summarizedMethod = CallSummary.UnresolvedMethod,
                 withClause = null,
@@ -235,7 +235,7 @@ data class UnresolvedDynamicSummary(
             returnAnyway()
         }
 
-        CatchUnresolvedSummaryAnnotation(range, target, namedSig, dispatchList as SpecCallSummary.DispatchList)
+        CatchUnresolvedSummaryAnnotation(range, target, namedSig, summary)
     }
 
 }

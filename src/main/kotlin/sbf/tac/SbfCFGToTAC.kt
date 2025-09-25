@@ -562,16 +562,6 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         )
     }
 
-    @Suppress("ForbiddenMethodCall")
-    private fun translateSanity(inst: SbfInstruction.Call): List<TACCmd.Simple> {
-        val name = cfg.getName()
-        return if (name.endsWith(vacuitySuffix) || name.endsWith(devVacuitySuffix)) {
-            translateSatisfy(inst)
-        } else {
-            listOf()
-        }
-    }
-
     private fun translateJump(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val bb = cfg.getBlock(locInst.label)
         check(bb != null)
@@ -1304,6 +1294,12 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         }
     }
 
+    private fun translateMask64(): List<TACCmd.Simple> {
+        val v0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+        val v1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
+        return listOf(assign(v0, exprBuilder.mask64(v1.asSym())))
+    }
+
     private fun translateCall(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call) {"TAC translateCall expects a call instead of $inst"}
@@ -1339,14 +1335,17 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                                 throw TACTranslationError("unsupported call to ${inst.name}. " +
                                     "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
                             }
-                            CVTCore.SANITY ->
-                                translateSanity(inst)
+                            CVTCore.SANITY -> {
+                                throw TACTranslationError("unsupported call to ${inst.name}.")
+                            }
                             CVTCore.SATISFY ->
                                 translateSatisfy(inst)
                             CVTCore.SAVE_SCRATCH_REGISTERS ->
                                 translateSaveScratchRegisters(locInst)
                             CVTCore.RESTORE_SCRATCH_REGISTERS ->
                                 translateRestoreScratchRegisters(inst)
+                            CVTCore.MASK_64 ->
+                                translateMask64()
                             CVTCore.NONDET_ACCOUNT_INFO -> {
                                 if (!SolanaConfig.CvtNondetAccountInfo.get()) {
                                     /**

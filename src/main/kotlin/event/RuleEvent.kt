@@ -48,6 +48,7 @@ sealed class RuleEvent : EventBase<EventTopic.Rule>() {
                     when (this) {
                         is SpecType.Group.InvariantCheck -> "InvariantCheck"
                         SpecType.Group.StaticEnvFree -> "EnvFree"
+                        is SpecType.Group.BMCRange -> "Ranger"
                     }
                 }"
             }
@@ -97,8 +98,8 @@ sealed class RuleEvent : EventBase<EventTopic.Rule>() {
             is SpecType.Single.SkippedMissingOptionalMethod -> "Skipped"
             is SpecType.Group.ContractRuleType -> "Contract"
 
-            is SpecType.Single.BMC -> "Bounded model checking"
-
+            is SpecType.Single.BMCInitialState -> "Ranger Initial State"
+            is SpecType.Single.BMCSequence -> "Ranger sequence"
         }
 
     }

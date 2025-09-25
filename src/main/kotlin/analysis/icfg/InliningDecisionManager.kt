@@ -264,7 +264,7 @@ interface InliningDecisionManager {
              * check here
              */
             return (mergedContracts.keys + this.baseId).monadicMap {
-                it.projectSplitStorage() as Set<BigInteger>
+                it.projectSplitStorage()
             }?.monadicFold { a, b ->
                 if(a containsAny b) {
                     logger.warn {

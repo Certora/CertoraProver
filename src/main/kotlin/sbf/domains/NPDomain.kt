@@ -55,6 +55,8 @@ data class StackSlotVariable(val offset: Long, private val width: Short, private
         }
     }
 
+    fun toFiniteInterval() = FiniteInterval.mkInterval(offset, width.toLong())
+
     fun getWidth() = width
 }
 
@@ -161,6 +163,29 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
     fun contains(cst: SbfLinearConstraint): Boolean {
         return csts.contains(cst)
     }
+
+
+    // Helper to deal with overlaps
+    private fun remove(slice: FiniteInterval): NPDomain<D, TNum, TOffset> {
+        if (isBottom()) {
+            return this
+        }
+
+        var newCsts = csts
+        for (cst in csts) {
+            val hasOverlap = cst.getVariables().any { variable ->
+                (variable as? StackSlotVariable)?.let { other ->
+                    val otherSlice = other.toFiniteInterval()
+                    slice != otherSlice && slice.overlap(otherSlice)
+                } ?: false
+            }
+            if (hasOverlap) {
+                newCsts = newCsts.remove(cst)
+            }
+        }
+        return NPDomain(newCsts)
+    }
+
 
     /**
      * Very limited propagation.
@@ -454,8 +479,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                     // Remove constraint C if it uses a destination variable
                     for (dstV in cst.getVariables()) {
                         if (dstV is StackSlotVariable) {
-                            val dstVInterval = FiniteInterval.mkInterval(dstV.offset, dstV.getWidth().toLong())
-                            if (dstInterval.overlap(dstVInterval)) {
+                            if (dstInterval.overlap(dstV.toFiniteInterval())) {
                                 newCsts = newCsts.remove(cst)
                                 break
                             }
@@ -627,7 +651,8 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                                 CVTCore.SATISFY, CVTCore.SANITY -> {
                                     curVal
                                 }
-                                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE, CVTCore.ALLOC_SLICE, CVTCore.NONDET_ACCOUNT_INFO -> {
+                                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE, CVTCore.ALLOC_SLICE, CVTCore.NONDET_ACCOUNT_INFO,
+                                CVTCore.MASK_64 -> {
                                     curVal.summarizeCall(
                                         locatedInst,
                                         vFac,
@@ -674,6 +699,9 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                             val regV = RegisterVariable(inst.value as Value.Reg, vFac)
                             curVal.substitute(regV, baseV)
                         } else {
+                            // remove any stack location that overlap with baseV
+                            val curValNoOverlaps = curVal.remove(baseV.toFiniteInterval())
+
                             val immVal: Long? = when (inst.value) {
                                 is Value.Imm -> inst.value.v.toLong()
                                 is Value.Reg -> getNum(registerTypes.typeAtInstruction(locatedInst, inst.value.r))
@@ -681,11 +709,11 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                             if (immVal != null) {
                                 // Use of the forward analysis to refine backward analysis.
                                 // See above discussion applies here.
-                                curVal.eval(baseV, ExpressionNum(immVal))
+                                curValNoOverlaps.eval(baseV, ExpressionNum(immVal))
                             } else {
                                 check(inst.value is Value.Reg) { "NPDomain in memory store expects the value to be a register" }
                                 val regV = RegisterVariable(inst.value, vFac)
-                                curVal.substitute(baseV, regV)
+                                curValNoOverlaps.substitute(baseV, regV)
                             }
                         }
                     }

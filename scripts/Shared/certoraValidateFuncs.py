@@ -769,7 +769,7 @@ def validate_check_method_flag(method: str) -> str:
         raise Util.CertoraUserInputError(f"Malformed method '{method}' in `--check_method`: unmatched parenthesis")
     return method
 
-def validate_method_flag(method: str) -> str:
+def validate_evm_method_flag(method: str) -> str:
     contract_and_method = method.split('.')
     if len(contract_and_method) > 2:
         raise Util.CertoraUserInputError(f"Malformed method '{method}' in `--method` list: a method should be of the form `[ContractName.]functionABISignature(...)`")
@@ -788,6 +788,8 @@ def validate_method_flag(method: str) -> str:
 
     return method
 
+def validate_move_method_flag(method: str) -> str:
+    return validate_move_function_name(method)
 
 def __validate_matching_parens(s: str) -> bool:
     stack = []
@@ -823,16 +825,29 @@ def __validate_solidity_id(string: str, object: str) -> str:
 def validate_contract_name(contract_name: str) -> str:
     return __validate_solidity_id(contract_name, "contract")
 
-
-def validate_rule_name(rule_str: str) -> str:
-    if ("*" not in rule_str):
-        return __validate_solidity_id(rule_str, "rule")
-
-    # we have a rule pattern string
+def validate_rule_pattern_string(rule_str: str) -> str:
     if not re.match(r"^[a-zA-Z0-9_$*]+$", rule_str):
         raise Util.CertoraUserInputError(f"invalid rule pattern \"{rule_str}\": rule patterns must contain only "
                                          "letters, digits, dollar signs, underscores, or asterisks")
     return rule_str
+
+def validate_evm_rule_name(rule_str: str) -> str:
+    if ("*" in rule_str):
+        return validate_rule_pattern_string(rule_str)
+    else:
+        return __validate_solidity_id(rule_str, "rule")
+
+def validate_move_function_name(name: str) -> str:
+    if not re.match(r"^0x[0-9a-fA-F]+::[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_]*$", name):
+        raise Util.CertoraUserInputError(f"invalid Move function name \"{name}\": must be a fully-qualified Move "
+                                         "function name")
+    return name
+
+def validate_move_rule_name(rule_str: str) -> str:
+    if ("*" in rule_str):
+        return validate_rule_pattern_string(rule_str)
+    else:
+        return validate_move_function_name(rule_str)
 
 
 MAX_MSG_LEN: int = 256

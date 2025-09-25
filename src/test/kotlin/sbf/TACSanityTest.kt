@@ -36,7 +36,9 @@ class TACSanityTest {
 
         }
 
-        println("$cfg")
+        println("Before removing calls to \"CVT_sanity\":\n$cfg")
+        removeSanityCalls(cfg, isVacuityRule = true)
+        println("After removing calls to \"CVT_sanity\":\n$cfg")
         val tacProg = toTAC(cfg)
         println(dumpTAC(tacProg))
         Assertions.assertEquals(false, verify(tacProg))
@@ -60,7 +62,9 @@ class TACSanityTest {
 
         }
 
-        println("$cfg")
+        println("Before removing calls to \"CVT_sanity\":\n$cfg")
+        removeSanityCalls(cfg, isVacuityRule = false)
+        println("After removing calls to \"CVT_sanity\":\n$cfg")
         val tacProg = toTAC(cfg)
         println(dumpTAC(tacProg))
         Assertions.assertEquals(true, verify(tacProg))

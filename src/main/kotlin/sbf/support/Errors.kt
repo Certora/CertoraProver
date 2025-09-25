@@ -26,8 +26,11 @@ import utils.*
 
 /**
  * For cases that users should be able to solve themselves
+ *
+ * @param errorLocation is provided and the errors is displayed in the global notifications of the rule report,
+ * this is the location in source code associated to the failure.
  */
-open class SolanaError(msg:String): CertoraException(CertoraErrorType.SOLANA, msg)
+open class SolanaError(msg:String, val errorLocation: Range.Range? = null): CertoraException(CertoraErrorType.SOLANA, msg)
 /**
  * For cases that that users cannot solve but should report to us
  */
@@ -58,7 +61,7 @@ class PtrExprErrStackDeref(val field: PTAField): PointerExpressionError()
  * Pointer analysis specific errors
  */
 open class PointerAnalysisError(val devInfo: DevErrorInfo, userInfo: UserErrorInfo)
-    : SolanaError(FormattedErrorMessage(devInfo.locInst, devInfo.msg, userInfo).toString())
+    : SolanaError(FormattedErrorMessage(devInfo.locInst, devInfo.msg, userInfo).toString(), devInfo.locInst?.getSourceLocationInSourcesDir())
 
 private const val helpSummarizationIsNeeded = "check if there are unexpected external functions that return references (directly or indirectly) and summarize them explicitly.\n" +
 "To add a pointer analysis summary, add the summary in one of the summary files passed to the option \"solana_summaries\".\n" +
@@ -143,6 +146,16 @@ private val derefOfAbsoluteAddress = UserErrorInfo(
         "\t(2) $helpSummarizationIsNeeded",
     code = 3308)
 
+private val conflictingHeapUsage = UserErrorInfo(
+    msg = "Conflicting allocation/usage of heap memory",
+    note = "The program both calls \"__rust_alloc\", meaning Rust's allocator is being used to allocate memory in the heap,\n" +
+           "and directly dereferences an absolute address in the heap region, bypassing the allocator. Mixing the two confuses the verifier.\n" +
+           "The most common root cause is that the program (or some linked crate) uses its own memory allocator and the code has been inlined",
+    help = "To resolve this error consider one of the following:\n" +
+        "\t(1) compile code with \"no-entrypoint\" in Cargo.toml\n" +
+        "\t(2) summarize the code that dereferences absolute addresses to be known in the heap",
+    code = 3309)
+
 class UnknownStackPointerError(devInfo: DevErrorInfo)
     : PointerAnalysisError(devInfo, userInfo = unknownStackPointer)
 
@@ -167,6 +180,9 @@ class UnknownGlobalDerefError(devInfo: DevErrorInfo)
 class DerefOfAbsoluteAddressError(devInfo: DevErrorInfo)
     : PointerAnalysisError(devInfo, userInfo = derefOfAbsoluteAddress)
 
+class ConflictingHeapUsage(devInfo: DevErrorInfo)
+    : PointerAnalysisError(devInfo, userInfo = conflictingHeapUsage)
+
 class NoAssertionError(rule: String) : SolanaError(
     FormattedErrorMessage(
         locInst = null,
@@ -180,7 +196,7 @@ class NoAssertionError(rule: String) : SolanaError(
         ),
         devMsg = "").toString())
 
-class NoAssertionErrorAfterSlicer(rule: String) : SolanaError(
+class NoAssertionAfterSlicerError(rule: String) : SolanaError(
     FormattedErrorMessage(
         locInst = null,
         userInfo = UserErrorInfo(
@@ -190,6 +206,19 @@ class NoAssertionErrorAfterSlicer(rule: String) : SolanaError(
                 "\t(2) there are runtime errors or undefined behavior that allowed the prover front-end to establish that all specified assertions are unreachable",
             help ="",
             code = 4001
+        ),
+        devMsg = "").toString())
+
+class NoSatisfyAfterSlicerError(rule: String) : SolanaError(
+    FormattedErrorMessage(
+        locInst = null,
+        userInfo = UserErrorInfo(
+            msg  = "Nothing to verify. Rule $rule was identified as a \"satisfy\" rule but has no calls to \"cvlr_satisfy\" after slicing",
+            note = "Most common root causes are:\n" +
+                "\t(1) some assertion makes all calls to \"cvlr_satisfy\" unreachable\n" +
+                "\t(2) there are runtime errors or undefined behavior that allowed the prover front-end to establish that all calls to \"cvlr_satisfy\" are unreachable",
+            help ="",
+            code = 4002
         ),
         devMsg = "").toString())
 
@@ -215,6 +244,28 @@ class CannotParseInliningFile(line: String, filename: String, grammar: String, h
             code = 5001
         ),
         devMsg = "").toString())
+
+private fun nearestPowerOfTwo(n: Int): Int {
+    check(n > 0)
+    return Integer.highestOneBit(n).let {
+        if (it < n) {
+            it shl 1
+        } else {
+            it
+        }
+    }
+}
+
+class SmashedStack(locInst: LocatedSbfInstruction?, extraSpace: Int) : SolanaError(
+    FormattedErrorMessage(
+        locInst = locInst,
+        userInfo = UserErrorInfo(
+            msg  = "Current stack size is ${SolanaConfig.StackFrameSize.get()} and stack offset exceeded max offset by $extraSpace.",
+            note = "",
+            help = "Please increase the stack size with option \"-${SolanaConfig.StackFrameSize.name} ${nearestPowerOfTwo(SolanaConfig.StackFrameSize.get() + extraSpace)}\".",
+            code = 6000
+        ),
+        devMsg = if (locInst != null) {"${locInst.inst}"} else { "" }).toString())
 
 /**
  * To create formatted user messages

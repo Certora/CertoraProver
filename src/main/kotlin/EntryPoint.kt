@@ -41,7 +41,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runInterruptible
 import kotlinx.serialization.json.Json
 import log.*
-import move.MoveScene
+import move.MoveVerifier
 import org.apache.commons.cli.UnrecognizedOptionException
 import os.dumpSystemConfig
 import parallel.coroutines.establishMainCoroutineScope
@@ -661,20 +661,16 @@ suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Single> {
 }
 
 suspend fun handleMoveFlow() {
-    // See notes in `MoveMemory`
-    if (Config.Smt.UseBV.get()) {
-        throw CertoraException(
-            CertoraErrorType.BAD_CONFIG,
-            "Precise bitwise operations are not supported in Move mode"
-        )
-    }
+    // Copy in `inputs` directory the contents of the `.certora_sources` directory.
+    val filesInSourceDir = getFilesInSourcesDir()
+    CertoraConf.backupFiles(filesInSourceDir)
 
-    val modulePath = Config.MoveModulePath.get()
-    val moveScene = MoveScene(Path(modulePath))
+    // And back up the binary modules
+    CertoraConf.backupFiles(
+        File(Config.MoveModulePath.get()).walk().filter { it.isFile }.map { it.toString() }.toSet()
+    )
 
-    val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(modulePath, "MoveMainProgram")
-    handleGenericFlow(scene, reporterContainer, treeView, moveScene.rules)
-    reporterContainer.toFile(scene)
+    MoveVerifier().verify()
 }
 
 suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Single>> {
@@ -775,6 +771,11 @@ private fun autoConfig() {
     if(Config.BoundedModelChecking.getOrNull() != null && Config.RequireInvariantsPreRuleSemantics.get()){
         // In BMC mode, we are _not_ using the global require invariant semantics
         Config.RequireInvariantsPreRuleSemantics.set(false)
+    }
+
+    if (Config.ActiveEcosystem.getOrNull() == Ecosystem.SUI) {
+        @OptIn(Config.DestructiveOptimizationsOption::class)
+        Config.DestructiveOptimizationsMode.setIfUnset(DestructiveOptimizationsModeEnum.TWOSTAGE)
     }
 }
 

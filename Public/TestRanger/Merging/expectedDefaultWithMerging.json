@@ -1,80 +1,74 @@
 {
   "rules": {
     "bNot1": {
-      "Initial State": {
-        "bNot1-Initial State-vacuity": "SUCCESS"
-      },
+      "Initial State": "SUCCESS",
       "Range 1": {
         "SUCCESS": [
-          "bNot1-Initial State-Any of: C.setBTo7, C.setBToA"
+          "bNot1-Initial State-C.setBTo7()|C.setBToA()"
         ]
       },
       "Range 2": {
         "FAIL": [
-          "bNot1-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-Any of: C.setBTo7, C.setBToA"
+          "bNot1-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setBTo7()|C.setBToA()"
         ],
         "SUCCESS": [
-          "bNot1-Initial State-C.setBTo7()-Any of: C.setBTo7, C.setBToA"
+          "bNot1-Initial State-C.setBTo7()-C.setBTo7()|C.setBToA()"
         ]
       },
       "Range 3": {
         "FAIL": [
-          "bNot1-Initial State-C.setBTo7()-C.setATo1()|C.setBToA()|C.setCToSumAB()-Any of: C.setBTo7, C.setBToA"
+          "bNot1-Initial State-C.setBTo7()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setBTo7()|C.setBToA()"
         ],
         "SUCCESS": [
-          "bNot1-Initial State-C.setBTo7()-C.setBTo7()-Any of: C.setBTo7, C.setBToA"
+          "bNot1-Initial State-C.setBTo7()-C.setBTo7()-C.setBTo7()|C.setBToA()"
         ]
       }
     },
     "cNot2": {
-      "Initial State": {
-        "cNot2-Initial State-vacuity": "SUCCESS"
-      },
+      "Initial State": "SUCCESS",
       "Range 1": {
         "SUCCESS": [
-          "cNot2-Initial State-C.setCToSumAB"
+          "cNot2-Initial State-C.setCToSumAB()"
         ]
       },
       "Range 2": {
         "SUCCESS": [
-          "cNot2-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB",
-          "cNot2-Initial State-C.setBTo7()-C.setCToSumAB"
+          "cNot2-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB()",
+          "cNot2-Initial State-C.setBTo7()-C.setCToSumAB()"
         ]
       },
       "Range 3": {
         "FAIL": [
-          "cNot2-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB"
+          "cNot2-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB()"
         ],
         "SUCCESS": [
-          "cNot2-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setBTo7()-C.setCToSumAB",
-          "cNot2-Initial State-C.setBTo7()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB",
-          "cNot2-Initial State-C.setBTo7()-C.setBTo7()-C.setCToSumAB"
+          "cNot2-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setBTo7()-C.setCToSumAB()",
+          "cNot2-Initial State-C.setBTo7()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB()",
+          "cNot2-Initial State-C.setBTo7()-C.setBTo7()-C.setCToSumAB()"
         ]
       }
     },
     "cNot8": {
-      "Initial State": {
-        "cNot8-Initial State-vacuity": "SUCCESS"
-      },
+      "Initial State": "SUCCESS",
       "Range 1": {
         "SUCCESS": [
-          "cNot8-Initial State-C.setCToSumAB"
+          "cNot8-Initial State-C.setCToSumAB()"
         ]
       },
       "Range 2": {
         "SUCCESS": [
-          "cNot8-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB",
-          "cNot8-Initial State-C.setBTo7()-C.setCToSumAB"
+          "cNot8-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB()",
+          "cNot8-Initial State-C.setBTo7()-C.setCToSumAB()"
         ]
       },
       "Range 3": {
         "FAIL": [
-          "cNot8-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setBTo7()-C.setCToSumAB",
-          "cNot8-Initial State-C.setBTo7()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB"
+          "cNot8-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setBTo7()-C.setCToSumAB()",
+          "cNot8-Initial State-C.setBTo7()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB()"
         ],
         "SUCCESS": [
-          "cNot8-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB",
-          "cNot8-Initial State-C.setBTo7()-C.setBTo7()-C.setCToSumAB"
+          "cNot8-Initial State-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setATo1()|C.setBToA()|C.setCToSumAB()-C.setCToSumAB()",
+          "cNot8-Initial State-C.setBTo7()-C.setBTo7()-C.setCToSumAB()"
         ]
       }
     }

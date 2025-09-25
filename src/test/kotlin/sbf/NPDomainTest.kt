@@ -615,6 +615,51 @@ class NPDomainTest {
         ScalarAnalysisProver(cfg, ConstantSbfTypeFactory())
     }
 
+    /** Example with overlaps */
+    @Test
+    fun test18() {
+        /*
+		r2 := r10 -200
+	    *(u64 *) (r2 + 0) := 0
+	    *(u32 *) (r2 + 4) := 1 <-- overlap
+	    r3 := *(u64 *) (r2 + 0)
+	    assume(r3 != 0)
+         */
+
+
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test18")
+
+        val l0 = Label.Address(1)
+        val b0 = cfg.getOrInsertBlock(l0)
+        cfg.setEntry(b0)
+        cfg.setExit(b0)
+
+        b0.add(SbfInstruction.Bin(BinOp.MOV, r2, r10, true))
+        b0.add(SbfInstruction.Bin(BinOp.SUB, r2, Value.Imm(200UL), true))
+
+        b0.add(SbfInstruction.Mem(Deref(8, r2, 0), Value.Imm(0UL), false))
+        b0.add(SbfInstruction.Mem(Deref(4, r2, 4), Value.Imm(1UL), false))
+        b0.add(SbfInstruction.Mem(Deref(8, r2, 0), r3, true))
+        b0.add(SbfInstruction.Assume(Condition(CondOp.NE, r3, Value.Imm(0UL)) ))
+        b0.add(SbfInstruction.Exit())
+
+        val globals = newGlobalVariableMap()
+        val memSummaries = MemorySummaries()
+        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val regTypes = AnalysisRegisterTypes(scalarAnalysis)
+
+        val vFac = VariableFactory()
+        val absVal = top
+        val b = cfg.getBlock(Label.Address(1))
+        check(b!=null)
+        val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
+        println("absVal=$absVal\n$b\nnewAbsVal=$newAbsVal")
+        Assertions.assertEquals(false, newAbsVal.isBottom())
+    }
+
 }
 
 

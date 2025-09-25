@@ -87,6 +87,43 @@ object TACProgramCombiners {
         declsToAdd = this.varDecls
     )
 
+    private fun String.wrapStart(addArrow: Boolean) = if(addArrow) {
+        TACCmd.Simple.LabelCmd(" → $this")
+    } else {
+        TACCmd.Simple.LabelCmd(this)
+    }
+
+    private fun String.wrapEnd(addArrow: Boolean) = if(addArrow) {
+        TACCmd.Simple.LabelCmd(" ← $this")
+    } else {
+        TACCmd.Simple.LabelCmd(this)
+    }
+
+    @JvmName("wrapDeclSimple")
+    fun CommandWithRequiredDecls<TACCmd.Simple>.wrap(prefix: String, postfix: String, addArrows: Boolean = false) = prefix.wrapStart(addArrows) andThen this andThen postfix.wrapEnd(addArrows)
+
+    @JvmName("wrapDeclSpec")
+    fun CommandWithRequiredDecls<TACCmd.Spec>.wrap(prefix: String, postfix: String, addArrows: Boolean = false) = prefix.wrapStart(addArrows) andThen this andThen postfix.wrapEnd(addArrows)
+
+    @JvmName("wrapProgSimple")
+    fun <ProgType: ComposableProgram<ProgType, TACCmd.Simple>, Comp: WithProgram<ProgType, Comp>> Comp.wrap(prefix: String, postfix: String, addArrows: Boolean = false) = prefix.wrapStart(addArrows) andThen this andThen postfix.wrapEnd(addArrows)
+
+    @JvmName("wrapSpecSimple")
+    fun <ProgType: ComposableProgram<ProgType, TACCmd.Spec>, Comp: WithProgram<ProgType, Comp>> Comp.wrap(prefix: String, postfix: String, addArrows: Boolean = false) = prefix.wrapStart(addArrows) andThen this andThen postfix.wrapEnd(addArrows)
+
+    @JvmName("wrapDeclSimpleStr")
+    fun CommandWithRequiredDecls<TACCmd.Simple>.wrap(msg: String) = msg.wrapStart(true) andThen this andThen msg.wrapEnd(true)
+
+    @JvmName("wrapDeclSpecStr")
+    fun CommandWithRequiredDecls<TACCmd.Spec>.wrap(msg: String) = msg.wrapStart(true) andThen this andThen msg.wrapEnd(true)
+
+    @JvmName("wrapProgSimpleStr")
+    fun <ProgType: ComposableProgram<ProgType, TACCmd.Simple>, Comp: WithProgram<ProgType, Comp>> Comp.wrap(msg: String) = msg.wrapStart(true) andThen this andThen msg.wrapEnd(true)
+
+    @JvmName("wrapSpecSimpleStr")
+    fun <ProgType: ComposableProgram<ProgType, TACCmd.Spec>, Comp: WithProgram<ProgType, Comp>> Comp.wrap(msg: String) = msg.wrapStart(true) andThen this andThen msg.wrapEnd(true)
+
+
     /**
      * Sequentially compose two [CommandWithRequiredDecls] with a common supertype [T].
      */
@@ -113,6 +150,10 @@ object TACProgramCombiners {
     infix fun <T: TACCmd, V: CommandWithRequiredDecls<T>> T.andThen(v: V) = v.copy(
         cmds = listOf(this) + v.cmds
     )
+
+    infix fun <T: TACCmd, ProgType: ComposableProgram<ProgType, T>, Comp: WithProgram<ProgType, Comp>> T.andThen(other: Comp) : Comp = CommandWithRequiredDecls(listOf(this)) andThen other
+
+    infix fun <T: TACCmd, ProgType: ComposableProgram<ProgType, T>, Comp: WithProgram<ProgType, Comp>, V : T> Comp.andThen(other: V) : Comp = this andThen CommandWithRequiredDecls(listOf(other))
 
     /**
      * Prepend `this` onto the commands held in [other].

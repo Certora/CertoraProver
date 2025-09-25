@@ -248,10 +248,10 @@ data class CVLSingleRule(
     override val block: List<CVLCmd>,
     override val ruleType: SpecType.Single,
     override val scope: CVLScope,
-    val methodParamFilters: MethodParamFilters,
+    override val methodParamFilters: MethodParamFilters,
     val ruleGenerationMeta: SingleRuleGenerationMeta,
     override val isSatisfyRule: Boolean = false,
-) : SingleRule(), ICVLRule, CVLDeclarationWithCode {
+) : SingleRule(), ICVLRule, CVLDeclarationWithCode, CVLDeclarationWithMethodParamFilters {
 
     init {
 
@@ -317,6 +317,10 @@ data class CVLSingleRule(
             is SingleRuleGenerationMeta.WithMethodInstantiations -> meta.range
             else -> null
         }
+
+    /** If this is used before the [MoveMethodVarsToParams] transform it will not return the method variables in the rule */
+    override val methodParamIds: List<String>
+        get() = params.filter { it.type == EVMBuiltinTypes.method }.map { it.id }
 }
 
 // Note that a rule group can contain other rule groups
@@ -340,6 +344,38 @@ data class GroupRule(
     }
 }
 
+/**
+ * A group rule such that its child rules are created dynamically and not statically at the group rule creation
+ * time (which is what we have in the regular [GroupRule])
+ */
+@Serializable
+data class DynamicGroupRule(
+    override val ruleIdentifier: RuleIdentifier,
+    override val range: Range,
+    override val ruleType: SpecType.Group,
+    override val methodParamFilters: MethodParamFilters,
+    override val scope: CVLScope
+) : ICVLRule, CVLDeclarationWithMethodParamFilters {
+    override fun hashCode() = hash { it + declarationId + ruleType + methodParamFilters }
+
+    override val isSatisfyRule: Boolean = false
+
+    override fun getAllSingleRules() = listOf<CVLSingleRule>()
+
+    override val methodParamIds: List<String>
+        get() = methodParamFilters.methodParamToFilter.keys.toList()
+}
+
+@Serializable
+data class BMCRule(
+    override val ruleIdentifier: RuleIdentifier,
+    override val ruleType: SpecType.Single,
+    override val range: Range,
+    val sequenceLen: Int
+) : SingleRule() {
+    override val isSatisfyRule = false
+    override fun getAllSingleRules() = listOf(this)
+}
 
 @Serializable
 data class EquivalenceRule(

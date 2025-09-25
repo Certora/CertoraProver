@@ -1,0 +1,52 @@
+{
+  "rules": {
+    "bNot1": {
+      "Initial State": "SUCCESS",
+      "Range 1": {
+        "SUCCESS": [
+          "bNot1-Initial State-C.setBToA()"
+        ]
+      },
+      "Range 2": {
+        "FAIL": [
+          "bNot1-Initial State-C.setATo1()|C.setBTo7()|C.setBToA()|C.setCToSumAB()|C.setDToB()-C.setBTo7()|C.setBToA()"
+        ]
+      },
+      "Range 3": "UNKNOWN"
+    },
+    "cNot2": {
+      "Initial State": "SUCCESS",
+      "Range 1": "UNKNOWN",
+      "Range 2": {
+        "SUCCESS": [
+          "cNot2-Initial State-C.setATo1()|C.setBTo7()|C.setBToA()|C.setCToSumAB()|C.setDToB()-C.setCToSumAB()"
+        ]
+      },
+      "Range 3": {
+        "FAIL": [
+          "cNot2-Initial State-C.setATo1()|C.setBTo7()|C.setBToA()|C.setCToSumAB()|C.setDToB()-C.setATo1()|C.setBTo7()|C.setBToA()|C.setCToSumAB()|C.setDToB()-C.setCToSumAB()"
+        ]
+      }
+    },
+    "cNot8": {
+      "Initial State": "SUCCESS",
+      "Range 1": "UNKNOWN",
+      "Range 2": {
+        "SUCCESS": [
+          "cNot8-Initial State-C.setATo1()|C.setBTo7()|C.setBToA()|C.setCToSumAB()|C.setDToB()-C.setCToSumAB()"
+        ]
+      },
+      "Range 3": {
+        "FAIL": [
+          "cNot8-Initial State-C.setATo1()|C.setBTo7()|C.setBToA()|C.setCToSumAB()|C.setDToB()-C.setATo1()|C.setBTo7()|C.setBToA()|C.setCToSumAB()|C.setDToB()-C.setCToSumAB()"
+        ]
+      }
+    },
+    "dNot1": {
+      "Initial State": "SUCCESS",
+      "Range 1": "UNKNOWN",
+      "Range 2": "UNKNOWN",
+      "Range 3": "UNKNOWN"
+    }
+  }
+}

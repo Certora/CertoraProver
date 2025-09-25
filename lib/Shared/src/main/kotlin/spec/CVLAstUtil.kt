@@ -67,7 +67,7 @@ data class CVL(
     val astScope: CVLScope, // the tippy-top, big-daddy scope of the AST
     val internal: Map<SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>,
     val external: Map<SummarySignature.External, SpecCallSummary.ExpressibleInCVL>,
-    override val unresolvedSummaries: Map<SummarySignature.External, SpecCallSummary.DispatchList>,
+    override val unresolvedSummaries: Map<SummarySignature.External, SpecCallSummary.ExpressibleInCVL>,
     val methodFilters: Map<RuleIdentifier, Map<String, List<Method>>> /* rule-identifier -> method-param-name -> list of usable methods */
 ) : IAstCodeBlocks, IWithSummaryInfo {
 
@@ -931,7 +931,17 @@ class GenerateRulesForInvariantsAndEnvFree(
         val invRules = if (Config.BoundedModelChecking.getOrNull() == null) {
             collectAndFilter(cvlAst.invs.filter { it.needsVerification }.map { rulesOfInvariant(it) })
         } else {
-            listOf()
+            cvlAst.invs.filter { it.needsVerification }.map { inv ->
+                CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { invScope ->
+                    DynamicGroupRule(
+                        RuleIdentifier.freshIdentifier(inv.id),
+                        inv.range,
+                        SpecType.Group.InvariantCheck.Root(inv),
+                        inv.methodParamFilters,
+                        invScope,
+                    )
+                }
+            }
         }
         invRules + listOfNotNull(ruleEnvfreeFuncsStatic())
     }

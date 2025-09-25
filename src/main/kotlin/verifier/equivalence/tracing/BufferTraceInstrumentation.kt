@@ -42,6 +42,7 @@ import vc.data.tacexprutil.getFreeVars
 import java.util.concurrent.atomic.AtomicInteger
 import vc.data.TACProgramCombiners.andThen
 import vc.data.TACProgramCombiners.flatten
+import vc.data.TACProgramCombiners.wrap
 import verifier.equivalence.DefiniteBufferConstructionAnalysis
 import verifier.equivalence.summarization.CommonPureInternalFunction
 import verifier.equivalence.summarization.ComputationResults
@@ -193,7 +194,7 @@ class BufferTraceInstrumentation private constructor(
                 op1 = sourceOffset,
                 op2 = nativeLength
             )
-        ), setOf(nativeLength, bufferHash, useAligned))
+        ), setOf(nativeLength, bufferHash, useAligned)).wrap("Native hashing for ${longRead.id}")
         /**
          * If we are aligned (according to useAligned) use the native hash (in bufferHash) or the shadow hash var.
          */
@@ -321,10 +322,6 @@ class BufferTraceInstrumentation private constructor(
      * and an optional external event information in [TraceEventWithContext].
      */
     private sealed interface LongRead : ILongRead {
-        override val where: CmdPointer
-        override val loc: TACSymbol
-        override val length: TACSymbol
-        val id: Int
         val isNullRead: Boolean
         val traceEventInfo: TraceEventWithContext?
         val baseMap: TACSymbol.Var
@@ -771,6 +768,7 @@ class BufferTraceInstrumentation private constructor(
              * value of the free pointer.
              */
             val mayConsumeScratch = sources.filter { longSource ->
+                TACMeta.EVM_MEMORY in longSource.baseMap.meta &&
                 when(val src = strictDefAnalysis.source(ptr = longSource.where, sym = longSource.loc)) {
                     is StrictDefAnalysis.Source.Uinitialized -> false
                     is StrictDefAnalysis.Source.Const -> src.n >= BigInteger.ZERO && src.n < 0x40.toBigInteger()
@@ -801,15 +799,15 @@ class BufferTraceInstrumentation private constructor(
             val mustPathInclusion = MustPathInclusionAnalysis.computePathInclusion(g)
             // map from consumption sites to the future consumption sites which we should treat as garbage collections
             val isGarbageCollectionFor = garbageCollectionPoints.associateWith { gcPoint ->
-                mayConsumeScratch.filter { futureConsumer ->
+                mayConsumeScratch.filterToSet { futureConsumer ->
                     futureConsumer.where != gcPoint &&
                         reach.canReach(gcPoint, futureConsumer.where) &&
                         // is there another scratch consumer along the path? then we should instrument at that one
                         mustPathInclusion[gcPoint.block to futureConsumer.where.block].orEmpty().let { alongPath ->
-                            garbageCollectionPoints.all {
-                                it == futureConsumer.where || it.block !in alongPath || it == gcPoint
+                            garbageCollectionPoints.all { otherGc ->
+                                otherGc == futureConsumer.where || otherGc.block !in alongPath || otherGc == gcPoint || (otherGc.block == gcPoint.block && otherGc.pos < gcPoint.pos)
                             }
-                        }
+                        } && (futureConsumer !is EventLongRead || futureConsumer.explicitReadId == null)
                 }
             }
 
@@ -818,10 +816,6 @@ class BufferTraceInstrumentation private constructor(
              */
             val hasPrecedingGCPoint = isGarbageCollectionFor.entries.flatMapToSet { (_, futureConsumers) ->
                 futureConsumers
-            }
-
-            val needsGC = hasPrecedingGCPoint.filter { s ->
-                s in hasPrecedingGCPoint && (s !is EventLongRead || s.explicitReadId == null)
             }
 
             /**
@@ -836,12 +830,22 @@ class BufferTraceInstrumentation private constructor(
                         hashVar = instrumentationVar("bufferHash"),
                         baseProphecy = instrumentationVar("bufferBaseProphecy"),
                         lengthProphecy = instrumentationVar("bufferLengthProphecy"),
-                        gcInfo = null.letIf(s in needsGC) { _ ->
+                        gcInfo = null.letIf(s in hasPrecedingGCPoint) { _ ->
                             GarbageCollectionInfo(
                                 writeBoundVars = instrumentationVar("lower") to instrumentationVar("upper"),
-                                hashBackupVar = instrumentationVar("hashBackup"),
-                                gcInitHashVar = instrumentationVar("gcInitHashProphecy"),
-                                seenGCVar = instrumentationVar("seenGCPoint")
+                                seenGCVar = instrumentationVar("seenGCPoint"),
+                                gcSiteInfo = isGarbageCollectionFor.keysMatching { _, m ->
+                                    s in m
+                                }.withIndex().associate { (ind, where) ->
+                                    val id = ind + 1
+                                    where to GarbageCollectionInfo.InstrumentationPoint(
+                                        gcPointId = id,
+                                        gcHashBackupVar = instrumentationVar("backupHashVar${id}"),
+                                        gcHashInitVar = instrumentationVar("initHashVar${id}"),
+                                        gcAlignedBackupVar = instrumentationVar("backupAlignVar${id}", Tag.Bool),
+                                        gcAlignedInitVar = instrumentationVar("initAlignVar${id}", Tag.Bool)
+                                    )
+                                }
                             )
                         },
                         allAlignedVar = instrumentationVar("allAligned", Tag.Bool),
@@ -875,7 +879,7 @@ class BufferTraceInstrumentation private constructor(
                 readToInstrumentation = sourceToInstrumentation,
                 isGarbageCollectionFor = isGarbageCollectionFor.mapValuesNotNull { (_, l) ->
                     l.filter { r ->
-                        r in needsGC
+                        r in hasPrecedingGCPoint
                     }.takeIf(List<LongRead>::isNotEmpty)
                 },
                 options = options,
@@ -1310,33 +1314,32 @@ class BufferTraceInstrumentation private constructor(
      * That is, set the "seen" flags, backup the current hash, etc.
      */
     private fun generateGCSetup(
+        currSite: CmdPointer,
         laterConsumers: Iterable<LongRead>
     ) : CommandWithRequiredDecls<TACCmd.Simple> {
-        return laterConsumers.map {
-            val readInfo = readToInstrumentation[it]!!
+        return laterConsumers.map { laterRead ->
+            val readInfo = readToInstrumentation[laterRead]!!
             check(readInfo.gcInfo != null) {
                 "Have null gc instrumentation for $readInfo"
             }
+            val forInitSite = readInfo.gcInfo.gcSiteInfo[currSite]
+            check(forInitSite != null) {
+                "No GC data registered in $laterRead for $currSite"
+            }
             val gcInfo = readInfo.gcInfo
-            val isFreshSym = TACSymbol.Var("isFreshGc", Tag.Bool).toUnique("!")
             with(TACExprFactTypeCheckedOnlyPrimitives) {
                 CommandWithRequiredDecls(
                     listOf(
-                        TACCmd.Simple.LabelCmd("Starting setup for ${it.id}"),
-                        isFreshSym `=` (gcInfo.seenGCVar eq TACExpr.zeroExpr),
-                        gcInfo.hashBackupVar `=` ite(
-                            isFreshSym,
-                            readInfo.hashVar,
-                            gcInfo.hashBackupVar
-                        ),
-                        gcInfo.seenGCVar `=` TACSymbol.One,
-                        readInfo.hashVar `=` ite(
-                            isFreshSym,
-                            gcInfo.gcInitHashVar,
-                            readInfo.hashVar
-                        ),
-                        TACCmd.Simple.LabelCmd("End setup for ${it.id}"),
-                    ), setOf(isFreshSym)
+                        TACCmd.Simple.LabelCmd("Starting setup for ${laterRead.id}"),
+                        forInitSite.gcHashBackupVar `=` readInfo.hashVar,
+                        gcInfo.seenGCVar `=` forInitSite.gcPointId.asTACExpr,
+                        readInfo.hashVar `=` forInitSite.gcHashInitVar,
+                        gcInfo.writeBoundVars.first `=` GarbageCollectionInfo.uninitMarker,
+                        gcInfo.writeBoundVars.second `=` GarbageCollectionInfo.uninitMarker,
+                        forInitSite.gcAlignedBackupVar `=` readInfo.allAlignedVar,
+                        readInfo.allAlignedVar `=` forInitSite.gcAlignedInitVar,
+                        TACCmd.Simple.LabelCmd("End setup for ${laterRead.id}"),
+                    )
                 )
             }
         }.flatten()
@@ -2228,7 +2231,7 @@ class BufferTraceInstrumentation private constructor(
             )
         }.let(CommandWithRequiredDecls.Companion::mergeMany).let {
             it andThen isGCFor?.let { futureReads ->
-                generateGCSetup(futureReads)
+                generateGCSetup(where, futureReads)
             }.orEmpty()
         }.let {
             BufferWriteInstrumentation(it, update.isBefore)
@@ -2261,7 +2264,7 @@ class BufferTraceInstrumentation private constructor(
             ExprUnfolder.unfoldPlusOneCmd("prophecyReq", with(TACExprFactTypeCheckedOnlyPrimitives) {
                 l eq r
             }) {
-                TACCmd.Simple.AssumeCmd(it.s, "set prophecy")
+                TACCmd.Simple.AssumeCmd(it.s, "set prophecy for ${s.id}")
             }
         }.let(CommandWithRequiredDecls.Companion::mergeMany).merge(pointerProphecy, lengthProphecy) andThen sourceInfo.instrumentationMixins.map {
             it.atLongRead(s)
@@ -2302,6 +2305,7 @@ class BufferTraceInstrumentation private constructor(
          */
         val withGCMaybe = isGarbageCollectionFor[s.where]?.let {
             generateGCSetup(
+                s.where,
                 it
             )
         } ?: CommandWithRequiredDecls()
@@ -2377,7 +2381,7 @@ class BufferTraceInstrumentation private constructor(
             if(s in handled || !patcher.isBlockStillInGraph(s.block)) {
                 continue
             }
-            patcher.addBefore(s, generateGCSetup(next))
+            patcher.addBefore(s, generateGCSetup(s, next))
         }
 
         /**
@@ -2590,7 +2594,7 @@ class BufferTraceInstrumentation private constructor(
                 ), setOf(bufferHashVar)
             ),
             context.setup
-        ).flatten()
+        ).flatten().wrap("Compute buffer hash for ${ls.id}")
         val basicHash = TACExpr.SimpleHash(
             length = ls.traceEventInfo.eventSort.ordinal.asTACExpr,
             args = listOf(bufferHashVar.asSym()) + ls.length.asSym() + context.symbols.map { it.asSym() },
@@ -2979,7 +2983,7 @@ class BufferTraceInstrumentation private constructor(
             val traceComputation = CommandWithRequiredDecls(listOf(
                 traceHash,
                 eventUpdatePayload
-            ), setOf(traceEventValue, traceHashVar))
+            ), setOf(traceEventValue, traceHashVar)).wrap("Compute event payload ${source.id}")
 
             /**
              * Update the appropriate [Logger] based on the traced event type.
@@ -3094,12 +3098,12 @@ class BufferTraceInstrumentation private constructor(
             )
         }
         val hashUpdate = updateGenerator.updateShadowHash(hash, relativeOffs, length)
-        toRet.extend(hash `=` {
+        toRet.extend((hash `=` {
                 ite(overlapSym, hashUpdate.exp, hash)
-            }
+            }).wrap("Hash update for ${targetBuffer.id}")
         )
         // update alignment
-        toRet.extend(sourceInfo.allAlignedVar `=` {
+        toRet.extend((sourceInfo.allAlignedVar `=` {
                 ite(overlapSym,
                     sourceInfo.allAlignedVar and (
                         sourceInfo.baseProphecy le write.loc
@@ -3110,10 +3114,10 @@ class BufferTraceInstrumentation private constructor(
                         ) and (updateGenerator.getSourceIsAlignedPredicate()),
                     sourceInfo.allAlignedVar
                 )
-            }
+            }).wrap("Alignment for ${targetBuffer.id}")
         )
 
-        val hashUpdateCommands = hashUpdate.toCRD() andThen toRet.toCommandWithRequiredDecls()
+        val hashUpdateCommands = hashUpdate.toCRD().wrap("Hash Decls ${targetBuffer.id}") andThen toRet.toCommandWithRequiredDecls().wrap("Update Hash & Alignment")
         // call the mixins. Take care not to have call instrument itself
         val instrumentationUpdates = sourceInfo.instrumentationMixins.map {
             if(targetBuffer.where == write.where && !it.intrumentSelfUpdates) {
