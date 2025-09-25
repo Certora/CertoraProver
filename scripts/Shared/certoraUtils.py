@@ -307,7 +307,7 @@ class ExitException(Exception):
         super().__init__(message)
         self.exit_code = exit_code  # Store the integer data
 
-MIN_JAVA_VERSION = 11  # minimal java version to run the local type checker jar
+MIN_JAVA_VERSION = 19  # minimal java version to run the local type checker jar
 
 
 def text_style(txt: str, style: str) -> str:
