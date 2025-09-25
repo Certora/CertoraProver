@@ -28,6 +28,7 @@ import report.*
 import rules.RuleChecker.CmdPointerList
 import scene.IScene
 import solver.CounterexampleModel
+import spec.rules.IRule
 import tac.DumpTime
 import tac.MetaKey
 import tac.NBId
@@ -66,11 +67,11 @@ private fun dumpTAC(tac: CoreTACProgram) {
 }
 
 /** Simple helper to send an alert here */
-private fun sendAlert(rule: CompiledRule, msg: String) {
+private fun sendAlert(rule: IRule, msg: String) {
     CVTAlertReporter.reportAlert(
         CVTAlertType.GENERAL,
         CVTAlertSeverity.WARNING,
-        rule.rule.range as? TreeViewLocation,
+        rule.range as? TreeViewLocation,
         msg,
         null
     )
@@ -109,18 +110,19 @@ private fun CoreTACProgram.eliminateBlocks(blocks: Set<NBId>): CoreTACProgram {
  * Perform the first check with destructive optimizations enabled. Annotates the program beforehand, so that the model
  * can be used to fix variables to values in the rerun.
  */
-private suspend fun doFirstCheck(scene: IScene, rule: CompiledRule): CompiledRule.CompileRuleCheckResult {
+private suspend fun doFirstCheck(tac: CoreTACProgram, check: suspend (CoreTACProgram) -> CompiledRule.CompileRuleCheckResult): CompiledRule.CompileRuleCheckResult {
     // annotate each assigning command with its CmdPointer
-    val annotatedTac = rule.tac.patching { p ->
-        rule.tac.analysisCache.graph.commands
+    val annotatedTac = tac.patching { p ->
+        tac.analysisCache.graph.commands
             .filter { it.cmd is TACCmd.Simple.AssigningCmd }
             .forEach { (ptr, cmd) -> p.update(ptr, cmd.plusMeta(TWOSTAGE_META_VARORIGIN, CmdPointerList(ptr))) }
-    }.withDestructiveOptimizations(true).copy(name = "${rule.tac.name}-firstrun")
+    }.withDestructiveOptimizations(true).copy(name = "${tac.name}-firstrun")
     // dump tac of first run
     dumpTAC(annotatedTac)
     // do the first check
-    return CompiledRule.create(rule.rule, annotatedTac, rule.liveStatsReporter).check(scene.toIdentifiers())
+    return check(annotatedTac)
 }
+
 
 /**
  * Add the model to assigning commands in the tac program to fix variables to the values of the given [model]
@@ -129,7 +131,7 @@ private suspend fun doFirstCheck(scene: IScene, rule: CompiledRule): CompiledRul
  * assume commands.
  */
 private fun patchTAC(
-    rule: CompiledRule,
+    tac: CoreTACProgram,
     model: CounterexampleModel,
     filter: (TACSymbol.Var, TACValue) -> Boolean
 ): CoreTACProgram {
@@ -138,8 +140,8 @@ private fun patchTAC(
         .flatMap { (sym, v) -> sym.meta[TWOSTAGE_META_VARORIGIN]?.ptrs?.map { it to v } ?: listOf() }
         .toMap()
     // go through tac and attach the model to every suitable assignment
-    return rule.tac.patching { p ->
-        analysisCache.graph.commands
+    return tac.patching { p ->
+        tac.analysisCache.graph.commands
             .filter { (ptr, _) -> ptr in fixed }
             .filter { (_, cmd) -> cmd is TACCmd.Simple.AssigningCmd }
             .forEach { (ptr, cmd) ->
@@ -151,7 +153,7 @@ private fun patchTAC(
                 }
             }
     }.eliminateBlocks(model.unreachableNBIds).also {
-        logger.debug { "Eliminated ${model.unreachableNBIds.size} / ${rule.tac.code.size} blocks from ${rule.tac.name}" }
+        logger.debug { "Eliminated ${model.unreachableNBIds.size} / ${tac.code.size} blocks from ${tac.name}" }
     }
 }
 
@@ -184,15 +186,15 @@ private fun passesSanityCheck(patchedTac: CoreTACProgram, model: CounterexampleM
  * If the violation is found to be spurious, either from the sanity check or the full check, we return null.
  */
 private suspend fun doSecondCheck(
-    scene: IScene,
-    rule: CompiledRule,
+    tac: CoreTACProgram,
     model: CounterexampleModel,
     subname: String,
+    check: suspend (CoreTACProgram) -> CompiledRule.CompileRuleCheckResult,
     filter: (TACSymbol.Var, TACValue) -> Boolean
 ): CompiledRule.CompileRuleCheckResult? {
-    val name = "${rule.tac.name}-${subname}"
+    val name = "${tac.name}-${subname}"
     // do the second check without destructive optimizations
-    val patchedTac = patchTAC(rule, model, filter).withDestructiveOptimizations(false).copy(name = name)
+    val patchedTac = patchTAC(tac, model, filter).withDestructiveOptimizations(false).copy(name = name)
     // dump tac of the rerun
     dumpTAC(patchedTac)
 
@@ -202,8 +204,7 @@ private suspend fun doSecondCheck(
         Logger.regression { "${name}: violation failed sanity check" }
     }
 
-    val secondRule = CompiledRule.create(rule.rule, patchedTac, rule.liveStatsReporter)
-    val secondResult = secondRule.check(scene.toIdentifiers())
+    val secondResult = check(patchedTac)
 
     return if (secondResult.result.getOrThrow().result is Verifier.JoinedResult.Failure) {
         logger.info { "${name}: violation was confirmed, returning the second result" }
@@ -231,12 +232,14 @@ private suspend fun doSecondCheck(
  */
 @OptIn(Config.DestructiveOptimizationsOption::class)
 suspend fun twoStageDestructiveOptimizationsCheck(
-    scene: IScene,
-    rule: CompiledRule,
+    rule: IRule,
+    ruleDescription: String,
+    tac: CoreTACProgram,
+    check: suspend (CoreTACProgram) -> CompiledRule.CompileRuleCheckResult
 ): CompiledRule.CompileRuleCheckResult {
     // dump original tac
-    dumpTAC(rule.tac)
-    val firstResult = doFirstCheck(scene, rule)
+    dumpTAC(tac)
+    val firstResult = doFirstCheck(tac, check)
     // if we have a violation, do the two-stage dance
     return if (firstResult.result.getOrNull()?.result is Verifier.JoinedResult.Failure) {
         logger.info { "Doing the two-stage dance" }
@@ -246,10 +249,10 @@ suspend fun twoStageDestructiveOptimizationsCheck(
         val model =
             firstResult.result.getOrNull()?.result?.examplesInfo?.head?.model
                 ?: throw ViolationWithoutModelException()
-        val checkResult = (doSecondCheck(scene, rule, model, "rerun-allvars") { _, _ -> true }).addToVerifyTime()
-            ?: (doSecondCheck(scene, rule, model, "rerun-boolvars") { v, _ -> v.tag == Tag.Bool }).addToVerifyTime()
+        val checkResult = (doSecondCheck(tac, model, "rerun-allvars", check) { _, _ -> true }).addToVerifyTime()
+            ?: (doSecondCheck(tac, model, "rerun-boolvars", check) { v, _ -> v.tag == Tag.Bool }).addToVerifyTime()
             ?: run {
-                val msg = "The violation for ${rule.rule.description} could not be confirmed without destructive optimizations. It is probably spurious and the call trace generation likely fails. Please run again with `-destructiveOptimizations disable`."
+                val msg = "The violation for $ruleDescription could not be confirmed without destructive optimizations. It is probably spurious and the call trace generation likely fails. Please run again with `-destructiveOptimizations disable`."
                 check(Config.DestructiveOptimizationsMode.get() != DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED) { msg }
                 logger.warn { msg }
                 sendAlert(rule, msg)
@@ -260,5 +263,14 @@ suspend fun twoStageDestructiveOptimizationsCheck(
         )
     } else {
         firstResult
+    }
+}
+
+suspend fun twoStageDestructiveOptimizationsCheck(
+    scene: IScene,
+    rule: CompiledRule,
+): CompiledRule.CompileRuleCheckResult {
+    return twoStageDestructiveOptimizationsCheck(rule.rule, rule.rule.description, rule.tac) { tac ->
+        CompiledRule.create(rule.rule, tac, rule.liveStatsReporter).check(scene.toIdentifiers())
     }
 }

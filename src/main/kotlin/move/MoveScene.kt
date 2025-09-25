@@ -36,8 +36,7 @@ private val logger = Logger(LoggerTypes.MOVE)
     Loads all move modules acessible to the Prover, including the spec module.
  */
 class MoveScene(
-    val modulePath: Path,
-    val optimize: Boolean = true,
+    val modulePath: Path
 ) {
     private val moduleMap: Map<MoveModuleName, MoveModule> by lazy {
         Files.walk(modulePath, FileVisitOption.FOLLOW_LINKS)

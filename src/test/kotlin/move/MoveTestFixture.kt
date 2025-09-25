@@ -207,10 +207,10 @@ abstract class MoveTestFixture() {
     /**
         Builds a [MoveScene] from the sources in [moveDir], using the given [specModule] as the spec.
      */
-    private fun buildScene(optimize: Boolean): MoveScene {
+    private fun buildScene(): MoveScene {
         addMoveSource(cvlmSource)
         moveBuild()
-        return MoveScene(moveDir, optimize = optimize)
+        return MoveScene(moveDir)
     }
 
     val moveLogger = TestLogger(LoggerTypes.MOVE)
@@ -231,17 +231,14 @@ abstract class MoveTestFixture() {
         assumeNoTraps: Boolean = true,
         recursionLimit: Int = 3,
         recursionLimitIsError: Boolean = false,
-        loopIter: Int = 1,
-        optimize: Boolean = false
     ): MoveTACProgram {
         maybeEnableReportGeneration()
         ConfigScope(Config.TrapAsAssert, !assumeNoTraps)
             .extend(Config.QuietMode, true)
             .extend(Config.RecursionErrorAsAssertInAllCases, recursionLimitIsError)
             .extend(Config.RecursionEntryLimit, recursionLimit)
-            .extend(Config.LoopUnrollConstant, loopIter)
             .use {
-                val moveScene = buildScene(optimize)
+                val moveScene = buildScene()
                 val (selected, type) = moveScene.cvlmManifest.selectedRules.singleOrNull() ?: error("Expected exactly one rule")
                 check(type == CvlmManifest.RuleType.USER_RULE) {
                     "Expected a user rule, but got $type"
@@ -270,12 +267,13 @@ abstract class MoveTestFixture() {
         .extend(Config.RecursionEntryLimit, recursionLimit)
         .extend(Config.LoopUnrollConstant, loopIter)
         .use {
-            val moveScene = buildScene(optimize)
+            val moveScene = buildScene()
             val scene = SceneFactory.getScene(DegenerateContractSource("dummyScene"))
 
             return moveScene.rules.associate { (rule, program) ->
+                val optimized = program.letIf(optimize) { MoveToTAC.optimize(it) }
                 val vRes = runBlocking {
-                    TACVerifier.verify(scene, program, DummyLiveStatsReporter)
+                    TACVerifier.verify(scene, optimized, DummyLiveStatsReporter)
                 }
                 val joinedRes = Verifier.JoinedResult(vRes)
 

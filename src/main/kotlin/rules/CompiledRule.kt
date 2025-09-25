@@ -141,15 +141,35 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
         val isSolverResultFromCache: IsFromCache,
         val stats: SDCollector = SDCollectorFactory.collector()
     ) {
-
         suspend fun toCheckResult(
             scene: ISceneIdentifiers,
             compiledRule: CompiledRule,
             generateReport: Boolean = true,
+        ): Result<RuleCheckResult.Single> {
+            return toCheckResult(
+                scene,
+                compiledRule.rule,
+                extraAlerts = result.getOrNull()?.let { (res, _) ->
+                    val isAlwaysRevertingAlert = runIf(checkIfAllPathsAreLastReverted(compiledRule.tac)) {
+                        listOf(RuleAlertReport.Info(msg = "The rule contains only reverting paths."))
+                    }.orEmpty()
+                    val sanityAlerts = computeSanityAlerts(compiledRule.rule, res)
+                    val requireWithoutReasonAlerts = collectRequireWithoutReasonNotifications(compiledRule)
+                    isAlwaysRevertingAlert + requireWithoutReasonAlerts + sanityAlerts
+                }.orEmpty(),
+                generateReport = generateReport
+            )
+        }
+
+        suspend fun toCheckResult(
+            scene: ISceneIdentifiers,
+            rule: IRule,
+            extraAlerts: List<RuleAlertReport> = emptyList(),
+            generateReport: Boolean = true,
         ): Result<RuleCheckResult.Single> = result.mapCatching { (res, time) ->
             if (generateReport) {
                 // output HTML files
-                res.reportOutput(compiledRule.rule)
+                res.reportOutput(rule)
             }
             val isSolverResultFromCacheAlert = isSolverResultFromCache.toRuleAlertReportOrNull()
             val isEmptyCodeAlert = if (res.simpleSimpleSSATAC.isEmptyCode()) {
@@ -163,28 +183,20 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
             } else {
                 null
             }
-            val isAlwaysRevertingAlert = if (checkIfAllPathsAreLastReverted(compiledRule.tac)) {
-                RuleAlertReport.Info(msg = "The rule contains only reverting paths.")
-            } else {
-                null
-            }
-            val sanityAlerts = computeSanityAlerts(compiledRule.rule, res)
-            val requireWithoutReasonAlerts = collectRequireWithoutReasonNotifications(compiledRule)
             val imprecisions = res.examplesInfo?.mapIndexedNotNull { i, model ->
                 (model.model as? SMTCounterexampleModel)?.let {
                     val cexAnalyser = CounterExampleAnalyser(i, res.simpleSimpleSSATAC, it)
                     cexAnalyser.alerts
                 }
             }?.flatten().orEmpty()
-            val alerts = listOfNotNull(isSolverResultFromCacheAlert, isEmptyCodeAlert, isAlwaysRevertingAlert) +
-                requireWithoutReasonAlerts + sanityAlerts + imprecisions
+            val alerts = listOfNotNull(isSolverResultFromCacheAlert, isEmptyCodeAlert) + imprecisions + extraAlerts
             if (generateReport && !Config.CoinbaseFeaturesMode.get()) {
-                generateSingleResult(scene, compiledRule.rule, res, time, isOptimizedRuleFromCache, isSolverResultFromCache, alerts)
+                generateSingleResult(scene, rule, res, time, isOptimizedRuleFromCache, isSolverResultFromCache, alerts)
             } else {
                 val details = (res as? Verifier.JoinedResult.Success)?.details().orEmpty()
-                val dumpGraphLink = RuleCheckInfo.basicDumpGraphLinkOf(compiledRule.rule)
+                val dumpGraphLink = RuleCheckInfo.basicDumpGraphLinkOf(rule)
                 RuleCheckResult.Single.Basic(
-                    rule = compiledRule.rule,
+                    rule = rule,
                     ruleCheckInfo = RuleCheckInfo.BasicInfo(
                         details = Result.success(details),
                         dumpGraphLink = dumpGraphLink,
@@ -326,24 +338,14 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
 
     protected fun Result<ResultAndTime<Verifier.JoinedResult>>.
         mapCheckResult(isOptimizedRuleFromCache: IsFromCache, isSolverResultFromCache: IsFromCache): CompileRuleCheckResult =
-        fold(onSuccess = { result ->
-            CompileRuleCheckResult(
-                Result.success(result),
-                isOptimizedRuleFromCache = isOptimizedRuleFromCache,
-                isSolverResultFromCache = isSolverResultFromCache
+            mapCheckResult(
+                listOfNotNull(
+                    rule.parentIdentifier,
+                    rule.declarationId
+                ).joinToString(separator = OUTPUT_NAME_DELIMITER),
+                isOptimizedRuleFromCache,
+                isSolverResultFromCache
             )
-        }) {
-            if (it is CancellationException) {
-                throw it
-            }
-            val ruleName = listOfNotNull(
-                rule.parentIdentifier,
-                rule.declarationId
-            ).joinToString(separator = OUTPUT_NAME_DELIMITER)
-            logger.error(it) { "Had an exception while getting object to verify for rule $ruleName, $it" }
-            val named = CertoraException.fromExceptionWithRuleName(it, ruleName)
-            CompileRuleCheckResult(Result.failure(named), isOptimizedRuleFromCache = isOptimizedRuleFromCache, isSolverResultFromCache = isSolverResultFromCache)
-        }
 
     protected open suspend fun verify(
         scene: SceneIdentifiers,
@@ -517,6 +519,24 @@ open class CompiledRule protected constructor(val rule: CVLSingleRule, val tac: 
             )
                 .toCheckableTACs(_scene, _rule.copy(ruleGenerationMeta = _rule.ruleGenerationMeta.updateSanity(sanity)))
         }.transformError(_rule)
+
+
+        fun Result<ResultAndTime<Verifier.JoinedResult>>.
+            mapCheckResult(ruleName: String, isOptimizedRuleFromCache: IsFromCache, isSolverResultFromCache: IsFromCache): CompileRuleCheckResult =
+            fold(onSuccess = { result ->
+                CompileRuleCheckResult(
+                    Result.success(result),
+                    isOptimizedRuleFromCache = isOptimizedRuleFromCache,
+                    isSolverResultFromCache = isSolverResultFromCache
+                )
+            }) {
+                if (it is CancellationException) {
+                    throw it
+                }
+                logger.error(it) { "Had an exception while getting object to verify for rule $ruleName, $it" }
+                val named = CertoraException.fromExceptionWithRuleName(it, ruleName)
+                CompileRuleCheckResult(Result.failure(named), isOptimizedRuleFromCache = isOptimizedRuleFromCache, isSolverResultFromCache = isSolverResultFromCache)
+            }
 
         /**
          * Generates the sanity-check sub-rules for the given [_rule].

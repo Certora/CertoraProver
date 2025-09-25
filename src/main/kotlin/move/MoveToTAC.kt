@@ -84,6 +84,57 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             )
         }
 
+        fun optimize(code: CoreTACProgram) =
+            CoreTACProgram.Linear(code)
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SNIPPET_REMOVAL, SnippetRemover::rewrite))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { BoolOptimizer(it).go() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) { NegationNormalizer(it).rewrite() })
+            .mapIfAllowed(
+                CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
+                    val filtering = FilteringFunctions.default(it, keepRevertManagment = true)::isErasable
+                    removeUnusedAssignments(it, expensive = false, filtering, isTypechecked = true)
+                        .let(BlockMerger::mergeBlocks)
+                }
+            )
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
+            .mapIfAllowed(
+                CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1) {
+                    ConstantPropagator.propagateConstants(it, emptySet()).let {
+                        BlockMerger.mergeBlocks(it)
+                    }
+                }
+            )
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_UNUSED_WRITES, SimpleMemoryOptimizer::removeUnusedWrites))
+            .mapIfAllowed(
+                CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->
+                    optimizeAssignments(c,
+                        FilteringFunctions.default(c, keepRevertManagment = true)
+                    ).let(BlockMerger::mergeBlocks)
+                }
+            )
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_INFEASIBLE_PATHS) { InfeasiblePaths.doInfeasibleBranchAnalysisAndPruning(it) })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SIMPLE_SUMMARIES1) { it.simpleSummaries() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
+            .mapIfAllowed(
+                CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
+                    IntervalsRewriter.rewrite(it, handleLeinoVars = false)
+                }
+            )
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
+                    // after pruning infeasible paths, there are more constants to propagate
+                    ConstantPropagator.propagateConstants(it, emptySet())
+                }
+            )
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
+            .ref
+
+
         /**
             Instantiates generic functions, using [MoveType.Nondet] as the type arguments.  Each type argument receives
             a unique [MoveType.Nondet] ID.
@@ -366,12 +417,12 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
             ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
-            val coreTAC = MoveMemory(scene).transform(moveTAC).let { configureOptimizations(it) }
+            val coreTAC = MoveMemory(scene).transform(moveTAC)
             ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
 
             val ruleType = getRuleType(coreTAC)
 
-            val finalTAC = preprocess(coreTAC, ruleType).letIf(scene.optimize) { optimize(it) }
+            val finalTAC = preprocess(coreTAC, ruleType)
 
             finalTAC to ruleType
         }
@@ -472,73 +523,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
         .mapIf(ruleType.isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
         .ref
-
-    private fun optimize(code: CoreTACProgram) =
-        CoreTACProgram.Linear(code)
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SNIPPET_REMOVAL, SnippetRemover::rewrite))
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { BoolOptimizer(it).go() })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.NEGATION_NORMALIZER) { NegationNormalizer(it).rewrite() })
-        .mapIfAllowed(
-            CoreToCoreTransformer(ReportTypes.UNUSED_ASSIGNMENTS) {
-                val filtering = FilteringFunctions.default(it, keepRevertManagment = true)::isErasable
-                removeUnusedAssignments(it, expensive = false, filtering, isTypechecked = true)
-                    .let(BlockMerger::mergeBlocks)
-            }
-        )
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
-        .mapIfAllowed(
-            CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1) {
-                ConstantPropagator.propagateConstants(it, emptySet()).let {
-                    BlockMerger.mergeBlocks(it)
-                }
-            }
-        )
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_UNUSED_WRITES, SimpleMemoryOptimizer::removeUnusedWrites))
-        .mapIfAllowed(
-            CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->
-                optimizeAssignments(c,
-                    FilteringFunctions.default(c, keepRevertManagment = true)
-                ).let(BlockMerger::mergeBlocks)
-            }
-        )
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_INFEASIBLE_PATHS) { InfeasiblePaths.doInfeasibleBranchAnalysisAndPruning(it) })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SIMPLE_SUMMARIES1) { it.simpleSummaries() })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
-        .mapIfAllowed(
-            CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
-                IntervalsRewriter.rewrite(it, handleLeinoVars = false)
-            }
-        )
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
-                // after pruning infeasible paths, there are more constants to propagate
-                ConstantPropagator.propagateConstants(it, emptySet())
-            }
-        )
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
-        .ref
-
-    /**
-        Enables or disables destructive optimizations, which allow us to optimize the TAC in ways that will break the
-        call trace.
-     */
-    @OptIn(Config.DestructiveOptimizationsOption::class)
-    private fun configureOptimizations(code: CoreTACProgram) = when (Config.DestructiveOptimizationsMode.get()) {
-        DestructiveOptimizationsModeEnum.DISABLE -> code
-        DestructiveOptimizationsModeEnum.ENABLE -> code.withDestructiveOptimizations(true)
-        DestructiveOptimizationsModeEnum.TWOSTAGE,
-        DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> {
-            throw CertoraException(
-                CertoraErrorType.BAD_CONFIG,
-                "Two-stage destructive optimization mode is not yet supported for Move programs."
-            )
-        }
-    }
 
     context(SummarizationContext)
     fun compileFunctionCall(call: MoveCall): MoveBlocks {
