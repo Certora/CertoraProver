@@ -1418,6 +1418,8 @@ def handle_remappings_file(context: SimpleNamespace) -> List[str]:
     elif find_nearest_foundry_toml():
         remappings = get_mappings_from_forge_remappings()
 
+    context.forge_remappings = remappings
+
     return remappings
 
 

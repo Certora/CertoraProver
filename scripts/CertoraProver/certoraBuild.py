@@ -3817,6 +3817,14 @@ def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bo
     cwd_file_path.parent.mkdir(parents=True, exist_ok=True)
     cwd_file_path.touch()
 
+    # copy context.forge_remappings to remappings.txt in the source tree, overwriting any existing remappings.txt
+    forge_remappings = getattr(context, 'forge_remappings', None)
+    if forge_remappings:
+        remappings_file_path = Util.get_certora_sources_dir() / context.cwd_rel_in_sources / Util.REMAPPINGS_FILE
+        with remappings_file_path.open("w") as remap_file:
+            for remap in context.forge_remappings:
+                remap_file.write(remap + "\n")
+
     #  the empty file .project_directory is written in the source tree to denote the project directory
     rust_proj_dir = getattr(context, 'rust_project_directory', None)
     if rust_proj_dir:
