@@ -54,19 +54,6 @@ private val logger = Logger(LoggerTypes.EQUIVALENCE)
  * of the process of the "Localized Buffer Precision" in the EC writeup.
  */
 object StaticBufferRefinement {
-    /**
-     * The "nice" version of [WriteOffsets]: indicates that a buffer (the identity of which is not included here)
-     * is always of length [staticLength], and its contents are *always* constructed by a sequence of writes, whose relative
-     * offsets are in [relativeOffsets].
-     *
-     * The buffer being written has its used site at [bufferWriteSource]. NB that this may not be the
-     * same as buffer in question as the buffer contents may be copied around.
-     */
-    data class BufferRefinement(
-        val staticLength: BigInteger,
-        val relativeOffsets: List<Int>,
-        val bufferWriteSource: CmdPointer,
-    )
 
     private val KEEP_ALIVE_META = MetaKey<EmbeddedInstrumentationVars>("equiv.keep-alive")
 
@@ -98,6 +85,27 @@ object StaticBufferRefinement {
             get() = setOf(preciseBufferVar, bufferCopySourceVar, bufferOffsetsVar, bufferLengthVar, bufferWriteCountVar)
     }
 
+    sealed interface BufferWrite {
+        val relativeOffset: BigInteger
+        val length: BigInteger
+        data class WordWrite(
+            override val relativeOffset: BigInteger
+        ) : BufferWrite {
+            override val length: BigInteger
+                get() = EVM_WORD_SIZE
+        }
+
+        data class LongCopyFrom(
+            override val relativeOffset: BigInteger,
+            val copySource: WriteOffsets
+        ) : BufferWrite {
+            override val length: BigInteger
+                get() = copySource.staticLength
+        }
+
+        val endPoint: BigInteger get() = this.relativeOffset + this.length
+    }
+
     /**
      * Indicates the "shape" of the buffer construction extracted from a counter example.
      * [staticLength] was the buffer length (which we are guessing is static).
@@ -105,9 +113,8 @@ object StaticBufferRefinement {
      * [relativeWriteOffsets] records the relative offsets of the writes that
      * define the buffer, in the order they were written.
      *
-     * [actualSource] indicates the long-reads traversed when building this buffer.
-     * The last ID in this list is always the long read ID for buffer read we're interested in:
-     * the call/log/etc.
+     * [actualSource] is the [CmdPointer] in the ORIGINAL program (not the instrumented one)
+     * which reads the buffer built by [relativeWriteOffsets]
      *
      * Any previous IDs are the ids assigned to the long-reads which copy the buffer into place. Thus,
      * the writes recorded by [relativeWriteOffsets] are *always* into the buffer associated with the long read with
@@ -119,9 +126,9 @@ object StaticBufferRefinement {
      * This isn't a great representation, but it exists as a single return type, after which it is used to construct a VC.
      * I'm not going to lose sleep over it.
      */
-    private data class WriteOffsets(
-        val actualSource: List<Int>,
-        val relativeWriteOffsets: List<BigInteger>,
+    data class WriteOffsets(
+        val actualSource: CmdPointer,
+        val relativeWriteOffsets: List<BufferWrite>,
         val staticLength: BigInteger,
     )
 
@@ -182,8 +189,6 @@ object StaticBufferRefinement {
         )
     }
 
-    private fun <T, U> Either<T, U>?.nullIsErr(s: U) = this ?: s.toRight()
-
     /**
      * Extract the [WriteOffsets] from the counter example as encapsulated by [interp].
      *
@@ -196,7 +201,8 @@ object StaticBufferRefinement {
     private fun extractWriteOffsets(
         interp: ModelInterpreter,
         useId: Int,
-        useIdToVars: Map<Int, EmbeddedInstrumentationVars>
+        useIdToVars: Map<Int, EmbeddedInstrumentationVars>,
+        useIdToLoc: Map<Int, CmdPointer>
     ) : Either<WriteOffsets, String> {
         fun <T> Either<T, String>.withErrContext(ext: String = "") = this.mapRight { "While exploring site $useId: $ext$it" }
         fun fail(s: String): Either<Nothing, String> {
@@ -254,7 +260,7 @@ object StaticBufferRefinement {
         /**
          * Writes in sequence is the (reversed) sequence of relative offsets
          */
-        val writesInSequence = mutableListOf<BigInteger>()
+        val writesInSequence = mutableListOf<BufferWrite>()
 
         /**
          * Start from the last write in the trace, and go "back" through history
@@ -281,49 +287,29 @@ object StaticBufferRefinement {
              * Non-zero, so this is a write
              */
             if(src != null && src != BigInteger.ZERO) {
-                // if this is empty, then we have some sequence of mstores following an mcopy.
-                // not willing to support mixing of mcopies and mstores in general, so just take the
-                // suffix of mstores and hope the mcopy wasn't important
-                if(writesInSequence.isNotEmpty()) {
-                    break
-                }
-                /**
-                 * Check that this mcopy was copying the whole buffer: it was copying to offset 0, and
-                 * it was copying exactly the length of the buffer.
-                 */
-                if(offs != BigInteger.ZERO) {
-                    return fail("Long copy was not to 0 $offs from $src")
-                }
                 val copyId = src.intValueExact()
-
-                val sourceLength = useIdToVars[copyId]?.bufferLengthVar?.let(interp.theModel::valueAsBigInteger)
-                    ?.fmtError()
-                    .nullIsErr("couldn't find buffer instrumentation for $copyId")
-                    .withErrContext("Trying to extract length of $copyId: ")
-                    .leftOr { return it }
-                if(sourceLength != thisLength) {
-                    return fail("Copy from $copyId was not the same length as $useId: $thisLength vs $sourceLength")
-                }
                 /**
                  * If this was an entire copy, then recursively try to get the contents that define the source buffer,
                  * then record that we copied from there via the mcopy (whose id is useId)
                  */
-                return extractWriteOffsets(interp, copyId, useIdToVars).mapLeft {
-                    it.copy(
-                        actualSource = it.actualSource + useId
-                    )
+                val copySource = extractWriteOffsets(interp, copyId, useIdToVars, useIdToLoc).leftOr {
+                    return it.withErrContext("Couldn't follow copy at $it from $src")
                 }
+                writesInSequence.add(BufferWrite.LongCopyFrom(
+                    relativeOffset = offs,
+                    copySource = copySource
+                ))
+            } else {
+                /**
+                 * Otherwise, this *must* have been a scalar write
+                 */
+                writesInSequence.add(BufferWrite.WordWrite(offs))
             }
-            /**
-             * Otherwise, this *must* have been a scalar write
-             */
-            writesInSequence.add(offs)
             it--
         }
         /**
          * Reverse the writes, to give the writes in program order
          */
-        writesInSequence.reverse()
         val firstPreciseWrite = it + BigInteger.ONE
         if(firstPreciseWrite == writeCount) {
             return fail("No writes into the buffer were precise")
@@ -331,32 +317,26 @@ object StaticBufferRefinement {
         check(writesInSequence.isNotEmpty()) {
             "Had at least one precise write, but no offsets extracted?"
         }
-        val sortedWrites = writesInSequence.sorted()
+        val sortedWrites = mutableListOf<BufferWrite>()
 
-        /**
-         * Compute the range covered by these writes.
-         */
-        var currEnd = sortedWrites.first() + EVM_WORD_SIZE
-        for(i in 1 until sortedWrites.size) {
-            val nextWrite = sortedWrites[i]
-            if(nextWrite > currEnd) {
-                return fail("non-covering writes: $currEnd but next relative was $nextWrite; $sortedWrites; $writesInSequence")
+        for(i in 0 .. writesInSequence.lastIndex) {
+            if(checkCovering(
+                thisLength, sortedWrites, writesInSequence[i]
+            )) {
+                /*
+                 this is the minimum number of writes needed to cover
+                 the buffer operation; extract the prefix from writesInSequence (which, recall, is in REVERSE program order)
+                 and then reverse it to give program order
+                 */
+                val programOrder = writesInSequence.subList(0, i + 1).reversed()
+                return WriteOffsets(
+                    actualSource = useIdToLoc[useId] ?: return fail("Couldn't resolve $useId to location"),
+                    staticLength = thisLength,
+                    relativeWriteOffsets = programOrder
+                ).toLeft()
             }
-            currEnd = currEnd.max(nextWrite + EVM_WORD_SIZE)
         }
-        if(currEnd < thisLength) {
-            return fail("didn't cover entire buffer, reached $currEnd, length was $thisLength")
-        }
-        /**
-         * Otherwise, we have that the buffer (whose id is [useId]) was of length `thisLength`
-         * and the contents were defined by the writes in `writesInSequence`
-         *
-         */
-        return WriteOffsets(
-            actualSource = listOf(useId),
-            staticLength = thisLength,
-            relativeWriteOffsets = writesInSequence
-        ).toLeft()
+        return fail("precise write suffix didn't cover entire buffer")
     }
 
     private fun MutableList<TACExpr.BinRel>.addEquiv(lhs: ToTACExpr, rhs: ToTACExpr) = this.add(
@@ -383,6 +363,36 @@ object StaticBufferRefinement {
      */
     fun <T, U> Either<T, U>.fmtError() = this.mapRight { "error obj: $it" }
 
+    private fun checkCovering(
+        targetLen: BigInteger,
+        sortedWrites: MutableList<BufferWrite>,
+        o: BufferWrite
+    ) : Boolean {
+        var added = false
+        for((ind, v) in sortedWrites.withIndex()) {
+            if(o.relativeOffset < v.relativeOffset) {
+                sortedWrites.add(ind, o)
+                added = true
+                break
+            }
+        }
+        if(!added) {
+            sortedWrites.add(o)
+        }
+        var currEnd = sortedWrites.first().endPoint
+        if(sortedWrites.first().relativeOffset > BigInteger.ZERO) {
+            return false
+        }
+        for(i in 1 until sortedWrites.size) {
+            val nextWrite = sortedWrites[i]
+            if(nextWrite.relativeOffset > currEnd) {
+                return false
+            }
+            currEnd = currEnd.max(nextWrite.endPoint)
+        }
+        return currEnd >= targetLen
+    }
+
     /**
      * Extract the [WriteOffsets] describine how the buffer is created, along
      * with a mapping from the numeric long read ids to their [CmdPointer] (as these IDs
@@ -393,7 +403,7 @@ object StaticBufferRefinement {
         eventMarker: TraceWithContext<T, *>,
         context: ProgramContext<T>,
         scene: IScene,
-    ) : Either<Pair<WriteOffsets, Map<Int, CmdPointer>>, String> {
+    ) : Either<WriteOffsets, String> {
         fun <T> Either<T, String>.withErrorCtxt() = this.mapRight { "Extracting write offsets from ${eventMarker.context.originalProgram.pp()}: $it" }
         fun fail(msg: String) = msg.toRight().withErrorCtxt()
         val eventCmd = eventMarker.event.origProgramSite
@@ -457,7 +467,7 @@ object StaticBufferRefinement {
         val extractionRule = EquivalenceRule.freshRule("Static extraction from ${eventMarker.context.originalProgram.pp()}")
         Verifier.JoinedResult(report).reportOutput(extractionRule)
         val reportTac = report.tac
-        val reportIdToInstrumentaiton = reportTac.parallelLtacStream().mapNotNull {
+        val reportIdToInstrumentation = reportTac.parallelLtacStream().mapNotNull {
             it.maybeAnnotation(KEEP_ALIVE_META)?.let { ui ->
                 ui.id to ui
             }
@@ -470,20 +480,75 @@ object StaticBufferRefinement {
             it.cmd is TACCmd.Simple.AssertCmd
         }?.ptr ?: return fail("Couldn't find final assert location")
         val theModel = report.examplesInfo.head.model
+        val reverseIdMapping = inst.useSiteInfo.entries.associate {
+            it.value.id to it.key
+        }
         val staticWrites = extractWriteOffsets(
-            ModelInterpreter(
+            interp = ModelInterpreter(
                 theModel = theModel,
                 graph = reportG,
                 assertLoc = assertLoc
             ),
-            useId,
-            reportIdToInstrumentaiton
+            useId = useId,
+            useIdToVars = reportIdToInstrumentation,
+            useIdToLoc = reverseIdMapping
         ).withErrorCtxt().leftOr { return it }
 
-        val reverseIdMapping = inst.useSiteInfo.entries.associate {
-            it.value.id to it.key
+        return staticWrites.toLeft()
+    }
+
+    private fun buildStaticBufferEquality(
+        nextInst: BufferTraceInstrumentation.InstrumentationResults,
+        staticWrites: WriteOffsets
+    ) : Either<List<TACExpr.BinRel>, String> {
+        val mustEqualities = mutableListOf<TACExpr.BinRel>()
+        val bufferForWrites = nextInst.useSiteInfo[staticWrites.actualSource] ?:
+            return "no instrumentation for ${staticWrites.actualSource}".toRight()
+
+        /**
+         * The buffer must be exactly equal to the static length
+         */
+        mustEqualities.addEquiv(bufferForWrites.instrumentation!!.lengthVar, staticWrites.staticLength)
+        /**
+         * there must be at least as many writes as in the relative offsets
+         */
+        mustEqualities.add(TACExpr.BinRel.Ge(
+            bufferForWrites.instrumentation.bufferWrites!!.bufferWriteCountVar.asSym(),
+            staticWrites.relativeWriteOffsets.size.asTACExpr
+        ))
+
+        /**
+         * The last k writes, where k = relativeWriteOffsets.length, must have exactly the same relative offsets
+         * as we extracted.
+         */
+        staticWrites.relativeWriteOffsets.withIndex().forEach { (ind, write) ->
+            val relativeFromEnd = staticWrites.relativeWriteOffsets.size - ind
+            /**
+             * The symbolic term describing this elements position. For example,
+             * if there are 3 relative offset writes, and ind == 1, then this term is numberOfWrite - (3 - 1),
+             * aka the second to last write, which is what we want.
+             */
+            val indexingTerm = TXF { bufferForWrites.instrumentation.bufferWrites.bufferWriteCountVar sub relativeFromEnd }
+            // to the offset we expect
+            mustEqualities.addEquiv(bufferForWrites.instrumentation.bufferWrites.bufferOffsetHolder[indexingTerm], write.relativeOffset.to2s())
+            // is precise
+            mustEqualities.addEquiv(bufferForWrites.instrumentation.bufferWrites.preciseBuffer[indexingTerm], TACSymbol.One)
+            when(write) {
+                is BufferWrite.LongCopyFrom -> {
+                    val assertions = buildStaticBufferEquality(nextInst, write.copySource).leftOr {
+                        return it.mapRight { err ->
+                            "While building assertion for copy $ind for ${write.copySource.actualSource}: [$err]"
+                        }
+                    }
+                    mustEqualities.addAll(assertions)
+                    mustEqualities.addEquiv(bufferForWrites.instrumentation.bufferWrites.bufferCopySource[indexingTerm], nextInst.useSiteInfo[write.copySource.actualSource]?.id!!)
+                }
+                is BufferWrite.WordWrite -> {
+                    mustEqualities.addEquiv(bufferForWrites.instrumentation.bufferWrites.bufferCopySource[indexingTerm], 0)
+                }
+            }
         }
-        return (staticWrites to reverseIdMapping).toLeft()
+        return mustEqualities.toLeft()
     }
 
     /**
@@ -494,7 +559,7 @@ object StaticBufferRefinement {
         eventMarker: TraceWithContext<T, *>,
         context: ProgramContext<T>,
         scene: IScene,
-    ) : Either<BufferRefinement, String> {
+    ) : Either<WriteOffsets, String> {
         fun <T> Either<T, String>.withErrorCtxt() = this.mapRight { "Extracting buffers from ${eventMarker.context.originalProgram.pp()}: $it" }
         fun fail(msg: String) = msg.toRight().withErrorCtxt()
         val eventCmd = eventMarker.event.origProgramSite
@@ -529,7 +594,7 @@ object StaticBufferRefinement {
             eventSiteOverride = mapOf()
         )
 
-        val (staticWrites, reverseIdMapping) = extractWriteInstrumentation(
+        val staticWrites = extractWriteInstrumentation(
             instControl = options,
             eventMarker = eventMarker,
             context = context,
@@ -541,60 +606,11 @@ object StaticBufferRefinement {
             context = context,
             options = options
         )
-        val mustEqualities = mutableListOf<TACExpr.BinRel>()
-        val bufferForWrites = nextInst.useSiteInfo[reverseIdMapping[staticWrites.actualSource.first()]] ?:
-            return fail("no initial instrumentation for $staticWrites")
 
-        /**
-         * The buffer must be exactly equal to the static length
-         */
-        mustEqualities.addEquiv(bufferForWrites.instrumentation!!.lengthVar, staticWrites.staticLength)
-        /**
-         * there must be at least as many writes as in the relative offsets
-         */
-        mustEqualities.add(TACExpr.BinRel.Ge(
-            bufferForWrites.instrumentation.bufferWrites!!.bufferWriteCountVar.asSym(),
-            staticWrites.relativeWriteOffsets.size.asTACExpr
-        ))
+        val mustEqualities = buildStaticBufferEquality(nextInst, staticWrites).leftOr {
+            return it.withErrorCtxt()
+        }
 
-        /**
-         * The last k writes, where k = relativeWriteOffsets.length, must have exactly the same relative offsets
-         * as we extracted.
-         */
-        staticWrites.relativeWriteOffsets.withIndex().forEach { (ind, offs) ->
-            val relativeFromEnd = staticWrites.relativeWriteOffsets.size - ind
-            /**
-             * The symbolic term describing this elements position. For example,
-             * if there are 3 relative offset writes, and ind == 1, then this term is numberOfWrite - (3 - 1),
-             * aka the second to last write, which is what we want.
-             */
-            val indexingTerm = TXF { bufferForWrites.instrumentation.bufferWrites.bufferWriteCountVar sub relativeFromEnd }
-            TXF {
-                // to the offset we expect
-                mustEqualities.addEquiv(bufferForWrites.instrumentation.bufferWrites.bufferOffsetHolder[indexingTerm], offs.to2s())
-                // is precise
-                mustEqualities.addEquiv(bufferForWrites.instrumentation.bufferWrites.preciseBuffer[indexingTerm], TACSymbol.One)
-                // not a copy
-                mustEqualities.addEquiv(bufferForWrites.instrumentation.bufferWrites.bufferCopySource[indexingTerm], 0)
-            }
-        }
-        /**
-         * Then, there must be the same sequence of copies to put the buffer into position.
-         */
-        for((prev, copyTo) in staticWrites.actualSource.zipWithNext()) {
-            val copyToBuffer = nextInst.useSiteInfo[reverseIdMapping[copyTo]] ?: return fail("no instrumentation information for dest: $copyTo")
-            val copyFromBuffer = nextInst.useSiteInfo[reverseIdMapping[prev]] ?: return fail("no instrumentation information for src: $prev")
-            // same length
-            mustEqualities.addEquiv(copyToBuffer.instrumentation!!.lengthVar, staticWrites.staticLength)
-            // look at the last write
-            val lastWrite = TXF { copyToBuffer.instrumentation.bufferWrites!!.bufferWriteCountVar sub 1 }
-            // must be precise
-            mustEqualities.addEquiv(copyToBuffer.instrumentation.bufferWrites!!.preciseBuffer[lastWrite], TACSymbol.One)
-            // must be to offset 0
-            mustEqualities.addEquiv(copyToBuffer.instrumentation.bufferWrites.bufferOffsetHolder[lastWrite], TACSymbol.Zero)
-            // must be copied from the previous buffer in the sequence
-            mustEqualities.addEquiv(copyToBuffer.instrumentation.bufferWrites.bufferCopySource[lastWrite], copyFromBuffer.id)
-        }
         // and ALL of the above.
         val assertExpression = mustEqualities.reduce(TACExpr.BinBoolOp::LAnd)
         /*
@@ -618,13 +634,7 @@ object StaticBufferRefinement {
         }
         // if our assertion passed, then we know now that the buffer in question is *definitely* built by the sequence
         // of writes to the buffer at bufferWriteSource
-        return BufferRefinement(
-            bufferWriteSource = staticWrites.actualSource.first().let(reverseIdMapping::get)!!,
-            staticLength = staticWrites.staticLength,
-            relativeOffsets = staticWrites.relativeWriteOffsets.map {
-                it.intValueExact()
-            }
-        ).toLeft()
+        return staticWrites.toLeft()
     }
 
 
@@ -633,7 +643,7 @@ object StaticBufferRefinement {
         aTraceAndContext: TraceWithContext<MethodMarker.METHODA, *>,
         bTraceAndContext: TraceWithContext<MethodMarker.METHODB, *>,
         targetEvents: BufferTraceInstrumentation.TraceTargets
-    ) : Pair<BufferRefinement, BufferRefinement>? {
+    ) : Pair<WriteOffsets, WriteOffsets>? {
         val (aRefine, bRefine) = coroutineScope {
             val methodARefine = async {
                 tryRefineBuffer(

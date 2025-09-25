@@ -29,4 +29,5 @@ internal sealed interface ILongRead {
     val where: CmdPointer
     val loc: TACSymbol
     val length: TACSymbol
+    val id: Int
 }

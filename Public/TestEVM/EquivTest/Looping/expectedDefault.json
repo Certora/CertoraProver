@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"Equivalence of C1 and C2 on entry(uint256,uint256,uint128)": "SUCCESS"
+	}
+}

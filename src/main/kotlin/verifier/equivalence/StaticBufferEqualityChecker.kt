@@ -18,6 +18,7 @@
 package verifier.equivalence
 
 import allocator.Allocator
+import analysis.CmdPointer
 import analysis.CommandWithRequiredDecls
 import datastructures.stdcollections.*
 import evm.EVM_BYTE_SIZE_INT
@@ -40,66 +41,100 @@ import java.math.BigInteger
 
 class StaticBufferEqualityChecker<I>(
     private val cexContext: CounterExampleContext<I>,
-    private val refineA: StaticBufferRefinement.BufferRefinement,
-    private val refineB: StaticBufferRefinement.BufferRefinement,
+    private val refineA: StaticBufferRefinement.WriteOffsets,
+    private val refineB: StaticBufferRefinement.WriteOffsets,
 ) {
     private val originalQuery get() = cexContext.checkResult
+
+    private data class BufferWriteVar(
+        val instName: TACSymbol.Var,
+        val sourceBuffer: CmdPointer,
+        // This is the term to subtract from the number of writes
+        // to give the index into the writes array
+        // so, for the last element, it will be 1
+        val offsetFromEnd: Int
+    )
+
+    private fun buildTaggedBuffer(t: StaticBufferRefinement.WriteOffsets) : Array<BufferByte>? {
+        val taggedBuffer = Array<BufferByte?>(t.staticLength.intValueExact()) {
+            null
+        }
+        for((ind, write) in t.relativeWriteOffsets.withIndex()) {
+            when(write) {
+                is StaticBufferRefinement.BufferWrite.LongCopyFrom -> {
+                    val sourceModel = buildTaggedBuffer(write.copySource) ?: continue
+                    var offsIt = write.relativeOffset.intValueExact()
+                    for(byte in sourceModel) {
+                        if(offsIt in 0 .. taggedBuffer.lastIndex) {
+                            taggedBuffer[offsIt] = byte
+                        }
+                        offsIt++
+                    }
+                }
+                is StaticBufferRefinement.BufferWrite.WordWrite -> {
+                    /**
+                     * Give names to the scalar value written at the relative offsets
+                     */
+                    val instVar = TACSymbol.Var(
+                        "bufferRepresentative",
+                        Tag.Bit256,
+                        NBId.ROOT_CALL_ID,
+                        MetaMap(TACMeta.NO_CALLINDEX)
+                    ).toUnique("!")
+                    val srcVar = BufferWriteVar(
+                        instName = instVar,
+                        sourceBuffer = t.actualSource,
+                        offsetFromEnd = t.relativeWriteOffsets.size - ind
+                    )
+                    var byteIdx = 31
+                    var offsIt = write.relativeOffset.intValueExact()
+                    while(byteIdx >= 0) {
+                        if(offsIt in 0 .. taggedBuffer.lastIndex) {
+                            taggedBuffer[offsIt] = BufferByte(srcVar, byteIdx)
+                        }
+                        byteIdx--
+                        offsIt++
+                    }
+                }
+            }
+        }
+        if(taggedBuffer.any { it == null }) {
+            return null
+        }
+        return taggedBuffer.uncheckedAs()
+    }
 
     /**
      * Representation of a byte in the final buffer: pulled from some [byteIndex] from [srcVar]
      */
     private data class BufferByte(
-        val srcVar: TACSymbol.Var,
+        val srcVar: BufferWriteVar,
         val byteIndex: Int // lsb numbering, 0 is the 1s byte
     )
 
     /**
      * Gets the (pure math) term describing the buffer contents, and the variables used in that term.
-     * More precisely, given a [verifier.equivalence.StaticBufferRefinement.BufferRefinement]
-     * with a list of [verifier.equivalence.StaticBufferRefinement.BufferRefinement.relativeOffsets],
+     * More precisely, given a [verifier.equivalence.StaticBufferRefinement.WriteOffsets]
+     * with a list of [verifier.equivalence.StaticBufferRefinement.WriteOffsets.relativeWriteOffsets],
      * the first compnent of the tuple is a list of the (invented) names for the values written at these offsets.
      * The second component is a term whose free variables are drawn from this list, and which describes
      * the buffer contents as a mathematical integer. In this mathematical model, the 0th byte of the buffer is the most
      * significant part of the number.
      *
-     * To give a very basic example, consider a [verifier.equivalence.StaticBufferRefinement.BufferRefinement]
+     * To give a very basic example, consider a [verifier.equivalence.StaticBufferRefinement.WriteOffsets]
      * whose writes are `0, 32`. Then this will return `([firstComp, secondComp], firstComp *int 2^256 +int secondComp)`.
      */
-    private fun extractInstrumentationTerm(t: StaticBufferRefinement.BufferRefinement) : Pair<List<TACSymbol.Var>, TACExpr> {
+    private fun extractInstrumentationTerm(t: StaticBufferRefinement.WriteOffsets) : Pair<Set<BufferWriteVar>, TACExpr> {
         /**
          * Compute at each byte in the buffer which write it came from and the position within that write.
          *
          * We compute this in just the stupidest way possible: we simulate the sequence of writes described
-         * by [verifier.equivalence.StaticBufferRefinement.BufferRefinement.relativeOffsets] but instead of writing
+         * by [verifier.equivalence.StaticBufferRefinement.WriteOffsets.relativeWriteOffsets] but instead of writing
          * concrete values we write "coordinates" described by [BufferByte].
          *
          */
-        val taggedBuffer = Array<BufferByte?>(t.staticLength.intValueExact()) {
-            null
-        }
-        val instrumentation = mutableListOf<TACSymbol.Var>()
-        /**
-         * Give names to the values written at the relative offsets
-         */
-        for(offs in t.relativeOffsets) {
-            val srcVar = TACSymbol.Var(
-                "bufferRepresentative",
-                Tag.Bit256,
-                NBId.ROOT_CALL_ID,
-                MetaMap(TACMeta.NO_CALLINDEX)
-            ).toUnique("!")
-            instrumentation.add(srcVar)
-            var byteIdx = 31
-            var offsIt = offs
-            while(byteIdx >= 0) {
-                if(offsIt in 0 .. taggedBuffer.lastIndex) {
-                    taggedBuffer[offsIt] = BufferByte(srcVar, byteIdx)
-                }
-                byteIdx--
-                offsIt++
-            }
-        }
-        check(taggedBuffer.all { it != null })
+        val taggedBuffer = buildTaggedBuffer(t) ?: error("Something has gone wrong; static offset " +
+            "extractor promised $t covered the buffer; it seems not to")
         /**
          * Term accum are expected to be "disjoint", that is, adding all of these values together
          * would be equivalent to interpreting their values as infinite width bitvectors and performing bitwise OR.
@@ -138,7 +173,7 @@ class StaticBufferEqualityChecker<I>(
              */
             val lowerStart = currV!!.byteIndex - (extractedWidth - 1) // index of the last byte to be included
             val shiftedDown =
-                TACExpr.BinOp.ShiftRightLogical(currV!!.srcVar.asSym(), (lowerStart * EVM_BYTE_SIZE_INT).asTACExpr)
+                TACExpr.BinOp.ShiftRightLogical(currV!!.srcVar.instName.asSym(), (lowerStart * EVM_BYTE_SIZE_INT).asTACExpr)
             /*
              * Include only the bits in this range
              */
@@ -160,7 +195,6 @@ class StaticBufferEqualityChecker<I>(
             )
         }
         for((bufferInd, bit) in taggedBuffer.withIndex()) {
-            check(bit != null)
             if (currV == null) {
                 currV = bit
                 currStart = bufferInd
@@ -179,13 +213,15 @@ class StaticBufferEqualityChecker<I>(
             }
         }
         termAccum.add(packageTerm(taggedBuffer.size))
-        return instrumentation to TACExpr.Vec.IntAdd(termAccum)
+        return taggedBuffer.mapTo(mutableSetOf()) {
+            it.srcVar
+        } to TACExpr.Vec.IntAdd(termAccum)
     }
 
-    private val aInstVars: List<TACSymbol.Var>
+    private val aInstVars: Set<BufferWriteVar>
     private val aBufferTerm: TACExpr
 
-    private val bInstVars: List<TACSymbol.Var>
+    private val bInstVars: Set<BufferWriteVar>
     private val bBufferTerm: TACExpr
 
     init {
@@ -202,18 +238,24 @@ class StaticBufferEqualityChecker<I>(
     private fun <M: MethodMarker> buildInstControl(
         p: CallableProgram<M, I>,
         t: ExplorationManager.EquivalenceCheckConfiguration<*>.() -> BufferTraceInstrumentation.InstrumentationControl,
-        refine: StaticBufferRefinement.BufferRefinement
+        refine: StaticBufferRefinement.WriteOffsets,
+        instVars: Set<BufferWriteVar>
     ) : TraceEquivalenceChecker.ProgramAndConfig<M, I> {
         val baseConfig = cexContext.instrumentationSettings.t()
+        val useSiteControl = instVars.mapToSet {
+            it.sourceBuffer
+        }.associateWith {
+            BufferTraceInstrumentation.UseSiteControl(
+                trackBufferContents = true
+            )
+        }
         return TraceEquivalenceChecker.ProgramAndConfig(
             p,
             baseConfig.copy(
                 traceMode = BufferTraceInstrumentation.TraceInclusionMode.UntilExactly(
-                    refine.bufferWriteSource
+                    refine.actualSource
                 ),
-                useSiteControl = mapOf(refine.bufferWriteSource to BufferTraceInstrumentation.UseSiteControl(
-                    trackBufferContents = true
-                )),
+                useSiteControl = useSiteControl,
                 eventSiteOverride = mapOf()
             )
         )
@@ -226,20 +268,6 @@ class StaticBufferEqualityChecker<I>(
         contextB: ProgramContext<*>
     ) : CoreTACProgram {
         unused(contextA, contextB)
-        val siteAInfo = a.result.useSiteInfo[refineA.bufferWriteSource]!!
-        val siteBInfo = b.result.useSiteInfo[refineB.bufferWriteSource]!!
-
-        /**
-         * Get the bytemaps which hold the values written into the two buffers, and the total
-         * number of writes (to allow indexing from the end)
-         *
-         */
-        val aBase = siteAInfo.instrumentation?.bufferWrites!!.bufferValueHolder
-        val aWriteCountVar = siteAInfo.instrumentation.bufferWrites.bufferWriteCountVar
-
-        val bBase = siteBInfo.instrumentation?.bufferWrites!!.bufferValueHolder
-        val bWriteCountVar = siteBInfo.instrumentation.bufferWrites.bufferWriteCountVar
-
         /**
          * Assign the values from the
          * [BufferTraceInstrumentation.IBufferContentsInstrumentation.bufferValueHolder] maps
@@ -247,24 +275,29 @@ class StaticBufferEqualityChecker<I>(
          * to the variables used in the terms.
          */
         val bind = listOf(
-            Triple(aWriteCountVar, aBase, aInstVars),
-            Triple(bWriteCountVar, bBase, bInstVars)
-        ).flatMap { (countVar, baseVar, instVar) ->
-            instVar.mapIndexed { ind, v ->
+            Pair(a.result, aInstVars),
+            Pair(b.result, bInstVars)
+        ).flatMap { (instMaps, instVar) ->
+            instVar.map { v ->
                 /**
                  * We have proved in [StaticBufferRefinement] that there are at least enough writes
                  * to make sure this relative indexing doesn't underflow
                  */
-                val subtractFromEnd = instVar.size - ind
+                val writeInfo = instMaps.useSiteInfo[v.sourceBuffer]?.instrumentation?.bufferWrites ?: error(
+                    "Write info for ${v.sourceBuffer} didn't exist?"
+                )
+                val countVar = writeInfo.bufferWriteCountVar
+                val baseVar = writeInfo.bufferValueHolder
+                val subtractFromEnd = v.offsetFromEnd
                 ExprUnfolder.unfoldPlusOneCmd("binding", TACExprFactTypeCheckedOnlyPrimitives {
                     countVar sub subtractFromEnd.asTACExpr
                 }) {
                     TACCmd.Simple.AssigningCmd.ByteLoad(
-                        lhs = v,
+                        lhs = v.instName,
                         base = baseVar,
                         loc = it.s
                     )
-                }.merge(baseVar, v, countVar)
+                }.merge(baseVar, v.instName, countVar)
             }
         }.flatten()
 
@@ -281,7 +314,7 @@ class StaticBufferEqualityChecker<I>(
                         rhs = TACExpr.BinRel.Eq(aBufferTerm, bBufferTerm)
                     ),
                     TACCmd.Simple.AssertCmd(assertVar, "buffers equal")
-                ), setOf(assertVar) + aInstVars + bInstVars
+                ), setOf(assertVar)
             ), "assertion"
         )
 
@@ -290,8 +323,8 @@ class StaticBufferEqualityChecker<I>(
     suspend fun checkStaticEquivalence(rule: EquivalenceRule): TraceEquivalenceChecker.CheckResult<I> {
         return TraceEquivalenceChecker<I>(cexContext.queryContext, cexContext.ruleGeneration).instrumentAndCheck(
             rule,
-            buildInstControl(originalQuery.programA.originalProgram, ExplorationManager.EquivalenceCheckConfiguration<*>::getAConfig, refineA),
-            buildInstControl(originalQuery.programB.originalProgram, ExplorationManager.EquivalenceCheckConfiguration<*>::getBConfig, refineB),
+            buildInstControl(originalQuery.programA.originalProgram, ExplorationManager.EquivalenceCheckConfiguration<*>::getAConfig, refineA, aInstVars),
+            buildInstControl(originalQuery.programB.originalProgram, ExplorationManager.EquivalenceCheckConfiguration<*>::getBConfig, refineB, bInstVars),
             ::generateVC
         )
     }
