@@ -2849,7 +2849,7 @@ class CertoraBuildGenerator:
             self.handle_erc7201_annotations()
         self.handle_storage_extension_harnesses()
 
-    def extract_slayout(self, original_file: str, ns_storage: Set[NameSpacedStorage], compiler_version: str) -> NewStorageInfo:
+    def extract_slayout(self, original_file: str, ns_storage: Set[NameSpacedStorage], compiler_version: str, target_file: str) -> NewStorageInfo:
         """
         Given a file containing a contract with namespaced storage, extract the storage information
         corresponding to the namespaced types.
@@ -2893,8 +2893,8 @@ class CertoraBuildGenerator:
             abs_path = Util.abs_posix_path(tmp_file.name)
             self.context.file_to_contract[abs_path] = {harness_name}
 
-            try:
-                # Compile & fetch the raw storage_layout
+            def attempt_compilation() -> NewStorageInfo:
+                """Helper function to compile and extract layout"""
                 compile_idx = storageExtension.get_next_file_index(self.file_to_sdc_name)
                 sdcs = self.collect_for_file(tmp_file.name, compile_idx, CompilerLangSol(), Path.cwd(), Util.abs_posix_path(tmp_file.name), None)
                 if not sdcs:
@@ -2903,12 +2903,38 @@ class CertoraBuildGenerator:
 
                 # Remap each slot according to the ERC-7201 namespace
                 remapped_fields = storageExtension.remapped_fields_from_layout(layout, var_to_slot)
-
                 return (remapped_fields, layout.get('types', {}))
 
+            # First attempt with original content
+            try:
+                return attempt_compilation()
             except Exception as e:
-                build_logger.error(f"Error extracting storage layout for {original_file}: {str(e)}")
-                raise
+                if not target_file:
+                    build_logger.error(f"Error extracting storage layout for {original_file}: {str(e)}")
+                    raise
+
+                # Retry with target file import
+                build_logger.info("First attempt failed, retrying with import of target file")
+
+                # Read current content
+                tmp_file.seek(0)
+                current_content = tmp_file.read()
+
+                # Prepare modified content with target import at the beginning
+                rel_target_path = os.path.relpath(target_file, Path.cwd())
+                modified_content = f'import "{rel_target_path}";\n{current_content}'
+
+                # Write modified content
+                tmp_file.seek(0)
+                tmp_file.truncate()
+                tmp_file.write(modified_content)
+                tmp_file.flush()
+
+                try:
+                    return attempt_compilation()
+                except Exception as retry_e:
+                    build_logger.error(f"Retry also failed for {original_file}: {str(retry_e)}")
+                    raise retry_e
             finally:
                 # Delete the key from the context
                 self.context.file_to_contract.pop(abs_path, None)
@@ -2957,7 +2983,8 @@ class CertoraBuildGenerator:
 
                     # Now that we have all the storage layout information, extract it once
                     slayouts[key] = self.extract_slayout(imported_file, ns_storage,
-                                                         get_relevant_compiler(Path(target_file), self.context))
+                                                         get_relevant_compiler(Path(target_file), self.context),
+                                                         target_file)
 
         if self.context.test == str(Util.TestValue.STORAGE_EXTENSION_LAYOUT):
             raise Util.TestResultsReady(slayouts)
