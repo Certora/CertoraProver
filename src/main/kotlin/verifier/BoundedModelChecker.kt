@@ -855,7 +855,7 @@ class BoundedModelChecker(
                     treeViewReporter.registerSubruleOf(
                         it,
                         baseRule,
-                        allFuncs.size.toBigInteger().pow(len).toInt() // Total theoretical number of sequences of this length
+                        allFuncs.size.toBigInteger().pow(len) // Total theoretical number of sequences of this length
                     )
                 }
             }
@@ -889,7 +889,7 @@ class BoundedModelChecker(
 
             // The last element of the sequence will be a dispatch on the functions in lastFuncs, so the functions that
             // got filtered out correspond to sequences that are skipped, so count them as done.
-            treeViewReporter.updateFinishedChildren(rangeRule, (allFuncs.size - lastFuncs.size) * parentFuncs.numFlatSequencesRepresented)
+            treeViewReporter.updateFinishedChildren(rangeRule, (allFuncs.size - lastFuncs.size).toBigInteger() * parentFuncs.numFlatSequencesRepresented)
 
             val res = if (lastFuncs.isNotEmpty()) {
                 val newSequenceElement = SequenceElement(lastFuncs.toNonEmptyList()!!)
@@ -938,7 +938,7 @@ class BoundedModelChecker(
                 treeViewReporter.signalEnd(seqRule, res)
 
                 // This seqRule accounted for lastFuncs.size sequences, update the finished children with this info
-                treeViewReporter.updateFinishedChildren(rangeRule, lastFuncs.size * parentFuncs.numFlatSequencesRepresented)
+                treeViewReporter.updateFinishedChildren(rangeRule, lastFuncs.size.toBigInteger() * parentFuncs.numFlatSequencesRepresented)
 
                 nSequencesChecked.addAndGet(lastFuncs.size)
 
@@ -969,7 +969,7 @@ class BoundedModelChecker(
             for (r in sequenceLen+1..maxSequenceLen) {
                 treeViewReporter.updateFinishedChildren(
                     getRangeRule(r),
-                    (allFuncs.size - extensions.sumOf { it.size }) * allFuncs.size.toBigInteger().pow(r - sequenceLen).toInt()
+                    (allFuncs.size - extensions.sumOf { it.size }) * allFuncs.size.toBigInteger().pow(r - sequenceLen)
                         * parentFuncs.numFlatSequencesRepresented
                 )
             }
@@ -989,7 +989,7 @@ class BoundedModelChecker(
                     for (r in sequenceLen+1..maxSequenceLen) {
                         treeViewReporter.updateFinishedChildren(
                             getRangeRule(r),
-                            allFuncs.size.toBigInteger().pow(r - sequenceLen).toInt() * parentFuncs.numFlatSequencesRepresented
+                            allFuncs.size.toBigInteger().pow(r - sequenceLen) * parentFuncs.numFlatSequencesRepresented
                         )
                     }
                     treapListOf()

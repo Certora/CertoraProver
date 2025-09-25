@@ -349,10 +349,16 @@ class TreeViewReporter(
          */
         val uuid: Int) {
             data class ChildrenNumbers(
-                val total: Int,
-                val finished: Int
+                val total: BigInteger,
+                val finished: BigInteger
             ) {
-                constructor(total: Int) : this(total, 0)
+                constructor(total: BigInteger) : this(total, BigInteger.ZERO)
+                fun normalize() : ChildrenNumbers {
+                    if(total < Int.MAX_VALUE.toBigInteger()) { return this }
+                    val normalizedFinished = finished * Int.MAX_VALUE.toBigInteger() / total
+                    logger.info { "Normalizing ChildrenNumbers since they exceed maxint: $finished finished out of $total will be shown as $normalizedFinished out of ${Int.MAX_VALUE}" }
+                    return ChildrenNumbers(Int.MAX_VALUE.toBigInteger(), normalizedFinished)
+                }
             }
 
         fun printForErrorLog(): String = listOf(
@@ -381,8 +387,8 @@ class TreeViewReporter(
         val debugAdapterCallTraceFileName: String?,
         val duration: Long,
         val isRunning: Boolean,
-        val childrenTotalNum: Int?,
-        val childrenFinishedNum: Int?,
+        val childrenTotalNum: BigInteger?,
+        val childrenFinishedNum: BigInteger?,
     ) : TreeViewReportable {
 
         override val treeViewRepBuilder = TreeViewRepJsonObjectBuilder {
@@ -447,7 +453,7 @@ class TreeViewReporter(
             parent: DisplayableIdentifier,
             nodeType: NodeType,
             rule: IRule?,
-            childrenTotalNum: Int? = null,
+            childrenTotalNum: BigInteger? = null,
         ) {
             synchronized(this) {
                 identifierToNode[child] = TreeViewNodeResult(
@@ -492,10 +498,10 @@ class TreeViewReporter(
             updateStatus(node) { it.copy(displayName = displayName) }
         }
 
-        fun updateFinishedChildren(node: RuleIdentifier, numFinished: Int) {
+        fun updateFinishedChildren(node: RuleIdentifier, numFinished: BigInteger) {
             updateStatus(node) {
                 check(it.childrenNumbers != null) { "can't update finished children" }
-                require(numFinished >= 0)
+                require(numFinished >= BigInteger.ZERO)
                 val newVal = it.childrenNumbers.finished + numFinished
                 check(newVal <= it.childrenNumbers.total) { "Range $node: can't have more children finished ($newVal) than the total num of children (${it.childrenNumbers.total})" }
                 it.copy(childrenNumbers = it.childrenNumbers.copy(finished = newVal))
@@ -661,8 +667,8 @@ class TreeViewReporter(
                 status = statusString,
                 duration = duration,
                 isRunning = isRunning,
-                childrenTotalNum = currTreeViewResult.childrenNumbers?.total,
-                childrenFinishedNum = currTreeViewResult.childrenNumbers?.finished,
+                childrenTotalNum = currTreeViewResult.childrenNumbers?.normalize()?.total,
+                childrenFinishedNum = currTreeViewResult.childrenNumbers?.normalize()?.finished,
                 debugAdapterCallTraceFileName = currTreeViewResult.debugAdapterCallTraceFileName
             )
         }
@@ -849,7 +855,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         }
     }
 
-    fun registerSubruleOf(child: IRule, parent: IRule, childrenTotalNum: Int? = null) {
+    fun registerSubruleOf(child: IRule, parent: IRule, childrenTotalNum: BigInteger? = null) {
         synchronized(this) {
             tree.addChildNode(child.ruleIdentifier, parent.ruleIdentifier, mapRuleToNodeType(child), child, childrenTotalNum)
         }
@@ -886,7 +892,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         tree.updateDisplayName(rule.ruleIdentifier, displayName)
     }
 
-    fun updateFinishedChildren(rule: IRule, numFinished: Int) {
+    fun updateFinishedChildren(rule: IRule, numFinished: BigInteger) {
         tree.updateFinishedChildren(rule.ruleIdentifier, numFinished)
     }
 
