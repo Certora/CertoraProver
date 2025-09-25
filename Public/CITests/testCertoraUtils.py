@@ -362,7 +362,7 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
         ]
     },
 
-    Vf.validate_rule_name: {
+    Vf.validate_evm_rule_name: {
         'valid': ['a', '_a123', '_'],
         'invalid': ['1', 'rule1 rule2', 'rule1,rule2']
     },
@@ -528,7 +528,7 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
         ]
     },
 
-    Vf.validate_method_flag: {
+    Vf.validate_evm_method_flag: {
         'valid': [
             "transfer(address,uint256)",
             "_Simple$.transfer(address,uint256)",
@@ -587,7 +587,7 @@ def get_valid_value(attr: AttrUtil.AttributeDefinition) -> str:
             return tested_object[VALID_KEY][0]
         else:
             raise Util.ImplementationError(f"No valid value for {attr.name}")
-    elif attr == Attrs.EvmAttributes.METHOD:
+    elif attr == Attrs.EvmProverAttributes.METHOD:
         return 'withdraw()'
     else:  # no validation function was defined, default type is used
         if attr.arg_type == AttrUtil.AttrArgType.STRING \

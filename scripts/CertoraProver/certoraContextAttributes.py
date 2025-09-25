@@ -670,7 +670,7 @@ class EvmAttributes(AttrUtil.Attributes):
 
     EXCLUDE_RULE = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.LIST,
-        attr_validation_func=Vf.validate_rule_name,
+        attr_validation_func=Vf.validate_evm_rule_name,
         jar_flag='-excludeRule',
         help_msg="Filter out the list of rules/invariants to verify. Asterisks are interpreted as wildcards",
         default_desc="Verifies all rules and invariants",
@@ -684,7 +684,7 @@ class EvmAttributes(AttrUtil.Attributes):
 
     SPLIT_RULES = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.LIST,
-        attr_validation_func=Vf.validate_rule_name,
+        attr_validation_func=Vf.validate_evm_rule_name,
         help_msg="List of rules to be sent to Prover each on a separate run",
         default_desc="Verifies all rules and invariants in a single run",
         argparse_args={
@@ -912,7 +912,7 @@ class EvmAttributes(AttrUtil.Attributes):
     )
 
     METHOD = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_method_flag,
+        attr_validation_func=Vf.validate_evm_method_flag,
         jar_flag='-method',
         arg_type=AttrUtil.AttrArgType.LIST,
         help_msg="Filter methods to be verified by their signature",
@@ -926,7 +926,7 @@ class EvmAttributes(AttrUtil.Attributes):
     )
 
     EXCLUDE_METHOD = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_method_flag,
+        attr_validation_func=Vf.validate_evm_method_flag,
         jar_flag='-excludeMethod',
         arg_type=AttrUtil.AttrArgType.LIST,
         help_msg="Filter out methods to be verified by their signature",
@@ -940,7 +940,7 @@ class EvmAttributes(AttrUtil.Attributes):
     )
 
     RANGER_INCLUDE_METHOD = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_method_flag,
+        attr_validation_func=Vf.validate_evm_method_flag,
         jar_flag='-rangerMethod',
         arg_type=AttrUtil.AttrArgType.LIST,
         help_msg="Filter methods to be included in ranger sequences by their signature",
@@ -954,7 +954,7 @@ class EvmAttributes(AttrUtil.Attributes):
     )
 
     RANGER_EXCLUDE_METHOD = AttrUtil.AttributeDefinition(
-        attr_validation_func=Vf.validate_method_flag,
+        attr_validation_func=Vf.validate_evm_method_flag,
         jar_flag='-rangerExcludeMethod',
         arg_type=AttrUtil.AttrArgType.LIST,
         help_msg="Filter out methods to be included in ranger sequences by their signature",
@@ -1200,20 +1200,6 @@ class InternalUseAttributes(AttrUtil.Attributes):
 
 
 class BackendAttributes(AttrUtil.Attributes):
-
-    RULE = AttrUtil.AttributeDefinition(
-        arg_type=AttrUtil.AttrArgType.LIST,
-        attr_validation_func=Vf.validate_rule_name,
-        jar_flag='-rule',
-        help_msg="Verify only the given list of rules/invariants. Asterisks are interpreted as wildcards",
-        default_desc="Verifies all rules and invariants",
-        argparse_args={
-            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
-            'action': AttrUtil.APPEND
-        },
-        affects_build_cache_key=False,
-        disables_build_cache=False
-    )
 
     UNUSED_SUMMARY_HARD_FAIL = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_on_off,
@@ -1666,8 +1652,24 @@ class RustAttributes(AttrUtil.Attributes):
     )
 
 
+class EvmRuleAttribute(AttrUtil.Attributes):
+    RULE = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.LIST,
+        attr_validation_func=Vf.validate_evm_rule_name,
+        jar_flag='-rule',
+        help_msg="Verify only the given list of rules/invariants. Asterisks are interpreted as wildcards",
+        default_desc="Verifies all rules and invariants",
+        argparse_args={
+            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
+
 class EvmProverAttributes(CommonAttributes, DeprecatedAttributes, EvmAttributes, InternalUseAttributes,
-                          BackendAttributes):
+                          BackendAttributes, EvmRuleAttribute):
     FILES = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_evm_input_file,
         arg_type=AttrUtil.AttrArgType.LIST,
@@ -1724,7 +1726,8 @@ class RangerAttributes(EvmProverAttributes):
         return [attr.name for attr in combined_list] + [cls.LOOP_ITER.name, cls.RANGER_FAILURE_LIMIT.name]
 
 
-class SorobanProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes, RustAttributes):
+class SorobanProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes, EvmRuleAttribute,
+                              RustAttributes):
     FILES = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_soroban_extension,
         arg_type=AttrUtil.AttrArgType.LIST,
@@ -1770,8 +1773,65 @@ class SuiProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttrib
         )
     )
 
+    RULE = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.LIST,
+        attr_validation_func=Vf.validate_move_rule_name,
+        jar_flag='-rule',
+        help_msg="Verify only the given list of rules. Asterisks are interpreted as wildcards",
+        default_desc="Verifies all rules",
+        argparse_args={
+            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
 
-class SolanaProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes, RustAttributes):
+    EXCLUDE_RULE = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.LIST,
+        attr_validation_func=Vf.validate_move_rule_name,
+        jar_flag='-excludeRule',
+        help_msg="Filter out the list of rules to verify. Asterisks are interpreted as wildcards",
+        default_desc="Verifies all rules",
+        argparse_args={
+            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
+    METHOD = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_move_method_flag,
+        jar_flag='-method',
+        arg_type=AttrUtil.AttrArgType.LIST,
+        help_msg="Filter functions to be verified by their name",
+        default_desc="Verifies all target functions.",
+        argparse_args={
+            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
+    EXCLUDE_METHOD = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_move_method_flag,
+        jar_flag='-excludeMethod',
+        arg_type=AttrUtil.AttrArgType.LIST,
+        help_msg="Filter out functions to be verified by their name",
+        default_desc="Verifies all target functions.",
+        argparse_args={
+            'nargs': AttrUtil.ONE_OR_MORE_OCCURRENCES,
+            'action': AttrUtil.APPEND
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
+
+class SolanaProverAttributes(CommonAttributes, InternalUseAttributes, BackendAttributes, EvmRuleAttribute,
+                             RustAttributes):
     FILES = AttrUtil.AttributeDefinition(
         attr_validation_func=Vf.validate_solana_extension,
         arg_type=AttrUtil.AttrArgType.LIST,
