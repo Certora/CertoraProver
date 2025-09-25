@@ -183,7 +183,7 @@ class NoAssertionError(rule: String) : SolanaError(
         ),
         devMsg = "").toString())
 
-class NoAssertionErrorAfterSlicer(rule: String) : SolanaError(
+class NoAssertionAfterSlicerError(rule: String) : SolanaError(
     FormattedErrorMessage(
         locInst = null,
         userInfo = UserErrorInfo(
@@ -193,6 +193,19 @@ class NoAssertionErrorAfterSlicer(rule: String) : SolanaError(
                 "\t(2) there are runtime errors or undefined behavior that allowed the prover front-end to establish that all specified assertions are unreachable",
             help ="",
             code = 4001
+        ),
+        devMsg = "").toString())
+
+class NoSatisfyAfterSlicerError(rule: String) : SolanaError(
+    FormattedErrorMessage(
+        locInst = null,
+        userInfo = UserErrorInfo(
+            msg  = "Nothing to verify. Rule $rule was identified as a \"satisfy\" rule but has no calls to \"cvlr_satisfy\" after slicing",
+            note = "Most common root causes are:\n" +
+                "\t(1) some assertion makes all calls to \"cvlr_satisfy\" unreachable\n" +
+                "\t(2) there are runtime errors or undefined behavior that allowed the prover front-end to establish that all calls to \"cvlr_satisfy\" are unreachable",
+            help ="",
+            code = 4002
         ),
         devMsg = "").toString())
 

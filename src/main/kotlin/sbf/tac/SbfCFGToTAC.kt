@@ -562,16 +562,6 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         )
     }
 
-    @Suppress("ForbiddenMethodCall")
-    private fun translateSanity(inst: SbfInstruction.Call): List<TACCmd.Simple> {
-        val name = cfg.getName()
-        return if (name.endsWith(vacuitySuffix) || name.endsWith(devVacuitySuffix)) {
-            translateSatisfy(inst)
-        } else {
-            listOf()
-        }
-    }
-
     private fun translateJump(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val bb = cfg.getBlock(locInst.label)
         check(bb != null)
@@ -1345,8 +1335,9 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                                 throw TACTranslationError("unsupported call to ${inst.name}. " +
                                     "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
                             }
-                            CVTCore.SANITY ->
-                                translateSanity(inst)
+                            CVTCore.SANITY -> {
+                                throw TACTranslationError("unsupported call to ${inst.name}.")
+                            }
                             CVTCore.SATISFY ->
                                 translateSatisfy(inst)
                             CVTCore.SAVE_SCRATCH_REGISTERS ->

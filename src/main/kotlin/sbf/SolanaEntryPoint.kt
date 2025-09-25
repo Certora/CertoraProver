@@ -18,7 +18,6 @@
 package sbf
 
 import analysis.maybeAnnotation
-import analysis.maybeNarrow
 import cli.SanityValues
 import config.Config
 import vc.data.CoreTACProgram
@@ -46,8 +45,6 @@ import utils.Range
 import spec.cvlast.RuleIdentifier
 import spec.rules.EcosystemAgnosticRule
 import spec.cvlast.SpecType
-import vc.data.TACCmd
-import vc.data.TACMeta
 import kotlin.streams.*
 import utils.*
 import java.io.File
@@ -62,7 +59,7 @@ data class CompiledSolanaRule(
     val rule: EcosystemAgnosticRule
 )
 
-// Any rule name with these suffixes will be considered a vacuity/sanity rule
+// Any rule name with these suffixes will be considered a vacuity rule
 const val devVacuitySuffix = "\$sanity"
 const val vacuitySuffix = "rule_not_vacuous_cvlr"
 
@@ -156,7 +153,7 @@ private fun solanaRuleToTAC(
     memSummaries: MemorySummaries,
     globalsSymbolTable: GlobalsSymbolTable,
     start0: Long
-): CompiledSolanaRule {
+): CompiledSolanaRule? {
 
     val target = rule.ruleIdentifier.toString()
     // 1. Inline all internal calls starting from `target` as root
@@ -172,16 +169,36 @@ private fun solanaRuleToTAC(
     val end1 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished inlining in ${(end1 - start1) / 1000}s" }
 
-    if (!inlinedProg.getCallGraphRootSingleOrFail().getBlocks().values.any { block ->
-            block.getInstructions().any { it.isAssertOrSatisfy() }
-        }) {
+    val isVacuityRule = rule.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
+
+    val hasSatisfies = inlinedProg.getCallGraphRootSingleOrFail().getBlocks().values.any { b ->
+        b.getInstructions().any { it.isSatisfy() }
+    }
+
+    val hasAssertions: Boolean by lazy  {
+        inlinedProg.getCallGraphRootSingleOrFail().getBlocks().values.any { b ->
+            b.getInstructions().any { it.isAssert() }
+        }
+    }
+
+    if (isVacuityRule && hasSatisfies) {
+        sbfLogger.warn{
+            "Skipped $target." +
+            "$target is a vacuity rule and its parent rule has already a call to \"CVT_satisfy\""
+        }
+        return null
+    }
+
+    if (!isVacuityRule && !hasSatisfies && !hasAssertions) {
         throw NoAssertionError(target)
     }
 
     // 2. Slicing + PTA optimizations
     val optProg = try {
-        sliceAndPTAOptLoop(target, inlinedProg, memSummaries, start0)
-    } catch (e: NoAssertionErrorAfterSlicer) {
+        sliceAndPTAOptLoop(target,
+                           removeSanityCalls(inlinedProg, isVacuityRule),
+                           memSummaries, start0)
+    } catch (e: NoAssertionAfterSlicerError) {
         sbfLogger.warn { "$e" }
         vacuousProgram(target, "No assertions found after slicer")
     }
@@ -215,6 +232,13 @@ private fun solanaRuleToTAC(
         optProgWithoutCPIs
     }
 
+    if (hasSatisfies) {
+        if (!analyzedProg.getCallGraphRootSingleOrFail().getBlocks().values.any { block ->
+            block.getInstructions().any { it.isSatisfy() }}) {
+            throw NoSatisfyAfterSlicerError(target)
+        }
+    }
+
     // 4. Perform memory analysis to map each memory operation to a memory partitioning
     val analysisResults =
         getMemoryAnalysis(
@@ -229,7 +253,6 @@ private fun solanaRuleToTAC(
     sbfLogger.info { "[$target] Started translation to CoreTACProgram" }
     val start2 = System.currentTimeMillis()
     val coreTAC = sbfCFGsToTAC(analyzedProg, memSummaries, globalsSymbolTable, analysisResults)
-    val isSatisfyRule = hasSatisfy(coreTAC)
     val end2 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished translation to CoreTACProgram in ${(end2 - start2) / 1000}s" }
 
@@ -237,14 +260,14 @@ private fun solanaRuleToTAC(
     sbfLogger.info { "[$target] Started TAC optimizations" }
     val start3 = System.currentTimeMillis()
     val optCoreTAC = if (SolanaConfig.UseLegacyTACOpt.get()) {
-        legacyOptimize(coreTAC, isSatisfyRule)
+        legacyOptimize(coreTAC, hasSatisfies)
     } else {
-        optimize(coreTAC, isSatisfyRule)
+        optimize(coreTAC, hasSatisfies)
     }
     val end0 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished TAC optimizations in ${(end0 - start3) / 1000}s" }
 
-    return attachRangeToRule(rule, optCoreTAC, isSatisfyRule)
+    return attachRangeToRule(rule, optCoreTAC, hasSatisfies)
 }
 
 /**
@@ -353,6 +376,19 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
 }
 
 /**
+ * If [isVacuityRule] is true then replace `CVT_sanity` to `CVT_satisfy`, else the call to `CVT_sanity` is removed.
+ **/
+fun removeSanityCalls(prog: SbfCallGraph, isVacuityRule: Boolean): SbfCallGraph {
+    return prog.transformSingleEntry { cfg ->
+        cfg.clone(cfg.getName()).let {
+            removeSanityCalls(it, isVacuityRule)
+            it
+        }
+    }
+}
+
+
+/**
  * Attaches the correct range to a Solana rule and updates its originating rule if applicable.
  *
  * This function determines the correct range for the given rule and applies necessary modifications.
@@ -441,13 +477,6 @@ private fun readEnvironmentFiles(): Pair<MemorySummaries, InlinerConfig> {
     val inliningConfig = InlinerConfigFromFile.readSpecFile(inliningFilename)
     return Pair(memSummaries, inliningConfig)
 }
-
-private fun hasSatisfy(code: CoreTACProgram) =
-    code.parallelLtacStream().mapNotNull {
-        it.maybeNarrow<TACCmd.Simple.AssertCmd>()?.let {
-            TACMeta.SATISFY_ID in it.cmd.meta
-        }
-    }.asSequence().any { it }
 
 @TestOnly
 fun multiAssertChecks(rules: List<CompiledSolanaRule>): List<CompiledSolanaRule> {

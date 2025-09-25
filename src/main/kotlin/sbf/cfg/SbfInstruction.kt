@@ -241,7 +241,10 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
     abstract fun copyInst(metadata: MetaData = metaData): SbfInstruction
 
     open fun isAbort() = false
-    open fun isAssertOrSatisfy() = false
+    fun isAssertOrSatisfy() = isAssert() || isSatisfy()
+    open fun isAssert() = false
+    open fun isSatisfy() = false
+    open fun isSanity() = false
     open fun isTerminator() = false
     open fun isAllocFn() = false
     open fun isDeallocFn() = false
@@ -375,7 +378,7 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             get() = cond.readRegisters
 
         override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
-        override fun isAssertOrSatisfy() = true
+        override fun isAssert() = true
         override fun toString() = "assert($cond) ${metadataToString()}"
     }
 
@@ -481,11 +484,9 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         override fun isAbort() =
                 SolanaFunction.from(name) == SolanaFunction.ABORT || name in AbortFunctions
         override fun isTerminator() = isAbort()
-        override fun isAssertOrSatisfy() =
-                CVTFunction.from(name) == CVTFunction.Core(CVTCore.ASSERT) ||
-                CVTFunction.from(name) == CVTFunction.Core(CVTCore.SATISFY) ||
-                CVTFunction.from(name) == CVTFunction.Core(CVTCore.SANITY)
-
+        override fun isAssert() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.ASSERT)
+        override fun isSatisfy() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.SATISFY)
+        override fun isSanity() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.SANITY)
         override fun isAllocFn(): Boolean {
                 return ((name == "__rust_alloc" || name == "__rust_alloc_zeroed") || /* Rust alloc*/
                         (name == "malloc" || name == "calloc" ))                     /* C alloc */
