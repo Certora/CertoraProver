@@ -18,12 +18,14 @@
 package move
 
 import compiler.SourceContext
+import config.*
 import datastructures.stdcollections.*
 import java.math.BigInteger
 import java.nio.file.*
 import java.security.MessageDigest
 import kotlin.streams.*
 import kotlinx.serialization.json.*
+import log.*
 import utils.*
 import vc.data.*
 
@@ -75,23 +77,25 @@ class MoveSourceContext(val scene: MoveScene) {
         metaContextIndexByHash = mutableMapOf<BigInteger, Int>()
 
         // Find all of the Move source files, compute their hashes, and build the TAC source context.
-        Files.walk(scene.modulePath, FileVisitOption.FOLLOW_LINKS)
-            .filter { @Suppress("ForbiddenMethodCall") it.toString().endsWith(".move") }
-            .forEach { sourcePath ->
-                val relativePath = scene.modulePath.relativize(sourcePath).toString()
+        CertoraFileCache.certoraSourcesDir().takeIf { it.exists() }?.toPath()?.let { sourcesDir ->
+            Files.walk(sourcesDir, FileVisitOption.FOLLOW_LINKS)
+                .filter { @Suppress("ForbiddenMethodCall") it.toString().endsWith(".move") }
+                .forEach { sourcePath ->
+                    val relativePath = sourcesDir.relativize(sourcePath)
 
-                val index = metaContextIndexToFilePath.size
-                metaContextIndexToFilePath[index] = relativePath
+                    val index = metaContextIndexToFilePath.size
+                    metaContextIndexToFilePath[index] = relativePath.toString()
 
-                val digest = MessageDigest.getInstance("SHA-256")
-                val hashBytes = digest.digest(Files.readAllBytes(sourcePath))
-                val hash = BigInteger(1, hashBytes)
-                metaContextIndexByHash[hash] = index
-            }
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    val hashBytes = digest.digest(Files.readAllBytes(sourcePath))
+                    val hash = BigInteger(1, hashBytes)
+                    metaContextIndexByHash[hash] = index
+                }
+        }
 
         metaContext = SourceContext(
             indexToFilePath = metaContextIndexToFilePath,
-            sourceDir = scene.modulePath.toAbsolutePath().toString()
+            sourceDir = "." // Source file paths are resolved relative to the certora sources dir itself
         )
 
         // Find all of the Move source maps in the scene and deserialize them.

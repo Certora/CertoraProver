@@ -665,6 +665,11 @@ suspend fun handleMoveFlow() {
     val filesInSourceDir = getFilesInSourcesDir()
     CertoraConf.backupFiles(filesInSourceDir)
 
+    // And back up the binary modules
+    CertoraConf.backupFiles(
+        File(Config.MoveModulePath.get()).walk().filter { it.isFile }.map { it.toString() }.toSet()
+    )
+
     MoveVerifier().verify()
 }
 
