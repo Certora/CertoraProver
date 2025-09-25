@@ -26,7 +26,7 @@ enum class SetDomainElement {
 }
 
 /** Domain that represents any subset of E **/
-abstract class SetDomain<E: Comparable<E>> {
+abstract class SetDomain<E: Comparable<E>>: Iterable<E> {
     protected abstract val set: TreapSet<E>
     // whether @set is bottom, top or any other subset of E
     protected abstract val kind: SetDomainElement
@@ -47,7 +47,7 @@ abstract class SetDomain<E: Comparable<E>> {
         return set.size
     }
 
-    fun iterator(): Iterator<E> {
+    override fun iterator(): Iterator<E> {
         check(!isBottom()) {"cannot call iterator() on bottom set"}
         check(!isTop()) {"cannot call iterator() on top set"}
         return set.iterator()
