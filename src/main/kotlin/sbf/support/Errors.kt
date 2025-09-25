@@ -146,6 +146,16 @@ private val derefOfAbsoluteAddress = UserErrorInfo(
         "\t(2) $helpSummarizationIsNeeded",
     code = 3308)
 
+private val conflictingHeapUsage = UserErrorInfo(
+    msg = "Conflicting allocation/usage of heap memory",
+    note = "The program both calls \"__rust_alloc\", meaning Rust's allocator is being used to allocate memory in the heap,\n" +
+           "and directly dereferences an absolute address in the heap region, bypassing the allocator. Mixing the two confuses the verifier.\n" +
+           "The most common root cause is that the program (or some linked crate) uses its own memory allocator and the code has been inlined",
+    help = "To resolve this error consider one of the following:\n" +
+        "\t(1) compile code with \"no-entrypoint\" in Cargo.toml\n" +
+        "\t(2) summarize the code that dereferences absolute addresses to be known in the heap",
+    code = 3309)
+
 class UnknownStackPointerError(devInfo: DevErrorInfo)
     : PointerAnalysisError(devInfo, userInfo = unknownStackPointer)
 
@@ -169,6 +179,9 @@ class UnknownGlobalDerefError(devInfo: DevErrorInfo)
 
 class DerefOfAbsoluteAddressError(devInfo: DevErrorInfo)
     : PointerAnalysisError(devInfo, userInfo = derefOfAbsoluteAddress)
+
+class ConflictingHeapUsage(devInfo: DevErrorInfo)
+    : PointerAnalysisError(devInfo, userInfo = conflictingHeapUsage)
 
 class NoAssertionError(rule: String) : SolanaError(
     FormattedErrorMessage(
