@@ -6,12 +6,12 @@
 			},
 			"Range 1": {
 				"SUCCESS": [
-					"preservedParamsIndependent-Initial State-C.bar"
+					"preservedParamsIndependent-Initial State-C.bar(uint256)"
 				]
 			},
 			"Range 2": {
 				"FAIL": [
-					"preservedParamsIndependent-Initial State-C.bar(uint256)-C.bar"
+					"preservedParamsIndependent-Initial State-C.bar(uint256)-C.bar(uint256)"
 				]
 			}
 		}

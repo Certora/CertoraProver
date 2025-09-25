@@ -6,7 +6,7 @@
 			},
 			"Range 1": {
 				"FAIL": [
-					"violatedLessThanFive-Initial State-Any of: Summary.setFoo, Summary.setFooConditionally, Summary.unresolvedCall"
+					"violatedLessThanFive-Initial State-Summary.setFoo()|Summary.setFooConditionally((uint256))|Summary.unresolvedCall(address)"
 				]
 			}
 		}

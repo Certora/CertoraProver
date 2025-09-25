@@ -6,12 +6,12 @@
       },
       "Range 1": {
         "SUCCESS": [
-          "mCurrentContractNonNegative-Initial State-Any of: C.addM1, C.addNandM1, C.setM1, C.setNandM1, C.subM2"
+          "mCurrentContractNonNegative-Initial State-C.addM1(address)|C.addNandM1(address)|C.setM1(address)|C.setNandM1(address)|C.subM2(address)"
         ]
       },
       "Range 2": {
         "FAIL": [
-          "mCurrentContractNonNegative-Initial State-C.addM1(address)|C.addN1()|C.addNandM1(address)|C.setM1(address)|C.setN1()|C.setNandM1(address)|C.subM2(address)|C.subN2()-Any of: C.addM1, C.addNandM1, C.setM1, C.setNandM1, C.subM2"
+          "mCurrentContractNonNegative-Initial State-C.addM1(address)|C.addN1()|C.addNandM1(address)|C.setM1(address)|C.setN1()|C.setNandM1(address)|C.subM2(address)|C.subN2()-C.addM1(address)|C.addNandM1(address)|C.setM1(address)|C.setNandM1(address)|C.subM2(address)"
         ]
       }
     },
@@ -21,12 +21,12 @@
       },
       "Range 1": {
         "SUCCESS": [
-          "mInvariantParamInPreserved-Initial State-Any of: C.addM1, C.addNandM1, C.setM1, C.setNandM1, C.subM2"
+          "mInvariantParamInPreserved-Initial State-C.addM1(address)|C.addNandM1(address)|C.setM1(address)|C.setNandM1(address)|C.subM2(address)"
         ]
       },
       "Range 2": {
         "FAIL": [
-          "mInvariantParamInPreserved-Initial State-C.addM1(address)|C.addN1()|C.addNandM1(address)|C.setM1(address)|C.setN1()|C.setNandM1(address)|C.subM2(address)|C.subN2()-Any of: C.addM1, C.addNandM1, C.setM1, C.setNandM1, C.subM2"
+          "mInvariantParamInPreserved-Initial State-C.addM1(address)|C.addN1()|C.addNandM1(address)|C.setM1(address)|C.setN1()|C.setNandM1(address)|C.subM2(address)|C.subN2()-C.addM1(address)|C.addNandM1(address)|C.setM1(address)|C.setNandM1(address)|C.subM2(address)"
         ]
       }
     },
@@ -36,12 +36,12 @@
       },
       "Range 1": {
         "SUCCESS": [
-          "nNonNegative-Initial State-Any of: C.addN1, C.addNandM1, C.setN1, C.setNandM1, C.subN2"
+          "nNonNegative-Initial State-C.addN1()|C.addNandM1(address)|C.setN1()|C.setNandM1(address)|C.subN2()"
         ]
       },
       "Range 2": {
         "FAIL": [
-          "nNonNegative-Initial State-C.addM1(address)|C.addN1()|C.addNandM1(address)|C.setM1(address)|C.setN1()|C.setNandM1(address)|C.subM2(address)|C.subN2()-Any of: C.addN1, C.addNandM1, C.setN1, C.setNandM1, C.subN2"
+          "nNonNegative-Initial State-C.addM1(address)|C.addN1()|C.addNandM1(address)|C.setM1(address)|C.setN1()|C.setNandM1(address)|C.subM2(address)|C.subN2()-C.addN1()|C.addNandM1(address)|C.setN1()|C.setNandM1(address)|C.subN2()"
         ]
       }
     },
@@ -51,12 +51,12 @@
       },
       "Range 1": {
         "SUCCESS": [
-          "nNonNegativeRule-Initial State-Any of: C.addN1, C.addNandM1, C.setN1, C.setNandM1, C.subN2"
+          "nNonNegativeRule-Initial State-C.addN1()|C.addNandM1(address)|C.setN1()|C.setNandM1(address)|C.subN2()"
         ]
       },
       "Range 2": {
         "FAIL": [
-          "nNonNegativeRule-Initial State-C.addM1(address)|C.addN1()|C.addNandM1(address)|C.setM1(address)|C.setN1()|C.setNandM1(address)|C.subM2(address)|C.subN2()-Any of: C.addN1, C.addNandM1, C.setN1, C.setNandM1, C.subN2"
+          "nNonNegativeRule-Initial State-C.addM1(address)|C.addN1()|C.addNandM1(address)|C.setM1(address)|C.setN1()|C.setNandM1(address)|C.subM2(address)|C.subN2()-C.addN1()|C.addNandM1(address)|C.setN1()|C.setNandM1(address)|C.subN2()"
         ]
       }
     }

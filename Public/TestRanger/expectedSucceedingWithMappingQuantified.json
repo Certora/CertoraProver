@@ -6,13 +6,13 @@
 			},
 			"Range 1": {
 				"SUCCESS": [
-					"succeedingWithMappingQuantified-Initial State-Any of: WithMapping.setFoo, WithMapping.setFooConditionally"
+					"succeedingWithMappingQuantified-Initial State-WithMapping.setFoo()|WithMapping.setFooConditionally(address)"
 				]
 			},
 			"Range 2": {
 				"SUCCESS": [
-					"succeedingWithMappingQuantified-Initial State-WithMapping.setFoo()-WithMapping.setFooConditionally",
-					"succeedingWithMappingQuantified-Initial State-WithMapping.setFooConditionally(address)-WithMapping.setFoo"
+					"succeedingWithMappingQuantified-Initial State-WithMapping.setFoo()-WithMapping.setFooConditionally(address)",
+					"succeedingWithMappingQuantified-Initial State-WithMapping.setFooConditionally(address)-WithMapping.setFoo()"
 				]
 			}
 		}

@@ -25,6 +25,9 @@ import instrumentation.transformers.GhostSaveRestoreInstrumenter
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import log.*
 import rules.CompiledRule
 import rules.RuleCheckResult
@@ -37,14 +40,16 @@ import spec.cvlast.*
 import spec.rules.CVLSingleRule
 import spec.rules.IRule
 import tac.CallId
-import utils.Range
+import utils.*
 import vc.data.*
 import vc.data.TACProgramCombiners.andThen
 import verifier.BoundedModelChecker.Companion.copyFunction
 import verifier.BoundedModelChecker.Companion.optimize
 import verifier.BoundedModelChecker.Companion.toCore
 import verifier.BoundedModelChecker.Companion.FunctionSequence
+import verifier.BoundedModelChecker.Companion.abiWithContractStr
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.io.path.Path
 
 private val logger = Logger(LoggerTypes.BOUNDED_MODEL_CHECKER)
 
@@ -60,6 +65,7 @@ enum class BoundedModelCheckerFilters(private val filter: BoundedModelCheckerFil
     COMMUTATIVITY(CommutativityFilter, true, "this squence is commutative with another one"),
     IDEMPOTENCY(IdempotencyFilter, true, "this sequence contains consecutive calls to an idempotent function"),
     FUNCTION_NON_MODIFYING(FunctionNonModifyingFilter, false, "a function doesn't modify the invariant's storage"),
+    USER_REGEX_FILTER(UserRegexFilter, false, "this sequence was filtered out due to user regexes")
     ;
 
     companion object {
@@ -440,6 +446,155 @@ private data object FunctionNonModifyingFilter : BoundedModelCheckerFilter {
                 }) {
                 return false
             }
+        }
+        return true
+    }
+}
+
+/**
+ * Filter sequence against inclusion and exclusion regexes given by user.
+ * For merged sequences, it suffices if there is one of the represented flat sequences
+ * passing the filter to let the whole merged sequence pass, i.e. if one of the flat
+ * sequences matches the inclusion regex resp. doesn't match the exclusion regex.
+ */
+private data object UserRegexFilter : BoundedModelCheckerFilter {
+
+    @Serializable
+    data class FilterConfig(val includes: List<String> = emptyList(), val excludes: List<String> = emptyList())
+
+    data class RegexSequence(val matchAtStart: Boolean, val items: List<RegexElement>) {
+        companion object {
+            const val START_MATCH_SYMBOL = "^"
+            @Suppress("ForbiddenMethodCall")
+            fun fromString(s: String): RegexSequence {
+                val (matchAtStart, seq) = if (s.startsWith(START_MATCH_SYMBOL)) {
+                    true to s.substring(START_MATCH_SYMBOL.length)
+                } else {
+                    false to s
+                }
+                val items = seq.split("~>").map { RegexElement(it.split("->").map {r -> r.toRegex()}) }
+                return RegexSequence(matchAtStart, items)
+            }
+
+        }
+        fun sizeFromIndex(idx: Int) = items.mapIndexed {i, item -> if (i < idx) {0} else {item.size} }.sum()
+
+        fun matchOneAny(funs: BoundedModelChecker.Companion.SequenceElement, regex: Regex): Boolean =
+            funs.any { f -> regex.matches(f.abiWithContractStr()) }
+        fun matchConsecutiveAny(sequence: FunctionSequence, sequenceIndex: Int, regexes: RegexElement): Boolean {
+            if (sequenceIndex + regexes.consecutiveRegexes.size > sequence.size) {
+                // there are not enough elements in the sequence to match the regexes
+                return false
+            }
+            regexes.consecutiveRegexes.forEachIndexed { index, regex ->
+                if (!matchOneAny(sequence[sequenceIndex + index], regex)) {
+                    return false
+                }
+            }
+            return true
+        }
+        /**
+         * Returns true if any underlying sequence represented by the possibly merged [sequence] matches [this]
+         */
+        fun matchAny(sequence: FunctionSequence) : Boolean {
+            var currentFunIndex = 0
+            var currentRegexIndex = 0
+            while (currentFunIndex < sequence.size && currentRegexIndex < items.size) {
+                if(currentFunIndex + sizeFromIndex(currentRegexIndex) > sequence.size) {
+                    // not enough elements left in function sequence
+                    return false
+                }
+                val currRegexElem = items[currentRegexIndex]
+                if (matchConsecutiveAny(sequence, currentFunIndex, currRegexElem)) {
+                    if(currentRegexIndex == items.size - 1) { return true }
+                    currentRegexIndex += 1
+                    currentFunIndex += currRegexElem.size
+                } else if (matchAtStart && currentRegexIndex == 0) {
+                    // must match the first regex element on the first function element when matchAtStart is true
+                    return false
+                } else {
+                    currentFunIndex += 1
+                }
+            }
+            return false
+        }
+        /**
+         * Returns true if all underlying sequences represented by the possibly merged [sequence] match [this]
+         */
+        fun matchAll(sequence: FunctionSequence) : Boolean {
+            val sequences = sequence.expandIntoFlatSequences()
+            return sequences.all { matchAny(it) }
+        }
+
+    }
+    data class RegexElement(val consecutiveRegexes: List<Regex>) {
+        val size
+            get() = consecutiveRegexes.size
+    }
+
+    var includes: List<RegexSequence> = emptyList()
+    var excludes: List<RegexSequence> = emptyList()
+
+    @Suppress("ForbiddenMethodCall")
+    override fun init(
+        cvl: CVL,
+        scene: IScene,
+        compiler: CVLCompiler,
+        compiledFuncs: Map<ContractFunction, BoundedModelChecker.FuncData>,
+        funcReads: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>,
+        funcWrites: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>,
+        testProgs: Map<CVLSingleRule, CoreTACProgram>
+    ) {
+        val resourceLabel = "rangerFilters:"
+
+        val resourcesProvided =
+            Config.ResourceFiles.getOrNull()?.filter { it.startsWith(resourceLabel) }?.ifEmpty { null }
+                ?: return
+        if (resourcesProvided.size > 1) {
+            Logger.alwaysWarn("Got more than one resource file with the ranger filters label '$resourceLabel'.")
+        }
+
+        val path = resourcesProvided.first().substring(resourceLabel.length).trim()
+        val wrappedPath = Path(ArtifactFileUtils.wrapPathWith(path, Config.getSourcesSubdirInInternal()))
+        if (!wrappedPath.toFile().exists()) {
+            logger.warn {"The specified ranger filters file does not exist: $wrappedPath"}
+            return
+        }
+
+        val parsed = try {
+            val content = wrappedPath.toFile().readText()
+            Json.decodeFromString<FilterConfig>(content)
+        } catch (e: SerializationException) {
+            logger.warn(e) {"Failed to parse the specified ranger filters file: $wrappedPath"}
+            return
+        }
+        logger.debug { parsed }
+        includes = parsed.includes.map(RegexSequence::fromString)
+        excludes = parsed.excludes.map(RegexSequence::fromString)
+        logger.info { "Includes: $includes\n Excludes: $excludes" }
+        if(excludes.isNotEmpty()) {
+            logger.warn { "Computing sequence filtering with exclude regexes is expensive," +
+                "consider using rather include regexes if possible." }
+        }
+    }
+
+    override suspend fun filter(
+        sequence: FunctionSequence,
+        extensionCandidate: ContractFunction,
+        testRule: CVLSingleRule,
+        funcReads: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>,
+        funcWrites: Map<ContractFunction, BoundedModelChecker.Companion.StateModificationFootprint?>
+    ): Boolean {
+        val extendedSequence = sequence + BoundedModelChecker.Companion.SequenceElement(extensionCandidate)
+        if (includes.isNotEmpty() && includes.none { include -> include.matchAny(extendedSequence) }) {
+            // no expansion of the sequence should be included according to inclusion regex
+            logger.debug { "Filtering out ${extendedSequence.sequenceStr()} due to inclusion regex." }
+            return false
+        }
+        if (excludes.isNotEmpty() && excludes.any { exclude -> exclude.matchAll(extendedSequence) }) {
+            // all expansions of the sequence should be excluded according to exclusion regex
+            logger.debug { "Filtering out ${extendedSequence.sequenceStr()} due to exclusion regex." }
+            return false
         }
         return true
     }

@@ -6,12 +6,12 @@
 			},
 			"Range 1": {
 				"SUCCESS": [
-					"preservedParamsLinkedToFunctionCall-Initial State-C.foo"
+					"preservedParamsLinkedToFunctionCall-Initial State-C.foo(uint256)"
 				]
 			},
 			"Range 2": {
 				"SUCCESS": [
-					"preservedParamsLinkedToFunctionCall-Initial State-C.foo(uint256)-C.foo"
+					"preservedParamsLinkedToFunctionCall-Initial State-C.foo(uint256)-C.foo(uint256)"
 				]
 			}
 		}

@@ -100,22 +100,22 @@ class BoundedModelChecker(
 
         @JvmInline
         value class FunctionSequence(val funs: TreapList<SequenceElement>) : List<SequenceElement> by funs {
-            fun sequenceStr() = this.joinToString(" -> ") { it.dispatchStr() }
+            fun sequenceStr() = this.joinToString(" -> ") { it.abiWithContractStr() }
             operator fun plus(el: SequenceElement) = FunctionSequence(this.funs + listOf(el))
             companion object {
                 fun emptySequence() = FunctionSequence(treapListOf())
             }
             val numFlatSequencesRepresented
                 get() = funs.fold(1) { acc, el ->  acc * el.size }
+            fun expandIntoFlatSequences(): Set<FunctionSequence> =
+                funs.fold(setOf<FunctionSequence>(emptySequence())) { acc, el ->
+                    acc.flatMapToSet { partialSeq -> el.map { f -> partialSeq + SequenceElement(f) } }
+                }
         }
 
         @JvmInline
         value class SequenceElement(val el: NonEmptyList<ContractFunction>) : List<ContractFunction> by el {
-            fun dispatchStr() =
-                this.el.singleOrNull()?.methodSignature?.qualifiedMethodName?.printQualifiedFunctionName() // avoids the prefix for the singleton case
-                    ?: this.el.toSet().map { it.methodSignature.qualifiedMethodName.printQualifiedFunctionName() }
-                        .sorted().joinToString(prefix = "Any of: ")
-
+            constructor(f: ContractFunction) : this(nonEmptyListOf(f))
             fun abiWithContractStr() = this.joinToString("|") { it.abiWithContractStr() }
         }
 
@@ -265,7 +265,7 @@ class BoundedModelChecker(
                 StateModificationFootprint(storageReads.toSet(), readsFromTransientStorage.get(), ghostReads.toSet())
         }
 
-        private fun ContractFunction.abiWithContractStr() = this.methodSignature.qualifiedMethodName.host.name + "." + this.methodSignature.computeCanonicalSignature(PrintingContext(false))
+        fun ContractFunction.abiWithContractStr() = this.methodSignature.qualifiedMethodName.host.name + "." + this.methodSignature.computeCanonicalSignature(PrintingContext(false))
     }
 
     private val maxSequenceLen = Config.BoundedModelChecking.get()
@@ -921,7 +921,7 @@ class BoundedModelChecker(
                 BoundedModelCheckerFilters.filter(parentFuncs, func, baseRule, funcReads, funcWrites)
             }
 
-            logger.debug { "For sequence ${parentFuncs}, filtering extension candidates gives:\n $allLastFuncsToFailedFilters\n"}
+            logger.debug { "For sequence ${parentFuncs.sequenceStr()}, filtering extension candidates gives:\n $allLastFuncsToFailedFilters\n"}
 
             val sequenceLen = parentFuncs.size + 1
             val rangeRule = getRangeRule(sequenceLen)
@@ -934,7 +934,7 @@ class BoundedModelChecker(
             val res = if (lastFuncs.isNotEmpty()) {
                 val newSequenceElement = SequenceElement(lastFuncs.toNonEmptyList()!!)
                 val seqRule = parentRule.copy(
-                    ruleIdentifier = parentRule.ruleIdentifier.freshDerivedIdentifier(newSequenceElement.dispatchStr()),
+                    ruleIdentifier = parentRule.ruleIdentifier.freshDerivedIdentifier(newSequenceElement.abiWithContractStr()),
                     ruleType = SpecType.Single.BMC.Sequence(baseRule)
                 )
                 treeViewReporter.registerSubruleOf(seqRule, rangeRule)
@@ -997,7 +997,7 @@ class BoundedModelChecker(
 
             val extensions = pickExtensions(allLastFuncsToFailedFilters.filterValues { it == null || !it.appliesToChildren }.keys)
 
-            logger.debug { "For sequence $parentFuncs, picked extensions $extensions" }
+            logger.debug { "For sequence ${parentFuncs.sequenceStr()}, picked extensions $extensions" }
 
             // OK, this is a little confusing.
             // We want to count how many sequences are going to be skipped for each range due to us not calling checkRecursive
@@ -1078,7 +1078,7 @@ class BoundedModelChecker(
                 (easy + hard).mapNotNull { it.toNonEmptyList() }.map { SequenceElement(it) }.toSet()
             }
         } else {
-            funs.map { SequenceElement(nonEmptyListOf(it)) }.toSet()
+            funs.map { SequenceElement(it) }.toSet()
         }
 
 
