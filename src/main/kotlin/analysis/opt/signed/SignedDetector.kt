@@ -201,6 +201,7 @@ class SignedDetector(private val code: CoreTACProgram) {
             }
 
             is TACExpr.BinOp.SignExtend -> {
+                union(spot, opSpots[1])
                 signed += spot
                 unsigned += opSpots[0]
             }

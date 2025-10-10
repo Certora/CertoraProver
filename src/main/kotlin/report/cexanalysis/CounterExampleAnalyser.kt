@@ -24,16 +24,27 @@ import report.RuleAlertReport
 import solver.SMTCounterexampleModel
 import utils.Color.Companion.greenBg
 import utils.Color.Companion.yellow
+import utils.Color.Companion.yellowBg
 import utils.Range
 import vc.data.CoreTACProgram
+import vc.data.TACCmd
 
 private val logger = Logger(LoggerTypes.CEX_ANALYSER)
+
+
+interface CexAnalysisInfo {
+    val ptr : CmdPointer
+    val cmd : TACCmd.Simple
+    val msg : String
+    val range get() = cmd.sourceOrCVLRange as? Range.Range
+
+}
 
 /**
  * Analyses the given [model] of [code], and then holds some fields with information for call trace purposes.
  */
 class CounterExampleAnalyser(
-    cexId: Int,
+    val cexId: Int,
     val code: CoreTACProgram,
     val model: SMTCounterexampleModel,
 ) {
@@ -50,37 +61,46 @@ class CounterExampleAnalyser(
      *
      * Note that [unneeded] commands don't appear here.
      */
-    val imprecisions: Map<CmdPointer, Pair<String, Range?>> = CounterExampleImprecisionDetector(cex).check() - unneeded
+    val imprecisions: Map<CmdPointer, CexAnalysisInfo> =
+        CounterExampleImprecisionDetector(cex).check()
 
-    private val firstAlertText = imprecisions.entries.firstOrNull()?.let { (ptr, msg) ->
-        "${cex.g.toCommand(ptr).sourceOrCVLRange} : $msg"
-    }
+    val overflows: Map<CmdPointer, CexAnalysisInfo> =
+        CounterExampleOverflowDetector(cex).check()
+
+    val imprecisionAlerts = summarize(imprecisions, "imprecision")
+    val overflowAlerts = summarize(overflows, "overflow")
 
     /**
-     * Alerts summarizing [imprecisions]. Currently we alert at most once, even if there are many imprecisions.
+     * Alerts summarizing [imprecisions]/[overflows]. Currently we alert at most once, even if there are many.
      */
-    val alerts: List<RuleAlertReport.Warning> =
-        when (imprecisions.size) {
+    fun summarize(alerts: Map<CmdPointer, CexAnalysisInfo>, name: String): List<RuleAlertReport.Warning> {
+        fun text() = alerts.values.firstOrNull()?.let {
+            "${cex.g.toCommand(it.ptr).sourceOrCVLRange} : ${it.msg}"
+        }
+        return when (alerts.size) {
             0 -> emptyList()
             1 -> listOf(
                 RuleAlertReport.Warning(
-                    "Detected one imprecision in counter example $cexId: $firstAlertText"
+                    "Detected one $name in counter example $cexId: ${text()}"
                 )
             )
 
             else -> listOf(
                 RuleAlertReport.Warning(
-                    "Detected ${imprecisions.size} imprecisions in counter example $cexId. First one is: $firstAlertText"
+                    "Detected ${alerts.size} ${name}s in counter example $cexId. First one is: ${text()}"
                 )
             )
         }
+    }
 
     init {
         Logger.regression {
-            "Found ${imprecisions.size} imprecisions"
+            "Found ${imprecisions.size} imprecisions\n" +
+                "Found ${overflows.size} overflows"
         }
         logger.debug {
-            "Generated alerts : $alerts"
+            "Generated imprecision alerts : $imprecisionAlerts\n" +
+                "Generated overflow alerts : $overflowAlerts"
         }
         logger.trace {
             if (cex.pathBlocksList != null) {
@@ -92,7 +112,12 @@ class CounterExampleAnalyser(
                     .extraLines {
                         imprecisions[it.ptr]
                             ?.let { listOf(it.greenBg) }
-                            ?: listOf()
+                            .orEmpty()
+                    }
+                    .extraLines {
+                        overflows[it.ptr]
+                            ?.let { listOf(it.yellowBg) }
+                            .orEmpty()
                     }
                     .extraLhsInfo { ptr ->
                         cex.g.getLhs(ptr)?.let(cex::invoke)

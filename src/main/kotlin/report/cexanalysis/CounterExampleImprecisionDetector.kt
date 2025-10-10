@@ -31,17 +31,35 @@ import java.math.BigInteger
  */
 class CounterExampleImprecisionDetector(private val cex: CounterExampleContext) {
 
-    /**
-     * Returns all [CmdPointer]s with an imprecision, together with a relevant msg and range.
-     */
-    fun check(): Map<CmdPointer, Pair<String, Range?>> =
-        cex.cexCmdSequence().associateNotNull { (ptr, cmd) ->
-            checkCmd(cmd)?.let { check ->
-                ptr to (check to cex.g.toCommand(ptr).sourceOrCVLRange)
-            }
+    sealed interface Imprecision : CexAnalysisInfo {
+        class Assignment(
+            override val ptr: CmdPointer,
+            override val cmd: TACCmd.Simple,
+            val rhsStr: String,
+            val rhsVal: BigInteger,
+            val lhsVal: BigInteger,
+        ) : Imprecision {
+            override val msg: String get() = "mismatch: $rhsStr = $rhsVal, but is $lhsVal"
         }
 
-    private fun checkCmd(cmd: TACCmd.Simple): String? {
+        class AssumeExp(
+            override val ptr: CmdPointer,
+            override val cmd: TACCmd.Simple,
+        ) : Imprecision {
+            override val msg: String get() = "condition of require statement should be true but is false"
+        }
+
+    }
+
+    /**
+     * Returns all [CmdPointer]s with an imprecision, together with a relevant msg.
+     */
+    fun check(): Map<CmdPointer, Imprecision> =
+        cex.cexCmdSequence().associateNotNull { (ptr, cmd) ->
+            ptr `to?` checkCmd(ptr, cmd)
+        }
+
+    private fun checkCmd(ptr: CmdPointer, cmd: TACCmd.Simple): Imprecision? {
         when (cmd) {
             is TACCmd.Simple.AssigningCmd.AssignExpCmd -> {
                 val lhsVal = cex(cmd.lhs)
@@ -55,7 +73,7 @@ class CounterExampleImprecisionDetector(private val cex: CounterExampleContext) 
                                 else -> "${e.javaClass.simpleName}(${operandStrs.joinToString(", ") { it }})"
                             }
                         }
-                        return "mismatch: $rhsStr = $rhsVal, but is $lhsVal"
+                        return Imprecision.Assignment(ptr, cmd, rhsStr, rhsVal, lhsVal)
                     }
                 }
             }
@@ -67,7 +85,7 @@ class CounterExampleImprecisionDetector(private val cex: CounterExampleContext) 
             is TACCmd.Simple.Assume ->
                 cex(cmd.condExpr)?.let { condVal ->
                     if (condVal != BigInteger.ONE) {
-                        return "condition of require statement should be true but is false"
+                        return Imprecision.AssumeExp(ptr, cmd)
                     }
                 }
 
