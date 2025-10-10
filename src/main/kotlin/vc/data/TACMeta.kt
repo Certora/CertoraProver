@@ -146,8 +146,6 @@ object TACMeta {
     val STORAGE_TYPE =
         MetaKey<EVMTypeDescriptor.EVMValueType>("tac.slot.type")
 
-    val SCALARIZED_ARRAY = MetaKey.Nothing("tac.storage.unpacked.array")
-
     /**
      * The sort (split? unpacked? etc.) of a storage location. Attached to the storage base map for unscalarized locations,
      * attached to the scalarized variable otherwise.

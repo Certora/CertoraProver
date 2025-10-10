@@ -17,6 +17,8 @@
 
 package report.calltrace.generator
 
+import datastructures.stdcollections.*
+import java.math.BigInteger
 import move.*
 import report.calltrace.*
 import report.calltrace.formatter.*
@@ -43,9 +45,12 @@ internal class MoveCallTraceGenerator(
     ruleCallString: String,
 ) : CallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString) {
 
+    private val typesById = mutableMapOf<BigInteger, MoveType.Value>()
+
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int) =
         cmd.maybeAnnotation(TACMeta.SNIPPET)?.let {
             when (it) {
+                is MoveCallTrace.TypeId -> handleTypeId(it)
                 is MoveCallTrace.FuncStart -> handleFuncStart(it)
                 is MoveCallTrace.FuncEnd -> handleFuncEnd(it)
                 is MoveCallTrace.Assert -> handleAssert(it)
@@ -56,22 +61,30 @@ internal class MoveCallTraceGenerator(
 
     private class Call(
         val funcName: MoveFunctionName,
+        override val callName: String,
         override val params: List<MoveFunction.DisplayParam>,
         override val returnTypes: List<MoveType>,
-        val args: List<MoveCallTrace.Value>,
         override val range: Range.Range?,
         override val formatter: CallTraceValueFormatter
-    ) : CallInstance.InvokingInstance<MoveType>() {
-        override val callName get() = funcName.toString()
+    ) : CallInstance.InvokingInstance<MoveType>()
+
+    private fun handleTypeId(annot: MoveCallTrace.TypeId): HandleCmdResult {
+        typesById[annot.id.toBigInteger()] = annot.type
+        return HandleCmdResult.Continue
     }
 
     private fun handleFuncStart(annot: MoveCallTrace.FuncStart): HandleCmdResult {
+        val typeArgs = annot.typeArgIds.map {
+            model.valueAsBigInteger(it).leftOrNull()?.let {
+                typesById[it]?.displayName() ?: "(#$it)"
+            } ?: "(unknown)"
+        }.takeIf { it.isNotEmpty() }?.joinToString(", ", "<", ">").orEmpty()
         callTracePush(
             Call(
                 annot.name,
+                "${annot.name}$typeArgs",
                 annot.params,
                 annot.returnTypes,
-                annot.args,
                 annot.range,
                 formatter
             ).also { call ->
