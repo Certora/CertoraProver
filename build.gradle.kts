@@ -579,7 +579,7 @@ fun DependencyHandlerScope.applyCommon(projectName: String) {
 	implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.6")
 	implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 	implementation("com.github.komputing.khash:keccak:1.1.1")
-	implementation("com.github.ajalt:clikt-multiplatform:2.6.0")
+	implementation("com.github.ajalt.clikt:clikt:5.0.1")
 	implementation("org.apache.commons:commons-lang3:3.11")
 	implementation("com.github.certora.collections:collect:${property("certora.collect.version")}")
 	implementation("com.dylibso.chicory:runtime:${property("chicory.version")}")
@@ -765,6 +765,24 @@ project(":Typechecker") {
 
 	tasks {
 		copyJar("typeCheckerArtifactId")
+	}
+
+}
+
+project(":PrefixGen") {
+	dependencies {
+		implementation(project(":GeneralUtils"))
+		implementation(project(":Shared"))
+	}
+
+	apply(plugin = "application")
+
+	application {
+		mainClass.set("prefixgen.Start")
+	}
+
+	tasks {
+		copyJar("prefixGenArtifactId")
 	}
 
 }

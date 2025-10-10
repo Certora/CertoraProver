@@ -1,5 +1,5 @@
 rootProject.name = "CertoraProver"
-include("GeneralUtils", "SMTLIBUtils", "Shared", "Typechecker", "ASTExtraction", "KspGeneration", "DetektRules", "TestUtils")
+include("GeneralUtils", "SMTLIBUtils", "Shared", "Typechecker", "PrefixGen", "ASTExtraction", "KspGeneration", "DetektRules", "TestUtils")
 project(":GeneralUtils").projectDir = file("lib/GeneralUtils")
 project(":SMTLIBUtils").projectDir = file("lib/SMTLIBUtils")
 project(":Shared").projectDir = file("lib/Shared")

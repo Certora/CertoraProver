@@ -31,6 +31,29 @@ inline fun <T, R> computeCrossProduct(l1: List<T>, l2: List<T>, joiner: (T, T) -
 }
 
 /**
+ * Generates all pairs of elements in the list [l], where the ordering of the pairs doesn't matter,
+ * that is `(l[1], l[2])` is considered equivalent to `(l[2], l[1])`
+ */
+inline fun <T, R> computeCommutativeCrossProduct(l: List<T>, skipSelfPairing: Boolean = false, crossinline joiner: (T, T) -> R) : Sequence<R> {
+    return sequence<R> {
+        var i = 0
+        while(i < l.size) {
+            val curr = l[i]
+            var j = if(skipSelfPairing) {
+                i + 1
+            } else {
+                i
+            }
+            while(j < l.size) {
+                yield(joiner(curr, l[j]))
+                j++
+            }
+            i++
+        }
+    }
+}
+
+/**
  * Best explained by an example. Given [[a, b], [1], [2, 3]], will generate:
  *    [[a, 1, 2], [a, 1, 3], [b, 1, 2], [b, 1, 3]]
  */

@@ -26,7 +26,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import utils.*
 
-class TreapMapSerializer<@Treapable K, V>(
+open class TreapMapSerializer<@Treapable K, V>(
     private val keySerializer: KSerializer<K>,
     private val valueSerializer: KSerializer<V>
 ) : KSerializer<TreapMap<K, V>> {
