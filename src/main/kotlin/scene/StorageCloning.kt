@@ -61,21 +61,30 @@ object StorageCloning {
             is ScalarizationSort.Split,
             ScalarizationSort.UnscalarizedBuffer -> null
         }
+        val newName = if(TACMeta.SCALARIZED_ARRAY in storageVar.meta) {
+            SplitRewriter.storageArrayPathName(
+                targetContract,
+                repPath = stablePath,
+                width = storageVar.meta[TACMeta.BIT_WIDTH] ?: error("Bit width not defined for unpacked array: $storageVar")
+            )
+        } else {
+            SplitRewriter.storageVarName(
+                targetContract,
+                equivClassSize = stableStorageFamily.storagePaths.size,
+                repPath = stablePath,
+                splitStart = splitStart
+            )
+        }
         /**
          * Reconstruct the variable name to refer to the [targetContract] version (which *should* just be a find replace
          * of the original name with the address hex string of the original contract with the hex address of [targetContract])
          */
-        return storageVar.copy(namePrefix = SplitRewriter.storageVarName(
-            targetContract,
-            equivClassSize = stableStorageFamily.storagePaths.size,
-            repPath = stablePath,
-            splitStart = splitStart
-        )).withMeta {
+        return storageVar.copy(namePrefix = newName).withMeta {
             it + (TACMeta.STORAGE_KEY to targetContract)
         }.also {
             @Suppress("ForbiddenMethodCall") // for sanity check only
             check(it.namePrefix == storageVar.namePrefix.replace(sourceId.toString(16), targetContract.toString(16))) {
-                "Sanity check failed, reconstructing the variable name didn't work as expected $it vs $storageVar"
+                "Sanity check failed, reconstructing the variable name didn't work as expected $it vs $storageVar (${storageVar.meta})"
             }
         }
 

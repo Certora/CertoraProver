@@ -451,7 +451,6 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                     // We ignore these for now
                     is CVTFunction.NativeInt,
                     is CVTFunction.U128Intrinsics,
-                    is CVTFunction.I128Intrinsics,
                     is CVTFunction.Calltrace -> inState
                 }
             } else {

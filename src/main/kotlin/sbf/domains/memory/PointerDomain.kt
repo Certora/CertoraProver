@@ -4412,10 +4412,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         }
                     }
                     is CVTFunction.Calltrace -> {}
-                    is CVTFunction.Nondet,
-                    is CVTFunction.U128Intrinsics,
-                    is CVTFunction.I128Intrinsics,
-                    is CVTFunction.NativeInt  ->  {
+                    is CVTFunction.Nondet, is CVTFunction.U128Intrinsics, is CVTFunction.NativeInt  ->  {
                         summarizeCall(calleeLocInst, globals, scalars, memSummaries)
                     }
                 }

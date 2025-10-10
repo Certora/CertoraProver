@@ -48,23 +48,8 @@ object CvlmHash {
     }
 
     // Type IDs so hashes can include the type arguments of the function.
-    private val typeIds = ConcurrentHashMap<MoveType.Value, Int>()
-
-    /**
-        Gets an expression giving an ID for the given type.  For deterministic types, this is a fixed ID, which we
-        will record in the call trace.  For nondet types, we indirect though MOVE_NONDET_TYPE_EQUIV so the solver
-        can choose an ID, which may or may not be one of the IDs we assigned to a deterministic type.
-     */
-    context(SummarizationContext)
-    fun typeId(type: MoveType.Value): TACExpr = when (type) {
-        is MoveType.Nondet -> TACExpr.Select(
-            base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
-            loc = type.id.asTACExpr
-        )
-        else -> typeIds.computeIfAbsent(type) { typeIds.size }
-            .also { MoveCallTrace.recordTypeId(type, it) }
-            .asTACExpr
-    }
+    private val typeIds = ConcurrentHashMap<MoveType.Value, TACExpr>()
+    private fun MoveType.Value.typeId() = typeIds.computeIfAbsent(this) { typeIds.size.asTACExpr }
 
     /**
         Generates TAC code to hash the arguments of the given [call] into [dst].
@@ -74,7 +59,17 @@ object CvlmHash {
         val hashArgs = mutableListOf<TACExpr>()
 
         // Add any type arguments to the hash
-        hashArgs.addAll(call.callee.typeArguments.map { typeId(it) })
+        call.callee.typeArguments.forEach { type ->
+            hashArgs.add(
+                when (type) {
+                    is MoveType.Nondet -> TACExpr.Select(
+                        base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
+                        loc = type.id.asTACExpr
+                    )
+                    else -> type.typeId()
+                }
+            )
+        }
 
         // Unwrap any reference arguments to get the values
         val unwrappedArgs = mutableListOf<TACSymbol.Var>()
