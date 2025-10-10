@@ -114,6 +114,7 @@ sealed class MoveType : HasKSerializable {
         override val fields: List<Composite.Field>?
     ) : Datatype(), Composite {
         override fun toTag() = MoveTag.Struct(this)
+        override fun toString() = super.toString() // Don't use compiler-generated toString
     }
 
     @KSerializable
@@ -123,6 +124,7 @@ sealed class MoveType : HasKSerializable {
         val variants: List<Variant>
     ) : Datatype() {
         override fun toTag() = MoveTag.Enum(this)
+        override fun toString() = super.toString() // Don't use compiler-generated toString
 
         @Treapable
         @KSerializable

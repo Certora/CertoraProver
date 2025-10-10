@@ -613,7 +613,11 @@ internal object PeepHoleOptimizer {
                 resultOperands.addFirst(nonNeutralConstants.first())
             }
 
-            return mk(resultOperands)
+            return if (resultOperands.isNotEmpty()) {
+                mk(resultOperands)
+            } else {
+                TACSymbol.Const(converterTo(neutral), tag).asSym()
+            }
         }
 
         private fun transformAlgebraicOp(

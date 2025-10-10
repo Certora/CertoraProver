@@ -24,6 +24,7 @@ import datastructures.persistentStackOf
 import datastructures.stdcollections.*
 import log.*
 import move.ConstantStringPropagator.MESSAGE_VAR
+import move.ConstantStringPropagator.MessageVar
 import move.MoveModule.*
 import move.analysis.ReferenceAnalysis
 import tac.*
@@ -190,14 +191,16 @@ class MoveMemory(val scene: MoveScene) {
                     val messageVar = cmd.meta[MESSAGE_VAR]
                     @Suppress("NAME_SHADOWING") // Intentionally shadow the un-transformed `cmd`
                     val cmd = if (messageVar != null) {
-                        cmd.withMeta(cmd.meta + (MESSAGE_VAR to transformLocVar(messageVar)))
+                        cmd.withMeta(cmd.meta + (MESSAGE_VAR to MessageVar(transformLocVar(messageVar.sym))))
                     } else {
                         cmd
                     }
                     when (cmd) {
                         is TACCmd.Simple.AssigningCmd.AssignExpCmd -> transformAssignExpCmd(cmd)
                         is TACCmd.Simple.AssigningCmd.AssignHavocCmd -> transformAssignHavocCmd(cmd)
-                        else -> cmd.withDecls()
+                        else -> cmd.maybeAnnotation(MESSAGE_VAR)?.let {
+                            TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(transformLocVar(it.sym))).withDecls()
+                        } ?: cmd.withDecls()
                     }
                 }
                 is TACCmd.Move -> {
@@ -821,9 +824,7 @@ class MoveMemory(val scene: MoveScene) {
                             fieldOffset += fieldSize(field.type)
                         }
                     } + listOf(
-                        assign(dest, cmd.meta) {
-                            fieldEqs.fold(true.asTACExpr as TACExpr) { acc, fieldEq -> acc and fieldEq }
-                        }
+                        assign(dest, cmd.meta) { LAnd(fieldEqs.map { it.asSym() }) }
                     )
                 )
             }
@@ -850,9 +851,11 @@ class MoveMemory(val scene: MoveScene) {
                         assign(actualVariantIndex, cmd.meta) { select(aLoc.asSym(), enumVariantOffset.asTACExpr) },
                         assign(dest, cmd.meta) {
                             (select(bLoc.asSym(), enumVariantOffset.asTACExpr) eq actualVariantIndex.asSym()) and
-                            variantComparisons.foldIndexed(false.asTACExpr as TACExpr) { variantIndex, acc, (variantEq, _) ->
-                                acc or ((actualVariantIndex eq variantIndex.asTACExpr) and variantEq.asSym())
-                            }
+                            LOr(
+                                variantComparisons.mapIndexed { variantIndex, (variantEq, _) ->
+                                    (actualVariantIndex eq variantIndex.asTACExpr) and variantEq.asSym()
+                                }
+                            )
                         }
                     )
                 }
@@ -905,14 +908,11 @@ class MoveMemory(val scene: MoveScene) {
             )
         }
 
-        // Special-case: there's only one possible location, so we don't need to branch
-        refTargets.singleOrNull()?.let { refTarget ->
-            return action(this@CommandContext, refTarget.toDeref())
-        }
+        // Apply the action to the first (and typically only) target
+        val firstCase = action(this@CommandContext, refTargets.first().toDeref())
 
-        // Otherwise, we need to "switch" over the location ID
-        val noneMatched = assume { false.asTACExpr }
-        return refTargets.fold(noneMatched) { noMatch, refTarget ->
+        // If there are multiple targets, build the "switch" over them
+        return refTargets.drop(1).fold(firstCase) { noMatch, refTarget ->
             DerefCase(
                 locId = refTarget.locId,
                 locIdVar = refVars.locId,

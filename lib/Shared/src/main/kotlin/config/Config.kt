@@ -934,6 +934,15 @@ object Config {
             Option("movePath", true, "Directory to search for Move modules")
         ) {}
 
+    val MovePublicSanityCheck = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "publicSanity",
+            false,
+            "If specified, performs sanity checks on all public Move functions.  Use with -rule to narrow the selection of functions to check."
+        )
+    ) {}
+
     val CvlmAddress =
         object : ConfigType.BigIntCmdLine(
             0x436572746f7261.toBigInteger(),

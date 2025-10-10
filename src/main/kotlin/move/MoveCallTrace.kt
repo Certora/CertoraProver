@@ -24,6 +24,7 @@ import com.certora.collect.*
 import config.*
 import datastructures.stdcollections.*
 import move.ConstantStringPropagator.MESSAGE_VAR
+import move.ConstantStringPropagator.MessageVar
 import tac.*
 import tac.generation.*
 import utils.*
@@ -329,10 +330,13 @@ object MoveCallTrace {
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
         return if (messageVar == null) {
-            Assume(messageText, range).toAnnotation()
+            Assume(messageText, range).toAnnotation().withDecls()
         } else {
-            Assume(messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to messageVar))
-        }.withDecls()
+            mergeMany(
+                Assume(messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to MessageVar(messageVar))).withDecls(),
+                TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(messageVar)).withDecls()
+            )
+        }
     }
 
     /**
@@ -346,9 +350,12 @@ object MoveCallTrace {
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
         return if (messageVar == null) {
-            Assert(isSatisfy, condition, messageText, range).toAnnotation()
+            Assert(isSatisfy, condition, messageText, range).toAnnotation().withDecls()
         } else {
-            Assert(isSatisfy, condition, messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to messageVar))
-        }.withDecls()
+            mergeMany(
+                Assert(isSatisfy, condition, messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to MessageVar(messageVar))).withDecls(),
+                TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(messageVar)).withDecls()
+            )
+        }
     }
 }

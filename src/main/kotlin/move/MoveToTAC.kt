@@ -56,9 +56,17 @@ private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
 class MoveToTAC private constructor (val scene: MoveScene) {
     data class CompiledRule(
         val rule: CvlmRule,
-        val code: CoreTACProgram,
+        val moveTAC: MoveTACProgram,
         val isSatisfy: Boolean
-    )
+    ) {
+        fun toCoreTAC(scene: MoveScene): CoreTACProgram {
+            return annotateCallStack("rule.${rule.ruleInstanceName}") {
+                val coreTAC = MoveMemory(scene).transform(moveTAC)
+                ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
+                preprocess(coreTAC, isSatisfy)
+            }
+        }
+    }
 
     companion object {
         fun compileRule(rule: CvlmRule, scene: MoveScene) = MoveToTAC(scene).compileRule(rule)
@@ -77,9 +85,21 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             )
         }
 
+        private fun preprocess(code: CoreTACProgram, isSatisfy: Boolean) =
+            CoreTACProgram.Linear(code)
+            .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
+            .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
+            .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
+            .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
+            .ref
+
         fun optimize(code: CoreTACProgram) =
             CoreTACProgram.Linear(code)
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SNIPPET_REMOVAL, SnippetRemover::rewrite))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { BoolOptimizer(it).go() })
@@ -361,17 +381,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     ): CompiledRule {
         return annotateCallStack("rule.${rule.ruleInstanceName}") {
             val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
-
             ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
-
-            val coreTAC = MoveMemory(scene).transform(moveTAC)
-            ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
-
-            val isSatisfy = isSatisfyRule(coreTAC)
-
-            val finalTAC = preprocess(coreTAC, isSatisfy)
-
-            CompiledRule(rule, finalTAC, isSatisfy)
+            CompiledRule(rule, moveTAC, isSatisfyRule(moveTAC))
         }
     }
 
@@ -408,8 +419,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         }
     }
 
-    private fun isSatisfyRule(code: CoreTACProgram): Boolean {
-        val areSatisfyAsserts = code.parallelLtacStream().mapNotNull { (_, cmd) ->
+    private fun isSatisfyRule(code: MoveTACProgram): Boolean {
+        val areSatisfyAsserts = code.graph.commands.parallelStream().mapNotNull { (_, cmd) ->
             (cmd as? TACCmd.Simple.AssertCmd)
                 ?.takeIf { TACMeta.CVL_USER_DEFINED_ASSERT in it.meta }
                 ?.meta?.containsKey(TACMeta.SATISFY_ID)
@@ -426,20 +437,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 "Rule ${code.name} mixes assert and satisfy commands."
             )
     }
-
-
-    private fun preprocess(code: CoreTACProgram, isSatisfy: Boolean) =
-        CoreTACProgram.Linear(code)
-        // ConstantStringPropagator must come before TACDSA
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
-        .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
-        .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
-        .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
-        .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
-        .ref
 
     context(SummarizationContext)
     fun compileFunctionCall(call: MoveCall): MoveBlocks {

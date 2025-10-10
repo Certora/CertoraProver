@@ -70,14 +70,15 @@ class MoveVerifier {
                         is CvlmRule.TargetSanity -> SpecType.Single.BuiltIn(BuiltInRuleId.sanity)
                     },
                     isSatisfyRule = it.isSatisfy
-                ) to it.code
+                ) to it
             }.toList()
 
         treeView.buildRuleTree(rules.map { (rule, _) -> rule })
 
-        rules.parallelMapOrdered { _, (rule, coretac) ->
-
+        rules.parallelMapOrdered { _, (rule, compiled) ->
             treeView.signalStart(rule)
+
+            val coretac = compiled.toCoreTAC(moveScene)
 
             @OptIn(Config.DestructiveOptimizationsOption::class)
             val res = when (Config.DestructiveOptimizationsMode.get()) {

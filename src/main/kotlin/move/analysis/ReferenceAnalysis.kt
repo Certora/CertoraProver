@@ -36,7 +36,7 @@ class ReferenceAnalysis private constructor(
 ) : MoveTACProgram.CommandDataflowAnalysis<TreapMap<TACSymbol.Var, TreapSet<ReferenceAnalysis.RefTarget>>>(
     graph,
     JoinLattice.ofJoin { a, b ->
-        a.merge(b) { _, aLocs, bLocs -> aLocs.orEmpty() + bLocs.orEmpty() }
+        a.union(b) { _, aLocs, bLocs -> aLocs + bLocs }
     },
     treapMapOf(),
     Direction.FORWARD
@@ -106,6 +106,19 @@ class ReferenceAnalysis private constructor(
 
     private fun TreapSet<RefTarget>.borrowGhostArrayElem() =
         mapToTreapSet { it.copy(path = it.path.push(PathComponent.GhostArrayElem)) }
+
+    private val liveRefs = LiveReferenceAnalysis(graph)
+
+    override fun transform(
+        inState: TreapMap<TACSymbol.Var, TreapSet<RefTarget>>,
+        block: MoveTACProgram.Block
+    ): TreapMap<TACSymbol.Var, TreapSet<RefTarget>> {
+        val outState = super.transform(inState, block)
+
+        // At the end of the block, forget any references that are no longer live
+        val lvars = liveRefs.liveVariablesAfter(block.commands.last().ptr)
+        return outState.retainAllKeys { it in lvars }
+    }
 
     init { runAnalysis() }
 

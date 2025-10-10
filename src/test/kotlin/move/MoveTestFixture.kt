@@ -275,7 +275,7 @@ abstract class MoveTestFixture() {
 
                 return moveScene.allCvlmRules.associate { rule ->
                     val compiled = MoveToTAC.compileRule(rule, moveScene)
-                    val code = compiled.code.letIf(optimize) { MoveToTAC.optimize(it) }
+                    val code = compiled.toCoreTAC(moveScene).letIf(optimize) { MoveToTAC.optimize(it) }
                     val vRes = runBlocking {
                         TACVerifier.verify(scene, code, DummyLiveStatsReporter)
                     }

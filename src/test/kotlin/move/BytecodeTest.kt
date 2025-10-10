@@ -492,6 +492,21 @@ class BytecodeTest : MoveTestFixture() {
     }
 
     @Test
+    fun `eq struct empty`() {
+        addMoveSource("""
+            $testModule
+            public struct Foo has copy, drop { }
+            public fun test() {
+                let a = Foo { };
+                let b = Foo { };
+                cvlm_assert(a == b);
+            }
+        """.trimIndent())
+
+        assertTrue(verify(assumeNoTraps = false))
+    }
+
+    @Test
     fun `not eq struct`() {
         addMoveSource("""
             $testModule
