@@ -22,12 +22,11 @@ import net.jqwik.api.*
 import net.jqwik.api.constraints.IntRange
 import net.jqwik.kotlin.api.*
 import org.junit.jupiter.api.*
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Assertions.*
 import wasm.host.NullHost
 import wasm.wat.*
 
-@Tag(EXPENSIVE)
+@net.jqwik.api.Tag(EXPENSIVE)
 class IntTest : WasmTestFixture() {
     override val host = NullHost
 
