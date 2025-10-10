@@ -8,6 +8,9 @@
 	"test5": "FAIL",
 	"test6": "FAIL",
 	"test7": "SUCCESS",
-	"test8": "SUCCESS"
+	"test8": "SUCCESS",
+	"test10": "SUCCESS",
+	"test12": "SUCCESS",
+	"test13": "SUCCESS"
   }
 }

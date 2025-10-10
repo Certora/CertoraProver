@@ -61,9 +61,9 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     val highV = resHigh.tacVar
 
     val cmds = mutableListOf(Debug.externalCall(inst))
-    if (!SolanaConfig.TACSignedArithmetic.get()) {
+    if (!SolanaConfig.TACSignedMath.get()) {
         // add some warning msg in a TAC annotation for better debugging
-        val msg = "Run with option \"-${SolanaConfig.TACSignedArithmetic.name} true\" to support ${CVTI128Intrinsics.I128_NONDET.function.name}"
+        val msg = "Run with option \"-${SolanaConfig.TACSignedMath.name} true\" to support ${CVTI128Intrinsics.I128_NONDET.function.name}"
         cmds.add(Debug.unsupported(msg, listOf(lowV, highV)))
         // havoc low and high bits
         cmds.add(TACCmd.Simple.AssigningCmd.AssignHavocCmd(lowV))

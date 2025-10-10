@@ -184,13 +184,13 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
         // This operation is wrapping modular negation
         // Search for NEG32/NEG64 in https://github.com/solana-labs/rbpf/blob/main/src/interpreter.rs#L328
         // Arithmetic modeling
-        // neg(x) = if x == Long.MIN_VALUE then LONG_MIN_VALUE else -x
+        // neg(x) = if x == Long.MIN_VALUE then x else -x
 
         val longMin = LONG_MIN.asSym()
         return TACExpr.TernaryExp.Ite(
-            TACExpr.BinRel.Eq(value, longMin),
+            TACExpr.BinRel.Eq(mask64(value), mask64(longMin)),
             value,
-            TACExpr.Vec.Mul(listOf(MINUS_ONE.asSym(), value))
+            TACExpr.Vec.Mul(listOf(MINUS_ONE.asSym(), signExtendSbfValue(mask64(value))))
         )
     }
 
@@ -235,7 +235,7 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
 
     /** Convert [e] from Sbf semantics (64-bits arithmetic) to TAC semantics (256-bits arithmetic) **/
     private fun prepareBinRelExp(op: CondOp, e: TACExpr): TACExpr {
-        if (!SolanaConfig.TACSignedArithmetic.get()) {
+        if (!SolanaConfig.TACSignedMath.get()) {
             return e
         } else {
             return when (op) {
