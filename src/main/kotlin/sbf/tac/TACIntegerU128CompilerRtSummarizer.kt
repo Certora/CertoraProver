@@ -80,7 +80,7 @@ open class SummarizeIntegerU128CompilerRt<TNum : INumValue<TNum>, TOffset : IOff
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     fun getArgsFromU128BinaryCompilerRt(locInst: LocatedSbfInstruction): U128Operands? {
-        val (resLow, resHigh, overflow) = getResFromU128(locInst) ?: return null
+        val (resLow, resHigh, overflow) = getResFrom128(locInst) ?: return null
         val xLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R2_ARG))
         val xHighE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R3_ARG))
         val yLowE = exprBuilder.mkExprSym(Value.Reg(SbfRegister.R4_ARG))

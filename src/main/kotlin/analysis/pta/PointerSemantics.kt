@@ -1890,6 +1890,8 @@ private fun AbstractStore.join(
     }.merge(other) { _, v, otherV ->
         // Join the values that existed only on one side with INT.  See above for why we do this in a separate pass.
         when {
+            otherV is UnkPointsTo && v == null -> null
+            otherV == null && v is UnkPointsTo -> null
             v == null -> otherV!!.join(INT)
             otherV == null -> v.join(INT)
             else -> v

@@ -110,6 +110,31 @@ object MoveCallTrace {
     }
 
     /**
+        Snippet associateding the given type [id] with its [name] for display in the call trace.
+
+        For every deterministic type that appears in the program, we add one of these snippets to the start of the TAC.
+        The call trace generator collects these so that it can display the names.
+
+        Why go to all this trouble?  Because this way we can determine if a Nondet type is equivalent to some known
+        deterministic type, by comparing the nondet type's id from the CEX with the ids of the known deterministic
+        types.
+     */
+    @KSerializable
+    data class TypeId(val type: MoveType.Value, val id: Int) : SnippetCmd.MoveSnippetCmd() {
+        override val range: Range.Range? get() = null
+
+        /** Summarization context initializer to ensure we only record each type once. */
+        data class Initializer(val type: MoveType.Value, val id: Int) : SummarizationContext.Initializer() {
+            override fun initialize() = TypeId(type, id).toAnnotation().withDecls()
+        }
+    }
+
+    context(SummarizationContext)
+    fun recordTypeId(type: MoveType.Value, id: Int) {
+        ensureInit(TypeId.Initializer(type, id))
+    }
+
+    /**
         Snippet holding the function start information.  We also put the return types here, because we need those when
         initially constructing the call node in the trace.
      */
@@ -119,11 +144,13 @@ object MoveCallTrace {
         val params: List<MoveFunction.DisplayParam>,
         val returnTypes: List<MoveType>,
         val args: List<Value>,
+        val typeArgIds: List<TACSymbol.Var>,
         override val range: Range.Range?
     ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncStart> {
-        override val support: Set<TACSymbol.Var> get() = args.map { it.support }.unionAll()
+        override val support: Set<TACSymbol.Var> get() = args.map { it.support }.unionAll() + typeArgIds
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-            args = args.map { it.transformSymbols(f) }
+            args = args.map { it.transformSymbols(f) },
+            typeArgIds = typeArgIds.map(f)
         )
     }
 
@@ -292,14 +319,21 @@ object MoveCallTrace {
         Generates a function start annotation, along with the code to extract all scalar values from the function's
         arguments.
      */
+    context(SummarizationContext)
     fun annotateFuncStart(func: MoveFunction, args: List<TACSymbol.Var>): MoveCmdsWithDecls {
         val cmds = mutableListOf<MoveCmdsWithDecls>()
         val argVals = func.params.zip(args).map { (argType, argVal) -> makeValue(cmds, argType, argVal) }
+        val typeArgIds = func.typeArguments.mapIndexed { i, typeArg ->
+            TACSymbol.Var("type_arg_$i", Tag.Bit256).toUnique("!").also {
+                cmds += assign(it) { CvlmHash.typeId(typeArg) }
+            }
+        }
         cmds += FuncStart(
             name = func.name,
             params = func.displayParams,
             returnTypes = func.returns,
             args = argVals,
+            typeArgIds = typeArgIds,
             range = func.range
         ).toAnnotation().withDecls()
         return mergeMany(cmds)
