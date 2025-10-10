@@ -373,6 +373,15 @@ object SolanaConfig {
         )
     ) {}
 
+    val TACSignedArithmetic = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "solanaTACSignedArithmetic",
+            true,
+            "Experimental flag for supporting signed arithmetic in TAC. [default: false]"
+        )
+    ) {}
+
     // Printing options
 
     val PrintResultsToStdOut = object : ConfigType.BooleanCmdLine(

@@ -21,13 +21,17 @@ import sbf.cfg.*
 import vc.data.*
 import java.math.BigInteger
 import datastructures.stdcollections.*
+import sbf.SolanaConfig
 import sbf.callgraph.CVTI128Intrinsics
 import sbf.domains.INumValue
 import sbf.domains.IOffset
 import sbf.domains.IPTANodeFlags
+import vc.data.TACExprFactUntyped as txf
 
 /**
  * Summarize i128 intrinsics.
+ *
+ * Precondition: UseTACMathInt is enabled
  **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
 fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeI128(
@@ -53,10 +57,28 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     { "summarizeI128Nondet expects ${CVTI128Intrinsics.I128_NONDET.function.name}" }
 
     val (resLow, resHigh) = getResFrom128(locInst) ?: return listOf()
-    val res = mkFreshIntVar()
+    val lowV = resLow.tacVar
+    val highV = resHigh.tacVar
 
     val cmds = mutableListOf(Debug.externalCall(inst))
-    cmds.addAll(inRange(res,  -BigInteger.TWO.pow(127),  BigInteger.TWO.pow(127) - BigInteger.ONE))
-    cmds.addAll(splitU128(res, resLow.tacVar, resHigh.tacVar))
+    if (!SolanaConfig.TACSignedArithmetic.get()) {
+        // add some warning msg in a TAC annotation for better debugging
+        val msg = "Run with option \"-${SolanaConfig.TACSignedArithmetic.name} true\" to support ${CVTI128Intrinsics.I128_NONDET.function.name}"
+        cmds.add(Debug.unsupported(msg, listOf(lowV, highV)))
+        // havoc low and high bits
+        cmds.add(TACCmd.Simple.AssigningCmd.AssignHavocCmd(lowV))
+        cmds.add(TACCmd.Simple.AssigningCmd.AssignHavocCmd(highV))
+    } else {
+        val res = mkFreshIntVar()
+        cmds.addAll(assume(txf {
+                   ((res ge exprBuilder.ZERO.asSym()) and (res le exprBuilder.mkConst(BigInteger.TWO.pow(127) - BigInteger.ONE))) or
+                    (res ge exprBuilder.mkConst(-BigInteger.TWO.pow(127)))
+                }, msg = "inRange"
+            )
+        )
+        cmds.addAll(splitU128(res, lowV, highV))
+    }
+
     return cmds
 }
+
