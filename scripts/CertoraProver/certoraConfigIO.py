@@ -99,7 +99,7 @@ def handle_override_base_config(context: CertoraContext) -> None:
         try:
             with (Path(context.override_base_config).open() as conf_file):
                 override_base_config_attrs = Util.read_conf_file(conf_file)
-
+                context.attrs_set_in_main_conf = context.conf_file_attr.copy()
                 context.conf_file_attr = {**override_base_config_attrs, **context.conf_file_attr}
 
                 if 'override_base_config' in override_base_config_attrs:
@@ -111,7 +111,12 @@ def handle_override_base_config(context: CertoraContext) -> None:
             if hasattr(context, attr):
                 value = getattr(context, attr, False)
                 if not value:
-                    if attr in context.conf_file_attr and value is False:
+                    # if boolean attribute does not appear in main conf but is True in the base conf, set it to True
+                    if override_base_config_attrs[attr] is True and attr not in context.attrs_set_in_main_conf:
+                        setattr(context, attr, True)
+                        continue
+                    # if boolean attribute does appear in main conf and is False, do not override it
+                    elif attr in context.conf_file_attr and value is False:
                         continue  # skip override if a boolean attribute was explicitly set to False in the conf file
                     setattr(context, attr, override_base_config_attrs.get(attr))
             else:
