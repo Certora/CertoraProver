@@ -40,9 +40,7 @@ sealed class MoveType : HasKSerializable {
     abstract fun symNameExt(): String
 
     @KSerializable
-    sealed class Value : MoveType() {
-        abstract fun displayName(): String
-    }
+    sealed class Value : MoveType()
 
     /** A [Value] that is represented as a single slot in a memory location */
     @KSerializable
@@ -56,7 +54,6 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     object Bool : Primitive() {
         override fun toTag() = Tag.Bool
-        override fun displayName() = "bool"
         override fun symNameExt() = "bool"
         override fun hashCode() = hashObject(this)
     }
@@ -64,7 +61,6 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     sealed class Bits(val size: Int) : Primitive() {
         override fun toTag() = Tag.Bit256
-        override fun displayName() = "u$size"
         override fun symNameExt() = "u$size"
     }
 
@@ -81,7 +77,6 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     data class Vector(val elemType: MoveType.Value) : Value() {
         override fun toString() = "vector<$elemType>"
-        override fun displayName() = "vector<${elemType.displayName()}>"
         override fun toTag() = MoveTag.Vec(elemType)
         override fun symNameExt() = "vector!${elemType.symNameExt()}"
     }
@@ -94,11 +89,6 @@ sealed class MoveType : HasKSerializable {
         override fun toString() = when {
             typeArguments.isEmpty() -> "$name"
             else -> "$name<${typeArguments.joinToString(", ")}>"
-        }
-
-        override fun displayName() = when {
-            typeArguments.isEmpty() -> name.toString()
-            else -> "${name}<${typeArguments.joinToString(", ") { it.displayName() }}>"
         }
 
         override fun symNameExt(): String {
@@ -154,7 +144,6 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     data class GhostArray(val elemType: MoveType.Value) : Value() {
         override fun toString() = "array<${elemType}>"
-        override fun displayName() = "(ghost)<${elemType.displayName()}>"
         override fun toTag() = MoveTag.GhostArray(elemType)
         override fun symNameExt() = "array!${elemType.symNameExt()}"
     }
@@ -162,7 +151,6 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     object MathInt : Primitive() {
         override fun toString() = "mathint"
-        override fun displayName() = "(mathint)"
         override fun toTag() = Tag.Int
         override fun symNameExt() = "mathint"
         override fun hashCode() = hashObject(this)
@@ -192,7 +180,6 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     data class Nondet(val id: Int) : Simple() {
         override fun toString() = "nondet#$id"
-        override fun displayName() = "(nondet#$id)"
         override fun toTag() = MoveTag.Nondet(this)
         override fun symNameExt() = "nondet!$id"
     }
@@ -207,7 +194,6 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     object Function : Simple() {
         override fun toString() = "fun"
-        override fun displayName() = "(fun)"
         override fun toTag() = Tag.Bit256
         override fun symNameExt() = "fun"
         override fun hashCode() = hashObject(this)

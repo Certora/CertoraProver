@@ -282,18 +282,12 @@ fun NumericDomain.binaryOp(other: NumericDomain, thisContext: PointsToDomain, ot
     for ((k, v) in this.entries) {
         seen.add(k)
         val j1 = v.tryResolve()
-        val j2 = other[k]?.tryResolve()
-        if(j1 is UnresolvedValue && j2 == null) {
-            continue
-        }
-        toReturn[k] = f(j1, thisContext, j2  ?: AnyInt, otherContext)
+        val j2 = other[k]?.tryResolve() ?: AnyInt
+        toReturn[k] = f(j1, thisContext, j2, otherContext)
     }
 
     for ((k, v) in other.entries) {
         if (k in seen) {
-            continue
-        }
-        if(v is UnresolvedValue && !v.tyVar.isResolved()) {
             continue
         }
         toReturn[k] = f(AnyInt, thisContext, v, otherContext)

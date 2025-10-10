@@ -1418,9 +1418,6 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                             summarizeCall(locInst)
                         }
                     }
-                    is CVTFunction.I128Intrinsics -> {
-                        summarizeI128(locInst)
-                    }
                     is CVTFunction.NativeInt -> {
                         summarizeNativeInt(locInst)
                     }
