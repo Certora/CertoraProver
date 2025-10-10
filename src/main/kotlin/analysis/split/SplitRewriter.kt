@@ -219,14 +219,16 @@ class SplitRewriter(
                 if (equivClassSize == 1) { "" } else { "!Equiv$equivClassSize" } +
                 if (splitStart == null) { "" } else { "!$splitStart" }
         }
+
+        fun storageArrayPathName(contractId: BigInteger, repPath: NonIndexedPath, width: Int) = "tac${repPath.storageBase().prefixChar}!${contractId.toString(16)}!$repPath!W$width"
     }
 
     /** Creates a new variable representing a packed array - which we unpack */
     private fun newArrayPathVar(repPath: NonIndexedPath, width: Int) =
         TACSymbol.Var(
-            namePrefix = "tac${repPath.storageBase().prefixChar}!${cx.contract.instanceId.toString(16)}!$repPath!W$width",
+            namePrefix = storageArrayPathName(cx.contract.instanceId, repPath, width),
             tag = Tag.WordMap,
-            meta = metas.pathVarMeta(repPath, BitRange.NonEmpty(0, width), cx.pathEquivalence.getEquivalenceClass(repPath))
+            meta = metas.pathVarMeta(repPath, BitRange.NonEmpty(0, width), cx.pathEquivalence.getEquivalenceClass(repPath)) + TACMeta.SCALARIZED_ARRAY
         ).also {
             newStorageVar(it)
         }
