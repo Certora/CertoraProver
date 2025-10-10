@@ -97,15 +97,13 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             SolanaFunction.from(inst.name) != SolanaFunction.SOL_MEMMOVE) {
             throw DDAError("$inst is not a memcpy or memmove")
         }
-        val lenTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG)
-        if (lenTy !is SbfType.NumType) {
-            throw DDAError("len is not statically known")
-        }
-        val len = lenTy.value.toLongOrNull() ?: throw DDAError("len is not statically known")
+
         val dstTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R1_ARG)
         val srcTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R2_ARG)
         return when (dstTy) {
             is SbfType.PointerType.Stack -> {
+                val len = (registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+                    ?: throw DDAError("len is not statically known at $inst")
                 val dstStart = dstTy.offset.toLongOrNull() ?: throw DDAError("dest on stack with unknown offset in $cmd")
                 when (srcTy) {
                     is SbfType.PointerType.Stack -> {
@@ -118,6 +116,8 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             else -> {
                 when (srcTy) {
                     is SbfType.PointerType.Stack -> {
+                        val len = (registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+                            ?: throw DDAError("len is not statically known at $inst")
                         val srcStart = srcTy.offset.toLongOrNull() ?: throw DDAError("src on stack with unknown offset in $cmd")
                         stackToNonStackF(srcStart, len)
                     }
@@ -146,9 +146,9 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         }
         val lenTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG)
         if (lenTy !is SbfType.NumType) {
-            throw DDAError(msg = "length is not statically known")
+            throw DDAError(msg = "length is not statically known at $inst")
         }
-        val len = lenTy.value.toLongOrNull() ?: throw DDAError(msg = "length is not statically known")
+        val len = lenTy.value.toLongOrNull() ?: throw DDAError(msg = "length is not statically known at $inst")
         return when (val ptrTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R1_ARG)) {
             is SbfType.PointerType.Stack -> {
                 val ptrStart = ptrTy.offset.toLongOrNull() ?: throw DDAError("memset on stack with unknown offset in $cmd")
