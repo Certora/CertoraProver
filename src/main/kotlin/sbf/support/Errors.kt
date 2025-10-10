@@ -267,6 +267,18 @@ class SmashedStack(locInst: LocatedSbfInstruction?, extraSpace: Int) : SolanaErr
         ),
         devMsg = if (locInst != null) {"${locInst.inst}"} else { "" }).toString())
 
+class UnsupportedCall(locInst: LocatedSbfInstruction, msg: String, function: String) : SolanaError(
+    FormattedErrorMessage(
+        locInst = locInst,
+        userInfo = UserErrorInfo(
+            msg  = msg,
+            note = "",
+            help = "To resolve this error consider changing the code to ensure that there are not calls to $function",
+            code = 7000
+        ),
+        devMsg = "").toString())
+
+
 /**
  * To create formatted user messages
  */

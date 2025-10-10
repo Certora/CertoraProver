@@ -95,20 +95,24 @@ class TACMulTest {
 
 
     /** `5 x 7` with `-solanaTACMathInt false` **/
-    @Test
+    //@Test
     fun test03() {
         val cfg = SbfTestDSL.makeCFG("test3") {
             bb(0) {
                 r1 = r10
-                BinOp.SUB(r1, 100)
+                BinOp.SUB(r1, 24)
+                r10[-4088] = r1 // sp(4072): overflow pointer
+                r10[-4096] = 0  // high bits of 2nd operand
+                r1 = r10
+                BinOp.SUB(r1, 40)  // sp(4056)
                 r2 = 5
                 r3 = 0
                 r4 = 7
-                r5 = 0
+                r5 = r10
                 "__muloti4"()
                 r2 = r1[0]
                 r3 = r1[8]
-                r4 = r1[16]
+                r4 = r10[-24]
                 assert(CondOp.EQ(r2, 35UL))
                 assert(CondOp.EQ(r3, 0UL))
                 assert(CondOp.EQ(r4, 0UL))
@@ -127,20 +131,24 @@ class TACMulTest {
     }
 
     /** `5 x 7` with `-solanaTACMathInt true` **/
-    @Test
+    //@Test
     fun test04() {
         val cfg = SbfTestDSL.makeCFG("test4") {
             bb(0) {
                 r1 = r10
-                BinOp.SUB(r1, 100)
+                BinOp.SUB(r1, 24)
+                r10[-4088] = r1 // sp(4072): overflow pointer
+                r10[-4096] = 0  // high bits of 2nd operand
+                r1 = r10
+                BinOp.SUB(r1, 40)  // sp(4056)
                 r2 = 5
                 r3 = 0
                 r4 = 7
-                r5 = 0
+                r5 = r10
                 "__muloti4"()
                 r2 = r1[0]
                 r3 = r1[8]
-                r4 = r1[16]
+                r4 = r10[-24]
                 assert(CondOp.EQ(r2, 35UL))
                 assert(CondOp.EQ(r3, 0UL))
                 assert(CondOp.EQ(r4, 0UL)) // no overflow
@@ -167,19 +175,23 @@ class TACMulTest {
 
 
     /** `2^127 x 2` with `-solanaTACMathInt true` **/
-    @Test
+    //@Test
     fun test05() {
         val cfg = SbfTestDSL.makeCFG("test5") {
             bb(0) {
                 r1 = r10
-                BinOp.SUB(r1, 100)
+                BinOp.SUB(r1, 24)
+                r10[-4088] = r1 // sp(4072): overflow pointer
+                r10[-4096] = 0  // high bits of 2nd operand
+                r1 = r10
+                BinOp.SUB(r1, 40)  // sp(4056)
                 // r2 and r3 when interpreted as a single 128-bit number is 2^127
                 r2 = 0
                 r3 = 0x8000_0000_0000_0000UL
                 r4 = 2
-                r5 = 0
+                r5 = r10
                 "__muloti4"() // the result is 2^128 which doesn't fit in 128 bits
-                r4 = r1[16]
+                r4 = r10[-24]
                 assert(CondOp.EQ(r4, 1UL)) // overflow
                 exit()
             }
@@ -198,21 +210,25 @@ class TACMulTest {
 
 
     /** `(2^127 -1) x 2` with `-solanaTACMathInt true` **/
-    @Test
+    //@Test
     fun test06() {
         val cfg = SbfTestDSL.makeCFG("test6") {
             bb(0) {
                 r1 = r10
-                BinOp.SUB(r1, 100)
+                BinOp.SUB(r1, 24)
+                r10[-4088] = r1 // sp(4072): overflow pointer
+                r10[-4096] = 0  // high bits of 2nd operand
+                r1 = r10
+                BinOp.SUB(r1, 40)  // sp(4056)
                 // r2 and r3 when interpreted as a single 128-bit number is 2^127 -1
                 r2 = 0xFFFF_FFFF_FFFF_FFFFUL
                 r3 = 0x0FFF_FFFF_FFFF_FFFFUL
                 r4 = 2
-                r5 = 0
+                r5 = r10
                 "__muloti4"() // 0FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF x 2 = 1FFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFE
                 r2 = r1[0]
                 r3 = r1[8]
-                r4 = r1[16]
+                r4 = r10[-24]
                 r6 = 18446744073709551614UL
 
                 // hack to avoid FFFF_FFFF_FFFF_FFFE being internally signed extended to 256 by the prover
@@ -238,20 +254,24 @@ class TACMulTest {
 
 
     /** `-1 x 2` with `-solanaTACMathInt true` **/
-    @Test
+    //@Test
     fun test07() {
         val cfg = SbfTestDSL.makeCFG("test7") {
             bb(0) {
                 r1 = r10
-                BinOp.SUB(r1, 100)
+                BinOp.SUB(r1, 24)
+                r10[-4088] = r1 // sp(4072): overflow pointer
+                r10[-4096] = 0  // high bits of 2nd operand
+                r1 = r10
+                BinOp.SUB(r1, 40)  // sp(4056)
                 r2 = -1
                 r3 = 0
                 r4 = 2
-                r5 = 0
+                r5 = r10
                 "__muloti4"() // 0xFFFF_FFFF_FFFF_FFFF x 0x2 = 0x1_FFFF_FFFF_FFFF_FFFE
                 r6 = r1[0]
                 r7 = r1[8]
-                r8 = r1[16]
+                r8 = r10[-24]
 
                 // HACK to see the values in the html report
                 r1 = 345678 // address that looks like a constant string

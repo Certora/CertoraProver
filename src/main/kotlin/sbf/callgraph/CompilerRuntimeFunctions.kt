@@ -100,11 +100,25 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
                         )
                         memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }
+
                     MULOTI4 -> {
+                        /** [MemSummaryArgument] is not expressive enough to express the summary for `__muloti4`
+                         *  ```
+                         *  ti_int __muloti4(ti_int a, ti_int b, int* overflow);
+                         *  ```
+                         *   In SBF, we have `__muloti4(r1,r2,r3,r4,r5)` where:
+                         *   - `*(r1+0)` and `*(r1+8)` contains the low and high 64 bits of the result
+                         *   - `r2` and `r3` contains the low and high 64 bits of `a`
+                         *   - `r4` and `*(r5-(4096 - 0))` contains the low and high 64 bits of `b`
+                         *   - `*(r5-(4096 - 8))` contains `overflow` which is a pointer.
+                         *      Thus, `**(r5-(4096 - 8))` is where the actual overflow Boolean flag is stored
+                         *
+                         *  For now, we can only describe `*(r1+0)` and `*(r1+8)` but not `**(r5-4088)`.
+                         *  Thus, some warning or error should be reported if `__muloti4` is executed.
+                         **/
                         val summaryArgs = listOf(
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM),
-                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 16, width = 8, type = MemSummaryArgumentType.NUM)
+                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM)
                         )
                         memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }
