@@ -195,13 +195,13 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
      assign(high, TACExpr.BinOp.ShiftRightLogical(x.asSym(), c64E)))
 }
 
-data class Result128(val low: TACVariable, val high: TACVariable, val overflow: TACVariable?)
+data class ResultU128(val low: TACVariable, val high: TACVariable, val overflow: TACVariable?)
 
-/** Get the symbolic TAC variables corresponding to the result of u128/i128 operation **/
+/** Get the symbolic TAC variables corresponding to the result of u128 operation **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getResFrom128(
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getResFromU128(
     locInst: LocatedSbfInstruction
-): Result128? {
+): ResultU128? {
     val summaryArgs = mem.getTACMemoryFromSummary(locInst) ?: return null
     val numArgs = summaryArgs.size
     if (numArgs != 2 && numArgs != 3) {
@@ -211,9 +211,9 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     val resHigh = summaryArgs[1].variable as? TACByteStackVariable ?: return null
     return if (numArgs == 3) {
         val overflow = summaryArgs[2].variable as? TACByteStackVariable ?: return null
-        Result128(resLow, resHigh, overflow)
+        ResultU128(resLow, resHigh, overflow)
     } else {
-        Result128(resLow, resHigh, null)
+        ResultU128(resLow, resHigh, null)
     }
 }
 
