@@ -29,7 +29,7 @@ import java.math.BigInteger
 @Treapable
 class CanonicalSum private constructor(val ops: List<TACSymbol.Var>, val c: BigInteger) {
     constructor(ops: List<TACSymbol>) : this(
-        ops.filterIsInstance<TACSymbol.Var>().sorted(),
+        ops.filterIsInstance<TACSymbol.Var>().sortedWith(TACSymbol.Var.byName),
         ops.asSequence().filterIsInstance<TACSymbol.Const>().map { it.value }.fold(BigInteger.ZERO, BigInteger::add)
     )
 
@@ -53,7 +53,7 @@ class CanonicalSum private constructor(val ops: List<TACSymbol.Var>, val c: BigI
 
     operator fun plus(x: TACSymbol) = when(x) {
         is TACSymbol.Const -> CanonicalSum(ops, this.c + x.value)
-        is TACSymbol.Var -> CanonicalSum((this.ops + x).sorted(), this.c)
+        is TACSymbol.Var -> CanonicalSum((this.ops + x).sortedWith(TACSymbol.Var.byName), this.c)
     }
 
     /**

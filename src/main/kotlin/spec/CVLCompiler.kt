@@ -2974,7 +2974,7 @@ class CVLCompiler(
                         if (singleRes == null) {
                             logger.warn {
                                 "Expected to have one matching storage variable for slot $linkedContractSlot" +
-                                    " in ${contractWithStateLinks.contract.name}, got $res out of ${storageSortVariables.sorted()}"
+                                    " in ${contractWithStateLinks.contract.name}, got $res out of ${storageSortVariables.sortedWith(TACSymbol.Var.byName)}"
                             }
                             // will fall through to no-storage analysis case
                             return@monadicMap null

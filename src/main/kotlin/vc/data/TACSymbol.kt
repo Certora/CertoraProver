@@ -41,7 +41,7 @@ import java.math.BigInteger
 
 @KSerializable
 @Treapable
-sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 */ PrefersHashTreap, TransformableSymEntity<TACSymbol>, HasKSerializable, ToTACExpr {
+sealed class TACSymbol : ITACSymbol, Tagged, TransformableSymEntity<TACSymbol>, HasKSerializable, ToTACExpr {
 
     override fun toTACExpr(): TACExpr = asSym()
 
@@ -84,19 +84,6 @@ sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 
             return "0x${value.toString(16)}"
         }
 
-        override fun compareTo(other: TACSymbol): Int {
-            if(other !is Const) {
-                // sort constants first
-                return -1
-            }
-            // Note that we only sort on `value`, not `tag`, but our `equals` and `hashCode` methods consider both
-            // `value` and `tag`.  This means that two Const objects can sort as "equal," but compare/hash as
-            // "not equal."  We should fix this (see CER-1455).  In the meantime, this confuses the "treap"-based
-            // persistent data structures, so we have to implement PartialComparable to force them to fall back to only
-            // hashing. When we fix `compareTo`, we should also remove the `PartialComparable` interface.
-            return this.value.compareTo(other.value)
-        }
-
         override fun transformSymbols(f: (TACSymbol) -> TACSymbol): TACSymbol = f(this)
 
         override fun toSMTRep(): String {
@@ -116,6 +103,8 @@ sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 
             /** Works like a constructor, call it as `Const(true)`; advantage: does not create a fresh object for
              * each boolean constant. */
             operator fun invoke(value: Boolean) = if (value) True else False
+
+            val byValue = Comparator.comparing { it: Const -> it.value }
         }
     }
 
@@ -156,6 +145,19 @@ sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 
 
         fun zero(tag: Tag.Bits) = Const(BigInteger.ZERO, tag)
         fun one(tag: Tag.Bits) = Const(BigInteger.ONE, tag)
+
+        val byValueOrName = Comparator<TACSymbol> { a, b ->
+            when (a) {
+                is Const -> when (b) {
+                    is Var -> -1 // consts before vars
+                    is Const -> Const.byValue.compare(a, b)
+                }
+                is Var -> when (b) {
+                    is Var -> Var.byName.compare(a, b)
+                    is Const -> 1 // vars after consts
+                }
+            }
+        }
     }
 
     @KSerializable(with = Var.Serializer::class)
@@ -292,7 +294,7 @@ sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 
                 .withMeta(CONTRACT_ADDR_KEY, id)
                 .withMeta(CONTRACT_ADDR_KEY_NAME, name)
 
-            private val comparator = Comparator.comparing { it: Var -> it.namePrefix }.thenComparingInt {
+            val byName = Comparator.comparing { it: Var -> it.namePrefix }.thenComparingInt {
                 it.callIndex
             }
 
@@ -393,13 +395,6 @@ sealed class TACSymbol : ITACSymbol, Tagged, Comparable<TACSymbol>, /* CER-1455 
 
         val partitionIdString get() = meta[optimizer.UNINDEXED_PARTITION]?.let { "@${it.id}" }.orEmpty()
 
-
-        override fun compareTo(other: TACSymbol): Int {
-            if(other !is Var) {
-                return 1
-            }
-            return comparator.compare(this, other)
-        }
 
         // methods for creating new [Var]s
 
