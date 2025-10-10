@@ -145,6 +145,7 @@ enum class LoggerTypes : LoggerName {
     BOUNDED_MODEL_CHECKER,
     REQUIRE_REASON_CHECKER,
     MOVE,
+    DEDUPLICATOR
     ;
 }
 

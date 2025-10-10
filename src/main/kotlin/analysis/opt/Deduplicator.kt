@@ -29,7 +29,7 @@ import tac.*
 import utils.*
 import vc.data.*
 
-private val logger = Logger(LoggerTypes.OPTIMIZE)
+private val logger = Logger(LoggerTypes.DEDUPLICATOR)
 
 object Deduplicator {
     /**
@@ -163,13 +163,18 @@ object Deduplicator {
             }
         }.blockIn
 
+        var warned = false
         return results.mapNotNull { (block, result) ->
             (block `to?` result.getOrNull()) ?: run {
-                if (block in graph.cache.revertBlocks) {
+                if (block in graph.cache.revertBlocks || RevertBlockAnalysis.mustReachRevert(block, graph)) {
                     // revert blocks can be freely combined
                     block to persistentStackOf()
                 } else {
-                    logger.warn(result.exceptionOrNull()!!) { "In ${graph.name} no internal calls for $block" }
+                    if (!warned) {
+                        logger.warn { "Internal call mismatches in ${graph.name}" }
+                        warned = true
+                    }
+                    logger.debug(result.exceptionOrNull()!!) { "In ${graph.name} no internal calls for $block" }
                     null
                 }
             }
