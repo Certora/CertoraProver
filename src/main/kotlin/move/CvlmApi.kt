@@ -56,7 +56,7 @@ object CvlmApi {
     private val mathIntModule = MoveModuleName(cvlmAddr, "math_int")
     private val functionModule = MoveModuleName(cvlmAddr, "function")
 
-    private val mathIntTypeName = MoveStructName(mathIntModule, "MathInt")
+    private val mathIntTypeName = MoveDatatypeName(mathIntModule, "MathInt")
 
     fun maybeShadowType(type: MoveType.Struct) = when (type.name) {
         mathIntTypeName -> MoveType.MathInt

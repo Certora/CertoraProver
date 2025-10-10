@@ -334,6 +334,7 @@ data class CodeMap(
                         "$name:${getHtmlRep(value)}"
                     }
                 }
+                is MoveCallTrace.Value.Enum -> "enum"
                 is MoveCallTrace.Value.Vector -> "std::vector(${getHtmlRep(v.length)})"
                 is MoveCallTrace.Value.Reference -> "&amp;${getHtmlRep(v.value)}"
                 is MoveCallTrace.Value.NotDisplayed -> v.message
@@ -850,6 +851,16 @@ data class CodeMap(
                     "push(${getHtmlRep(c.ref)}, ${getHtmlRep(c.src)})".asRaw()
                 is TACCmd.Move.VecPopBackCmd ->
                     "${getHtmlRep(c.dst)} = pop(${getHtmlRep(c.ref)})".asRaw()
+                is TACCmd.Move.PackVariantCmd ->
+                    c.srcs.joinToString(", ", "{", "}") { getHtmlRep(it) }.let {
+                        "${getHtmlRep(c.dst)} = $it".asRaw()
+                    }
+                is TACCmd.Move.UnpackVariantCmd ->
+                    c.dsts.joinToString(", ", "{", "}") { getHtmlRep(it) }.let {
+                        "$it = ${getHtmlRep(c.src)}".asRaw()
+                    }
+                is TACCmd.Move.VariantIndexCmd ->
+                    "${getHtmlRep(c.index)} = variant(${getHtmlRep(c.loc)})".asRaw()
                 is TACCmd.Move.GhostArrayBorrowCmd ->
                     "${getHtmlRep(c.dstRef)} = &${getHtmlRep(c.arrayRef)}[${c.index}]".asRaw()
                 is TACCmd.Move.HashCmd ->

@@ -39,7 +39,7 @@ class MoveLiveVariableAnalysisTest {
 
     private fun loc(i: Int, t: Tag) = TACSymbol.Var("l_${i}", tag = t)
     private fun ref(i: Int, t: MoveType.Value) = TACSymbol.Var("ptr_${i}", tag = MoveTag.Ref(t))
-    private fun structName(mod: String, nm: String) = MoveStructName(MoveModuleName(0, mod), nm)
+    private fun structName(mod: String, nm: String) = MoveDatatypeName(MoveModuleName(0, mod), nm)
 
     @Test
     fun testPrimLocLive() {
@@ -109,8 +109,8 @@ class MoveLiveVariableAnalysisTest {
             structName("test", "s"),
             listOf(),
             listOf(
-                MoveType.Struct.Field("x", MoveType.U256),
-                MoveType.Struct.Field("y", MoveType.U256)
+                MoveType.Composite.Field("x", MoveType.U256),
+                MoveType.Composite.Field("y", MoveType.U256)
             )
         )
         val l0 = loc(0, MoveTag.Struct(ty))

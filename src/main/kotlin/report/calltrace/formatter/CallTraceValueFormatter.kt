@@ -331,6 +331,36 @@ sealed interface CallTraceValue {
             }
     }
 
+    data class MoveEnum(val variantName: String, val fields: List<Pair<String, CallTraceValue>>) : CallTraceValue {
+        override val scalarValue: TACValue? get() = null
+        override val formatterType: FormatterType<*> get() = FormatterType.Value.Unknown("MoveEnum")
+
+        override fun toSarif(formatter: CallTraceValueFormatter, tooltip: String): Sarif =
+            if (fields.isEmpty()) {
+                // No fields; put the tooltip on the variant name
+                mkSarif {
+                    append(Sarif.Arg(
+                        values = RepresentationsMap(Representations.Pretty to variantName),
+                        tooltip = tooltip,
+                        type = "",
+                        truncatable = false,
+                    ))
+                }
+            } else {
+                // Individual field values will have their own tooltips
+                fields.joinToSarif(
+                    separator = ", ",
+                    prefix = "$variantName {",
+                    postfix = "}"
+                ) { _, (fieldName, value) ->
+                    mkSarif {
+                        append("$fieldName:")
+                        append(value.toSarif(formatter, "$tooltip.$fieldName"))
+                    }
+                }
+            }
+    }
+
     data class MoveVector(val length: BigInteger, val elements: List<CallTraceValue>) : CallTraceValue {
         override val scalarValue: TACValue? get() = null
         override val formatterType: FormatterType<*> get() = FormatterType.Value.Unknown("MoveVector")

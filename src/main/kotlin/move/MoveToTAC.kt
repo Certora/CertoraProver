@@ -663,6 +663,11 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                             add(TACCmd.Move.VecPackCmd(push(type), values, meta).withDecls())
                                         }
                                     }
+
+                                    // The Move compiler doesn't seem to emit LdConst for enums
+                                    is MoveType.Enum -> error("Constant enum values are not supported")
+
+                                    // Our synthetic types should not appear in LdConst
                                     is MoveType.GhostArray, is MoveType.MathInt,
                                     is MoveType.Nondet, is MoveType.Function -> `impossible!`
                                 }
@@ -1033,6 +1038,126 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                 meta = meta
                             )
                         ).withDecls(tmpRef1, tmpRef2, tmpVal1, tmpVal2)
+                    }
+
+                    is MoveInstruction.PackVariant -> {
+                        val enumType = inst.type
+                        val variant = enumType.variants[inst.variant]
+                        val fields = variant.fields ?: error("Cannot pack native variant ${enumType.name}::${variant.name}")
+
+                        TACCmd.Move.PackVariantCmd(
+                            srcs = fields.reversed().map {
+                                check(it.type == topType()) { "Expected ${it.type}, got ${topType()}" }
+                                pop().s
+                            }.reversed(),
+                            dst = push(inst.type),
+                            variant = inst.variant,
+                            meta = meta
+                        ).withDecls()
+                    }
+
+                    is MoveInstruction.UnpackVariant -> {
+                        val enumType = topType() as? MoveType.Enum
+                            ?: error("Expected enum type, got ${topType()}")
+                        check(enumType == inst.type) { "Expected enum type $enumType, got ${inst.type}" }
+                        val variant = enumType.variants[inst.variant]
+                        val fields = variant.fields ?: error("Cannot unpack native variant ${enumType.name}::${variant.name}")
+
+                        TACCmd.Move.UnpackVariantCmd(
+                            src = pop().s,
+                            dsts = fields.map { push(it.type) },
+                            variant = inst.variant,
+                            meta = meta
+                        ).withDecls()
+                    }
+
+                    is MoveInstruction.UnpackVariantRef -> {
+                        val variantRef = topType() as? MoveType.Reference
+                            ?: error("Expected reference type, got ${topType()}")
+                        val enumType = variantRef.refType as? MoveType.Enum
+                            ?: error("Expected enum type, got $variantRef")
+                        check(enumType == inst.type) { "Expected enum type $enumType, got ${inst.type}" }
+                        val variant = enumType.variants[inst.variant]
+                        val fields = variant.fields ?: error("Cannot unpack native variant ${enumType.name}::${variant.name}")
+
+                        mergeMany(
+                            TACCmd.Move.ReadRefCmd(
+                                ref = pop().s,
+                                dst = push(enumType),
+                                meta = meta
+                            ).withDecls(),
+                            TACCmd.Move.UnpackVariantCmd(
+                                src = pop().s,
+                                dsts = fields.map { push(it.type) },
+                                variant = inst.variant,
+                                meta = meta
+                            ).withDecls()
+                        )
+                    }
+
+                    is MoveInstruction.VariantSwitch -> {
+                        val variantRef = topType() as? MoveType.Reference
+                            ?: error("Expected reference type, got ${topType()}")
+                        val enumType = variantRef.refType as? MoveType.Enum
+                            ?: error("Expected enum type, got $variantRef")
+
+                        /*
+                            Generate a switch over variant indexes 0..n, to target blocks T0..Tn
+
+                            idx := variantIndex(*topOfStack)
+                            jmp B0
+
+                            B0: c0 := idx == 0
+                                jmpi c0, T0, B1
+
+                            B1: c1 := idx == 1
+                                jmpi c1, T1, B2
+
+                            ...
+                            Bn: cn := idx == n
+                                jmpi cn, Tn, FAIL
+
+                            FAIL: assert(false) (should be unreachable)
+                         */
+                        val idx = TACKeyword.TMP(Tag.Bit256, "variant_idx")
+                        val failBlock = newBlockId().also {
+                            tacBlocks += it to mergeMany(
+                                assert("Invalid variant tag", meta) { false.asTACExpr },
+                                Trap.trapRevert("Invalid variant tag", meta)
+                            )
+                        }
+                        val firstSwitchBlock = inst.branches.withIndex().reversed().fold(failBlock) { nextBlockId, (i, offset) ->
+                            newBlockId().also {
+                                val cond = TACKeyword.TMP(Tag.Bool, "variant_switch_cond")
+                                tacBlocks += it to mergeMany(
+                                    assign(cond, meta) { idx.asSym() eq i.asTACExpr },
+                                    TACCmd.Simple.JumpiCmd(
+                                        cond = cond,
+                                        dst = successor(offset),
+                                        elseDst = nextBlockId,
+                                        meta = meta
+                                    ).withDecls()
+                                )
+                            }
+                        }
+                        check(fallthrough == null) { "Creating successors should have cleared the fallthrough" }
+
+                        mergeMany(
+                            TACCmd.Move.ReadRefCmd(
+                                ref = pop().s,
+                                dst = push(enumType),
+                                meta = meta
+                            ).withDecls(),
+                            TACCmd.Move.VariantIndexCmd(
+                                loc = pop().s,
+                                index = idx,
+                                meta = meta
+                            ).withDecls(idx),
+                            TACCmd.Simple.JumpCmd(
+                                dst = firstSwitchBlock,
+                                meta = meta
+                            ).withDecls()
+                        )
                     }
                 }
             }

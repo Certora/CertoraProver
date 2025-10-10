@@ -21,11 +21,11 @@ import com.certora.collect.*
 import utils.*
 
 /**
-    Identifies a Move struct by its defining module and name.
+    Identifies a Move struct/enum by its defining module and name.
  */
 @Treapable
 @KSerializable
-data class MoveStructName(
+data class MoveDatatypeName(
     val module: MoveModuleName,
     val simpleName: String
 ) : AmbiSerializable {

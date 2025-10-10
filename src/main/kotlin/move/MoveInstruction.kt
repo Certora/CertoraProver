@@ -71,6 +71,11 @@ sealed class MoveInstruction {
     object VecPopBack : MoveInstruction()
     object VecSwap : MoveInstruction()
 
+    data class PackVariant(val type: MoveType.Enum, val variant: Int) : MoveInstruction()
+    data class UnpackVariant(val type: MoveType.Enum, val variant: Int) : MoveInstruction()
+    data class UnpackVariantRef(val type: MoveType.Enum, val variant: Int) : MoveInstruction()
+    data class VariantSwitch(val branches: List<Int>) : MoveInstruction()
+
     object Add : MoveInstruction()
     object Sub : MoveInstruction()
     object Mul : MoveInstruction()
@@ -96,7 +101,8 @@ sealed class MoveInstruction {
 
 context(MoveScene)
 fun MoveModule.Instruction.toMoveInstruction(
-    typeArguments: List<MoveType.Value>
+    typeArguments: List<MoveType.Value>,
+    codeUnit: MoveModule.CodeUnit
 ): MoveInstruction = when (this) {
     is MoveModule.Instruction.Nop -> MoveInstruction.Nop
     is MoveModule.Instruction.Pop -> MoveInstruction.Pop
@@ -138,36 +144,36 @@ fun MoveModule.Instruction.toMoveInstruction(
     is MoveModule.Instruction.MutBorrowLoc -> MoveInstruction.BorrowLoc(index.index)
 
     is MoveModule.Instruction.Pack -> MoveInstruction.Pack(
-        index.deref().structHandle.toMoveStruct()
+        index.deref().handle.toMoveStruct()
     )
     is MoveModule.Instruction.PackGeneric -> MoveInstruction.Pack(
         index.deref().let { inst ->
-            inst.def.deref().structHandle.toMoveStruct(
+            inst.def.deref().handle.toMoveStruct(
                 inst.typeParameters.deref().tokens.map { it.toMoveValueType(typeArguments) }
             )
         }
     )
-    is MoveModule.Instruction.Unpack -> MoveInstruction.Unpack(index.deref().structHandle.toMoveStruct())
+    is MoveModule.Instruction.Unpack -> MoveInstruction.Unpack(index.deref().handle.toMoveStruct())
     is MoveModule.Instruction.UnpackGeneric -> MoveInstruction.Unpack(
         index.deref().let { inst ->
-            inst.def.deref().structHandle.toMoveStruct(
+            inst.def.deref().handle.toMoveStruct(
                 inst.typeParameters.deref().tokens.map { it.toMoveValueType(typeArguments) }
             )
         }
     )
     is MoveModule.Instruction.ImmBorrowField -> {
         val field = index.deref()
-        MoveInstruction.BorrowField(field.owner.structHandle.toMoveStruct(), field.fieldIndex)
+        MoveInstruction.BorrowField(field.owner.handle.toMoveStruct(), field.fieldIndex)
     }
     is MoveModule.Instruction.MutBorrowField -> {
         val field = index.deref()
-        MoveInstruction.BorrowField(field.owner.structHandle.toMoveStruct(), field.fieldIndex)
+        MoveInstruction.BorrowField(field.owner.handle.toMoveStruct(), field.fieldIndex)
     }
     is MoveModule.Instruction.ImmBorrowFieldGeneric -> {
         val inst = index.deref()
         val field = inst.handle.deref()
         MoveInstruction.BorrowField(
-            field.owner.structHandle.toMoveStruct(
+            field.owner.handle.toMoveStruct(
                 inst.typeParameters.deref().tokens.map { it.toMoveValueType(typeArguments) }
             ),
             field.fieldIndex
@@ -177,7 +183,7 @@ fun MoveModule.Instruction.toMoveInstruction(
         val inst = index.deref()
         val field = inst.handle.deref()
         MoveInstruction.BorrowField(
-            field.owner.structHandle.toMoveStruct(
+            field.owner.handle.toMoveStruct(
                 inst.typeParameters.deref().tokens.map { it.toMoveValueType(typeArguments) }
             ),
             field.fieldIndex
@@ -228,16 +234,44 @@ fun MoveModule.Instruction.toMoveInstruction(
         }
     )
 
-    is MoveModule.Instruction.PackVariant,
-    is MoveModule.Instruction.PackVariantGeneric,
-    is MoveModule.Instruction.UnpackVariant,
-    is MoveModule.Instruction.UnpackVariantImmRef,
-    is MoveModule.Instruction.UnpackVariantMutRef,
-    is MoveModule.Instruction.UnpackVariantGeneric,
-    is MoveModule.Instruction.UnpackVariantGenericImmRef,
-    is MoveModule.Instruction.UnpackVariantGenericMutRef,
-    is MoveModule.Instruction.VariantSwitch ->
-        error("Variant instructions are not supported: $this")
+    is MoveModule.Instruction.PackVariant -> MoveInstruction.PackVariant(
+        index.deref().enumDef.toMoveEnum(),
+        index.deref().variant.index
+    )
+    is MoveModule.Instruction.PackVariantGeneric -> MoveInstruction.PackVariant(
+        index.deref().instDef.toMoveEnum(typeArguments),
+        index.deref().variant.index
+    )
+
+    is MoveModule.Instruction.UnpackVariant -> MoveInstruction.UnpackVariant(
+        index.deref().enumDef.toMoveEnum(),
+        index.deref().variant.index
+    )
+    is MoveModule.Instruction.UnpackVariantImmRef -> MoveInstruction.UnpackVariantRef(
+        index.deref().enumDef.toMoveEnum(),
+        index.deref().variant.index
+    )
+    is MoveModule.Instruction.UnpackVariantMutRef -> MoveInstruction.UnpackVariantRef(
+        index.deref().enumDef.toMoveEnum(),
+        index.deref().variant.index
+    )
+    is MoveModule.Instruction.UnpackVariantGeneric -> MoveInstruction.UnpackVariant(
+        index.deref().instDef.toMoveEnum(typeArguments),
+        index.deref().variant.index
+    )
+    is MoveModule.Instruction.UnpackVariantGenericImmRef -> MoveInstruction.UnpackVariantRef(
+        index.deref().instDef.toMoveEnum(typeArguments),
+        index.deref().variant.index
+    )
+    is MoveModule.Instruction.UnpackVariantGenericMutRef -> MoveInstruction.UnpackVariantRef(
+        index.deref().instDef.toMoveEnum(typeArguments),
+        index.deref().variant.index
+    )
+    is MoveModule.Instruction.VariantSwitch -> {
+        val jumpTables = codeUnit.jumpTables ?: error("VariantSwitch in code unit without jump tables")
+        val table = jumpTables.getOrNull(index.index) ?: error("No jump table for VariantSwitch at index ${index.index}")
+        MoveInstruction.VariantSwitch(table.jumpTable.map { it.index })
+    }
 
     is MoveModule.Instruction.ExistsDeprecated,
     is MoveModule.Instruction.ExistsGenericDeprecated,

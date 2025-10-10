@@ -82,21 +82,14 @@ sealed class MoveType : HasKSerializable {
     }
 
     @KSerializable
-    data class Struct(
-        val name: MoveStructName,
-        val typeArguments: List<MoveType.Value>,
-        val fields: List<Field>?
-    ) : Value() {
-        @Treapable
-        @KSerializable
-        data class Field(val name: String, val type: MoveType.Value)
+    sealed class Datatype : Value() {
+        abstract val name: MoveDatatypeName
+        abstract val typeArguments: List<MoveType.Value>
 
         override fun toString() = when {
             typeArguments.isEmpty() -> "$name"
             else -> "$name<${typeArguments.joinToString(", ")}>"
         }
-
-        override fun toTag() = MoveTag.Struct(this)
 
         override fun symNameExt(): String {
             val typeArgumentString = typeArguments.fold("${typeArguments.size}") { acc, type ->
@@ -104,6 +97,39 @@ sealed class MoveType : HasKSerializable {
             }
             return "${name.toVarName()}!$typeArgumentString"
         }
+    }
+
+    sealed interface Composite {
+        @Treapable
+        @KSerializable
+        data class Field(val name: String, val type: MoveType.Value)
+
+        abstract val fields: List<Field>?
+    }
+
+    @KSerializable
+    data class Struct(
+        override val name: MoveDatatypeName,
+        override val typeArguments: List<MoveType.Value>,
+        override val fields: List<Composite.Field>?
+    ) : Datatype(), Composite {
+        override fun toTag() = MoveTag.Struct(this)
+    }
+
+    @KSerializable
+    data class Enum(
+        override val name: MoveDatatypeName,
+        override val typeArguments: List<MoveType.Value>,
+        val variants: List<Variant>
+    ) : Datatype() {
+        override fun toTag() = MoveTag.Enum(this)
+
+        @Treapable
+        @KSerializable
+        data class Variant(
+            val name: String,
+            override val fields: List<Composite.Field>?
+        ) : Composite
     }
 
     @KSerializable
@@ -202,10 +228,31 @@ private fun SignatureToken.toMoveValueType(
     SignatureToken.Address -> MoveType.Address
     SignatureToken.Signer -> MoveType.Signer
     is SignatureToken.Vector -> MoveType.Vector(type.toMoveValueType(typeArg))
-    is SignatureToken.Datatype -> handle.toMoveStructOrShadow()
-    is SignatureToken.DatatypeInstantiation -> handle.toMoveStructOrShadow(typeArguments.map { it.toMoveValueType(typeArg) })
+    is SignatureToken.Datatype -> when (val def = definition(handle)) {
+        is MoveModule.StructDefinition -> handle.toMoveStructOrShadow()
+        is MoveModule.EnumDefinition -> def.toMoveEnum()
+    }
+    is SignatureToken.DatatypeInstantiation -> when (val def = definition(handle)) {
+        is MoveModule.StructDefinition -> handle.toMoveStructOrShadow(typeArguments.map { it.toMoveValueType(typeArg) })
+        is MoveModule.EnumDefinition -> def.toMoveEnum(typeArguments.map { it.toMoveValueType(typeArg) })
+    }
     is SignatureToken.TypeParameter -> typeArg(this)
     is SignatureToken.Reference -> error("References are not valid value types: $this")
+}
+
+context(MoveScene)
+fun List<MoveModule.FieldDefinition>.toCompositeFields(typeArgs: List<MoveType.Value>): List<MoveType.Composite.Field> {
+    return map {
+        val fieldType = it.signature.toMoveValueType { typeArgs[it.index.index] }
+        if (fieldType == MoveType.Function) {
+            // We only allow functions as parameters of rules, not as fields of structs.
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Functions cannot appear as fields of structs or enum variants."
+            )
+        }
+        MoveType.Composite.Field(it.name, fieldType)
+    }
 }
 
 context(MoveScene)
@@ -216,20 +263,13 @@ fun MoveModule.DatatypeHandle.toMoveStructRaw(
         "Type parameters size mismatch for $name: expected ${typeParameters.size}, got ${typeArgs.size}"
     }
     val def = definition(this)
+    check(def is MoveModule.StructDefinition) {
+        "Expected struct definition for $name, got $def"
+    }
     return MoveType.Struct(
-        MoveStructName(definingModule, simpleName),
+        MoveDatatypeName(definingModule, simpleName),
         typeArgs,
-        def.fields?.map {
-            val fieldType = it.signature.toMoveValueType { typeArgs[it.index.index] }
-            if (fieldType == MoveType.Function) {
-                // We only allow functions as parameters of rules, not as fields of structs.
-                throw CertoraException(
-                    CertoraErrorType.CVL,
-                    "Functions cannot appear as fields of structs."
-                )
-            }
-            MoveType.Struct.Field(it.name, fieldType)
-        }
+        def.fields?.toCompositeFields(typeArgs)
     )
 }
 
@@ -252,6 +292,27 @@ fun MoveModule.DatatypeHandle.toMoveStructOrShadow(
 ): MoveType.Value {
     val struct = toMoveStructRaw(typeArgs)
     return maybeShadowType(struct) ?: struct
+}
+
+context(MoveScene)
+fun MoveModule.EnumDefinition.toMoveEnum(
+    typeArgs: List<MoveType.Value> = listOf()
+): MoveType.Enum {
+    check(typeArgs.size == typeParameters.size) {
+        "Type parameters size mismatch for $name: expected ${typeParameters.size}, got ${typeArgs.size}"
+    }
+    return MoveType.Enum(
+        name,
+        typeArgs,
+        variants.map { MoveType.Enum.Variant(it.name, it.fields.toCompositeFields(typeArgs)) }
+    )
+}
+
+context(MoveScene)
+fun MoveModule.EnumDefInstantiation.toMoveEnum(
+    typeArgs: List<MoveType.Value> = listOf()
+): MoveType.Enum {
+    return enumDef.toMoveEnum(typeParameters.deref().tokens.map { it.toMoveValueType(typeArgs) })
 }
 
 /**
@@ -322,7 +383,7 @@ fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()): MoveCm
             )
         }
         is MoveType.Simple -> type.assignHavoc(dest, meta)
-        is MoveType.Vector, is MoveType.Struct, is MoveType.GhostArray -> {
+        is MoveType.Vector, is MoveType.Struct, is MoveType.Enum, is MoveType.GhostArray -> {
             tac.generation.assignHavoc(dest, meta)
         }
     }
@@ -331,10 +392,15 @@ fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()): MoveCm
 /**
     Gets the names of all structs used in this type.
  */
-fun MoveType.consituentStructNames(): TreapSet<MoveStructName> = when (this) {
+fun MoveType.consituentStructNames(): TreapSet<MoveDatatypeName> = when (this) {
     is MoveType.Bits, is MoveType.Primitive, is MoveType.Nondet, MoveType.Bool, MoveType.Function -> treapSetOf()
     is MoveType.Vector -> elemType.consituentStructNames()
-    is MoveType.Struct -> fields?.map { it.type.consituentStructNames() }?.unionAll().orEmpty() + name
+    is MoveType.Enum -> variants.map { it.compositeStructNames() }.unionAll().orEmpty()
+    is MoveType.Struct -> compositeStructNames() + name
     is MoveType.Reference -> refType.consituentStructNames()
     is MoveType.GhostArray -> elemType.consituentStructNames()
+}
+
+fun MoveType.Composite.compositeStructNames(): TreapSet<MoveDatatypeName> {
+    return fields?.map { it.type.consituentStructNames() }?.unionAll().orEmpty()
 }

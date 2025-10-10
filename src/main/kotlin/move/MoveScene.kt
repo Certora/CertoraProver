@@ -100,5 +100,5 @@ class MoveScene(
     fun definition(type: MoveModule.DatatypeHandle) = module(type.definingModule).definition(type)
 
     fun maybeDefinition(func: MoveFunctionName) = moduleMap[func.module]?.maybeDefinition(func)
-    fun maybeDefinition(type: MoveStructName) = moduleMap[type.module]?.maybeDefinition(type)
+    fun maybeDefinition(type: MoveDatatypeName) = moduleMap[type.module]?.maybeDefinition(type)
 }

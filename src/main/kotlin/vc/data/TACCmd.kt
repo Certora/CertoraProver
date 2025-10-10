@@ -2571,6 +2571,57 @@ sealed class TACCmd : Serializable, ITACCmd {
             }
         }
 
+        data class PackVariantCmd(
+            val dst: TACSymbol.Var,
+            val srcs: List<TACSymbol.Var>,
+            val variant: Int,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dst $srcs $variant"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(dst)
+            init {
+                val enumTag = dst.tag as? MoveTag.Enum
+                require(enumTag != null)
+                enumTag.type.variants[variant].fields!!.forEachIndexed { i, field ->
+                    require(srcs[i].tag == field.type.toTag())
+                }
+            }
+        }
+
+        data class UnpackVariantCmd(
+            val dsts: List<TACSymbol.Var>,
+            val src: TACSymbol.Var,
+            val variant: Int,
+            val doVariantCheck: Boolean = true,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$dsts $src $variant"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = dsts
+            init {
+                val enumTag = src.tag as? MoveTag.Enum
+                require(enumTag != null)
+                enumTag.type.variants[variant].fields!!.forEachIndexed { i, field ->
+                    require(dsts[i].tag == field.type.toTag())
+                }
+            }
+        }
+
+        data class VariantIndexCmd(
+            val index: TACSymbol.Var,
+            val loc: TACSymbol.Var,
+            override val meta: MetaMap = MetaMap()
+        ) : Move() {
+            override fun argString(): String = "$index $loc"
+            override fun toString(): String = super.toString() // opt out of generated toString
+            override val modifiedVars get() = setOf(index)
+            init {
+                require(index.tag == Tag.Bit256)
+                require(loc.tag is MoveTag.Enum)
+            }
+        }
+
         data class GhostArrayBorrowCmd(
             val dstRef: TACSymbol.Var,
             val arrayRef: TACSymbol.Var,
@@ -2860,6 +2911,9 @@ sealed class TACCmd : Serializable, ITACCmd {
             is Move.VecPopBackCmd -> treapSetOf(this.ref)
             is Move.VecPushBackCmd -> treapSetOf(this.ref, this.src)
             is Move.VecUnpackCmd -> treapSetOf(this.src)
+            is Move.PackVariantCmd -> this.srcs.toTreapSet()
+            is Move.UnpackVariantCmd -> treapSetOf(this.src)
+            is Move.VariantIndexCmd -> treapSetOf(this.loc)
             is Move.WriteRefCmd -> treapSetOf(this.ref, this.src)
         }
         return rhsSymbols.filterIsInstance<TACSymbol.Var>()

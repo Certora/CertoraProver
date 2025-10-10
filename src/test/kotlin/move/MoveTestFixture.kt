@@ -49,6 +49,7 @@ abstract class MoveTestFixture() {
     open val loadStdlib: Boolean get() = false
     open val additionalDependencies: List<Path> get() = emptyList()
     open val additionalAddresses: Map<String, BigInteger> get() = emptyMap()
+    open val bytecodeVersion: Int get() = 6
 
     @TempDir
     protected lateinit var moveDir: Path
@@ -162,14 +163,14 @@ abstract class MoveTestFixture() {
 
         To update the Move compiler, see https://github.com/Certora/sui-move-build-kotlin/blob/main/README.md.
      */
-    private fun moveBuild() {
+    private fun moveBuild(loadStdlib: Boolean) {
         val wasiOptions = WasiOptions.builder()
             .inheritSystem() // inherit stdin/stdout/stderr
             .withArguments(
                 listOf(
                     "move-build",
                     // "--help",
-                    "--bytecode-version", "6",
+                    "--bytecode-version", "$bytecodeVersion",
                     "--addresses", "std=0x1",
                     "--addresses", "cvlm=0x${Config.CvlmAddress.get().toString(16)}",
                     "--addresses", "test_addr=$testModuleAddrHex",
@@ -207,9 +208,9 @@ abstract class MoveTestFixture() {
     /**
         Builds a [MoveScene] from the sources in [moveDir], using the given [specModule] as the spec.
      */
-    private fun buildScene(): MoveScene {
+    private fun buildScene(loadStdlib: Boolean): MoveScene {
         addMoveSource(cvlmSource)
-        moveBuild()
+        moveBuild(loadStdlib)
         return MoveScene(moveDir)
     }
 
@@ -231,6 +232,7 @@ abstract class MoveTestFixture() {
         assumeNoTraps: Boolean = true,
         recursionLimit: Int = 3,
         recursionLimitIsError: Boolean = false,
+        loadStdlib: Boolean = this.loadStdlib
     ): MoveTACProgram {
         maybeEnableReportGeneration()
         ConfigScope(Config.TrapAsAssert, !assumeNoTraps)
@@ -238,7 +240,7 @@ abstract class MoveTestFixture() {
             .extend(Config.RecursionErrorAsAssertInAllCases, recursionLimitIsError)
             .extend(Config.RecursionEntryLimit, recursionLimit)
             .use {
-                val moveScene = buildScene()
+                val moveScene = buildScene(loadStdlib)
                 val (selected, type) = moveScene.cvlmManifest.rules.entries.singleOrNull() ?: error("Expected exactly one rule")
                 check(type == CvlmManifest.RuleType.USER_RULE) {
                     "Expected a user rule, but got $type"
@@ -258,7 +260,8 @@ abstract class MoveTestFixture() {
         recursionLimit: Int = 3,
         recursionLimitIsError: Boolean = false,
         loopIter: Int = 1,
-        optimize: Boolean = false
+        optimize: Boolean = false,
+        loadStdlib: Boolean = this.loadStdlib
     ): Map<String, Boolean> {
         maybeEnableReportGeneration()
         ConfigScope(Config.TrapAsAssert, !assumeNoTraps)
@@ -267,7 +270,7 @@ abstract class MoveTestFixture() {
             .extend(Config.RecursionEntryLimit, recursionLimit)
             .extend(Config.LoopUnrollConstant, loopIter)
             .use {
-                val moveScene = buildScene()
+                val moveScene = buildScene(loadStdlib)
                 val scene = SceneFactory.getScene(DegenerateContractSource("dummyScene"))
 
                 return moveScene.allCvlmRules.associate { rule ->
@@ -293,13 +296,15 @@ abstract class MoveTestFixture() {
         recursionLimit: Int = 3,
         recursionLimitIsError: Boolean = false,
         loopIter: Int = 1,
-        optimize: Boolean = false
+        optimize: Boolean = false,
+        loadStdlib: Boolean = this.loadStdlib
     ) = verifyMany(
-        assumeNoTraps,
-        recursionLimit,
-        recursionLimitIsError,
-        loopIter,
-        optimize
+        assumeNoTraps = assumeNoTraps,
+        recursionLimit = recursionLimit,
+        recursionLimitIsError = recursionLimitIsError,
+        loopIter = loopIter,
+        optimize = optimize,
+        loadStdlib = loadStdlib
     ).values.singleOrNull() ?: error("Expected exactly one rule")
 }
 

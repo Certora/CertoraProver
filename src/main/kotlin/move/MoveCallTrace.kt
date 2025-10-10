@@ -18,6 +18,7 @@
 package move
 
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
+import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.SimpleCmdsWithDecls
 import com.certora.collect.*
 import config.*
@@ -35,6 +36,17 @@ object MoveCallTrace {
     /** The number of vector elements to retrieve in the CEX model, so that we can display them in the calltrace. */
     private val maxElemCount = Config.MoveCallTraceVecElemCount.get()
 
+    @KSerializable
+    data class Field(val name: String, val value: Value) : TransformableVarEntityWithSupport<Field> {
+        override val support get() = value.support
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(value = value.transformSymbols(f))
+    }
+    @KSerializable
+    data class Variant(val name: String, val fields: List<Field>) : TransformableVarEntityWithSupport<Variant> {
+        override val support get() = fields.map { it.support }.unionAll()
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(fields = fields.map { it.transformSymbols(f) })
+    }
+
     /** Represents a Move value (primitive, struct, vector, etc.) for display in the call trace. */
     @KSerializable
     sealed class Value : AmbiSerializable, TransformableVarEntityWithSupport<Value> {
@@ -47,10 +59,19 @@ object MoveCallTrace {
         }
 
         @KSerializable
-        data class Struct(val fields: List<Pair<String, Value>>) : Value() {
-            override val support get() = fields.map { it.second.support }.unionAll()
+        data class Struct(val fields: List<Field>) : Value() {
+            override val support get() = fields.map { it.support }.unionAll()
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-                fields = fields.map { (name, value) -> name to value.transformSymbols(f) }
+                fields = fields.map { it.transformSymbols(f) }
+            )
+        }
+
+        @KSerializable
+        data class Enum(val variantIndex: TACSymbol.Var, val variants: List<Variant>) : Value() {
+            override val support get() = variants.map { it.support }.unionAll() + variantIndex
+            override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
+                variantIndex = f(variantIndex),
+                variants = variants.map { it.transformSymbols(f) }
             )
         }
 
@@ -156,6 +177,7 @@ object MoveCallTrace {
                 cmds += TACCmd.Move.BorrowLocCmd(refSym, sym).withDecls(refSym)
                 makeDerefValue(cmds, type, refSym)
             }
+            is MoveType.Enum -> makeEnumValue(cmds, type, sym)
             is MoveType.Nondet -> Value.NotDisplayed("nondet")
             is MoveType.Function -> Value.NotDisplayed("fun")
         }
@@ -173,6 +195,11 @@ object MoveCallTrace {
             val valSym = TACKeyword.TMP(type.toTag())
             cmds += TACCmd.Move.ReadRefCmd(valSym, refSym).withDecls(valSym)
             Value.Primitive(type, valSym)
+        }
+        is MoveType.Enum -> {
+            val valSym = TACKeyword.TMP(type.toTag())
+            cmds += TACCmd.Move.ReadRefCmd(valSym, refSym).withDecls(valSym)
+            makeEnumValue(cmds, type, valSym)
         }
         is MoveType.Struct -> makeStructValue(cmds, type, refSym)
         is MoveType.Vector -> makeVectorValue(cmds, type, refSym)
@@ -193,9 +220,47 @@ object MoveCallTrace {
         val fields = type.fields.orEmpty().mapIndexed { fieldIndex, (fieldName, fieldType) ->
             val fieldRefSym = TACSymbol.Var(fieldName, MoveType.Reference(fieldType).toTag()).toUnique("!")
             cmds += TACCmd.Move.BorrowFieldCmd(fieldRefSym, structRefSym, fieldIndex).withDecls(fieldRefSym)
-            fieldName to makeDerefValue(cmds, fieldType, fieldRefSym)
+            Field(fieldName, makeDerefValue(cmds, fieldType, fieldRefSym))
         }
         return Value.Struct(fields)
+    }
+
+    /**
+        Emits code to unpack all fields of every possible variant of an enum into individual scalar variables so we can
+        get their values in the CEX.
+     */
+    private fun makeEnumValue(
+        cmds: MutableList<MoveCmdsWithDecls>,
+        type: MoveType.Enum,
+        enumSym: TACSymbol.Var
+    ): Value.Enum {
+        val variantIndexSym = TACSymbol.Var("variant_index", Tag.Bit256).toUnique("!")
+        cmds += TACCmd.Move.VariantIndexCmd(variantIndexSym, enumSym).withDecls(variantIndexSym)
+
+        val variants = type.variants.mapIndexed { variantIndex, variant ->
+            val fields = variant.fields.orEmpty()
+
+            val fieldVars = fields.map { (fieldName, fieldType) ->
+                TACSymbol.Var(fieldName, fieldType.toTag()).toUnique("!")
+            }
+
+            cmds += listOf(
+                TACCmd.Move.UnpackVariantCmd(
+                    dsts = fieldVars,
+                    src = enumSym,
+                    variant = variantIndex,
+                    doVariantCheck = false // We'll check the variant index when generating the call trace from the CEX
+                )
+            ).withDecls(fieldVars)
+
+            Variant(
+                name = variant.name,
+                fields = fields.mapIndexed { i, (fieldName, fieldType) ->
+                    Field(fieldName, makeValue(cmds, fieldType, fieldVars[i]))
+                }
+            )
+        }
+        return Value.Enum(variantIndexSym, variants)
     }
 
     /**

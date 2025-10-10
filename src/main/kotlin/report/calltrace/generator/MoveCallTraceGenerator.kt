@@ -149,6 +149,14 @@ internal class MoveCallTraceGenerator(
                     fields.map { (name, value) -> name to value.toCallTraceValue() }
                 )
             }
+            is MoveCallTrace.Value.Enum -> {
+                val variantIndexVal = model.valueAsBigInteger(variantIndex).leftOrNull()?.toIntOrNull() ?: return CallTraceValue.Empty
+                val (variantName, fields) = variants.getOrNull(variantIndexVal) ?: return CallTraceValue.Empty
+                CallTraceValue.MoveEnum(
+                    variantName,
+                    fields.map { (name, value) -> name to value.toCallTraceValue() }
+                )
+            }
             is MoveCallTrace.Value.Vector -> {
                 CallTraceValue.MoveVector(
                     model.valueAsBigInteger(length).leftOr { return CallTraceValue.Empty },

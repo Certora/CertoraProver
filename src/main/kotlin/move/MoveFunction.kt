@@ -68,6 +68,7 @@ class MoveFunction private constructor(
                     is MoveInstruction.BrTrue,
                     is MoveInstruction.BrFalse,
                     is MoveInstruction.Branch,
+                    is MoveInstruction.VariantSwitch,
                     is MoveInstruction.Call,
                     is MoveInstruction.Ret,
                     is MoveInstruction.Abort -> break
@@ -87,7 +88,7 @@ class MoveFunction private constructor(
             definition.code?.let { code ->
                 Code(
                     locals = code.locals.map { it.toMoveType(typeArguments) },
-                    instructions = code.instructions.map { it.toMoveInstruction(typeArguments) },
+                    instructions = code.instructions.map { it.toMoveInstruction(typeArguments, code) },
                     sourceMap = sourceContext[definition]?.codeMap
                 )
             }

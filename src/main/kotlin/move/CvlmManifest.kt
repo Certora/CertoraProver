@@ -56,7 +56,7 @@ class CvlmManifest(val scene: MoveScene) {
     enum class RuleType { USER_RULE, SANITY }
 
     private val rulesBuilder = mutableMapOf<MoveFunctionName, RuleType>()
-    private val shadowedTypes = mutableMapOf<MoveStructName, (MoveType.Struct) -> MoveType.Value>()
+    private val shadowedTypes = mutableMapOf<MoveDatatypeName, (MoveType.Struct) -> MoveType.Value>()
     private val summarizers = mutableMapOf<MoveFunctionName, context(SummarizationContext) (MoveCall) -> MoveBlocks>()
     private val targetFunctionsBuilder = mutableMapOf<MoveModuleName, MutableSet<MoveFunctionName>>()
     private val targetSanityModules = mutableSetOf<MoveModuleName>()
@@ -88,7 +88,7 @@ class CvlmManifest(val scene: MoveScene) {
     }
 
     private fun addShadowedType(
-        shadowedType: MoveStructName,
+        shadowedType: MoveDatatypeName,
         shadow: (MoveType.Struct) -> MoveType.Value
     ) {
         if (shadowedTypes.put(shadowedType, shadow) != null) {
@@ -124,7 +124,7 @@ class CvlmManifest(val scene: MoveScene) {
         }
     }
 
-    private val functionStructName = MoveStructName(
+    private val functionStructName = MoveDatatypeName(
         MoveModuleName(Config.CvlmAddress.get(), "function"),
         "Function"
     )
