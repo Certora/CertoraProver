@@ -27,6 +27,7 @@ import wasm.host.NullHost
 import wasm.wat.*
 
 @net.jqwik.api.Tag(EXPENSIVE)
+@org.junit.jupiter.api.Tag(EXPENSIVE)
 class IntTest : WasmTestFixture() {
     override val host = NullHost
 
