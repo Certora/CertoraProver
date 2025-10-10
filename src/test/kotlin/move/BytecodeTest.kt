@@ -366,6 +366,20 @@ class BytecodeTest : MoveTestFixture() {
 
     @ParameterizedTest
     @ValueSource(ints = intArrayOf(8, 16, 32, 64, 128, 256))
+    fun `xor`(size: Int) {
+        addMoveSource("""
+            $testModule
+            public fun test() {
+                let a = ${0b1100}u$size;
+                let b = ${0b1010}u$size;
+                cvlm_assert(a ^ b == ${0b0110}u$size);
+            }
+        """.trimIndent())
+        assertTrue(verify(assumeNoTraps = false))
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = intArrayOf(8, 16, 32, 64, 128, 256))
     fun `shift left`(size: Int) {
         addMoveSource("""
             $testModule

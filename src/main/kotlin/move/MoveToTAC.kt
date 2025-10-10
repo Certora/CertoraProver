@@ -17,6 +17,7 @@
 
 package move
 
+import algorithms.*
 import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
@@ -324,8 +325,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         }
     }
 
-    private fun MoveBlocks.toBlockGraph(exit: NBId) =
-        mapValuesTo(MutableBlockGraph()) { (block, code) ->
+    private fun MoveBlocks.toProgram(name: String, start: NBId, exit: NBId): MoveTACProgram {
+        val blockgraph = mapValuesTo(MutableBlockGraph()) { (block, code) ->
             when (val c = code.cmds.last()) {
                 is TACCmd.Simple.JumpCmd -> treapSetOf(c.dst)
                 is TACCmd.Simple.JumpiCmd -> treapSetOf(c.dst, c.elseDst)
@@ -336,15 +337,16 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 }
             }
         }
-
-    private fun MoveBlocks.toProgram(name: String, start: NBId, exit: NBId) =
-        MoveTACProgram(
+        // Only keep reachable code
+        val reachable = getReachable(listOf(start)) { blockgraph[it] }
+        return MoveTACProgram(
             name = name,
-            code = mapValues { (_, code) -> code.cmds },
-            blockgraph = toBlockGraph(exit),
+            code = this.updateValues { block, code -> code.cmds.takeIf { block in reachable } },
+            blockgraph = blockgraph.filterKeysTo(LinkedArrayHashMap()) { block -> block in reachable },
             entryBlock = start,
             symbolTable = TACSymbolTable(values.flatMapToSet { it.varDecls })
         )
+    }
 
     /**
         Compiles a function as a subprogram, suitable for patching into another program via [PatchingTACProgram].
@@ -382,7 +384,16 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         return annotateCallStack("rule.${rule.ruleInstanceName}") {
             val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
             ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
-            CompiledRule(rule, moveTAC, isSatisfyRule(moveTAC))
+            val isSatisfy = when (sanityMode) {
+                SanityMode.NONE -> isSatisfyRule(moveTAC)
+                // For sanity rules, it's common for the injected assert/satisfy to be unreachable, if the target
+                // function always aborts.  In that case `isSatisfyRule` would throw, failing the whole run.  These are
+                // not user-generated rules, and there is no way for the user to fix them, so let's not fail the whole
+                // run for those.
+                SanityMode.ASSERT_TRUE -> false
+                SanityMode.SATISFY_TRUE -> true
+            }
+            CompiledRule(rule, moveTAC, isSatisfy)
         }
     }
 
@@ -733,6 +744,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                     is MoveInstruction.BitOr -> mathOp { t, a, b -> push(t) { a bwOr b } }
                     is MoveInstruction.BitAnd -> mathOp { t, a, b -> push(t) { a bwAnd b } }
+                    is MoveInstruction.Xor -> mathOp { t, a, b -> push(t) { a bwXor b } }
 
                     is MoveInstruction.Shl, is MoveInstruction.Shr -> {
                         val shiftType = topType()
@@ -761,11 +773,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     is MoveInstruction.Not -> push(MoveType.Bool) { not(pop()) }
                     is MoveInstruction.Or -> push(MoveType.Bool) { pop() or pop() }
                     is MoveInstruction.And -> push(MoveType.Bool) { pop() and pop() }
-                    is MoveInstruction.Xor -> push(MoveType.Bool) {
-                        val a = pop()
-                        val b = pop()
-                        (a or b) and not(a and b)
-                    }
 
                     is MoveInstruction.Eq, is MoveInstruction.Neq -> {
                         val a: TACSymbol.Var
