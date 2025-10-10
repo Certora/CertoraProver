@@ -144,7 +144,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     check(CVTU128Intrinsics.from(inst.name) == CVTU128Intrinsics.U128_CEIL_DIV)
     { "summarizeU128CeilDiv expects ${CVTU128Intrinsics.U128_CEIL_DIV.function.name}" }
 
-    val (resLow, resHigh, overflow) = getResFromU128(locInst) ?: return listOf()
+    val (resLow, resHigh, overflow) = getResFrom128(locInst) ?: return listOf()
     val xLowE  = exprBuilder.mkVar(SbfRegister.R2_ARG).asSym()
     val xHighE = exprBuilder.mkVar(SbfRegister.R3_ARG).asSym()
     val yLowE  = exprBuilder.mkVar(SbfRegister.R4_ARG).asSym()
@@ -182,7 +182,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     check(CVTU128Intrinsics.from(inst.name) == CVTU128Intrinsics.U128_NONDET)
     { "summarizeU128Nondet expects ${CVTU128Intrinsics.U128_NONDET.function.name}" }
 
-    val (resLow, resHigh) = getResFromU128(locInst) ?: return listOf()
+    val (resLow, resHigh) = getResFrom128(locInst) ?: return listOf()
     val res = mkFreshIntVar()
 
     val cmds = mutableListOf(Debug.externalCall(inst))

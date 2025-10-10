@@ -1297,44 +1297,6 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
                 }
                 override fun withPaths(accessPaths: AnalysisPaths): StoragePointer = this.copy(accessPaths = accessPaths)
 
-                override fun widen(
-                    j: SValue,
-                    ourState: TreapMap<TACSymbol.Var, SValue>,
-                    theirState: TreapMap<TACSymbol.Var, SValue>,
-                    arrayContext: Map<Storage, BigInteger>,
-                    storage: Map<Storage, Value>?
-                ): SValue {
-                    if(j is FieldPointer && (j.offset != this.offset || j.base != this.base) && storage != null) {
-                        val resolvesToSameStaticArray = this.base.monadicMap {
-                            (storage[it] as? Value.Struct)?.elems?.get(this.offset)?.let(Storage::Derived)?.let { referent ->
-                                storage[referent]
-                            }?.let { fieldValue ->
-                                (fieldValue as? Value.StaticArray)?.elems?.let(Storage::Derived)
-                            }
-                        }?.toSet() == j.base
-                        val withNonConstIndex = when(j.accessPaths) {
-                            is AnalysisPaths.PathSet -> {
-                                j.accessPaths.paths.monadicMap { ap ->
-                                    (ap as? AnalysisPath.StructAccess)?.let { structAccess ->
-                                        (structAccess.base as? AnalysisPath.StaticArrayAccess)?.let { static ->
-                                            static.copy(index = null)
-                                        }?.let { clearedIndex ->
-                                            structAccess.copy(base = clearedIndex)
-                                        }
-                                    }
-                                }?.toSet()?.let(AnalysisPaths::PathSet)
-                            }
-                            AnalysisPaths.Top -> j.accessPaths
-                        }
-                        if(resolvesToSameStaticArray && j.offset == BigInteger.ZERO && withNonConstIndex != null) {
-                            return j.copy(
-                                accessPaths = withNonConstIndex
-                            )
-                        }
-                    }
-                    return super.widen(j, ourState, theirState, arrayContext, storage)
-                }
-
                 override fun join(j: SValue, ourState: TreapMap<TACSymbol.Var, SValue>, theirState: TreapMap<TACSymbol.Var, SValue>, arrayContext: Map<Storage, BigInteger>, storage: Map<Storage, Value>?): SValue =
                         if (j is FieldPointer && j.offset == this.offset) {
                             FieldPointer(base + j.base, offset, accessPaths.join(j.accessPaths))
@@ -1682,12 +1644,6 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
     sealed class AnalysisPaths : Serializable {
         abstract fun join(other: AnalysisPaths): AnalysisPaths
         abstract fun map(f: (AnalysisPath) -> AnalysisPath): AnalysisPaths
-        fun monadicMap(f: (AnalysisPath) -> AnalysisPath?) : AnalysisPaths = when(this) {
-            is PathSet -> {
-                this.paths.monadicMap(f)?.toSet()?.let(AnalysisPaths::PathSet) ?: Top
-            }
-            Top -> Top
-        }
         abstract fun toResultOrNull(): StorageAnalysisResult.AccessPaths?
         abstract fun killVar(x: TACSymbol.Var): AnalysisPaths
 
@@ -2983,33 +2939,11 @@ class StorageAnalysis(private val compilerStorage: TACStorageLayout?, private va
             val elemSize = v.firstMapped {
                 arrayElemSizes[it]
             }
-            val staticArraySize = v.monadicMap { ref ->
-                storage.firstNotNullOfOrNull { (_, v) ->
-                    if(v is Value.StaticArray && Storage.Derived(v.elems) == ref) {
-                        v.wordsPerElem
-                    } else {
-                        null
-                    }
-                }
-            }?.uniqueOrNull()
             return if(elemSize == offset) {
                 SValue.StoragePointer.ElementPointer(base = v, accessPaths = parentPath.map {
                     check(it is AnalysisPath.ArrayAccess)
                     it.copy(index = null)
                 }) to false
-            } else if(staticArraySize == offset) {
-                val newPaths = parentPath.monadicMap { parent ->
-                    (parent as? AnalysisPath.StaticArrayAccess)?.let { sa ->
-                        val newInd = when(sa.index) {
-                            null, is TACSymbol.Var -> null
-                            is TACSymbol.Const -> (sa.index.value + BigInteger.ONE).asTACSymbol()
-                        }
-                        sa.copy(index = newInd)
-                    }
-                }.map { base ->
-                    AnalysisPath.StructAccess(base = base, offset = Offset.Words(BigInteger.ZERO))
-                }
-                SValue.StoragePointer.FieldPointer(base = v, accessPaths = newPaths, offset = BigInteger.ZERO) to false
             } else {
                 SValue.StoragePointer.FieldPointer(v, offset,
                     parentPath.map { p ->

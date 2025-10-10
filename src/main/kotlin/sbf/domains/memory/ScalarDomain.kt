@@ -682,7 +682,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                 }
                             }
                         }
-                        is CVTFunction.Nondet, is CVTFunction.U128Intrinsics, is CVTFunction.NativeInt  ->  {
+                        is CVTFunction.Nondet,
+                        is CVTFunction.U128Intrinsics,
+                        is CVTFunction.I128Intrinsics,
+                        is CVTFunction.NativeInt  ->  {
                             summarizeCall(locInst, memSummaries)
                         }
                         is CVTFunction.Calltrace -> {
