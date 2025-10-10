@@ -171,6 +171,8 @@ object WasmTokens {
 
     const val MEMORY_GROW = "memory.grow"
     const val MEMORY_SIZE = "memory.size"
+    const val MEMORY_COPY = "memory.copy"
+    const val MEMORY_FILL = "memory.fill"
 
     // Control ops: https://www.w3.org/TR/wasm-core-1/#control-instructions%E2%91%A0
     const val NOP = "nop"

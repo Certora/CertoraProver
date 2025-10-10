@@ -98,7 +98,7 @@ object WasmImpCfgToTAC {
 
     val MEMORY_INITIALIZATION = MetaKey.Nothing("wasm.memory.init")
 
-    fun initMemory() = listOf(
+    private fun initMemory() = listOf(
         TACCmd.Simple.AssigningCmd.AssignExpCmd(
             TACKeyword.MEMORY.toVar(),
             TACExpr.MapDefinition(
