@@ -39,6 +39,7 @@ sealed class CVTFunction(val function: ExternalFunction) {
     data class Nondet(val value: CVTNondet): CVTFunction(value.function)
     data class NativeInt(val value: CVTNativeInt): CVTFunction(value.function)
     data class U128Intrinsics(val value: CVTU128Intrinsics): CVTFunction(value.function)
+    data class I128Intrinsics(val value: CVTI128Intrinsics): CVTFunction(value.function)
 
     companion object: ExternalLibrary<CVTFunction> {
 
@@ -58,7 +59,9 @@ sealed class CVTFunction(val function: ExternalFunction) {
             CVTU128Intrinsics.from(name)?.run {
                 return U128Intrinsics(this)
             }
-
+            CVTI128Intrinsics.from(name)?.run {
+                return I128Intrinsics(this)
+            }
             return null
         }
 
@@ -68,6 +71,7 @@ sealed class CVTFunction(val function: ExternalFunction) {
             CVTNondet.addSummaries(memSummaries)
             CVTNativeInt.addSummaries(memSummaries)
             CVTU128Intrinsics.addSummaries(memSummaries)
+            CVTI128Intrinsics.addSummaries(memSummaries)
         }
     }
 }
@@ -217,6 +221,28 @@ enum class CVTU128Intrinsics(val function: ExternalFunction) {
                         memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
                     }
                     U128_CEIL_DIV, U128_NONDET  -> {
+                        val summaryArgs = listOf(MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0 , width = 8, type = MemSummaryArgumentType.NUM),
+                            MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8 , width = 8, type = MemSummaryArgumentType.NUM))
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum class CVTI128Intrinsics(val function: ExternalFunction) {
+    I128_NONDET(ExternalFunction(CvlrFunctions.CVT_nondet_i128, setOf(), setOf(Value.Reg(SbfRegister.R1_ARG))));
+
+    companion object: ExternalLibrary<CVTI128Intrinsics>  {
+        private val nameMap = values().associateBy { it.function.name }
+
+        override fun from(name: String) = nameMap[name]
+
+        override fun addSummaries(memSummaries: MemorySummaries) {
+            for (f in nameMap.values) {
+                when (f) {
+                    I128_NONDET  -> {
                         val summaryArgs = listOf(MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0 , width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8 , width = 8, type = MemSummaryArgumentType.NUM))
                         memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
