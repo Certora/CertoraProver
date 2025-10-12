@@ -272,7 +272,7 @@ object LoopCopyAnalysis {
                 outPtr = outPtr.mapToTreapSet(f),
                 inPtr = inPtr.mapToTreapSet(f),
                 assumedSize = assumedSize,
-                valueSummary = valueSummary.mapKeys { f(it.key) }.mapValues { it.value.transformSymbols(f) }.toSortedMap().toTreapMap(),
+                valueSummary = valueSummary.mapKeys { f(it.key) }.mapValues { it.value.transformSymbols(f) }.toTreapMap(),
                 skipTarget = skipTarget,
                 originalBlockStart = originalBlockStart,
                 summarizedBlocks = summarizedBlocks,

@@ -28,6 +28,7 @@ import sbf.callgraph.IntegerU128CompilerRtFunction
 import sbf.domains.INumValue
 import sbf.domains.IOffset
 import sbf.domains.IPTANodeFlags
+import sbf.support.UnsupportedCall
 
 /**
  * Summarize compiler-rt functions.
@@ -57,8 +58,11 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
                         summarizer.summarizeMulti3(args)
                     }
                     IntegerU128CompilerRtFunction.MULOTI4 -> {
-                        val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()
-                        summarizer.summarizeMuloti4(args)
+                        throw UnsupportedCall(
+                            locInst,
+                            msg = "${inst.name} is not currently supported",
+                            function = inst.name
+                        )
                     }
                     IntegerU128CompilerRtFunction.UDIVTI3 -> {
                         val args = summarizer.getArgsFromU128BinaryCompilerRt(locInst) ?: return listOf()

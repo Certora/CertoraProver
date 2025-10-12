@@ -7,28 +7,21 @@
  *     the Free Software Foundation, version 3 of the License.
  *
  *     This program is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     but WITHOUT ANY WARRANTY, without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR a PARTICULAR PURPOSE.  See the
  *     GNU General Public License for more details.
  *
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+package vc.data.taccmdutils
 
-package move
+import vc.data.TACCmd
 
-import com.certora.collect.*
-import utils.*
-
-/**
-    Identifies a Move struct by its defining module and name.
- */
-@Treapable
-@KSerializable
-data class MoveStructName(
-    val module: MoveModuleName,
-    val simpleName: String
-) : AmbiSerializable {
-    override fun toString() = "$module::$simpleName"
-    fun toVarName() = "${module.toVarName()}\$${simpleName}"
+object TACCmdUtils {
+    val TACCmd.Simple.rhsExpr get() = when(this) {
+        is TACCmd.Simple.AssigningCmd.AssignExpCmd -> rhs
+        is TACCmd.Simple.AssumeExpCmd -> cond
+        else -> null
+    }
 }

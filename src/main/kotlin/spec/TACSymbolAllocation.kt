@@ -73,7 +73,7 @@ class TACSymbolAllocation private constructor(
 
     override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): TACSymbolAllocation = TACSymbolAllocation().also {
         fun sortedScope(scope: Map<String, TACSymbol.Var>) =
-            scope.entries.asSequence().map { (k, v) -> k to f(v) }.sortedBy { (_, v) -> v }
+            scope.entries.asSequence().map { (k, v) -> k to f(v) }.sortedWith { a, b -> TACSymbol.Var.byName.compare(a.second, b.second) }
         it.currentScope.putAll(sortedScope(currentScope))
         it.globalScope.putAll(sortedScope(currentScope))
     }

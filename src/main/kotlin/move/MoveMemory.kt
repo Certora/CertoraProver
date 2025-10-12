@@ -24,6 +24,7 @@ import datastructures.persistentStackOf
 import datastructures.stdcollections.*
 import log.*
 import move.ConstantStringPropagator.MESSAGE_VAR
+import move.ConstantStringPropagator.MessageVar
 import move.MoveModule.*
 import move.analysis.ReferenceAnalysis
 import tac.*
@@ -60,6 +61,9 @@ fun TACExpr.withCmds(cmds: SimpleCmdsWithDecls = SimpleCmdsWithDecls()) = TACExp
 
     - Structs are laid out as a series of fields, with the entire contents of each field stored in contiguous keys in
       the map.  Primitive fields take up one key, while struct fields might take up multiple keys.
+
+    - Enums are laid out as a variant index (an integer) followed by the fields of the selected variant (which are laid
+      out as for structs).
 
     - Vectors consist of a length field and a digest field, followed by the elements of the vector.  The digest field
       holds the hash of all elements (this is typically havoc'd for dynamic vectors).  The elements are laid out as if
@@ -118,7 +122,8 @@ class MoveMemory(val scene: MoveScene) {
                         tag = singleSimpleFieldTagOrNull(tag.type) ?: LocTag
                     )
                     is MoveTag.Vec,
-                    is MoveTag.GhostArray -> v.copy(namePrefix = v.namePrefix + "!loc", tag = LocTag)
+                    is MoveTag.GhostArray,
+                    is MoveTag.Enum -> v.copy(namePrefix = v.namePrefix + "!loc", tag = LocTag)
                     is MoveTag.Nondet -> v.copy(namePrefix = v.namePrefix + "!nondet", tag = Tag.Bit256)
                 }
                 else -> v
@@ -128,7 +133,7 @@ class MoveMemory(val scene: MoveScene) {
         /** If [struct] can be modeled as a single scalar value, returns the type of that value. */
         private fun singleSimpleFieldTypeOrNull(struct: MoveType.Struct): MoveType.Simple? {
             return when (val type = struct.fields?.singleOrNull()?.type) {
-                null, is MoveType.Vector, is MoveType.GhostArray -> null
+                null, is MoveType.Vector, is MoveType.GhostArray, is MoveType.Enum -> null
                 is MoveType.Simple -> type
                 is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)
             }
@@ -146,6 +151,8 @@ class MoveMemory(val scene: MoveScene) {
         val vecLengthOffset = BigInteger.ZERO
         val vecDigestOffset = BigInteger.ONE
         val vecElemsOffset = BigInteger.TWO
+        val enumVariantOffset = BigInteger.ZERO
+        val enumFieldsOffset = BigInteger.ONE
     }
 
     fun transform(moveCode: MoveTACProgram): CoreTACProgram {
@@ -184,14 +191,16 @@ class MoveMemory(val scene: MoveScene) {
                     val messageVar = cmd.meta[MESSAGE_VAR]
                     @Suppress("NAME_SHADOWING") // Intentionally shadow the un-transformed `cmd`
                     val cmd = if (messageVar != null) {
-                        cmd.withMeta(cmd.meta + (MESSAGE_VAR to transformLocVar(messageVar)))
+                        cmd.withMeta(cmd.meta + (MESSAGE_VAR to MessageVar(transformLocVar(messageVar.sym))))
                     } else {
                         cmd
                     }
                     when (cmd) {
                         is TACCmd.Simple.AssigningCmd.AssignExpCmd -> transformAssignExpCmd(cmd)
                         is TACCmd.Simple.AssigningCmd.AssignHavocCmd -> transformAssignHavocCmd(cmd)
-                        else -> cmd.withDecls()
+                        else -> cmd.maybeAnnotation(MESSAGE_VAR)?.let {
+                            TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(transformLocVar(it.sym))).withDecls()
+                        } ?: cmd.withDecls()
                     }
                 }
                 is TACCmd.Move -> {
@@ -209,6 +218,9 @@ class MoveMemory(val scene: MoveScene) {
                         is TACCmd.Move.VecBorrowCmd -> transformVecBorrowCmd(cmd)
                         is TACCmd.Move.VecPushBackCmd -> transformVecPushBackCmd(cmd)
                         is TACCmd.Move.VecPopBackCmd -> transformVecPopBackCmd(cmd)
+                        is TACCmd.Move.PackVariantCmd -> transformPackVariantCmd(cmd)
+                        is TACCmd.Move.UnpackVariantCmd -> transformUnpackVariantCmd(cmd)
+                        is TACCmd.Move.VariantIndexCmd -> transformVariantIndexCmd(cmd)
                         is TACCmd.Move.GhostArrayBorrowCmd -> transformGhostArrayBorrowCmd(cmd)
                         is TACCmd.Move.HashCmd -> transformHashCmd(cmd)
                         is TACCmd.Move.EqCmd -> transformEqCmd(cmd)
@@ -237,6 +249,7 @@ class MoveMemory(val scene: MoveScene) {
                     is MoveTag.Struct,
                     is MoveTag.Vec,
                     is MoveTag.GhostArray,
+                    is MoveTag.Enum,
                     is MoveTag.Nondet -> {
                         val transformer = object : DefaultTACExprTransformer() {
                             override fun transformVar(exp: TACExpr.Sym.Var): TACExpr = transformLocVar(exp.s).asSym()
@@ -262,6 +275,7 @@ class MoveMemory(val scene: MoveScene) {
                 }
                 is MoveTag.Vec,
                 is MoveTag.GhostArray,
+                is MoveTag.Enum,
                 is MoveTag.Nondet -> assignHavoc(transformLocVar(cmd.lhs), cmd.meta)
             }
             else -> cmd.withDecls()
@@ -284,7 +298,7 @@ class MoveMemory(val scene: MoveScene) {
         val type = srcRefTag.refType as? MoveType.Struct
             ?: error("Expected struct type, got ${srcRefTag.refType}")
 
-        val fields = structLayout(type).fieldOffsets
+        val fields = fieldLayout(type).fieldOffsets
         check(fields.size > cmd.fieldIndex) { "Invalid field index ${cmd.fieldIndex} for ${type.name}" }
 
         val (_, fieldOffset) = fields[cmd.fieldIndex]
@@ -326,7 +340,7 @@ class MoveMemory(val scene: MoveScene) {
     context(CommandContext)
     private fun transformPackStructCmd(cmd: TACCmd.Move.PackStructCmd): SimpleCmdsWithDecls {
         val structTag = cmd.dst.tag as? MoveTag.Struct ?: error("Expected struct type, got ${cmd.dst.tag}")
-        val fields = structLayout(structTag.type).fieldOffsets
+        val fields = fieldLayout(structTag.type).fieldOffsets
         check(fields.size == cmd.srcs.size) { "Expected ${fields.size} fields, got ${cmd.srcs.size}" }
         return mergeMany(
             listOf(
@@ -345,7 +359,7 @@ class MoveMemory(val scene: MoveScene) {
     context(CommandContext)
     private fun transformUnpackStructCmd(cmd: TACCmd.Move.UnpackStructCmd): SimpleCmdsWithDecls {
         val structTag = cmd.src.tag as? MoveTag.Struct ?: error("Expected struct type, got ${cmd.src.tag}")
-        val fields = structLayout(structTag.type).fieldOffsets
+        val fields = fieldLayout(structTag.type).fieldOffsets
         check(fields.size == cmd.dsts.size) { "Expected ${fields.size} fields, got ${cmd.dsts.size}" }
         return mergeMany(
             fields.mapIndexed { fieldIndex, (field, offset) ->
@@ -567,6 +581,68 @@ class MoveMemory(val scene: MoveScene) {
     }
 
     context(CommandContext)
+    private fun transformPackVariantCmd(cmd: TACCmd.Move.PackVariantCmd): SimpleCmdsWithDecls {
+        val enumTag = cmd.dst.tag as? MoveTag.Enum ?: error("Expected variant type, got ${cmd.dst.tag}")
+        val variant = enumTag.type.variants[cmd.variant]
+        val fields = fieldLayout(variant).fieldOffsets
+        check(fields.size == cmd.srcs.size) { "Expected ${fields.size} fields, got ${cmd.srcs.size}" }
+        val transformedDst = transformLocVar(cmd.dst)
+        return mergeMany(
+            listOf(
+                assignHavoc(transformedDst, cmd.meta),
+            ) + fields.mapIndexed { fieldIndex, (field, offset) ->
+                writeLoc(
+                    type = field.type,
+                    ref = DereferencedRef(cmd.dst, offset + enumFieldsOffset),
+                    src = cmd.srcs[fieldIndex],
+                    meta = cmd.meta
+                )
+            } + assign(transformedDst, cmd.meta) {
+                Store(transformedDst.asSym(), listOf(enumVariantOffset.asTACExpr), cmd.variant.asTACExpr)
+            }
+        )
+    }
+
+    context(CommandContext)
+    private fun transformUnpackVariantCmd(cmd: TACCmd.Move.UnpackVariantCmd): SimpleCmdsWithDecls {
+        val enumTag = cmd.src.tag as? MoveTag.Enum ?: error("Expected variant type, got ${cmd.src.tag}")
+        val variant = enumTag.type.variants[cmd.variant]
+        val fields = fieldLayout(variant).fieldOffsets
+        check(fields.size == cmd.dsts.size) { "Expected ${fields.size} fields, got ${cmd.dsts.size}" }
+        return mergeMany(
+            listOfNotNull(
+                runIf(cmd.doVariantCheck) {
+                    Trap.assert("Variant tag mismatch", cmd.meta) {
+                        select(transformLocVar(cmd.src).asSym(), enumVariantOffset.asTACExpr) eq cmd.variant.asTACExpr
+                    }
+                }
+            ) + fields.mapIndexed { fieldIndex, (field, offset) ->
+                readLoc(
+                    type = field.type,
+                    dst = cmd.dsts[fieldIndex],
+                    ref = DereferencedRef(cmd.src, offset + enumFieldsOffset),
+                    meta = cmd.meta
+                )
+            }
+        )
+    }
+
+    context(CommandContext)
+    private fun transformVariantIndexCmd(cmd: TACCmd.Move.VariantIndexCmd): SimpleCmdsWithDecls {
+        val enumTag = cmd.loc.tag as? MoveTag.Enum ?: error("Expected variant type, got ${cmd.loc.tag}")
+        val enumType = enumTag.type
+        val maxVariant = enumType.variants.size - 1
+        check(maxVariant >= 0) { "Enum ${enumType.name} has no variants" }
+        return assign(cmd.index, cmd.meta) {
+            safeMathNarrowAssuming(
+                select(transformLocVar(cmd.loc).asSym(), enumVariantOffset.asTACExpr),
+                Tag.Bit256,
+                maxVariant.toBigInteger()
+            )
+        }
+    }
+
+    context(CommandContext)
     private fun transformGhostArrayBorrowCmd(cmd: TACCmd.Move.GhostArrayBorrowCmd): SimpleCmdsWithDecls {
         val arrayRefTag = cmd.arrayRef.tag as? MoveTag.Ref
             ?: error("Expected reference type, got ${cmd.arrayRef.tag}")
@@ -660,6 +736,12 @@ class MoveMemory(val scene: MoveScene) {
                         }
                     }
                 }
+                is MoveType.Enum -> {
+                    // To hash an enum, we would need to generate a different list of expressions for each variant.
+                    // That doesn't fit into our current hashing scheme, so for now let's just havoc the hash.
+                    loggerSetupHelpers.warn { "Havocing hash of enum type in $origCmd" }
+                    listOf(TACExpr.Unconstrained(Tag.Bit256).withCmds())
+                }
                 is MoveType.GhostArray -> {
                     loggerSetupHelpers.warn { "Havocing hash of ghost array type in $origCmd" }
                     listOf(TACExpr.Unconstrained(Tag.Bit256).withCmds())
@@ -727,6 +809,25 @@ class MoveMemory(val scene: MoveScene) {
                     }
                 }
             }
+            fun MoveType.Composite.compareFields(dest: TACSymbol.Var, offset: BigInteger): SimpleCmdsWithDecls {
+                val fields = this.fields ?: run {
+                    loggerSetupHelpers.warn { "Havocing equality of native type $this in $origCmd" }
+                    return assignHavoc(dest, cmd.meta)
+                }
+                val fieldEqs = fields.map {
+                    TACKeyword.TMP(Tag.Bool, "${it.name}!eq")
+                }
+                var fieldOffset = offset
+                return mergeMany(
+                    fields.zip(fieldEqs).map { (field, fieldEq) ->
+                        compare(fieldEq, fieldOffset, field.type).also {
+                            fieldOffset += fieldSize(field.type)
+                        }
+                    } + listOf(
+                        assign(dest, cmd.meta) { LAnd(fieldEqs.map { it.asSym() }) }
+                    )
+                )
+            }
             return when(type) {
                 is MoveType.Simple -> type.compareSimple()
                 is MoveType.Vector -> {
@@ -738,25 +839,24 @@ class MoveMemory(val scene: MoveScene) {
                         (select(aLoc.asSym(), digestOffset) eq select(bLoc.asSym(), digestOffset))
                     }
                 }
-                is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)?.compareSimple() ?: run {
-                    val fields = type.fields ?: run {
-                        loggerSetupHelpers.warn { "Havocing equality of native struct type $type in $origCmd" }
-                        return assignHavoc(dest, cmd.meta)
+                is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)?.compareSimple() ?: type.compareFields(dest, offset)
+                is MoveType.Enum -> {
+                    val variantComparisons = type.variants.mapIndexed { variantIndex, variant ->
+                        val variantEq = TACKeyword.TMP(Tag.Bool, "variant$variantIndex!eq")
+                        variantEq to variant.compareFields(variantEq, offset + enumFieldsOffset)
                     }
-                    val fieldEqs = fields.map {
-                        TACKeyword.TMP(Tag.Bool, "${it.name}!eq")
-                    }
-                    var fieldOffset = offset
+                    val actualVariantIndex = TACKeyword.TMP(Tag.Int, "actualVariant")
                     mergeMany(
-                        fields.zip(fieldEqs).map { (field, fieldEq) ->
-                            compare(fieldEq, fieldOffset, field.type).also {
-                                fieldOffset += fieldSize(field.type)
-                            }
-                        } + listOf(
-                            assign(dest, cmd.meta) {
-                                fieldEqs.fold(true.asTACExpr as TACExpr) { acc, fieldEq -> acc and fieldEq }
-                            }
-                        )
+                        mergeMany(variantComparisons.map { (_, cmds) -> cmds }),
+                        assign(actualVariantIndex, cmd.meta) { select(aLoc.asSym(), enumVariantOffset.asTACExpr) },
+                        assign(dest, cmd.meta) {
+                            (select(bLoc.asSym(), enumVariantOffset.asTACExpr) eq actualVariantIndex.asSym()) and
+                            LOr(
+                                variantComparisons.mapIndexed { variantIndex, (variantEq, _) ->
+                                    (actualVariantIndex eq variantIndex.asTACExpr) and variantEq.asSym()
+                                }
+                            )
+                        }
                     )
                 }
                 is MoveType.GhostArray -> {
@@ -808,14 +908,11 @@ class MoveMemory(val scene: MoveScene) {
             )
         }
 
-        // Special-case: there's only one possible location, so we don't need to branch
-        refTargets.singleOrNull()?.let { refTarget ->
-            return action(this@CommandContext, refTarget.toDeref())
-        }
+        // Apply the action to the first (and typically only) target
+        val firstCase = action(this@CommandContext, refTargets.first().toDeref())
 
-        // Otherwise, we need to "switch" over the location ID
-        val noneMatched = assume { false.asTACExpr }
-        return refTargets.fold(noneMatched) { noMatch, refTarget ->
+        // If there are multiple targets, build the "switch" over them
+        return refTargets.drop(1).fold(firstCase) { noMatch, refTarget ->
             DerefCase(
                 locId = refTarget.locId,
                 locIdVar = refVars.locId,
@@ -886,7 +983,7 @@ class MoveMemory(val scene: MoveScene) {
         return when (type) {
             is MoveType.Simple -> type.readSimple()
             is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)?.readSimple() ?: readAggregate()
-            is MoveType.Vector, is MoveType.GhostArray -> readAggregate()
+            is MoveType.Vector, is MoveType.GhostArray, is MoveType.Enum -> readAggregate()
         }
     }
 
@@ -967,7 +1064,7 @@ class MoveMemory(val scene: MoveScene) {
             when (type) {
                 is MoveType.Simple -> type.writeSimple()
                 is MoveType.Struct -> singleSimpleFieldTypeOrNull(type)?.writeSimple() ?: writeAggregate()
-                is MoveType.Vector, is MoveType.GhostArray -> writeAggregate()
+                is MoveType.Vector, is MoveType.GhostArray, is MoveType.Enum -> writeAggregate()
             },
             invalidateVectorDigests(ref, meta)
         )
@@ -1028,7 +1125,7 @@ class MoveMemory(val scene: MoveScene) {
                 is ReferenceAnalysis.PathComponent.Field -> {
                     val structType = currentType as? MoveType.Struct
                         ?: error("Expected struct type, got $currentType in $origCmd")
-                    val (field, fieldOffset) = structLayout(structType).fieldOffsets[pathComp.fieldIndex]
+                    val (field, fieldOffset) = fieldLayout(structType).fieldOffsets[pathComp.fieldIndex]
 
                     // Advance to the target field and continue the traversal
                     cmds += assign(currentOffset, meta) { currentOffset.asSym() intAdd fieldOffset.asTACExpr }
@@ -1072,26 +1169,26 @@ class MoveMemory(val scene: MoveScene) {
     private fun fieldSize(type: MoveType.Value): BigInteger {
         return when (type) {
             is MoveType.Simple -> BigInteger.ONE
-            is MoveType.Struct -> structLayout(type).size
+            is MoveType.Struct -> fieldLayout(type).size
+            is MoveType.Enum -> type.variants.maxOf { enumFieldsOffset + fieldLayout(it).size }
             is MoveType.Vector -> vecElemsOffset + (BigInteger.TWO.pow(256) * fieldSize(type.elemType))
             is MoveType.GhostArray -> BigInteger.TWO.pow(256) * fieldSize(type.elemType)
         }
     }
 
-    private data class StructLayout(
+    private data class FieldLayout(
         val size: BigInteger,
-        val fieldOffsets: List<Pair<MoveType.Struct.Field, BigInteger>>
+        val fieldOffsets: List<Pair<MoveType.Composite.Field, BigInteger>>
     )
 
-    private fun structLayout(struct: MoveType.Struct): StructLayout {
+    private fun fieldLayout(type: MoveType.Composite): FieldLayout {
         var offset = BigInteger.ZERO
-        val fields = struct.fields ?: error("Cannot compute layout of native struct $struct")
+        val fields = type.fields ?: error("Cannot compute layout of native type $type")
         val fieldOffsets = fields.map { field ->
             (field to offset).also {
                 offset += fieldSize(field.type)
             }
         }
-        return StructLayout(size = offset, fieldOffsets = fieldOffsets)
+        return FieldLayout(size = offset, fieldOffsets = fieldOffsets)
     }
-
 }

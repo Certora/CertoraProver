@@ -70,7 +70,7 @@ class MethodParameterInstantiation(private val paramNameToEVMMethodInstance: Map
     * instantiations, separated by [OUTPUT_NAME_DELIMITER].
     */
     fun toRuleName(hasMethodInstFromNonPrimaryContract: Boolean): Pair<List<String>, String> {
-        val sortedMethodMatch = this.toSortedMap()
+        val sortedMethodMatch = this.toSortedMap(TACSymbol.Var.byName)
         val methodInstsNames = sortedMethodMatch.map { (_, methodInfo) ->
             if (hasMethodInstFromNonPrimaryContract) {
                 "${methodInfo.contractName}.${methodInfo}"

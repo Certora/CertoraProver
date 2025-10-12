@@ -31,7 +31,7 @@ import java.math.BigInteger
  * Some utilities for working with a give counter example.
  */
 class CounterExampleContext(
-    code: CoreTACProgram,
+    val code: CoreTACProgram,
     private val cex: SMTCounterexampleModel,
 ) {
     val g = code.analysisCache.graph

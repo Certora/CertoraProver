@@ -252,6 +252,18 @@ class MoveModule(val path: Path) {
         }
     }
 
+    enum class SerializedEnumFlag(val encoding: Int) {
+        // 0x1 is reserved for "native," but not yet used
+        Declared(0x2),
+        ;
+        companion object {
+            fun parse(buf: ByteBuffer): SerializedEnumFlag {
+                val encoding = buf.getUByte().toInt()
+                return values().find { it.encoding == encoding } ?: error("Unknown SerializedEnumFlag $encoding")
+            }
+        }
+    }
+
     private enum class Opcodes(val encoding: Int) {
         POP(0x01),
         RET(0x02),
@@ -480,7 +492,7 @@ class MoveModule(val path: Path) {
     ) {
         val definingModule get() = module.deref().name
         val simpleName get() = nameIndex.deref().value
-        val name get() = MoveStructName(definingModule, simpleName)
+        val name get() = MoveDatatypeName(definingModule, simpleName)
 
         val id get() = DatatypeId(
             module = module.deref().name,
@@ -694,19 +706,24 @@ class MoveModule(val path: Path) {
         }
     }
 
+    sealed class DatatypeDefinition {
+        abstract val handleIndex: DatatypeHandleIndex
+        val handle get() = handleIndex.deref()
+        val name get() = MoveDatatypeName(handle.definingModule, handle.simpleName)
+        val typeParameters get() = handle.typeParameters
+    }
+
     class StructDefinition(
-        val structHandleIndex: DatatypeHandleIndex,
+        override val handleIndex: DatatypeHandleIndex,
         val fieldInformation: StructFieldInformation
-    ) {
-        val structHandle get() = structHandleIndex.deref()
-        val name = MoveStructName(structHandle.definingModule, structHandle.simpleName)
+    ) : DatatypeDefinition() {
         val fields get() = fieldInformation.fields
 
         companion object {
             context(MoveModule)
             fun parseTable(buf: ByteBuffer) = buf.parseAll {
                 StructDefinition(
-                    structHandleIndex = parseDatatypeHandleIndex(buf),
+                    handleIndex = parseDatatypeHandleIndex(buf),
                     fieldInformation = StructFieldInformation.parse(buf)
                 )
             }
@@ -834,7 +851,7 @@ class MoveModule(val path: Path) {
     class CodeUnit private constructor(
         val localsIndex: SignatureIndex,
         val instructions: List<Instruction>,
-        private val jumpTables: List<VariantJumpTable>?,
+        val jumpTables: List<VariantJumpTable>?,
     ) {
         val locals get() = localsIndex.deref().tokens
 
@@ -1043,20 +1060,21 @@ class MoveModule(val path: Path) {
     }
 
     class VariantJumpTable(
-        val headEnum: EnumDefinitionIndex,
-        private val jumpTable: List<CodeOffset>
+        val enumDefIndex: EnumDefinitionIndex,
+        val jumpTable: List<CodeOffset>
     ) {
+        val enumDef get() = enumDefIndex.deref()
         companion object {
             context(MoveModule)
             fun parse(buf: ByteBuffer): VariantJumpTable {
-                val headEnum = parseEnumDefinitionIndex(buf)
+                val enumDefIndex = parseEnumDefinitionIndex(buf)
                 val count = buf.getLeb128UInt().toInt()
                 val jumpTableType = buf.getUByte().toInt()
                 val jumpTable: List<CodeOffset> = when (jumpTableType) {
                     0x1 -> buildList { repeat(count) { add(CodeOffset.parse(buf)) } }
                     else -> error("Invalid variant jump table type $jumpTableType")
                 }
-                return VariantJumpTable(headEnum, jumpTable)
+                return VariantJumpTable(enumDefIndex, jumpTable)
             }
         }
     }
@@ -1109,14 +1127,17 @@ class MoveModule(val path: Path) {
     }
 
     class EnumDefinition(
-        val enumHandle: DatatypeHandleIndex,
-        private val variants: List<VariantDefinition>
-    ) {
+        override val handleIndex: DatatypeHandleIndex,
+        val variants: List<VariantDefinition>
+    ) : DatatypeDefinition() {
         companion object {
             context(MoveModule)
             fun parseTable(buf: ByteBuffer) = buf.parseAll {
+                val handle = parseDatatypeHandleIndex(buf)
+                val flag = SerializedEnumFlag.parse(buf)
+                check(flag == SerializedEnumFlag.Declared) { "Only declared enums are supported" }
                 EnumDefinition(
-                    enumHandle = parseDatatypeHandleIndex(buf),
+                    handleIndex = handle,
                     variants = buf.parseList { VariantDefinition.parse(buf) }
                 )
             }
@@ -1124,27 +1145,31 @@ class MoveModule(val path: Path) {
     }
 
     class VariantDefinition(
-        val variantName: IdentifierIndex,
-        private val fields: List<FieldDefinition>
+        val variantNameIndex: IdentifierIndex,
+        val fields: List<FieldDefinition>
     ) {
+        val name get() = variantNameIndex.deref().value
+
         companion object {
             context(MoveModule)
             fun parse(buf: ByteBuffer) = VariantDefinition(
-                variantName = parseIdentifierIndex(buf),
+                variantNameIndex = parseIdentifierIndex(buf),
                 fields = buf.parseList { FieldDefinition.parse(buf) }
             )
         }
     }
 
     class EnumDefInstantiation(
-        val def: EnumDefinitionIndex,
+        val enumDefIndex: EnumDefinitionIndex,
         val typeParameters: SignatureIndex
     ) {
+        val enumDef get() = enumDefIndex.deref()
+
         companion object {
             context(MoveModule)
             fun parseTable(buf: ByteBuffer) = buf.parseAll {
                 EnumDefInstantiation(
-                    def = parseEnumDefinitionIndex(buf),
+                    enumDefIndex = parseEnumDefinitionIndex(buf),
                     typeParameters = parseSignatureIndex(buf)
                 )
             }
@@ -1152,14 +1177,17 @@ class MoveModule(val path: Path) {
     }
 
     class VariantHandle(
-        val enumDef: EnumDefinitionIndex,
+        val enumDefIndex: EnumDefinitionIndex,
         val variant: VariantTag
     ) {
+        val enumDef get() = enumDefIndex.deref()
+        val variantDef get() = enumDef.variants[variant.index]
+
         companion object {
             context(MoveModule)
             fun parseTable(buf: ByteBuffer) = buf.parseAll {
                 VariantHandle(
-                    enumDef = parseEnumDefinitionIndex(buf),
+                    enumDefIndex = parseEnumDefinitionIndex(buf),
                     variant = parseVariantTag(buf)
                 )
             }
@@ -1167,14 +1195,19 @@ class MoveModule(val path: Path) {
     }
 
     class VariantInstantiationHandle(
-        val enumDef: EnumDefInstantiationIndex,
+        val instDefIndex: EnumDefInstantiationIndex,
         val variant: VariantTag
     ) {
+        val instDef get() = instDefIndex.deref()
+        val enumDef get() = instDef.enumDef
+        val typeParameters get() = instDef.typeParameters
+        val variantDef get() = enumDef.variants[variant.index]
+
         companion object {
             context(MoveModule)
             fun parseTable(buf: ByteBuffer) = buf.parseAll {
                 VariantInstantiationHandle(
-                    enumDef = parseEnumDefInstantiationIndex(buf),
+                    instDefIndex = parseEnumDefInstantiationIndex(buf),
                     variant = parseVariantTag(buf)
                 )
             }
@@ -1201,22 +1234,23 @@ class MoveModule(val path: Path) {
 
     val publicFunctionDefinitions get() = functionDefinitions.orEmpty().filter { it.visibility == Visibility.Public }
 
-    private val structDefinitionsById = structDefinitions.orEmpty().associateBy { it.structHandle.id }
+    private val datatypeDefinitions get() = structDefinitions.orEmpty() + enumDefinitions.orEmpty()
+    private val datatypeDefinitionsById = datatypeDefinitions.associateBy { it.handle.id }
 
-    fun definition(handle: DatatypeHandle): StructDefinition {
+    fun definition(handle: DatatypeHandle): DatatypeDefinition {
         check(handle.definingModule == this.moduleName) {
             "Datatype handle $handle does not belong to module $moduleName"
         }
-        return structDefinitionsById[handle.id]
+        return datatypeDefinitionsById[handle.id]
             ?: error("Struct definition not found for handle $handle")
     }
 
-    private val structDefinitionsByName = structDefinitions.orEmpty().associateBy { it.name }
+    private val datatypeDefinitionsByName = datatypeDefinitions.associateBy { it.name }
 
-    fun maybeDefinition(name: MoveStructName): StructDefinition? {
+    fun maybeDefinition(name: MoveDatatypeName): DatatypeDefinition? {
         check(name.module == this.moduleName) {
             "Struct name $name does not belong to module $moduleName"
         }
-        return structDefinitionsByName[name]
+        return datatypeDefinitionsByName[name]
     }
 }

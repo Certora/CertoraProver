@@ -33,14 +33,16 @@ import vc.data.*
  */
 @Treapable
 @KSerializable
-sealed class MoveType : HasKSerializable {
+sealed class MoveType : AmbiSerializable {
     abstract fun toTag(): Tag
 
     /** Gets a name for this type that can be used as part of a TACSymbol.Var name. */
     abstract fun symNameExt(): String
 
     @KSerializable
-    sealed class Value : MoveType()
+    sealed class Value : MoveType() {
+        abstract fun displayName(): String
+    }
 
     /** A [Value] that is represented as a single slot in a memory location */
     @KSerializable
@@ -54,49 +56,51 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     object Bool : Primitive() {
         override fun toTag() = Tag.Bool
+        override fun displayName() = "bool"
         override fun symNameExt() = "bool"
         override fun hashCode() = hashObject(this)
+        private fun readResolve(): Any = Bool
     }
 
     @KSerializable
     sealed class Bits(val size: Int) : Primitive() {
         override fun toTag() = Tag.Bit256
+        override fun displayName() = "u$size"
         override fun symNameExt() = "u$size"
     }
 
-    @KSerializable object U8 : Bits(8) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U16 : Bits(16) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U32 : Bits(32) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U64 : Bits(64) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U128 : Bits(128) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U256 : Bits(256) { override fun hashCode() = hashObject(this) }
-    @KSerializable object Address : Bits(256) { override fun hashCode() = hashObject(this) }
-    @KSerializable object Signer : Bits(256) { override fun hashCode() = hashObject(this) }
+    @KSerializable object U8 : Bits(8) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U8 }
+    @KSerializable object U16 : Bits(16) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U16 }
+    @KSerializable object U32 : Bits(32) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U32 }
+    @KSerializable object U64 : Bits(64) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U64 }
+    @KSerializable object U128 : Bits(128) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U128 }
+    @KSerializable object U256 : Bits(256) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U256 }
+    @KSerializable object Address : Bits(256) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = Address }
+    @KSerializable object Signer : Bits(256) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = Signer }
 
 
     @KSerializable
     data class Vector(val elemType: MoveType.Value) : Value() {
         override fun toString() = "vector<$elemType>"
+        override fun displayName() = "vector<${elemType.displayName()}>"
         override fun toTag() = MoveTag.Vec(elemType)
         override fun symNameExt() = "vector!${elemType.symNameExt()}"
     }
 
     @KSerializable
-    data class Struct(
-        val name: MoveStructName,
-        val typeArguments: List<MoveType.Value>,
-        val fields: List<Field>?
-    ) : Value() {
-        @Treapable
-        @KSerializable
-        data class Field(val name: String, val type: MoveType.Value)
+    sealed class Datatype : Value() {
+        abstract val name: MoveDatatypeName
+        abstract val typeArguments: List<MoveType.Value>
 
         override fun toString() = when {
             typeArguments.isEmpty() -> "$name"
             else -> "$name<${typeArguments.joinToString(", ")}>"
         }
 
-        override fun toTag() = MoveTag.Struct(this)
+        override fun displayName() = when {
+            typeArguments.isEmpty() -> name.toString()
+            else -> "${name}<${typeArguments.joinToString(", ") { it.displayName() }}>"
+        }
 
         override fun symNameExt(): String {
             val typeArgumentString = typeArguments.fold("${typeArguments.size}") { acc, type ->
@@ -104,6 +108,41 @@ sealed class MoveType : HasKSerializable {
             }
             return "${name.toVarName()}!$typeArgumentString"
         }
+    }
+
+    sealed interface Composite {
+        @Treapable
+        @KSerializable
+        data class Field(val name: String, val type: MoveType.Value)
+
+        abstract val fields: List<Field>?
+    }
+
+    @KSerializable
+    data class Struct(
+        override val name: MoveDatatypeName,
+        override val typeArguments: List<MoveType.Value>,
+        override val fields: List<Composite.Field>?
+    ) : Datatype(), Composite {
+        override fun toTag() = MoveTag.Struct(this)
+        override fun toString() = super.toString() // Don't use compiler-generated toString
+    }
+
+    @KSerializable
+    data class Enum(
+        override val name: MoveDatatypeName,
+        override val typeArguments: List<MoveType.Value>,
+        val variants: List<Variant>
+    ) : Datatype() {
+        override fun toTag() = MoveTag.Enum(this)
+        override fun toString() = super.toString() // Don't use compiler-generated toString
+
+        @Treapable
+        @KSerializable
+        data class Variant(
+            val name: String,
+            override val fields: List<Composite.Field>?
+        ) : Composite
     }
 
     @KSerializable
@@ -116,6 +155,7 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     data class GhostArray(val elemType: MoveType.Value) : Value() {
         override fun toString() = "array<${elemType}>"
+        override fun displayName() = "(ghost)<${elemType.displayName()}>"
         override fun toTag() = MoveTag.GhostArray(elemType)
         override fun symNameExt() = "array!${elemType.symNameExt()}"
     }
@@ -123,9 +163,11 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     object MathInt : Primitive() {
         override fun toString() = "mathint"
+        override fun displayName() = "(mathint)"
         override fun toTag() = Tag.Int
         override fun symNameExt() = "mathint"
         override fun hashCode() = hashObject(this)
+        private fun readResolve(): Any = MathInt
     }
 
     /**
@@ -152,6 +194,7 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     data class Nondet(val id: Int) : Simple() {
         override fun toString() = "nondet#$id"
+        override fun displayName() = "(nondet#$id)"
         override fun toTag() = MoveTag.Nondet(this)
         override fun symNameExt() = "nondet!$id"
     }
@@ -166,9 +209,11 @@ sealed class MoveType : HasKSerializable {
     @KSerializable
     object Function : Simple() {
         override fun toString() = "fun"
+        override fun displayName() = "(fun)"
         override fun toTag() = Tag.Bit256
         override fun symNameExt() = "fun"
         override fun hashCode() = hashObject(this)
+        private fun readResolve(): Any = Function
     }
 }
 
@@ -202,10 +247,31 @@ private fun SignatureToken.toMoveValueType(
     SignatureToken.Address -> MoveType.Address
     SignatureToken.Signer -> MoveType.Signer
     is SignatureToken.Vector -> MoveType.Vector(type.toMoveValueType(typeArg))
-    is SignatureToken.Datatype -> handle.toMoveStructOrShadow()
-    is SignatureToken.DatatypeInstantiation -> handle.toMoveStructOrShadow(typeArguments.map { it.toMoveValueType(typeArg) })
+    is SignatureToken.Datatype -> when (val def = definition(handle)) {
+        is MoveModule.StructDefinition -> handle.toMoveStructOrShadow()
+        is MoveModule.EnumDefinition -> def.toMoveEnum()
+    }
+    is SignatureToken.DatatypeInstantiation -> when (val def = definition(handle)) {
+        is MoveModule.StructDefinition -> handle.toMoveStructOrShadow(typeArguments.map { it.toMoveValueType(typeArg) })
+        is MoveModule.EnumDefinition -> def.toMoveEnum(typeArguments.map { it.toMoveValueType(typeArg) })
+    }
     is SignatureToken.TypeParameter -> typeArg(this)
     is SignatureToken.Reference -> error("References are not valid value types: $this")
+}
+
+context(MoveScene)
+fun List<MoveModule.FieldDefinition>.toCompositeFields(typeArgs: List<MoveType.Value>): List<MoveType.Composite.Field> {
+    return map {
+        val fieldType = it.signature.toMoveValueType { typeArgs[it.index.index] }
+        if (fieldType == MoveType.Function) {
+            // We only allow functions as parameters of rules, not as fields of structs.
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Functions cannot appear as fields of structs or enum variants."
+            )
+        }
+        MoveType.Composite.Field(it.name, fieldType)
+    }
 }
 
 context(MoveScene)
@@ -216,20 +282,13 @@ fun MoveModule.DatatypeHandle.toMoveStructRaw(
         "Type parameters size mismatch for $name: expected ${typeParameters.size}, got ${typeArgs.size}"
     }
     val def = definition(this)
+    check(def is MoveModule.StructDefinition) {
+        "Expected struct definition for $name, got $def"
+    }
     return MoveType.Struct(
-        MoveStructName(definingModule, simpleName),
+        MoveDatatypeName(definingModule, simpleName),
         typeArgs,
-        def.fields?.map {
-            val fieldType = it.signature.toMoveValueType { typeArgs[it.index.index] }
-            if (fieldType == MoveType.Function) {
-                // We only allow functions as parameters of rules, not as fields of structs.
-                throw CertoraException(
-                    CertoraErrorType.CVL,
-                    "Functions cannot appear as fields of structs."
-                )
-            }
-            MoveType.Struct.Field(it.name, fieldType)
-        }
+        def.fields?.toCompositeFields(typeArgs)
     )
 }
 
@@ -252,6 +311,27 @@ fun MoveModule.DatatypeHandle.toMoveStructOrShadow(
 ): MoveType.Value {
     val struct = toMoveStructRaw(typeArgs)
     return maybeShadowType(struct) ?: struct
+}
+
+context(MoveScene)
+fun MoveModule.EnumDefinition.toMoveEnum(
+    typeArgs: List<MoveType.Value> = listOf()
+): MoveType.Enum {
+    check(typeArgs.size == typeParameters.size) {
+        "Type parameters size mismatch for $name: expected ${typeParameters.size}, got ${typeArgs.size}"
+    }
+    return MoveType.Enum(
+        name,
+        typeArgs,
+        variants.map { MoveType.Enum.Variant(it.name, it.fields.toCompositeFields(typeArgs)) }
+    )
+}
+
+context(MoveScene)
+fun MoveModule.EnumDefInstantiation.toMoveEnum(
+    typeArgs: List<MoveType.Value> = listOf()
+): MoveType.Enum {
+    return enumDef.toMoveEnum(typeParameters.deref().tokens.map { it.toMoveValueType(typeArgs) })
 }
 
 /**
@@ -322,7 +402,7 @@ fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()): MoveCm
             )
         }
         is MoveType.Simple -> type.assignHavoc(dest, meta)
-        is MoveType.Vector, is MoveType.Struct, is MoveType.GhostArray -> {
+        is MoveType.Vector, is MoveType.Struct, is MoveType.Enum, is MoveType.GhostArray -> {
             tac.generation.assignHavoc(dest, meta)
         }
     }
@@ -331,10 +411,15 @@ fun MoveType.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()): MoveCm
 /**
     Gets the names of all structs used in this type.
  */
-fun MoveType.consituentStructNames(): TreapSet<MoveStructName> = when (this) {
+fun MoveType.consituentStructNames(): TreapSet<MoveDatatypeName> = when (this) {
     is MoveType.Bits, is MoveType.Primitive, is MoveType.Nondet, MoveType.Bool, MoveType.Function -> treapSetOf()
     is MoveType.Vector -> elemType.consituentStructNames()
-    is MoveType.Struct -> fields?.map { it.type.consituentStructNames() }?.unionAll().orEmpty() + name
+    is MoveType.Enum -> variants.map { it.compositeStructNames() }.unionAll().orEmpty()
+    is MoveType.Struct -> compositeStructNames() + name
     is MoveType.Reference -> refType.consituentStructNames()
     is MoveType.GhostArray -> elemType.consituentStructNames()
+}
+
+fun MoveType.Composite.compositeStructNames(): TreapSet<MoveDatatypeName> {
+    return fields?.map { it.type.consituentStructNames() }?.unionAll().orEmpty()
 }

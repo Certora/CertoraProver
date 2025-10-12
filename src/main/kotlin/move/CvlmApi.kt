@@ -21,6 +21,7 @@ import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import datastructures.stdcollections.*
 import config.*
 import move.ConstantStringPropagator.MESSAGE_VAR
+import move.ConstantStringPropagator.MessageVar
 import tac.*
 import tac.generation.*
 import utils.*
@@ -56,7 +57,7 @@ object CvlmApi {
     private val mathIntModule = MoveModuleName(cvlmAddr, "math_int")
     private val functionModule = MoveModuleName(cvlmAddr, "function")
 
-    private val mathIntTypeName = MoveStructName(mathIntModule, "MathInt")
+    private val mathIntTypeName = MoveDatatypeName(mathIntModule, "MathInt")
 
     fun maybeShadowType(type: MoveType.Struct) = when (type.name) {
         mathIntTypeName -> MoveType.MathInt
@@ -115,8 +116,9 @@ object CvlmApi {
                     TACCmd.Simple.AssertCmd(
                         call.args[0],
                         "cvlm_assert_msg (could not extract message)", // message will be replaced later
-                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (MESSAGE_VAR to call.args[1])
-                    ).withDecls()
+                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (MESSAGE_VAR to MessageVar(call.args[1]))
+                    ).withDecls(),
+                    TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
                 )
             }
         }
@@ -157,8 +159,9 @@ object CvlmApi {
                     TACCmd.Simple.AssumeCmd(
                         call.args[0],
                         "cvlm_assume_msg (could not extract message)",
-                        MetaMap(MESSAGE_VAR to call.args[1])
-                    ).withDecls()
+                        MetaMap(MESSAGE_VAR to MessageVar(call.args[1]))
+                    ).withDecls(),
+                    TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
                 )
             }
         }
@@ -209,8 +212,9 @@ object CvlmApi {
                             "cvlm_satisfy_msg (could not extract message)",
                             MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
                                 (TACMeta.SATISFY_ID to allocSatisfyId()) +
-                                (MESSAGE_VAR to call.args[1])
-                        ).withDecls()
+                                (MESSAGE_VAR to MessageVar(call.args[1]))
+                        ).withDecls(),
+                        TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
                     )
                 }
             }
@@ -341,6 +345,24 @@ object CvlmApi {
 
         /*
             ```
+            public native fun to_u256(value: MathInt): u256;
+            ```
+            Converts a MathInt value to a u256.
+         */
+        addSummary(mathIntModule, "to_u256") { call ->
+            singleBlockSummary(call) {
+                val v = call.args[0].asSym()
+                mergeMany(
+                    Trap.assert("MathInt value in u256 range") {
+                        (v ge 0.asTACExpr(Tag.Int)) and (v le Tag.Bit256.maxUnsigned.asTACExpr(Tag.Int))
+                    },
+                    assign(call.returns[0]) { safeMathNarrow(v, Tag.Bit256) }
+                )
+            }
+        }
+
+        /*
+            ```
             public native fun add(a: MathInt, b: MathInt): MathInt;
             ```
          */
@@ -391,6 +413,17 @@ object CvlmApi {
         addSummary(mathIntModule, "mod") { call ->
             singleBlockSummary(call) {
                 assign(call.returns[0]) { call.args[0].asSym() intMod call.args[1].asSym() }
+            }
+        }
+
+        /*
+            ```
+            public native fun pow(a: MathInt, b: MathInt): MathInt;
+            ```
+         */
+        addSummary(mathIntModule, "pow") { call ->
+            singleBlockSummary(call) {
+                assign(call.returns[0]) { call.args[0].asSym() intPow call.args[1].asSym() }
             }
         }
 

@@ -17,6 +17,7 @@
 
 package move
 
+import algorithms.*
 import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
@@ -56,9 +57,17 @@ private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
 class MoveToTAC private constructor (val scene: MoveScene) {
     data class CompiledRule(
         val rule: CvlmRule,
-        val code: CoreTACProgram,
+        val moveTAC: MoveTACProgram,
         val isSatisfy: Boolean
-    )
+    ) {
+        fun toCoreTAC(scene: MoveScene): CoreTACProgram {
+            return annotateCallStack("rule.${rule.ruleInstanceName}") {
+                val coreTAC = MoveMemory(scene).transform(moveTAC)
+                ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
+                preprocess(coreTAC, isSatisfy)
+            }
+        }
+    }
 
     companion object {
         fun compileRule(rule: CvlmRule, scene: MoveScene) = MoveToTAC(scene).compileRule(rule)
@@ -77,9 +86,21 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             )
         }
 
+        private fun preprocess(code: CoreTACProgram, isSatisfy: Boolean) =
+            CoreTACProgram.Linear(code)
+            .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
+            .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
+            .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
+            .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
+            .ref
+
         fun optimize(code: CoreTACProgram) =
             CoreTACProgram.Linear(code)
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SNIPPET_REMOVAL, SnippetRemover::rewrite))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_BOOL_VARIABLES) { BoolOptimizer(it).go() })
@@ -170,6 +191,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
         private const val REACHED_END_OF_FUNCTION = "Reached end of function"
     }
+
+    private var callIdAllocator = 0
+    private fun newCallId() = callIdAllocator++
 
     private val uniqueNameAllocator = mutableMapOf<String, Int>()
     private fun String.toUnique() =
@@ -304,8 +328,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         }
     }
 
-    private fun MoveBlocks.toBlockGraph(exit: NBId) =
-        mapValuesTo(MutableBlockGraph()) { (block, code) ->
+    private fun MoveBlocks.toProgram(name: String, start: NBId, exit: NBId): MoveTACProgram {
+        val blockgraph = mapValuesTo(MutableBlockGraph()) { (block, code) ->
             when (val c = code.cmds.last()) {
                 is TACCmd.Simple.JumpCmd -> treapSetOf(c.dst)
                 is TACCmd.Simple.JumpiCmd -> treapSetOf(c.dst, c.elseDst)
@@ -316,15 +340,16 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 }
             }
         }
-
-    private fun MoveBlocks.toProgram(name: String, start: NBId, exit: NBId) =
-        MoveTACProgram(
+        // Only keep reachable code
+        val reachable = getReachable(listOf(start)) { blockgraph[it] }
+        return MoveTACProgram(
             name = name,
-            code = mapValues { (_, code) -> code.cmds },
-            blockgraph = toBlockGraph(exit),
+            code = this.updateValues { block, code -> code.cmds.takeIf { block in reachable } },
+            blockgraph = blockgraph.filterKeysTo(LinkedArrayHashMap()) { block -> block in reachable },
             entryBlock = start,
             symbolTable = TACSymbolTable(values.flatMapToSet { it.varDecls })
         )
+    }
 
     /**
         Compiles a function as a subprogram, suitable for patching into another program via [PatchingTACProgram].
@@ -361,17 +386,17 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     ): CompiledRule {
         return annotateCallStack("rule.${rule.ruleInstanceName}") {
             val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
-
             ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
-
-            val coreTAC = MoveMemory(scene).transform(moveTAC)
-            ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
-
-            val isSatisfy = isSatisfyRule(coreTAC)
-
-            val finalTAC = preprocess(coreTAC, isSatisfy)
-
-            CompiledRule(rule, finalTAC, isSatisfy)
+            val isSatisfy = when (sanityMode) {
+                SanityMode.NONE -> isSatisfyRule(moveTAC)
+                // For sanity rules, it's common for the injected assert/satisfy to be unreachable, if the target
+                // function always aborts.  In that case `isSatisfyRule` would throw, failing the whole run.  These are
+                // not user-generated rules, and there is no way for the user to fix them, so let's not fail the whole
+                // run for those.
+                SanityMode.ASSERT_TRUE -> false
+                SanityMode.SATISFY_TRUE -> true
+            }
+            CompiledRule(rule, moveTAC, isSatisfy)
         }
     }
 
@@ -408,8 +433,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         }
     }
 
-    private fun isSatisfyRule(code: CoreTACProgram): Boolean {
-        val areSatisfyAsserts = code.parallelLtacStream().mapNotNull { (_, cmd) ->
+    private fun isSatisfyRule(code: MoveTACProgram): Boolean {
+        val areSatisfyAsserts = code.graph.commands.parallelStream().mapNotNull { (_, cmd) ->
             (cmd as? TACCmd.Simple.AssertCmd)
                 ?.takeIf { TACMeta.CVL_USER_DEFINED_ASSERT in it.meta }
                 ?.meta?.containsKey(TACMeta.SATISFY_ID)
@@ -426,20 +451,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 "Rule ${code.name} mixes assert and satisfy commands."
             )
     }
-
-
-    private fun preprocess(code: CoreTACProgram, isSatisfy: Boolean) =
-        CoreTACProgram.Linear(code)
-        // ConstantStringPropagator must come before TACDSA
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
-        .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
-        .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantPropagator::propagateConstants))
-        .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE, ConstantComputationInliner::rewriteConstantCalculations))
-        .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
-        .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
-        .ref
 
     context(SummarizationContext)
     fun compileFunctionCall(call: MoveCall): MoveBlocks {
@@ -476,6 +487,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 assert("Recursive function call to ${call.callee}") { false.asTACExpr }
             }
         }
+
+        val callId = newCallId()
 
         val callStack = call.callStack.push(call)
 
@@ -522,7 +535,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 check(call.args.size == func.params.size) {
                     "Argument count mismatch: ${call.args.size} != ${func.params.size}"
                 }
-                cmds += MoveCallTrace.annotateFuncStart(func, call.args)
+                cmds += MoveCallTrace.annotateFuncStart(callId, func, call.args)
                 for (i in 0..<call.args.size) {
                     cmds += assign(locals[i].s) { call.args[i].asSym() }
                 }
@@ -611,7 +624,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     is MoveInstruction.Ret ->
                         mergeMany(
                             mergeMany(call.returns.reversed().map { assign(it) { pop() } }),
-                            MoveCallTrace.annotateFuncEnd(call.callee, call.returns),
+                            MoveCallTrace.annotateFuncEnd(callId, call.callee, call.returns),
                             TACCmd.Simple.JumpCmd(call.returnBlock, meta).withDecls()
                         ).also { fallthrough = null }
 
@@ -663,6 +676,11 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                             add(TACCmd.Move.VecPackCmd(push(type), values, meta).withDecls())
                                         }
                                     }
+
+                                    // The Move compiler doesn't seem to emit LdConst for enums
+                                    is MoveType.Enum -> error("Constant enum values are not supported")
+
+                                    // Our synthetic types should not appear in LdConst
                                     is MoveType.GhostArray, is MoveType.MathInt,
                                     is MoveType.Nondet, is MoveType.Function -> `impossible!`
                                 }
@@ -731,6 +749,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                     is MoveInstruction.BitOr -> mathOp { t, a, b -> push(t) { a bwOr b } }
                     is MoveInstruction.BitAnd -> mathOp { t, a, b -> push(t) { a bwAnd b } }
+                    is MoveInstruction.Xor -> mathOp { t, a, b -> push(t) { a bwXor b } }
 
                     is MoveInstruction.Shl, is MoveInstruction.Shr -> {
                         val shiftType = topType()
@@ -759,11 +778,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     is MoveInstruction.Not -> push(MoveType.Bool) { not(pop()) }
                     is MoveInstruction.Or -> push(MoveType.Bool) { pop() or pop() }
                     is MoveInstruction.And -> push(MoveType.Bool) { pop() and pop() }
-                    is MoveInstruction.Xor -> push(MoveType.Bool) {
-                        val a = pop()
-                        val b = pop()
-                        (a or b) and not(a and b)
-                    }
 
                     is MoveInstruction.Eq, is MoveInstruction.Neq -> {
                         val a: TACSymbol.Var
@@ -1033,6 +1047,126 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                 meta = meta
                             )
                         ).withDecls(tmpRef1, tmpRef2, tmpVal1, tmpVal2)
+                    }
+
+                    is MoveInstruction.PackVariant -> {
+                        val enumType = inst.type
+                        val variant = enumType.variants[inst.variant]
+                        val fields = variant.fields ?: error("Cannot pack native variant ${enumType.name}::${variant.name}")
+
+                        TACCmd.Move.PackVariantCmd(
+                            srcs = fields.reversed().map {
+                                check(it.type == topType()) { "Expected ${it.type}, got ${topType()}" }
+                                pop().s
+                            }.reversed(),
+                            dst = push(inst.type),
+                            variant = inst.variant,
+                            meta = meta
+                        ).withDecls()
+                    }
+
+                    is MoveInstruction.UnpackVariant -> {
+                        val enumType = topType() as? MoveType.Enum
+                            ?: error("Expected enum type, got ${topType()}")
+                        check(enumType == inst.type) { "Expected enum type $enumType, got ${inst.type}" }
+                        val variant = enumType.variants[inst.variant]
+                        val fields = variant.fields ?: error("Cannot unpack native variant ${enumType.name}::${variant.name}")
+
+                        TACCmd.Move.UnpackVariantCmd(
+                            src = pop().s,
+                            dsts = fields.map { push(it.type) },
+                            variant = inst.variant,
+                            meta = meta
+                        ).withDecls()
+                    }
+
+                    is MoveInstruction.UnpackVariantRef -> {
+                        val variantRef = topType() as? MoveType.Reference
+                            ?: error("Expected reference type, got ${topType()}")
+                        val enumType = variantRef.refType as? MoveType.Enum
+                            ?: error("Expected enum type, got $variantRef")
+                        check(enumType == inst.type) { "Expected enum type $enumType, got ${inst.type}" }
+                        val variant = enumType.variants[inst.variant]
+                        val fields = variant.fields ?: error("Cannot unpack native variant ${enumType.name}::${variant.name}")
+
+                        mergeMany(
+                            TACCmd.Move.ReadRefCmd(
+                                ref = pop().s,
+                                dst = push(enumType),
+                                meta = meta
+                            ).withDecls(),
+                            TACCmd.Move.UnpackVariantCmd(
+                                src = pop().s,
+                                dsts = fields.map { push(it.type) },
+                                variant = inst.variant,
+                                meta = meta
+                            ).withDecls()
+                        )
+                    }
+
+                    is MoveInstruction.VariantSwitch -> {
+                        val variantRef = topType() as? MoveType.Reference
+                            ?: error("Expected reference type, got ${topType()}")
+                        val enumType = variantRef.refType as? MoveType.Enum
+                            ?: error("Expected enum type, got $variantRef")
+
+                        /*
+                            Generate a switch over variant indexes 0..n, to target blocks T0..Tn
+
+                            idx := variantIndex(*topOfStack)
+                            jmp B0
+
+                            B0: c0 := idx == 0
+                                jmpi c0, T0, B1
+
+                            B1: c1 := idx == 1
+                                jmpi c1, T1, B2
+
+                            ...
+                            Bn: cn := idx == n
+                                jmpi cn, Tn, FAIL
+
+                            FAIL: assert(false) (should be unreachable)
+                         */
+                        val idx = TACKeyword.TMP(Tag.Bit256, "variant_idx")
+                        val failBlock = newBlockId().also {
+                            tacBlocks += it to mergeMany(
+                                assert("Invalid variant tag", meta) { false.asTACExpr },
+                                Trap.trapRevert("Invalid variant tag", meta)
+                            )
+                        }
+                        val firstSwitchBlock = inst.branches.withIndex().reversed().fold(failBlock) { nextBlockId, (i, offset) ->
+                            newBlockId().also {
+                                val cond = TACKeyword.TMP(Tag.Bool, "variant_switch_cond")
+                                tacBlocks += it to mergeMany(
+                                    assign(cond, meta) { idx.asSym() eq i.asTACExpr },
+                                    TACCmd.Simple.JumpiCmd(
+                                        cond = cond,
+                                        dst = successor(offset),
+                                        elseDst = nextBlockId,
+                                        meta = meta
+                                    ).withDecls()
+                                )
+                            }
+                        }
+                        check(fallthrough == null) { "Creating successors should have cleared the fallthrough" }
+
+                        mergeMany(
+                            TACCmd.Move.ReadRefCmd(
+                                ref = pop().s,
+                                dst = push(enumType),
+                                meta = meta
+                            ).withDecls(),
+                            TACCmd.Move.VariantIndexCmd(
+                                loc = pop().s,
+                                index = idx,
+                                meta = meta
+                            ).withDecls(idx),
+                            TACCmd.Simple.JumpCmd(
+                                dst = firstSwitchBlock,
+                                meta = meta
+                            ).withDecls()
+                        )
                     }
                 }
             }

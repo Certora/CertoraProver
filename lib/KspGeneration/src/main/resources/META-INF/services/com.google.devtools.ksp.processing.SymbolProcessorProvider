@@ -9,3 +9,4 @@ ksp.hooks.OpcodeHooksProvider
 ksp.hooks.CVLHookProvider
 ksp.typeextender.TACTypeExtenderProvider
 ksp.matcherdsl.MatcherDSLProvider
+ksp.pathtagger.PathTaggerProvider

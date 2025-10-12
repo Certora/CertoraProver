@@ -22,6 +22,7 @@ import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
 import analysis.opt.DiamondSimplifier.registerMergeableAnnot
+import com.certora.collect.*
 import datastructures.stdcollections.*
 import utils.Range
 import tac.*
@@ -39,6 +40,8 @@ import wasm.tokens.WasmTokens.GLOBAL
 import wasm.tokens.WasmTokens.HAVOC
 import wasm.tokens.WasmTokens.HAVOC_VAR_NM
 import wasm.tokens.WasmTokens.LOCAL
+import wasm.tokens.WasmTokens.MEMORY_COPY
+import wasm.tokens.WasmTokens.MEMORY_FILL
 import wasm.tokens.WasmTokens.UNDERSCORE
 import wasm.tokens.WasmTokens.WASMICFG
 import wasm.tokens.WasmTokens.WASMICFG_CALL
@@ -465,24 +468,25 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
         }
 
         override fun getVarsForHavoc(allocFresh: () -> Int): List<Arg> {
-            val havocedVarNms = mutableListOf<Arg>()
-            if (this.hasHavoc()) {
-                if (this.value.isHavoc() && !this.at.isHavoc()) {
-                    val name = listOf(at.toString(), HAVOC_VAR_NM).joinToString(UNDERSCORE)
-                    havocedVarNms.add(ArgRegister(Tmp(value.type, allocFresh(), name, 0)))
-                    havocedVarNms.add(at)
-                } else if (!this.value.isHavoc() && this.at.isHavoc()) {
-                    val name = listOf(value.toString(), HAVOC_VAR_NM).joinToString(UNDERSCORE)
-                    havocedVarNms.add(ArgRegister(Tmp(at.type, allocFresh(), name, 0)))
-                    havocedVarNms.add(value)
-                } else if (this.value.isHavoc() && this.at.isHavoc()) {
-                    val nameAt = listOf(at.toString(), HAVOC_VAR_NM).joinToString(UNDERSCORE)
-                    val nameValue = listOf(value.toString(), HAVOC_VAR_NM).joinToString(UNDERSCORE)
-                    havocedVarNms.add(ArgRegister(Tmp(at.type, allocFresh(), nameAt, 0)))
-                    havocedVarNms.add(ArgRegister(Tmp(value.type, allocFresh(), nameValue, 0)))
+            if (!this.hasHavoc()) {
+                return emptyList()
+            }
+
+            val args = listOf(
+                Pair(at, at.type),
+                Pair(value, value.type)
+            )
+
+            val havocedArgs = args.map { ( arg, typ) ->
+                if (arg.isHavoc()) {
+                    val name = listOf(arg.toString(), HAVOC_VAR_NM).joinToString(UNDERSCORE)
+                    ArgRegister(Tmp(typ, allocFresh(), name, 0))
+                } else {
+                    arg
                 }
             }
-            return havocedVarNms
+
+            return havocedArgs
         }
 
         override val tempIdxs = setOf<Int>()
@@ -549,6 +553,173 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
 
         override val tempIdxs = setOf(to.pc)
     }
+
+    data class Copy(val dest: Arg, val source: Arg, val numBytes: Arg, override val addr: WASMAddress? = null): StraightLine(addr) {
+        override fun toString(): String {
+            return "$WASMICFG$MEMORY_COPY ($dest $source $numBytes)"
+        }
+
+        override fun hasHavoc(): Boolean {
+            return this.dest.isHavoc() || this.source.isHavoc() || this.numBytes.isHavoc()
+        }
+
+        override fun getVarsForHavoc(allocFresh: () -> Int): List<Arg> {
+            if (!this.hasHavoc()) {
+                return emptyList()
+            }
+
+            val args = listOf(
+                Pair(dest, dest.type),
+                Pair(source, source.type),
+                Pair(numBytes, numBytes.type)
+            )
+
+            val havocedArgs = args.map { ( arg, typ) ->
+                if (arg.isHavoc()) {
+                    val name = listOf(arg.toString(), HAVOC_VAR_NM).joinToString(UNDERSCORE)
+                    ArgRegister(Tmp(typ, allocFresh(), name, 0))
+                } else {
+                    arg
+                }
+            }
+
+            return havocedArgs
+        }
+
+        override val tempIdxs = setOf<Int>()
+
+        context(WasmImpCfgContext)
+        override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
+            val destSym = dest.toTacSymbol()
+            val srcSym = source.toTacSymbol()
+            val numBytesSym = numBytes.toTacSymbol()
+
+            return mergeMany(
+                // assume indices are within range
+                assume {
+                    (destSym.asSym() add numBytesSym.asSym() lt BigInteger.TWO.pow(32).asTACExpr) and
+                        (srcSym.asSym() add numBytesSym.asSym() lt BigInteger.TWO.pow(32).asTACExpr)
+                },
+                WasmMemoryCopy(dstOffset = destSym, srcOffset = srcSym, length = numBytesSym).toCmd()
+            )
+        }
+
+        // adapted from our memcpy summary, but no ret since memory.copy does not return anything
+        @KSerializable
+        @Treapable
+        private data class WasmMemoryCopy(
+            val dstOffset: TACSymbol,
+            val srcOffset: TACSymbol,
+            val length: TACSymbol,
+        ) : ITESummary() {
+            override val inputs get() = listOf(dstOffset, srcOffset, length)
+            override val trueWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
+            override val falseWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
+            override fun transformSymbols(f: Transformer) =
+                WasmMemoryCopy(
+                    dstOffset = f(dstOffset),
+                    srcOffset = f(srcOffset),
+                    length = f(length)
+                )
+
+            // if (non-overlapping or identical)
+            override val cond get() = TACExprFactUntyped {
+                (dstOffset.asSym() eq srcOffset.asSym()) or
+                    ((dstOffset.asSym() add length.asSym()) le srcOffset.asSym()) or
+                    ((srcOffset.asSym() add length.asSym()) le dstOffset.asSym())
+            }
+
+            // then mem[dst:dst+len] := mem[src:src+len]
+            override fun onTrue() =
+                    TACCmd.Simple.ByteLongCopy(
+                        dstOffset = dstOffset,
+                        srcOffset = srcOffset,
+                        length = length,
+                        dstBase = TACKeyword.MEMORY.toVar(),
+                        srcBase = TACKeyword.MEMORY.toVar(),
+                        meta = MetaMap(LONG_COPY_STRIDE to 1)
+                    ).withDecls()
+
+            // else copy values to a temporary buffer and then to mem[dst:dst+len]
+            override fun onFalse() =
+                letBuf(
+                    fromByteMap = TACKeyword.MEMORY.toVar(),
+                    fromPos = { srcOffset.toTACExpr() },
+                    len = { length.toTACExpr() },
+                    stride = 1,
+                ) { buf ->
+                    TACCmd.Simple.ByteLongCopy(
+                        dstOffset = dstOffset,
+                        srcOffset = TACSymbol.Zero,
+                        length = length,
+                        dstBase = TACKeyword.MEMORY.toVar(),
+                        srcBase = buf.s,
+                        meta = MetaMap(LONG_COPY_STRIDE to 1)
+                    ).withDecls()
+                }
+        }
+
+    }
+
+
+    data class Fill(val memPtr: Arg, val value: Arg, val numBytes: Arg, override val addr: WASMAddress? = null): StraightLine(addr) {
+        override fun toString(): String {
+            return "$WASMICFG$MEMORY_FILL ($memPtr $value $numBytes)"
+        }
+        override fun hasHavoc(): Boolean {
+            return this.memPtr.isHavoc() || this.value.isHavoc() || this.numBytes.isHavoc()
+        }
+
+        override fun getVarsForHavoc(allocFresh: () -> Int): List<Arg> {
+            if (!this.hasHavoc()) {
+                return emptyList()
+            }
+
+            val args = listOf(
+                Pair(memPtr, memPtr.type),
+                Pair(value, value.type),
+                Pair(numBytes, numBytes.type)
+            )
+
+            val havocedArgs = args.map { ( arg, typ) ->
+                if (arg.isHavoc()) {
+                    val name = listOf(arg.toString(), HAVOC_VAR_NM).joinToString(UNDERSCORE)
+                    ArgRegister(Tmp(typ, allocFresh(), name, 0))
+                } else {
+                    arg
+                }
+            }
+
+            return havocedArgs
+        }
+
+        override val tempIdxs = setOf<Int>()
+
+        // Similar to memset builtin
+        context(WasmImpCfgContext)
+        override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
+            val memPtrSym = memPtr.toTacSymbol()
+            val valueSym = value.toTacSymbol()
+            val numBytesSym = numBytes.toTacSymbol()
+            val initBuf = TACKeyword.TMP(Tag.ByteMap, "memset")
+            return mergeMany(
+                defineMap(initBuf) { _ ->
+                    valueSym.asSym()
+                },
+                CommandWithRequiredDecls(
+                    TACCmd.Simple.ByteLongCopy(
+                        srcBase = initBuf,
+                        srcOffset = TACSymbol.Zero,
+                        dstBase = TACKeyword.MEMORY.toVar(),
+                        dstOffset = memPtrSym,
+                        length = numBytesSym,
+                        meta = MetaMap(LONG_COPY_STRIDE to 1)
+                    )
+                )
+            )
+        }
+    }
+
 
     data class CallIndirect(
         val maybeRet: Tmp?,
@@ -810,6 +981,19 @@ object WasmImpInstr {
                 st.copy(to = newTo, from = newFrom)
             }
 
+            is StraightLine.Copy -> {
+                val newDest = st.dest.transformTmps (transformTmp)
+                val newSrc = st.source.transformTmps (transformTmp)
+                val newNumBytes = st.numBytes.transformTmps (transformTmp)
+                st.copy(dest = newDest, source = newSrc, numBytes = newNumBytes)
+            }
+            is StraightLine.Fill -> {
+                val newMemPtr = st.memPtr.transformTmps (transformTmp)
+                val newValue = st.value.transformTmps (transformTmp)
+                val newNumBytes = st.numBytes.transformTmps (transformTmp)
+                st.copy(memPtr = newMemPtr, value = newValue, numBytes = newNumBytes)
+            }
+
             is StraightLine.Call -> {
                 val newArgs = st.args.map { it.transformTmps(transformTmp) }
                 if (st.maybeRet != null) {
@@ -930,6 +1114,16 @@ object WasmImpInstr {
             is StraightLine.Load -> {
                 assert(vars.size == 1)
                 st.copy(from = vars[0])
+            }
+
+            is StraightLine.Copy -> {
+                assert(vars.size == 3)
+               st.copy(dest = vars[0], source = vars[1], numBytes = vars[2])
+            }
+
+            is StraightLine.Fill -> {
+                assert(vars.size == 3)
+                st.copy(memPtr = vars[0], value = vars[1], numBytes = vars[2])
             }
 
             is StraightLine.Call -> {

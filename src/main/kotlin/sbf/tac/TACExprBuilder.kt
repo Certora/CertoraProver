@@ -23,6 +23,7 @@ import java.math.BigInteger
 import tac.Tag
 import vc.data.*
 import datastructures.stdcollections.*
+import sbf.SolanaConfig
 
 class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
     private val mask64 =  (BigInteger.valueOf(Long.MAX_VALUE) * BigInteger.TWO + BigInteger.ONE).asTACExpr()
@@ -183,13 +184,13 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
         // This operation is wrapping modular negation
         // Search for NEG32/NEG64 in https://github.com/solana-labs/rbpf/blob/main/src/interpreter.rs#L328
         // Arithmetic modeling
-        // neg(x) = if x == Long.MIN_VALUE then LONG_MIN_VALUE else -x
+        // neg(x) = if x == Long.MIN_VALUE then x else -x
 
         val longMin = LONG_MIN.asSym()
         return TACExpr.TernaryExp.Ite(
-            TACExpr.BinRel.Eq(value, longMin),
+            TACExpr.BinRel.Eq(mask64(value), mask64(longMin)),
             value,
-            TACExpr.Vec.Mul(listOf(MINUS_ONE.asSym(), value))
+            TACExpr.Vec.Mul(listOf(MINUS_ONE.asSym(), signExtendSbfValue(mask64(value))))
         )
     }
 
@@ -231,19 +232,35 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
         }
     }
 
+
+    /** Convert [e] from Sbf semantics (64-bits arithmetic) to TAC semantics (256-bits arithmetic) **/
+    private fun prepareBinRelExp(op: CondOp, e: TACExpr): TACExpr {
+        if (!SolanaConfig.TACSignedMath.get()) {
+            return e
+        } else {
+            return when (op) {
+                CondOp.EQ, CondOp.NE -> mask64(e)
+                CondOp.GE, CondOp.GT, CondOp.LE, CondOp.LT -> e
+                CondOp.SGE, CondOp.SGT, CondOp.SLE, CondOp.SLT -> signExtendSbfValue(mask64(e))
+            }
+        }
+    }
+
     /** Return the equivalent TAC expression [leftE] [op] [rightE] **/
     fun mkBinRelExp(op: CondOp, leftE: TACExpr, rightE: TACExpr): TACExpr {
+        val x = prepareBinRelExp(op, leftE)
+        val y = prepareBinRelExp(op, rightE)
         return when (op) {
-            CondOp.EQ -> TACExpr.BinRel.Eq(leftE, rightE)
-            CondOp.NE -> TACExpr.UnaryExp.LNot(TACExpr.BinRel.Eq(leftE, rightE))
-            CondOp.SLT -> TACExpr.BinRel.Slt(leftE, rightE)
-            CondOp.SGT -> TACExpr.BinRel.Sgt(leftE, rightE)
-            CondOp.LT -> TACExpr.BinRel.Lt(leftE, rightE)
-            CondOp.GT -> TACExpr.BinRel.Gt(leftE, rightE)
-            CondOp.LE -> TACExpr.BinRel.Le(leftE, rightE)
-            CondOp.SLE -> TACExpr.BinRel.Sle(leftE, rightE)
-            CondOp.GE -> TACExpr.BinRel.Ge(leftE, rightE)
-            CondOp.SGE -> TACExpr.BinRel.Sge(leftE, rightE)
+            CondOp.EQ -> TACExpr.BinRel.Eq(x, y)
+            CondOp.NE -> TACExpr.UnaryExp.LNot(TACExpr.BinRel.Eq(x, y))
+            CondOp.SLT -> TACExpr.BinRel.Slt(x, y)
+            CondOp.SGT -> TACExpr.BinRel.Sgt(x, y)
+            CondOp.LT -> TACExpr.BinRel.Lt(x, y)
+            CondOp.GT -> TACExpr.BinRel.Gt(x, y)
+            CondOp.LE -> TACExpr.BinRel.Le(x, y)
+            CondOp.SLE -> TACExpr.BinRel.Sle(x, y)
+            CondOp.GE -> TACExpr.BinRel.Ge(x, y)
+            CondOp.SGE -> TACExpr.BinRel.Sge(x, y)
         }
     }
 
@@ -273,4 +290,9 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
     fun mask64(e: TACExpr): TACExpr {
         return TACExpr.BinOp.BWAnd(e, mask64)
     }
+
+    /** Sign extend [e] from 64 to 256 bits **/
+    fun signExtendSbfValue(
+        e: TACExpr,
+    ) = TACExpr.BinOp.SignExtend(BigInteger.valueOf(7).asTACExpr(), e)
 }

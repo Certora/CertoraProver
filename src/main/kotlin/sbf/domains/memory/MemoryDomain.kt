@@ -271,7 +271,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         if (scalars.isBottom()) {
             setToBottom()
         } else {
-            ptaGraph.forget(stmt.dst)
+            ptaGraph.doUn(locInst, globals, memSummaries)
         }
     }
 

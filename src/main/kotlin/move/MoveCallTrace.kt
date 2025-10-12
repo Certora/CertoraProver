@@ -18,11 +18,13 @@
 package move
 
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
+import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.SimpleCmdsWithDecls
 import com.certora.collect.*
 import config.*
 import datastructures.stdcollections.*
 import move.ConstantStringPropagator.MESSAGE_VAR
+import move.ConstantStringPropagator.MessageVar
 import tac.*
 import tac.generation.*
 import utils.*
@@ -34,6 +36,17 @@ import vc.data.*
 object MoveCallTrace {
     /** The number of vector elements to retrieve in the CEX model, so that we can display them in the calltrace. */
     private val maxElemCount = Config.MoveCallTraceVecElemCount.get()
+
+    @KSerializable
+    data class Field(val name: String, val value: Value) : TransformableVarEntityWithSupport<Field> {
+        override val support get() = value.support
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(value = value.transformSymbols(f))
+    }
+    @KSerializable
+    data class Variant(val name: String, val fields: List<Field>) : TransformableVarEntityWithSupport<Variant> {
+        override val support get() = fields.map { it.support }.unionAll()
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(fields = fields.map { it.transformSymbols(f) })
+    }
 
     /** Represents a Move value (primitive, struct, vector, etc.) for display in the call trace. */
     @KSerializable
@@ -47,10 +60,19 @@ object MoveCallTrace {
         }
 
         @KSerializable
-        data class Struct(val fields: List<Pair<String, Value>>) : Value() {
-            override val support get() = fields.map { it.second.support }.unionAll()
+        data class Struct(val fields: List<Field>) : Value() {
+            override val support get() = fields.map { it.support }.unionAll()
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-                fields = fields.map { (name, value) -> name to value.transformSymbols(f) }
+                fields = fields.map { it.transformSymbols(f) }
+            )
+        }
+
+        @KSerializable
+        data class Enum(val variantIndex: TACSymbol.Var, val variants: List<Variant>) : Value() {
+            override val support get() = variants.map { it.support }.unionAll() + variantIndex
+            override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
+                variantIndex = f(variantIndex),
+                variants = variants.map { it.transformSymbols(f) }
             )
         }
 
@@ -88,25 +110,54 @@ object MoveCallTrace {
     }
 
     /**
+        Snippet associateding the given type [id] with its [name] for display in the call trace.
+
+        For every deterministic type that appears in the program, we add one of these snippets to the start of the TAC.
+        The call trace generator collects these so that it can display the names.
+
+        Why go to all this trouble?  Because this way we can determine if a Nondet type is equivalent to some known
+        deterministic type, by comparing the nondet type's id from the CEX with the ids of the known deterministic
+        types.
+     */
+    @KSerializable
+    data class TypeId(val type: MoveType.Value, val id: Int) : SnippetCmd.MoveSnippetCmd() {
+        override val range: Range.Range? get() = null
+
+        /** Summarization context initializer to ensure we only record each type once. */
+        data class Initializer(val type: MoveType.Value, val id: Int) : SummarizationContext.Initializer() {
+            override fun initialize() = TypeId(type, id).toAnnotation().withDecls()
+        }
+    }
+
+    context(SummarizationContext)
+    fun recordTypeId(type: MoveType.Value, id: Int) {
+        ensureInit(TypeId.Initializer(type, id))
+    }
+
+    /**
         Snippet holding the function start information.  We also put the return types here, because we need those when
         initially constructing the call node in the trace.
      */
     @KSerializable
     data class FuncStart(
+        val callId: Int,
         val name: MoveFunctionName,
         val params: List<MoveFunction.DisplayParam>,
         val returnTypes: List<MoveType>,
         val args: List<Value>,
+        val typeArgIds: List<TACSymbol.Var>,
         override val range: Range.Range?
     ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncStart> {
-        override val support: Set<TACSymbol.Var> get() = args.map { it.support }.unionAll()
+        override val support: Set<TACSymbol.Var> get() = args.map { it.support }.unionAll() + typeArgIds
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-            args = args.map { it.transformSymbols(f) }
+            args = args.map { it.transformSymbols(f) },
+            typeArgIds = typeArgIds.map(f)
         )
     }
 
     @KSerializable
     data class FuncEnd(
+        val callId: Int,
         val name: MoveFunctionName,
         val returns: List<Value>
     ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncEnd> {
@@ -156,6 +207,7 @@ object MoveCallTrace {
                 cmds += TACCmd.Move.BorrowLocCmd(refSym, sym).withDecls(refSym)
                 makeDerefValue(cmds, type, refSym)
             }
+            is MoveType.Enum -> makeEnumValue(cmds, type, sym)
             is MoveType.Nondet -> Value.NotDisplayed("nondet")
             is MoveType.Function -> Value.NotDisplayed("fun")
         }
@@ -173,6 +225,11 @@ object MoveCallTrace {
             val valSym = TACKeyword.TMP(type.toTag())
             cmds += TACCmd.Move.ReadRefCmd(valSym, refSym).withDecls(valSym)
             Value.Primitive(type, valSym)
+        }
+        is MoveType.Enum -> {
+            val valSym = TACKeyword.TMP(type.toTag())
+            cmds += TACCmd.Move.ReadRefCmd(valSym, refSym).withDecls(valSym)
+            makeEnumValue(cmds, type, valSym)
         }
         is MoveType.Struct -> makeStructValue(cmds, type, refSym)
         is MoveType.Vector -> makeVectorValue(cmds, type, refSym)
@@ -193,9 +250,47 @@ object MoveCallTrace {
         val fields = type.fields.orEmpty().mapIndexed { fieldIndex, (fieldName, fieldType) ->
             val fieldRefSym = TACSymbol.Var(fieldName, MoveType.Reference(fieldType).toTag()).toUnique("!")
             cmds += TACCmd.Move.BorrowFieldCmd(fieldRefSym, structRefSym, fieldIndex).withDecls(fieldRefSym)
-            fieldName to makeDerefValue(cmds, fieldType, fieldRefSym)
+            Field(fieldName, makeDerefValue(cmds, fieldType, fieldRefSym))
         }
         return Value.Struct(fields)
+    }
+
+    /**
+        Emits code to unpack all fields of every possible variant of an enum into individual scalar variables so we can
+        get their values in the CEX.
+     */
+    private fun makeEnumValue(
+        cmds: MutableList<MoveCmdsWithDecls>,
+        type: MoveType.Enum,
+        enumSym: TACSymbol.Var
+    ): Value.Enum {
+        val variantIndexSym = TACSymbol.Var("variant_index", Tag.Bit256).toUnique("!")
+        cmds += TACCmd.Move.VariantIndexCmd(variantIndexSym, enumSym).withDecls(variantIndexSym)
+
+        val variants = type.variants.mapIndexed { variantIndex, variant ->
+            val fields = variant.fields.orEmpty()
+
+            val fieldVars = fields.map { (fieldName, fieldType) ->
+                TACSymbol.Var(fieldName, fieldType.toTag()).toUnique("!")
+            }
+
+            cmds += listOf(
+                TACCmd.Move.UnpackVariantCmd(
+                    dsts = fieldVars,
+                    src = enumSym,
+                    variant = variantIndex,
+                    doVariantCheck = false // We'll check the variant index when generating the call trace from the CEX
+                )
+            ).withDecls(fieldVars)
+
+            Variant(
+                name = variant.name,
+                fields = fields.mapIndexed { i, (fieldName, fieldType) ->
+                    Field(fieldName, makeValue(cmds, fieldType, fieldVars[i]))
+                }
+            )
+        }
+        return Value.Enum(variantIndexSym, variants)
     }
 
     /**
@@ -226,14 +321,22 @@ object MoveCallTrace {
         Generates a function start annotation, along with the code to extract all scalar values from the function's
         arguments.
      */
-    fun annotateFuncStart(func: MoveFunction, args: List<TACSymbol.Var>): MoveCmdsWithDecls {
+    context(SummarizationContext)
+    fun annotateFuncStart(callId: Int, func: MoveFunction, args: List<TACSymbol.Var>): MoveCmdsWithDecls {
         val cmds = mutableListOf<MoveCmdsWithDecls>()
         val argVals = func.params.zip(args).map { (argType, argVal) -> makeValue(cmds, argType, argVal) }
+        val typeArgIds = func.typeArguments.mapIndexed { i, typeArg ->
+            TACSymbol.Var("type_arg_$i", Tag.Bit256).toUnique("!").also {
+                cmds += assign(it) { CvlmHash.typeId(typeArg) }
+            }
+        }
         cmds += FuncStart(
+            callId = callId,
             name = func.name,
             params = func.displayParams,
             returnTypes = func.returns,
             args = argVals,
+            typeArgIds = typeArgIds,
             range = func.range
         ).toAnnotation().withDecls()
         return mergeMany(cmds)
@@ -243,10 +346,11 @@ object MoveCallTrace {
         Generates a function end annotation, along with the code to extract all scalar values from the function's
         return value(s).
      */
-    fun annotateFuncEnd(func: MoveFunction, returns: List<TACSymbol.Var>): MoveCmdsWithDecls {
+    fun annotateFuncEnd(callId: Int, func: MoveFunction, returns: List<TACSymbol.Var>): MoveCmdsWithDecls {
         val cmds = mutableListOf<MoveCmdsWithDecls>()
         val returnVals = func.returns.zip(returns).map { (retType, retVal) -> makeValue(cmds, retType, retVal) }
         cmds += FuncEnd(
+            callId = callId,
             name = func.name,
             returns = returnVals
         ).toAnnotation().withDecls()
@@ -264,10 +368,13 @@ object MoveCallTrace {
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
         return if (messageVar == null) {
-            Assume(messageText, range).toAnnotation()
+            Assume(messageText, range).toAnnotation().withDecls()
         } else {
-            Assume(messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to messageVar))
-        }.withDecls()
+            mergeMany(
+                Assume(messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to MessageVar(messageVar))).withDecls(),
+                TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(messageVar)).withDecls()
+            )
+        }
     }
 
     /**
@@ -281,9 +388,12 @@ object MoveCallTrace {
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
         return if (messageVar == null) {
-            Assert(isSatisfy, condition, messageText, range).toAnnotation()
+            Assert(isSatisfy, condition, messageText, range).toAnnotation().withDecls()
         } else {
-            Assert(isSatisfy, condition, messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to messageVar))
-        }.withDecls()
+            mergeMany(
+                Assert(isSatisfy, condition, messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to MessageVar(messageVar))).withDecls(),
+                TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(messageVar)).withDecls()
+            )
+        }
     }
 }

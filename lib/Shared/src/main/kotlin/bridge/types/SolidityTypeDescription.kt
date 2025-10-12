@@ -166,6 +166,8 @@ sealed class SolidityTypeDescription : AmbiSerializable {
         override fun toString() = "string"
 
         override fun hashCode() = hashObject(this)
+
+        override fun equals(other: Any?) = other is StringType
     }
 
     @Serializable
@@ -178,6 +180,8 @@ sealed class SolidityTypeDescription : AmbiSerializable {
         override fun toString() = "bytes"
 
         override fun hashCode() = hashObject(this)
+
+        override fun equals(other: Any?) = other is PackedBytes
     }
 
     @Serializable

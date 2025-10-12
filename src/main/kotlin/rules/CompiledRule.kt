@@ -187,7 +187,7 @@ open class CompiledRule<R: SingleRule> protected constructor(val rule: R, val ta
             val imprecisions = res.examplesInfo?.mapIndexedNotNull { i, model ->
                 (model.model as? SMTCounterexampleModel)?.let {
                     val cexAnalyser = CounterExampleAnalyser(i, res.simpleSimpleSSATAC, it)
-                    cexAnalyser.alerts
+                    cexAnalyser.imprecisionAlerts + cexAnalyser.overflowAlerts
                 }
             }?.flatten().orEmpty()
             val alerts = listOfNotNull(isSolverResultFromCacheAlert, isEmptyCodeAlert) + imprecisions + extraAlerts

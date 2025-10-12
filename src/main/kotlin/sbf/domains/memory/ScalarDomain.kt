@@ -228,23 +228,34 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun analyzeUn(stmt: SbfInstruction.Un) {
-        check(!isBottom()) {"cannot call analyzeUn on bottom"}
-       // This transfer function is too conservative, and it can be improved.
-        val newVal: ScalarValue<TNum, TOffset>? = when (val oldVal = getRegister(stmt.dst).type()) {
+    private fun analyzeByteSwapInst(reg: Value.Reg) {
+        when (val oldVal = getRegister(reg).type()) {
             is SbfType.Top, is SbfType.Bottom -> null
             is SbfType.NumType -> ScalarValue(sbfTypeFac.anyNum())
             is SbfType.PointerType -> {
                 when (oldVal) {
-                    is SbfType.PointerType.Stack -> ScalarValue(sbfTypeFac.anyStackPtr())
-                    is SbfType.PointerType.Heap -> ScalarValue(sbfTypeFac.anyHeapPtr())
-                    is SbfType.PointerType.Input -> ScalarValue(sbfTypeFac.anyInputPtr())
+                    is SbfType.PointerType.Stack  -> ScalarValue(sbfTypeFac.anyStackPtr())
+                    is SbfType.PointerType.Heap   -> ScalarValue(sbfTypeFac.anyHeapPtr())
+                    is SbfType.PointerType.Input  -> ScalarValue(sbfTypeFac.anyInputPtr())
                     is SbfType.PointerType.Global -> ScalarValue(sbfTypeFac.anyGlobalPtr(oldVal.global))
                 }
             }
+        }?.let { newVal ->
+            setRegister(reg, newVal)
         }
-        if (newVal != null) {
-            setRegister(stmt.dst, newVal)
+    }
+
+    private fun analyzeUn(stmt: SbfInstruction.Un) {
+        check(!isBottom()) {"cannot call analyzeUn on bottom"}
+
+        when(stmt.op) {
+            UnOp.NEG -> {
+                // modular arithmetic
+                setRegister(stmt.dst, ScalarValue(sbfTypeFac.anyNum()))
+            }
+            UnOp.BE16, UnOp.BE32, UnOp.BE64, UnOp.LE16, UnOp.LE32, UnOp.LE64 -> {
+                analyzeByteSwapInst(stmt.dst)
+            }
         }
     }
 
@@ -671,7 +682,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                 }
                             }
                         }
-                        is CVTFunction.Nondet, is CVTFunction.U128Intrinsics, is CVTFunction.NativeInt  ->  {
+                        is CVTFunction.Nondet,
+                        is CVTFunction.U128Intrinsics,
+                        is CVTFunction.I128Intrinsics,
+                        is CVTFunction.NativeInt  ->  {
                             summarizeCall(locInst, memSummaries)
                         }
                         is CVTFunction.Calltrace -> {

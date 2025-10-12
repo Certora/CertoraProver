@@ -29,6 +29,7 @@ import utils.*
 sealed class MoveTag : Tag.Move(), HasKSerializable {
     @KSerializable data class Vec(val elemType: MoveType.Value) : MoveTag()
     @KSerializable data class Struct(val type: MoveType.Struct) : MoveTag()
+    @KSerializable data class Enum(val type: MoveType.Enum) : MoveTag()
     @KSerializable data class Ref(val refType: MoveType.Value) : MoveTag()
 
     /** Maps u256 -> elemType */
@@ -42,6 +43,7 @@ fun MoveTag.toMoveType(): MoveType {
     return when (this) {
         is MoveTag.Vec -> MoveType.Vector(elemType)
         is MoveTag.Struct -> type
+        is MoveTag.Enum -> type
         is MoveTag.Ref -> MoveType.Reference(refType)
         is MoveTag.GhostArray -> MoveType.GhostArray(elemType)
         is MoveTag.Nondet -> type
@@ -52,6 +54,7 @@ fun MoveTag.toMoveValueType(): MoveType.Value {
     return when (this) {
         is MoveTag.Vec -> MoveType.Vector(elemType)
         is MoveTag.Struct -> type
+        is MoveTag.Enum -> type
         is MoveTag.Ref -> error("MoveTag.Ref cannot be converted to MoveType.Value")
         is MoveTag.GhostArray -> MoveType.GhostArray(elemType)
         is MoveTag.Nondet -> type

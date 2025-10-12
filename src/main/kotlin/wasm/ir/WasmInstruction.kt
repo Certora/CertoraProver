@@ -39,6 +39,8 @@ import wasm.tokens.WasmTokens.LOCALGET
 import wasm.tokens.WasmTokens.LOCALSET
 import wasm.tokens.WasmTokens.LOCALTEE
 import wasm.tokens.WasmTokens.LOOP
+import wasm.tokens.WasmTokens.MEMORY_FILL
+import wasm.tokens.WasmTokens.MEMORY_COPY
 import wasm.tokens.WasmTokens.MEMORY_GROW
 import wasm.tokens.WasmTokens.MEMORY_SIZE
 import wasm.tokens.WasmTokens.NOP
@@ -335,6 +337,40 @@ sealed interface WasmInstruction {
                 return "$op $OFFSET$EQUAL$offset $ALIGN$EQUAL$align"
             }
         }
+
+        /**
+         *
+         * https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Memory/Copy
+         * The copy memory instruction copies data from one region of a memory to another.
+         * The instruction does not return a value. If either the source or destination range is out of bounds, the instruction traps.
+         *
+         * NOTE: we are not supporting wasm's multi-memory but the syntax still enables this:
+         * https://webassembly.github.io/spec/core/syntax/instructions.html#syntax-instr-memory
+         * memory.copy is more like memmove than memcpy in how overlap is handled.
+         *
+         * Another useful doc: https://webassembly.github.io/bulk-memory-operations/core/_download/WebAssembly.pdf
+         * */
+        data class Copy(val toMemIdx: Int, val fromMemIdx: Int, val address: WASMAddress? = null) : Memory() {
+            override fun toString(): String {
+                return "$MEMORY_COPY $toMemIdx $fromMemIdx"
+            }
+        }
+
+        /**
+         *
+         * https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Memory/Fill
+         * The fill memory instruction sets all bytes in a memory region to a given byte.
+         * The instruction returns no value. It traps (exception) if the indicated memory region is out of bounds.
+         *
+         * NOTE: we are not supporting wasm's multi-memory but the syntax is general and can allow this:
+         * https://webassembly.github.io/spec/core/syntax/instructions.html#syntax-instr-memory
+         * */
+        data class Fill(val memIdx: Int, val address: WASMAddress? = null) : Memory() {
+            override fun toString(): String {
+                return "$MEMORY_FILL $memIdx"
+            }
+        }
+
 
         data class Size(val address: WASMAddress? = null) : Memory() {
             override fun toString(): String {

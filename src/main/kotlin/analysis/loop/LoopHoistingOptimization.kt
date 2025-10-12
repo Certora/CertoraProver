@@ -146,7 +146,7 @@ object LoopHoistingOptimization {
                                 }
                     }
                 } ?: return@mapNotNull null
-                val hoistedArgs = tempVar.computeIfAbsent(hoist.hoistable.sorted()) {
+                val hoistedArgs = tempVar.computeIfAbsent(hoist.hoistable.sortedWith(TACSymbol.byValueOrName)) {
                     // We're hoisting a partial computation to replace a subexpression in the original assignment
                     // so we need a temp variable to store it
                     TACSymbol.Var(
@@ -208,7 +208,7 @@ object LoopHoistingOptimization {
                         graph.elab(it).enarrow<TACExpr.Vec.Add>()
                     }.mapNotNull {
                         val hoist = it.exp.toHoisted(canHoist = {it in hoistedVars}, state = hoistState[it.ptr] ?: return@mapNotNull null)
-                        val hoistArgs = hoist.hoistable.sorted()
+                        val hoistArgs = hoist.hoistable.sortedWith(TACSymbol.byValueOrName)
                         /*
                           This looked hoistable, but we didn't find a similar hoistable addition in the loop, skip!
                          */

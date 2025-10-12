@@ -151,6 +151,25 @@ object TransferFunction {
                     listOf(StraightLine.SetTmp(offsetReg, rhsAddr, instr.address), StraightLine.Store(offsetArgReg, instr.op, instr.offset, arg, addr = instr.address))
                 return WasmBlock(instrs, Control.Jump(succ, instr.address), funcId) to RefStack(newRefs)
             }
+            is WasmInstruction.Memory.Copy -> {
+                check(refs.size >= 3)
+                val numBytes = refs[0]
+                val source = refs[1]
+                val dest = refs[2]
+                val newRefs = refs.drop(3)
+                val instrs = listOf(StraightLine.Copy(dest, source, numBytes, addr = instr.address))
+                return WasmBlock(instrs, Control.Jump(succ, instr.address), funcId) to RefStack(newRefs)
+
+            }
+            is WasmInstruction.Memory.Fill -> {
+                check(refs.size >= 3)
+                val numBytes = refs[0]
+                val value = refs[1]
+                val memPtr = refs[2]
+                val newRefs = refs.drop(3)
+                val instrs = listOf(StraightLine.Fill(memPtr, value, numBytes, addr = instr.address))
+                return WasmBlock(instrs, Control.Jump(succ, instr.address), funcId) to RefStack(newRefs)
+            }
         }
     }
 

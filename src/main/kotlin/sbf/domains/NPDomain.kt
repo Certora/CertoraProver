@@ -663,7 +663,10 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                             }
                         }
                         is CVTFunction.Calltrace -> curVal
-                        is CVTFunction.Nondet , is CVTFunction.U128Intrinsics, is CVTFunction.NativeInt -> {
+                        is CVTFunction.Nondet,
+                        is CVTFunction.U128Intrinsics,
+                        is CVTFunction.I128Intrinsics,
+                        is CVTFunction.NativeInt -> {
                             curVal.summarizeCall(
                                 locatedInst,
                                 vFac,

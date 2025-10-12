@@ -245,6 +245,7 @@ jobs:
             - ./repo/src
             - ./repo/Public
             - ./repo/Typechecker/src
+            - ./repo/PrefixGen/src
             - ./repo/tac_optimizer
             - ./repo/fried-egg/target/release
             - ./repo/certora_jars
@@ -425,7 +426,7 @@ jobs:
       - attach_workspace:
           at: ~/
       - release_certora_cli
-  
+
   release_production_with_api:
     parameters:
       tag_name:
@@ -569,9 +570,9 @@ workflows:
                 - *all
 
   release_prod_with_ui:
-      when: 
-        and: 
-          - << pipeline.parameters.release_prod_version >> 
+      when:
+        and:
+          - << pipeline.parameters.release_prod_version >>
           - << pipeline.parameters.release_tag_name >>
       jobs:
         - release_production_with_api:

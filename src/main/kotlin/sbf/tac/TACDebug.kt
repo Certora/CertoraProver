@@ -30,6 +30,7 @@ val DEBUG_INLINED_FUNC_END = tac.MetaKey<String>("debug.sbf.function_end").regis
 val DEBUG_UNREACHABLE_CODE = tac.MetaKey<String>("debug.sbf.unreachable").registerMergeableAnnot()
 val DEBUG_EXTERNAL_CALL = tac.MetaKey<String>("debug.sbf.external_call").registerMergeableAnnot()
 private val DEBUG_PTA_SPLIT_OR_MERGE = tac.MetaKey<DebugSnippet>("debug.pta_split_or_merge").registerMergeableAnnot()
+private val UNSUPPORTED = tac.MetaKey<DebugSnippet>("debug.unsupported").registerMergeableAnnot()
 
 @KSerializable
 private data class DebugSnippet(val msg: String, val symbols: List<TACSymbol.Var>)
@@ -71,4 +72,8 @@ object Debug {
     fun ptaSplitOrMerge(msg: String, symbols: List<TACSymbol.Var>): TACCmd.Simple =
         TACCmd.Simple.AnnotationCmd(
             TACCmd.Simple.AnnotationCmd.Annotation(DEBUG_PTA_SPLIT_OR_MERGE, DebugSnippet(msg, symbols)))
+
+    fun unsupported(msg: String, symbols: List<TACSymbol.Var>): TACCmd.Simple =
+        TACCmd.Simple.AnnotationCmd(
+            TACCmd.Simple.AnnotationCmd.Annotation(UNSUPPORTED, DebugSnippet(msg, symbols)))
 }

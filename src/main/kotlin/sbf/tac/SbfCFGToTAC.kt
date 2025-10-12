@@ -1418,6 +1418,15 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                             summarizeCall(locInst)
                         }
                     }
+                    is CVTFunction.I128Intrinsics -> {
+                        if (SolanaConfig.UseTACMathInt.get()) {
+                            summarizeI128(locInst)
+                        } else {
+                            sbfLogger.warn {"${locInst.inst} will not be modeled precisely in TAC. " +
+                                "Enable ${SolanaConfig.UseTACMathInt.name} for a precise modeling" }
+                            summarizeCall(locInst)
+                        }
+                    }
                     is CVTFunction.NativeInt -> {
                         summarizeNativeInt(locInst)
                     }

@@ -2727,6 +2727,39 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         setRegCell(reg, null)
     }
 
+    fun doUn(locInst: LocatedSbfInstruction,
+             @Suppress("UNUSED_PARAMETER")
+             globals: GlobalVariableMap,
+             @Suppress("UNUSED_PARAMETER")
+             memSummaries: MemorySummaries) {
+
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Un)
+
+        val reg = inst.dst
+        when(inst.op) {
+            UnOp.NEG -> {
+                // Modular arithmetic:
+                // create a fresh integer cell and unify with old cell if exists
+
+                val newSymC = integerAlloc.alloc(locInst)
+                val oldSymC = getRegCell(reg)
+                setRegCell(reg,
+                    if (oldSymC != null) {
+                        val oldC = oldSymC.concretize()
+                        val newC = newSymC.concretize()
+                        newC.unify(oldC)
+                        newC.createSymCell()
+                    } else {
+                        newSymC
+                    })
+            }
+            UnOp.BE16, UnOp.BE32, UnOp.BE64, UnOp.LE16, UnOp.LE32, UnOp.LE64 -> {
+                forget(inst.dst)
+            }
+        }
+    }
+
     /** Transfer function for pointer assignment  dst := src **/
     private fun doPointerAssign(dst: Value.Reg, src: Value.Reg) {
         setRegCell(dst, getRegCell(src))
@@ -4379,7 +4412,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         }
                     }
                     is CVTFunction.Calltrace -> {}
-                    is CVTFunction.Nondet, is CVTFunction.U128Intrinsics, is CVTFunction.NativeInt  ->  {
+                    is CVTFunction.Nondet,
+                    is CVTFunction.U128Intrinsics,
+                    is CVTFunction.I128Intrinsics,
+                    is CVTFunction.NativeInt  ->  {
                         summarizeCall(calleeLocInst, globals, scalars, memSummaries)
                     }
                 }

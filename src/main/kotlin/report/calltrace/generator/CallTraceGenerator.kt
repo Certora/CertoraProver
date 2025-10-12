@@ -29,7 +29,10 @@ import config.Config
 import config.HardFailMode
 import datastructures.stdcollections.*
 import log.*
-import report.*
+import report.CVTAlertReporter
+import report.CVTAlertSeverity
+import report.CVTAlertType
+import report.DynamicSlicer
 import report.calltrace.*
 import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.printer.CallTracePrettyPrinter
@@ -47,7 +50,6 @@ import solver.CounterexampleModel
 import solver.SMTCounterexampleModel
 import spec.CVLReservedVariables
 import spec.cvlast.CVLHookPattern
-import utils.Range
 import spec.cvlast.CVLType
 import spec.cvlast.PatternWithValue
 import spec.rules.IRule
@@ -55,7 +57,10 @@ import tac.NBId
 import utils.*
 import vc.data.*
 import vc.data.state.TACValue
-import wasm.impCfg.*
+import wasm.impCfg.WASM_INLINED_FUNC_END
+import wasm.impCfg.WASM_INLINED_FUNC_START
+import wasm.impCfg.WASM_USER_ASSERT
+import wasm.impCfg.WASM_USER_ASSUME
 import java.util.*
 
 private val logger = Logger(LoggerTypes.CALLTRACE)
@@ -798,9 +803,9 @@ internal sealed class CallTraceGenerator(
      * the call trace.
      */
     private fun appendCallTraceImprecisionIfNecessary(cmdPointer: CmdPointer) {
-        cexAnalyzer?.imprecisions?.get(cmdPointer)?.let { (msg, range) ->
-            val calltraceMsg = "Imprecision detected: $msg"
-            val imprecisionCallInstance = CallInstance.ErrorInstance.Imprecision(calltraceMsg, range as? Range.Range)
+        cexAnalyzer?.imprecisions?.get(cmdPointer)?.let { info ->
+            val calltraceMsg = "Imprecision detected: ${info.msg}"
+            val imprecisionCallInstance = CallInstance.ErrorInstance.Imprecision(calltraceMsg, info.range)
             callTraceAppend(imprecisionCallInstance)
         }
     }

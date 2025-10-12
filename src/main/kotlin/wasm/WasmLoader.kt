@@ -468,6 +468,8 @@ class WasmLoader(wasmFile: File) {
 
             OpCode.MEMORY_SIZE -> WasmInstruction.Memory.Size(WASMAddress(ins.address()))
             OpCode.MEMORY_GROW -> WasmInstruction.Memory.Grow(WASMAddress(ins.address()))
+            OpCode.MEMORY_COPY -> WasmInstruction.Memory.Copy(ins.operands()[1].toInt(), ins.operands()[0].toInt(), WASMAddress(ins.address()))
+            OpCode.MEMORY_FILL -> WasmInstruction.Memory.Fill(ins.operands()[0].toInt(), WASMAddress(ins.address()))
 
             OpCode.I32_LOAD -> WasmInstruction.Memory.Load(LoadMemoryOp.I32LOAD, WASMMemoryOffset(ins.operands()[1].toInt()), ins.operands()[0].toInt(), WASMAddress(ins.address()))
             OpCode.I64_LOAD -> WasmInstruction.Memory.Load(LoadMemoryOp.I64LOAD, WASMMemoryOffset(ins.operands()[1].toInt()), ins.operands()[0].toInt(), WASMAddress(ins.address()))
@@ -647,8 +649,6 @@ class WasmLoader(wasmFile: File) {
             OpCode.I64_TRUNC_SAT_F64_U -> TODO()
             OpCode.MEMORY_INIT -> TODO()
             OpCode.DATA_DROP -> TODO()
-            OpCode.MEMORY_COPY -> TODO()
-            OpCode.MEMORY_FILL -> TODO()
             OpCode.TABLE_INIT -> TODO()
             OpCode.ELEM_DROP -> TODO()
             OpCode.TABLE_COPY -> TODO()

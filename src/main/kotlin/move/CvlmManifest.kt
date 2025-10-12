@@ -56,7 +56,7 @@ class CvlmManifest(val scene: MoveScene) {
     enum class RuleType { USER_RULE, SANITY }
 
     private val rulesBuilder = mutableMapOf<MoveFunctionName, RuleType>()
-    private val shadowedTypes = mutableMapOf<MoveStructName, (MoveType.Struct) -> MoveType.Value>()
+    private val shadowedTypes = mutableMapOf<MoveDatatypeName, (MoveType.Struct) -> MoveType.Value>()
     private val summarizers = mutableMapOf<MoveFunctionName, context(SummarizationContext) (MoveCall) -> MoveBlocks>()
     private val targetFunctionsBuilder = mutableMapOf<MoveModuleName, MutableSet<MoveFunctionName>>()
     private val targetSanityModules = mutableSetOf<MoveModuleName>()
@@ -88,7 +88,7 @@ class CvlmManifest(val scene: MoveScene) {
     }
 
     private fun addShadowedType(
-        shadowedType: MoveStructName,
+        shadowedType: MoveDatatypeName,
         shadow: (MoveType.Struct) -> MoveType.Value
     ) {
         if (shadowedTypes.put(shadowedType, shadow) != null) {
@@ -124,7 +124,7 @@ class CvlmManifest(val scene: MoveScene) {
         }
     }
 
-    private val functionStructName = MoveStructName(
+    private val functionStructName = MoveDatatypeName(
         MoveModuleName(Config.CvlmAddress.get(), "function"),
         "Function"
     )
@@ -207,7 +207,6 @@ class CvlmManifest(val scene: MoveScene) {
                 is Instruction.Call -> {
                     when (inst.index.deref().name) {
                         MoveFunctionName(manifestModule, "rule") -> rule(manifestName, stack)
-                        MoveFunctionName(manifestModule, "module_sanity") -> moduleSanity(manifestName, stack)
                         MoveFunctionName(manifestModule, "summary") -> summary(manifestName, stack)
                         MoveFunctionName(manifestModule, "ghost") -> ghost(manifestName, stack)
                         MoveFunctionName(manifestModule, "hash") -> hash(manifestName, stack)
@@ -262,37 +261,6 @@ class CvlmManifest(val scene: MoveScene) {
         }
 
         addRule(ruleName, RuleType.USER_RULE)
-    }
-
-    private fun moduleSanity(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
-        /*
-            ```
-            public native fun module_sanity(addr: address, mod: vector<u8>);
-            ```
-
-            Generates sanity rules for the public functions in `addr`::`mod`.
-         */
-
-        val moduleNameValue = stack.removeLast() as StackValue.String
-        val moduleAddressValue = stack.removeLast() as StackValue.Address
-        val moduleName = MoveModuleName(
-            moduleAddressValue.value,
-            moduleNameValue.value
-        )
-
-        val module = scene.module(moduleName)
-
-        val functionNames = module.publicFunctionDefinitions.map { it.function.name }
-        if (functionNames.isEmpty()) {
-            throw CertoraException(
-                CertoraErrorType.CVL,
-                "Module $moduleName has no public functions to satisfy the module_sanity entry in $manifestName"
-            )
-        }
-
-        functionNames.forEach {
-            addRule(it, RuleType.SANITY)
-        }
     }
 
     private fun targetSanity(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {

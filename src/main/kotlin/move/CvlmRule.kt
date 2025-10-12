@@ -17,6 +17,7 @@
 
 package move
 
+import config.*
 import datastructures.stdcollections.*
 import utils.*
 
@@ -39,20 +40,20 @@ sealed class CvlmRule {
     /** Target sanity rules */
     sealed class TargetSanity : CvlmRule() {
         abstract val target: MoveFunction
-        override val ruleInstanceName get() = ruleName
+        override val ruleName get() = target.name.toString()
         override val parametricTargetNames get() = setOf<String>()
 
         class AssertTrue(override val target: MoveFunction) : TargetSanity() {
-            override val ruleName get() = "${target.name}-Assertions"
+            override val ruleInstanceName get() = "$ruleName-Assertions"
         }
         class SatisfyTrue(override val target: MoveFunction) : TargetSanity() {
-            override val ruleName get() = "${target.name}-Reached end of function"
+            override val ruleInstanceName get() = "$ruleName-Reached end of function"
         }
     }
 
     companion object {
         context(MoveScene)
-        fun loadAll(): List<CvlmRule> = cvlmManifest.rules.entries.flatMap { (ruleFuncName, manifestRuleType) ->
+        fun loadAll(): List<CvlmRule> = allRules().flatMap { (ruleFuncName, manifestRuleType) ->
             with (Instantiator()) {
                 when (manifestRuleType) {
                     CvlmManifest.RuleType.USER_RULE -> {
@@ -69,6 +70,26 @@ sealed class CvlmRule {
                         )
                     }
                 }
+            }
+        }
+
+        context(MoveScene)
+        fun allRules(): List<Pair<MoveFunctionName, CvlmManifest.RuleType>> {
+            // In "public sanity" mode, we ignore any manifest and just produce sanity checks for all public functions
+            return if (Config.MovePublicSanityCheck.get()) {
+                if (!Config.areRulesFiltered()) {
+                    throw CertoraException(
+                        CertoraErrorType.CVL,
+                        "When using -publicSanity, you must also use -rule or -excludeRule to filter the functions to check."
+                    )
+                }
+                modules.flatMap { moduleName ->
+                    module(moduleName).publicFunctionDefinitions.map {
+                        it.function.name to CvlmManifest.RuleType.SANITY
+                    }
+                }
+            } else {
+                cvlmManifest.rules.entries.map { it.key to it.value }
             }
         }
 

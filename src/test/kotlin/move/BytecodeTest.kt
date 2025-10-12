@@ -366,6 +366,20 @@ class BytecodeTest : MoveTestFixture() {
 
     @ParameterizedTest
     @ValueSource(ints = intArrayOf(8, 16, 32, 64, 128, 256))
+    fun `xor`(size: Int) {
+        addMoveSource("""
+            $testModule
+            public fun test() {
+                let a = ${0b1100}u$size;
+                let b = ${0b1010}u$size;
+                cvlm_assert(a ^ b == ${0b0110}u$size);
+            }
+        """.trimIndent())
+        assertTrue(verify(assumeNoTraps = false))
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = intArrayOf(8, 16, 32, 64, 128, 256))
     fun `shift left`(size: Int) {
         addMoveSource("""
             $testModule
@@ -484,6 +498,21 @@ class BytecodeTest : MoveTestFixture() {
             public fun test() {
                 let a = Foo { n: 2 };
                 let b = Foo { n: 2 };
+                cvlm_assert(a == b);
+            }
+        """.trimIndent())
+
+        assertTrue(verify(assumeNoTraps = false))
+    }
+
+    @Test
+    fun `eq struct empty`() {
+        addMoveSource("""
+            $testModule
+            public struct Foo has copy, drop { }
+            public fun test() {
+                let a = Foo { };
+                let b = Foo { };
                 cvlm_assert(a == b);
             }
         """.trimIndent())
