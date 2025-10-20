@@ -1,0 +1,9 @@
+Create an external 'harness contract' which provides a minimal way to execute the given 'internal' Solidity function
+via an external function wrapper.
+The external function wrapper should simply pass its arguments to the internal function, and return the result back
+to the caller. The internal function being harnessed
+should be included in the contract. You MAY include extra type definitions, but only if absolutely necessary for the
+code to compile; definitions solely for documentation or explanation
+purposes should NOT be included.
+The external harness should be type correct and syntax correct. To ensure this, use the Solidity compiler tool and
+incorporate its feedback to fix any type/syntax errors.
