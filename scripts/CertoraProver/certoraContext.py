@@ -670,10 +670,10 @@ def get_map_attribute_value(context: CertoraContext, path: Path, attr_name: str)
             for contract_name, contract_file_path in context.contract_to_file.items():
                 if fnmatch.fnmatch(contract_name, pattern):
                     # Check if this contract's file matches our target path
-                    if str(path).endswith(contract_file_path):
+                    if Path(contract_file_path) == path:
                         return entry_value
         else:  # This is a file pattern
             # Match the file pattern against the path
             if glob.globmatch(str(path), pattern, flags=glob.GLOBSTAR):
                 return entry_value
-    raise RuntimeError(f"cannot match {attr_name} to {path} from {attr_name}_map")
+    return None  # No match

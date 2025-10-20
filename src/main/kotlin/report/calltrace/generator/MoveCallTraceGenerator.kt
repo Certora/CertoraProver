@@ -60,7 +60,6 @@ internal class MoveCallTraceGenerator(
         } ?: super.handleCmd(cmd, cmdIdx, currBlock, blockIdx)
 
     private class Call(
-        val callId: Int,
         val funcName: MoveFunctionName,
         override val callName: String,
         override val params: List<MoveFunction.DisplayParam>,
@@ -82,7 +81,6 @@ internal class MoveCallTraceGenerator(
         }.takeIf { it.isNotEmpty() }?.joinToString(", ", "<", ">").orEmpty()
         callTracePush(
             Call(
-                annot.callId,
                 annot.name,
                 "${annot.name}$typeArgs",
                 annot.params,
@@ -103,10 +101,9 @@ internal class MoveCallTraceGenerator(
 
     private fun handleFuncEnd(annot: MoveCallTrace.FuncEnd): HandleCmdResult {
         return ensureStackState(
-            requirement = { it is Call && it.callId == annot.callId },
+            requirement = { it is Call && it.funcName == annot.name },
             allowedToPop = { it is CallInstance.LoopInstance.Start },
-            eventDescription = "start of Move function ${annot.name}",
-            allowedToFail = true,
+            eventDescription = "start of move function ${annot.name}"
         ) {
             val call = it as Call
             annot.returns.forEachIndexed { i, ret ->

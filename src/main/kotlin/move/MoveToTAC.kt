@@ -192,9 +192,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         private const val REACHED_END_OF_FUNCTION = "Reached end of function"
     }
 
-    private var callIdAllocator = 0
-    private fun newCallId() = callIdAllocator++
-
     private val uniqueNameAllocator = mutableMapOf<String, Int>()
     private fun String.toUnique() =
         uniqueNameAllocator.compute(this) { _, count -> count?.let { it + 1 } ?: 0 }.let { "$this!$it" }
@@ -488,8 +485,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             }
         }
 
-        val callId = newCallId()
-
         val callStack = call.callStack.push(call)
 
         val uniqueName = func.varNameBase.toUnique()
@@ -535,7 +530,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 check(call.args.size == func.params.size) {
                     "Argument count mismatch: ${call.args.size} != ${func.params.size}"
                 }
-                cmds += MoveCallTrace.annotateFuncStart(callId, func, call.args)
+                cmds += MoveCallTrace.annotateFuncStart(func, call.args)
                 for (i in 0..<call.args.size) {
                     cmds += assign(locals[i].s) { call.args[i].asSym() }
                 }
@@ -624,7 +619,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     is MoveInstruction.Ret ->
                         mergeMany(
                             mergeMany(call.returns.reversed().map { assign(it) { pop() } }),
-                            MoveCallTrace.annotateFuncEnd(callId, call.callee, call.returns),
+                            MoveCallTrace.annotateFuncEnd(call.callee, call.returns),
                             TACCmd.Simple.JumpCmd(call.returnBlock, meta).withDecls()
                         ).also { fallthrough = null }
 

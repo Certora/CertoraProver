@@ -914,7 +914,7 @@ object ReturnBufferAnalysis {
                 rewriteNullAllocation(rewrite.allocSort, patcher)
             }
         }
-        rewriteEdges(rewrite, patcher, c)
+        pruneEdges(rewrite, patcher, c)
     }
 
     fun analyze(c: CoreTACProgram): CoreTACProgram {
@@ -1053,6 +1053,10 @@ object ReturnBufferAnalysis {
                 simplePatchingProgram = patcher,
                 successPathStart = confluenceStart
             )
+            val selectedPaths = preds.map { it.prunedPaths }.uniqueOrNull()
+            if(selectedPaths != null) {
+                pruneEdges(selectedPaths, c, patcher)
+            }
         }
         return patcher.toCode(c)
     }
@@ -1260,18 +1264,28 @@ object ReturnBufferAnalysis {
      * Solidity will sometimes generate spurious conditionals on the RC, and if they persist they confused
      * later analyses. This prunes those conditionals early.
      */
-    private fun rewriteEdges(rewrite: ReturnBufferAlloc, patch: SimplePatchingProgram, c: CoreTACProgram) {
-        rewrite.prunedPaths.mapNotNull { (head, tail) ->
-            val final = c.analysisCache.graph.elab(head).commands.lastOrNull()?.maybeNarrow<TACCmd.Simple.JumpiCmd>() ?: return@mapNotNull null
-            if(final.cmd.elseDst == tail) {
+    private fun pruneEdges(rewrite: ReturnBufferAlloc, patch: SimplePatchingProgram, c: CoreTACProgram) {
+        val prunedEdges = rewrite.prunedPaths
+        pruneEdges(prunedEdges, c, patch)
+    }
+
+    private fun pruneEdges(
+        prunedEdges: Set<Pair<NBId, NBId>>,
+        c: CoreTACProgram,
+        patch: SimplePatchingProgram
+    ) {
+        prunedEdges.mapNotNull { (head, tail) ->
+            val final = c.analysisCache.graph.elab(head).commands.lastOrNull()?.maybeNarrow<TACCmd.Simple.JumpiCmd>()
+                ?: return@mapNotNull null
+            if (final.cmd.elseDst == tail) {
                 final to true
-            } else if(final.cmd.dst == tail) {
+            } else if (final.cmd.dst == tail) {
                 final to false
             } else {
                 null
             }
         }.let {
-            if(it.isNotEmpty()) {
+            if (it.isNotEmpty()) {
                 patch.selectConditionalEdges(it)
             }
         }
@@ -1666,7 +1680,7 @@ object ReturnBufferAnalysis {
                         )
                     }
                     /**
-                     * If this path is infeasible, record this for pruning later with [rewriteEdges] and go
+                     * If this path is infeasible, record this for pruning later with [pruneEdges] and go
                      * to the top of the loop.
                      */
                     if(propagated == null) {

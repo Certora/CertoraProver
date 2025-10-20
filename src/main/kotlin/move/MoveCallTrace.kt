@@ -140,7 +140,6 @@ object MoveCallTrace {
      */
     @KSerializable
     data class FuncStart(
-        val callId: Int,
         val name: MoveFunctionName,
         val params: List<MoveFunction.DisplayParam>,
         val returnTypes: List<MoveType>,
@@ -157,7 +156,6 @@ object MoveCallTrace {
 
     @KSerializable
     data class FuncEnd(
-        val callId: Int,
         val name: MoveFunctionName,
         val returns: List<Value>
     ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncEnd> {
@@ -322,7 +320,7 @@ object MoveCallTrace {
         arguments.
      */
     context(SummarizationContext)
-    fun annotateFuncStart(callId: Int, func: MoveFunction, args: List<TACSymbol.Var>): MoveCmdsWithDecls {
+    fun annotateFuncStart(func: MoveFunction, args: List<TACSymbol.Var>): MoveCmdsWithDecls {
         val cmds = mutableListOf<MoveCmdsWithDecls>()
         val argVals = func.params.zip(args).map { (argType, argVal) -> makeValue(cmds, argType, argVal) }
         val typeArgIds = func.typeArguments.mapIndexed { i, typeArg ->
@@ -331,7 +329,6 @@ object MoveCallTrace {
             }
         }
         cmds += FuncStart(
-            callId = callId,
             name = func.name,
             params = func.displayParams,
             returnTypes = func.returns,
@@ -346,11 +343,10 @@ object MoveCallTrace {
         Generates a function end annotation, along with the code to extract all scalar values from the function's
         return value(s).
      */
-    fun annotateFuncEnd(callId: Int, func: MoveFunction, returns: List<TACSymbol.Var>): MoveCmdsWithDecls {
+    fun annotateFuncEnd(func: MoveFunction, returns: List<TACSymbol.Var>): MoveCmdsWithDecls {
         val cmds = mutableListOf<MoveCmdsWithDecls>()
         val returnVals = func.returns.zip(returns).map { (retType, retVal) -> makeValue(cmds, retType, retVal) }
         cmds += FuncEnd(
-            callId = callId,
             name = func.name,
             returns = returnVals
         ).toAnnotation().withDecls()
