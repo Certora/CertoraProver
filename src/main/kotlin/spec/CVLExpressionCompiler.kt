@@ -2720,8 +2720,19 @@ class CVLExpressionCompiler(
                             }
                         }
 
-                        val constrainOutput = cvlCompiler
-                            .ensureBitWidth(exp.getPureCVLType(), out)
+                        val constrainOutput = when (ty) {
+                            is CVLType.PureCVLType.DynamicArray.PackedBytes -> {
+                                // In the case of a packed bytes array, we cannot just ensure the bitWidth with assumes (as `ensureBitWidth` does).
+                                // This is because the read of an element is not a clean Bytes1, it reads whatever is in the array starting from the accessed element,
+                                // but reading a full 256 bits. So here we replace the lower bits with zero, to have a clean BytesK representation,
+                                // as we expect it. If we do it with assumes, we kill traces where the array is not zeroed out after the read element,
+                                // typically creating vacuity.
+                                check(ty.elementType is CVLType.PureCVLType.Primitive.BytesK) { "Expected PackedBytes to have a BytesK elemType, got ${ty.elementType}" }
+                                maskUpperKBits(out, out, (ty.elementType as CVLType.PureCVLType.Primitive.BytesK).bitWidth)
+                            }
+
+                            else -> cvlCompiler.ensureBitWidth(exp.getPureCVLType(), out)
+                        }
 
                         idxNarrow andThen idxCmp andThen moveData.appendToSinks(constrainOutput) andThen CommandWithRequiredDecls(
                             CVLCompiler.Companion.TraceMeta.ValueTraversalCmd(lhs = out, listOf(CVLCompiler.Companion.TraceMeta.CVLAccessPathStep.ArrayElem(idx)), base = arrVar)
