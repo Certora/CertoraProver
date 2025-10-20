@@ -2463,7 +2463,7 @@ object Config {
     ) {}
 
     val CallTraceDebugAdapterProtocol = object : ConfigType.BooleanCmdLine(
-        true,
+        false,
         Option(
             "callTraceDebugAdapterProtocol",
             true,
