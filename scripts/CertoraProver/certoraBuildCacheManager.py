@@ -179,9 +179,12 @@ class CertoraBuildCacheManager:
             trg = trg_path_with_additional_included_files / post_autofinder_dir.name
             if post_autofinder_dir != trg:
                 if post_autofinder_dir.is_dir():
-                    if trg.exists():
-                        shutil.rmtree(trg)
-                    Util.safe_copy_folder(post_autofinder_dir, trg, shutil.ignore_patterns())
+                    # if we match on the cache, and we run a few certoraRun-s in parallel,
+                    # it could be this folder already exists. But the exact contents do not matter and are likely to
+                    # agree with the exception of spec files. So let's merge the folders so that the
+                    # sources are in any case runnable
+                    if not trg.exists():
+                        Util.safe_merge_folder(post_autofinder_dir, trg, shutil.ignore_patterns())
                 else:
                     # highly unlikely .post_autofinder.[digit] will be a file and not a directory,
                     # but would rather not crash and future-proof instead
