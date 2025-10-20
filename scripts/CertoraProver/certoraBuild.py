@@ -2109,7 +2109,7 @@ class CertoraBuildGenerator:
                      contract_name: str,
                      primary_contracts: List[str],
                      contracts_with_chosen_addresses: List[Tuple[int, Any]],
-                     fail_if_no_bytecode: bool
+                     is_deployed_bytecode: bool
                      ) -> str:
         """
         Computes the linked bytecode object from the Solidity compiler output.
@@ -2120,20 +2120,31 @@ class CertoraBuildGenerator:
         @param primary_contracts - the names of the primary contracts we check to have a bytecode
         @param contracts_with_chosen_addresses - a list of tuples of addresses and the
             associated contract identifier
-        @param fail_if_no_bytecode - true if the function should fail if bytecode object is missing,
+        @param is_deployed_bytecode - true if we deal with deployed (runtime) bytecode,
+            thus the function should fail if bytecode object is missing,
             false otherwise
         @returns linked bytecode object
         """
         # TODO: Only contract_name should be necessary. This requires a lot more test cases to make sure we're not
         # missing any weird solidity outputs.
         bytecode_ = bytecode_object["object"]
-        bytecode = self.collect_and_link_bytecode(contract_name, contracts_with_chosen_addresses,
-                                                  bytecode_, bytecode_object.get("linkReferences", {}))
+        try:
+            bytecode = self.collect_and_link_bytecode(contract_name, contracts_with_chosen_addresses,
+                                                      bytecode_, bytecode_object.get("linkReferences", {}))
+        except Util.CertoraUserInputError as e:
+            if is_deployed_bytecode:
+                raise e
+            else:
+                prefix_msg = f"Failed to find a dependency library while building the "\
+                             f"constructor bytecode of {contract_name}. "\
+                             f"If you need the contract, import the missing library directly and add a dummy usage:\n"
+                orig_msg = str(e)
+                raise Util.CertoraUserInputError(prefix_msg + orig_msg)
         if contract_name in primary_contracts and len(bytecode) == 0:
             msg = f"Contract {contract_name} has no bytecode. " \
                   f"It may be caused because the contract is abstract, " \
                   f"or is missing constructor code. Please check the output of the Solidity compiler."
-            if fail_if_no_bytecode:
+            if is_deployed_bytecode:
                 raise Util.CertoraUserInputError(msg)
             else:
                 build_logger.warning(msg)
