@@ -753,6 +753,17 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=True  # prefer to be extra careful with this rare option
     )
 
+    USE_RELPATHS_FOR_SOLC_JSON = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="Uses relative paths when constructing json keys for solc's standard-json input",
+        default_desc="By using relative paths for the standard json, some rare compilation errors can be prevented",
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False
+    )
+
     IGNORE_SOLIDITY_WARNINGS = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.BOOLEAN,
         help_msg="Ignore all Solidity compiler warnings",

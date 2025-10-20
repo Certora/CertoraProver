@@ -1554,9 +1554,10 @@ class CertoraBuildGenerator:
         @param compiler_collector: Solidity or Vyper compiler collector
         @return:
         """
+        solc_json_contract_key = contract_file_as_provided if self.context.use_relpaths_for_solc_json else contract_file_posix_abs
         compiler_collector_lang = compiler_collector.smart_contract_lang
         if compiler_collector_lang == CompilerLangSol() or compiler_collector_lang == CompilerLangYul():
-            sources_dict = {str(contract_file_posix_abs): {
+            sources_dict = {str(solc_json_contract_key): {
                 "urls": [str(contract_file_posix_abs)]}}  # type: Dict[str, Dict[str, Any]]
             output_selection = ["transientStorageLayout", "storageLayout", "abi", "evm.bytecode",
                                 "evm.deployedBytecode", "evm.methodIdentifiers", "evm.assembly",
@@ -2008,7 +2009,7 @@ class CertoraBuildGenerator:
             srclist = {"0": file_abs_path}
             report_srclist = {"0": file_abs_path}
 
-        report_source_file = report_srclist[[idx for idx in srclist if srclist[idx] == file_abs_path][0]]
+        report_source_file = report_srclist[[idx for idx in srclist if Util.abs_posix_path(srclist[idx]) == file_abs_path][0]]
 
         # all "contracts in SDC" are the same for every primary contract of the compiled file.
         # we can therefore compute those just once...
@@ -2086,7 +2087,7 @@ class CertoraBuildGenerator:
                 if new_path is None:
                     file_abs_path = Util.abs_posix_path(build_arg_contract_file)
                     # for vyper, because there are no autofinders, at least find the main file
-                    if (orig_file == file_abs_path and
+                    if (Util.abs_posix_path(orig_file) == file_abs_path and
                         ((Util.get_certora_sources_dir() / build_arg_contract_file).exists() or
                          Path(build_arg_contract_file).exists())):
                         new_srclist_map[idx] = build_arg_contract_file
