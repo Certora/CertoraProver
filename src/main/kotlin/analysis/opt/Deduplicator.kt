@@ -22,6 +22,7 @@ import analysis.*
 import analysis.ip.INTERNAL_FUNC_EXIT
 import analysis.ip.INTERNAL_FUNC_START
 import com.certora.collect.*
+import config.*
 import datastructures.*
 import datastructures.stdcollections.*
 import log.*
@@ -31,14 +32,23 @@ import vc.data.*
 
 private val logger = Logger(LoggerTypes.DEDUPLICATOR)
 
+/**
+    Removes semantically duplicate subgraphs from the program.
+    */
 object Deduplicator {
-    /**
-        Removes semantically duplicate subgraphs from the program.
-     */
     fun deduplicateBlocks(c: CoreTACProgram): CoreTACProgram {
         val graph = c.analysisCache.graph
-        val activeCalls = getActiveInternalCalls(graph)
+        val patch = c.toPatchingProgram()
+        deduplicateBlocks(graph, patch, PatchingTACProgram.SIMPLE, getActiveInternalCalls(graph))
+        return patch.toCodeNoTypeCheck(c)
+    }
 
+    fun <T : TACCmd> deduplicateBlocks(
+        graph: GenericTACCommandGraph<T, *, *>,
+        patch: PatchingTACProgram<T>,
+        remapper: PatchingTACProgram.CommandRemapper<T>,
+        activeCalls: Map<NBId, PersistentStack<Int>> = graph.blockIds.associateWith { persistentStackOf() }
+    ) {
         // Successors are ordered!
         val successors = mutableMapOf<NBId, List<NBId>>()
 
@@ -56,7 +66,7 @@ object Deduplicator {
                 successors[block] = graph.succ(block).toList()
             } else {
                 check(succ.toSet() == graph.succ(block)) {
-                    "In ${c.name}: $block: successors don't body commands: ${graph.succ(block)} vs $succ"
+                    "In ${graph.name}: $block: successors don't match body commands: ${graph.succ(block)} vs $succ"
                 }
                 successors[block] = succ
             }
@@ -65,16 +75,15 @@ object Deduplicator {
         }
 
         val labeledGraph = LabeledOrderedDigraph(blockLabels, successors)
-        val representativeBlocks = labeledGraph.findIsomorphicSubgraphs()
+        val representativeBlocks = labeledGraph.findIsomorphicSubgraphs(maxIterations = Config.MaxDedupIterations.get())
 
-        val patch = c.toPatchingProgram()
         representativeBlocks.forEachEntry { (block, rep) ->
             if (rep != block) {
-                patch.reroutePredecessorsTo(block, rep)
+                logger.debug { "Merging duplicate blocks: $block -> $rep" }
+                patch.reroutePredecessorsTo(block, rep, remapper)
                 patch.removeBlock(block)
             }
         }
-        return patch.toCodeNoTypeCheck(c)
     }
 
 
@@ -100,7 +109,7 @@ object Deduplicator {
             operator fun invoke(
                 nbid: NBId,
                 activeCalls: PersistentStack<Int>?,
-                body: List<TACCmd.Simple>
+                body: List<TACCmd>
             ) = DedupBlockLabel(
                 origStartPc = nbid.origStartPc,
                 topOfStackValue = nbid.topOfStackValue,
@@ -109,7 +118,7 @@ object Deduplicator {
                 body = normalizeBody(body)
             )
 
-            private fun normalizeBody(body: List<TACCmd.Simple>) = body.mapNotNull {
+            private fun normalizeBody(body: List<TACCmd>) = body.mapNotNull {
                 when (it) {
                     // Jumpdests are not semantically important
                     is TACCmd.Simple.JumpdestCmd -> null
@@ -119,7 +128,7 @@ object Deduplicator {
                     else -> it
                 }?.let {
                     // Allow merging of blocks with different TACMetaInfo (e.g. jump types, etc.)
-                    it.withMeta(it.meta - META_INFO_KEY)
+                    (it as? TACCmd.Simple)?.withMeta(it.meta - META_INFO_KEY) ?: it
                 }
             }
         }

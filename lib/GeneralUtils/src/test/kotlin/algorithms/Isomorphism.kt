@@ -38,7 +38,7 @@ class IsomorphismTest {
             5 to 5
         )
 
-        val representatives = LabeledOrderedDigraph(labels, graph).findIsomorphicSubgraphs()
+        val representatives = LabeledOrderedDigraph(labels, graph).findIsomorphicSubgraphs(Int.MAX_VALUE)
 
         assertTrue(representatives[1] == 1, "Expected 1==1 in $representatives")
         assertTrue(representatives[2] == representatives[3], "Expected 2==3 in $representatives")
@@ -71,7 +71,7 @@ class IsomorphismTest {
             5 to 5
         )
 
-        val representatives = LabeledOrderedDigraph(labels, graph).findIsomorphicSubgraphs()
+        val representatives = LabeledOrderedDigraph(labels, graph).findIsomorphicSubgraphs(Int.MAX_VALUE)
 
         assertTrue(representatives[1] == 1, "Expected 1==1 in $representatives")
         assertTrue(representatives[2] == representatives[3], "Expected 2==3 in $representatives")
@@ -106,7 +106,7 @@ class IsomorphismTest {
             5 to 5
         )
 
-        val representatives = LabeledOrderedDigraph(labels, graph).findIsomorphicSubgraphs()
+        val representatives = LabeledOrderedDigraph(labels, graph).findIsomorphicSubgraphs(Int.MAX_VALUE)
 
         assertTrue(representatives[1] == 1, "Expected 1==1 in $representatives")
         assertTrue(representatives[2] == 2, "Expected 2==3 in $representatives")

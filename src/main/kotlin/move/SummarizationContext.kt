@@ -34,13 +34,41 @@ class SummarizationContext(
     /** Maps MoveType.Function values (which are integers) to their corresponding function instantiations */
     val parametricTargets: Map<Int, MoveFunction>
 ) {
-    private var blockIdAllocator = 0
-    fun newBlockId() =
+    private var bodyIdxAllocator = 1 // Start at 1 to avoid conflict with Allocator.getNBId()
+    private var currentBodyIdx = bodyIdxAllocator++
+
+    fun <T> withNewBodyIdx(block: () -> T): T {
+        val prev = currentBodyIdx
+        currentBodyIdx = bodyIdxAllocator++
+        try {
+            return block()
+        } finally {
+            currentBodyIdx = prev
+        }
+    }
+
+    private val blockIdAllocator = mutableMapOf<NBId, Int>()
+
+    fun newBlockId(
+        origStartPc: Int,
+        bodyIdx: Int = currentBodyIdx
+    ): NBId =
         BlockIdentifier(
-            ++blockIdAllocator,
-            stkTop = 1, // avoids conflicts with Allocator.getNBId()
-            0, 0, 0, 0
-        )
+            origStartPc = origStartPc,
+            stkTop = bodyIdx, // we repurpose this to distinguish between different function bodies
+            decompCopy = 0,
+            calleeIdx = 0,
+            topOfStackValue = 0,
+            freshCopy = 0
+        ).let {
+            val copy = blockIdAllocator[it] ?: 0
+            blockIdAllocator[it] = copy + 1
+            it.copy(decompCopy = copy)
+        }
+
+    val NBId.bodyIdx get() = stkTop // we repurpose this to distinguish between different function bodies
+
+    fun newBlockId(template: NBId) = newBlockId(template.origStartPc, template.bodyIdx)
 
     private var satisfyCount = 0
     /** Allocate a new SATISFY_ID */

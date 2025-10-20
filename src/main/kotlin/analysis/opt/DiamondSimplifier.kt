@@ -136,7 +136,7 @@ object DiamondSimplifier {
             if (succ.any { graph.pred(it).size != 1 }) { return@diamond null }
 
             // Is there a common successor for both branches?
-            val join = succ.flatMap { graph.succ(it.id) }.uniqueOrNull()?.let(graph::elab) ?: return@diamond null
+            val join = succ.map { graph.succ(it.id) }.uniqueOrNull()?.uniqueOrNull()?.let(graph::elab) ?: return@diamond null
 
             // We don't want to reduce every possible diamond, because doing so might result in a single very complex
             // block which we will have a hard time solving.  Best to leave such as separate blocks so we can split the
@@ -172,7 +172,12 @@ object DiamondSimplifier {
                         when (lcmd.cmd.disposition()) {
                             NON_MERGEABLE -> when (lcmd.cmd) {
                                 is TACCmd.Simple.AnnotationCmd -> nonMergeableAnnotations.add(lcmd)
-                                else -> return@diamond null
+                                else -> {
+                                    logger.debug {
+                                        "Not merging diamond at ${block.id} because it contains a non-mergeable command: $lcmd"
+                                    }
+                                    return@diamond null
+                                }
                             }
                             DESTRUCTIVELY_MERGEABLE_ANNOT -> if (!destructive) { nonMergeableAnnotations.add(lcmd) }
                             MERGEABLE -> {}
@@ -218,6 +223,14 @@ object DiamondSimplifier {
                     (v to i) to v.withSuffix(i, "!").toUnique("!")
                 }
             }.toMap()
+
+            if (branchReplacementVars.size > Config.MaxMergedBranchExprs.get()) {
+                logger.info {
+                    "Not merging diamond at ${block.id} because it would result in too many ITE expressions: " +
+                        "${branchReplacementVars.size} > ${Config.MaxMergedBranchExprs.get()}"
+                }
+                return@diamond null
+            }
 
             // Generate the replacement commands for the conditional jump in this diamond.
             val replacements = buildList {

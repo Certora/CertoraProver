@@ -17,7 +17,7 @@
 
 package move
 
-import analysis.NonTrivialDefAnalysis
+import analysis.*
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import move.MoveToTAC.Companion.CONST_STRING
@@ -45,6 +45,9 @@ object ConstantStringPropagator {
     fun transform(code: CoreTACProgram): CoreTACProgram {
         val def = NonTrivialDefAnalysis(code.analysisCache.graph)
         return code.parallelLtacStream().mapNotNull { (ptr, cmd) ->
+            // Remove MESSAGE_VAR annotations
+            if (cmd.maybeAnnotation(MESSAGE_VAR) != null) { return@mapNotNull ptr to null }
+
             val messageVar = cmd.meta[MESSAGE_VAR]?.sym ?: return@mapNotNull null
             val messageDef = def.getDefCmd<TACCmd.Simple.AssigningCmd>(messageVar, ptr) ?: return@mapNotNull null
             val messageString = messageDef.cmd.lhs.meta[CONST_STRING] ?: return@mapNotNull null
@@ -61,7 +64,7 @@ object ConstantStringPropagator {
             } ?: error("Unexpected command with MESSAGE_VAR meta: $cmd at $ptr")
             ptr to newCmd
         }.patchForEach(code) { (ptr, cmd) ->
-            replaceCommand(ptr, listOf(cmd))
+            replaceCommand(ptr, listOfNotNull(cmd))
         }
     }
 }

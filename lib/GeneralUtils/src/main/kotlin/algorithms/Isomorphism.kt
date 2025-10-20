@@ -44,7 +44,7 @@ data class LabeledOrderedDigraph<@Treapable V, L>(
         isomorphic. This means the worst-case performance of this function is quite bad, but we hope typical graphs will
         do a lot better.
      */
-    fun findIsomorphicSubgraphs(): Map<V, V> {
+    fun findIsomorphicSubgraphs(maxIterations: Int): Map<V, V> {
         // Start with initial hashes based on the labels
         var hashes: Map<V, Int> = labels.mapValues { (_, l) -> l.hashCode() }
 
@@ -54,7 +54,7 @@ data class LabeledOrderedDigraph<@Treapable V, L>(
 
         // Iterate until the equiv classes converge
         var equivClasses = possibleEquivClasses(hashes)
-        while (true) {
+        for (ignored in 1..maxIterations) {
             // New hash = current hash of node + current hashes of successors
             val newHashes = labels.mapValues { (v, _) ->
                 hash { it + hashes[v]!! + edges[v].orEmpty().map { hashes[it]!! } }

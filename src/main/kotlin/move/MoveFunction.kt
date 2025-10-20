@@ -18,7 +18,6 @@
 package move
 
 import datastructures.stdcollections.*
-import java.util.Objects
 import spec.cvlast.TypedParam
 import utils.*
 
@@ -37,14 +36,17 @@ class MoveFunction private constructor(
         typeArguments.isEmpty() -> "$name"
         else -> "$name<${typeArguments.joinToString(", ")}>"
     }
-    override fun hashCode() = Objects.hash(name, typeArguments, params, returns)
+    fun toVarName() = when {
+        typeArguments.isEmpty() -> name.toVarName()
+        else -> "${name.toVarName()}\$$${typeArguments.size}\$$${typeArguments.joinToString("\$$") { it.symNameExt() }}"
+    }
+    override fun hashCode() = hash { it + name + typeArguments }
     override fun equals(other: Any?) = when {
         other === this -> true
         other !is MoveFunction -> false
         other.name != name -> false
         other.typeArguments != typeArguments -> false
-        other.params != params -> false
-        other.returns != returns -> false
+        // If name and typeArguments match, then paramss, returns, and definition must also match
         else -> true
     }
 

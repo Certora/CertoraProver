@@ -659,6 +659,17 @@ inline fun <T> ArrayDeque<T>.consume(f : (T) -> Unit) {
     }
 }
 
+/**
+    Iterates over the list, allowing each element to be garbage-collected once it's consumed (assuming no other references
+    are retained).
+ */
+fun <T> List<T>.consuming(): Iterable<T> {
+    val deque = ArrayDeque(this)
+    return sequence<T> {
+        deque.consume { yield(it) }
+    }.asIterable()
+}
+
 fun <T> ArrayDeque<T>.addLasts(c : Collection<T>?) =
     c?.forEach { addLast(it) }
 

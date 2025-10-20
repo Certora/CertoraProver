@@ -76,8 +76,8 @@ object BlockMerger {
     }
 
     fun mergeBlocks(prog: CoreTACProgram): CoreTACProgram {
-        return mergeBlocks(prog) { p, code, graph ->
-            p.copy(
+        return generateMerged(prog).let { (code, graph) ->
+            prog.copy(
                 code = code,
                 blockgraph = graph
             )
@@ -85,17 +85,11 @@ object BlockMerger {
     }
 
     fun mergeBlocks(prog: CVLTACProgram): CVLTACProgram {
-        return mergeBlocks(prog) { p, code, graph ->
-            p.copy(
+        return generateMerged(prog).let { (code, graph) ->
+            prog.copy(
                 code = code,
                 blockgraph = graph
             )
-        }
-    }
-
-    fun <T: TACCmd, U: TACProgram<T>> mergeBlocks(prog: U, mk: (U, Map<NBId, List<T>>, BlockGraph) -> U) : U {
-        return generateMerged(prog).let { (code, graph) ->
-            mk(prog, code, graph)
         }
     }
 
@@ -103,7 +97,10 @@ object BlockMerger {
     detect chains of blocks in the graph that have a single successor.
     as long as the graph contains nodes with a single successor, take one, merge the successor into the predecessor (code + next blocks), and remove the successor
      */
-    private fun <T: TACCmd> generateMerged(c: TACProgram<T>): Pair<Map<NBId, List<T>>, BlockGraph> {
+    fun <T: TACCmd> generateMerged(
+        c: TACProgram<T>,
+        mayMerge: (NBId, NBId) -> Boolean = { _, _ -> true }
+    ): Pair<Map<NBId, List<T>>, BlockGraph> {
         val newCode = c.code.toMutableMap()
         val newGraph = MutableReversibleDigraph<NBId>(c.blockgraph)
         val newGraphReversed = newGraph.asReversed()
@@ -128,6 +125,11 @@ object BlockMerger {
                 if (predCount > 1) {
                     break
                 }
+
+                if (!mayMerge(chain.last(), current)) {
+                    break
+                }
+
                 chain.add(current)
                 check (current in newGraph) { "Current node $current is not in graph $newGraph" }
             }

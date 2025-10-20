@@ -32,6 +32,7 @@ import move.analysis.*
 import tac.*
 import utils.*
 import vc.data.*
+import verifier.BlockMerger
 
 typealias MoveCmdsWithDecls = CommandWithRequiredDecls<TACCmd>
 typealias MoveBlocks = TreapMap<NBId, MoveCmdsWithDecls>
@@ -167,5 +168,20 @@ data class MoveTACProgram(
     ) {
         protected abstract inner class Finalizer
             : analysis.CommandDataflowAnalysis<MoveTACCommandGraph, Block, NBId, LCmd, CmdPointer, T>.Finalizer()
+    }
+
+    object PatchingCommandRemapper : PatchingTACProgram.CommandRemapper<TACCmd> {
+        override fun isJumpCommand(c: TACCmd) =
+            c is TACCmd.Simple && PatchingTACProgram.SIMPLE.isJumpCommand(c)
+        override fun remapSuccessors(c: TACCmd, remapper: (NBId) -> NBId) =
+            (c as? TACCmd.Simple)?.let {
+                PatchingTACProgram.SIMPLE.remapSuccessors(it, remapper)
+            } ?: c
+    }
+
+    fun mergeBlocks(mayMerge: (NBId, NBId) -> Boolean = { _, _ -> true }): MoveTACProgram {
+        return BlockMerger.generateMerged(this, mayMerge).let { (code, graph) ->
+            copy(code = code, blockgraph = graph)
+        }
     }
 }
