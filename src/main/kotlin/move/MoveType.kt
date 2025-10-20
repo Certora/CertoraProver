@@ -33,7 +33,7 @@ import vc.data.*
  */
 @Treapable
 @KSerializable
-sealed class MoveType : HasKSerializable {
+sealed class MoveType : AmbiSerializable {
     abstract fun toTag(): Tag
 
     /** Gets a name for this type that can be used as part of a TACSymbol.Var name. */
@@ -59,6 +59,7 @@ sealed class MoveType : HasKSerializable {
         override fun displayName() = "bool"
         override fun symNameExt() = "bool"
         override fun hashCode() = hashObject(this)
+        private fun readResolve(): Any = Bool
     }
 
     @KSerializable
@@ -68,14 +69,14 @@ sealed class MoveType : HasKSerializable {
         override fun symNameExt() = "u$size"
     }
 
-    @KSerializable object U8 : Bits(8) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U16 : Bits(16) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U32 : Bits(32) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U64 : Bits(64) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U128 : Bits(128) { override fun hashCode() = hashObject(this) }
-    @KSerializable object U256 : Bits(256) { override fun hashCode() = hashObject(this) }
-    @KSerializable object Address : Bits(256) { override fun hashCode() = hashObject(this) }
-    @KSerializable object Signer : Bits(256) { override fun hashCode() = hashObject(this) }
+    @KSerializable object U8 : Bits(8) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U8 }
+    @KSerializable object U16 : Bits(16) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U16 }
+    @KSerializable object U32 : Bits(32) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U32 }
+    @KSerializable object U64 : Bits(64) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U64 }
+    @KSerializable object U128 : Bits(128) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U128 }
+    @KSerializable object U256 : Bits(256) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = U256 }
+    @KSerializable object Address : Bits(256) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = Address }
+    @KSerializable object Signer : Bits(256) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = Signer }
 
 
     @KSerializable
@@ -166,6 +167,7 @@ sealed class MoveType : HasKSerializable {
         override fun toTag() = Tag.Int
         override fun symNameExt() = "mathint"
         override fun hashCode() = hashObject(this)
+        private fun readResolve(): Any = MathInt
     }
 
     /**
@@ -211,6 +213,7 @@ sealed class MoveType : HasKSerializable {
         override fun toTag() = Tag.Bit256
         override fun symNameExt() = "fun"
         override fun hashCode() = hashObject(this)
+        private fun readResolve(): Any = Function
     }
 }
 

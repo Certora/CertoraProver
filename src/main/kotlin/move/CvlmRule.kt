@@ -40,14 +40,14 @@ sealed class CvlmRule {
     /** Target sanity rules */
     sealed class TargetSanity : CvlmRule() {
         abstract val target: MoveFunction
-        override val ruleInstanceName get() = ruleName
+        override val ruleName get() = target.name.toString()
         override val parametricTargetNames get() = setOf<String>()
 
         class AssertTrue(override val target: MoveFunction) : TargetSanity() {
-            override val ruleName get() = "${target.name}-Assertions"
+            override val ruleInstanceName get() = "$ruleName-Assertions"
         }
         class SatisfyTrue(override val target: MoveFunction) : TargetSanity() {
-            override val ruleName get() = "${target.name}-Reached end of function"
+            override val ruleInstanceName get() = "$ruleName-Reached end of function"
         }
     }
 
