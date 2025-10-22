@@ -62,9 +62,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     ) {
         fun toCoreTAC(scene: MoveScene): CoreTACProgram {
             return annotateCallStack("rule.${rule.ruleInstanceName}") {
-                val coreTAC = MoveMemory(scene).transform(moveTAC)
-                ArtifactManagerFactory().dumpCodeArtifacts(coreTAC, ReportTypes.SIMPLIFIED, DumpTime.POST_TRANSFORM)
-                preprocess(coreTAC, isSatisfy)
+                moveTACtoCoreTAC(scene, moveTAC, isSatisfy)
             }
         }
     }
@@ -86,9 +84,15 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             )
         }
 
-        private fun preprocess(code: CoreTACProgram, isSatisfy: Boolean) =
-            CoreTACProgram.Linear(code)
+        private fun moveTACtoCoreTAC(scene: MoveScene, code: MoveTACProgram, isSatisfy: Boolean) =
+            CoreTACProgram.Linear(
+                code
+                .transform(ReportTypes.DEDUPLICATED) { deduplicateBlocks(it) }
+                .mergeBlocks()
+                .transform(ReportTypes.SIMPLIFIED) { MoveMemory(scene).transform(it) }
+            )
             .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
             .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
@@ -133,12 +137,18 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_INFEASIBLE_PATHS) { InfeasiblePaths.doInfeasibleBranchAnalysisAndPruning(it) })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.SIMPLE_SUMMARIES1) { it.simpleSummaries() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
+                // Cannot merge assumes prior to IntervalsRewriter
+                DiamondSimplifier.simplifyDiamonds(it, iterative = true, allowAssumes = false)
+            })
             .mapIfAllowed(
                 CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
                     IntervalsRewriter.rewrite(it, handleLeinoVars = false)
                 }
             )
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) {
+                DiamondSimplifier.simplifyDiamonds(it, iterative = true)
+            })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS2) {
                     // after pruning infeasible paths, there are more constants to propagate
                     ConstantPropagator.propagateConstants(it, emptySet())
@@ -147,6 +157,17 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
             .ref
+
+        private fun <T : TACProgram<*>, R : TACProgram<*>> T.transform(
+            reportType: ReportTypes,
+            transform: (T) -> R
+        ) = CodeTransformer<T, R>(reportType) { transform(it) }.applyTransformer(this)
+
+        private fun deduplicateBlocks(c: MoveTACProgram): MoveTACProgram {
+            val patch = c.toPatchingProgram()
+            Deduplicator.deduplicateBlocks(c.graph, patch, MoveTACProgram.PatchingCommandRemapper)
+            return patch.toCode(c)
+        }
 
         val CONST_STRING = MetaKey<String>("move.const.string")
 
@@ -195,13 +216,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     private var callIdAllocator = 0
     private fun newCallId() = callIdAllocator++
 
-    private val uniqueNameAllocator = mutableMapOf<String, Int>()
-    private fun String.toUnique() =
-        uniqueNameAllocator.compute(this) { _, count -> count?.let { it + 1 } ?: 0 }.let { "$this!$it" }
-
     private fun PersistentStack<MoveCall>.format() = joinToString(" ← ") { it.callee.toString() }
-
-    private val MoveFunction.varNameBase get() = name.toVarName()
 
     private enum class SanityMode {
         NONE,
@@ -216,11 +231,11 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         parametricTargets: Map<Int, MoveFunction>
     ): MoveTACProgram {
         with (SummarizationContext(scene, this, parametricTargets)) {
-            val args = entryFunc.params.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_arg_$i", it.toTag()) }
-            val returns = entryFunc.returns.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.varNameBase}_ret_$i", it.toTag()) }
+            val args = entryFunc.params.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.toVarName()}_arg_$i", it.toTag()) }
+            val returns = entryFunc.returns.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.toVarName()}_ret_$i", it.toTag()) }
 
-            val calleeEntry = newBlockId()
-            val exit = newBlockId()
+            val calleeEntry = newBlockId(0)
+            val exit = newBlockId(0)
 
             val callCode = compileFunctionCall(
                 MoveCall(
@@ -304,6 +319,13 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
             return allCode.toProgram(name, StartBlock, exit)
                 .transform(ReportTypes.INLINE_PARAMETRIC_CALLS) { InvokerCall.materialize(it) }
+                .let {
+                    it.mergeBlocks { a, b ->
+                        // For now, only allow merging of blocks that are part of the same function body.  This
+                        // maximizes our chances of deduplicating function bodies later.
+                        a.bodyIdx == b.bodyIdx
+                    }
+                }
         }
     }
 
@@ -361,8 +383,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         args: List<TACSymbol.Var>,
         returns: List<TACSymbol.Var>
     ): MoveTACProgram {
-        val entryBlock = newBlockId()
-        val exitBlock = newBlockId()
+        val entryBlock = newBlockId(0)
+        val exitBlock = newBlockId(0)
         val code = compileFunctionCall(
             MoveCall(
                 callee = entryFunc,
@@ -472,6 +494,19 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         return havocCall(call, "Unrecognized native function")
     }
 
+    private data class Local(val type: MoveType, val s: TACSymbol.Var)
+
+    private val exitBodyBlockId: NBId = BlockIdentifier(Int.MAX_VALUE, 0, 0, 0, 0, 0)
+
+    private data class CompiledCodeUnit(
+        val entry: NBId,
+        val locals: List<Local>,
+        val results: List<Local>,
+        val tacBlocks: MoveBlocks
+    )
+
+    private val compiledBodies = mutableMapOf<MoveFunction, CompiledCodeUnit>()
+
     /**
         Compiles a call to a function with a code unit (as opposed to a native function).
      */
@@ -479,27 +514,95 @@ class MoveToTAC private constructor (val scene: MoveScene) {
     private fun compileCodeUnitCall(
         call: MoveCall,
         code: MoveFunction.Code
-    ): MoveBlocks = annotateCallStack("func.${call.callee.name}") compile@{
+    ): MoveBlocks {
         val func = call.callee
         if (func in call.funcsOnStack) {
-            return@compile singleBlockSummary(call) {
+            return singleBlockSummary(call) {
                 loggerSetupHelpers.warn { "Recursive function call to ${call.callee} from ${call.callStack.format()}" }
                 assert("Recursive function call to ${call.callee}") { false.asTACExpr }
             }
         }
 
-        val callId = newCallId()
-
-        val callStack = call.callStack.push(call)
-
-        val uniqueName = func.varNameBase.toUnique()
-        data class Local(val type: MoveType, val s: TACSymbol.Var)
-        val locals = (func.params + code.locals).mapIndexed { i, type ->
-            Local(type, TACSymbol.Var("${uniqueName}!local!$i", type.toTag()))
+        // Get the compiled body of the callee
+        val (compiledBodyEntry, locals, results, compiledBody) = compiledBodies.getOrPut(func) {
+            logger.trace { "Compiling body of function $func" }
+            withNewBodyIdx {
+                compileCodeUnitBody(func, code, call.callStack.push(call))
+            }
         }
 
-        val blockIds = mutableMapOf(0 to call.entryBlock)
-        fun blockId(blockOffset: Int) = blockIds.getOrPut(blockOffset) { newBlockId() }
+        // Remap the block IDs to instantiate the body for this call.  Note: any specialization of the body code will
+        // prevent deduplication of the body later!  We only want to change the block IDs, which the deduplicator can
+        // handle.
+        val bodyExit = newBlockId(call.entryBlock)
+        val blockMap = mutableMapOf(exitBodyBlockId to bodyExit)
+        fun mapBlock(block: NBId) = blockMap.getOrPut(block) { newBlockId(block) }
+        val bodyBuilder = compiledBody.entries.map { (bodyBlock, cmds) ->
+            mapBlock(bodyBlock) to cmds.cmds.map {
+                it.letIf(MoveTACProgram.PatchingCommandRemapper.isJumpCommand(it)) {
+                    MoveTACProgram.PatchingCommandRemapper.remapSuccessors(it, ::mapBlock)
+                }
+            }.withDecls(cmds.varDecls)
+        }.toTreapMap().builder()
+        val bodyEntry = blockMap[compiledBodyEntry]!!
+
+        // Prolog: annotate the start of the call, and move the arguments into locals
+        check(call.args.size == func.params.size) {
+            "Argument count mismatch: ${call.args.size} != ${func.params.size}"
+        }
+        val callId = newCallId()
+        bodyBuilder[call.entryBlock] = mergeMany(
+            MoveCallTrace.annotateFuncStart(callId, func, call.args),
+            mergeMany(
+                (0..<call.args.size).map { i ->
+                    assign(locals[i].s) { call.args[i].asSym() }
+                }
+            ),
+            TACCmd.Simple.JumpCmd(bodyEntry).withDecls()
+        )
+
+        // Epilog: move the return values into the caller's variables, and annotate the end of the call
+        check(call.returns.size == func.returns.size) {
+            "Call return value count mismatch: ${call.returns.size} != ${func.returns.size}"
+        }
+        bodyBuilder[bodyExit] = mergeMany(
+            mergeMany(
+                (call.returns zip results).map { (ret, res) ->
+                    assign(ret) { res.s.asSym() }
+                }
+            ),
+            MoveCallTrace.annotateFuncEnd(callId, func, call.returns),
+            TACCmd.Simple.JumpCmd(call.returnBlock).withDecls()
+        )
+
+        return bodyBuilder.build()
+    }
+
+    /**
+        Compiles the body of a function.  This should not depend on the details of the particular call (e.g., the
+        argument and return variables), to maximize the possiblity that we can merge duplicate function bodies later.
+
+        Returns the list of stack variables that hold the return values
+     */
+    context(SummarizationContext)
+    private fun compileCodeUnitBody(
+        func: MoveFunction,
+        code: MoveFunction.Code,
+        callStack: PersistentStack<MoveCall>,
+    ): CompiledCodeUnit = annotateCallStack("func.${func.name}") {
+        val varNameBase = func.toVarName()
+
+        val locals = (func.params + code.locals).mapIndexed { i, type ->
+            Local(type, TACSymbol.Var("$varNameBase!local!$i", type.toTag()))
+        }
+
+        val results = (0..<func.returns.size).map { i ->
+            Local(func.returns[i], TACSymbol.Var("$varNameBase!ret!$i", func.returns[i].toTag()))
+        }
+
+        val entryBlock = newBlockId(0)
+        val blockIds = mutableMapOf(0 to entryBlock)
+        fun blockId(blockOffset: Int) = blockIds.getOrPut(blockOffset) { newBlockId(blockOffset) }
 
         val stacksIn = mutableMapOf(0 to persistentStackOf<MoveType>())
         val nextBlocks = arrayDequeOf(0)
@@ -530,17 +633,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
             val cmds = mutableListOf<MoveCmdsWithDecls>()
 
-            // Annotate the start of the function, and move the arguments into locals
-            if (blockOffset == 0) {
-                check(call.args.size == func.params.size) {
-                    "Argument count mismatch: ${call.args.size} != ${func.params.size}"
-                }
-                cmds += MoveCallTrace.annotateFuncStart(callId, func, call.args)
-                for (i in 0..<call.args.size) {
-                    cmds += assign(locals[i].s) { call.args[i].asSym() }
-                }
-            }
-
             code.block(blockOffset).forEach { (currentOffset, inst, src) ->
                 fallthrough = currentOffset + 1
 
@@ -550,7 +642,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 val meta = metaInfo.toMap()
 
                 fun topVar() = stack.top.let { type ->
-                    TACSymbol.Var("${uniqueName}!stack!${stack.size - 1}!${type.symNameExt()}", type.toTag()).asSym()
+                    TACSymbol.Var("$varNameBase!stack!${stack.size - 1}!${type.symNameExt()}", type.toTag()).asSym()
                 }
                 fun topType() = stack.top
                 fun pop() = topVar().also { stack.pop() }
@@ -606,7 +698,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                     is MoveInstruction.Call -> {
                         val callee = inst.callee
-                        val calleeEntry = newBlockId()
+                        val calleeEntry = newBlockId(currentOffset)
                         tacBlocks += compileFunctionCall(
                             MoveCall(
                                 callee = callee,
@@ -623,9 +715,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                     is MoveInstruction.Ret ->
                         mergeMany(
-                            mergeMany(call.returns.reversed().map { assign(it) { pop() } }),
-                            MoveCallTrace.annotateFuncEnd(callId, call.callee, call.returns),
-                            TACCmd.Simple.JumpCmd(call.returnBlock, meta).withDecls()
+                            mergeMany(results.reversed().map { assign(it.s) { pop() } }),
+                            TACCmd.Simple.JumpCmd(exitBodyBlockId, meta).withDecls()
                         ).also { fallthrough = null }
 
 
@@ -1129,14 +1220,14 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                             FAIL: assert(false) (should be unreachable)
                          */
                         val idx = TACKeyword.TMP(Tag.Bit256, "variant_idx")
-                        val failBlock = newBlockId().also {
+                        val failBlock = newBlockId(currentOffset).also {
                             tacBlocks += it to mergeMany(
                                 assert("Invalid variant tag", meta) { false.asTACExpr },
                                 Trap.trapRevert("Invalid variant tag", meta)
                             )
                         }
                         val firstSwitchBlock = inst.branches.withIndex().reversed().fold(failBlock) { nextBlockId, (i, offset) ->
-                            newBlockId().also {
+                            newBlockId(currentOffset).also {
                                 val cond = TACKeyword.TMP(Tag.Bool, "variant_switch_cond")
                                 tacBlocks += it to mergeMany(
                                     assign(cond, meta) { idx.asSym() eq i.asTACExpr },
@@ -1178,7 +1269,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             tacBlocks[blockId(blockOffset)] = mergeMany(cmds)
         }
 
-        tacBlocks.build()
+        CompiledCodeUnit(entryBlock, locals, results, tacBlocks.build())
     }
 
     context(SummarizationContext)

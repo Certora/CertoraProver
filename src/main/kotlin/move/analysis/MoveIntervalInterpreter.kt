@@ -140,7 +140,7 @@ class MoveIntervalInterpreter(val g: MoveTACCommandGraph) {
         }.orEmpty()
 
     private fun refTargets(ref: TACSymbol.Var, where: CmdPointer) =
-        referenceAnalysis.cmdIn[where]?.get(ref)
+        referenceAnalysis.refTargets[where]?.get(ref)
 
     private fun TACCmd.Move.modified(where: CmdPointer): Collection<TACSymbol.Var> = when(this) {
         is TACCmd.Move.VecPopBackCmd -> setOf(dst) + refToLocVars(ref, where)

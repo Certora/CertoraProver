@@ -267,12 +267,12 @@ class DebugAdapterProtocolStackMachine(
      * This function translates the variables to the representation in the VSCode extension variable view.
      * The groupBy defines the header of the container that will be visible in VSCode extension variable's view (see [VariableHeader])
      */
-    private fun Map<VariableIdentifier, TACValue>.toVariableMapping(frameIdentifier: String): List<VariableContainer> = this.toList()
+    private fun Map<VariableIdentifier, TACValue>.toVariableMapping(frames: List<StackFrame>): List<VariableContainer> = this.toList()
         .groupBy {
             it.first.type.header
         }.map {
             VariableContainer(it.key.displayName, it.value.filter { it.second.isNonInitialValue() }.buildVariableTree(if (it.key == VariableHeader.LOCALS) {
-                frameIdentifier
+                frames.joinToString { it.el.name }.hashCode().toString()
             } else {
                 VariableHeader.GLOBAL.name
             }))
@@ -320,7 +320,7 @@ class DebugAdapterProtocolStackMachine(
      *
      * (If it's a global variable, it is prefixed by [VariableHeader.GLOBAL.name])
      */
-    private fun List<Pair<VariableIdentifier, TACValue>>.buildVariableTree(stackIdentifier: String): List<VariableNode> {
+    private fun List<Pair<VariableIdentifier, TACValue>>.buildVariableTree(variablePrefix: String): List<VariableNode> {
         fun traverse(lastNode: MutableVariableNode, curr: InstantiatedDisplayPath, value: TACValue): MutableVariableNode {
             val withoutNext = curr.toAccessor()
             val newNode = lastNode.children.getOrPut(withoutNext) {
@@ -335,9 +335,9 @@ class DebugAdapterProtocolStackMachine(
             }
         }
 
-        val rootNode = MutableVariableNode(name = "ROOT", value = null, variableIdentifier = stackIdentifier)
+        val rootNode = MutableVariableNode(name = "ROOT", value = null, variableIdentifier = variablePrefix)
         this.forEach {
-            check(it.first.type.header == VariableHeader.LOCALS || stackIdentifier == VariableHeader.GLOBAL.name){"Found a none-local variable whose stack identifier is not GLOBAL"}
+            check(it.first.type.header == VariableHeader.LOCALS || variablePrefix == VariableHeader.GLOBAL.name){"Found a none-local variable whose stack identifier is not GLOBAL"}
             traverse(rootNode, it.first.displayPath, it.second)
         }
         return rootNode.children.values.map { it.toImmutable() }
@@ -519,8 +519,8 @@ class DebugAdapterProtocolStackMachine(
 
     private fun persist() {
         callTrace.push(Statement(frames.top.cmd.toString(), frames.map { frame ->
-            ImmutableStackFrame(stackEntry = frame.el, function = frame.el.name, range = frame.range, variableContainers = (globalVariables + frame.variables).toVariableMapping(frames.joinToString { it.el.name }))
-        }))
+            ImmutableStackFrame(stackEntry = frame.el, function = frame.el.name, range = frame.range, variableContainers = frame.variables.toVariableMapping(frames.toList()))
+        }, globalVariableContainers = globalVariables.toVariableMapping(frames.toList())))
     }
 
     private fun updateVariables(displayPath: DisplayPath, symbol: TACSymbol, type: VariableType) {
@@ -662,14 +662,14 @@ data class VariableContainer(val header: String, val variables: List<VariableNod
 data class Rule(val fullyQualifiedRuleIdentifier: String, val isSatisfyRule: Boolean, val range: Range)
 
 @Serializable
-data class ImmutableStackFrame(val stackEntry: StackEntry, val function: String, val range: Range.Range?,  val variableContainers: List<VariableContainer> = listOf()){
+data class ImmutableStackFrame(val stackEntry: StackEntry, val function: String, val range: Range.Range?, val variableContainers: List<VariableContainer> = listOf()){
     override fun toString(): String {
         return function + "@" + range?.lineNumber
     }
 }
 
 @Serializable
-data class Statement(val statement: String, val frames: List<ImmutableStackFrame>)
+data class Statement(val statement: String, val frames: List<ImmutableStackFrame>, val globalVariableContainers: List<VariableContainer> = listOf())
 
 @Serializable
 data class Trace(val CertoraDAPVersion: String, val rule: Rule, val trace: List<Statement>)

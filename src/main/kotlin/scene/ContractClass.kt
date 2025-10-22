@@ -252,7 +252,8 @@ class ContractClass(
                 }
             }
 
-            transforms.add(ReportTypes.SPURIOUS_FP_UPDATE_REMOVAL, SpuriousFreePointerUpdateRemoval::transform)
+            transforms.add(ReportTypes.SPURIOUS_FP_UPDATE_REMOVAL, SpuriousFreePointerUpdateRemoval::transformAddition)
+            transforms.add(ReportTypes.SPURIOUS_FP_UPDATE_REMOVAL_DIRECT, SpuriousFreePointerUpdateRemoval::transformIdentity)
             if(Config.EnableOptimisticSpillLocations.get()) {
                 transforms.add(ReportTypes.OPTIMISTIC_SPILL_REWRITE, OptimisticSpillRewriter::rewrite)
             }

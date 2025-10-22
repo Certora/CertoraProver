@@ -514,6 +514,18 @@ def safe_copy_folder(source: Path, dest: Path, ignore_patterns: Callable[[str, L
     shutil.rmtree(copy_temp, ignore_errors=True)
 
 
+def safe_merge_folder(source: Path, dest: Path, ignore_patterns: Callable[[str, List[str]], Iterable[str]]) -> None:
+    """
+    Safely merge source to dest. dest may exist. Will overwrite existing files
+    On certain OS/kernels/FS, copying a folder f into a subdirectory of f will
+    send copy tree into an infinite loop. This sidesteps the problem by first copying through a temporary folder.
+    """
+    copy_temp = tempfile.mkdtemp()
+    shutil.copytree(source, copy_temp, ignore=ignore_patterns, dirs_exist_ok=True)
+    shutil.copytree(copy_temp, dest, dirs_exist_ok=True)
+    shutil.rmtree(copy_temp, ignore_errors=True)
+
+
 def as_posix(path: str) -> str:
     """
     Converts path from windows to unix
@@ -1369,7 +1381,9 @@ def get_mappings_from_forge_remappings() -> List[str]:
                 remappings.append(line.strip())
                 for suffix in ['contracts/', 'src/']:
                     if value.endswith(suffix) and not key.endswith(suffix):
-                        remappings.append(f"{key}{suffix}={value}")
+                        new_remapping = f"{key}{suffix}={value}"
+                        if new_remapping not in remappings:
+                            remappings.append(new_remapping)
 
     return remappings
 

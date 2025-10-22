@@ -102,11 +102,9 @@ sealed class MoveType : AmbiSerializable {
             else -> "${name}<${typeArguments.joinToString(", ") { it.displayName() }}>"
         }
 
-        override fun symNameExt(): String {
-            val typeArgumentString = typeArguments.fold("${typeArguments.size}") { acc, type ->
-                "$acc!${type.symNameExt()}"
-            }
-            return "${name.toVarName()}!$typeArgumentString"
+        override fun symNameExt() = when {
+            typeArguments.isEmpty() -> name.toVarName()
+            else -> "${name.toVarName()}\$${typeArguments.joinToString("\$$") { it.symNameExt() }}"
         }
     }
 

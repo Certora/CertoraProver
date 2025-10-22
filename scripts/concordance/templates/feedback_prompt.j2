@@ -1,0 +1,17 @@
+The following code is the result of an LLM simplifying some complicated
+Solidity code with the goal of making it more amenable for a static pointer analysis.
+The static analysis works well on standard Solidity code, but struggles with
+inline assembly, non-standard memory layouts, etc.
+
+When simplifying the code, the LLM was given the following constraints:
+```
+{% include "rewrite_constraints.j2" %}
+```
+and
+```
+{% include "code_requirements.j2" %}
+```
+
+Analyze the rewrite for its adherence to the above requirements.
+Phrase all feedback in the second person, addressing the LLM that generated
+this code. For example, say "instead of doing X you should ..."

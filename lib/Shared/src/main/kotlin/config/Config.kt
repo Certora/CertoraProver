@@ -578,6 +578,16 @@ object Config {
         )
     ) {}
 
+    val MaxMergedBranchExprs = object : ConfigType.IntCmdLine(
+        400,
+        Option(
+            "maxMergedBranchExprs",
+            true,
+            "Limits the size of merged control-flow branches.  Higher numbers result in less complex graphs, " +
+                "lower numbers result in more solver splitting opportunities."
+        )
+    ) {}
+
     // output related
     val MainOutputFolder = "Directory prefix for outputs and auxiliary files".let { desc ->
         object : ConfigType.StringCmdLine(
@@ -1492,6 +1502,15 @@ object Config {
             "enableFlowSensitivePartitioning",
             true,
             "Enable flow-sensitive splitting of partitions that are heuristically indicated to not interfere. Experimental, and potentially unsound"
+        )
+    ) {}
+
+    val MaxDedupIterations = object : ConfigType.IntCmdLine(
+        5000,
+        Option(
+            "maxDedupIterations",
+            true,
+            "Set the maximum number of graph isomorphism iterations for the deduplication optimization [default: 5000]"
         )
     ) {}
 
@@ -2463,7 +2482,7 @@ object Config {
     ) {}
 
     val CallTraceDebugAdapterProtocol = object : ConfigType.BooleanCmdLine(
-        true,
+        false,
         Option(
             "callTraceDebugAdapterProtocol",
             true,

@@ -11,6 +11,7 @@ langchain==0.3.27
 langchain-anthropic==0.3.18
 langgraph-sdk==0.2.0
 langgraph==0.6.0
+langgraph-checkpoint-sqlite
 
 # install to include type-hints
 twine

@@ -19,6 +19,8 @@
 package solver
 
 
+import config.Config
+import config.ConfigScope
 import datastructures.stdcollections.*
 import infra.CallTraceInfra
 import org.junit.jupiter.api.Assertions.*
@@ -40,13 +42,13 @@ class DebugAdapterCallTraceTest {
 
     private fun List<Statement>.toLineNumberRepresentation(withVariables: Boolean = true) = this.mapIndexed { idx, el ->
         idx to (el.frames to (if (withVariables) {
-            el.frames.variablesAtTopOfStack()
+            el.variablesAtTopOfStack()
         } else {
             ""
         }))
     }.joinToString("\n")
 
-    private fun Statement.allVariables(): List<String> = this.frames.flatMap { it.variablesStringRep() }
+    private fun Statement.allVariables(): List<String> = this.frames.flatMap { it.variablesStringRep() } + this.globalVariableContainers.variablesStringRep()
 
     /**
      * Tests that the stack size only increases and then decreases.
@@ -81,7 +83,7 @@ class DebugAdapterCallTraceTest {
         val matchingFrames = callTrace.filter { input.second.matches(it.frames) }
         assert(matchingFrames.isNotEmpty()) { "Did not find a matching frame that matches ${input.second} given the call trace \n${callTrace.map { it.frames }.joinToString("\n")}" }
         matchingFrames.forEach {
-            input.second.matchAction(it.frames)
+            input.second.matchAction(it)
         }
     }
 
@@ -225,10 +227,10 @@ class DebugAdapterCallTraceTest {
 
         fun matches(callStack: List<ImmutableStackFrame>): Boolean
 
-        val matchAction: (selectedCallStack: List<ImmutableStackFrame>) -> Unit
+        val matchAction: (selectedCallStack: Statement) -> Unit
     }
 
-    class CallStackMatcher(private vararg val stackSel: StackSel, override val matchAction: (callStack: List<ImmutableStackFrame>) -> Unit) : ICallStackMatcher {
+    class CallStackMatcher(private vararg val stackSel: StackSel, override val matchAction: (callStack: Statement) -> Unit) : ICallStackMatcher {
         override fun matches(callStack: List<ImmutableStackFrame>): Boolean {
             return callStack.matchesSelector(stackSel.toList())
         }
@@ -371,12 +373,12 @@ class DebugAdapterCallTraceTest {
         fun displaysVariableAtStack(): Stream<Pair<Config, CallStackMatcher>> {
 
 
-            fun assertContainsVariable(variableName: String, matchedCallStack: List<ImmutableStackFrame>) {
+            fun assertContainsVariable(variableName: String, matchedCallStack: Statement) {
                 val foundVariables = matchedCallStack.variablesAtTopOfStack()
                 assertTrue(variableName in foundVariables) { "Expected to find variable $variableName in variable set $foundVariables at stack $matchedCallStack" }
             }
 
-            fun assertNotContainsVariable(variableName: String, matchedCallStack: List<ImmutableStackFrame>) {
+            fun assertNotContainsVariable(variableName: String, matchedCallStack: Statement) {
                 val foundVariables = matchedCallStack.variablesAtTopOfStack()
                 assertTrue(variableName !in foundVariables) { "Did not expect to find variable $variableName in variable set $foundVariables at stack $matchedCallStack" }
             }
@@ -481,30 +483,36 @@ class DebugAdapterCallTraceTest {
         @JvmStatic
         @BeforeAll
         fun beforeAll() {
-            allRegisteredConfigs.map { conf ->
-                val callTrace = CallTraceInfra.runConfAndGetCallTrace(
-                    confPath = conf.confPath,
-                    specFilename = conf.specPath,
-                    ruleName = conf.ruleName,
-                    parametricMethodNames = conf.methodName?.let { listOf(it) }.orEmpty(),
-                    primaryContract = conf.primaryContract,
-                )
-                check(callTrace is CallTrace.ViolationFound || callTrace is CallTrace.Failure) { "No violation found for config $conf" }
-                val debugAdapter = callTrace.debugAdapterCallTrace
-                check(debugAdapter != null)
-                configToResult[conf] = debugAdapter
+            ConfigScope(config.Config.CallTraceDebugAdapterProtocol, true).use {
+                allRegisteredConfigs.map { conf ->
+                    val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+                        confPath = conf.confPath,
+                        specFilename = conf.specPath,
+                        ruleName = conf.ruleName,
+                        parametricMethodNames = conf.methodName?.let { listOf(it) }.orEmpty(),
+                        primaryContract = conf.primaryContract,
+                    )
+                    check(callTrace is CallTrace.ViolationFound || callTrace is CallTrace.Failure) { "No violation found for config $conf" }
+                    val debugAdapter = callTrace.debugAdapterCallTrace
+                    check(debugAdapter != null)
+                    configToResult[conf] = debugAdapter
+                }
             }
         }
     }
 }
 
-private fun List<ImmutableStackFrame>.variablesAtTopOfStack(): Set<String> {
-    val frame = this.firstOrNull()!!
-    return frame.variablesStringRep()
+private fun Statement.variablesAtTopOfStack(): Set<String> {
+    val frame = this.frames.firstOrNull()!!
+    return frame.variablesStringRep() + this.globalVariableContainers.variablesStringRep()
 }
 
 private fun ImmutableStackFrame.variablesStringRep(): Set<String> {
-    return this.variableContainers.flatMap { it.variables.flatMap { it.toAccessPathString().map { it.first } } }.toSet()
+    return this.variableContainers.variablesStringRep()
+}
+
+private fun List<VariableContainer>.variablesStringRep(): Set<String>{
+    return this.flatMap { it.variables.flatMap { it.toAccessPathString().map { it.first } } }.toSet()
 }
 
 private fun VariableNode.toAccessPathString(): List<Pair<String, String?>> {

@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import {Test, console} from "forge-std/Test.sol";
+import {VmSafe} from "forge-std/Vm.sol";
+import { {{ orig_name }} } from "../src/Orig.sol";
+import { {{ rewrite_name }} } from "../src/Rewrite.sol";
+
+contract DiffTest is Test {
+    {{ orig_name }} public impl1;
+    {{ rewrite_name }} public impl2;
+
+    function setUp() public {
+        impl1 = new {{ orig_name }}();
+        impl2 = new {{ rewrite_name }}();
+    }
+
+    {{ build_buffer }}
+
+    function test_differential(
+        {{ args }}
+    ) public {
+        uint state = vm.snapshotState();
+        bytes memory buffer = {{ build_buffer_call }};
+        vm.recordLogs();
+        vm.record();
+        (bool ret1, bytes memory buff1) = address(impl1).call(buffer);
+        ( , bytes32[] memory writes1) = vm.accesses(address(impl1));
+        uint postRun1 = vm.snapshotState();
+        
+        VmSafe.Log[] memory l1 = vm.getRecordedLogs();
+        vm.revertToStateAndDelete(state);
+        vm.etch(address(impl1), address(impl2).code);
+
+        vm.recordLogs();
+        vm.record();
+        (bool ret2, bytes memory buff2) = address(impl1).call(buffer);
+        vm.assertEq(ret1, ret2);
+        vm.assertEq(buff1, buff2);
+
+        ( , bytes32[] memory writes2) = vm.accesses(address(impl1));
+        VmSafe.Log[] memory l2 = vm.getRecordedLogs();
+        uint postRun2 = vm.snapshotState();
+        testStorageEquality(address(impl1), postRun1, postRun2, writes1);
+        testStorageEquality(address(impl1), postRun1, postRun2, writes2);
+
+        vm.assertEq(l1.length, l2.length);
+        for(uint i = 0; i < l1.length; i++) {
+            VmSafe.Log memory s1 = l1[i];
+            VmSafe.Log memory s2 = l2[i];
+
+            vm.assertEq(
+                s1.emitter,
+                s2.emitter
+            );
+            vm.assertEq(s1.data, s2.data, "different data");
+            vm.assertEq(s1.topics.length, s2.topics.length, "different topics");
+            for(uint j = 0; j < s1.topics.length; j++) {
+                vm.assertEq(s1.topics[j], s2.topics[j]);
+            }
+        }
+    }
+
+    function testStorageEquality(
+        address tgt,
+        uint sourceSnapshot,
+        uint targetSnapshot,
+        bytes32[] memory writes
+    ) internal {
+        for(uint i = 0; i < writes.length; i++) {
+            vm.revertToState(sourceSnapshot);
+            bytes32 value1 = vm.load(tgt, writes[i]);
+            vm.revertToState(targetSnapshot);
+            bytes32 value2 = vm.load(tgt, writes[i]);
+            vm.assertEq(value1, value2);
+        }
+    }
+}

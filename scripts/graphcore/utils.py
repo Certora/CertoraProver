@@ -87,4 +87,5 @@ def cached_invoke(b: Runnable[LanguageModelInput, BaseMessage], s: List[AnyMessa
     Send messages `s` to the llm `b` after adding caching instructions.
     """
     canon = add_cache_control(s)
-    return b.invoke(canon)
+    to_ret = b.invoke(canon)
+    return to_ret

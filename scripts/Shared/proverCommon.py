@@ -29,6 +29,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from rich.console import Console
 from typing import List, Tuple, Type, Optional, Dict, NoReturn, Callable
+from os import getenv
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
@@ -299,6 +300,9 @@ def catch_exits(fn: Callable[..., None]) -> Callable[..., NoReturn]:
 
         except Exception as e:
             console.print(f"[bold red]{e}")
+            if getenv('CERTORA_DEV_MODE'):
+                import traceback
+                console.print(f"Traceback: {traceback.format_exc()}")
             sys.exit(1)
 
     return wrapper

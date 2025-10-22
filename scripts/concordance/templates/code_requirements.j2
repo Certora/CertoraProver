@@ -1,0 +1,65 @@
+<soft_requirement>
+    You should *not* add additional error/interface declarations unless absolutely necessary
+    for your rewrite to compile.
+</soft_requirement>
+<important>
+    <strict-prohibition>
+    NEVER use for loops that perform byte-by-byte copies to/from bytes arrays.
+    
+    Specifically, DO NOT generate code like this:
+    ```
+    bytes memory output = new bytes(len);
+    for(uint i = 0; i < len; i++) {
+        output[i] = input[i + k];
+    }
+    ```
+    Instead, use `mcopy` from inline assembly, or, if `len` is statically known, a sequence of mload and stores:
+    ```
+    assembly {
+        let src := add(add(0x20, input), k)
+        let dst := add(result, 0x20)
+        mstore(dst, mload(src))
+
+        let src2 = add(add(0x20, input), add(k, 0x20))
+        let dst2 := add(result, 0x40)
+        mstore(dst2, mload(src2))
+        // etc
+    }
+    ```
+    <strict-prohibition>
+    <general-rules>
+    Inline assembly should be absolutely avoided unless you have no other option to preserve semantic equivalence.
+
+    When inline assembly is necessary:
+    - make the inline assembly block as minimal as possible
+    - Assembly should follow standard Solidity memory patterns (length checks, proper offset calculations, etc.)
+    - If the assembly access is reading an array, you MUST add `require` statements before the assembly block that
+    demonstrate the safety of the access (e.g., adding a require that the index being accessed is within bounds)
+
+    Before generating any assembly code you MUST consider whether it satisfies all of the above conditions.
+    </general-rules>
+    <strict-prohibition>
+    Unless absolutely necessary, using inline assembly to modify, initialize, or create a `bytes` array
+    is PROHIBITED. Instead, use `abi.encodePacked` or other mechanisms.
+    </strict-prohibition>
+    <exception>
+    Using assembly to read 32-byte words from `bytes` arrays are PREFERRED over byte-by-byte operations.
+    For example, the following is PREFERRED:
+    ```
+    bytes memory someArray = ...;
+    uint encodedInt;
+    assembly {
+        encodedInt = mload(add(add(someArray, 0x20), index))
+    }
+    ```
+    
+    INSTEAD of:
+    ```
+    bytes memory someArray = ...;
+    uint encodedInt;
+    for(uint i = 0; i < 32; i++) {
+        encodedInt |= someArray[index + 1] << (8 * (32 - i));
+    }
+    ```
+    </exception>
+</important>

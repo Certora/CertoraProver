@@ -21,13 +21,12 @@ import algorithms.dominates
 import analysis.PatternDSL
 import analysis.PatternMatcher
 import analysis.alloc.AllocationAnalysis.roundUp
+import analysis.maybeExpr
 import analysis.maybeNarrow
 import utils.*
-import vc.data.CoreTACProgram
 import vc.data.SimplePatchingProgram.Companion.patchForEach
-import vc.data.TACCmd
-import vc.data.TACKeyword
 import datastructures.stdcollections.*
+import vc.data.*
 
 /**
  *
@@ -43,7 +42,7 @@ object SpuriousFreePointerUpdateRemoval {
         }).commute.second
     }
 
-    fun transform(c: CoreTACProgram) : CoreTACProgram {
+    fun transformAddition(c: CoreTACProgram) : CoreTACProgram {
         val matcher = PatternMatcher.compilePattern(graph = c.analysisCache.graph, patt = updatePattern)
         val dom = c.analysisCache.domination
         val gvn = c.analysisCache.gvn
@@ -61,4 +60,20 @@ object SpuriousFreePointerUpdateRemoval {
         }
     }
 
+    fun transformIdentity(c: CoreTACProgram) : CoreTACProgram {
+        val gvn = c.analysisCache.gvn
+        return c.parallelLtacStream().mapNotNull {
+            it.maybeExpr<TACExpr.Sym.Var>()
+        }.filter {
+            it.lhs == TACKeyword.MEM64.toVar()
+        }.filter {
+            TACKeyword.MEM64.toVar() in gvn.equivBefore(it.ptr, it.exp.s)
+        }.map { e ->
+            { p: SimplePatchingProgram ->
+                p.replaceCommand(e.ptr, listOf(TACCmd.Simple.NopCmd))
+            }
+        }.patchForEach(c) { thunk ->
+            thunk(this)
+        }
+    }
 }

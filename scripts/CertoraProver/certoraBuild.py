@@ -1543,7 +1543,8 @@ class CertoraBuildGenerator:
                       contract_file_posix_abs: Path,
                       contract_file_as_provided: str,
                       remappings: List[str],
-                      compiler_collector: CompilerCollector) -> Dict[str, Any]:
+                      compiler_collector: CompilerCollector,
+                      compile_wd: Path) -> Dict[str, Any]:
         """
         when calling solc with the standard_json api, instead of passing it flags, we pass it json to request what we
         want -- currently we only use this to retrieve storage layout as this is the only way to do that,
@@ -1554,9 +1555,10 @@ class CertoraBuildGenerator:
         @param compiler_collector: Solidity or Vyper compiler collector
         @return:
         """
+        solc_json_contract_key = os.path.relpath(contract_file_as_provided, compile_wd) if self.context.use_relpaths_for_solc_json else contract_file_posix_abs
         compiler_collector_lang = compiler_collector.smart_contract_lang
         if compiler_collector_lang == CompilerLangSol() or compiler_collector_lang == CompilerLangYul():
-            sources_dict = {str(contract_file_posix_abs): {
+            sources_dict = {str(solc_json_contract_key): {
                 "urls": [str(contract_file_posix_abs)]}}  # type: Dict[str, Dict[str, Any]]
             output_selection = ["transientStorageLayout", "storageLayout", "abi", "evm.bytecode",
                                 "evm.deployedBytecode", "evm.methodIdentifiers", "evm.assembly",
@@ -1853,7 +1855,7 @@ class CertoraBuildGenerator:
         # Standard JSON
         remappings = [] if isinstance(compiler_collector, CompilerCollectorYul) else self.context.remappings
         input_for_solc = self.standard_json(Path(file_abs_path), build_arg_contract_file, remappings,
-                                            compiler_collector)
+                                            compiler_collector, compile_wd)
         standard_json_input = json.dumps(input_for_solc).encode("utf-8")
         compiler_logger.debug(f"about to run in {compile_wd} the command: {collect_cmd}")
         compiler_logger.debug(f"solc input = {json.dumps(input_for_solc, indent=4)}")
@@ -1909,7 +1911,7 @@ class CertoraBuildGenerator:
             contract_file_abs = str(Util.abs_norm_path(contract_file))
 
             # using os.path.relpath because Path.relative_to cannot go up the directory tree (no ..)
-            contract_file_rel = os.path.relpath(Path(contract_file_abs), Path.cwd())
+            contract_file_rel = os.path.relpath(Path(contract_file_abs), compile_wd)
 
             build_logger.debug(f"available keys: {data['contracts'].keys()}")
             if contract_file_rel in data[CONTRACTS]:
@@ -2008,7 +2010,15 @@ class CertoraBuildGenerator:
             srclist = {"0": file_abs_path}
             report_srclist = {"0": file_abs_path}
 
-        report_source_file = report_srclist[[idx for idx in srclist if srclist[idx] == file_abs_path][0]]
+        # Annoyingly, this is currently used just for... presentation?!
+        # We should clean up report_source_file from all places...
+
+        build_logger.debug(f"Finding report source file, abs path {file_abs_path} relative to {compile_wd}")
+        if self.context.use_relpaths_for_solc_json:
+            orig_report_source_file = Util.abs_posix_path(os.path.relpath(file_abs_path, compile_wd))
+        else:
+            orig_report_source_file = file_abs_path
+        report_source_file = report_srclist[[idx for idx in srclist if Util.abs_posix_path(srclist[idx]) == orig_report_source_file][0]]
 
         # all "contracts in SDC" are the same for every primary contract of the compiled file.
         # we can therefore compute those just once...
@@ -2039,8 +2049,9 @@ class CertoraBuildGenerator:
 
             build_logger.debug(f"finding primary contract address of {file_compiler_path}:{primary_contract} in "
                                f"{contracts_with_chosen_addresses}")
+            path_to_find = os.path.relpath(file_compiler_path, compile_wd) if self.context.use_relpaths_for_solc_json else file_compiler_path
             primary_contract_address = \
-                self.find_contract_address_str(file_compiler_path,
+                self.find_contract_address_str(path_to_find,
                                                primary_contract,
                                                contracts_with_chosen_addresses)
             build_logger.debug(f"Contracts in SDC {sdc_name}: {[contract.name for contract in contracts_in_sdc]}")
@@ -2086,7 +2097,7 @@ class CertoraBuildGenerator:
                 if new_path is None:
                     file_abs_path = Util.abs_posix_path(build_arg_contract_file)
                     # for vyper, because there are no autofinders, at least find the main file
-                    if (orig_file == file_abs_path and
+                    if (Util.abs_posix_path(orig_file) == file_abs_path and
                         ((Util.get_certora_sources_dir() / build_arg_contract_file).exists() or
                          Path(build_arg_contract_file).exists())):
                         new_srclist_map[idx] = build_arg_contract_file
@@ -2101,6 +2112,7 @@ class CertoraBuildGenerator:
                 report_srclist = srclist
         else:
             report_srclist = srclist
+        build_logger.debug(f"Report source list={report_srclist}")
         return report_srclist
 
     def get_bytecode(self,
@@ -2108,7 +2120,7 @@ class CertoraBuildGenerator:
                      contract_name: str,
                      primary_contracts: List[str],
                      contracts_with_chosen_addresses: List[Tuple[int, Any]],
-                     fail_if_no_bytecode: bool
+                     is_deployed_bytecode: bool
                      ) -> str:
         """
         Computes the linked bytecode object from the Solidity compiler output.
@@ -2119,20 +2131,31 @@ class CertoraBuildGenerator:
         @param primary_contracts - the names of the primary contracts we check to have a bytecode
         @param contracts_with_chosen_addresses - a list of tuples of addresses and the
             associated contract identifier
-        @param fail_if_no_bytecode - true if the function should fail if bytecode object is missing,
+        @param is_deployed_bytecode - true if we deal with deployed (runtime) bytecode,
+            thus the function should fail if bytecode object is missing,
             false otherwise
         @returns linked bytecode object
         """
         # TODO: Only contract_name should be necessary. This requires a lot more test cases to make sure we're not
         # missing any weird solidity outputs.
         bytecode_ = bytecode_object["object"]
-        bytecode = self.collect_and_link_bytecode(contract_name, contracts_with_chosen_addresses,
-                                                  bytecode_, bytecode_object.get("linkReferences", {}))
+        try:
+            bytecode = self.collect_and_link_bytecode(contract_name, contracts_with_chosen_addresses,
+                                                      bytecode_, bytecode_object.get("linkReferences", {}))
+        except Util.CertoraUserInputError as e:
+            if is_deployed_bytecode:
+                raise e
+            else:
+                prefix_msg = f"Failed to find a dependency library while building the "\
+                             f"constructor bytecode of {contract_name}. "\
+                             f"If you need the contract, import the missing library directly and add a dummy usage:\n"
+                orig_msg = str(e)
+                raise Util.CertoraUserInputError(prefix_msg + orig_msg)
         if contract_name in primary_contracts and len(bytecode) == 0:
             msg = f"Contract {contract_name} has no bytecode. " \
                   f"It may be caused because the contract is abstract, " \
                   f"or is missing constructor code. Please check the output of the Solidity compiler."
-            if fail_if_no_bytecode:
+            if is_deployed_bytecode:
                 raise Util.CertoraUserInputError(msg)
             else:
                 build_logger.warning(msg)
@@ -3002,7 +3025,7 @@ class CertoraBuildGenerator:
             target_file = self.context.contract_to_file[target.name]
             base_contracts = self.retrieve_base_contracts_list(
                 target_file,
-                Util.abs_posix_path(target_file),
+                target_file if self.context.use_relpaths_for_solc_json else Util.abs_posix_path(target_file),
                 target.name
             )
             extensions: Set[str] = set()
@@ -3078,8 +3101,9 @@ class CertoraBuildGenerator:
 
             # let's try to find the AST now
             build_file_ast = None
+            orig_path = os.path.relpath(ext_instance.original_file, Path.cwd()) if self.context.use_relpaths_for_solc_json else ext_instance.original_file
             for (k, v) in self.asts.items():
-                if ext_instance.original_file in v:
+                if orig_path in v:
                     build_file_ast = k
                     break
             if build_file_ast is None:
@@ -3087,10 +3111,10 @@ class CertoraBuildGenerator:
 
             contract_def_node = self.get_contract_def_node_ref(
                 build_file_ast,
-                ext_instance.original_file,
+                orig_path,
                 storage_ext
             )
-            def_node = self.asts[build_file_ast][ext_instance.original_file][contract_def_node]
+            def_node = self.asts[build_file_ast][orig_path][contract_def_node]
             nodes = def_node.get("nodes")
             if not isinstance(nodes, list):
                 raise RuntimeError(f"Couldn't find nodes for body of {storage_ext}")

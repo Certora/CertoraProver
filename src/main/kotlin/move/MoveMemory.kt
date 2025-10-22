@@ -893,7 +893,7 @@ class MoveMemory(val scene: MoveScene) {
         meta: MetaMap,
         action: context(CommandContext)(DereferencedRef) -> SimpleCmdsWithDecls
     ): SimpleCmdsWithDecls {
-        val refTargets = refs.cmdIn[origCmd.ptr]!![ref]
+        val refTargets = refs.refTargets[origCmd.ptr]!![ref]
         check(refTargets != null && refTargets.isNotEmpty()) { "No targets for $ref at ${origCmd.ptr}" }
 
         val refVars = transformRefVar(ref)

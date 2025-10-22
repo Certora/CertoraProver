@@ -915,11 +915,7 @@ data class CVLTACProgram(
     fun ltacStream(): Stream<GenericLTACCmd<TACCmd.Spec>> = parallelLtacStream().sequential()
 
     fun mergeBlocks(): CVLTACProgram {
-        return BlockMerger.mergeBlocks(this) { c, code, graph ->
-            c.copy(
-                code = code, blockgraph = graph
-            )
-        }
+        return BlockMerger.mergeBlocks(this)
     }
 
     fun prependCodeToCodeBlock(entry: NBId, codeToPrepend: CommandWithRequiredDecls<TACCmd.Spec>): CVLTACProgram {
