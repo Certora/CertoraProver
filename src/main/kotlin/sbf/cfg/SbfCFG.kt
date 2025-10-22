@@ -890,6 +890,12 @@ class MutableSbfCFG(private val name: String): SbfCFG {
             }
             // The basic block has only an unconditional jump to its only successor
             val succB = curB.getMutableSuccs().first()
+
+            if (curB == succB) {
+                // This is an empty loop: we don't touch it.
+                continue
+            }
+
             // Copy predecessors to avoid invalidating iterators
             val predecessors = ArrayList<MutableSbfBasicBlock>(curB.getPreds().size)
             predecessors.addAll(curB.getMutablePreds())
