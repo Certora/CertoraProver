@@ -178,6 +178,7 @@ if __name__ == '__main__':
     copy(SCRIPTS / "certoraEVMProver.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraRanger.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraConcord.py", CERTORA_CLI_DIR)
+    copy(SCRIPTS / "certoraSuiProver.py", CERTORA_CLI_DIR)
     copy(SCRIPTS / "certoraCVLFormatter.py", CERTORA_CLI_DIR)
 
     # write inputs
@@ -256,6 +257,7 @@ setuptools.setup(
             "certoraSorobanProver = certora_cli.certoraSorobanProver:entry_point",
             "certoraEVMProver = certora_cli.certoraEVMProver:entry_point",
             "certoraRanger = certora_cli.certoraRanger:entry_point",
+            "certoraSuiProver = certora_cli.certoraSuiProver:entry_point",
             "certoraCVLFormatter = certora_cli.certoraCVLFormatter:entry_point"
         ]
     }},
