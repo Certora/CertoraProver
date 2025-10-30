@@ -29,3 +29,10 @@ invariant preservedParamsIndependent() currentContract.counter < 2 {
         require a == currentContract.counter;
     }
 }
+
+invariant preservedWithDeclaration() currentContract.counter < 10 {
+    preserved {
+        uint c = currentContract.counter;
+        require c < 9;
+    }
+}

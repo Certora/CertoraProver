@@ -251,6 +251,14 @@ class BoundedModelChecker(
                             }
                         }
                     }
+                    is TACCmd.Simple.AnnotationCmd -> {
+                        if(cmd.annot.v is SnippetCmd.CVLSnippetCmd.SumGhostRead) {
+                            ghostReads.add(cmd.annot.v.baseGhostName)
+                        }
+                        else if (cmd.annot.v is SnippetCmd.CVLSnippetCmd.SumGhostUpdate) {
+                            ghostWrites.add(cmd.annot.v.baseGhostName)
+                        }
+                    }
 
                     else -> Unit
                 }
@@ -499,6 +507,13 @@ class BoundedModelChecker(
                 .filterNot { func ->
                     (scene.getContract(SolidityContract(func.methodSignature.qualifiedMethodName.host.name)) as? IContractWithSource)?.src
                         ?.isInternalFunctionHarness(func.methodSignature.qualifiedMethodName.methodId) == true
+                }
+                .filter { func ->
+                    // Don't even compile functions that are not included in either the sequence functions or last functions based on flags
+                    val all = this.cvl.importedFuncs.values.flatten().map { it.abiWithContractStr() }
+                    val sig = func.methodSignature.computeCanonicalSignatureWithContract(PrintingContext(false))
+                    all.containsMethodFilteredByConfig(sig, mainContract.name)
+                        || all.containsMethodFilteredByRangerConfig(sig, mainContract.name)
                 }
                 .map { contractFunc ->
                     contractFunc to compileFunction(contractFunc)
@@ -819,8 +834,15 @@ class BoundedModelChecker(
 
                     else -> `impossible!`
                 }
-            }.mapValues { (_, preserved) ->
-                compiler.compileCommands(preserved.block, "preserved").toCore(scene).summaryApplier().optimize(scene)
+            }.mapValues { (func, preserved) ->
+                // We wrap it in a block so that it will have its own scope for declarations
+                // and won't pollute the global scope in the compiler
+                val preservedBlock = CVLCmd.Composite.Block(
+                    Range.Empty(),
+                    preserved.block,
+                    CVLScope.AstScope
+                ).wrapWithMessageLabel("Preserved block for $func")
+                compiler.compileCommands(preservedBlock, "preserved").toCore(scene).summaryApplier().optimize(scene)
             }
         )
     }
@@ -946,7 +968,7 @@ class BoundedModelChecker(
                             // but is not generally an always reverting function that we would filter out, only with the sequence before)
                             if(sighash != null) {
                                 lastFuncs.find { it.sigHash == sighash.value }
-                                    ?: error("the selectorVar's value should have been one of the last functions' sighash")
+                                    ?: error("the selectorVar's value should have been one of the last functions' sighash, was ${sighash.value} in ${res.rule.ruleIdentifier}")
                             } else { null }
                         }
 
@@ -1109,7 +1131,7 @@ class BoundedModelChecker(
                 } else {
                     // In rule mode, the `filtered` clause and `--method` flag filter parametric methods within the rule
                     // and have nothing to do with the sequence coming before the rule is called.
-                    allFuncs
+                    sequenceChosenFunctions.toList()
                 }
 
                 runAllSequences(baseRule, progs, allFuncsForLastStep)
