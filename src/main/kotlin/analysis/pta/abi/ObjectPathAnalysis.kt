@@ -147,13 +147,13 @@ class ObjectPathAnalysis {
                             "Reading from an apparently unsafe base ${c.cmd.loc} @ $c"
                         }
                         val basePath = remove[struct.base].orEmpty() + Root(ObjectRoot(struct.base))
-                        if(struct.sort == StructStateAnalysis.ValueSort.ConstArray) {
+                        if(struct.sort == StructStateAnalysis.ValueSort.ConstArray || struct.sort is StructStateAnalysis.ValueSort.StridingPointer) {
                             remove[c.cmd.lhs] = basePath.updateElements {
                                 StaticArrayField(it)
                             }
                         } else {
                             check(struct.sort is StructStateAnalysis.ValueSort.FieldPointer)
-                            remove[c.cmd.lhs] = basePath.updateElements { Field(offset = struct.sort.x, parent = it) }
+                            remove[c.cmd.lhs] = basePath.updateElements { Field(offset = struct.sort.offs, parent = it) }
                         }
                     } else if(arr != null && arr is ArrayStateAnalysis.Value.ElementPointer) {
                         remove[c.cmd.lhs] = (arr.arrayPtr.flatMap {

@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "preservedWithDeclaration": {
+      "Initial State": "SUCCESS",
+      "Range 1": {
+        "SUCCESS": [
+          "preservedWithDeclaration-Initial State-C.bar(uint256)|C.foo(uint256)"
+        ]
+      },
+      "Range 2": {
+        "SUCCESS": [
+          "preservedWithDeclaration-Initial State-C.bar(uint256)|C.foo(uint256)-C.bar(uint256)|C.foo(uint256)"
+        ]
+      }
+    }
+  }
+}

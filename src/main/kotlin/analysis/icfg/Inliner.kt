@@ -121,7 +121,6 @@ private object Truncate : Resolution()
 
 object Inliner {
     enum class IllegalInliningReason {
-        DELEGATE_CALL_POST_STORAGE,
         WITHIN_WHOLE_CONTRACT
     }
 
@@ -433,7 +432,6 @@ object Inliner {
                     callerIcore = icore,
                     calleeWithInlining = calleeWithInlining,
                     summ = summ.summ,
-                    callee,
                     calleeContractAddress = scene.getContract(callee.contractId).addressSym as TACSymbol,
                     patching = patching,
                     calleeABIConvention = null,
@@ -461,7 +459,6 @@ object Inliner {
                          * to the [Summarizer], see [analysis.icfg.Summarization.AppliedSummary.Config.LateInliningDispatcher]
                          * for this case.
                          */
-                        val callee = summ.summ.callTarget.singleOrNull() ?: error("Expected exactly one element in callTarget set, got ${summ.summ.callTarget}")
                         val calleeWithInlining = recursiveInlining(resolution, scene, wholeContractProcessing).let { code ->
                             // create a new copy of this "method" that also just happens to have every call already inlined
                             scene.find(resolution.hostMethod)!!.fork().also { m ->
@@ -481,7 +478,6 @@ object Inliner {
                             callerIcore = icore,
                             calleeWithInlining = calleeWithInlining,
                             summ = summ.summ,
-                            callee = callee,
                             calleeContractAddress = scene.getContract(resolution.hostMethod.contractId).addressSym as TACSymbol,
                             patching = patching,
                             calleeABIConvention = resolution.withABIConvention,
@@ -920,7 +916,6 @@ object Inliner {
         callerIcore: CoreTACProgram,
         calleeWithInlining: ITACMethod,
         summ: CallSummary,
-        callee: CallGraphBuilder.CalledContract,
         calleeContractAddress: TACSymbol,
         patching: SimplePatchingProgram,
         calleeABIConvention: ABICallConvention.ABIFullBinding?,
@@ -928,14 +923,7 @@ object Inliner {
         extraInstrumentation: InstrumentationPass? = null,
         storageRewriter: (ITACMethod) -> CoreTACProgram
     ) {
-        if(summ.cannotBeInlined != null &&
-            // Delegate call inlining post storage splitting is generally disallowed due to assumptions made during
-            // storage splitting. Those assumptions consider all methods from the **same** contract, so inlining a
-            // method from the same contract is safe, as splitting storage to storage variables is done to all methods
-            // from the same contract together. Thus, we allow inlining on delegate calls on the same contract
-            !(summ.cannotBeInlined == IllegalInliningReason.DELEGATE_CALL_POST_STORAGE && callee is CallGraphBuilder.CalledContract.FullyResolved &&
-                callee.contractId == calleeWithInlining.getContainingContract().instanceId)
-        ) {
+        if(summ.cannotBeInlined != null) {
             throw UnsupportedOperationException("Attempting to inline a call for $summ which has been explicitly marked as illegal to inline due to ${summ.cannotBeInlined}")
         }
 
@@ -2128,96 +2116,123 @@ object Inliner {
         lateinit var forwardMapper: (Allocator.Id, Int) -> Int
 
         val callUpdated = ContractUtils.transformMethod(
-                call,
-                ChainedMethodTransformers(
-                        listOfNotNull(
-                                extraInstrumentation?.let { (report, inst) ->
-                                    val curried = { p: CoreTACProgram -> inst(calleeId, p)}
-                                    CoreToCoreTransformer(report, curried)
-                                }?.lift(),
-                                MethodToCoreTACTransformer(ReportTypes.STORAGE_REWRITER, storageRewriter),
-                                // uniquify
-                                MethodToCoreTACTransformer(ReportTypes.UNIQUE_IDS) { m: ITACMethod ->
-                                    val (toRet, mapper) = getUnique(m, calleeId)
-                                    forwardMapper = mapper
-                                    toRet
-                                },
-                                // update procedures
-                                CoreToCoreTransformer(ReportTypes.ADD_PROCEDURE) { m: CoreTACProgram ->
-                                    addProcedure(m, calleeId, call)
-                                }.lift(),
-                                // instrument the env
-                                MethodToCoreTACTransformer(
-                                    ReportTypes.ENV_INSTRUMENT
-                                ) { m: ITACMethod ->
-                                    environmentInstrumenter(
-                                        m,
-                                        calleeId,
-                                        callerSym,
-                                        addressSym,
-                                        callvalue,
-                                        blocknum,
-                                        timestamp,
-                                        basefee,
-                                        blobbasefee,
-                                        difficulty,
-                                        gasLimit,
-                                        coinbase,
-                                        origin,
-                                        summary?.sigResolution?.singleOrNull()
-                                    )
-                                },
-                                // setup the call by the convention
-                                // Must be set up after instrumenting the env since the env instrumenter may attempt to
-                                // read from the calldata, and doing this transform after promises that the the TAC the
-                                // calldata will be set-up _before_ the env instrumentation.
-                                MethodToCoreTACTransformer(ReportTypes.CALL_CONVENTION) { m: ITACMethod ->
-                                    callConvention.setup(m, forwardMapper).code as CoreTACProgram
-                                },
-                                // handle reverting
-                                CoreToCoreTransformer(ReportTypes.REVERT_SUMMARIES) { p_: CoreTACProgram ->
-                                    addRevertSummaries(
-                                            p_,
-                                            calleeId
-                                    )
-                                }.lift(),
-                                // summarize returns/reverts
-                                CoreToCoreTransformer(ReportTypes.RETURNS_TO_SUMMARIES) { p_: CoreTACProgram ->
-                                    convertReturnsToSummaries(p_)
-                                }.lift(),
-                        MethodToCoreTACTransformer(ReportTypes.TRACE_PUSH_POP) { m: ITACMethod ->
-                            val code = m.code as CoreTACProgram
-                            code.patching { patching ->
-                                code.analysisCache.graph.sinks.forEach(
-                                    CallStack.stackPopper(
-                                        patching, CallStack.PopRecord(
-                                            callee = call.toRef(),
-                                            calleeId = calleeId
-                                        )
-                                    )
-                                )
-                                code.analysisCache.graph.roots.forEach(
-                                    CallStack.stackPusher(
-                                        patching, CallStack.PushRecord(
-                                            callee = call.toRef(),
-                                            summary = summary,
-                                            convention = callConvention.convention,
-                                            calleeId = calleeId,
-                                            evmExternalMethodInfo = call.toIdentifiers().evmExternalMethodInfo
-                                        )
+            call,
+            ChainedMethodTransformers(
+                listOfNotNull(
+                    extraInstrumentation?.let { (report, inst) ->
+                        val curried = { p: CoreTACProgram -> inst(calleeId, p)}
+                        CoreToCoreTransformer(report, curried)
+                    }?.lift(),
+                    MethodToCoreTACTransformer(ReportTypes.STORAGE_REWRITER, storageRewriter),
+                    // uniquify
+                    MethodToCoreTACTransformer(ReportTypes.UNIQUE_IDS) { m: ITACMethod ->
+                        val (toRet, mapper) = getUnique(m, calleeId)
+                        forwardMapper = mapper
+                        toRet
+                    },
+                    // update procedures
+                    CoreToCoreTransformer(ReportTypes.ADD_PROCEDURE) { m: CoreTACProgram ->
+                        addProcedure(m, calleeId, call)
+                    }.lift(),
+                    // instrument the env
+                    MethodToCoreTACTransformer(
+                        ReportTypes.ENV_INSTRUMENT
+                    ) { m: ITACMethod ->
+                        environmentInstrumenter(
+                            m,
+                            calleeId,
+                            callerSym,
+                            addressSym,
+                            callvalue,
+                            blocknum,
+                            timestamp,
+                            basefee,
+                            blobbasefee,
+                            difficulty,
+                            gasLimit,
+                            coinbase,
+                            origin,
+                            summary?.sigResolution?.singleOrNull()
+                        )
+                    },
+                    // setup the call by the convention
+                    // Must be set up after instrumenting the env since the env instrumenter may attempt to
+                    // read from the calldata, and doing this transform after promises that the the TAC the
+                    // calldata will be set-up _before_ the env instrumentation.
+                    MethodToCoreTACTransformer(ReportTypes.CALL_CONVENTION) { m: ITACMethod ->
+                        callConvention.setup(m, forwardMapper).code as CoreTACProgram
+                    },
+                    // handle reverting
+                    CoreToCoreTransformer(ReportTypes.REVERT_SUMMARIES) { p_: CoreTACProgram ->
+                        addRevertSummaries(
+                                p_,
+                                calleeId
+                        )
+                    }.lift(),
+                    // summarize returns/reverts
+                    CoreToCoreTransformer(ReportTypes.RETURNS_TO_SUMMARIES) { p_: CoreTACProgram ->
+                        convertReturnsToSummaries(p_)
+                    }.lift(),
+                    MethodToCoreTACTransformer(ReportTypes.TRACE_PUSH_POP) { m: ITACMethod ->
+                        val code = m.code as CoreTACProgram
+                        code.patching { patching ->
+                            code.analysisCache.graph.sinks.forEach(
+                                CallStack.stackPopper(
+                                    patching, CallStack.PopRecord(
+                                        callee = call.toRef(),
+                                        calleeId = calleeId
                                     )
                                 )
-                                summary?.variables?.forEach { v ->
-                                    check(symbolTable.contains(v)) {
-                                        "malformed typescope while inlining, " +
-                                            "expected to contain $v but does not"
+                            )
+                            code.analysisCache.graph.roots.forEach(
+                                CallStack.stackPusher(
+                                    patching, CallStack.PushRecord(
+                                        callee = call.toRef(),
+                                        summary = summary,
+                                        convention = callConvention.convention,
+                                        calleeId = calleeId,
+                                        evmExternalMethodInfo = call.toIdentifiers().evmExternalMethodInfo
+                                    )
+                                )
+                            )
+                            summary?.variables?.forEach { v ->
+                                check(symbolTable.contains(v)) {
+                                    "malformed typescope while inlining, " +
+                                        "expected to contain $v but does not"
+                                }
+                            }
+                            summary?.let { patching.addVarDecls(it.variables) }
+                        }
+                    },
+                    runIf(callType == TACCallType.DELEGATE) {
+                        // The INLINE_DIRECT transform will have tried to inline this method's child calls, but may have
+                        // failed for any that depend on getting the "this" address from via a delegatecall.  In those
+                        // cases we will have marked the calls as invalidated.  However, now that we're inlining a
+                        // delegatecall to this method, we need to reverse the invalidation of its calls so that we can
+                        // try inlining them with the correct "this" address.
+                        CoreToCoreTransformer(ReportTypes.RESTORE_INVALIDATED_CALLS) { c ->
+                            c.parallelLtacStream().mapNotNull { (ptr, cmd) ->
+                                cmd.snarrowOrNull<CallSummary>()?.let { summ ->
+                                    val restored = summ.callTarget.mapToSet {
+                                        if (it is CallGraphBuilder.CalledContract.Invalidated) {
+                                            it.orig
+                                        } else {
+                                            it
+                                        }
+                                    }
+                                    if (restored != summ.callTarget) {
+                                        ptr to TACCmd.Simple.SummaryCmd(summ.copy(callTarget = restored))
+                                    } else {
+                                        null
                                     }
                                 }
-                                summary?.let { patching.addVarDecls(it.variables) }
+                            }.patchForEach(c) { (where, what) ->
+                                replaceCommand(where, listOf(what))
                             }
-                        }
-                        )
+                        }.lift()
+                    }
                 )
+            )
         )
 
         return callUpdated

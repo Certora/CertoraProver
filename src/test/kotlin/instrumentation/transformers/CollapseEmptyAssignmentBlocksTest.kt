@@ -19,6 +19,7 @@ package instrumentation.transformers
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import utils.permutations
 import vc.data.TACBuilderAuxiliaries
 import vc.data.TACCmd.Simple.AnnotationCmd
 import vc.data.TACProgramBuilder
@@ -37,14 +38,6 @@ class CollapseEmptyAssignmentBlocksTest: TACBuilderAuxiliaries() {
         // this test constructs such a graph & permutes the IDs of the blocks
         // and the order in which the blocks are added
         // to the graph in the hopes of triggering the problematic case
-        fun permutations(l: List<Int>): List<List<Int>> {
-            if (l.isEmpty()) {
-                return listOf(listOf())
-            }
-            return l.flatMap { i ->
-                permutations(l - i).map { p -> listOf(i) + p }
-            }
-        }
 
         fun makeCommands(xBlock: Int, yBlock: Int, zBlock: Int): List<TACProgramBuilder.BlockBuilder.() -> Unit> =
             listOf(
@@ -70,9 +63,9 @@ class CollapseEmptyAssignmentBlocksTest: TACBuilderAuxiliaries() {
                 }
             )
 
-        for ((a, b, c) in permutations((1..3).toList())) {
+        for ((a, b, c) in (1..3).toList().permutations()) {
             val commands = makeCommands(a, b, c)
-            for (perm in permutations(commands.indices.toList())) {
+            for (perm in commands.indices.toList().permutations()) {
                 val prog = TACProgramBuilder {
                     perm.forEach { commands[it]() }
                 }

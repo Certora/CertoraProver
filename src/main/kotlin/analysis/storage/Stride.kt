@@ -446,8 +446,8 @@ sealed class Stride {
                         }
                         // case b)
                         val range = IntValue(
-                            symVal.v.lb / i.value,
-                            symVal.v.ub / i.value
+                            symVal.v.lb,
+                            symVal.v.ub
                         )
                         sumOf(
                             factored = treapMapOf(newK to SymValue(null, range)),

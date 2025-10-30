@@ -1505,14 +1505,15 @@ sealed class SnippetCmd: AmbiSerializable {
     sealed class CvlrSnippetCmd : SnippetCmd() {
 
         @KSerializable
-        data class CexPrintU64AsFixed(
+        data class CexPrintU64AsFixedOrDecimal(
             val displayMessage: String,
             val unscaledVal: TACSymbol.Var,
-            val scale: TACSymbol.Var
-        ) : CvlrSnippetCmd(), TransformableVarEntityWithSupport<CexPrintU64AsFixed> {
+            val scale: TACSymbol.Var,
+            val asFixed: Boolean
+        ) : CvlrSnippetCmd(), TransformableVarEntityWithSupport<CexPrintU64AsFixedOrDecimal> {
             override val support: Set<TACSymbol.Var> get() = setOf(unscaledVal, scale)
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
-                CexPrintU64AsFixed(displayMessage = displayMessage, unscaledVal = f(unscaledVal), scale = f(scale))
+                CexPrintU64AsFixedOrDecimal(displayMessage = displayMessage, unscaledVal = f(unscaledVal), scale = f(scale), asFixed = asFixed)
         }
 
         @KSerializable

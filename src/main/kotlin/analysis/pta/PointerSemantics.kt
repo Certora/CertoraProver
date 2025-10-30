@@ -2827,6 +2827,22 @@ class PointerSemantics(
                 }
             }
 
+            override fun toAddedStridingPointer(
+                blockBase: TACSymbol.Var,
+                target: PointsToGraph,
+                v: Set<L>,
+                where: ExprView<TACExpr.Vec.Add>,
+                whole: PointsToDomain,
+                striding: StructStateAnalysis.ValueSort.StridingPointer,
+                amount: BigInteger
+            ): PointsToGraph {
+                return target.updateVariable(where.lhs) { ->
+                    Pointer.ConstSizeArrayElemPointer(
+                        v = v
+                    )
+                }
+            }
+
             override fun nondeterministicInteger(where: ExprView<TACExpr.Vec.Add>, s: PointsToDomain, target: PointsToGraph): PointsToGraph {
                 return nondetInt(target, where)
             }

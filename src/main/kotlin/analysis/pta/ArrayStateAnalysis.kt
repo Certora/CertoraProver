@@ -220,6 +220,18 @@ class ArrayStateAnalysis(
         override val relaxedArrayAddition: Boolean
             get() = this@ArrayStateAnalysis.relaxedSemantics
 
+        override fun toAddedStridingPointer(
+            blockBase: TACSymbol.Var,
+            target: ArrayStateDomain,
+            v: Set<L>,
+            where: ExprView<TACExpr.Vec.Add>,
+            whole: PointsToDomain,
+            striding: StructStateAnalysis.ValueSort.StridingPointer,
+            amount: BigInteger
+        ): ArrayStateDomain {
+            return target.remove(where.cmd.lhs)
+        }
+
         override fun toStaticArrayInitPointer(
             av1: InitializationPointer.BlockInitPointer,
             o1: TACSymbol.Var,

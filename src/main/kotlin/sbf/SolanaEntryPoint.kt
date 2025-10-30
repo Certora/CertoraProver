@@ -296,8 +296,8 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
             is UnknownGlobalDerefError,
             is UnknownStackContentError,
             is UnknownMemcpyLenError,
-            is DerefOfAbsoluteAddressError -> explainPTAError(e, program, memSummaries)
-
+            is DerefOfAbsoluteAddressError,
+            is PointerStackEscapingError -> explainPTAError(e, program, memSummaries)
             else -> {}
         }
         // we throw again the exception for the user to see

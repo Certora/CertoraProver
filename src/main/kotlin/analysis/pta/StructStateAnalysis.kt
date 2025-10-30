@@ -41,6 +41,14 @@ import java.math.BigInteger
 
 typealias StructStateDomain = TreapMap<TACSymbol.Var, StructStateAnalysis.Value>
 
+// ordered so the least precise values are "first"
+private fun StructStateAnalysis.ValueSort.ordinal() = when(this) {
+    StructStateAnalysis.ValueSort.MaybeConstArray -> 0
+    StructStateAnalysis.ValueSort.ConstArray -> 1
+    is StructStateAnalysis.ValueSort.StridingPointer -> 2
+    is StructStateAnalysis.ValueSort.FieldPointer -> 3
+}
+
 fun StructStateDomain.join(
         other: StructStateDomain,
         leftContext: PointsToGraph,
@@ -63,26 +71,96 @@ fun StructStateDomain.join(
             }
             return@merge null
         }
-        if(otherV.sort != v.sort &&
-                (otherV.sort is StructStateAnalysis.ValueSort.FieldPointer ||
-                        v.sort is StructStateAnalysis.ValueSort.FieldPointer)) {
-            val t1 = leftContext.isTupleVar(v.base) ?: return@merge null
-            val t2 = rightContext.isTupleVar(otherV.base) ?: return@merge null
-            if(t1 is TupleTypeResult.TupleResult && t2 is TupleTypeResult.TupleResult && !t1.v.checkCompatibility(t2.v)) {
-                return@merge null
+        val isTupleSafe by lazy {
+            val t1 = leftContext.isTupleVar(v.base) ?: return@lazy false
+            val t2 = rightContext.isTupleVar(otherV.base) ?: return@lazy false
+            t1 is TupleTypeResult.TupleResult && t2 is TupleTypeResult.TupleResult && t1.v.checkCompatibility(t2.v)
+        }
+        if(otherV.sort == v.sort) {
+            return@merge v.copy(
+                sort = v.sort,
+                indexVars = v.indexVars.intersect(otherV.indexVars),
+                untilEndVars = v.untilEndVars.intersect(otherV.untilEndVars)
+            )
+        }
+
+        /**
+         * calling convention is that [s1].ordinal <= [s2].ordinal
+         */
+        fun joinSortsOrd(
+            s1: StructStateAnalysis.ValueSort,
+            s2: StructStateAnalysis.ValueSort
+        ) : StructStateAnalysis.ValueSort? {
+            return when(s1) {
+                /**
+                 * maybe case: if the field pointer is not tuple safe, null, otherwise maybeconst (maybe
+                 * abstraction subsumes all others)
+                 * const case: ditto with field pointer, otherwise, [analysis.pta.StructStateAnalysis.ValueSort.ConstArray]
+                 * (again, subsumes the more precise abstractions)
+                 */
+                StructStateAnalysis.ValueSort.MaybeConstArray,
+                StructStateAnalysis.ValueSort.ConstArray -> {
+                    if(s2 is StructStateAnalysis.ValueSort.FieldPointer && !isTupleSafe) {
+                        return null
+                    }
+                    return s1
+                }
+                // s2 must be striding or field pointer
+                is StructStateAnalysis.ValueSort.StridingPointer -> {
+                    when(s2) {
+                        is StructStateAnalysis.ValueSort.FieldPointer -> {
+                            // is the specific offset reachable for some specific instantiation of the stride
+                            if(((s2.offs - s1.innerOffset) - s1.strideStart).mod(s1.strideBy) != BigInteger.ZERO) {
+                                return null
+                            }
+                            s1
+                        }
+                        is StructStateAnalysis.ValueSort.StridingPointer -> {
+                            if(s2.innerOffset != s1.innerOffset || s1.strideStart != s2.strideStart || s1.strideBy != s2.strideBy) {
+                                return null
+                            }
+                            s1.copy(
+                                untilEnd = s1.untilEnd?.takeIf {
+                                    it == s2.untilEnd
+                                }
+                            )
+                        }
+                        StructStateAnalysis.ValueSort.ConstArray,
+                        StructStateAnalysis.ValueSort.MaybeConstArray -> `impossible!`
+                    }
+                }
+                is StructStateAnalysis.ValueSort.FieldPointer -> {
+                    ptaInvariant(s2 is StructStateAnalysis.ValueSort.FieldPointer) {
+                        "ordering calling convention violated: $s2 is not a field pointer"
+                    }
+                    if (isTupleSafe) {
+                        StructStateAnalysis.ValueSort.StridingPointer(
+                            strideStart = s1.offs.min(s2.offs),
+                            strideBy = (s2.offs - s1.offs).abs(),
+                            innerOffset = BigInteger.ZERO,
+                            untilEnd = null
+                        )
+                    } else {
+                        null
+                    }
+                }
             }
         }
-        val sort = if(otherV.sort != v.sort) {
-            if(otherV.sort is StructStateAnalysis.ValueSort.MaybeConstArray || v.sort is StructStateAnalysis.ValueSort.MaybeConstArray) {
-                StructStateAnalysis.ValueSort.MaybeConstArray
+
+        fun joinSorts(
+            s1: StructStateAnalysis.ValueSort,
+            s2: StructStateAnalysis.ValueSort
+        ) : StructStateAnalysis.ValueSort? {
+            return if(s1.ordinal() <= s2.ordinal()) {
+                joinSortsOrd(s1, s2)
             } else {
-                StructStateAnalysis.ValueSort.ConstArray
+                joinSortsOrd(s2, s1)
             }
-        } else {
-            v.sort
         }
+
+        val newSort = joinSorts(v.sort, otherV.sort) ?: return@merge null
         return@merge v.copy(
-            sort = sort,
+            sort = newSort,
             indexVars = v.indexVars.intersect(otherV.indexVars),
             untilEndVars = v.untilEndVars.intersect(otherV.untilEndVars)
         )
@@ -106,6 +184,51 @@ class StructStateAnalysis(
     ): Pair<StructStateDomain, List<ValidBlock>> {
         val conv = mutableListOf<ValidBlock>()
         val withSafetyProof = structState.updateValues { k, v ->
+            if(v.sort is ValueSort.StridingPointer) {
+                val pathInfo = path[k] ?: return@updateValues v
+                val ub = pathInfo.filterIsInstance<PathInformation.StrictUpperBound>().filter {
+                    it.sym != null
+                }.mapNotNull {
+                    structState[it.sym!!]?.takeIf {
+                        it.base == v.base
+                    }?.sort?.let {
+                        (it as? ValueSort.FieldPointer)?.offs
+                    }
+                }.uniqueOrNull() ?: return@updateValues v
+                /**
+                 * We therefore have `k`'s offset must be one of
+                 * O = { innerOffset + strideStart + i * strideBy | i \in N }
+                 * and further that `k`'s offset must be < ub.
+                 *
+                 * Then, the offsets reprsented by `k` must therefore be:
+                 * `O' = O \cap { i | i \in N /\ i < ub }`
+                 *
+                 * We can now infer (an upper bound on) how many bytes remain until the end
+                 * of the struct: ub - max(O')` (as from the abstraction of [analysis.pta.StructStateAnalysis.ValueSort.FieldPointer]
+                 * `ub` is itself within bounds).
+                 *
+                 * From this, we can record this new [analysis.pta.StructStateAnalysis.ValueSort.StridingPointer.untilEnd]
+                 * value, allowing proving accesses safe, and allowing some pointer addition.
+                 */
+                val strideRange = (ub - v.sort.innerOffset - v.sort.strideStart)
+                if(strideRange <= BigInteger.ZERO) {
+                    return@updateValues v
+                }
+                val maxAmount = (strideRange / v.sort.strideBy).letIf(strideRange.mod(v.sort.strideBy) == BigInteger.ZERO) {
+                    it - BigInteger.ONE
+                }.takeIf {
+                    it >= BigInteger.ZERO
+                }?.let {
+                    (it * v.sort.strideBy) + v.sort.innerOffset + v.sort.strideStart
+                }?.takeIf {
+                    it < ub
+                } ?: return@updateValues v
+                return@updateValues v.copy(
+                    sort = v.sort.copy(
+                        untilEnd = ub - maxAmount
+                    )
+                )
+            }
             if (v.sort !is ValueSort.MaybeConstArray) {
                 return@updateValues v
             }
@@ -424,6 +547,40 @@ class StructStateAnalysis(
         override val relaxedArrayAddition: Boolean
             get() = this@StructStateAnalysis.relaxedSemantics
 
+        override fun toAddedStridingPointer(
+            blockBase: TACSymbol.Var,
+            target: StructStateDomain,
+            v: Set<L>,
+            where: ExprView<TACExpr.Vec.Add>,
+            whole: PointsToDomain,
+            striding: ValueSort.StridingPointer,
+            amount: BigInteger
+        ): StructStateDomain {
+            val nextOffs = striding.innerOffset + amount
+            val nextStride = if(nextOffs == striding.strideBy) {
+                striding.copy(
+                    innerOffset = BigInteger.ZERO
+                )
+            } else {
+                striding.copy(
+                    innerOffset = nextOffs
+                )
+            }
+            check(striding.untilEnd != null && striding.untilEnd >= amount) {
+                "Until end null in add semantics?"
+            }
+            val nextEnd = (striding.untilEnd - amount).takeIf { amt ->
+                amt > BigInteger.ZERO
+            }
+            val finalStride = nextStride.copy(untilEnd = nextEnd)
+            return target + (where.lhs to Value(
+                sort = finalStride,
+                base = blockBase,
+                indexVars = setOf(),
+                untilEndVars = setOf()
+            ))
+        }
+
         override fun nondeterministicInteger(where: ExprView<TACExpr.Vec.Add>, s: PointsToDomain, target: StructStateDomain): StructStateDomain {
             return target - where.lhs
         }
@@ -468,7 +625,7 @@ class StructStateAnalysis(
 
         private fun toMaybeConst(o1: TACSymbol.Var, blockAddr: Set<L>, target: StructStateDomain, whole: PointsToDomain, where: ExprView<TACExpr.Vec.Add>): StructStateDomain {
             val new = target[o1]?.takeIf {
-                it.sort == ValueSort.ConstArray
+                it.sort == ValueSort.ConstArray || it.sort is ValueSort.StridingPointer
             }?.takeIf {
                 blockAddr.monadicMap { addr ->
                     whole.pointsToState.h.isTupleSafeAddress(addr)
@@ -676,7 +833,21 @@ class StructStateAnalysis(
     sealed class ValueSort {
         object ConstArray : ValueSort()
         object MaybeConstArray : ValueSort()
-        data class FieldPointer(val x: BigInteger) : ValueSort()
+        data class FieldPointer(val offs: BigInteger) : ValueSort()
+
+        /**
+         * A "hybrid" of [ConstArray] and [MaybeConstArray] that describes how the elements of the struct are iterated over.
+         * Like the more general [analysis.pta.abi.StridePath]; this object represents a memory location reached by
+         * [strideStart] + [strideBy] * k + [innerOffset] for some `k`. NB that, depending on `k`, this may not be within bounds.
+         * However, if [untilEnd] is non-null, then it is known that *at least* that many bites exist until the end of the array,
+         * meaning this pointer is safe for reading/writing.
+         */
+        data class StridingPointer(
+            val strideStart: BigInteger,
+            val strideBy: BigInteger,
+            val innerOffset: BigInteger,
+            val untilEnd: BigInteger?
+        ) : ValueSort()
     }
 
     private val indexTracking = object : IndexTracking<Value, Value, ValidBlock>(numericAnalysis) {
@@ -685,7 +856,7 @@ class StructStateAnalysis(
         override fun downcast(v: Value): Value = v
 
         override fun untilEndFor(k: TACSymbol.Var, t: Value, m: Map<TACSymbol.Var, Value>, p: PointsToDomain, ltacCmd: LTACCmd): BigInteger? {
-            return (t.sort as? ValueSort.FieldPointer)?.x?.let { curr ->
+            return (t.sort as? ValueSort.FieldPointer)?.offs?.let { curr ->
                 pointerAnalysis.blockSizeOf(t.base, pState = p.pointsToState)?.let { sz ->
                     (sz / EVM_WORD_SIZE) - curr
                 }
@@ -695,7 +866,7 @@ class StructStateAnalysis(
         override fun strengthen(t: Value): Value {
             return if(t.sort == ValueSort.MaybeConstArray) {
                 t.copy(
-                        sort = ValueSort.ConstArray
+                    sort = ValueSort.ConstArray
                 )
             } else {
                 t
@@ -733,7 +904,7 @@ class StructStateAnalysis(
         }
 
         override val constIndex: BigInteger?
-            get() = sort.let { it as? ValueSort.FieldPointer }?.x
+            get() = sort.let { it as? ValueSort.FieldPointer }?.offs
 
 
         override fun withVars(addIndex: Iterable<TACSymbol.Var>, addUntilEnd: Iterable<TACSymbol.Var>): Value {

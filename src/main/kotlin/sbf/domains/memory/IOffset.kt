@@ -17,6 +17,8 @@
 
 package sbf.domains
 
+import sbf.cfg.CondOp
+
 interface IOffset<V> {
     /**
      * Attempts to convert this offset value to a signed [Long].
@@ -37,6 +39,8 @@ interface IOffset<V> {
     fun sub(n: Long): V
     fun mul(other: V): V
     fun mul(n: Long): V
+    // filter the values of `this` after the execution `this op other`
+    fun filter(op: CondOp, other: V): V
 
     /* lattice operations */
     fun isTop(): Boolean

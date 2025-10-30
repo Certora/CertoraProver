@@ -41,6 +41,7 @@ object CvlrFunctions {
     const val CVT_calltrace_print_u64_3 = "CVT_calltrace_print_u64_3"
     const val CVT_calltrace_print_u128 = "CVT_calltrace_print_u128"
     const val CVT_calltrace_print_u64_as_fixed = "CVT_calltrace_print_u64_as_fixed"
+    const val CVT_calltrace_print_u64_as_decimal = "CVT_calltrace_print_u64_as_decimal"
     const val CVT_calltrace_print_i32_1 = "CVT_calltrace_print_i32_1"
     const val CVT_calltrace_print_i64_1 = "CVT_calltrace_print_i64_1"
     const val CVT_calltrace_print_i64_2 = "CVT_calltrace_print_i64_2"

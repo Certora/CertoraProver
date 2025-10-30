@@ -34,6 +34,31 @@ private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 
 class MemoryTest {
 
+    private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags : IPTANodeFlags<Flags>> load(
+        g: PTAGraph<TNum, TOffset, Flags>,
+        base: Value.Reg,
+        offset: Short,
+        width: Short,
+        lhs: Value.Reg
+    ): PTASymCell<Flags>? {
+        val inst = SbfInstruction.Mem(Deref(width, base, offset, null), lhs, true, null)
+        val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
+        g.doLoad(locInst, base, SbfType.top(), newGlobalVariableMap())
+        return g.getRegCell(lhs)
+    }
+
+    private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags : IPTANodeFlags<Flags>> store(
+        g: PTAGraph<TNum, TOffset, Flags>,
+        base: Value.Reg,
+        offset: Short,
+        width: Short,
+        value: Value.Reg
+    ) {
+        val inst = SbfInstruction.Mem(Deref(width, base, offset, null), value, false, null)
+        val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
+        g.doStore(locInst, base, value, SbfType.top(), SbfType.top(), newGlobalVariableMap())
+    }
+
     @Test
     fun test01() {
         println("====== TEST 1 =======")
@@ -1100,5 +1125,125 @@ class MemoryTest {
         val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
         check(sc != null)
         Assertions.assertEquals(true, sc.getNode().flags.isMayStack)
+    }
+
+    @Test
+    fun test24() {
+        println("====== TEST 24: materialize stack (memcpy) =======")
+
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r4 = Value.Reg(SbfRegister.R4_ARG)
+        val r5 = Value.Reg(SbfRegister.R5_ARG)
+        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac, true)
+        val stack = absVal.getRegCell(r10, newGlobalVariableMap())
+        check(stack != null) { "memory domain cannot find the stack node" }
+        stack.getNode().setRead()
+        val g = absVal.getPTAGraph()
+        val scalars = absVal.getScalars()
+        val globals = newGlobalVariableMap()
+        val sumN = g.mkSummarizedNode()
+        sumN.setWrite()
+        sumN.setRead()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+
+        // memcpy(r1=sp(4032),r2=(sumN,0),r3=32)
+        g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(4032)))
+        g.setRegCell(r2,sumN.createSymCell(PTAOffset(0)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32)))
+        g.doMemcpy(scalars, globals)
+        println("After memcpy(r1=sp(4032),r2=(sumN,0),r3=32): $g")
+
+        val c1 = stack.getNode().getSucc(PTAField(PTAOffset(4032), 8))
+        val c2 = stack.getNode().getSucc(PTAField(PTAOffset(4040), 8))
+        val c3 = stack.getNode().getSucc(PTAField(PTAOffset(4048), 8))
+        val c4 = stack.getNode().getSucc(PTAField(PTAOffset(4056), 8))
+        // *sp(4032),... should be null because it belongs to unmaterialized stack memory
+        Assertions.assertEquals(true, c1 == null)
+        Assertions.assertEquals(true, c2 == null)
+        Assertions.assertEquals(true, c3 == null)
+        Assertions.assertEquals(true, c4 == null)
+
+        // memcpy(r1=sp(3032), r2=sp(4042), r3=32)
+        g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(3032)))
+        g.setRegCell(r2, stack.getNode().createSymCell(PTAOffset(4032)))
+        g.doMemcpy(scalars, globals)
+        println("After memcpy(r1=sp(3032), r2=sp(4042), r3=32): $g")
+
+        g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))
+        // stack materialization happens here
+        val c5 = load(g, r4, 0, 8, r5)
+        val c6 = load(g, r4, 8, 8, r5)
+        val c7 = load(g, r4, 16, 8, r5)
+        val c8 = load(g, r4, 24, 8, r5)
+
+        println("After stack materialization: $g")
+        Assertions.assertEquals(true, c5 != null && c5.getNode() == sumN && c5 == c6 && c6 == c7 && c7 == c8 )
+    }
+
+    @Test
+    fun test25() {
+        println("====== TEST 25: materialize stack (memcpy+store) =======")
+
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r4 = Value.Reg(SbfRegister.R4_ARG)
+        val r5 = Value.Reg(SbfRegister.R5_ARG)
+
+        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac, true)
+        val stack = absVal.getRegCell(r10, newGlobalVariableMap())
+        check(stack != null) { "memory domain cannot find the stack node" }
+        stack.getNode().setRead()
+        val g = absVal.getPTAGraph()
+        val scalars = absVal.getScalars()
+        val globals = newGlobalVariableMap()
+        val sumN = g.mkSummarizedNode()
+        sumN.setWrite()
+        sumN.setRead()
+        sumN.mkLink(0, 8, sumN.createCell(0))
+
+        // memcpy(r1=sp(4032),r2=(sumN,0),r3=32)
+        g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(4032)))
+        g.setRegCell(r2,sumN.createSymCell(PTAOffset(0)))
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32)))
+        g.doMemcpy(scalars, globals)
+        println("After memcpy(r1=sp(4032),r2=(sumN,0),r3=32): $g")
+
+        val c1 = stack.getNode().getSucc(PTAField(PTAOffset(4032), 8))
+        val c2 = stack.getNode().getSucc(PTAField(PTAOffset(4040), 8))
+        val c3 = stack.getNode().getSucc(PTAField(PTAOffset(4048), 8))
+        val c4 = stack.getNode().getSucc(PTAField(PTAOffset(4056), 8))
+        // *sp(4032),... should be null because it belongs to unmaterialized stack memory
+        Assertions.assertEquals(true, c1 == null)
+        Assertions.assertEquals(true, c2 == null)
+        Assertions.assertEquals(true, c3 == null)
+        Assertions.assertEquals(true, c4 == null)
+
+        val intN = g.mkIntegerNode()
+        g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(4040)))
+        g.setRegCell(r5, intN.createSymCell(PTAOffset(0)))
+        store(g, r1, 0, 8, r5)
+
+        // memcpy(r1=sp(3032), r2=sp(4042), r3=32)
+        g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(3032)))
+        g.setRegCell(r2, stack.getNode().createSymCell(PTAOffset(4032)))
+        g.doMemcpy(scalars, globals)
+        println("After memcpy(r1=sp(3032), r2=sp(4042), r3=32): $g")
+
+        g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))
+        // stack materialization for *sp(3032), *sp(3048), and *sp(3056) happens here
+        // Note that *sp(3040) is equals to *sp(4040) which should point to (`intN`,0)
+        val c5 = load(g, r4, 0, 8, r5)
+        val c6 = load(g, r4, 8, 8, r5)
+        val c7 = load(g, r4, 16, 8, r5)
+        val c8 = load(g, r4, 24, 8, r5)
+
+        println("After stack materialization: $g")
+        Assertions.assertEquals(true, c5 != null && c5.getNode() == sumN && c5 != c6 && c5 == c7 && c7 == c8 )
+        Assertions.assertEquals(true, c6?.getNode() == intN)
     }
 }

@@ -629,6 +629,21 @@ abstract class AdditionSemantics<S> {
                      */
                     val currOp = p.structState[o1] ?: return fallback
 
+                    if(currOp.sort is StructStateAnalysis.ValueSort.StridingPointer &&
+                        currOp.sort.untilEnd != null &&
+                        currOp.sort.untilEnd >= op2Constant &&
+                        (currOp.sort.innerOffset + op2Constant <= currOp.sort.strideBy)) {
+                        return toAddedStridingPointer(
+                            blockBase = currOp.base,
+                            target = target,
+                            v = av1.v,
+                            where = where,
+                            whole = p,
+                            striding = currOp.sort,
+                            amount = op2Constant
+                        )
+                    }
+
                     /**
                      * Find the `j = i + 1` where `j < blockSize / EVM_WORD_SIZE`.
                      */
@@ -738,6 +753,23 @@ abstract class AdditionSemantics<S> {
             }
         }
     }
+
+    /**
+     * Called when [amount] is added to a [striding] pointer for some fields in [blockBase] in state [target] in [whole] at [where].
+     * [blockBase] is assumed to be "tuple safe", with the abstract locations [v].
+     *
+     * Return the state [S] with the result of this addition.
+     */
+    abstract fun toAddedStridingPointer(
+        blockBase: TACSymbol.Var,
+        target: S,
+        v: Set<L>,
+        where: ExprView<TACExpr.Vec.Add>,
+        whole: PointsToDomain,
+        striding: StructStateAnalysis.ValueSort.StridingPointer,
+        amount: BigInteger
+    ): S
+
     /**
      * For Byte arrays:
      * If we have 32 <= resolvedI2 <= v where v is LengthOf(o1), then there must exist some value y such that

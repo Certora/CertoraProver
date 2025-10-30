@@ -85,7 +85,7 @@ class RequireInvariantTransformer(val scene: IScene) : CodeTransformer() {
             val toMoveStart = cache.graph.commands.filter { cmd -> cmd.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_START) != null }
                 .map { it to it.maybeAnnotation(CVL_ASSUME_INVARIANT_CMD_START)!!}
                 // We sort by the id here so that TAC is created deterministically to ensure we create the same TAC on subsequent runs.
-                .sortedBy { it.second.id }
+                .sortedByDescending{ it.second.id }
                 .firstOrNull()
 
             if (toMoveStart != null) {

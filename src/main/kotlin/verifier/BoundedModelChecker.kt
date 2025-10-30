@@ -251,6 +251,14 @@ class BoundedModelChecker(
                             }
                         }
                     }
+                    is TACCmd.Simple.AnnotationCmd -> {
+                        if(cmd.annot.v is SnippetCmd.CVLSnippetCmd.SumGhostRead) {
+                            ghostReads.add(cmd.annot.v.baseGhostName)
+                        }
+                        else if (cmd.annot.v is SnippetCmd.CVLSnippetCmd.SumGhostUpdate) {
+                            ghostWrites.add(cmd.annot.v.baseGhostName)
+                        }
+                    }
 
                     else -> Unit
                 }
@@ -500,6 +508,13 @@ class BoundedModelChecker(
                     (scene.getContract(SolidityContract(func.methodSignature.qualifiedMethodName.host.name)) as? IContractWithSource)?.src
                         ?.isInternalFunctionHarness(func.methodSignature.qualifiedMethodName.methodId) == true
                 }
+                .filter { func ->
+                    // Don't even compile functions that are not included in either the sequence functions or last functions based on flags
+                    val all = this.cvl.importedFuncs.values.flatten().map { it.abiWithContractStr() }
+                    val sig = func.methodSignature.computeCanonicalSignatureWithContract(PrintingContext(false))
+                    all.containsMethodFilteredByConfig(sig, mainContract.name)
+                        || all.containsMethodFilteredByRangerConfig(sig, mainContract.name)
+                }
                 .map { contractFunc ->
                     contractFunc to compileFunction(contractFunc)
                 }
@@ -567,28 +582,74 @@ class BoundedModelChecker(
 
         funcReads = funcWritesAndReads.mapValues { (_, writesAndReads) -> writesAndReads.second }
 
+        val toSkipExpFinder = object : CVLExpFolder<List<String>>() {
+            override fun sum(acc: List<String>, exp: CVLExp.SumExp): List<String> {
+                if(exp.isUnsigned) {
+                    val alert = "`usum` is not currently supported in ranger. Try rewriting the rule with a `sum` if possible."
+                    return acc + alert
+                }
+                return acc
+            }
+
+            override fun variable(acc: List<String>, exp: CVLExp.VariableExp): List<String> = listOf()
+        }
+        val toSkipCmdFinder = object : CVLCmdFolder<List<String>>() {
+            override fun cvlExp(acc: List<String>, exp: CVLExp): List<String> = toSkipExpFinder.expr(acc, exp)
+            override fun lhs(acc: List<String>, lhs: CVLLhs): List<String> =
+                when (lhs) {
+                    is CVLLhs.Array -> cvlExp(acc, lhs.index)
+                    is CVLLhs.Id -> listOf()
+                }
+
+
+            override fun message(acc: List<String>, message: String): List<String> = listOf()
+        }
+        fun makeAndLogSkipError(ruleIdentifier: RuleIdentifier, reason: String) : RuleAlertReport {
+            val msg = "Rule ${ruleIdentifier.displayName} was skipped because $reason"
+            logger.warn { msg }
+            return RuleAlertReport.Error(msg)
+        }
+        fun isInvariantToSkip(inv: CVLInvariant) : List<RuleAlertReport> {
+            return toSkipExpFinder.expr(listOf(), inv.exp).map { makeAndLogSkipError(inv.uniqueRuleIdentifier, it) }
+        }
+        fun isRuleToSkip(rule: CVLSingleRule) : List<RuleAlertReport> {
+            return rule.block.flatMap { toSkipCmdFinder.cmd(listOf(), it).map { makeAndLogSkipError(rule.ruleIdentifier, it) } }
+        }
+
         invProgs = invariants
-            .map { invRule ->
+            .mapNotNull { invRule ->
                 treeViewReporter.addTopLevelRule(invRule)
                 val inv = cvl.invariants.find { it.id == invRule.declarationId }!!
-                invRule to CVLPrograms(inv, compiler) { this.applySummaries() }
+                val alerts = isInvariantToSkip(inv)
+                if (alerts.isNotEmpty()) {
+                    treeViewReporter.signalEnd(invRule, RuleCheckResult.Skipped(invRule, alerts))
+                    null
+                } else {
+                    invRule to CVLPrograms(inv, compiler) { this.applySummaries() }
+                }
             }.toMap()
 
         ruleProgs = rules.flatMap { rule ->
             treeViewReporter.addTopLevelRule(rule)
-            val allProgs = generateRuleProgs(rule, compiler) { this.applySummaries() }
-            if (allProgs.size == 1) {
-                // This is a non-parametric rule, just take it.
-                allProgs.single().second.let { listOf(rule to it) }
+            val alerts = isRuleToSkip(rule)
+            if(alerts.isNotEmpty()) {
+                treeViewReporter.signalEnd(rule, RuleCheckResult.Skipped(rule, alerts))
+                listOf()
             } else {
-                // This is a parametric rule, so for each instantiation register it as a subrule of [rule] and add it to
-                // the list of ruleProgs.
-                // This way the rest of the BMC code can handle parametric rules as if they we just a list of simple
-                // rules, and in the tree-view they will all show as subrules of [rule].
-                allProgs.map { (instName, cvlProgs) ->
-                    val instRule = rule.copy(ruleIdentifier = rule.ruleIdentifier.freshDerivedIdentifier(instName))
-                    treeViewReporter.registerSubruleOf(instRule, rule)
-                    instRule to cvlProgs
+                val allProgs = generateRuleProgs(rule, compiler) { this.applySummaries() }
+                if (allProgs.size == 1) {
+                    // This is a non-parametric rule, just take it.
+                    allProgs.single().second.let { listOf(rule to it) }
+                } else {
+                    // This is a parametric rule, so for each instantiation register it as a subrule of [rule] and add it to
+                    // the list of ruleProgs.
+                    // This way the rest of the BMC code can handle parametric rules as if they we just a list of simple
+                    // rules, and in the tree-view they will all show as subrules of [rule].
+                    allProgs.map { (instName, cvlProgs) ->
+                        val instRule = rule.copy(ruleIdentifier = rule.ruleIdentifier.freshDerivedIdentifier(instName))
+                        treeViewReporter.registerSubruleOf(instRule, rule)
+                        instRule to cvlProgs
+                    }
                 }
             }
         }.toMap()
@@ -819,8 +880,15 @@ class BoundedModelChecker(
 
                     else -> `impossible!`
                 }
-            }.mapValues { (_, preserved) ->
-                compiler.compileCommands(preserved.block, "preserved").toCore(scene).summaryApplier().optimize(scene)
+            }.mapValues { (func, preserved) ->
+                // We wrap it in a block so that it will have its own scope for declarations
+                // and won't pollute the global scope in the compiler
+                val preservedBlock = CVLCmd.Composite.Block(
+                    Range.Empty(),
+                    preserved.block,
+                    CVLScope.AstScope
+                ).wrapWithMessageLabel("Preserved block for $func")
+                compiler.compileCommands(preservedBlock, "preserved").toCore(scene).summaryApplier().optimize(scene)
             }
         )
     }
@@ -946,7 +1014,7 @@ class BoundedModelChecker(
                             // but is not generally an always reverting function that we would filter out, only with the sequence before)
                             if(sighash != null) {
                                 lastFuncs.find { it.sigHash == sighash.value }
-                                    ?: error("the selectorVar's value should have been one of the last functions' sighash")
+                                    ?: error("the selectorVar's value should have been one of the last functions' sighash, was ${sighash.value} in ${res.rule.ruleIdentifier}")
                             } else { null }
                         }
 
@@ -1109,7 +1177,7 @@ class BoundedModelChecker(
                 } else {
                     // In rule mode, the `filtered` clause and `--method` flag filter parametric methods within the rule
                     // and have nothing to do with the sequence coming before the rule is called.
-                    allFuncs
+                    sequenceChosenFunctions.toList()
                 }
 
                 runAllSequences(baseRule, progs, allFuncsForLastStep)

@@ -1036,6 +1036,18 @@ class NumericAnalysis(
                 return target + (where.lhs to ANY_POINTER)
             }
 
+            override fun toAddedStridingPointer(
+                blockBase: TACSymbol.Var,
+                target: NumericDomain,
+                v: Set<L>,
+                where: ExprView<TACExpr.Vec.Add>,
+                whole: PointsToDomain,
+                striding: StructStateAnalysis.ValueSort.StridingPointer,
+                amount: BigInteger
+            ): NumericDomain {
+                return target + (where.lhs to ANY_POINTER)
+            }
+
             override fun toAddedStaticArrayInitPointer(
                 av1: InitializationPointer.StaticArrayInitPointer,
                 o1: TACSymbol.Var,

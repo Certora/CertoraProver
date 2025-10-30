@@ -47,4 +47,6 @@ internal sealed interface ILongReadInstrumentation {
      * Alignment flag, equivalent of `r.aligned`
      */
     val allAlignedVar: TACSymbol.Var
+
+    val transparentCopyData: TransparentCopyData?
 }

@@ -47,6 +47,20 @@ class StorageAnalysisAbstractionProperties {
         k to v
     }
 
+    @Property(tries = 50000)
+    fun sumOfTermsDivCorrect(
+       @ForAll("sumOfTerms") s: Stride.SumOfTerms,
+       @ForAll @JqwikIntRange(min = 1, max = 10) k: Int
+    ) {
+        val t = s.divide(k.asTACSymbol())
+
+        Assume.that(t !is Stride.Top)
+
+        assertTrue(t is Stride.SumOfTerms && t.concretize().let {
+            it.containsAll(s.concretize().map { it.divide(k.toBigInteger()) })
+        })
+    }
+
     @Property(tries = 1000)
     fun sumOfTermsJoinsCorrect(
         @ForAll("sumOfTerms") s1: Stride.SumOfTerms,

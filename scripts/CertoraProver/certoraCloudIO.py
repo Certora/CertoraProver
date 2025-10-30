@@ -689,8 +689,11 @@ class CloudVerification:
             auth_data["mutationTestId"] = self.context.mutation_test_id
         return auth_data
 
+    def get_group_id_url(self) -> str:
+        return f"{self.get_domain()}/?groupIds={self.context.group_id}"
+
     def print_group_id_url(self) -> None:
-        group_id_url = f"{self.get_domain()}/?groupIds={self.context.group_id}"
+        group_id_url = self.get_group_id_url()
         print(f"See all jobs generated from splitting the rules at {group_id_url}", flush=True)
 
     def print_output_links(self) -> None:

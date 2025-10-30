@@ -16,3 +16,4 @@ Public/TestEVM/CVLCompilation/DirectStorageAccess/Havoc/Bad.conf,True
 Public/TestEVM/CVLCompilation/Hooks/EmptyHooks/Basic.conf,True
 Public/TestEVM/CVLCompilation/Hooks/EmptyHooks/Importer.conf,True
 Public/TestEVM/CVLCompilation/EmptyContract/Default.conf,True
+Public/TestEVM/Regressions/CERT-9656/Default.conf,True

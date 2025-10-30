@@ -61,8 +61,10 @@ open class CodeTransformer<T : NamedCode<ReportTypes>, R : DebuggableProgram<Rep
                 transformer(t).also { transformed ->
                     timeElapser.endMeasuringTimeOf(tag)
                     ArtifactManagerFactory().dumpCodeArtifacts(transformed, reportType, DumpTime.POST_TRANSFORM)
-                    if (t is TACProgram<*> && transformed is TACProgram<*>) {
-                        twoStateInvariant(t, transformed, reportType)
+                    val oldCode = (t as? TACProgram<*>) ?: ((t as? ITACMethod)?.code as? TACProgram<*>)
+                    val newCode = (transformed as? TACProgram<*>) ?: ((transformed as? ITACMethod)?.code as? TACProgram<*>)
+                    if (oldCode != null && newCode != null) {
+                        twoStateInvariant(oldCode, newCode, reportType)
                     }
                     recordAggregatedTransformationStats(timeElapser, t.myName())
                 }

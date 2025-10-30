@@ -127,9 +127,9 @@ object CallGraphBuilder {
          * resolved, yet only the sighash is not found.
          */
         @KSerializable
-        data class Invalidated(override val contractId: BigInteger) : WithContractId, CalledContract() {
+        data class Invalidated(override val contractId: BigInteger, val orig: CalledContract) : WithContractId, CalledContract() {
             override fun mapId(f: (Any, Int, () -> Int) -> Int): CalledContract {
-                return this
+                return copy(orig = orig.mapId(f))
             }
         }
 

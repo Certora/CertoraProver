@@ -27,6 +27,7 @@ import evm.EVM_MOD_GROUP256
 import evm.MAX_EVM_INT256
 import tac.Tag
 import utils.*
+import utils.SignUtilities.from2sComplement
 import vc.data.TACExpr
 import vc.data.TACExprFactUntyped
 import vc.data.TACSymbol
@@ -107,12 +108,17 @@ sealed interface Inlinee {
             val (v, coef) = term.literals.entries.singleOrNull()
                 ?: return null
             with(TACExprFactUntyped) {
+                val mathCoeff = coef.from2sComplement()
                 return v.asSym()
-                    .letIf(coef != BigInteger.ONE) {
-                        Mul(coef.asTACExpr, it)
+                    .letIf(mathCoeff.abs() != BigInteger.ONE) {
+                        Mul(mathCoeff.abs().asTACExpr, it)
                     }
                     .letIf(c != BigInteger.ZERO) {
-                        Add(it, c.asTACExpr)
+                        if (mathCoeff < BigInteger.ZERO) {
+                            Sub(c.asTACExpr, it)
+                        } else {
+                            Add(it, c.asTACExpr)
+                        }
                     }
             }
         }

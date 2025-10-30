@@ -256,14 +256,18 @@ private val logger = Logger(LoggerTypes.PATTERN)
         }
     }
 
-    fun <T, U, V, R> commuteThree(p1: PatternBuilder<T>, p2: PatternBuilder<U>, p3: PatternBuilder<V>, combinator: CommutativeCombinator, f: (T, U, V) -> R) : PatternBuilder<R> {
-        return (combinator(combinator(p1, p2).commute.toBuilder(), p3).commute).withAction { (t, u), v ->
-            f(t, u, v)
-        } `^` combinator(combinator(p1, p3).commute.toBuilder(), p2).commute.withAction { (t, v), u ->
-            f(t, u, v)
-        } `^` combinator(combinator(p2, p3).commute.toBuilder(), p1).commute.withAction { (u, v), t ->
-            f(t, u, v)
+    fun <T, U, V, R> commuteThree(p1: PatternBuilder<T>, p2: PatternBuilder<U>, p3: PatternBuilder<V>, combinator: CommutativeCombinator, f: (LTACCmd, T, U, V) -> R) : PatternBuilder<R> {
+        return (combinator(combinator(p1, p2).commute.toBuilder(), p3).commute).withAction { where, (t, u), v ->
+            f(where, t, u, v)
+        } `^` combinator(combinator(p1, p3).commute.toBuilder(), p2).commute.withAction { where, (t, v), u ->
+            f(where, t, u, v)
+        } `^` combinator(combinator(p2, p3).commute.toBuilder(), p1).commute.withAction { where, (u, v), t ->
+            f(where, t, u, v)
         }
+    }
+
+    fun <T, U, V, R> commuteThree(p1: PatternBuilder<T>, p2: PatternBuilder<U>, p3: PatternBuilder<V>, combinator: CommutativeCombinator, f: (T, U, V) -> R) : PatternBuilder<R> {
+       return commuteThree (p1, p2, p3, combinator) { _, t, u, v -> f(t, u, v) }
     }
 
     /**

@@ -29,6 +29,7 @@ import instrumentation.StoragePathAnnotation
 import net.jqwik.api.*
 import net.jqwik.kotlin.api.*
 import org.junit.jupiter.api.Assertions.*
+import utils.interpret
 import vc.data.*
 import java.math.BigInteger
 
@@ -101,46 +102,6 @@ class StoragePathAnnotationTest {
             }
 
             else -> false
-        }
-    }
-
-    private fun TACExpr.eval(state: Map<TACSymbol.Var, BigInteger>): BigInteger? {
-        return when(this) {
-            is TACExpr.BinOp.Div -> this.o1.eval(state)!!.div(this.o2.eval(state)!!)
-            is TACExpr.BinOp.Sub -> this.o1.eval(state)!! - this.o2.eval(state)!!
-            is TACExpr.BinOp.IntSub -> this.o1.eval(state)!! - this.o2.eval(state)!!
-            is TACExpr.BinOp.Mod -> this.o1.eval(state)!!.mod(this.o2.eval(state)!!)
-            is TACExpr.Sym.Var -> {
-                assertTrue(this.s in state)
-                state[this.s]!!
-            }
-            is TACExpr.Sym.Const -> this.evalAsConst()
-            is TACExpr.Apply ->
-                (f as? TACExpr.TACFunctionSym.BuiltIn)?.let {
-                    if (it.bif is TACBuiltInFunction.SafeMathNarrow) {
-                        this.ops.singleOrNull()?.eval(state)
-                    } else {
-                        error("Unexpected function application $this")
-                    }
-                }
-            else ->
-                error("Unexpected expression form $this")
-        }
-    }
-
-    private fun TACCmd.Simple.interpret(state: MutableMap<TACSymbol.Var, BigInteger>) {
-        when (this) {
-            is TACCmd.Simple.AssigningCmd.AssignExpCmd -> {
-                state[this.lhs] = this.rhs.eval(state)!!
-            }
-
-            is TACCmd.Simple.AssigningCmd.AssignSimpleSha3Cmd -> {
-                val argvs = this.args.map { it.asSym().eval(state)!! }
-                state[this.lhs] = applyKeccakList(argvs)
-            }
-
-            else ->
-                error("Unexpected command $this")
         }
     }
 

@@ -14,6 +14,7 @@
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import dataclasses
 import json
+import re
 from typing import Any, Dict, List, Optional
 import subprocess
 from datetime import datetime, timezone
@@ -73,6 +74,7 @@ class RunMetaData:
     conf_path -- the relative path form the cwd_relative to the configuration file
     group_id -- optional identifier for grouping this run
     java_version -- version of Java used during the run, if available
+    default_solc_version -- version of default solc version on current machine, if available
     python_version -- version of Python running the process
     certora_ci_client -- name of the CI client if available, derived from environment
     timestamp -- UTC timestamp when the run metadata was generated
@@ -95,6 +97,7 @@ class RunMetaData:
         self.group_id = group_id
         self.python_version = ".".join(str(x) for x in sys.version_info[:3])
         self.java_version = java_version
+        self.default_solc_version = get_solc_version(self.conf)
         self.certora_ci_client = Utils.get_certora_ci_name()
         self.timestamp = str(datetime.now(timezone.utc).timestamp())
         _, self.CLI_package_name, self.CLI_version = Utils.get_package_and_version()
@@ -116,6 +119,7 @@ class RunMetaData:
             f" group_id: {self.group_id}\n"
             f" python_version: {self.python_version}\n"
             f" java_version: {self.java_version}\n"
+            f" default_solc_version: {self.default_solc_version}\n"
             f" CertoraCI client: {self.certora_ci_client}\n"
             f" jar_flag_info: {self.jar_flag_info}\n"
         )
@@ -279,3 +283,28 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            conf_path=conf_path,
                            group_id=context.group_id,
                            java_version=context.java_version)
+
+
+def get_solc_version(conf: Dict[str, Any]) -> Optional[str]:
+    if conf.get('solc') or conf.get('solc_map') or conf.get('compiler_map'):
+        return None
+
+    try:
+        result = subprocess.run(
+            ["solc", "--version"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        for line in result.stdout.splitlines():
+            if line.startswith("Version:"):
+                version_matches = re.findall(r'^Version: (\d+)\.(\d+)\.(\d+)', line, re.MULTILINE)
+                if len(version_matches) != 1:
+                    return None
+                match = version_matches[0]
+                return f'solc{int(match[1])}.{int(match[2])}'
+
+    except Exception as e:
+        metadata_logger.debug(f'Error while trying to fetch default solc version: {e}')
+        return None
+    return None

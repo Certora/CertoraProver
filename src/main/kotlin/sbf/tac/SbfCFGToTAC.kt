@@ -1388,6 +1388,9 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                             CVTCalltrace.PRINT_U64_AS_FIXED -> {
                                 listOf(Calltrace.printU64AsFixed(locInst))
                             }
+                            CVTCalltrace.PRINT_U64_AS_DECIMAL -> {
+                                listOf(Calltrace.printU64AsDecimal(locInst))
+                            }
                             CVTCalltrace.PRINT_LOCATION -> {
                                 listOf(Calltrace.printLocation(locInst))
                             }
