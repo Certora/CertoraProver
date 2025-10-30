@@ -18,8 +18,6 @@
 package analysis.split
 
 import analysis.LTACCmd
-import analysis.icfg.Inliner
-import analysis.snarrowOrNull
 import analysis.split.annotation.StorageSnippetInserter
 import analysis.split.arrays.PackedArrayRewriter
 import analysis.storage.StorageAnalysis
@@ -35,7 +33,6 @@ import statistics.recordSuccess
 import utils.*
 import vc.data.*
 import java.math.BigInteger
-import java.util.stream.Collectors
 
 
 /**
@@ -236,45 +233,7 @@ class StorageSplitter(val contract: IContractClass, val base: StorageAnalysis.Ba
                 StorageSplitter(contract, it).splitStorage()
             }
             if (processedBases.isNotEmpty()) {
-                markUnresolvedDelegateCalls(contract)
                 StorageSnippetInserter.Companion.addSnippetsToRemainingAccesses(contract, processedBases.toSet())
-            }
-        }
-
-        /**
-         * Here we mark any remaining delegate calls as being illegal to inline to a "real" contract method from
-         * contracts other than `contract`. This is conservative: the splitting/unpacking done here is sound only
-         * because we assume that we have seen all possible storage accesses, and further, that we have validated
-         * that the splitting/unpacking is sound to do in the presence of all of those accesses. If later inlining
-         * introduces code that is incompatible with these assumptions, then we will be unsound.
-         *
-         * NB: checking that the inlined callee respects the splitting decisions made here would be one way to do it,
-         * but this is hard.
-         */
-        private fun markUnresolvedDelegateCalls(contract: IContractClass) {
-            for (method in contract.getDeclaredMethods()) {
-                val code = method.code as CoreTACProgram
-                val patcher = code.toPatchingProgram()
-                val unresolvedDelegateCalls = code.parallelLtacStream().filter {
-                    it.snarrowOrNull<CallSummary>()?.origCallcore?.callType == TACCallType.DELEGATE
-                }.collect(Collectors.toList())
-                unresolvedDelegateCalls?.let { toAnnot ->
-                    for (lc in toAnnot) {
-                        patcher.update(lc.ptr) {
-                            check(it is TACCmd.Simple.SummaryCmd &&
-                                it.summ is CallSummary &&
-                                it.summ.callType == TACCallType.DELEGATE) {
-                                "At $lc, asked to invalidate a delegate call, but it isn't the right command"
-                            }
-                            it.copy(
-                                summ = it.summ.copy(
-                                    cannotBeInlined = Inliner.IllegalInliningReason.DELEGATE_CALL_POST_STORAGE
-                                )
-                            )
-                        }
-                    }
-                }
-                method.updateCode(patcher)
             }
         }
     }

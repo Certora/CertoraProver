@@ -123,6 +123,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     REVERT_SUMMARIES(LoggerTypes.INLINER),
     RETURNS_TO_SUMMARIES(LoggerTypes.INLINER),
     TRACE_PUSH_POP(LoggerTypes.INLINER),
+    RESTORE_INVALIDATED_CALLS(LoggerTypes.INLINER),
     ALIAS(LoggerTypes.ALIAS_ANALYSIS),
     INITIALIZATION(LoggerTypes.INITIALIZATION),
     JUMP_COND_NORMALIZATION(LoggerTypes.NORMALIZER),

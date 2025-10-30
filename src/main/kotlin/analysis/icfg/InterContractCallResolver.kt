@@ -217,7 +217,7 @@ object InterContractCallResolver {
                            Note the "update reference to self" pattern
                          */
                         container[selfIndex] = this.copy(
-                            callTarget = setOf(CallGraphBuilder.CalledContract.Invalidated(callee))
+                            callTarget = setOf(CallGraphBuilder.CalledContract.Invalidated(callee, target))
                         )
                         return true
                     }
@@ -248,7 +248,7 @@ object InterContractCallResolver {
                             "found that it is not available as a method or as a precompiled contract. Erasing it." }
                     container[selfIndex] = this.copy(
                         // TODO: maybe make this part of the canResolve check...?
-                        callTarget = setOf(CallGraphBuilder.CalledContract.Invalidated(callee)) // invalidate the callee, we can't actually resolve
+                        callTarget = setOf(CallGraphBuilder.CalledContract.Invalidated(callee, target)) // invalidate the callee, we can't actually resolve
                     )
                     return true
                 }
