@@ -785,45 +785,40 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         if (leftType.samePointerType(rightType)) {
             val leftOffset = leftType.offset
             val rightOffset = rightType.offset
-            when (op) {
-                CondOp.EQ -> {
-                    val newOffset = leftOffset.meet(rightOffset)
-                    if (newOffset.isBottom()) {
-                        setToBottom()
-                    } else {
-                        when (leftType) {
-                            is SbfType.PointerType.Stack -> {
-                                setRegister(left, ScalarValue(SbfType.PointerType.Stack(newOffset)))
-                                setRegister(right, ScalarValue(SbfType.PointerType.Stack(newOffset)))
-                            }
-                            is SbfType.PointerType.Input -> {
-                                setRegister(left, ScalarValue(SbfType.PointerType.Input(newOffset)))
-                                setRegister(right, ScalarValue(SbfType.PointerType.Input(newOffset)))
-                            }
-                            is SbfType.PointerType.Heap -> {
-                                setRegister(left, ScalarValue(SbfType.PointerType.Heap(newOffset)))
-                                setRegister(right, ScalarValue(SbfType.PointerType.Heap(newOffset)))
-                            }
-                            is SbfType.PointerType.Global -> {
-                                val leftGlobal = leftType.global
-                                val rightGlobal = (rightType as SbfType.PointerType.Global).global
-                                if (leftGlobal != null && rightGlobal != null && leftGlobal.address == rightGlobal.address) {
-                                    // The base addresses are the same but offset could be different
-                                    setRegister(left, ScalarValue(SbfType.PointerType.Global(newOffset, leftGlobal)))
-                                    setRegister(right, ScalarValue(SbfType.PointerType.Global(newOffset, rightGlobal)))
-                                }
-                            }
-                        }
-                    }
+
+            val newLeftOffset = leftOffset.filter(op, rightOffset)
+            if (newLeftOffset.isBottom()) {
+                setToBottom()
+                return
+            }
+
+            val newRightOffset = rightOffset.filter(op, leftOffset)
+            if (newRightOffset.isBottom()) {
+                setToBottom()
+                return
+            }
+
+            when (leftType) {
+                is SbfType.PointerType.Stack -> {
+                    setRegister(left, ScalarValue(SbfType.PointerType.Stack(newLeftOffset)))
+                    setRegister(right, ScalarValue(SbfType.PointerType.Stack(newRightOffset)))
                 }
-                CondOp.NE -> {
-                    if (!leftOffset.isTop() && !rightOffset.isTop() &&  leftOffset == rightOffset) {
-                        setToBottom()
-                    }
+                is SbfType.PointerType.Input -> {
+                    setRegister(left, ScalarValue(SbfType.PointerType.Input(newLeftOffset)))
+                    setRegister(right, ScalarValue(SbfType.PointerType.Input(newRightOffset)))
                 }
-                else -> {
-                    // We do nothing for now, but we can be more precise here if needed.
-                    // Note that ignoring an "assume" instruction is always sound.
+                is SbfType.PointerType.Heap -> {
+                    setRegister(left, ScalarValue(SbfType.PointerType.Heap(newLeftOffset)))
+                    setRegister(right, ScalarValue(SbfType.PointerType.Heap(newRightOffset)))
+                }
+                is SbfType.PointerType.Global -> {
+                    val leftGlobal = leftType.global
+                    val rightGlobal = (rightType as SbfType.PointerType.Global).global
+                    if (leftGlobal != null && rightGlobal != null && leftGlobal.address == rightGlobal.address) {
+                        // The base addresses are the same but offset could be different
+                        setRegister(left, ScalarValue(SbfType.PointerType.Global(newLeftOffset, leftGlobal)))
+                        setRegister(right, ScalarValue(SbfType.PointerType.Global(newRightOffset, rightGlobal)))
+                    }
                 }
             }
         } else {

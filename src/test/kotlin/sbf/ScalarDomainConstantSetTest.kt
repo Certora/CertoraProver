@@ -593,4 +593,47 @@ class ScalarDomainConstantSetTest {
         Assertions.assertEquals(true, exception)
     }
 
+    @Test
+    fun test13() {
+        println("====== TEST 13  =======")
+        val cfg = SbfTestDSL.makeCFG("test19") {
+            bb(1) {
+                r9 = r10 // start
+                r8 = r10 // end
+                r1 = 0
+                BinOp.SUB(r9, 1760)
+                BinOp.SUB(r8, 1568)
+                goto (2)
+            }
+            bb(2) {
+                goto(3)
+            }
+            bb(3) {
+                r9[0] = 0
+                BinOp.ADD(r9, 48)
+                r10[-100] = r9
+                goto(4)
+            }
+            bb(4) {
+                r9 = r10[-100]
+                br(CondOp.EQ(r9, r8), 5, 2)
+            }
+            bb(5) {
+                BinOp.SUB(r9, 48)
+                r9[0] = 0
+                exit()
+            }
+        }
+        cfg.lowerBranchesIntoAssume()
+        println("$cfg")
+
+        var exception = false
+        try {
+            checkWithScalarAnalysis(cfg, true, 20UL)
+        } catch (e: UnknownStackPointerError) {
+            exception = true
+        }
+        Assertions.assertEquals(false, exception)
+    }
+
 }
