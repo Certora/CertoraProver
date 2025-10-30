@@ -26,7 +26,6 @@ from pydantic import BaseModel, Field, create_model
 from langchain_core.tools import tool, InjectedToolCallId
 from langchain_core.tools.base import BaseTool
 from langgraph.prebuilt import InjectedState
-from langgraph.graph import MessagesState
 from langgraph.types import Command
 
 
@@ -39,7 +38,7 @@ def merge_vfs(left: dict[str, str], right: dict[str, str]) -> dict[str, str]:
     return new_left
 
 
-class VFSState(MessagesState):
+class VFSState(TypedDict):
     vfs: Annotated[dict[str, str], merge_vfs]
 
 InputType = TypeVar("InputType", bound=VFSState)
@@ -91,7 +90,7 @@ def _materialize(
                 if copy_path.exists():
                     continue
                 copy_path.parent.mkdir(exist_ok=True, parents=True)
-                copy_path.write_text(p.read_text())
+                copy_path.write_bytes(p.read_bytes())
         yield dir
 
 
@@ -293,6 +292,8 @@ def vfs_tools(conf: VFSToolConfig, ty: Type[InputType]) -> tuple[list[BaseTool],
                     continue
                 rel_name = str(f.relative_to(p))
                 if not get_filter(rel_name):
+                    continue
+                if rel_name in state["vfs"]:
                     continue
                 if not comp.search(f.read_text()):
                     continue

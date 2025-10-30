@@ -158,7 +158,6 @@ def get_summarizer(
     context: SummaryConfig[StateT]
 ) -> ChatNodeFunction[StateT]:
     def to_return(state: StateT) -> dict[str, list[BaseMessage]]:
-        print("We are summarizing!")
         config = context
         assert config is not None
 
@@ -172,7 +171,6 @@ def get_summarizer(
             assert isinstance(msg, AIMessage)
             summary = msg.text()
             resume_message = config.get_resume_prompt(state, summary)
-            print(summary)
             return {
                 "messages": [
                     RemoveMessage(id="__remove_all__"),
