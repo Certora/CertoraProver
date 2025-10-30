@@ -382,7 +382,16 @@ data class CodeMap(
                     is SnippetCmd.CvlrSnippetCmd.CexAttachLocation -> colorText("${metaValue.filepath.sanitize()}:${metaValue.lineNumber}", Color.DARKGREY)
                     is SnippetCmd.CvlrSnippetCmd.CexPrintLocation -> colorText("${metaValue.filepath.sanitize()}:${metaValue.lineNumber}", Color.DARKGREY)
                     is SnippetCmd.CvlrSnippetCmd.CexPrintValues -> colorText("${metaValue.displayMessage.sanitize()}: ${metaValue.symbols.joinToString(", ") { getHtmlRep(it) }}", Color.ORANGE)
-                    is SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixed -> colorText("${metaValue.displayMessage.sanitize()}: ${getHtmlRep(metaValue.unscaledVal)}/2^${getHtmlRep(metaValue.scale)}", Color.ORANGE)
+                    is SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixedOrDecimal -> {
+                        val radix = if (metaValue.asFixed) { 2 } else { 10 }
+                        colorText(
+                            "${metaValue.displayMessage.sanitize()}: ${getHtmlRep(metaValue.unscaledVal)}/$radix^${
+                                getHtmlRep(
+                                    metaValue.scale
+                                )
+                            }", Color.ORANGE
+                        )
+                    }
                     is InternalFuncStartAnnotation -> colorText("$rarrow Method call ${wrapInternalFunStart(metaValue.id)} to ${
                         if (metaValue.args.isNotEmpty() && metaValue.args.size == metaValue.methodSignature.params.size) {
                             metaValue.methodSignature.let { sig ->

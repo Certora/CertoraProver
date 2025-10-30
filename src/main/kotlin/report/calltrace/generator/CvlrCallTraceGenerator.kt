@@ -69,9 +69,10 @@ internal open class CvlrCallTraceGenerator(
                         when (val snippetCmd = value as SnippetCmd) {
                             is SnippetCmd.CvlrSnippetCmd -> {
                                 when (snippetCmd) {
-                                    is SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixed -> handleCvlrCexPrintU64AsFixed(
+                                    is SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixedOrDecimal -> handleCvlrCexPrintU64AsFixedOrDecimal(
                                         snippetCmd,
-                                        cmd
+                                        cmd,
+                                        snippetCmd.asFixed
                                     )
                                     is SnippetCmd.CvlrSnippetCmd.CexPrintValues -> handleCvlrCexPrintValues(snippetCmd, cmd)
                                     is SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue -> handleCvlrCexPrint128BitsValue(
@@ -168,23 +169,28 @@ internal open class CvlrCallTraceGenerator(
         return HandleCmdResult.Continue
     }
 
-    private fun unscaledValAndScaleToBigDecimal(unscaledVal: BigInteger, scale: Int): BigDecimal {
-        val divisor = BigDecimal(BigInteger.ONE.shiftLeft(scale)) // 2^fractionalBits
+    private fun unscaledValAndScaleToBigDecimal(unscaledVal: BigInteger, scale: Int, asFixed: Boolean): BigDecimal {
+        val divisor = if (asFixed) {
+            BigDecimal(BigInteger.ONE.shiftLeft(scale)) // 2^fractionalBits
+        } else {
+            BigDecimal(BigInteger.TEN.pow(scale)) // 10^decimals
+        }
         return BigDecimal(unscaledVal)
             .divide(divisor, scale, RoundingMode.FLOOR) // BigDecimal interprets the scale as base 10, while our scale is in base 2
             .stripTrailingZeros()
     }
 
-    private fun handleCvlrCexPrintU64AsFixed(
-        snippetCmd: SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixed,
-        stmt: TACCmd.Simple.AnnotationCmd
+    private fun handleCvlrCexPrintU64AsFixedOrDecimal(
+        snippetCmd: SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixedOrDecimal,
+        stmt: TACCmd.Simple.AnnotationCmd,
+        asFixed: Boolean
     ): HandleCmdResult {
         val range = consumeAttachedRangeOrResolve(stmt)
         val numTACValue = model.valueAsTACValue(snippetCmd.unscaledVal)
         val unscaledVal: BigInteger? = numTACValue?.asBigIntOrNull()
         val scale: Int? = model.valueAsTACValue(snippetCmd.scale)?.asBigIntOrNull()?.toIntOrNull()
         if (unscaledVal != null && scale != null) {
-            val decimalValue = unscaledValAndScaleToBigDecimal(unscaledVal, scale)
+            val decimalValue = unscaledValAndScaleToBigDecimal(unscaledVal, scale, asFixed)
             val formatted = sarifFormatter.fmt(
                 "${snippetCmd.displayMessage}: $decimalValue ({})", FmtArg.CtfValue.buildOrUnknown(
                     tv = numTACValue,
@@ -254,7 +260,7 @@ internal open class CvlrCallTraceGenerator(
         return HandleCmdResult.Continue
     }
 
-    /** Converts a filepath and a line number to a range. If the file is not in the sources dir, returns [null]. */
+    /** Converts a filepath and a line number to a range. If the file is not in the sources dir, returns `null`. */
     private fun filepathAndLineNumberToRange(filepath: String, lineNumber: UInt): Range.Range? {
         val fileInSourcesDir = File(Config.prependSourcesDir(filepath))
         return if (fileInSourcesDir.exists()) {

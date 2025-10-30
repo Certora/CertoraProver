@@ -40,7 +40,7 @@ fun unhoistCalltraceFunctions(cfg: MutableSbfCFG, numInstsBeforeFirstCalltraceFn
                             CVTCalltrace.PRINT_U64_1, CVTCalltrace.PRINT_U64_2, CVTCalltrace.PRINT_U64_3,
                             CVTCalltrace.PRINT_U128, CVTCalltrace.PRINT_I128,
                             CVTCalltrace.PRINT_I64_1, CVTCalltrace.PRINT_I64_2, CVTCalltrace.PRINT_I64_3,
-                            CVTCalltrace.PRINT_U64_AS_FIXED,
+                            CVTCalltrace.PRINT_U64_AS_FIXED, CVTCalltrace.PRINT_U64_AS_DECIMAL,
                             CVTCalltrace.PRINT_TAG,
                             CVTCalltrace.PRINT_LOCATION,
                             CVTCalltrace.PRINT_STRING -> {

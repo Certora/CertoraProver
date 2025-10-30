@@ -92,7 +92,17 @@ object Calltrace {
         val tag = getString(locInst, SbfRegister.R1_ARG)
         val unscaledVar = exprBuilder.mkVar(SbfRegister.R3_ARG)
         val scaleVar = exprBuilder.mkVar(SbfRegister.R4_ARG)
-        return SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixed(tag, unscaledVar, scaleVar).toAnnotation()
+        return SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixedOrDecimal(tag, unscaledVar, scaleVar, asFixed = true).toAnnotation()
+    }
+
+    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  printU64AsDecimal(
+        locInst: LocatedSbfInstruction
+    ): TACCmd.Simple {
+        val tag = getString(locInst, SbfRegister.R1_ARG)
+        val unscaledVar = exprBuilder.mkVar(SbfRegister.R3_ARG)
+        val scaleVar = exprBuilder.mkVar(SbfRegister.R4_ARG) // number of decimals
+        return SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixedOrDecimal(tag, unscaledVar, scaleVar, asFixed = false).toAnnotation()
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
