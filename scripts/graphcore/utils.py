@@ -91,3 +91,11 @@ def cached_invoke(b: Runnable[LanguageModelInput, BaseMessage], s: List[AnyMessa
     canon = add_cache_control(s)
     to_ret = b.invoke(canon)
     return to_ret
+
+async def acached_invoke(b: Runnable[LanguageModelInput, BaseMessage], s: List[AnyMessage]) -> BaseMessage:
+    """
+    Send messages `s` to the llm `b` after adding caching instructions.
+    """
+    canon = add_cache_control(s)
+    to_ret = await b.ainvoke(canon)
+    return to_ret
