@@ -17,6 +17,7 @@ import csv
 import json
 import os
 import io
+import secrets
 import subprocess
 from abc import ABCMeta
 from enum import Enum, unique, auto
@@ -40,7 +41,6 @@ sys.path.insert(0, str(scripts_dir_path))
 from contextlib import contextmanager
 from Shared.ExpectedComparator import ExpectedComparator
 import logging
-import random
 import time
 import tempfile
 from datetime import datetime
@@ -157,7 +157,7 @@ def get_build_dir() -> Path:
 
 def get_random_build_dir() -> Path:
     for tries in range(3):
-        build_uuid = f"{datetime.now().strftime('%y_%m_%d_%H_%M_%S')}_{random.randint(0, 999):03d}"
+        build_uuid = f"{datetime.now().strftime('%y_%m_%d_%H_%M_%S')}_{secrets.randbelow(1_000_000):06d}{secrets.token_hex(2)}"
         build_dir = CERTORA_INTERNAL_ROOT / Path(build_uuid)
         if not build_dir.exists():
             return build_dir

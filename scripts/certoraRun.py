@@ -80,9 +80,17 @@ def run_certora(args: List[str], app: Type[App.CertoraApp] = App.EvmApp,
         context.build_only = False
         rule_handler = splitRules.SplitRulesHandler(context)
         exit_code = rule_handler.generate_runs()
-        CloudVerification(context).print_group_id_url()
+        cv = CloudVerification(context)
+        cv.print_group_id_url()
         if exit_code == 0:
             print("Split rules succeeded")
+            return_value = CertoraRunResult(
+                cv.get_group_id_url(),
+                False,
+                Util.get_certora_sources_dir(),
+                cv.get_group_id_url(),
+            )
+            return handle_exit(exit_code, return_value)
         else:
             raise Util.ExitException("Split rules failed", exit_code)
 
