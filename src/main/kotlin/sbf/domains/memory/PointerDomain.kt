@@ -3623,15 +3623,16 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
         if (valueSc == null) {
             if (derefC.getNode() == getStack()) {
+                // Note that even if we mark the stack field as inaccessible we could still recover later
+                // if the scalar domain knows something (for instance, if the stored value is a set of stack pointers)
                 untrackedStackFields = untrackedStackFields.add(PTAField(derefC.getOffset(), width))
             } else {
                 // If valueSc is null then value must be a register
                 check(value is Value.Reg)
-                throw UnknownPointerStoreError(DevErrorInfo(locInst, PtrExprErrReg(value), ""))
+                throw UnknownPointerStoreError(DevErrorInfo(locInst, PtrExprErrReg(value), "Storing a value with unknown provenance at $inst"))
             }
         } else {
-            // Get concrete cell for the value being stored.
-            // Note that we can be more precise here if valueSc points to the stack and we know all possible offsets.
+            // Get concrete cell for the value being stored
             val valueC = concretizeCell(valueSc, "concretization of $inst.value in $inst", locInst)
 
             // Add an edge in the points-to graph between the two cells: derefC and valueC
