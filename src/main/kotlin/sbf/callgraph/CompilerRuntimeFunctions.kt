@@ -28,23 +28,63 @@ import sbf.domains.MemorySummary
 /** compiler-rt library used by Clang/LLVM **/
 
 sealed class CompilerRtFunction(val function: ExternalFunction) {
+    data class SignedInteger64(val value: SignedInteger64CompilerRtFunction): CompilerRtFunction(value.function)
     data class IntegerU128(val value: IntegerU128CompilerRtFunction) : CompilerRtFunction(value.function)
     data class FP(val value: FPCompilerRtFunction) : CompilerRtFunction(value.function)
 
     companion object : ExternalLibrary<CompilerRtFunction> {
         override fun from(name: String): CompilerRtFunction? {
+            SignedInteger64CompilerRtFunction.from(name)?.run {
+                return SignedInteger64(this)
+            }
             IntegerU128CompilerRtFunction.from(name)?.run {
                 return IntegerU128(this)
             }
             FPCompilerRtFunction.from(name)?.run {
                 return FP(this)
             }
+
             return null
         }
 
         override fun addSummaries(memSummaries: MemorySummaries) {
+            SignedInteger64CompilerRtFunction.addSummaries(memSummaries)
             IntegerU128CompilerRtFunction.addSummaries(memSummaries)
             FPCompilerRtFunction.addSummaries(memSummaries)
+        }
+    }
+}
+
+enum class SignedInteger64CompilerRtFunction(val function: ExternalFunction) {
+    /** Signed division for 64-bits **/
+    DIVDI3(ExternalFunction(
+        name = "__divdi3",
+        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        readRegisters = listOf(
+            SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())),
+
+    /** Signed modulus (remainder) for 64 bits **/
+    MODDI3(ExternalFunction(
+        name = "__moddi3",
+        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        readRegisters = listOf(
+            SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet()));
+
+    companion object: ExternalLibrary<SignedInteger64CompilerRtFunction>  {
+        private val nameMap = values().associateBy { it.function.name }
+
+        override fun from(name: String) = nameMap[name]
+        override fun addSummaries(memSummaries: MemorySummaries) {
+            for (f in nameMap.values) {
+                when (f) {
+                    DIVDI3, MODDI3 -> {
+                        val summaryArgs = listOf(
+                            MemSummaryArgument(r = SbfRegister.R0_RETURN_VALUE, type = MemSummaryArgumentType.NUM)
+                        )
+                        memSummaries.addSummary(f.function.name, MemorySummary(summaryArgs))
+                    }
+                }
+            }
         }
     }
 }

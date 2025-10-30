@@ -25,6 +25,7 @@ import datastructures.stdcollections.*
 import sbf.SolanaConfig
 import sbf.callgraph.FPCompilerRtFunction
 import sbf.callgraph.IntegerU128CompilerRtFunction
+import sbf.callgraph.SignedInteger64CompilerRtFunction
 import sbf.domains.INumValue
 import sbf.domains.IOffset
 import sbf.domains.IPTANodeFlags
@@ -45,6 +46,17 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
 
         val function = CompilerRtFunction.from(inst.name) ?: return listOf()
         return when (function) {
+            is CompilerRtFunction.SignedInteger64 -> {
+                val res = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+                val arg1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
+                val arg2 = exprBuilder.mkVar(SbfRegister.R2_ARG)
+                val summarizer = SummarizeSignedInteger64CompilerRt<TNum, TOffset, TFlags>()
+                val cmds = when (function.value) {
+                    SignedInteger64CompilerRtFunction.DIVDI3 -> summarizer.summarizeDivdi3(res, arg1, arg2)
+                    SignedInteger64CompilerRtFunction.MODDI3 -> summarizer.summarizeModdi3(res, arg1, arg2)
+                }
+                listOf(Debug.startFunction(inst.name)) + cmds + listOf(Debug.endFunction(inst.name))
+            }
             is CompilerRtFunction.IntegerU128 -> {
                 val summarizer = if (SolanaConfig.UseTACMathInt.get()) {
                     SummarizeIntegerU128CompilerRtWithMathInt<TNum, TOffset, TFlags>()
