@@ -582,28 +582,74 @@ class BoundedModelChecker(
 
         funcReads = funcWritesAndReads.mapValues { (_, writesAndReads) -> writesAndReads.second }
 
+        val toSkipExpFinder = object : CVLExpFolder<List<String>>() {
+            override fun sum(acc: List<String>, exp: CVLExp.SumExp): List<String> {
+                if(exp.isUnsigned) {
+                    val alert = "`usum` is not currently supported in ranger. Try rewriting the rule with a `sum` if possible."
+                    return acc + alert
+                }
+                return acc
+            }
+
+            override fun variable(acc: List<String>, exp: CVLExp.VariableExp): List<String> = listOf()
+        }
+        val toSkipCmdFinder = object : CVLCmdFolder<List<String>>() {
+            override fun cvlExp(acc: List<String>, exp: CVLExp): List<String> = toSkipExpFinder.expr(acc, exp)
+            override fun lhs(acc: List<String>, lhs: CVLLhs): List<String> =
+                when (lhs) {
+                    is CVLLhs.Array -> cvlExp(acc, lhs.index)
+                    is CVLLhs.Id -> listOf()
+                }
+
+
+            override fun message(acc: List<String>, message: String): List<String> = listOf()
+        }
+        fun makeAndLogSkipError(ruleIdentifier: RuleIdentifier, reason: String) : RuleAlertReport {
+            val msg = "Rule ${ruleIdentifier.displayName} was skipped because $reason"
+            logger.warn { msg }
+            return RuleAlertReport.Error(msg)
+        }
+        fun isInvariantToSkip(inv: CVLInvariant) : List<RuleAlertReport> {
+            return toSkipExpFinder.expr(listOf(), inv.exp).map { makeAndLogSkipError(inv.uniqueRuleIdentifier, it) }
+        }
+        fun isRuleToSkip(rule: CVLSingleRule) : List<RuleAlertReport> {
+            return rule.block.flatMap { toSkipCmdFinder.cmd(listOf(), it).map { makeAndLogSkipError(rule.ruleIdentifier, it) } }
+        }
+
         invProgs = invariants
-            .map { invRule ->
+            .mapNotNull { invRule ->
                 treeViewReporter.addTopLevelRule(invRule)
                 val inv = cvl.invariants.find { it.id == invRule.declarationId }!!
-                invRule to CVLPrograms(inv, compiler) { this.applySummaries() }
+                val alerts = isInvariantToSkip(inv)
+                if (alerts.isNotEmpty()) {
+                    treeViewReporter.signalEnd(invRule, RuleCheckResult.Skipped(invRule, alerts))
+                    null
+                } else {
+                    invRule to CVLPrograms(inv, compiler) { this.applySummaries() }
+                }
             }.toMap()
 
         ruleProgs = rules.flatMap { rule ->
             treeViewReporter.addTopLevelRule(rule)
-            val allProgs = generateRuleProgs(rule, compiler) { this.applySummaries() }
-            if (allProgs.size == 1) {
-                // This is a non-parametric rule, just take it.
-                allProgs.single().second.let { listOf(rule to it) }
+            val alerts = isRuleToSkip(rule)
+            if(alerts.isNotEmpty()) {
+                treeViewReporter.signalEnd(rule, RuleCheckResult.Skipped(rule, alerts))
+                listOf()
             } else {
-                // This is a parametric rule, so for each instantiation register it as a subrule of [rule] and add it to
-                // the list of ruleProgs.
-                // This way the rest of the BMC code can handle parametric rules as if they we just a list of simple
-                // rules, and in the tree-view they will all show as subrules of [rule].
-                allProgs.map { (instName, cvlProgs) ->
-                    val instRule = rule.copy(ruleIdentifier = rule.ruleIdentifier.freshDerivedIdentifier(instName))
-                    treeViewReporter.registerSubruleOf(instRule, rule)
-                    instRule to cvlProgs
+                val allProgs = generateRuleProgs(rule, compiler) { this.applySummaries() }
+                if (allProgs.size == 1) {
+                    // This is a non-parametric rule, just take it.
+                    allProgs.single().second.let { listOf(rule to it) }
+                } else {
+                    // This is a parametric rule, so for each instantiation register it as a subrule of [rule] and add it to
+                    // the list of ruleProgs.
+                    // This way the rest of the BMC code can handle parametric rules as if they we just a list of simple
+                    // rules, and in the tree-view they will all show as subrules of [rule].
+                    allProgs.map { (instName, cvlProgs) ->
+                        val instRule = rule.copy(ruleIdentifier = rule.ruleIdentifier.freshDerivedIdentifier(instName))
+                        treeViewReporter.registerSubruleOf(instRule, rule)
+                        instRule to cvlProgs
+                    }
                 }
             }
         }.toMap()
