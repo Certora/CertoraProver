@@ -78,7 +78,7 @@ object StoragePathPruner {
 
         if (edges.isNotEmpty()) {
             logger.info {
-                "Pruning infeasible edges after storage analysis: $edges"
+                "Pruning infeasible edges in ${ctp.name} after storage analysis: $edges"
             }
         }
 
