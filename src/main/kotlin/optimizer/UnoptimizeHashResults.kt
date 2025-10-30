@@ -154,8 +154,8 @@ class UnoptimizeHashResults(private val code: CoreTACProgram) {
      * matches such cases, matching a constant that equals the hash of the current contents of mem0 + fuzz, where fuzz
      * is our struct size limit flag.
      */
-    private val constantArrayBasePattern = PatternDSL.build {
-        (Var + PatternMatcher.Pattern.FromConstant({ c, where ->
+    private val hashConst = PatternMatcher.Pattern.FromConstant(
+        extractor = { c, where ->
             val mem0Const = constantAt.mustBeConstantAt(where = where.ptr, TACKeyword.MEM0.toVar())
             val hash = mem0Const?.let { hashBigInts(mem0Const) }
             if (hash != null && c.value >= hash && (c.value - hash) < Config.StructSizeLimit.get().toBigInteger()) {
@@ -163,7 +163,12 @@ class UnoptimizeHashResults(private val code: CoreTACProgram) {
             } else {
                 null
             }
-        }, { _, it -> it }).asBuildable()).commute.withAction { where, v, (baseDefLoc, baseSlot, offset) ->
+        },
+        out = { _, it -> it}
+    ).asBuildable()
+
+    private val constantArrayBasePattern = PatternDSL.build {
+        (Var + hashConst).commute.withAction { where, v, (baseDefLoc, baseSlot, offset) ->
             ConstantBaseRewrite.WithOffset(
                 rewriteLoc = where.narrow<TACCmd.Simple.AssigningCmd>(),
                 offsetVar = v,
@@ -174,7 +179,30 @@ class UnoptimizeHashResults(private val code: CoreTACProgram) {
         }
     }
 
-    private val constantArrayBaseMatcher = PatternMatcher.compilePattern(g, constantArrayBasePattern)
+    private val constantArrayBaseWithOffsetPattern = PatternDSL.build {
+        // x + <reversible_hash>
+        constantArrayBasePattern.asBuildable() lor
+
+            // K + (x + <reversible_hash>)
+            (Const + constantArrayBasePattern.asBuildable()).commute.withAction { where, k, rewrite ->
+                rewrite.copy(rewriteLoc = where.narrow(), offset = rewrite.offset + k)
+            } lor
+
+            commuteThree(
+               Var, Const, hashConst, PatternDSL.CommutativeCombinator.add,
+            ) { where, v, k, (baseDefLoc, baseSlot, offset) ->
+                ConstantBaseRewrite.WithOffset(
+                    rewriteLoc = where.narrow(),
+                    offsetVar = v,
+                    baseSlot = baseSlot,
+                    baseDefLoc = baseDefLoc,
+                    offset = offset + k
+                )
+
+            }
+    }
+
+    private val constantArrayBaseMatcher = PatternMatcher.compilePattern(g, constantArrayBaseWithOffsetPattern)
 
     private fun matchConstantArrayBase(src: LTACCmd, loc: TACSymbol.Var): Collection<ConstantBaseRewrite>? {
         return constantArrayBaseMatcher.query(loc,src).toNullableResult()?.let(::setOf)
