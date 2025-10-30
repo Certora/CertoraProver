@@ -29,23 +29,27 @@ private val sbfTypesFac = ConstantSbfTypeFactory()
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 
 class MemoryMemcpyTest {
-    // Return node pointed by *([baseR] + [offset])
-    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> getNode(g: PTAGraph<TNum, TOffset, Flags>,
-                        base: Value.Reg, offset: Short, width: Short): PTANode<Flags>? {
+
+    // Return cell pointed by *([baseR] + [offset])
+    private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags : IPTANodeFlags<Flags>> load(
+        g: PTAGraph<TNum, TOffset, Flags>,
+        base: Value.Reg,
+        offset: Short,
+        width: Short
+    ): PTASymCell<Flags>? {
         val lhs = Value.Reg(SbfRegister.R7)
         check(base != lhs)
         val inst = SbfInstruction.Mem(Deref(width, base, offset, null), lhs, true, null)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
         g.doLoad(locInst, base, SbfType.top(), newGlobalVariableMap())
-        val sc = g.getRegCell(lhs)
-        return sc?.getNode()
+        return g.getRegCell(lhs)
     }
 
     // Check that *([baseR] + [offset]) points to [node]
     private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> checkPointsToNode(g: PTAGraph<TNum, TOffset, Flags>,
                                   base: Value.Reg, offset: Short, width: Short,
                                   node: PTANode<Flags>) {
-        Assertions.assertEquals(true, getNode(g, base, offset, width)?.id == node.getNode().id)
+        Assertions.assertEquals(true, load(g, base, offset, width)?.getNode()?.id == node.getNode().id)
     }
 
     @Test
@@ -512,7 +516,21 @@ class MemoryMemcpyTest {
         val c3 = stackC.getNode().getSucc(PTAField(PTAOffset(3048), 8))
         val c4 = stackC.getNode().getSucc(PTAField(PTAOffset(3056), 8))
 
-        Assertions.assertEquals(true,  c1 != c2 && c2 == c3 && c3 == c4 && c4 != null)
+        Assertions.assertEquals(true,  c1!= null)
+
+        // After memcpy we shouldn't have links at 3040, 3048, and 3056 yet
+        Assertions.assertEquals(true,  c2== null)
+        Assertions.assertEquals(true,  c3== null)
+        Assertions.assertEquals(true,  c4== null)
+
+        g.setRegCell(r1, stackC.getNode().createSymCell(PTAOffset(3040)))
+        // getNode triggers "stack materialization"
+        val c5 = load(g, r1, 0, 8)
+        val c6 = load(g, r1, 8, 8)
+        val c7 = load(g, r1, 16, 8)
+
+        println("After stack materialization -> $g")
+        Assertions.assertEquals(true,  c5 == c6 && c6 == c7 && c7 != null)
     }
 
     @Test
@@ -712,19 +730,19 @@ class MemoryMemcpyTest {
         var exception1 = false
         try {
             // (3036,8) was marked as top so the pointer domain should complain
-            getNode(g, r1, (-4L).toShort(), 8)
+            load(g, r1, (-4L).toShort(), 8)
         } catch (e: UnknownStackContentError) {
             exception1 = true
         }
         Assertions.assertEquals(true, exception1)
 
         // Check that there is fresh memory at (3052,8)
-        val x = getNode(g, r1, 12, 8)
-        Assertions.assertEquals(true, x != null && x.isUnaccessed())
+        val x = load(g, r1, 12, 8)
+        Assertions.assertEquals(true, x != null && x.getNode().isUnaccessed())
 
         // Check that there is fresh memory at (3048,4)
-        val y = getNode(g, r1, 8, 4)
-        Assertions.assertEquals(true, y != null && y.isUnaccessed())
+        val y = load(g, r1, 8, 4)
+        Assertions.assertEquals(true, y != null && y.getNode().isUnaccessed())
     }
 
     @Test
@@ -783,14 +801,14 @@ class MemoryMemcpyTest {
         g.doMemcpy(scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
-        Assertions.assertEquals(true, getNode(g, r1, 0, 8) == n1)
-        Assertions.assertEquals(true, getNode(g, r1, 8, 8) == n2)
-        Assertions.assertEquals(true, getNode(g, r1, 16, 8) == n3)
-        Assertions.assertEquals(true, getNode(g, r1, 24, 8) == n4)
+        Assertions.assertEquals(true, load(g, r1, 0, 8)?.getNode() == n1)
+        Assertions.assertEquals(true, load(g, r1, 8, 8)?.getNode() == n2)
+        Assertions.assertEquals(true, load(g, r1, 16, 8)?.getNode() == n3)
+        Assertions.assertEquals(true, load(g, r1, 24, 8)?.getNode() == n4)
         // memcpy cannot kill the content of r1-4 which corresponds to offset 0 and 8 bytes in dstNode
         // because the destination is not the stack and therefore we cannot perform a strong update.
-        val x = getNode(g, r1, -4, 8)
-        Assertions.assertEquals(true, x == n5)
+        val x = load(g, r1, -4, 8)
+        Assertions.assertEquals(true, x?.getNode() == n5)
     }
 
 
@@ -859,10 +877,10 @@ class MemoryMemcpyTest {
         // (4060,8) shouldn't be copied, so we shouldn't have anything at (3060,8)
         // Note that since we haven't then accessed to offsets (3036 and 3060), the first time we access we will get fresh nodes.
         // Thus, the pointer analysis won't complain unlike test12, but we can check that (3036,8) and (3060,8) points to unaccessed nodes.
-        val x = getNode(g, r1, (-4L).toShort(), 8) /* (3036,8) */
-        Assertions.assertEquals(true, x != null && x.isUnaccessed())
-        val y = getNode(g, r1, 20, 8)        /* (3060,8) */
-        Assertions.assertEquals(true, y != null && y.isUnaccessed())
+        val x = load(g, r1, (-4L).toShort(), 8) /* (3036,8) */
+        Assertions.assertEquals(true, x != null && x.getNode().isUnaccessed())
+        val y = load(g, r1, 20, 8)        /* (3060,8) */
+        Assertions.assertEquals(true, y != null && y.getNode().isUnaccessed())
 
     }
 
