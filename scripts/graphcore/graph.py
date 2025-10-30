@@ -14,7 +14,7 @@
 #      along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from typing import Optional, List, TypedDict, Annotated, Literal, TypeVar, Type, Protocol, cast, Any, Tuple, NotRequired
-from langchain_core.messages import ToolMessage, AnyMessage, SystemMessage, HumanMessage, BaseMessage
+from langchain_core.messages import ToolMessage, AnyMessage, SystemMessage, HumanMessage, BaseMessage, AIMessage, RemoveMessage
 from langchain_core.tools import InjectedToolCallId, BaseTool
 from langchain_core.language_models.base import LanguageModelInput
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -25,6 +25,7 @@ from langgraph.types import Command
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel
 from .utils import cached_invoke
+from .summary import SummaryConfig
 
 """
 This provides the framework for building applications which loop with an LLM,
@@ -38,7 +39,6 @@ class WithToolCallId(BaseModel):
     """
 
     tool_call_id: Annotated[str, InjectedToolCallId]
-
 
 def tool_output(tool_call_id: str, res: dict) -> Command:
     """
@@ -99,7 +99,6 @@ class FlowInput(TypedDict):
     *after* the system prompt.
     """
     front_matter: NotRequired[list[HumanMessage]]
-
     """
     Any workflow specific data to add *after* the initial prompt.
     """
@@ -117,17 +116,24 @@ class InitNodeFunction(Protocol[InputType, OutputType]):
     def __call__(self, state: InputType) -> OutputType:
         ...
 
-
-class ChatNodeFunction(Protocol):
+class ChatNodeFunction(Protocol[InputType]):
     """
     The protocol defining the signature for a langgraph node function.
     Takes a state which contains *at least* some messages (MessagesState), and returns
     an update to the messages state.
     """
-    def __call__(self, state: MessagesState) -> dict[str, List[BaseMessage]]:
+    def __call__(self, state: InputType) -> dict[str, List[BaseMessage]]:
         ...
 
-def tool_result_generator(llm: Runnable[LanguageModelInput, BaseMessage]) -> ChatNodeFunction:
+# TypeVars for generic typing
+StateT = TypeVar('StateT', bound=MessagesState)
+OutputT = TypeVar('OutputT', bound=StateLike)
+ContextT = TypeVar("ContextT", bound=StateLike)
+
+def tool_result_generator(
+    t: type[StateT],
+    llm: Runnable[LanguageModelInput, BaseMessage],
+) -> ChatNodeFunction[StateT]:
     """
     Create a LangGraph node function that processes tool results by sending
     the current message history to the LLM for the next response.
@@ -144,10 +150,43 @@ def tool_result_generator(llm: Runnable[LanguageModelInput, BaseMessage]) -> Cha
         return {"messages": [result]}
     return tool_result
 
-# TypeVars for generic typing
-StateT = TypeVar('StateT', bound=MessagesState)
-OutputT = TypeVar('OutputT', bound=StateLike)
-ContextT = TypeVar("ContextT", bound=StateLike)
+def get_summarizer(
+    llm: BaseChatModel,
+    system_prompt: str,
+    initial_prompt: str,
+    state_type: type[StateT],
+    context: SummaryConfig[StateT]
+) -> ChatNodeFunction[StateT]:
+    def to_return(state: StateT) -> dict[str, list[BaseMessage]]:
+        print("We are summarizing!")
+        config = context
+        assert config is not None
+
+        summary_prompt = config.get_summarization_prompt(state)
+
+        messages = state["messages"].copy()
+        assert len(messages) >= config.max_messages
+
+        try:
+            msg = llm.invoke(messages + [HumanMessage(content=summary_prompt)])
+            assert isinstance(msg, AIMessage)
+            summary = msg.text()
+            resume_message = config.get_resume_prompt(state, summary)
+            print(summary)
+            return {
+                "messages": [
+                    RemoveMessage(id="__remove_all__"),
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=initial_prompt),
+                    HumanMessage(content=summary),
+                    HumanMessage(content=resume_message),
+                ]
+            }
+        except Exception:
+            return {}
+
+    return to_return
+
 
 def initial_node(
     t: Type[InputState],
@@ -215,6 +254,7 @@ def initial_node(
 INITIAL_NODE = "initial"
 TOOLS_NODE = "tools"
 TOOL_RESULT_NODE = "tool_result"
+SUMMARIZE_NODE = "summarize"
 
 BoundLLM = Runnable[LanguageModelInput, BaseMessage]
 
@@ -228,6 +268,7 @@ def build_workflow(
     unbound_llm: BaseChatModel,
     output_schema: Optional[Type[OutputT]] = None,
     context_schema: Optional[Type[ContextT]] = None,
+    summary_config: SummaryConfig[StateT] | None = None
 ) -> Tuple[StateGraph[StateT, ContextT, InputState, OutputT], BoundLLM]:
     """
     Build a standard workflow with initial node -> tools -> tool_result pattern.
@@ -251,12 +292,12 @@ def build_workflow(
         unbound_llm: The llm to use for the computation and looping
         output_schema: (Optional) if non-none, describes the output format of the computation.
         context_schema: (Optional) if non-none, the type of contexts passed through the computation
+        summary_config: if non-none, the parameters and prompts for history summarization.
 
     Returns:
         The state graph compiled to execute the workflow above, and the llm wth the tools bound
         and configured.
     """
-    # Node name constants
 
     def should_end(state: StateT) -> Literal["__end__", "tool_result"]:
         """Check if workflow should end based on output key being defined."""
@@ -270,7 +311,7 @@ def build_workflow(
     # Create initial node and tool node with curried LLM
     init_node = initial_node(input_type, state_class, sys_prompt=sys_prompt, initial_prompt=initial_prompt, llm=llm)
     tool_node = ToolNode(tools_list, handle_tool_errors=False)
-    tool_result_node = tool_result_generator(llm)
+    tool_result_node = tool_result_generator(state_class, llm)
 
     # Build the graph with fixed input schema, no context
     builder = StateGraph(
@@ -279,17 +320,29 @@ def build_workflow(
         output_schema=output_schema,
         context_schema=context_schema
     )
+
     builder.set_entry_point(INITIAL_NODE)
     builder.add_node(INITIAL_NODE, init_node, input_schema=input_type)
     builder.add_node(TOOLS_NODE, tool_node)
-    builder.add_edge(INITIAL_NODE, TOOLS_NODE)
     builder.add_node(TOOL_RESULT_NODE, tool_result_node)
+    builder.add_edge(INITIAL_NODE, TOOLS_NODE)
     builder.add_edge(TOOL_RESULT_NODE, TOOLS_NODE)
 
-    # Add conditional edge from tools
-    builder.add_conditional_edges(
-        TOOLS_NODE,
-        should_end
-    )
+    if summary_config is not None:
+        def routing(state: StateT) -> Literal["summarize", "tool_result", "__end__"]:
+            if state.get(output_key, None) is not None:
+                return "__end__"
+            elif len(state["messages"]) > summary_config.max_messages:
+                return "summarize"
+            else:
+                return "tool_result"
 
-    return (builder, llm)
+        summarizer = get_summarizer(
+            unbound_llm, sys_prompt, initial_prompt, state_class, summary_config
+        )
+        builder.add_node(SUMMARIZE_NODE, summarizer)
+        builder.add_edge(SUMMARIZE_NODE, TOOL_RESULT_NODE)
+        builder.add_conditional_edges(TOOLS_NODE, routing)
+    else:
+        builder.add_conditional_edges(TOOLS_NODE, should_end)
+    return builder, llm

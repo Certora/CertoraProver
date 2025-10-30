@@ -67,6 +67,8 @@ def add_cache_control(s: List[AnyMessage]) -> List[AnyMessage]:
         match curr:
             case HumanMessage(content=cont) | ToolMessage(content=cont):
                 cont_list = cast(List[dict], cont)
+                if not cont_list:
+                    continue
                 new_cont_list = cont_list.copy()
                 final_elem = new_cont_list[-1]
                 new_cont_list[-1] = {
