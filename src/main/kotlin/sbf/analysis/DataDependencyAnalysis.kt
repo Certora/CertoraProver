@@ -26,6 +26,7 @@ import sbf.disassembler.*
 import sbf.domains.*
 import sbf.support.*
 import datastructures.stdcollections.*
+import sbf.SolanaConfig
 
 private class DDAError(val msg: String): SolanaInternalError(msg)
 
@@ -50,7 +51,8 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         DataDepsState.bottom,
         Direction.BACKWARD
     ) {
-    private val fwdAnalysis = AdaptiveScalarAnalysis(cfg, globalsMap, memSummaries)
+    private val sbfTypesFac =  ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+    private val fwdAnalysis = ScalarAnalysis(cfg, globalsMap, memSummaries, sbfTypesFac)
     private val registerTypes = AnalysisRegisterTypes(fwdAnalysis)
     private val vFac = VariableFactory()
 
@@ -104,10 +106,18 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             is SbfType.PointerType.Stack -> {
                 val len = (registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
                     ?: throw DDAError("len is not statically known at $inst")
-                val dstStart = dstTy.offset.toLongOrNull() ?: throw DDAError("dest on stack with unknown offset in $cmd")
+                val dstStarts = dstTy.offset.toLongList()
+                if (dstStarts.isEmpty()) {
+                    throw DDAError("dest on stack with unknown offset at $cmd")
+                }
+                val dstStart = dstStarts.first() /** under-approximation **/
                 when (srcTy) {
                     is SbfType.PointerType.Stack -> {
-                        val srcStart = srcTy.offset.toLongOrNull() ?: throw DDAError("src on stack with unknown offset in $cmd")
+                        val srcStarts = srcTy.offset.toLongList()
+                        if (srcStarts.isEmpty()) {
+                            throw DDAError("src on stack with unknown offset at $cmd")
+                        }
+                        val srcStart = srcStarts.first() /** under-approximation **/
                         stackToStackF(dstStart, srcStart, len)
                     }
                     else -> nonStackToStackF(dstStart, len)
@@ -118,7 +128,12 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                     is SbfType.PointerType.Stack -> {
                         val len = (registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
                             ?: throw DDAError("len is not statically known at $inst")
-                        val srcStart = srcTy.offset.toLongOrNull() ?: throw DDAError("src on stack with unknown offset in $cmd")
+
+                        val srcStarts = srcTy.offset.toLongList()
+                        if (srcStarts.isEmpty()) {
+                            throw DDAError("src on stack with unknown offset at $cmd")
+                        }
+                        val srcStart = srcStarts.first() /** under-approximation **/
                         stackToNonStackF(srcStart, len)
                     }
                     else -> nonStackToNonStackF()
@@ -151,7 +166,11 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         val len = lenTy.value.toLongOrNull() ?: throw DDAError(msg = "length is not statically known at $inst")
         return when (val ptrTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R1_ARG)) {
             is SbfType.PointerType.Stack -> {
-                val ptrStart = ptrTy.offset.toLongOrNull() ?: throw DDAError("memset on stack with unknown offset in $cmd")
+                val ptrStarts = ptrTy.offset.toLongList()
+                if (ptrStarts.isEmpty()) {
+                    throw DDAError("memset on stack with unknown offset at $cmd")
+                }
+                val ptrStart = ptrStarts.first() /** under-approximation **/
                 stackF(ptrStart, len)
             }
             else -> nonStackF()
@@ -180,7 +199,15 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
 
         val baseTy = registerTypes.typeAtInstruction(cmd, inst.access.baseReg.r)
         return if (baseTy is SbfType.PointerType.Stack) {
-            val base = baseTy.offset.toLongOrNull() ?: throw DDAError("Memory access to the stack with unknown offset")
+            val bases = baseTy.offset.toLongList()
+            if (bases.isEmpty()) {
+                throw DDAError("Memory access to the stack with unknown offset at $inst")
+            }
+            /**
+             * **Important**: if `bases.size() > 1` then the analysis knows that there more than one possible
+             * location being accessed. It's okay to choose one (under-approximation) and continue
+             **/
+            val base  = bases.first()
             if (inst.isLoad) {
                 loadFromStack(base, inst.access.offset.toLong(), inst.access.width, inst.value as Value.Reg)
             } else {

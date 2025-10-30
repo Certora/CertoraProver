@@ -3487,9 +3487,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      *  We check that it is not an edge from non-stack memory to stack.
      *  This is sufficient to check that whether a stack address escapes.
      */
-    private fun checkStackDoesNotEscape(locInst: LocatedSbfInstruction?, src: PTACell<Flags>, dst: PTACell<Flags>) {
+    private fun checkStackDoesNotEscape(locInst: LocatedSbfInstruction?, src: PTACell<Flags>, dst: PTACell<Flags>, width: Short) {
         if (src.getNode() != getStack() && dst.getNode() == getStack()) {
-            throw PointerStackEscapingError(DevErrorInfo(locInst, null,"stack is escaping: $dst is being stored into $src"))
+            val dstPtrExpr = PtrExprErrStackDeref(PTAField(dst.getOffset(), width))
+            throw PointerStackEscapingError(DevErrorInfo(locInst, dstPtrExpr,"stack is escaping: $dst is being stored into $src"))
         }
     }
 
@@ -3537,7 +3538,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      *  ([isStrongUpdate]=`false`) it might not be needed. This is always sound, but it might cause some PTA error.
      */
     private fun updateLink(locInst: LocatedSbfInstruction, src: PTACell<Flags>, width: Short, dst: PTACell<Flags>, isStore: Boolean, isStrongUpdate: Boolean) {
-        checkStackDoesNotEscape(locInst, src, dst)
+        checkStackDoesNotEscape(locInst, src, dst, width)
         val srcNode = src.getNode()
         val isStack = srcNode == getStack()
 
@@ -3785,7 +3786,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         dstNode.updateLinks(srcLinks, adjustedOffset) { f ->
             val srcField = f.copy(offset= f.offset - adjustedOffset)
             check(srcNode.getSucc(srcField) != null) {"field $srcField should exist in $srcNode"}
-            checkStackDoesNotEscape(locInst, dstNode.createCell(f.offset), srcNode.getSucc(srcField)!!)
+            checkStackDoesNotEscape(locInst, dstNode.createCell(f.offset), srcNode.getSucc(srcField)!!, f.size)
             if (dstNode == getStack()) {
                 dbgMemTransfer { "\tAdded link at $f" }
             }
