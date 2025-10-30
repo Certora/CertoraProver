@@ -407,7 +407,52 @@ class BufferTraceInstrumentation private constructor(
                     hashFamily = HashFamily.Sha3
                 ), setOf(), listOf()
             )
-            return representative.toCRD() andThen theHash
+            val withTransparentCopy = when(this) {
+                is WriteFromLongRead -> {
+                    val copyTracker = this.sourceInstrumentation.transparentCopyTracking
+                    if(copyTracker != null) {
+                        TXF {
+                            ite(
+                                copyTracker.statusFlagVar eq TransparentCopyTracking.COPY_NO_CTXT,
+                                TACExpr.SimpleHash(
+                                    length = copyTracker.sortVar.asSym(),
+                                    args = listOf(
+                                        currHash.asSym(),
+                                        relativeOffset.asSym(),
+                                        length.asSym(),
+                                        copyTracker.reprVar.asSym()
+                                    ),
+                                    hashFamily = HashFamily.Sha3
+                                ),
+                                ite(
+                                    copyTracker.statusFlagVar eq TransparentCopyTracking.COPY_WITH_CTXT,
+                                    TACExpr.SimpleHash(
+                                        length = copyTracker.sortVar.asSym(),
+                                        args = listOf(
+                                            currHash.asSym(),
+                                            relativeOffset.asSym(),
+                                            length.asSym(),
+                                            copyTracker.reprVar.asSym(),
+                                            copyTracker.extraCtxtVar.asSym()
+                                        ),
+                                        hashFamily = HashFamily.Sha3
+                                    ),
+                                    theHash
+                                )
+                            )
+                        }
+                    } else {
+                        theHash
+                    }
+                }
+                is ByteStore,
+                is ByteStoreSingle,
+                is CodeCopy,
+                is CopyFromCalldata,
+                is CopyFromReturnBuffer,
+                is UnknownEnvCopy -> theHash
+            }
+            return representative.toCRD() andThen withTransparentCopy
         }
     }
 
@@ -824,6 +869,10 @@ class BufferTraceInstrumentation private constructor(
             val sourceToInstrumentation = mutableMapOf<LongRead, LongReadInstrumentation>()
             for(s in sources) {
                 val useSiteControl = options.useSiteControl[s.where]
+                val isCopyBuffer = g.elab(s.where).let { lc ->
+                    lc.snarrowOrNull<LoopCopyAnalysis.LoopCopySummary>()?.isMemoryByteCopy() == true ||
+                        lc.maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.cmd?.dstBase?.meta?.contains(TACMeta.MCOPY_BUFFER) == true
+                }
                 val i = s.id
                 sourceToInstrumentation[s] = i.run {
                     LongReadInstrumentation(
@@ -866,6 +915,14 @@ class BufferTraceInstrumentation private constructor(
                                 writeCountVar = instrumentationVar("writeCount", Tag.Bit256),
                                 shadowAccum = instrumentationVar("shadowAccumOf", Tag.Bit256),
                                 finalWriteCountProphecy = instrumentationVar("writeCountProphecy", Tag.Bit256)
+                            )
+                        },
+                        transparentCopyTracking = runIf(isCopyBuffer) {
+                            TransparentCopyTracking(
+                                statusFlagVar = instrumentationVar("copyStatusFlag"),
+                                extraCtxtVar = instrumentationVar("copyExtraCtxt"),
+                                reprVar = instrumentationVar("copyReprVar"),
+                                sortVar = instrumentationVar("sortReprVar")
                             )
                         }
                     )
@@ -986,6 +1043,9 @@ class BufferTraceInstrumentation private constructor(
         override val sort: WriteSort
             get() = WriteSort.CALLDATA_COPY
 
+        override val sortRepr: Int
+            get() = sort.ordinal
+
         override fun getValueRepresentative(): TACExprWithRequiredCmdsAndDecls<TACCmd.Simple> {
             return sourceOffset.lift()
         }
@@ -1064,6 +1124,8 @@ class BufferTraceInstrumentation private constructor(
 
         override val extraContext: TACSymbol
             get() = accumulatorVar
+        override val sortRepr: Int
+            get() = sort.ordinal
         override val baseMap: TACSymbol.Var
             get() = TACKeyword.RETURNDATA.toVar()
         override val sourceLoc: TACSymbol
@@ -1275,17 +1337,21 @@ class BufferTraceInstrumentation private constructor(
          * Instrumentation variables to maintain the shadow memory cell. Only non-null
          * for those mload commands whose inclusion was forced via [InstrumentationControl]
          */
-        val preciseBoundedWindow: BoundedPreciseCellInstrumentation?
+        val preciseBoundedWindow: BoundedPreciseCellInstrumentation?,
+
+        val transparentCopyTracking: TransparentCopyTracking?
 //        val ordinalWriteTracking: OrdinalWriteTracker?
     ) : WithVarInit, ILongReadInstrumentation {
         override val havocInitVars get() = listOf(lengthProphecy, baseProphecy)
 
-        val instrumentationMixins : List<InstrumentationMixin> get() = listOfNotNull(gcInfo, bufferWriteInfo, eventSiteVisited, preciseBoundedWindow)
+        val instrumentationMixins : List<InstrumentationMixin> get() = listOfNotNull(gcInfo, bufferWriteInfo, eventSiteVisited, preciseBoundedWindow, transparentCopyTracking)
 
         override val constantInitVars: List<Pair<TACSymbol.Var, ToTACExpr>> = listOf(
             hashVar to TACSymbol.Zero,
             allAlignedVar to TACSymbol.True
         )
+        override val transparentCopyData: TransparentCopyData?
+            get() = transparentCopyTracking
     }
 
     /**

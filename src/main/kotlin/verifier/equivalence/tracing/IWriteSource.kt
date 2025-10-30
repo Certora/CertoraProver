@@ -44,6 +44,10 @@ internal sealed interface IWriteSource {
     sealed interface EnvCopy : IWriteSource {
         val baseMap: TACSymbol.Var
         val sourceLoc: TACSymbol
+
+        val extraContext: TACSymbol?
+
+        val sortRepr: Int
     }
 
     /**
