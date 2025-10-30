@@ -306,7 +306,17 @@ def build_workflow(
             return "__end__"
         return "tool_result"
 
-    llm = unbound_llm.bind_tools(tools_list)
+    actual_tools : list[dict[str, Any] | BaseTool] = []
+    for t in tools_list:
+        if t.name == "memory":
+            actual_tools.append({
+                "type": "memory_20250818",
+                "name": "memory"
+            })
+        else:
+            actual_tools.append(t)
+
+    llm = unbound_llm.bind_tools(actual_tools)
 
     # Create initial node and tool node with curried LLM
     init_node = initial_node(input_type, state_class, sys_prompt=sys_prompt, initial_prompt=initial_prompt, llm=llm)
