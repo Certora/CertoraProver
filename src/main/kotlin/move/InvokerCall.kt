@@ -92,11 +92,15 @@ data class InvokerCall(
             }
         }
 
+        // We discard any returned values (parametric rules cannot see them), but we still need some variables to
+        // receive the outputs of the call.
+        val returns = target.returns.map { TACKeyword.TMP(it.toTag()) }
+
         // Compile the target and add it to the program
         val targetCode = compileSubprogram(
             entryFunc = target,
             args = args,
-            returns = listOf()
+            returns = returns
         )
 
         patch.replaceCommand(callPtr, mergeMany(preamble), targetCode)

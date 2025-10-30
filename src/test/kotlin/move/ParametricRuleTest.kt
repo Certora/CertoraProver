@@ -124,6 +124,39 @@ class ParametricRuleTest : MoveTestFixture() {
     }
 
     @Test
+    fun `target with returns`() {
+        addMoveSource("""
+            module test_addr::test;
+            use cvlm::asserts::cvlm_assert;
+            use cvlm::function::Function;
+            public fun cvlm_manifest() {
+                cvlm::manifest::target(@test_addr, b"test", b"target1");
+                cvlm::manifest::target(@test_addr, b"test", b"target2");
+                cvlm::manifest::rule(b"test");
+                cvlm::manifest::invoker(b"invoker");
+            }
+            public fun target1() {
+                cvlm_assert(true);
+            }
+            public fun target2(): (u32, u64) {
+                cvlm_assert(true);
+                (1, 2)
+            }
+            public native fun invoker(f: Function);
+            public fun test(f: Function) {
+                invoker(f);
+            }
+        """.trimIndent())
+        assertEquals(
+            mapOf(
+                "$testModuleAddrHex::test::test-$testModuleAddrHex::test::target1" to true,
+                "$testModuleAddrHex::test::test-$testModuleAddrHex::test::target2" to true
+            ),
+            verifyMany()
+        )
+    }
+
+    @Test
     fun `simple argument passing`() {
         addMoveSource("""
             module test_addr::test;
