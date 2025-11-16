@@ -202,7 +202,7 @@ class CalculateMethodParamFilters(
 
                     // Replace the methodArg variables within the filter expression with a SignatureLiteralExp that represents
                     // [method], so that we can statically evaluate the filter right here.
-                    val symbolicMethodReplacer = SymbolicMethodReplacer(methodArgId, method, contract)
+                    val symbolicMethodReplacer = SymbolicMethodReplacer(methodArgId, method, EVMExternalMethodInfo.fromMethodAndContract(method, contract))
                     symbolicMethodReplacer.expr(methodParamFilter.filterExp).map { replacedExp ->
                         val evaluatedFilter = replacedExp.eval()
                             ?: error("It should be possible to evaluate any filter at this stage, but failed to evaluate the filter '${methodParamFilter.filterExp}'")
@@ -256,7 +256,7 @@ class CalculateMethodParamFilters(
         }
     }
 
-    inner class SymbolicMethodReplacer(private val methodArgName: String, private val method: Method, private val contract: ContractInstanceInSDC) : CVLExpTransformer<Nothing> {
+    inner class SymbolicMethodReplacer(private val methodArgName: String, private val method: Method, private val evmExternalMethodInfo: EVMExternalMethodInfo) : CVLExpTransformer<Nothing> {
         /**
          * Replace expressions of the sort `f.selector` with `method().selector`
          */
@@ -270,7 +270,7 @@ class CalculateMethodParamFilters(
                                 exp.getScope(),
                                 EVMBuiltinTypes.method,
                                 exp.getRangeOrEmpty(),
-                                annotation = EVMExternalMethodInfo.fromMethodAndContract(method, contract)
+                                annotation = evmExternalMethodInfo
                                     .toCvlStructLit(exp.getScope())
                             )
                         ),

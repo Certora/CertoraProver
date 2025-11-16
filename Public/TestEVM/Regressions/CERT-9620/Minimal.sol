@@ -1,5 +1,5 @@
 contract Minimal {
-    function payloaddd() external view returns (bytes memory payload) {
+    function payloaddd() internal view returns (bytes memory payload) {
         payload = abi.encodePacked(bytes2(0x0003));
     }
 }

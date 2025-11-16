@@ -2163,7 +2163,7 @@ class CVLExpTypeCheckerWithContext(
                contract.internalFunctions.values.map { it.method.name }.contains(methodId)
     }
 
-    private fun missingFunctionError(exp: CVLExp.UnresolvedApplyExp, contract: ContractInstanceInSDC, internal_function_calls_maybe_not_enabled: Boolean): CVLError {
+    private fun missingFunctionError(exp: CVLExp.UnresolvedApplyExp, contract: ContractInstanceInSDC): CVLError {
         val errMessage = contract.internalFunctions.values
             .map { it.method }
             .find { method ->
@@ -2184,15 +2184,13 @@ class CVLExpTypeCheckerWithContext(
                 val storageInputIndex = method.fullArgs.indexOfFirst { it.location == SolcLocation.storage }
                 val storageOutputIndex = method.returns.indexOfFirst { it.location == SolcLocation.storage }
                 val reason = if (storageInputIndex >= 0) {
-                    " because input parameter '${method.paramNames[storageInputIndex]}' has storage location"
+                    "because input parameter '${method.paramNames[storageInputIndex]}' has storage location"
                 } else if (storageOutputIndex >= 0) {
-                    " because output parameter #$storageOutputIndex has storage location"
-                } else if (internal_function_calls_maybe_not_enabled) {
-                    ". Internal function calls from spec need to be enabled via --allow_internal_function_calls."
+                    "because output parameter #$storageOutputIndex has storage location"
                 } else {
                     ""
                 }
-                "Cannot call internal function ${method.name} from spec$reason"
+                "Cannot call internal function ${method.name} from spec $reason"
             }
             ?: (symbolTable.lookUpNonFunctionLikeSymbol(exp.methodId, typeEnv.scope)
                 ?.symbolValue as? CVLInvariant)?.let { "Cannot apply an invariant ${exp.methodId}, it can only be applied under requireInvariant" }
@@ -2266,12 +2264,7 @@ class CVLExpTypeCheckerWithContext(
             }
 
             // Function not found - return error
-            else -> returnError(
-                missingFunctionError(
-                    exp, contract,
-                    internal_function_calls_maybe_not_enabled = contract.internalFunctionHarnesses.isEmpty()
-                )
-            )
+            else -> returnError(missingFunctionError(exp, contract))
         }
 
         check(res.symbolValue is ContractFunction) {
