@@ -1191,6 +1191,17 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False,
     )
 
+    DUMP_ASTS = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="dump all solidity files' asts to asts.json in the build directory",
+        default_desc="asts are not saved",
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False,
+    )
+
     @classmethod
     def hide_attributes(cls) -> List[str]:
         # do not show these attributes in the help message

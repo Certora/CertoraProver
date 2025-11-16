@@ -2917,6 +2917,8 @@ class CertoraBuildGenerator:
 
                 self.SDCs[self.get_sdc_key(sdc.primary_contract, sdc.primary_contract_address)] = sdc
 
+        if self.context.dump_asts:
+            self.dump_asts()
         self.handle_links()
         self.handle_struct_links()
         self.handle_contract_extensions()
@@ -3880,6 +3882,16 @@ class CertoraBuildGenerator:
         except ImportError:
             # Avoiding Python interpreter shutdown exceptions which are safe to ignore
             pass
+
+    def dump_asts(self) -> None:
+        asts_dump_file = Util.get_asts_file()
+        filtered_asts = {k: v for k, v in self.asts.items() if not str(k).startswith(f"{Util.get_build_dir()}")}
+        with asts_dump_file.open("w+") as output_file:
+            try:
+                json.dump(filtered_asts, output_file, indent=4, sort_keys=True)
+            except Exception as e:
+                ast_logger.debug(f"Couldn't dump ASTs to {asts_dump_file}", exc_info=e)
+                raise
 
 
 # make sure each source file exists and its path is in absolute format
