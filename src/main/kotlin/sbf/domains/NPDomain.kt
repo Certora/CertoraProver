@@ -772,14 +772,21 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                             // remove any stack location that overlap with baseV
                             val curValNoOverlaps = curVal.remove(baseV.toFiniteInterval())
 
-                            val immVal: Long? = when (inst.value) {
-                                is Value.Imm -> inst.value.v.toLong()
-                                is Value.Reg -> getNum(registerTypes.typeAtInstruction(locatedInst, inst.value.r))
+                            val rhsValues: List<Long>? = when (inst.value) {
+                                is Value.Imm -> listOf(inst.value.v.toLong())
+                                is Value.Reg -> {
+                                    (registerTypes.typeAtInstruction(locatedInst, inst.value.r) as? SbfType.NumType)?.value?.toLongList()?.let {
+                                        it.ifEmpty { null }
+                                    }
+                                }
                             }
-                            if (immVal != null) {
+                            if (rhsValues != null) {
                                 // Use of the forward analysis to refine backward analysis.
                                 // See above discussion applies here.
-                                curValNoOverlaps.eval(baseV, ExpressionNum(immVal))
+                                check(rhsValues.isNotEmpty())
+                                rhsValues.fold(mkBottom()) { acc, rhsValue ->
+                                    acc.join(curValNoOverlaps.eval(baseV, ExpressionNum(rhsValue)))
+                                }
                             } else {
                                 check(inst.value is Value.Reg) { "NPDomain in memory store expects the value to be a register" }
                                 val regV = RegisterVariable(inst.value, vFac)
