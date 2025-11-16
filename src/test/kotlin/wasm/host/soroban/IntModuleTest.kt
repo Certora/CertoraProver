@@ -17,6 +17,7 @@
 
 package wasm.host.soroban
 
+import annotations.TestTags
 import net.jqwik.api.*
 import net.jqwik.api.constraints.*
 import net.jqwik.kotlin.api.*
@@ -31,6 +32,8 @@ import wasm.host.soroban.Val.Tag.*
 import wasm.wat.*
 import java.math.BigInteger
 
+@net.jqwik.api.Tag(TestTags.EXPENSIVE)
+@org.junit.jupiter.api.Tag(TestTags.EXPENSIVE)
 class IntModuleTest : SorobanTestFixture() {
     @Target(AnnotationTarget.VALUE_PARAMETER)
     @ForAll
