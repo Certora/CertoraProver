@@ -17,6 +17,7 @@
 
 package wasm
 
+import analysis.opt.bytemaps.optimizeBytemaps
 import analysis.controlflow.*
 import analysis.loop.LoopHoistingOptimization
 import analysis.maybeNarrow
@@ -45,7 +46,6 @@ import wasm.analysis.ConstantArrayInitializationSummarizer
 import wasm.analysis.WASMStackFrame
 import wasm.analysis.intervals.IntervalBasedExprSimplifier
 import wasm.cfg.WasmCFG.Companion.wasmAstToWasmCfg
-import wasm.debugsymbols.InlinedFunctionAnnotator
 import wasm.host.WasmHost
 import wasm.impCfg.StraightLine
 import wasm.impCfg.WasmCfgToWasmImpCfg.brTabToBrIf
@@ -205,8 +205,9 @@ object WasmEntryPoint {
             wasmLogger.info { wasmCfg.dumpWasmCfg() }
             val wasmTac: WasmImpCfgProgram = wasmCfgToWasmImpCfg(funcId, wasmAST, elemTable, wasmCfg)
 
-            //Add function start and end annotations
-            val annotatedWasmCfg = wasmAST.wasmDebugSymbols?.let{InlinedFunctionAnnotator(it).addInlinedFunctionAnnotations(wasmTac)} ?: wasmTac
+            //This would be where we add function start and end annotations
+            // but it has been disabled [InlinedFunctionAnnotator]
+            val annotatedWasmCfg = wasmTac
             // Convert brtabs to brifs.
             val brtabFreeWtac = brTabToBrIf(annotatedWasmCfg)
             wasmLogger.info { "WasmCfg eliminate brTab $funcId" }
@@ -321,6 +322,10 @@ object WasmEntryPoint {
                         }
                     }
                 )
+                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
+                        optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true), cheap = false)
+                            .let(BlockMerger::mergeBlocks)
+                    })
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_UNUSED_WRITES, SimpleMemoryOptimizer::removeUnusedWrites))
                 .mapIfAllowed(
                     CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->

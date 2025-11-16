@@ -287,6 +287,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     BYTESK_INSTRUMENTER(LoggerTypes.NORMALIZER),
     HASH_FP_REUSE_NORMALIZATION(LoggerTypes.ALLOC),
     EQUIVALENCE_DEBUG(LoggerTypes.EQUIVALENCE),
+    ELIMINATE_DROPS(LoggerTypes.WASM),
     ANNOTATE_STACK_FRAMES(LoggerTypes.WASM),
     ;
 

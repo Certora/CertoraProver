@@ -3538,6 +3538,16 @@ object Config {
         )
     ) {}
 
+    val WASMHostEnv = object : ConfigType.CmdLine<WasmHost>(
+        default = WasmHost.SOROBAN,
+        converter = WasmHostConverter,
+        option = Option(
+            "wasmHost",
+            true,
+            "WASM host environment [default: Soroban]"
+        )
+    ) {}
+
     val WASMMemcpyNoOverlap = object : ConfigType.BooleanCmdLine(
         default = true,
         option = Option(

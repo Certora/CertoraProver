@@ -869,7 +869,7 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
             get() = setOf()
 
         @KSerializable
-        @com.certora.collect.Treapable
+        @Treapable
         data class TAC(val funcName: String, val funcArgs: List<TACSymbol>, @GeneratedBy(Allocator.Id.CALL_ID, source = true) val id: Int, val range: Range.Range?) :
             TransformableVarEntityWithSupport<TAC>, HasKSerializable, AmbiSerializable, UniqueIdEntity<TAC> {
 
@@ -920,7 +920,7 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
             get() = setOf()
 
         @KSerializable
-        @com.certora.collect.Treapable
+        @Treapable
         data class TAC(val funcName: String,  @GeneratedBy(Allocator.Id.CALL_ID, source = false) val id: Int) : HasKSerializable, AmbiSerializable, UniqueIdEntity<TAC> {
             constructor(fromWasm: InlinedFuncEndAnnotation) :
                 this(fromWasm.funcId, fromWasm.id)

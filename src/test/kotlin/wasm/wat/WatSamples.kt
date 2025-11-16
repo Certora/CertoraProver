@@ -21,6 +21,7 @@ import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import utils.*
 import wasm.*
+import wasm.host.NullHost
 
 /*
     This file contains sample usage of the `wasm.wat` WebAssembly-generation DSL.
@@ -305,7 +306,7 @@ class WatSamples : WasmTestFixture() {
     /////////////////////////////////////////////////////////////////
     // Support code below here
     /////////////////////////////////////////////////////////////////
-    override val host = wasm.host.NullHost
+    override val host = NullHost
     fun String.check(expectedSuccess: Boolean) = this.also {
         assertEquals(expectedSuccess, verifyWasm(it, "entry"))
     }
