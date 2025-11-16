@@ -865,7 +865,7 @@ def validate_msg(msg: str) -> str:
         msg = (msg[:MAX_MSG_LEN - 3] + "...")
         validation_logger.warning(f"'msg' can't accept strings longer than {MAX_MSG_LEN} chars, string was truncated")
 
-    additional_chars = {'(', ' ', ',', '/', '[', "'", '-', '"', '_', ']', '.', ')', ':', '\\', '='}
+    additional_chars = {'(', ' ', ',', '/', '[', "'", '-', '"', '_', ']', '.', ')', ':', '\\', '=', '*', '$'}
     valid_chars = set(string.ascii_letters) | set(string.digits) | additional_chars
     invalid_chars = set(msg) - valid_chars
     if len(invalid_chars) > 0:
