@@ -143,7 +143,7 @@ object MoveCallTrace {
         val callId: Int,
         val name: MoveFunctionName,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd()
+    ) : MoveSnippetCmd()
 
     /**
         Snippet holding the arguments to a function.  We also put the return types here, because we need those when
