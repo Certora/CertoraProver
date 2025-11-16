@@ -3815,13 +3815,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
-
-    @TestOnly
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
-        scalars: ScalarDomain, globals: GlobalVariableMap) {
-        doMemcpy(locInst = null, scalars, globals)
-    }
-
     /**
      *  Transfer function for `memcpy`
      *
@@ -3873,8 +3866,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      *  To avoid this, we re-run the transfer function after the flow-sensitive forward analysis has converged,
      *  ensuring that no new links can appear.
      */
-    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
-        locInst: LocatedSbfInstruction?,
+    @TestOnly
+    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
+        locInst: LocatedSbfInstruction,
         scalars: ScalarDomain,
         globals: GlobalVariableMap) {
         /**
@@ -4118,9 +4112,18 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             }
         }
 
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        if (!inst.isPromotedMemcpy()) {
+            forget(r0)
+        }
+
         val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
         // For instance, RawVec can call memcpy with length == 0 and destination being a small number
         // (alignment of the data type being transferred)
@@ -4289,8 +4292,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         globals: GlobalVariableMap
     ) {
 
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        forget(r0)
 
         val sc1 = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst)
             ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1),"memset: r1 does not point to a graph node in $this"))

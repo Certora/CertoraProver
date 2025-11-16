@@ -775,11 +775,13 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         check(inst is SbfInstruction.Call) {"TAC translateMemCopy expects a call instead of $inst"}
 
         val info = mem.getTACMemoryFromMemIntrinsic(locInst)
-        if (info == null) {
-            return unreachable(inst)
+        return if (info == null) {
+            unreachable(inst)
         } else {
             check(info is TACMemSplitter.MemTransferInfo) { "$inst expects MemTransferInfo" }
-            return when (info) {
+
+            val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+            val cmds = when (info) {
                 is TACMemSplitter.UnsupportedMemTransferInfo -> {
                     // We couldn't generate TAC code for the memcpy instruction.
                     // This might affect soundness because we don't havoc the destination.
@@ -803,6 +805,11 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                         memcpyStackToNonStack(info)
                     }
                 }
+            }
+            if (inst.isPromotedMemcpy()) {
+                cmds
+            } else {
+                cmds + TACCmd.Simple.AssigningCmd.AssignHavocCmd(r0)
             }
         }
     }
@@ -939,8 +946,10 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     *  @param locInst is a memset(x,val,len) instruction
     **/
     private fun translateMemSet(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
-       val inst = locInst.inst
-       check(inst is SbfInstruction.Call) {"TAC translateMemCopy expects a call instead of $inst"}
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call) {"TAC translateMemCopy expects a call instead of $inst"}
+
+        val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
         val info = mem.getTACMemoryFromMemIntrinsic(locInst)
         return if (info == null) {
             unreachable(inst)
@@ -964,7 +973,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                         cmds.add(assign(pv.tacVar, exprBuilder.ZERO.asSym()))
                     }
                     cmds.add(Debug.endFunction("memset"))
-                    return cmds
+                    cmds
                 }
                 is TACMemSplitter.NonStackMemsetInfo -> {
                     val len = info.length
@@ -976,12 +985,11 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     } else {
                         memsetNonStackWithMapDef(byteMapV, len, value)
                     }
-
-                    return  listOf(Debug.startFunction("memset", "(NonStack, $value, $len)")) +
-                            cmds +
-                            listOf(Debug.endFunction("memset"))
+                    listOf(Debug.startFunction("memset", "(NonStack, $value, $len)")) +
+                        cmds +
+                        listOf(Debug.endFunction("memset"))
                 }
-            }
+            } + TACCmd.Simple.AssigningCmd.AssignHavocCmd(r0)
         }
     }
     private fun SbfInstruction.Call.toStartInlinedAnnotation(

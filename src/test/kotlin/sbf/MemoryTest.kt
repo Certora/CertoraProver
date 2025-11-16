@@ -27,6 +27,7 @@ import sbf.domains.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import sbf.analysis.MemoryAnalysis
+import sbf.callgraph.SolanaFunction
 import sbf.testing.SbfTestDSL
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
@@ -58,6 +59,9 @@ class MemoryTest {
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
         g.doStore(locInst, base, value, SbfType.top(), SbfType.top(), newGlobalVariableMap())
     }
+
+    private fun createMemcpy() = LocatedSbfInstruction(Label.fresh(),0, SbfInstruction.Call(SolanaFunction.SOL_MEMCPY.syscall.name))
+
 
     @Test
     fun test01() {
@@ -1153,7 +1157,7 @@ class MemoryTest {
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(4032)))
         g.setRegCell(r2,sumN.createSymCell(PTAOffset(0)))
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32)))
-        g.doMemcpy(scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars, globals)
         println("After memcpy(r1=sp(4032),r2=(sumN,0),r3=32): $g")
 
         val c1 = stack.getNode().getSucc(PTAField(PTAOffset(4032), 8))
@@ -1169,7 +1173,7 @@ class MemoryTest {
         // memcpy(r1=sp(3032), r2=sp(4042), r3=32)
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(3032)))
         g.setRegCell(r2, stack.getNode().createSymCell(PTAOffset(4032)))
-        g.doMemcpy(scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars, globals)
         println("After memcpy(r1=sp(3032), r2=sp(4042), r3=32): $g")
 
         g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))
@@ -1210,7 +1214,7 @@ class MemoryTest {
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(4032)))
         g.setRegCell(r2,sumN.createSymCell(PTAOffset(0)))
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32)))
-        g.doMemcpy(scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars, globals)
         println("After memcpy(r1=sp(4032),r2=(sumN,0),r3=32): $g")
 
         val c1 = stack.getNode().getSucc(PTAField(PTAOffset(4032), 8))
@@ -1231,7 +1235,7 @@ class MemoryTest {
         // memcpy(r1=sp(3032), r2=sp(4042), r3=32)
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(3032)))
         g.setRegCell(r2, stack.getNode().createSymCell(PTAOffset(4032)))
-        g.doMemcpy(scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars, globals)
         println("After memcpy(r1=sp(3032), r2=sp(4042), r3=32): $g")
 
         g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))

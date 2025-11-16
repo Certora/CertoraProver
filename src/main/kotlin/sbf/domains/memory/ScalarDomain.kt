@@ -486,9 +486,49 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         base.restoreScratchRegisters(topStack)
     }
 
+    /** Extracts known constant length from a register, or throws a detailed error. */
+    private fun extractKnownLength(locInst: LocatedSbfInstruction, reg: Value.Reg): Long {
+        // For now, we use `toLongOrNull` which means that the length must be exactly known.
+        // This is something that we can improve if needed.
+        return (getRegister(reg).type() as? SbfType.NumType)?.value?.toLongOrNull()
+            ?: throw UnknownMemcpyLenError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(reg),
+                    "Statically unknown length in $reg"
+                )
+            )
+    }
+
+    /** Ensures a stack pointer offset is not top, otherwise throws an exception */
+    private fun ensureKnownStackOffset(
+        locInst: LocatedSbfInstruction,
+        offset: TOffset,
+        reg: Value.Reg
+    ) {
+        if (offset.isTop()) {
+            throw UnknownStackPointerError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(reg),
+                    "Statically unknown stack offset $reg"
+                )
+            )
+        }
+    }
+
+    /** Removes all (or partial) overlapping stack slices at the destination offsets. */
+    private fun removeDstSlices(dstOffsets: List<Long>,
+                                len: Long,
+                                onlyPartial: Boolean,
+                                pred: (ByteRange) -> Boolean = { _ -> true}) {
+        dstOffsets.forEach { dstOffset ->
+            base.removeStackSliceIf(dstOffset, len, onlyPartial, pred)
+        }
+    }
 
     /**
-     * Analyze `memcpy` and `memmove`
+     * Analyze `memcpy(dst, src, len)` and `memmove(dst, src, len)`
      *
      * - If `memcpy` then
      *   1. Remove all the environment entries that might overlap with `[dstOffset, dstOffset+len)`
@@ -500,47 +540,33 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
      * **/
     private fun analyzeMemTransfer(locInst: LocatedSbfInstruction) {
         val stmt = locInst.inst
-        check(stmt is SbfInstruction.Call) {"analyzeMemTransfer expects a call instruction instead of $stmt"}
-
+        check(stmt is SbfInstruction.Call)
         val solanaFunction = SolanaFunction.from(stmt.name)
-        check(solanaFunction == SolanaFunction.SOL_MEMCPY ||
-                    solanaFunction == SolanaFunction.SOL_MEMMOVE) {"Precondition of analyzeMemTransfer"}
+        check(solanaFunction == SolanaFunction.SOL_MEMCPY || solanaFunction == SolanaFunction.SOL_MEMMOVE)
 
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r2 = Value.Reg(SbfRegister.R2_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        if (!stmt.isPromotedMemcpy()) {
+            forget(r0)
+        }
+
         val dstType = getRegister(r1).type()
         if (dstType is SbfType.PointerType.Stack) {
-            // For now, we use `toLongOrNull` which means that the length must be exactly known.
-            // This is something that we can improve if needed.
-            val len = (getRegister(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
-                    ?: throw UnknownMemcpyLenError(
-                            DevErrorInfo(locInst, PtrExprErrReg(r3),
-                            "memcpy on stack without knowing exact length: ${getRegister(r3).type()}"
-                            )
-                    )
-            if (dstType.offset.isTop()) {
-                throw UnknownStackPointerError(DevErrorInfo(locInst, PtrExprErrReg(r1),"memcpy on stack without knowing destination offset"))
-            }
-
+            val len = extractKnownLength(locInst, r3)
+            ensureKnownStackOffset(locInst, dstType.offset, r1)
             val dstOffsets = dstType.offset.toLongList()
             check(dstOffsets.isNotEmpty()) {"Scalar domain expects non-empty list"}
 
             when (solanaFunction) {
-                SolanaFunction.SOL_MEMMOVE -> {
-                    // We are conservative and remove any overlapping entry at the destination
-                    dstOffsets.forEach { dstOffset->
-                        base.removeStackSliceIf(dstOffset, len, onlyPartial = false)
-                    }
-                }
+                SolanaFunction.SOL_MEMMOVE -> removeDstSlices(dstOffsets, len, onlyPartial = false)
                 SolanaFunction.SOL_MEMCPY -> {
+                    val r2 = Value.Reg(SbfRegister.R2_ARG)
                     when (val srcType = getRegister(r2).type()) {
                         is SbfType.PointerType.Stack -> {
                             if (srcType.offset.isTop()) {
-                                // We are conservative and remove any overlapping entry at the destination
-                                dstOffsets.forEach { dstOffset->
-                                    base.removeStackSliceIf(dstOffset, len, onlyPartial = false)
-                                }
+                                removeDstSlices(dstOffsets, len, onlyPartial = false)
                             } else {
                                 val srcOffsets = srcType.offset.toLongList()
                                 check(srcOffsets.isNotEmpty()) { "Scalar domain expects non-empty list because it is not top" }
@@ -551,9 +577,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                 //
                                 // We cannot remove directly all destination entries (i.e., `onlyPartial=false`) because we might need to do weak updates,
                                 // so we need to remember old values.
-                                dstOffsets.forEach { dstOffset ->
-                                    base.removeStackSliceIf(dstOffset, len, onlyPartial = true)
-                                }
+                                removeDstSlices(dstOffsets, len, onlyPartial = true)
 
                                 val dstFootprint = mutableSetOf<ByteRange>()
                                 if (dstOffsets.size == 1) {
@@ -572,29 +596,46 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                         }
                                     }
                                 }
-
                                 // Important for soundness
                                 // If a destination byte hasn't been overwritten by a source then we must "kill" it.
                                 // This is possible because the analysis might know nothing about the source so `memTransfer` can be a non-op.
-                                dstOffsets.forEach { dstOffset ->
-                                    base.removeStackSliceIf(dstOffset, len, onlyPartial = false) { !dstFootprint.contains(it) }
-                                }
+                                removeDstSlices(dstOffsets, len, onlyPartial = false) { !dstFootprint.contains(it) }
                             }
                         }
                         else -> {
                             // We are conservative and remove any overlapping entry at the destination
-                            dstOffsets.forEach { dstOffset ->
-                                base.removeStackSliceIf(dstOffset, len, onlyPartial = false)
-                            }
+                            removeDstSlices(dstOffsets, len, onlyPartial = false)
                         }
                     }
                 }
-                else -> {
-                    /* this is unreachable */
-                    check(false) {"Only memcpy or memmove expected"}
-                }
+                else -> check(false) {"unreachable"}
             }
         }
+    }
+
+    /** Transfer function for `memset(ptr, val, len)` **/
+    private fun analyzeMemset(locInst: LocatedSbfInstruction) {
+        val stmt = locInst.inst
+        check(stmt is SbfInstruction.Call)
+        val solanaFunction = SolanaFunction.from(stmt.name)
+        check(solanaFunction == SolanaFunction.SOL_MEMSET)
+
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        forget(r0)
+
+        val ptrType = getRegister(r1).type()
+        if (ptrType is SbfType.PointerType.Stack) {
+            val len = extractKnownLength(locInst, r3)
+            ensureKnownStackOffset(locInst, ptrType.offset, r1)
+            val offsets = ptrType.offset.toLongList()
+            check(offsets.isNotEmpty()) { "Scalar domain expects non-empty list" }
+            // We are conservative and remove any overlapping entry at the destination
+            removeDstSlices(offsets, len, onlyPartial = false)
+        }
+
     }
 
     private fun castNumToString(reg: Value.Reg, globals: GlobalVariableMap) {
@@ -631,6 +672,9 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 }
                 SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE -> {
                     analyzeMemTransfer(locInst)
+                }
+                SolanaFunction.SOL_MEMSET -> {
+                    analyzeMemset(locInst)
                 }
                 else -> {
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))

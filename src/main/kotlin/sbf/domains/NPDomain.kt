@@ -20,16 +20,17 @@ package sbf.domains
 import sbf.callgraph.*
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
-import sbf.sbfLogger
 import sbf.SolanaConfig
 import datastructures.stdcollections.*
+import log.*
 import sbf.analysis.AnalysisRegisterTypes
 import utils.*
 import java.math.BigInteger
 
 class NPDomainError(msg: String): RuntimeException("NPDomain error:$msg")
 
-private const val debugNPDomain = false
+private val logger = Logger(LoggerTypes.SBF_BACKWARD_SCALAR_ANALYSIS)
+private fun dbg(msg: () -> Any) { logger.info(msg)}
 
 /**
  * Synthetic variable that represents the content of a regular register [reg]
@@ -459,10 +460,36 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         }
     }
 
+    /** Extracts known constant length from a register, or throws a detailed error. */
+    private fun extractKnownLength(
+        locInst: LocatedSbfInstruction,
+        reg: SbfRegister,
+        registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): Long {
+        return (registerTypes.typeAtInstruction(locInst, reg) as? SbfType.NumType)?.value?.toLongOrNull()
+            ?: throw NPDomainError("Statically unknown length in ${locInst.inst}")
+    }
+
+    /** Ensures a stack pointer offset is not top, otherwise throws an exception */
+    private fun ensureKnownStackOffset(
+        locInst: LocatedSbfInstruction,
+        offset: TOffset,
+        reg: SbfRegister
+    ) {
+        if (offset.isTop()) {
+            throw NPDomainError("Statically unknown stack offset $reg in ${locInst.inst}")
+        }
+    }
+
+    private fun anyStackVariableInRange(cst: SbfLinearConstraint, interval: FiniteInterval): Boolean {
+        return cst.getVariables().any { v ->
+            v is StackSlotVariable && interval.overlap(v.toFiniteInterval())
+        }
+    }
+
     /**
-     *  Modeling of memcpy and memmove.
+     *  Analyze `memcpy(dst, src, len)` and `memmove(dst, src, len)`.
      *
-     *  Recall that NPDomain only reasons about stack memory (i.e., heap is completely ignored). Thus, we only care
+     *  Recall that [NPDomain] only reasons about stack memory (i.e., heap is completely ignored). Thus, we only care
      *  when we transfer to the stack.
      **/
     private fun analyzeMemTransfer(locatedInst: LocatedSbfInstruction,
@@ -474,80 +501,110 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         }
 
         val inst = locatedInst.inst
-        check(inst is SbfInstruction.Call) {"Precondition 1 of analyzeMemTransfer"}
+        check(inst is SbfInstruction.Call)
         val solanaFunction = SolanaFunction.from(inst.name)
-        check(solanaFunction == SolanaFunction.SOL_MEMCPY ||
-                    solanaFunction == SolanaFunction.SOL_MEMMOVE) {"Precondition 2 of analyzeMemTransfer"}
+        check(solanaFunction == SolanaFunction.SOL_MEMCPY || solanaFunction == SolanaFunction.SOL_MEMMOVE)
 
-        val dstTy = registerTypes.typeAtInstruction(locatedInst, SbfRegister.R1_ARG)
-        return if (dstTy is SbfType.PointerType.Stack) {
-            val lenTy = registerTypes.typeAtInstruction(locatedInst, SbfRegister.R3_ARG)
-            if (lenTy is SbfType.NumType) {
-                val len = lenTy.value.toLongOrNull()
-                    ?: throw NPDomainError("cannot analyze $solanaFunction on stack without knowing length (1)")
-                if (dstTy.offset.isTop()) {
-                    throw NPDomainError("cannot analyze $solanaFunction on stack without knowing destination offset")
-                }
+        val r0 = SbfRegister.R0_RETURN_VALUE
+        val r1 = SbfRegister.R1_ARG
+        val r2 = SbfRegister.R2_ARG
+        val r3 = SbfRegister.R3_ARG
 
-                // We don't need to be precise on `srcStart` for soundness. This is why we don't throw an exception.
-                val srcTy = registerTypes.typeAtInstruction(locatedInst, SbfRegister.R2_ARG)
-                val srcStart = if (srcTy is SbfType.PointerType.Stack) {
-                    srcTy.offset.toLongOrNull()
-                } else {
-                    null
-                }
+        val dstTy = registerTypes.typeAtInstruction(locatedInst, r1)
+        val outState = if (dstTy is SbfType.PointerType.Stack) {
+            val len = extractKnownLength(locatedInst, r3, registerTypes)
+            ensureKnownStackOffset(locatedInst, dstTy.offset, r1)
 
-                var newCsts = csts
+            // We don't need to be precise on `srcStart` for soundness. This is why we don't throw an exception.
+            val srcTy = registerTypes.typeAtInstruction(locatedInst, r2)
+            val srcStart = if (srcTy is SbfType.PointerType.Stack) {
+                srcTy.offset.toLongOrNull()
+            } else {
+                null
+            }
 
-                // We know that dstOffsets are sorted
-                val dstOffsets = dstTy.offset.toLongList()
-                check(dstOffsets.isNotEmpty()) {"destination offsets cannot be empty in analyzeMemTransfer"}
+            // We know that dstOffsets are sorted
+            val dstOffsets = dstTy.offset.toLongList()
+            check(dstOffsets.isNotEmpty()) {"destination offsets cannot be empty in analyzeMemTransfer"}
+            val dstInterval = FiniteInterval(dstOffsets.first(), dstOffsets.last() + len - 1)
+            // We don't need to be precise on `dstStart` for soundness
+            val dstStart = dstTy.offset.toLongOrNull()
 
-                val dstInterval = FiniteInterval(dstOffsets.first(), dstOffsets.last() + len - 1)
-
-                // We don't need to be precise on `dstStart` for soundness
-                val dstStart = dstTy.offset.toLongOrNull()
-
-                // Do the transfer from source to destination
-                // Note that the transfer function goes in the other direction
-                for (cst in csts) {
-                    // If there is a constraint C over destination variables then
-                    //   1. add new C' by substituting destination variables with source variables
-                    //   2. remove C
-                    if (solanaFunction == SolanaFunction.SOL_MEMCPY && srcStart != null && dstStart != null) {
-                        var newCst: SbfLinearConstraint? = null
-                        for (dstV in cst.getVariables()) {
-                            if (dstV is StackSlotVariable) {
-                                val dstVInterval = FiniteInterval.mkInterval(dstV.offset, dstV.getWidth().toLong())
-                                val adjOffset = dstStart - srcStart
-                                if (dstInterval.includes(dstVInterval)) {
-                                    val srcV = StackSlotVariable(offset=dstV.offset - adjOffset, width= dstV.getWidth(), vFac)
-                                    newCst = newCst?.substitute(dstV, LinearExpression(srcV)) ?: cst.substitute(dstV, LinearExpression(srcV))
-                                }
-                            }
-                        }
-                        if (newCst != null) {
-                            newCsts = newCsts.add(newCst)
-                        }
-                    }
-
-                    // Remove constraint C if it uses a destination variable
+            var newCsts = csts
+            // Do the transfer from source to destination
+            // Note that the transfer function goes in the other direction
+            for (cst in csts) {
+                // If there is a constraint C over destination variables then
+                //   1. add new C' by substituting destination variables with source variables
+                //   2. remove C
+                if (solanaFunction == SolanaFunction.SOL_MEMCPY && srcStart != null && dstStart != null) {
+                    var newCst: SbfLinearConstraint? = null
                     for (dstV in cst.getVariables()) {
                         if (dstV is StackSlotVariable) {
-                            if (dstInterval.overlap(dstV.toFiniteInterval())) {
-                                newCsts = newCsts.remove(cst)
-                                break
+                            val dstVInterval = FiniteInterval.mkInterval(dstV.offset, dstV.getWidth().toLong())
+                            val adjOffset = dstStart - srcStart
+                            if (dstInterval.includes(dstVInterval)) {
+                                val srcV = StackSlotVariable(offset=dstV.offset - adjOffset, width= dstV.getWidth(), vFac)
+                                newCst = newCst?.substitute(dstV, LinearExpression(srcV)) ?: cst.substitute(dstV, LinearExpression(srcV))
                             }
                         }
                     }
+                    if (newCst != null) {
+                        newCsts = newCsts.add(newCst)
+                    }
                 }
-                NPDomain(newCsts, isBot = false)
-            } else {
-                throw NPDomainError("cannot analyze $solanaFunction on stack without knowing length (2)")
+
+                // Remove constraint `cst` if it uses a variable that refers to the destination slice
+                if (anyStackVariableInRange(cst, dstInterval)) {
+                    newCsts = newCsts.remove(cst)
+                }
             }
+            NPDomain(newCsts, isBot = false)
         } else {
             this
         }
+        return if (!inst.isPromotedMemcpy()) {
+            outState.havoc(RegisterVariable(Value.Reg(r0), vFac))
+        } else {
+            outState
+        }
+    }
+
+    /** Transfer function for `memset(ptr, val, len)` **/
+    private fun analyzeMemset(locatedInst: LocatedSbfInstruction,
+                              @Suppress("UNUSED_PARAMETER")
+                              vFac: VariableFactory,
+                              registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
+        val inst = locatedInst.inst
+        check(inst is SbfInstruction.Call)
+        val solanaFunction = SolanaFunction.from(inst.name)
+        check(solanaFunction == SolanaFunction.SOL_MEMSET)
+
+        val r0 = SbfRegister.R0_RETURN_VALUE
+        val r1 = SbfRegister.R1_ARG
+        val r3 = SbfRegister.R3_ARG
+
+        val ptrTy = registerTypes.typeAtInstruction(locatedInst, r1)
+        return if (ptrTy is SbfType.PointerType.Stack) {
+            val len = extractKnownLength(locatedInst, r3, registerTypes)
+            ensureKnownStackOffset(locatedInst, ptrTy.offset, r1)
+
+            // We know that dstOffsets are sorted
+            val dstOffsets = ptrTy.offset.toLongList()
+            check(dstOffsets.isNotEmpty()) {"destination offsets cannot be empty in analyzeMemset"}
+            val dstInterval = FiniteInterval(dstOffsets.first(), dstOffsets.last() + len - 1)
+
+            // Remove any constraint `cst` if it uses a variable that refers to the destination slice
+            var newCsts = csts
+            for (cst in csts) {
+                if (anyStackVariableInRange(cst, dstInterval)) {
+                    newCsts = newCsts.remove(cst)
+                }
+            }
+            NPDomain(newCsts, isBot = false)
+        } else {
+            this
+        }.havoc(RegisterVariable(Value.Reg(r0), vFac))
     }
 
     private fun analyzeSaveScratchRegisters(curVal: NPDomain<D, TNum, TOffset>, inst: SbfInstruction.Call, vFac: VariableFactory): NPDomain<D, TNum, TOffset> {
@@ -691,6 +748,9 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                         }
                         SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE -> {
                             analyzeMemTransfer(locatedInst, vFac, registerTypes)
+                        }
+                        SolanaFunction.SOL_MEMSET -> {
+                            analyzeMemset(locatedInst, vFac, registerTypes)
                         }
                         else -> {
                             curVal.havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
@@ -842,9 +902,9 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         //
         // (Note that if the block has no successors can be only visited by the backward analysis if it has an assertion)
         for (locInst in b.getLocatedInstructions().reversed()) {
-            if (debugNPDomain) {
-                sbfLogger.info { "CoI analysis of ${b.getLabel()}::${locInst.inst}: $curVal" }
-            }
+
+            dbg { "Backward scalar analysis of ${b.getLabel()}::${locInst.inst}: $curVal" }
+
             if (curVal.isBottom()) {
                 return Pair(curVal, outInst)
             }
@@ -854,17 +914,14 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                 outInst[locInst] = curVal
             }
             curVal = if (propagateOnlyFromAsserts && isSink && !analyzedLastAssert) {
-                if (debugNPDomain) {
-                    sbfLogger.info {"\tSkipped analysis of ${locInst.inst} because no assertion found yet"}
-                }
+                dbg {"\tSkipped analysis of ${locInst.inst} because no assertion found yet"}
                 curVal
             } else {
                 curVal.analyze(locInst, vFac, registerTypes)
             }
 
-            if (debugNPDomain) {
-                sbfLogger.info { "res=${curVal}" }
-            }
+            dbg { "res=${curVal}" }
+
         }
         return Pair(curVal, outInst)
     }
