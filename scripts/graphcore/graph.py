@@ -172,6 +172,7 @@ def get_summarizer(
             assert isinstance(msg, AIMessage)
             summary = msg.text()
             resume_message = config.get_resume_prompt(state, summary)
+            config.on_summary(state, summary, resume_message)
             return {
                 "messages": [
                     RemoveMessage(id="__remove_all__"),
