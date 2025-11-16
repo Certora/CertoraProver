@@ -109,6 +109,9 @@ object SorobanImport {
         val get_current_contract_address = import("context", "get_current_contract_address")
         val get_max_live_until_ledger = import("context", "get_max_live_until_ledger")
     }
+    object Crypto {
+        val keccak256 = import(module = "crypto", func = "compute_hash_keccak256", params = listOf(i64), result = i64)
+    }
     object Ledger {
         val put_contract_data = import("ledger", "put_contract_data")
         val has_contract_data = import("ledger", "has_contract_data")
