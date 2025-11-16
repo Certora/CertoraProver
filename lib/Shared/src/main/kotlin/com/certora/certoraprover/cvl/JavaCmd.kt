@@ -43,7 +43,7 @@ data class ApplyCmd(override val range: Range, internal val applyExp: Unresolved
         = applyExp.kotlinize(resolver, scope).map { CVLCmd.Simple.Apply(range, it, scope) }
 }
 
-data class AssertCmd(override val range: Range, val exp: Exp, val description: String?) : Cmd {
+data class AssertCmd(override val range: Range, val exp: Exp, val description: String?, override val hasParenthesis: Boolean) : Cmd, OptionalParenthesis {
     override fun toString() = "Assert($exp,$description)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -53,7 +53,7 @@ data class AssertCmd(override val range: Range, val exp: Exp, val description: S
 }
 
 
-data class AssumeCmd(override val range: Range, val exp: Exp, val description: String?) : Cmd {
+data class AssumeCmd(override val range: Range, val exp: Exp, val description: String?, override val hasParenthesis: Boolean) : Cmd, OptionalParenthesis {
     override fun toString() = "Assume($exp,$description)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -61,7 +61,7 @@ data class AssumeCmd(override val range: Range, val exp: Exp, val description: S
 }
 
 
-data class AssumeInvariantCmd(override val range: Range, val id: String, val params: List<Exp>) : Cmd {
+data class AssumeInvariantCmd(override val range: Range, val id: String, val params: List<Exp>, override val hasParenthesis: Boolean) : Cmd, OptionalParenthesis {
     override fun toString() = "AssumeInvariant($id,$params)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -159,7 +159,7 @@ class RevertCmd(override val range: Range, val reason: String?) : Cmd {
 }
 
 
-class SatisfyCmd(override val range: Range, val exp: Exp, val description: String?) : Cmd {
+class SatisfyCmd(override val range: Range, val exp: Exp, val description: String?, override val hasParenthesis: Boolean) : Cmd, OptionalParenthesis {
     override fun toString() = "Satisfy($exp,$description)"
 
     override fun kotlinize(resolver: TypeResolver, scope: CVLScope): CollectingResult<CVLCmd, CVLError>
@@ -168,3 +168,6 @@ class SatisfyCmd(override val range: Range, val exp: Exp, val description: Strin
             .map { asserted -> CVLCmd.Simple.Satisfy(range, asserted, description, scope, invariantPostCond = false) }
 }
 
+interface OptionalParenthesis {
+    val hasParenthesis: Boolean
+}

@@ -1,0 +1,11 @@
+rule respect_parenthesis() {
+    assert(testing_the, "cvl_formatter");
+    satisfy(foo > bar, "baz");
+    require(x > 5, "hey");
+    requireInvariant(my_function_call());
+
+    assert testing_the, "cvl_formatter";
+    satisfy foo > bar, "baz";
+    require x > 5, "hey";
+    requireInvariant my_function_call();
+}

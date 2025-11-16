@@ -45,6 +45,9 @@ sealed class Exp : Kotlinizable<CVLExp> {
     /**
      * if this expression is surrounded by a pair of parenthesis.
      * note that it may have additional (redundant) pairs.
+     *
+     * note that this doesn't impl [OptionalParenthesis] for now
+     * due to different semantics, but maybe it should
      */
     var hasParenthesis = false
         private set

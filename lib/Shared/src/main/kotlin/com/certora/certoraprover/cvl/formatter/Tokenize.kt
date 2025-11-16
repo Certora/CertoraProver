@@ -22,11 +22,11 @@ import com.certora.certoraprover.cvl.formatter.util.*
 import datastructures.stdcollections.*
 import datastructures.stdcollections.emptyList
 import datastructures.stdcollections.listOf
+import datastructures.stdcollections.toList
 import spec.cvlast.SpecCallSummary
 import spec.cvlast.StrongInvariantType
 import spec.cvlast.WeakInvariantType
 import utils.*
-import utils.letIf
 
 internal class Tokenizer(
     fileComments: List<Binding>,
@@ -736,8 +736,10 @@ internal class Tokenizer(
         return when (ctx) {
             is AssertCmd -> flatListOf(
                 Token.fromSym(sym.ASSERT, spaceIfNoParenthesis(ctx.exp)).asList(),
-                exp(ctx.exp),
-                ctx.description.letOrEmpty(::reason),
+                ctx.optionalParenthesis(
+                    exp(ctx.exp),
+                    ctx.description.letOrEmpty(::reason),
+                ),
                 Token.endStatement(),
             ).context(ctx)
 
@@ -762,8 +764,10 @@ internal class Tokenizer(
 
             is AssumeCmd -> flatListOf(
                 Token.fromSym(sym.REQUIRE, spaceIfNoParenthesis(ctx.exp)).asList(),
-                exp(ctx.exp),
-                ctx.description.letOrEmpty(::reason),
+                ctx.optionalParenthesis(
+                    exp(ctx.exp),
+                    ctx.description.letOrEmpty(::reason),
+                ),
                 Token.endStatement(),
             ).context(ctx)
 
@@ -771,11 +775,13 @@ internal class Tokenizer(
                 // uses the "no parenthesis" syntax
                 flatListOf(
                     Token.fromSym(sym.REQUIREINVARIANT).asList(),
-                    Token.identifier(ctx.id).asList(),
-                    ctx
-                        .params
-                        .tokenizeInterspersed(::exp)
-                        .surround(Token.Delimiter.Parenthesis),
+                    ctx.optionalParenthesis(
+                        Token.identifier(ctx.id).asList(),
+                        ctx
+                            .params
+                            .tokenizeInterspersed(::exp)
+                            .surround(Token.Delimiter.Parenthesis),
+                    ),
                     Token.endStatement(),
                 ).context(ctx)
             }
@@ -832,8 +838,10 @@ internal class Tokenizer(
 
             is SatisfyCmd -> flatListOf(
                 Token.fromSym(sym.SATISFY).asList(),
-                exp(ctx.exp),
-                ctx.description.letOrEmpty(::reason),
+                ctx.optionalParenthesis(
+                    exp(ctx.exp),
+                    ctx.description.letOrEmpty(::reason),
+                ),
                 Token.endStatement(),
             ).context(ctx)
         }
@@ -1226,3 +1234,15 @@ private fun hadLinebreaksBetween(curr: Cmd, next: Cmd?): Boolean {
 
     return nextLineStart > currLineEnd + 1U
 }
+
+
+private fun OptionalParenthesis.optionalParenthesis(vararg tokens: Iterable<Token>) =
+    tokens
+        .flatMap { it.toList() }
+        .letIf (this.hasParenthesis) {
+            // no space between keyword and opening parenthesis.
+            // for consistency with function calls, etc.
+            val spaceOpen = Space.FF
+
+            it.surround(Token.Delimiter.Parenthesis, spaceOpen)
+        }
