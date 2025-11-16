@@ -212,6 +212,7 @@ class CvlmManifest(val scene: MoveScene) {
                         MoveFunctionName(manifestModule, "hash") -> hash(manifestName, stack)
                         MoveFunctionName(manifestModule, "shadow") -> shadow(manifestName, stack)
                         MoveFunctionName(manifestModule, "field_access") -> fieldAccessor(manifestName, stack)
+                        MoveFunctionName(manifestModule, "function_access") -> functionAccessor(manifestName, stack)
                         MoveFunctionName(manifestModule, "target") -> target(manifestName, stack)
                         MoveFunctionName(manifestModule, "target_sanity") -> targetSanity(manifestName, stack)
                         MoveFunctionName(manifestModule, "invoker") -> invoker(manifestName, stack)
@@ -668,6 +669,82 @@ class CvlmManifest(val scene: MoveScene) {
                     srcRef = srcRef,
                     fieldIndex = fieldIndex
                 ).withDecls(dstRef)
+            }
+        }
+    }
+
+    private fun functionAccessor(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
+        /*
+            ```
+            public native fun function_access(
+                accessorFunName: vector<u8>,
+                address: address,
+                moduleName: vector<u8>,
+                functionName: vector<u8>
+            );
+            ```
+
+            Marks `accessorFunName` (in the current module) as a function accessor for the named function. The accessor
+            function must have the same signature as the accessed function.
+         */
+        val functionNameValue = stack.removeLast() as StackValue.String
+        val moduleNameValue = stack.removeLast() as StackValue.String
+        val addressValue = stack.removeLast() as StackValue.Address
+        val accessorNameValue = stack.removeLast() as StackValue.String
+        val accessorName = MoveFunctionName(manifestName.module, accessorNameValue.value)
+        val accessorDef = scene.maybeDefinition(accessorName)
+        if (accessorDef == null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName is not defined in the scene, but is referenced in module manifest function $manifestName"
+            )
+        }
+        if (accessorDef.code != null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName must be declared as a `native fun`."
+            )
+        }
+        val accessedName = MoveFunctionName(
+            MoveModuleName(
+                scene,
+                addressValue.value,
+                moduleNameValue.value
+            ),
+            functionNameValue.value
+        )
+        val accessedDef = scene.maybeDefinition(accessedName)
+        if (accessedDef == null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Accessed function $accessedName is not defined in the scene, but is referenced in module manifest function $manifestName"
+            )
+        }
+        if (accessedDef.function.typeParameters != accessorDef.function.typeParameters) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName has different type parameters than the accessed function $accessedName in module manifest function $manifestName"
+            )
+        }
+        if (accessedDef.function.params != accessorDef.function.params) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName has different parameters than the accessed function $accessedName in module manifest function $manifestName"
+            )
+        }
+        if (accessedDef.function.returns != accessorDef.function.returns) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName has different return types than the accessed function $accessedName in module manifest function $manifestName"
+            )
+        }
+        addSummarizer(accessorName) { call ->
+            with(scene) {
+                compileFunctionCall(
+                    call.copy(
+                        callee = MoveFunction(accessedDef.function, call.callee.typeArguments)
+                    )
+                )
             }
         }
     }
