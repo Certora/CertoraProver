@@ -217,24 +217,43 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     }
 }
 
-data class U128Operands(val resLow: TACSymbol.Var,
-                        val resHigh: TACSymbol.Var,
-                        val overflow: TACSymbol.Var?,
-                        val xLow: TACExpr.Sym,
-                        val xHigh: TACExpr.Sym,
-                        val yLow: TACExpr.Sym,
-                        val yHigh: TACExpr.Sym
+data class U128BinaryOperands(val resLow: TACSymbol.Var,
+                              val resHigh: TACSymbol.Var,
+                              val overflow: TACSymbol.Var?,
+                              val xLow: TACExpr.Sym,
+                              val xHigh: TACExpr.Sym,
+                              val yLow: TACExpr.Sym,
+                              val yHigh: TACExpr.Sym
+)
+
+data class U128ShiftOperands(val resLow: TACSymbol.Var,
+                              val resHigh: TACSymbol.Var,
+                              val xLow: TACExpr.Sym,
+                              val xHigh: TACExpr.Sym,
+                              val shift: TACExpr.Sym
 )
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128Operation(
-        args: U128Operands,
-        cmds: MutableList<TACCmd.Simple>,
-        op: (res: TACSymbol.Var, overflow: TACSymbol.Var?, x: TACSymbol.Var, y: TACSymbol.Var) -> Unit) {
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128BinaryOperation(
+    args: U128BinaryOperands,
+    cmds: MutableList<TACCmd.Simple>,
+    op: (res: TACSymbol.Var, overflow: TACSymbol.Var?, x: TACSymbol.Var, y: TACSymbol.Var) -> Unit) {
     val res = mkFreshIntVar()
     val x = mergeU128(args.xLow, args.xHigh, cmds)
     val y = mergeU128(args.yLow, args.yHigh, cmds)
     op(res, args.overflow, x, y)
+    cmds.addAll(splitU128(res, args.resLow, args.resHigh))
+}
+
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128ShiftOperation(
+    args: U128ShiftOperands,
+    cmds: MutableList<TACCmd.Simple>,
+    op: (res: TACSymbol.Var, x: TACSymbol.Var, shift: TACExpr.Sym) -> Unit) {
+    val res = mkFreshIntVar()
+    val x = mergeU128(args.xLow, args.xHigh, cmds)
+    val shift = args.shift
+    op(res, x, shift)
     cmds.addAll(splitU128(res, args.resLow, args.resHigh))
 }
 

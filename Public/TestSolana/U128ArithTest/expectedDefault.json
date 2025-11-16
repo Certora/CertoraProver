@@ -1,0 +1,7 @@
+{
+  "assertMessages": {},
+    "rules": {
+        "rule_shift_left": "SUCCESS",
+        "rule_shift_right": "SUCCESS"
+  }
+}

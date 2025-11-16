@@ -124,7 +124,19 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
         writeRegisters = setOf(),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
-            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet()));
+            SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
+    ASHLTI3(ExternalFunction(
+        name = "__ashlti3",
+        writeRegisters = setOf(),
+        readRegisters = listOf(
+            SbfRegister.R1_ARG, SbfRegister.R2_ARG,
+            SbfRegister.R3_ARG, SbfRegister.R4_ARG).map{ Value.Reg(it)}.toSet())),
+    ASHRTI3(ExternalFunction(
+        name = "__ashrti3",
+        writeRegisters = setOf(),
+        readRegisters = listOf(
+        SbfRegister.R1_ARG, SbfRegister.R2_ARG,
+        SbfRegister.R3_ARG, SbfRegister.R4_ARG).map{ Value.Reg(it)}.toSet()));
 
     companion object: ExternalLibrary<IntegerU128CompilerRtFunction>  {
         private val nameMap = values().associateBy { it.function.name }
@@ -133,7 +145,7 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
         override fun addSummaries(memSummaries: MemorySummaries) {
             for (f in nameMap.values) {
                 when (f) {
-                    MULTI3, UDIVTI3, DIVTI3 -> {
+                    MULTI3, UDIVTI3, DIVTI3, ASHLTI3, ASHRTI3 -> {
                         val summaryArgs = listOf(
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 0, width = 8, type = MemSummaryArgumentType.NUM),
                             MemSummaryArgument(r = SbfRegister.R1_ARG, offset = 8, width = 8, type = MemSummaryArgumentType.NUM)
