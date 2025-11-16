@@ -24,6 +24,7 @@ import sbf.support.safeLongToInt
 import datastructures.stdcollections.*
 import com.certora.collect.*
 import net.fornwall.jelf.*
+import net.fornwall.jelf.ElfSymbol.STT_FUNC
 import java.io.File
 
 class DisassemblerError(msg: String): RuntimeException("Disassembler error: $msg")
@@ -232,13 +233,19 @@ class ElfDisassembler(pathName: String) {
         return globals
     }
 
+    /**
+     * Return true if [sym] is a function.
+     * It reads the low byte of [sym]`.st_info` (i.e., [sym]`.st_info & 0x0F`)
+     */
+    private fun isFunction(sym: ElfSymbol) = sym.getType() == STT_FUNC.toInt()
+
     private fun getFunctionNames(start: ElfAddress): Map<ElfAddress, String> {
         // I assume here that dynamic symbol table is included in the symbol table (see comment above)
         val nameMap: MutableMap<ElfAddress, String> = mutableMapOf()
         val symTable: ElfSymbolTableSection? = reader.symbolTableSection
         if (symTable != null) {
             for (sym in symTable.symbols) {
-                if (sym.name != null) {
+                if (isFunction(sym) && sym.name != null) {
                     nameMap[(sym.st_value/8) - start] = sym.name
                 }
             }
