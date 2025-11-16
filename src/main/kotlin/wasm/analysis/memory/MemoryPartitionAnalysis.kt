@@ -30,6 +30,7 @@ import analysis.numeric.simplequalifiedint.SimpleQualifiedIntState
 import wasm.host.soroban.Val
 import wasm.host.soroban.types.MapType
 import wasm.impCfg.WASM_MEMORY_OP_WIDTH
+import wasm.summarization.WasmBuiltinCallSummarizer
 import java.math.BigInteger
 import java.util.stream.Collectors
 
@@ -76,6 +77,16 @@ class MemoryPartitionAnalysis private constructor(graph: TACCommandGraph): IMemo
                 IntValue(
                     lb = start.lb,
                     ub = end.ub - BigInteger.ONE,
+                )
+            }
+
+            this is WasmBuiltinCallSummarizer.MemcopySummary -> {
+                val start = st.interpret(this.dstOffset).x
+                val len = st.interpret(this.length).x
+                val end = start.add(len).first
+                IntValue(
+                    lb = start.lb,
+                    ub = end.ub - BigInteger.ONE
                 )
             }
 

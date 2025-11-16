@@ -573,37 +573,45 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         )
     }
 
-    @KSerializable
-    @Treapable
-    private data class MemcopySummary(
-        val dstOffset: TACSymbol,
-        val srcOffset: TACSymbol,
-        val length: TACSymbol,
-    ) : WasmPostUnrollSummary(WasmPipelinePhase.PreOptimization) {
-        override val inputs get() = listOf(dstOffset, srcOffset, length)
-        override val mustWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
-        override fun transformSymbols(f: Transformer) =
-            MemcopySummary(
-                dstOffset = f(dstOffset),
-                srcOffset = f(srcOffset),
-                length = f(length)
-            )
+    sealed interface MemcopySummary {
+        val srcOffset: TACSymbol
+        val dstOffset: TACSymbol
+        val length: TACSymbol
 
-        override fun gen(
-            simplifiedInputs: List<TACExpr>,
-            analysisCache: TACCommandGraphAnalysisCache
-        ): CommandWithRequiredDecls<TACCmd.Simple> = mergeMany(
-            assert("\$memcpy undefined behavior") { memcpyNoOverlap(dstOffset, srcOffset, length) },
-            doMemcpy(dstOffset, srcOffset, length,TACKeyword.MEMORY.toVar())
-        )
+
+
+        @KSerializable
+        @Treapable
+        private data class NoOverlapMemcopySummary (
+            override val dstOffset: TACSymbol,
+            override val srcOffset: TACSymbol,
+            override val length: TACSymbol,
+        ) : WasmPostUnrollSummary(WasmPipelinePhase.PreOptimization), MemcopySummary {
+            override val inputs get() = listOf(dstOffset, srcOffset, length)
+            override val mustWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
+            override fun transformSymbols(f: Transformer) =
+                NoOverlapMemcopySummary(
+                    dstOffset = f(dstOffset),
+                    srcOffset = f(srcOffset),
+                    length = f(length)
+                )
+
+            override fun gen(
+                simplifiedInputs: List<TACExpr>,
+                analysisCache: TACCommandGraphAnalysisCache
+            ): CommandWithRequiredDecls<TACCmd.Simple> = mergeMany(
+                assert("\$memcpy undefined behavior") { memcpyNoOverlap },
+                doMemcpy(TACKeyword.MEMORY.toVar())
+            )
+        }
 
         @KSerializable
         @Treapable
         private data class FullMemcopySummary(
-            val dstOffset: TACSymbol,
-            val srcOffset: TACSymbol,
-            val length: TACSymbol,
-        ) : ITESummary() {
+            override val dstOffset: TACSymbol,
+            override val srcOffset: TACSymbol,
+            override val length: TACSymbol,
+        ) : ITESummary(), MemcopySummary {
             override val inputs get() = listOf(dstOffset, srcOffset, length)
             override val trueWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
             override val falseWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
@@ -615,32 +623,33 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
                     length = f(length)
                 )
 
-            override val cond get() = memcpyNoOverlap(dstOffset, srcOffset, length)
+            override val cond get() = memcpyNoOverlap
 
             override fun onTrue() =
-                doMemcpy(dstOffset, srcOffset, length,TACKeyword.MEMORY.toVar())
+                doMemcpy(TACKeyword.MEMORY.toVar())
 
             override fun onFalse() = txf { unconstrained(Tag.ByteMap) }.letVar(Tag.ByteMap) { havoc ->
-                doMemcpy(dstOffset, srcOffset, length,havoc.s)
+                doMemcpy( havoc.s)
             }
         }
 
         companion object {
             fun getMemcpySummary(dstOffset: TACSymbol, srcOffset: TACSymbol, length: TACSymbol): AssignmentSummary =
                 if (Config.WASMMemcpyNoOverlap.get()) {
-                    MemcopySummary(dstOffset, srcOffset, length)
+                    NoOverlapMemcopySummary(dstOffset, srcOffset, length)
                 } else {
                     FullMemcopySummary(dstOffset, srcOffset, length)
                 }
+        }
 
-            private fun memcpyNoOverlap(dstOffset: TACSymbol, srcOffset: TACSymbol, length: TACSymbol): TACExpr =
-                txf {
-                    (dstOffset.asSym() eq srcOffset.asSym()) or
-                        ((dstOffset.asSym() add length.asSym()) le srcOffset.asSym()) or
-                        ((srcOffset.asSym() add length.asSym()) le dstOffset.asSym())
-                }
+        val memcpyNoOverlap: TACExpr get() =
+            txf {
+                (dstOffset.asSym() eq srcOffset.asSym()) or
+                    ((dstOffset.asSym() add length.asSym()) le srcOffset.asSym()) or
+                    ((srcOffset.asSym() add length.asSym()) le dstOffset.asSym())
+            }
 
-            private fun doMemcpy(dstOffset: TACSymbol, srcOffset: TACSymbol, length: TACSymbol, srcBase: TACSymbol.Var) = TACCmd.Simple.ByteLongCopy(
+        fun doMemcpy(srcBase: TACSymbol.Var) = TACCmd.Simple.ByteLongCopy(
                 dstOffset = dstOffset,
                 srcOffset = srcOffset,
                 length = length,
@@ -648,8 +657,6 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
                 srcBase = srcBase,
                 meta = MetaMap(LONG_COPY_STRIDE to 1)
             ).withDecls()
-        }
-
     }
 
     // from the Solana code (can ideally reuse this)
