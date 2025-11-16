@@ -23,7 +23,7 @@ import pathlib
 from contextlib import contextmanager
 import re
 
-from psycopg2.extensions import connection
+from psycopg import Connection
 
 from langchain_core.tools import BaseTool, tool
 
@@ -251,7 +251,7 @@ class DBConnection(Protocol):
     def cursor(self, /) -> DBCursor:
         ...
 
-CONN = TypeVar('CONN', bound=DBConnection)
+CONN = TypeVar('CONN')
 
 CURSOR = TypeVar('CURSOR', bound=DBCursor)
 
@@ -388,23 +388,20 @@ END WHERE namespace = {self.named_placeholder("ns")} AND full_path LIKE {self.na
 
     @override
     def list_dir(self, path: str) -> Iterable[tuple[str, bool]]:
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             cur.execute(f"SELECT entry_name, is_directory FROM memories_fs WHERE namespace = {self.pos_placeholder} AND parent_path = {self.pos_placeholder}", (self.ns, path))
             for r in cur:
                 yield (r[0], r[1])
 
     @override
     def rm(self, path: str) -> str:
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             cur.execute(f"DELETE FROM memories_fs WHERE namespace = {self.pos_placeholder} AND full_path = {self.pos_placeholder}", (self.ns, path))
             return f"Deleted {cur.rowcount} entries"
 
     @override
     def read_file(self, path: str) -> Optional[str]:
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             cur.execute(f"SELECT contents FROM memories_fs WHERE namespace = {self.pos_placeholder} AND full_path = {self.pos_placeholder} AND contents IS NOT NULL", (self.ns, path))
             r = cur.fetchone()
             if r is None:
@@ -413,8 +410,7 @@ END WHERE namespace = {self.named_placeholder("ns")} AND full_path LIKE {self.na
 
     @override
     def write_file(self, path: str, content: str):
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             target_path = pathlib.Path(path)
             self._mkdirs(cur, path=target_path.parent)
             cur.execute(f"""
@@ -425,16 +421,16 @@ ON CONFLICT(namespace, full_path) DO UPDATE SET contents = excluded.contents
 
     @override
     def stat(self, path: str) -> MemoryBackend.FileStat:
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             cur.execute(f"SELECT is_directory FROM memories_fs WHERE namespace = {self.pos_placeholder} AND full_path = {self.pos_placeholder}", (self.ns, path))
             r = cur.fetchone()
             if not r:
                 return MemoryBackend.FileStat(exists=False, is_dir=False)
             return MemoryBackend.FileStat(exists=True, is_dir=r[0])
 
-class PostgresMemoryBackend(SQLBackend[connection]):
-    def __init__(self, ns: str, conn: connection):
+
+class PostgresMemoryBackend(SQLBackend[Connection]):
+    def __init__(self, ns: str, conn: Connection):
         super().__init__(ns, conn)
 
     @property
@@ -444,6 +440,23 @@ class PostgresMemoryBackend(SQLBackend[connection]):
     @override
     def named_placeholder(self, nm: str) -> str:
         return f"%({nm})s"
+
+    @contextmanager
+    def _cursor(self) -> Iterator['DBCursor']:
+        """
+        Override to handle PostgreSQL connection properly.
+        Don't use the connection as context manager to avoid closing it.
+        Instead, manually manage transactions per cursor operation.
+        """
+        cur = self.conn.cursor()
+        try:
+            yield cur
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        finally:
+            cur.close()
 
     @override
     def _setup(self):
@@ -466,6 +479,7 @@ CREATE TABLE IF NOT EXISTS memories_fs(
 
 CREATE INDEX IF NOT EXISTS memories_namespace_path ON memories_fs(namespace, full_path text_pattern_ops); -- text pattern ops lets us use the index for LIKE
                          """)
+        self.conn.commit()
 
     @override
     def do_replace_first(self, replace_attribute: str, to_replace: str, replace_with: str, seq: int) -> tuple[str, dict[str, str]]:
@@ -476,6 +490,18 @@ CREATE INDEX IF NOT EXISTS memories_namespace_path ON memories_fs(namespace, ful
             src_patt_p: "^" + replace_quot,
             replace_str_p: replace_with
         })
+
+    def __del__(self):
+        try:
+            if hasattr(self, 'conn') and self.conn and not self.conn.closed:
+                # Commit any pending transaction before closing
+                if not self.conn.autocommit:
+                    try:
+                        self.conn.commit()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
 
 class SqliteMemoryBackend(SQLBackend[sqlite3.Connection]):

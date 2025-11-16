@@ -23,6 +23,7 @@ from langgraph.graph import StateGraph, MessagesState
 from langgraph._internal._typing import StateLike
 from langgraph.types import Command
 from langgraph.prebuilt import ToolNode
+from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel
 from .utils import cached_invoke
 from .summary import SummaryConfig
@@ -304,17 +305,13 @@ def build_workflow(
             return "__end__"
         return "tool_result"
 
-    actual_tools : list[dict[str, Any] | BaseTool] = []
-    for t in tools_list:
-        if t.name == "memory":
-            actual_tools.append({
-                "type": "memory_20250818",
-                "name": "memory"
-            })
-        else:
-            actual_tools.append(t)
-
-    llm = unbound_llm.bind_tools(actual_tools)
+    if isinstance(unbound_llm, ChatAnthropic) and "context-management-2025-06-27" in getattr(unbound_llm, "betas", []):
+        llm = unbound_llm.bind_tools([{
+            "type": "memory_20250818",
+            "name": "memory"
+        } if t.name == "memory" else t for t in tools_list])
+    else:
+        llm = unbound_llm.bind_tools(tools_list)
 
     # Create initial node and tool node with curried LLM
     init_node = initial_node(input_type, state_class, sys_prompt=sys_prompt, initial_prompt=initial_prompt, llm=llm)
