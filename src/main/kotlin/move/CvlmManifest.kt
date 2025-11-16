@@ -125,7 +125,7 @@ class CvlmManifest(val scene: MoveScene) {
     }
 
     private val functionStructName = MoveDatatypeName(
-        MoveModuleName(Config.CvlmAddress.get(), "function"),
+        MoveModuleName(scene, Config.CvlmAddress.get(), "function"),
         "Function"
     )
 
@@ -175,9 +175,9 @@ class CvlmManifest(val scene: MoveScene) {
         )
 
         // Interpret the manifest code.  We only allow constants, and calls to the manifest functions.
-        val manifestModule = MoveModuleName(Config.CvlmAddress.get(), "manifest")
+        val manifestModule = MoveModuleName(scene, Config.CvlmAddress.get(), "manifest")
         val stack = ArrayDeque<StackValue>()
-         manifestCode.instructions.forEach { inst ->
+        manifestCode.instructions.forEach { inst ->
             when(inst) {
                 is Instruction.LdConst -> {
                     val c = inst.index.deref()
@@ -302,6 +302,7 @@ class CvlmManifest(val scene: MoveScene) {
 
         val summarizedName = MoveFunctionName(
             MoveModuleName(
+                scene,
                 summarizedFuncAddressValue.value,
                 summarizedFuncModuleValue.value
             ),
@@ -768,6 +769,7 @@ class CvlmManifest(val scene: MoveScene) {
 
         val targetName = MoveFunctionName(
             MoveModuleName(
+                scene,
                 targetAddressValue.value,
                 targetModuleValue.value
             ),

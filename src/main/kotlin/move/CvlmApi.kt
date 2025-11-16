@@ -30,7 +30,7 @@ import vc.data.*
 /**
     Provides implementations for the CVLM API functions.
  */
-object CvlmApi {
+class CvlmApi(scene: MoveScene) {
     private val cvlmAddr = Config.CvlmAddress.get()
 
     private val summarizers = mutableMapOf<MoveFunctionName, context(SummarizationContext) (MoveCall) -> MoveBlocks>()
@@ -49,13 +49,13 @@ object CvlmApi {
         }
     }
 
-    private val assertsModule = MoveModuleName(cvlmAddr, "asserts")
-    private val internalAssertsModule = MoveModuleName(cvlmAddr, "internal_asserts")
-    private val nondetModule = MoveModuleName(cvlmAddr, "nondet")
-    private val ghostModule = MoveModuleName(cvlmAddr, "ghost")
-    private val conversionsModule = MoveModuleName(cvlmAddr, "conversions")
-    private val mathIntModule = MoveModuleName(cvlmAddr, "math_int")
-    private val functionModule = MoveModuleName(cvlmAddr, "function")
+    private val assertsModule = MoveModuleName(scene, cvlmAddr, "asserts")
+    private val internalAssertsModule = MoveModuleName(scene, cvlmAddr, "internal_asserts")
+    private val nondetModule = MoveModuleName(scene, cvlmAddr, "nondet")
+    private val ghostModule = MoveModuleName(scene, cvlmAddr, "ghost")
+    private val conversionsModule = MoveModuleName(scene, cvlmAddr, "conversions")
+    private val mathIntModule = MoveModuleName(scene, cvlmAddr, "math_int")
+    private val functionModule = MoveModuleName(scene, cvlmAddr, "function")
 
     private val mathIntTypeName = MoveDatatypeName(mathIntModule, "MathInt")
 

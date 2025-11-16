@@ -22,6 +22,7 @@ import com.certora.collect.*
 import config.*
 import datastructures.*
 import datastructures.stdcollections.*
+import java.math.BigInteger
 import java.nio.file.*
 import java.util.stream.*
 import kotlin.streams.*
@@ -47,7 +48,7 @@ class MoveScene(
         Files.walk(modulePath, FileVisitOption.FOLLOW_LINKS)
         .filter { @Suppress("ForbiddenMethodCall") it.toString().endsWith(MoveModule.FILE_EXTENSION) }
         .parallel()
-        .map { MoveModule(it) }
+        .map { MoveModule(this, it) }
         .asSequence()
         .groupBy { it.moduleName }
         .mapValues { (name, modules) ->
@@ -88,17 +89,36 @@ class MoveScene(
 
     fun targetFunctions(module: MoveModuleName) = cvlmManifest.targetFunctions(module)
 
+    val cvlmApi by lazy { CvlmApi(this) }
+
     context(SummarizationContext)
     fun summarize(call: MoveCall): MoveBlocks? {
-        return CvlmApi.summarize(call)
+        return cvlmApi.summarize(call)
             ?: cvlmManifest.summarize(call)
     }
 
-    fun maybeShadowType(type: MoveType.Struct) = CvlmApi.maybeShadowType(type) ?: cvlmManifest.maybeShadowType(type)
+    fun maybeShadowType(type: MoveType.Struct) = cvlmApi.maybeShadowType(type) ?: cvlmManifest.maybeShadowType(type)
 
     fun definition(func: MoveModule.FunctionHandle) = module(func.name.module).definition(func)
     fun definition(type: MoveModule.DatatypeHandle) = module(type.definingModule).definition(type)
 
     fun maybeDefinition(func: MoveFunctionName) = moduleMap[func.module]?.maybeDefinition(func)
     fun maybeDefinition(type: MoveDatatypeName) = moduleMap[type.module]?.maybeDefinition(type)
+
+    private val buildInfos: List<MoveBuildInfo> by lazy {
+        Files.walk(modulePath, FileVisitOption.FOLLOW_LINKS)
+        .filter { it.endsWith("BuildInfo.yaml") && Files.isRegularFile(it) }
+        .map { MoveBuildInfo.parse(it) }
+        .toList()
+    }
+
+    private val addressAliases: Map<BigInteger, List<String>> by lazy {
+        buildInfos.flatMap {
+            it.compiledPackageInfo.addressAliasInstantiation.entries.map { (alias, address) ->
+                address to alias
+            }
+        }.groupBy({ it.first }, { it.second })
+    }
+
+    fun maybeAlias(address: BigInteger) = addressAliases[address]?.singleOrNull()
 }

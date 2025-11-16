@@ -29,24 +29,36 @@ import utils.*
  */
 @Treapable
 @KSerializable
-data class MoveModuleName(
+class MoveModuleName private constructor(
     val address: BigInteger,
+    private val addressAlias: String?,
     val name: String
 ) : AmbiSerializable {
     @TestOnly
-    constructor(address: Int, name: String) : this(address.toBigInteger(), name)
+    constructor(address: Int, name: String) : this(address.toBigInteger(), null, name)
 
-    override fun toString() = "0x${address.toString(16)}::${name}"
-    fun toVarName() = "x${address.toString(16)}\$${name}"
+    constructor(scene: MoveScene, address: BigInteger, name: String)
+        : this(address, scene.maybeAlias(address), name)
 
-    companion object {
-        fun parse(name: String): Result<MoveModuleName> = Result.runCatching {
-            @Suppress("ForbiddenMethodCall")
-            val parts = name.split("::")
-            require(parts.size == 2) { "Expected <address>::<module>" }
-            val address = BigInteger(parts[0], 16)
-            val moduleName = parts[1]
-            MoveModuleName(address, moduleName)
-        }
+    override fun hashCode() = hash { it + address + name }
+
+    override fun equals(other: Any?) = when {
+        other !is MoveModuleName -> false
+        other.address != this.address -> false
+        other.name != this.name -> false
+        other.addressAlias != this.addressAlias -> error("Inconsistent address aliases: $this vs $other")
+        else -> true
+    }
+
+    override fun toString() = if (addressAlias != null) {
+        "$addressAlias::$name"
+    } else {
+        "0x${address.toString(16)}::${name}"
+    }
+
+    fun toVarName() = if (addressAlias != null) {
+        "$addressAlias\$$name"
+    } else {
+        "x${address.toString(16)}\$${name}"
     }
 }

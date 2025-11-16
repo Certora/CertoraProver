@@ -110,6 +110,6 @@ class MoveSourceContext(val scene: MoveScene) {
                 json.decodeFromStream<MoveSourceMap>(Files.newInputStream(it))
             }
             .asSequence()
-            .associateBy { it.moduleName }
+            .associateBy { it.moduleName(scene) }
     }
 }
