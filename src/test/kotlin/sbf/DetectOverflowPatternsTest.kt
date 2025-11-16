@@ -22,7 +22,7 @@ import sbf.disassembler.*
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 
-class MarkAddWithOverflowTest {
+class DetectOverflowPatternsTest {
     @Test
     fun test01() {
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
@@ -46,7 +46,7 @@ class MarkAddWithOverflowTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        markAddWithOverflow(cfg)
+        detectOverflowPatterns(cfg)
         println("After $cfg")
         Assertions.assertEquals(true,
             cfg.getBlock(Label.Address(0))?.getTerminator()?.metaData?.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK) != null)
@@ -76,7 +76,7 @@ class MarkAddWithOverflowTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        markAddWithOverflow(cfg)
+        detectOverflowPatterns(cfg)
         println("After $cfg")
         Assertions.assertEquals(false,
             cfg.getBlock(Label.Address(0))?.getTerminator()?.metaData?.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK) != null)
@@ -105,7 +105,7 @@ class MarkAddWithOverflowTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        markAddWithOverflow(cfg)
+        detectOverflowPatterns(cfg)
         println("After $cfg")
         Assertions.assertEquals(false,
             cfg.getBlock(Label.Address(0))?.getTerminator()?.metaData?.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK) != null)
@@ -135,7 +135,7 @@ class MarkAddWithOverflowTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        markAddWithOverflow(cfg)
+        detectOverflowPatterns(cfg)
         println("After $cfg")
         Assertions.assertEquals(true,
             cfg.getBlock(Label.Address(0))?.getTerminator()?.metaData?.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK) != null)
@@ -160,7 +160,7 @@ class MarkAddWithOverflowTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        markAddWithOverflow(cfg)
+        detectOverflowPatterns(cfg)
         println("After $cfg")
         Assertions.assertEquals(true,
             cfg.getBlock(Label.Address(1))?.let { it ->
@@ -191,7 +191,7 @@ class MarkAddWithOverflowTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        markAddWithOverflow(cfg)
+        detectOverflowPatterns(cfg)
         println("After $cfg")
         Assertions.assertEquals(false,
             cfg.getBlock(Label.Address(1))?.let { it ->
@@ -219,7 +219,7 @@ class MarkAddWithOverflowTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        markAddWithOverflow(cfg)
+        detectOverflowPatterns(cfg)
         println("After $cfg")
         Assertions.assertEquals(true,
             cfg.getBlock(Label.Address(1))?.let { it ->
@@ -253,9 +253,39 @@ class MarkAddWithOverflowTest {
         cfg.normalize()
         sbfLogger.warn { "Before $cfg" }
         cfg.verify(true)
-        markAddWithOverflow(cfg)
+        detectOverflowPatterns(cfg)
         sbfLogger.warn { "After $cfg" }
         Assertions.assertEquals(true,
             cfg.getBlock(Label.Address(0))?.getTerminator()?.metaData?.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK) != null)
     }
+
+    @Test
+    fun test09() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r4 = Value.Reg(SbfRegister.R4_ARG)
+        val cfg = MutableSbfCFG("test")
+        val l1 = Label.Address(1)
+        val b1 = cfg.getOrInsertBlock(l1)
+        cfg.setEntry(b1)
+        cfg.setExit(b1)
+        b1.add(SbfInstruction.Bin(BinOp.ADD, r3, Value.Imm(1UL), true))
+        b1.add(SbfInstruction.Select(r1, Condition(CondOp.EQ, r3, Value.Imm(0UL)), Value.Imm(1UL), Value.Imm(0UL)))
+        b1.add(SbfInstruction.Bin(BinOp.ADD, r4, r1, true))
+        b1.add(SbfInstruction.Exit())
+
+
+        cfg.normalize()
+        println("Before $cfg")
+        cfg.verify(true)
+        detectOverflowPatterns(cfg)
+        println("After $cfg")
+        Assertions.assertEquals(true,
+            cfg.getBlock(Label.Address(1))?.let { it ->
+                it.getInstructions().any {
+                    it.metaData.getVal(SbfMeta.PROMOTED_OVERFLOW_CHECK) != null
+                }
+            })
+    }
+
 }

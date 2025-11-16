@@ -1,0 +1,6 @@
+{
+  "assertMessages": {},
+    "rules": {
+        "ceil_div_equivalence": "SUCCESS"
+  }
+}
