@@ -1,0 +1,25 @@
+{
+	"rules": {
+		"SendMoneyToEOA": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"callDeposit(uint256)",
+				"depositLowLevelCall(uint256)",
+				"depositTryCatch(uint256)",
+				"emptyCall(uint256)",
+				"getDepositCalled()",
+				"getEthBalance(address)",
+				"getFallbackCalled()",
+				"getReceiveCalled()",
+				"isEOA(address)",
+				"receiver()",
+				"sendEthViaCall(uint256,address)",
+				"tisopedLowLevelCall(uint256)"
+			]
+		},
+		"ethBalanceIntegrity_deposit": "SUCCESS",
+		"ethBalanceIntegrity_tisoped": "FAIL",
+		"fallbackEmptyCallFailure": "SUCCESS",
+		"fallbackEmptyCallSuccess": "SANITY_FAIL"
+	}
+}
