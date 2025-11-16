@@ -23,6 +23,7 @@ import datastructures.stdcollections.*
 import datastructures.stdcollections.emptyList
 import datastructures.stdcollections.listOf
 import datastructures.stdcollections.toList
+import scene.CONSTRUCTOR
 import spec.cvlast.SpecCallSummary
 import spec.cvlast.StrongInvariantType
 import spec.cvlast.WeakInvariantType
@@ -214,6 +215,10 @@ internal class Tokenizer(
             )
             is GenericPreserved -> emptyList()
             is TransactionBoundaryPreserved -> Token.fromSym(sym.ON_TRANSACTION_BOUNDARY).asList()
+            is ConstructorPreserved -> flatListOf(
+                listOf(Token.identifier(CONSTRUCTOR)),
+                params(ctx.params)
+            )
         }
 
         return flatListOf(

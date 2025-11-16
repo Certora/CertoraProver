@@ -778,7 +778,13 @@ invariant_proof_items ::=
 
 invariant_proof_item ::=
     PRESERVED:i preserved_signature:sig with_env_opt:e block:b
-        {: RESULT = new ExplicitMethodPreserved(range(ixleft, bxright), sig, e, b); :}
+        {:
+        if (sig.id.contract == null && sig.id.method.equals("constructor")) {
+            RESULT = new ConstructorPreserved(range(ixleft, bxright), sig.params, e, b);
+        } else {
+            RESULT = new ExplicitMethodPreserved(range(ixleft, bxright), sig, e, b);
+        }
+        :}
 
   | PRESERVED:i ON_TRANSACTION_BOUNDARY with_env_opt:e block:b {: RESULT = new TransactionBoundaryPreserved(range(ixleft, bxright), e, b); :}
 

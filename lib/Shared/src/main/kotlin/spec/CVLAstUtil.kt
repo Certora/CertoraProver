@@ -667,52 +667,82 @@ class GenerateRulesForInvariantsAndEnvFree(
     }
 
 
-    private fun initstateInvariantScenario(inv: CVLInvariant): CVLSingleRule? {
+    private fun initstateInvariantScenario(inv: CVLInvariant): CollectingResult<CVLSingleRule?, CVLError> {
         if (Config.MethodChoices != null) {
             // The user specified specific methods to test, so skip generating the initstate rule
-            return null
+            return null.lift()
+        }
+
+        val constructorPreserved = inv.proof.preserved.filterIsInstance<CVLPreserved.Constructor>().let {
+            when (it.size) {
+                0 -> null
+                1 -> it.first()
+                else -> {
+                    // This should be caught by the CVL type checker and reported as a syntax error
+                    return null.lift()
+                }
+            }
         }
 
         return inv.scope.extendIn(CVLScope.Item::RuleScopeItem) { scope ->
             withScopeAndRange(scope, range = inv.range) {
+                val envParam =
+                    constructorPreserved?.withParams?.singleOrNull { it.type isSubtypeOf EVMBuiltinTypes.env }
+                        ?: CVLParam(EVMBuiltinTypes.env, "initEnv", Range.Empty())
                 val initParams = listOf(
-                    CVLExp.VariableExp("initEnv", tag = EVMBuiltinTypes.env.asTag()),
+                    envParam.let {
+                        CVLExp.VariableExp(it.id, CVLExpTag(range = it.range, scope = scope, type = it.type))
+                    },
                     CVLExp.VariableExp("initCalldata", tag = CVLType.PureCVLType.VMInternal.RawArgs.asTag())
                 )
 
                 val assumes = initStateAxioms.map { axiom ->
-                    CVLCmd.Simple.AssumeCmd.Assume(axiom.exp.getRangeOrEmpty(), axiom.exp, "init state axiom", scope)
+                    CVLCmd.Simple.AssumeCmd.Assume(
+                        axiom.exp.getRangeOrEmpty(),
+                        axiom.exp,
+                        "init state axiom",
+                        scope
+                    )
                 }
+                val preserved = constructorPreserved?.let { getInstrumentedPreservedBlock(it, scope) } ?: listOf()
                 val block =
                     // technically should be only the current contract? or let the user choose?
                     CVLCmd.Simple.ResetStorage(
                         inv.range,
-                        CVLExp.VariableExp(CVLKeywords.allContracts.name, tag = CVLType.PureCVLType.Primitive.AccountIdentifier.asTag()),
+                        CVLExp.VariableExp(
+                            CVLKeywords.allContracts.name,
+                            tag = CVLType.PureCVLType.Primitive.AccountIdentifier.asTag()
+                        ),
                         scope
                     ).wrapWithMessageLabel("Reset storages to 0") +
-                    assumes.wrapWithMessageLabel("Init state axioms") +
-                    CVLCmd.Simple.contractFunction(
-                        inv.range,
-                        scope,
-                        UniqueMethod(
-                           SolidityContract(mainContract.name),
-                           attribute = MethodAttribute.Unique.Constructor
-                        ),
-                        initParams, // TODO(jtoman): this is pointless, the constructor doesn't read from calldata...
-                        true,
-                        CVLExp.VariableExp(CVLKeywords.lastStorage.keyword, tag = CVLKeywords.lastStorage.type.asTag()),
-                        isParametric = false,
-                        methodParamFilter = null
-                    ) +
-                    assertInvariant(inv, scope)
+                        assumes.wrapWithMessageLabel("Init state axioms") +
+                        preserved +
+                        CVLCmd.Simple.contractFunction(
+                            inv.range,
+                            scope,
+                            UniqueMethod(
+                                SolidityContract(mainContract.name),
+                                attribute = MethodAttribute.Unique.Constructor
+                            ),
+                            initParams, // TODO(jtoman): this is pointless, the constructor doesn't read from calldata...
+                            true,
+                            CVLExp.VariableExp(
+                                CVLKeywords.lastStorage.keyword,
+                                tag = CVLKeywords.lastStorage.type.asTag()
+                            ),
+                            isParametric = false,
+                            methodParamFilter = null
+                        ) +
+                        assertInvariant(inv, scope)
                 val newParams: List<CVLParam> = inv.params + listOf(
                     CVLParam(CVLType.PureCVLType.VMInternal.RawArgs, "initCalldata", Range.Empty()),
-                    CVLParam(EVMBuiltinTypes.env, "initEnv", Range.Empty())
+                    envParam
                 )
                 val declId = "Induction base: After the constructor"
                 CVLSingleRule(
                     inv.uniqueRuleIdentifier.freshDerivedIdentifier(declId),
-                    this@GenerateRulesForInvariantsAndEnvFree.mainContract.allMethods.find { it.name == CONSTRUCTOR }?.sourceSegment()?.range ?: inv.range,
+                    this@GenerateRulesForInvariantsAndEnvFree.mainContract.allMethods.find { it.name == CONSTRUCTOR }
+                        ?.sourceSegment()?.range ?: inv.range,
                     newParams,
                     "Initial state does not instate invariant",
                     "Initial state instates invariant",
@@ -723,8 +753,9 @@ class GenerateRulesForInvariantsAndEnvFree(
                     SingleRuleGenerationMeta.Empty
                 )
             }
-        }
+        }.lift()
     }
+
 
 
     private fun resetTransientStorageRule(inv: CVLInvariant): CVLSingleRule? {
@@ -843,12 +874,12 @@ class GenerateRulesForInvariantsAndEnvFree(
 
 
     private fun rulesOfInvariant(inv: CVLInvariant): CollectingResult<GroupRule, CVLError> {
-        return preserveInvariantScenario(inv).map(explicitPreservedInvariantScenario(inv)) { invPreserve, explicitPreservedRules ->
+        return preserveInvariantScenario(inv).map(explicitPreservedInvariantScenario(inv), initstateInvariantScenario(inv)) { invPreserve, explicitPreservedRules, initStateInvariant ->
             val invariantIdentifier = RuleIdentifier.freshIdentifier(inv.id)
             CVLScope.AstScope.extendIn(CVLScope.Item::RuleScopeItem) { invScope ->
                 GroupRule(
                     invariantIdentifier, inv.range,
-                    listOfNotNull(initstateInvariantScenario(inv), resetTransientStorageRule(inv)) +
+                    listOfNotNull(initStateInvariant, resetTransientStorageRule(inv)) +
                         invScope.extendIn(CVLScope.Item::RuleScopeItem) { inductionStepScope ->
                             val inductionStepDisplayName = when (inv.invariantType) {
                                 StrongInvariantType -> "Induction step (strong invariant): after external (non-view) methods and before unresolved calls"

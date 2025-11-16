@@ -1021,6 +1021,16 @@ class InvalidSummaryForWithClause(override val location: Range) : CVLError() {
     exampleMessage = "Invariant `i` has multiple generic preserved blocks (additional block on line 4)."
 )
 @CVLErrorExample(
+    exampleCVLWithRange =
+        """
+        invariant i() true {
+            #preserved constructor() { }#
+            preserved constructor() { }
+        }
+        """,
+    exampleMessage = "Invariant `i` has multiple constructor preserved blocks (additional block on line 4)."
+)
+@CVLErrorExample(
     "invariant i() true { #preserved externalFunction() {}# preserved externalFunction() {} }",
     "Invariant `i` has multiple preserved blocks for `PrimaryContract.externalFunction()` (additional block at position 1:54)."
 )
@@ -1028,6 +1038,7 @@ class DuplicatePreserved private constructor(override val location: Range, overr
     sealed class Target(val description : String)
     class Generic  : Target("generic preserved blocks")
     class Fallback : Target("fallback preserved blocks")
+    class Constructor : Target("constructor preserved blocks")
     class Specific(method : CVLPreserved.ExplicitMethod) : Target("preserved blocks for `${method.methodSignature}`")
 
     constructor(invariant: CVLInvariant, blocks : List<CVLPreserved>, type : Target)
@@ -1085,6 +1096,30 @@ class WithParamWrongType private constructor(override val location: Range, overr
     constructor(preservedType: String, cvlType: CVLType.PureCVLType, location: Range) :
         this(location, "The $preservedType preserved block can only get parameters of type `env`, got type `$cvlType`")
 }
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.SYNTAX,
+    description =
+    """
+        A {ref}`preserved` block for a constructor must have matching parameter types with the actual constructor.
+        """
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        invariant i() true {
+            #preserved constructor(bool b) { }#
+        }
+        """,
+    exampleMessage = "The constructor preserved block does not currently support capturing the constructor arguments. Got (bool b), expected ()."
+)
+class ConstructorPreservedSignatureMismatch private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(preservedParams: String, location: Range) :
+        this(location, "The constructor preserved block does not currently support capturing the constructor arguments. Got $preservedParams, expected ().")
+}
+
+
 
 @KSerializable
 @CVLErrorType(

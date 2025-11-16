@@ -24,7 +24,10 @@ import spec.cvlast.CVLPreserved.ExplicitMethod
 import spec.cvlast.CVLScope.Item.InvariantScopeItem
 import spec.cvlast.CVLScope.Item.PreserveScopeItem
 import spec.cvlast.typechecker.CVLError
+import spec.cvlast.typechecker.ConstructorPreservedSignatureMismatch
 import utils.*
+import utils.CollectingResult.Companion.asError
+import utils.CollectingResult.Companion.bind
 import utils.CollectingResult.Companion.flatten
 import utils.CollectingResult.Companion.lift
 import utils.CollectingResult.Companion.map
@@ -122,4 +125,20 @@ data class TransactionBoundaryPreserved(override val range: Range, override val 
 data class GenericPreserved(override val range: Range, override val withParams: List<CVLParam>?,override val  block: CmdList) : Preserved {
     override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>)
         = CVLPreserved.Generic(range, block, withParams, scope).lift()
+}
+
+data class ConstructorPreserved(override val range: Range, val params: List<VMParam>, override val withParams: List<CVLParam>?, override val block: CmdList) : Preserved {
+    override fun create(resolver: TypeResolver, scope: CVLScope, block: List<CVLCmd>, withParams: List<spec.cvlast.CVLParam>): CollectingResult<CVLPreserved, CVLError> =
+        if (params.isNotEmpty()) {
+            params.kotlinize(resolver, scope).bind { params ->
+                ConstructorPreservedSignatureMismatch(
+                    params.joinToString(",", "(", ")") { it.prettyPrint() },
+                    range
+                ).asError()
+            }
+        } else {
+            CVLPreserved.Constructor(range, block, withParams, scope).lift()
+        }
+
+
 }

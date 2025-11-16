@@ -391,6 +391,10 @@ class CVLAstTypeChecker(
                         withParams=withParams,
                         block=block
                     )
+                    is CVLPreserved.Constructor -> preserved.copy(
+                        withParams = withParams,
+                        block = block
+                    )
                 }
             }
         }.flatten()

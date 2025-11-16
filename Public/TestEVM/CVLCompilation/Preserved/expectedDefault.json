@@ -1,0 +1,12 @@
+{
+	"rules": {
+    "envfreeFuncsStaticCheck": {
+      "SUCCESS": [
+        "D.initialized_at()"
+      ]
+    },
+		"holdsWithParamRestrictions": "FAIL",
+		"holdsWithEnvRestrictions": "SUCCESS",
+		"DInitializedBeforeC": "SANITY_FAIL"
+	}
+}
