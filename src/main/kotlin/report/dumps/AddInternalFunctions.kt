@@ -30,6 +30,7 @@ import com.certora.collect.*
 import datastructures.*
 import datastructures.stdcollections.*
 import log.*
+import move.MoveCallTrace
 import sbf.tac.SBF_INLINED_FUNCTION_END
 import sbf.tac.SBF_INLINED_FUNCTION_START
 import sbf.tac.SbfInlinedFuncEndAnnotation
@@ -71,6 +72,9 @@ object AddInternalFunctions {
 
     /** In Solana there is only one external artificial procedure, which is this one. */
     val solanaEntryPoint = Solana("main")
+
+    /** In Move there is only one external artificial procedure, which is this one. */
+    val moveEntryPoint = Move("main")
 
     fun CoreTACProgram.alreadyHasInternalFunctions() =
         this.procedures.any { it.procedureId is ProcedureId.Internal }
@@ -178,6 +182,9 @@ object AddInternalFunctions {
                             is CallStackEntry.IntFuncStart.Solana ->
                                 // As a convention, in Solana there is only one external artificial procedure.
                                 Procedure(callId = 0, procedureId = solanaEntryPoint)
+                            is CallStackEntry.IntFuncStart.Move ->
+                                // As a convention, in Move there is only one external artificial procedure.
+                                Procedure(callId = 0, procedureId = moveEntryPoint)
                         }
                         // calling from an externally called function invocation to an internal one start a "big" new subgraph
                         currSubGraphBuilder =
@@ -528,6 +535,8 @@ internal data class InternalFuncSubgraph(
                                 range = func.annot.calleeSrc?.getSourceDetails()?.range)
                         is CallStackEntry.IntFuncStart.Solana ->
                             Solana(name = func.annot.name)
+                        is CallStackEntry.IntFuncStart.Move ->
+                            Move(name = func.annot.name.toString())
                     }
                     newProcedures.add(Procedure(newNBId.calleeIdx, procedureId))
                 }
@@ -793,9 +802,13 @@ internal sealed interface CallStackEntry {
         @JvmInline
         value class Solana(val annot: SbfInlinedFuncStartAnnotation) : IntFuncStart
 
+        @JvmInline
+        value class Move(val annot: MoveCallTrace.FuncStart) : IntFuncStart
+
         fun id() = when (this) {
             is EVM -> this.annot.id
             is Solana -> this.annot.id
+            is Move -> this.annot.callId
         }
     }
 
@@ -811,14 +824,19 @@ internal sealed interface ExitAnnotation {
     @JvmInline
     value class Solana(val annot: SbfInlinedFuncEndAnnotation) : ExitAnnotation
 
+    @JvmInline
+    value class Move(val annot: MoveCallTrace.FuncEnd) : ExitAnnotation
+
     fun id() = when (this) {
         is EVM -> this.annot.id
         is Solana -> this.annot.id
+        is Move -> this.annot.callId
     }
 }
 
 internal fun TACCmd.Simple.AnnotationCmd.isIntFuncStart() =
-    this.annot.k == INTERNAL_FUNC_START || this.annot.k == SBF_INLINED_FUNCTION_START
+    this.annot.k == INTERNAL_FUNC_START || this.annot.k == SBF_INLINED_FUNCTION_START ||
+    this.annot.v is MoveCallTrace.FuncStart
 
 /**
  * Returns the [CallStackEntry.IntFuncStart] for the [TACCmd.Simple.AnnotationCmd].
@@ -829,11 +847,13 @@ internal fun TACCmd.Simple.AnnotationCmd.toIntFuncStart() =
     when (this.annot.v) {
         is InternalFuncStartAnnotation -> CallStackEntry.IntFuncStart.EVM(this.annot.v)
         is SbfInlinedFuncStartAnnotation -> CallStackEntry.IntFuncStart.Solana(this.annot.v)
+        is MoveCallTrace.FuncStart -> CallStackEntry.IntFuncStart.Move(this.annot.v)
         else -> throw IllegalStateException("Expected InternalFuncStartAnnotation or SbfInlinedFuncStartAnnotation")
     }
 
 internal fun TACCmd.Simple.AnnotationCmd.isIntFuncEnd() =
-    this.annot.k == INTERNAL_FUNC_EXIT || this.annot.k == SBF_INLINED_FUNCTION_END
+    this.annot.k == INTERNAL_FUNC_EXIT || this.annot.k == SBF_INLINED_FUNCTION_END ||
+    this.annot.v is MoveCallTrace.FuncEnd
 
 /**
  * Returns the [ExitAnnotation] for the [TACCmd.Simple.AnnotationCmd].
@@ -844,5 +864,6 @@ internal fun TACCmd.Simple.AnnotationCmd.toIntFuncEnd() =
     when (this.annot.v) {
         is InternalFuncExitAnnotation -> ExitAnnotation.EVM(this.annot.v)
         is SbfInlinedFuncEndAnnotation -> ExitAnnotation.Solana(this.annot.v)
+        is MoveCallTrace.FuncEnd -> ExitAnnotation.Move(this.annot.v)
         else -> throw IllegalStateException("Expected InternalFuncExitAnnotation or SbfInlinedFuncEndAnnotation")
     }

@@ -32,6 +32,9 @@ import vc.data.*
     Functions for annotating Move programs with call trace information.
  */
 object MoveCallTrace {
+    @KSerializable
+    sealed class MoveSnippetCmd : SnippetCmd.MoveSnippetCmd()
+
     /** The number of vector elements to retrieve in the CEX model, so that we can display them in the calltrace. */
     private val maxElemCount = Config.MoveCallTraceVecElemCount.get()
 
@@ -118,7 +121,7 @@ object MoveCallTrace {
         types.
      */
     @KSerializable
-    data class TypeId(val type: MoveType.Value, val id: Int) : SnippetCmd.MoveSnippetCmd() {
+    data class TypeId(val type: MoveType.Value, val id: Int) : MoveSnippetCmd() {
         override val range: Range.Range? get() = null
 
         /** Summarization context initializer to ensure we only record each type once. */
@@ -145,7 +148,7 @@ object MoveCallTrace {
         val args: List<Value>,
         val typeArgIds: List<TACSymbol.Var>,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncStart> {
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncStart> {
         override val support: Set<TACSymbol.Var> get() = args.map { it.support }.unionAll() + typeArgIds
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
             args = args.map { it.transformSymbols(f) },
@@ -158,7 +161,7 @@ object MoveCallTrace {
         val callId: Int,
         val name: MoveFunctionName,
         val returns: List<Value>
-    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncEnd> {
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncEnd> {
         override val range: Range.Range? get() = null // calltrace will get the range from the meta
         override val support: Set<TACSymbol.Var> get() = returns.map { it.support }.unionAll()
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
@@ -167,12 +170,21 @@ object MoveCallTrace {
     }
 
     /**
+        Snippet used for padding around annotations, to make the difficulty stats collection code happy.
+     */
+    @KSerializable
+    object Padding : MoveSnippetCmd() {
+        override val range: Range.Range? get() = null
+        private fun readResolve(): Any = Padding
+    }
+
+    /**
         Used for snippet types that have a textual message variable.  We may be able to extract a constant message
         value for these variables.
      */
     interface WithMessageFromVar {
         val messageVar: TACSymbol.Var?
-        fun resolveMessage(message: String?): SnippetCmd.MoveSnippetCmd
+        fun resolveMessage(message: String?): MoveSnippetCmd
     }
 
     /** Snippet for a user-defined assume */
@@ -181,7 +193,7 @@ object MoveCallTrace {
         val message: String?,
         override val messageVar: TACSymbol.Var?,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<Assume>, WithMessageFromVar {
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<Assume>, WithMessageFromVar {
         override val support: Set<TACSymbol.Var> get() = setOfNotNull(messageVar)
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
             messageVar = messageVar?.let(f)
@@ -200,7 +212,7 @@ object MoveCallTrace {
         val message: String?,
         override val messageVar: TACSymbol.Var?,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<Assert>, WithMessageFromVar {
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<Assert>, WithMessageFromVar {
         override val support: Set<TACSymbol.Var> get() = setOfNotNull(condition as? TACSymbol.Var, messageVar)
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
             condition = (condition as? TACSymbol.Var)?.let(f) ?: condition,
@@ -353,6 +365,10 @@ object MoveCallTrace {
                 cmds += assign(it) { CvlmHash.typeId(typeArg) }
             }
         }
+        // The current implementation of [report.dumps.AddInternalFunctions] doesn't work if a) the func start
+        // annotation is tat the beginning of a block, or b) there are no commands between the previous func end and
+        // the next func start.  Apparently this is hard to fix, so we insert some padding for now.
+        cmds += Padding.toAnnotation().withDecls()
         cmds += FuncStart(
             callId = callId,
             name = func.name,

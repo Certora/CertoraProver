@@ -50,11 +50,14 @@ internal class MoveCallTraceGenerator(
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int) =
         cmd.maybeAnnotation(TACMeta.SNIPPET)?.let {
             when (it) {
-                is MoveCallTrace.TypeId -> handleTypeId(it)
-                is MoveCallTrace.FuncStart -> handleFuncStart(it)
-                is MoveCallTrace.FuncEnd -> handleFuncEnd(it)
-                is MoveCallTrace.Assert -> handleAssert(it)
-                is MoveCallTrace.Assume -> handleAssume(it)
+                is MoveCallTrace.MoveSnippetCmd -> when (it) {
+                    is MoveCallTrace.TypeId -> handleTypeId(it)
+                    is MoveCallTrace.FuncStart -> handleFuncStart(it)
+                    is MoveCallTrace.FuncEnd -> handleFuncEnd(it)
+                    is MoveCallTrace.Assert -> handleAssert(it)
+                    is MoveCallTrace.Assume -> handleAssume(it)
+                    is MoveCallTrace.Padding -> HandleCmdResult.Continue
+                }
                 else -> null
             }
         } ?: super.handleCmd(cmd, cmdIdx, currBlock, blockIdx)
