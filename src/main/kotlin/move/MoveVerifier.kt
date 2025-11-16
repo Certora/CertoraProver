@@ -21,8 +21,6 @@ import bridge.*
 import config.*
 import datastructures.stdcollections.*
 import kotlin.io.path.*
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import log.*
 import parallel.coroutines.*
 import report.*
@@ -59,53 +57,50 @@ class MoveVerifier {
             )
         }
 
-        val throttle = Semaphore(Config.MaxConcurrentRules.get())
+        val concurrencyLimit = Config.MaxConcurrentRules.get()
 
         val rules = moveScene
             .getSelectedCvlmRules()
             .resultOrExitProcess(1, CVLError::printErrors)
-            .parallelMapOrdered { _, rule ->
-                throttle.withPermit {
-                    val compiled = MoveToTAC.compileRule(rule, moveScene)
-                    EcosystemAgnosticRule(
-                        ruleIdentifier = RuleIdentifier.freshIdentifier(compiled.rule.ruleInstanceName),
-                        ruleType = when (compiled.rule) {
-                            is CvlmRule.UserRule -> SpecType.Single.FromUser.SpecFile
-                            is CvlmRule.TargetSanity -> SpecType.Single.BuiltIn(BuiltInRuleId.sanity)
-                        },
-                        isSatisfyRule = compiled.isSatisfy
-                    ) to compiled
-                }
+            .sortedBy { it.ruleInstanceName }
+            .parallelMapOrdered(concurrencyLimit) { _, rule ->
+                val compiled = MoveToTAC.compileRule(rule, moveScene)
+                EcosystemAgnosticRule(
+                    ruleIdentifier = RuleIdentifier.freshIdentifier(compiled.rule.ruleInstanceName),
+                    ruleType = when (compiled.rule) {
+                        is CvlmRule.UserRule -> SpecType.Single.FromUser.SpecFile
+                        is CvlmRule.TargetSanity -> SpecType.Single.BuiltIn(BuiltInRuleId.sanity)
+                    },
+                    isSatisfyRule = compiled.isSatisfy
+                ) to compiled
             }
 
         treeView.buildRuleTree(rules.map { (rule, _) -> rule })
 
-        rules.consuming().parallelMapOrdered { _, (rule, compiled) ->
-            throttle.withPermit {
-                treeView.signalStart(rule)
+        rules.consuming().parallelMapOrdered(concurrencyLimit) { _, (rule, compiled) ->
+            treeView.signalStart(rule)
 
-                val coretac = compiled.toCoreTAC(moveScene)
+            val coretac = compiled.toCoreTAC(moveScene)
 
-                @OptIn(Config.DestructiveOptimizationsOption::class)
-                val res = when (Config.DestructiveOptimizationsMode.get()) {
-                    DestructiveOptimizationsModeEnum.DISABLE -> {
-                        verifyTAC(rule, coretac)
-                    }
-                    DestructiveOptimizationsModeEnum.ENABLE -> {
-                        verifyTAC(rule, coretac.withDestructiveOptimizations(true))
-                    }
-                    DestructiveOptimizationsModeEnum.TWOSTAGE, DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> {
-                        twoStageDestructiveOptimizationsCheck(rule, rule.ruleIdentifier.displayName, coretac) {
-                            verifyTAC(rule, it)
-                        }
+            @OptIn(Config.DestructiveOptimizationsOption::class)
+            val res = when (Config.DestructiveOptimizationsMode.get()) {
+                DestructiveOptimizationsModeEnum.DISABLE -> {
+                    verifyTAC(rule, coretac)
+                }
+                DestructiveOptimizationsModeEnum.ENABLE -> {
+                    verifyTAC(rule, coretac.withDestructiveOptimizations(true))
+                }
+                DestructiveOptimizationsModeEnum.TWOSTAGE, DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> {
+                    twoStageDestructiveOptimizationsCheck(rule, rule.ruleIdentifier.displayName, coretac) {
+                        verifyTAC(rule, it)
                     }
                 }
+            }
 
-                res.toCheckResult(cvlScene, rule).mapCatching { checkResult ->
-                    reporterContainer.addResults(checkResult)
-                    treeView.signalEnd(rule, checkResult)
-                    reporterContainer.hotUpdate(cvlScene)
-                }
+            res.toCheckResult(cvlScene, rule).mapCatching { checkResult ->
+                reporterContainer.addResults(checkResult)
+                treeView.signalEnd(rule, checkResult)
+                reporterContainer.hotUpdate(cvlScene)
             }
         }
 
