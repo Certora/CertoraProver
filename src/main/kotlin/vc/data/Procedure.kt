@@ -267,6 +267,29 @@ sealed class ProcedureId : AmbiSerializable {
             name.replace(" ", "_")
     }
 
+    /** Move procedure. Corresponds to a method call. */
+    @KSerializable
+    @SuppressRemapWarning
+    data class Move(val name: String) : ProcedureId() {
+
+        @KSerializable
+        object MoveEntryPointContractOfProcedure : ContractOfProcedure() {
+            override fun hashCode() = hashObject(this)
+            override fun toString(): String = "main"
+            override fun asBigInteger() = null
+            fun readResolve(): Any = MoveEntryPointContractOfProcedure
+        }
+
+        override val address: ContractOfProcedure get() =
+            // Since in Move there is no concept of contracts of a procedure, we just use a dummy one.
+            MoveEntryPointContractOfProcedure
+
+        override fun toString() =
+            // We sanitize the name: if there are spaces, they are substituted by the underscore. Names in Move should
+            // not have spaces though.
+            name.replace(" ", "_")
+    }
+
     @KSerializable
     data class EquivProgram(val name: String, val hostContract: BigInteger) : ProcedureId() {
         override val address: ContractOfProcedure

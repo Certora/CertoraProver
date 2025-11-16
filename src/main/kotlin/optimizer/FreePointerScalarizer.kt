@@ -132,8 +132,9 @@ object FreePointerScalarizer {
         if (patched) {
             patch.addVarDecl(TACKeyword.MEM64.toVar())
         }
-
-        patchScalarsDueToLongCopy(g, bytecode, expSimplifier, patch)
+        if(!Config.EquivalenceCheck.get()) {
+            patchScalarsDueToLongCopy(g, bytecode, expSimplifier, patch)
+        }
     }
 
     private sealed class Scalarization {

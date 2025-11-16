@@ -87,6 +87,9 @@ sealed class BuiltInRuleCustomChecker<G : BuiltInRuleGenerator> {
                 BuiltInRuleId.trustedMethods -> {
                     TrustedMethodChecker()
                 }
+                BuiltInRuleId.safeCasting -> {
+                    SafeCastingChecker
+                }
                 BuiltInRuleId.msgValueInLoopRule -> {
                     MsgValueInLoopChecker
                 }

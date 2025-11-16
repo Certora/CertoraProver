@@ -23,8 +23,6 @@ import analysis.SimpleCmdsWithDecls
 import com.certora.collect.*
 import config.*
 import datastructures.stdcollections.*
-import move.ConstantStringPropagator.MESSAGE_VAR
-import move.ConstantStringPropagator.MessageVar
 import tac.*
 import tac.generation.*
 import utils.*
@@ -34,6 +32,9 @@ import vc.data.*
     Functions for annotating Move programs with call trace information.
  */
 object MoveCallTrace {
+    @KSerializable
+    sealed class MoveSnippetCmd : SnippetCmd.MoveSnippetCmd()
+
     /** The number of vector elements to retrieve in the CEX model, so that we can display them in the calltrace. */
     private val maxElemCount = Config.MoveCallTraceVecElemCount.get()
 
@@ -120,7 +121,7 @@ object MoveCallTrace {
         types.
      */
     @KSerializable
-    data class TypeId(val type: MoveType.Value, val id: Int) : SnippetCmd.MoveSnippetCmd() {
+    data class TypeId(val type: MoveType.Value, val id: Int) : MoveSnippetCmd() {
         override val range: Range.Range? get() = null
 
         /** Summarization context initializer to ensure we only record each type once. */
@@ -135,11 +136,21 @@ object MoveCallTrace {
     }
 
     /**
-        Snippet holding the function start information.  We also put the return types here, because we need those when
-        initially constructing the call node in the trace.
+        Marks the start of a function call in the TAC
      */
     @KSerializable
     data class FuncStart(
+        val callId: Int,
+        val name: MoveFunctionName,
+        override val range: Range.Range?
+    ) : MoveSnippetCmd()
+
+    /**
+        Snippet holding the arguments to a function.  We also put the return types here, because we need those when
+        initially constructing the call node in the trace.
+     */
+    @KSerializable
+    data class FuncArgs(
         val callId: Int,
         val name: MoveFunctionName,
         val params: List<MoveFunction.DisplayParam>,
@@ -147,7 +158,7 @@ object MoveCallTrace {
         val args: List<Value>,
         val typeArgIds: List<TACSymbol.Var>,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncStart> {
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncArgs> {
         override val support: Set<TACSymbol.Var> get() = args.map { it.support }.unionAll() + typeArgIds
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
             args = args.map { it.transformSymbols(f) },
@@ -160,7 +171,7 @@ object MoveCallTrace {
         val callId: Int,
         val name: MoveFunctionName,
         val returns: List<Value>
-    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncEnd> {
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncEnd> {
         override val range: Range.Range? get() = null // calltrace will get the range from the meta
         override val support: Set<TACSymbol.Var> get() = returns.map { it.support }.unionAll()
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
@@ -168,12 +179,40 @@ object MoveCallTrace {
         )
     }
 
+    /**
+        Snippet used for padding around annotations, to make the difficulty stats collection code happy.
+     */
+    @KSerializable
+    object Padding : MoveSnippetCmd() {
+        override val range: Range.Range? get() = null
+        private fun readResolve(): Any = Padding
+    }
+
+    /**
+        Used for snippet types that have a textual message variable.  We may be able to extract a constant message
+        value for these variables.
+     */
+    interface WithMessageFromVar {
+        val messageVar: TACSymbol.Var?
+        fun resolveMessage(message: String?): MoveSnippetCmd
+    }
+
     /** Snippet for a user-defined assume */
     @KSerializable
     data class Assume(
         val message: String?,
+        override val messageVar: TACSymbol.Var?,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd()
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<Assume>, WithMessageFromVar {
+        override val support: Set<TACSymbol.Var> get() = setOfNotNull(messageVar)
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
+            messageVar = messageVar?.let(f)
+        )
+        override fun resolveMessage(message: String?) = when (message) {
+            null -> copy(messageVar = null)
+            else -> copy(message = message, messageVar = null)
+        }
+    }
 
     /** Snippet for a user-defined assert */
     @KSerializable
@@ -181,12 +220,18 @@ object MoveCallTrace {
         val isSatisfy: Boolean,
         val condition: TACSymbol,
         val message: String?,
+        override val messageVar: TACSymbol.Var?,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<Assert> {
-        override val support: Set<TACSymbol.Var> get() = setOfNotNull(condition as? TACSymbol.Var)
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<Assert>, WithMessageFromVar {
+        override val support: Set<TACSymbol.Var> get() = setOfNotNull(condition as? TACSymbol.Var, messageVar)
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-            condition = (condition as? TACSymbol.Var)?.let(f) ?: condition
+            condition = (condition as? TACSymbol.Var)?.let(f) ?: condition,
+            messageVar = messageVar?.let(f)
         )
+        override fun resolveMessage(message: String?) = when (message) {
+            null -> copy(messageVar = null)
+            else -> copy(message = message, messageVar = null)
+        }
     }
 
     /**
@@ -324,13 +369,23 @@ object MoveCallTrace {
     context(SummarizationContext)
     fun annotateFuncStart(callId: Int, func: MoveFunction, args: List<TACSymbol.Var>): MoveCmdsWithDecls {
         val cmds = mutableListOf<MoveCmdsWithDecls>()
+        // The current implementation of [report.dumps.AddInternalFunctions] doesn't work if a) the func start
+        // annotation is at the beginning of a block, or b) there are no commands between the previous func end and the
+        // next func start.  Apparently this is hard to fix, so we insert some padding for now.
+        cmds += Padding.toAnnotation().withDecls()
+        cmds += FuncStart(
+            callId = callId,
+            name = func.name,
+            range = func.range
+        ).toAnnotation().withDecls()
+
         val argVals = func.params.zip(args).map { (argType, argVal) -> makeValue(cmds, argType, argVal) }
         val typeArgIds = func.typeArguments.mapIndexed { i, typeArg ->
             TACSymbol.Var("type_arg_$i", Tag.Bit256).toUnique("!").also {
                 cmds += assign(it) { CvlmHash.typeId(typeArg) }
             }
         }
-        cmds += FuncStart(
+        cmds += FuncArgs(
             callId = callId,
             name = func.name,
             params = func.displayParams,
@@ -339,6 +394,7 @@ object MoveCallTrace {
             typeArgIds = typeArgIds,
             range = func.range
         ).toAnnotation().withDecls()
+
         return mergeMany(cmds)
     }
 
@@ -367,14 +423,7 @@ object MoveCallTrace {
         messageVar: TACSymbol.Var? = null,
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
-        return if (messageVar == null) {
-            Assume(messageText, range).toAnnotation().withDecls()
-        } else {
-            mergeMany(
-                Assume(messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to MessageVar(messageVar))).withDecls(),
-                TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(messageVar)).withDecls()
-            )
-        }
+        return Assume(messageText, messageVar, range).toAnnotation().withDecls()
     }
 
     /**
@@ -387,13 +436,6 @@ object MoveCallTrace {
         messageVar: TACSymbol.Var? = null,
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
-        return if (messageVar == null) {
-            Assert(isSatisfy, condition, messageText, range).toAnnotation().withDecls()
-        } else {
-            mergeMany(
-                Assert(isSatisfy, condition, messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to MessageVar(messageVar))).withDecls(),
-                TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(messageVar)).withDecls()
-            )
-        }
+        return Assert(isSatisfy, condition, messageText, messageVar, range).toAnnotation().withDecls()
     }
 }

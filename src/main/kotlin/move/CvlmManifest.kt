@@ -125,7 +125,7 @@ class CvlmManifest(val scene: MoveScene) {
     }
 
     private val functionStructName = MoveDatatypeName(
-        MoveModuleName(Config.CvlmAddress.get(), "function"),
+        MoveModuleName(scene, Config.CvlmAddress.get(), "function"),
         "Function"
     )
 
@@ -175,9 +175,9 @@ class CvlmManifest(val scene: MoveScene) {
         )
 
         // Interpret the manifest code.  We only allow constants, and calls to the manifest functions.
-        val manifestModule = MoveModuleName(Config.CvlmAddress.get(), "manifest")
+        val manifestModule = MoveModuleName(scene, Config.CvlmAddress.get(), "manifest")
         val stack = ArrayDeque<StackValue>()
-         manifestCode.instructions.forEach { inst ->
+        manifestCode.instructions.forEach { inst ->
             when(inst) {
                 is Instruction.LdConst -> {
                     val c = inst.index.deref()
@@ -212,6 +212,7 @@ class CvlmManifest(val scene: MoveScene) {
                         MoveFunctionName(manifestModule, "hash") -> hash(manifestName, stack)
                         MoveFunctionName(manifestModule, "shadow") -> shadow(manifestName, stack)
                         MoveFunctionName(manifestModule, "field_access") -> fieldAccessor(manifestName, stack)
+                        MoveFunctionName(manifestModule, "function_access") -> functionAccessor(manifestName, stack)
                         MoveFunctionName(manifestModule, "target") -> target(manifestName, stack)
                         MoveFunctionName(manifestModule, "target_sanity") -> targetSanity(manifestName, stack)
                         MoveFunctionName(manifestModule, "invoker") -> invoker(manifestName, stack)
@@ -302,6 +303,7 @@ class CvlmManifest(val scene: MoveScene) {
 
         val summarizedName = MoveFunctionName(
             MoveModuleName(
+                scene,
                 summarizedFuncAddressValue.value,
                 summarizedFuncModuleValue.value
             ),
@@ -390,98 +392,14 @@ class CvlmManifest(val scene: MoveScene) {
 
         addSummarizer(ghostName) { call ->
             singleBlockSummary(call) {
-                /*
-                    - For a nongeneric ghost function with no parameters `native fun ghost(): &R`, we generate a single
-                      TAC variable of type `R.toTag()`.
-                    - For a nongeneric ghost function with a single numeric parameter, we generate a single TAC variable
-                      of type `MoveTag.GhostArray(R)`, and use the parameter as an index into the array.
-                    - For a nongeneric ghost function with multiple parameters, we generate a single TAC variable of
-                      type `MoveTag.GhostArray(R)`, and hash the parameters to get the index.
-                    - Generic ghost functions work exactly as above, except we generate a separate variable for each
-                      instantiation of the ghost function.
-                */
-
-                val ghostFunc = call.callee
-
-                fun ghostVar(tag: Tag): TACSymbol.Var {
-                    val name = ghostFunc.name.toVarName()
-                    return TACSymbol.Var(
-                        name,
-                        tag,
-                        // treat ghost variables as keywords, to preserve their names in TAC dumps
-                        meta = MetaMap(TACSymbol.Var.KEYWORD_ENTRY to TACSymbol.Var.KeywordEntry(name))
-                    ).letIf(ghostFunc.typeArguments.isNotEmpty()) {
-                            it.withSuffix(
-                                ghostFunc.typeArguments.joinToString("!") { it.symNameExt() },
-                                "!"
-                            )
-                        }
-                }
-
-                val (isRefReturn, resultValType) = when (val resultType = ghostFunc.returns[0]) {
-                    is MoveType.Reference -> true to resultType.refType
-                    is MoveType.Value -> false to resultType
-                }
-
-                val refVar = if (isRefReturn) {
-                    call.returns[0]
-                } else {
-                    TACKeyword.TMP(MoveTag.Ref(resultValType))
-                }
-
-                val makeRef = when {
-                    ghostFunc.params.isEmpty() -> {
-                        // No parameters: just use a simple TAC variable
-                        TACCmd.Move.BorrowLocCmd(
-                            ref = refVar,
-                            loc = ghostVar(resultValType.toTag()).ensureHavocInit(resultValType)
-                        ).withDecls(refVar)
-                    }
-                    ghostFunc.params.size == 1 && ghostFunc.params[0] is MoveType.Bits -> {
-                        // A single numeric parameter: use it as an index into a ghost array
-                        val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(resultValType)))
-                        mergeMany(
-                            TACCmd.Move.BorrowLocCmd(
-                                ref = ghostArrayRef,
-                                loc = ghostVar(MoveTag.GhostArray(resultValType)).ensureHavocInit()
-                            ).withDecls(ghostArrayRef),
-                            TACCmd.Move.GhostArrayBorrowCmd(
-                                dstRef = refVar,
-                                arrayRef = ghostArrayRef,
-                                index = call.args[0]
-                            ).withDecls(refVar)
-                        )
-                    }
-                    else -> {
-                        // Hash the arguments to get an index into a ghost array
-                        val hash = TACKeyword.TMP(Tag.Bit256)
-                        val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(resultValType)))
-                        mergeMany(
-                            CvlmHash.hashArguments(hash, call),
-                            TACCmd.Move.BorrowLocCmd(
-                                ref = ghostArrayRef,
-                                loc = ghostVar(MoveTag.GhostArray(resultValType)).ensureHavocInit()
-                            ).withDecls(ghostArrayRef),
-                            TACCmd.Move.GhostArrayBorrowCmd(
-                                dstRef = refVar,
-                                arrayRef = ghostArrayRef,
-                                index = hash
-                            ).withDecls(refVar)
-                        )
-                    }
-                }
-
-                if (isRefReturn) {
-                    makeRef
-                } else {
-                    mergeMany(
-                        makeRef,
-                        TACCmd.Move.ReadRefCmd(
-                            dst = call.returns[0],
-                            ref = refVar
-                        ).withDecls(call.returns[0])
-                    )
-                }
+                GhostMapping(
+                    name = call.callee.name,
+                    typeArgs = call.callee.typeArguments,
+                    params = call.callee.params,
+                    args = call.args,
+                    resultType = call.callee.returns[0],
+                    result = call.returns[0]
+                ).toCmd()
             }
         }
     }
@@ -755,6 +673,82 @@ class CvlmManifest(val scene: MoveScene) {
         }
     }
 
+    private fun functionAccessor(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
+        /*
+            ```
+            public native fun function_access(
+                accessorFunName: vector<u8>,
+                address: address,
+                moduleName: vector<u8>,
+                functionName: vector<u8>
+            );
+            ```
+
+            Marks `accessorFunName` (in the current module) as a function accessor for the named function. The accessor
+            function must have the same signature as the accessed function.
+         */
+        val functionNameValue = stack.removeLast() as StackValue.String
+        val moduleNameValue = stack.removeLast() as StackValue.String
+        val addressValue = stack.removeLast() as StackValue.Address
+        val accessorNameValue = stack.removeLast() as StackValue.String
+        val accessorName = MoveFunctionName(manifestName.module, accessorNameValue.value)
+        val accessorDef = scene.maybeDefinition(accessorName)
+        if (accessorDef == null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName is not defined in the scene, but is referenced in module manifest function $manifestName"
+            )
+        }
+        if (accessorDef.code != null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName must be declared as a `native fun`."
+            )
+        }
+        val accessedName = MoveFunctionName(
+            MoveModuleName(
+                scene,
+                addressValue.value,
+                moduleNameValue.value
+            ),
+            functionNameValue.value
+        )
+        val accessedDef = scene.maybeDefinition(accessedName)
+        if (accessedDef == null) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Accessed function $accessedName is not defined in the scene, but is referenced in module manifest function $manifestName"
+            )
+        }
+        if (accessedDef.function.typeParameters != accessorDef.function.typeParameters) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName has different type parameters than the accessed function $accessedName in module manifest function $manifestName"
+            )
+        }
+        if (accessedDef.function.params != accessorDef.function.params) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName has different parameters than the accessed function $accessedName in module manifest function $manifestName"
+            )
+        }
+        if (accessedDef.function.returns != accessorDef.function.returns) {
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Function accessor $accessorName has different return types than the accessed function $accessedName in module manifest function $manifestName"
+            )
+        }
+        addSummarizer(accessorName) { call ->
+            with(scene) {
+                compileFunctionCall(
+                    call.copy(
+                        callee = MoveFunction(accessedDef.function, call.callee.typeArguments)
+                    )
+                )
+            }
+        }
+    }
+
     private fun target(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
         /*
             public native fun target(module_address: address, module_name: vector<u8>, function_name: vector<u8>);
@@ -768,6 +762,7 @@ class CvlmManifest(val scene: MoveScene) {
 
         val targetName = MoveFunctionName(
             MoveModuleName(
+                scene,
                 targetAddressValue.value,
                 targetModuleValue.value
             ),

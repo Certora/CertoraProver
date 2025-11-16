@@ -127,6 +127,20 @@ abstract class AbstractRuleGeneration<I>(
         EthereumVariables.address
     )
 
+    private val invocationConstraint : List<Pair<TACSymbol.Var, (TACSymbol.Var) -> TACExpr>> = listOf(
+        EthereumVariables.address to { e ->
+            TACExpr.UnaryExp.LNot(
+                TACExpr.BinRel.Eq(
+                    e.asSym(),
+                    TACExpr.zeroExpr
+                )
+            )
+        },
+        EthereumVariables.caller to { e ->
+            TXF { e le MASK_SIZE(160) }
+        }
+    )
+
     private val invocationEnvToSeed = invocationEnv.map {
         it to it.copy(it.namePrefix + "!source")
     }
@@ -204,13 +218,26 @@ abstract class AbstractRuleGeneration<I>(
             envVar `=` seed
         }.flatten()
         // constrain the msg.sender to be a value address
-        val senderIsAddress = ExprUnfolder.unfoldPlusOneCmd("senderConstrain", TACExprFactoryExtensions.run {
-            invocationEnvToSeed.find { (orig, _) ->
-                orig == EthereumVariables.caller
-            }?.second!! le MASK_SIZE(160)
-        }) {
-            TACCmd.Simple.AssumeCmd(it.s, "sender is address")
-        }
+
+        val envConstraints = invocationConstraint.map { (e, constraint) ->
+            val envVar = invocationEnvToSeed.find { (orig, _) ->
+                orig == e
+            }!!.second
+            ExprUnfolder.unfoldPlusOneCmd("envConstraint", constraint(envVar)) {
+                TACCmd.Simple.AssumeCmd(it.s, "env constraint")
+            }.merge(envVar)
+        }.flatten() andThen context.scene.getContracts().map {
+            val codeSize = TACKeyword.TMP(Tag.Bit256, "codesz")
+            val addressSym = it.addressSym as TACSymbol
+            TACCmd.Simple.AssigningCmd.WordLoad(
+                lhs = codeSize,
+                base = EthereumVariables.extcodesize,
+                loc = addressSym
+            ) andThen ExprUnfolder.unfoldPlusOneCmd("codeSizeConstraint", TXF { codeSize gt 0 }) {
+                TACCmd.Simple.AssumeCmd(it.s, "code size non-zero")
+            }.merge(codeSize, addressSym)
+        }.flatten()
+
 
         // constrain the contracts to have the same address (value of `this`)
         val hostAddressEquivalence = ExprUnfolder.unfoldPlusOneCmd(
@@ -225,7 +252,7 @@ abstract class AbstractRuleGeneration<I>(
             balanceEquivalence andThen
             invocationEnvSetup andThen
             immutEquivalence andThen
-            senderIsAddress andThen
+            envConstraints andThen
             hostAddressEquivalence
 
         val withDecl = initialization.merge(

@@ -190,7 +190,10 @@ fun legacyOptimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProg
             })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
-                IntervalsRewriter.rewrite(it, handleLeinoVars = false)
+                IntervalsRewriter.rewrite(
+                    it,
+                    handleLeinoVars = false
+                )
             })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE1) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_DIAMONDS) { DiamondSimplifier.simplifyDiamonds(it, iterative = true) })
@@ -210,6 +213,12 @@ fun legacyOptimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProg
                 ConstantPropagator.propagateConstants(it, emptySet()).let {
                     BlockMerger.mergeBlocks(it)
                 }
+            })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
+                IntervalsRewriter.rewrite(
+                    it,
+                    handleLeinoVars = false
+                )
             })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
                 // ensure that all commands involving byte maps are unfolded.

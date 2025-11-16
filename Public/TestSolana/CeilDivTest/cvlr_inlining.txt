@@ -1,0 +1,24 @@
+; CVT functions
+#[inline(never)] ^([^:]+::)*CVT_.*$
+
+; Rust memory allocation functions
+#[inline(never)] ^__rust_alloc$
+#[inline(never)] ^__rust_dealloc$
+#[inline(never)] ^__rust_alloc_zeroed$
+#[inline(never)] ^__rg_alloc$
+#[inline(never)] ^__rg_dealloc$
+#[inline(never)] ^__rg_oom$
+
+; memcpy/memmove/memset/memcmp
+; These functions are wrappers to sol_memcpy_, sol_memmove_,
+; sol_memset_, and sol_memcmp_.  These wrappers ensure that sol_*
+; preconditions are satisfied when these functions are called
+; (alignment conditions, non-nullity, etc). Since, we are not interested in
+; verifying the code of the wrappers, we don't inline calls to
+; memcpy, memmove, memset, and memcmp so that we can replace them
+; directly with sol_memcpy_, sol_memmove_, sol_memset_, and
+; sol_memcmp_, respectively.
+#[inline(never)] ^memcpy$
+#[inline(never)] ^memmove$
+#[inline(never)] ^memset$
+#[inline(never)] ^memcmp$

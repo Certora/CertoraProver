@@ -152,17 +152,9 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     return assign(res, TACExpr.Vec.Add(listOf(TACExpr.BinOp.ShiftLeft(high, c64E), exprBuilder.mask64(low))))
 }
 
-/** res = high << 64 + low **/
-context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU128Raw(
-    res: TACSymbol.Var, low: TACExpr.Sym, high: TACExpr.Sym): TACCmd.Simple.AssigningCmd {
-    val c64E = exprBuilder.SIXTY_FOUR.asSym()
-    return assign(res, TACExpr.Vec.Add(listOf(TACExpr.BinOp.ShiftLeft(high, c64E), low)))
-}
-
 /** res = (w4 << 192) + (w3 << 128) + (w2 << 64) + w1 */
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU256Raw(
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> mergeU256(
     res: TACSymbol.Var, w1: TACExpr.Sym, w2: TACExpr.Sym, w3:TACExpr.Sym, w4: TACExpr.Sym): TACCmd.Simple.AssigningCmd {
     check(res.tag is Tag.Bit256) {"mergeU256 expects $res to be Tag.Bit256"}
 
@@ -172,9 +164,9 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     return assign(res, TACExpr.Vec.Add(
        listOf(
             TACExpr.BinOp.ShiftLeft(w4, c196),
-            TACExpr.BinOp.ShiftLeft(w3, c128),
-            TACExpr.BinOp.ShiftLeft(w2, c64),
-            w1
+            TACExpr.BinOp.ShiftLeft(exprBuilder.mask64(w3), c128),
+            TACExpr.BinOp.ShiftLeft(exprBuilder.mask64(w2), c64),
+            exprBuilder.mask64(w1)
         )
     ))
 }
@@ -217,24 +209,43 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     }
 }
 
-data class U128Operands(val resLow: TACSymbol.Var,
-                        val resHigh: TACSymbol.Var,
-                        val overflow: TACSymbol.Var?,
-                        val xLow: TACExpr.Sym,
-                        val xHigh: TACExpr.Sym,
-                        val yLow: TACExpr.Sym,
-                        val yHigh: TACExpr.Sym
+data class U128BinaryOperands(val resLow: TACSymbol.Var,
+                              val resHigh: TACSymbol.Var,
+                              val overflow: TACSymbol.Var?,
+                              val xLow: TACExpr.Sym,
+                              val xHigh: TACExpr.Sym,
+                              val yLow: TACExpr.Sym,
+                              val yHigh: TACExpr.Sym
+)
+
+data class U128ShiftOperands(val resLow: TACSymbol.Var,
+                              val resHigh: TACSymbol.Var,
+                              val xLow: TACExpr.Sym,
+                              val xHigh: TACExpr.Sym,
+                              val shift: TACExpr.Sym
 )
 
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128Operation(
-        args: U128Operands,
-        cmds: MutableList<TACCmd.Simple>,
-        op: (res: TACSymbol.Var, overflow: TACSymbol.Var?, x: TACSymbol.Var, y: TACSymbol.Var) -> Unit) {
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128BinaryOperation(
+    args: U128BinaryOperands,
+    cmds: MutableList<TACCmd.Simple>,
+    op: (res: TACSymbol.Var, overflow: TACSymbol.Var?, x: TACSymbol.Var, y: TACSymbol.Var) -> Unit) {
     val res = mkFreshIntVar()
     val x = mergeU128(args.xLow, args.xHigh, cmds)
     val y = mergeU128(args.yLow, args.yHigh, cmds)
     op(res, args.overflow, x, y)
+    cmds.addAll(splitU128(res, args.resLow, args.resHigh))
+}
+
+context(SbfCFGToTAC<TNum, TOffset, TFlags>)
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> applyU128ShiftOperation(
+    args: U128ShiftOperands,
+    cmds: MutableList<TACCmd.Simple>,
+    op: (res: TACSymbol.Var, x: TACSymbol.Var, shift: TACExpr.Sym) -> Unit) {
+    val res = mkFreshIntVar()
+    val x = mergeU128(args.xLow, args.xHigh, cmds)
+    val shift = args.shift
+    op(res, x, shift)
     cmds.addAll(splitU128(res, args.resLow, args.resHigh))
 }
 

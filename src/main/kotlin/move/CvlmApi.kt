@@ -20,8 +20,6 @@ package move
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import datastructures.stdcollections.*
 import config.*
-import move.ConstantStringPropagator.MESSAGE_VAR
-import move.ConstantStringPropagator.MessageVar
 import tac.*
 import tac.generation.*
 import utils.*
@@ -30,7 +28,7 @@ import vc.data.*
 /**
     Provides implementations for the CVLM API functions.
  */
-object CvlmApi {
+class CvlmApi(scene: MoveScene) {
     private val cvlmAddr = Config.CvlmAddress.get()
 
     private val summarizers = mutableMapOf<MoveFunctionName, context(SummarizationContext) (MoveCall) -> MoveBlocks>()
@@ -49,13 +47,13 @@ object CvlmApi {
         }
     }
 
-    private val assertsModule = MoveModuleName(cvlmAddr, "asserts")
-    private val internalAssertsModule = MoveModuleName(cvlmAddr, "internal_asserts")
-    private val nondetModule = MoveModuleName(cvlmAddr, "nondet")
-    private val ghostModule = MoveModuleName(cvlmAddr, "ghost")
-    private val conversionsModule = MoveModuleName(cvlmAddr, "conversions")
-    private val mathIntModule = MoveModuleName(cvlmAddr, "math_int")
-    private val functionModule = MoveModuleName(cvlmAddr, "function")
+    private val assertsModule = MoveModuleName(scene, cvlmAddr, "asserts")
+    private val internalAssertsModule = MoveModuleName(scene, cvlmAddr, "internal_asserts")
+    private val nondetModule = MoveModuleName(scene, cvlmAddr, "nondet")
+    private val ghostModule = MoveModuleName(scene, cvlmAddr, "ghost")
+    private val conversionsModule = MoveModuleName(scene, cvlmAddr, "conversions")
+    private val mathIntModule = MoveModuleName(scene, cvlmAddr, "math_int")
+    private val functionModule = MoveModuleName(scene, cvlmAddr, "function")
 
     private val mathIntTypeName = MoveDatatypeName(mathIntModule, "MathInt")
 
@@ -116,9 +114,8 @@ object CvlmApi {
                     TACCmd.Simple.AssertCmd(
                         call.args[0],
                         "cvlm_assert_msg (could not extract message)", // message will be replaced later
-                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (MESSAGE_VAR to MessageVar(call.args[1]))
-                    ).withDecls(),
-                    TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
+                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                    ).withDecls()
                 )
             }
         }
@@ -158,10 +155,8 @@ object CvlmApi {
                     ),
                     TACCmd.Simple.AssumeCmd(
                         call.args[0],
-                        "cvlm_assume_msg (could not extract message)",
-                        MetaMap(MESSAGE_VAR to MessageVar(call.args[1]))
-                    ).withDecls(),
-                    TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
+                        "cvlm_assume_msg (could not extract message)"
+                    ).withDecls()
                 )
             }
         }
@@ -211,10 +206,8 @@ object CvlmApi {
                             cond.s,
                             "cvlm_satisfy_msg (could not extract message)",
                             MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
-                                (TACMeta.SATISFY_ID to allocSatisfyId()) +
-                                (MESSAGE_VAR to MessageVar(call.args[1]))
-                        ).withDecls(),
-                        TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
+                                (TACMeta.SATISFY_ID to allocSatisfyId())
+                        ).withDecls()
                     )
                 }
             }

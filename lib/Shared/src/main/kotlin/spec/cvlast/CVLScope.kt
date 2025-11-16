@@ -192,6 +192,7 @@ data class CVLScope(
                 is CVLPreserved.ExplicitMethod -> "Preserve block ${(element as CVLPreserved.ExplicitMethod).methodSignature}"
                 is CVLPreserved.Fallback -> "Preserve block fallback()"
                 is CVLPreserved.TransactionBoundary -> "Preserve block on transaction boundary"
+                is CVLPreserved.Constructor -> "Preserve block constructor"
             }
         }
 

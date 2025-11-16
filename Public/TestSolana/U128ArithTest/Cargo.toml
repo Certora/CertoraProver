@@ -1,0 +1,26 @@
+[package]
+name = "u128_arith"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/u128_arith.rs"
+
+[features]
+certora = []
+
+[dependencies]
+solana-program = "2.2.1"
+cvlr = "0.4"
+cvlr-solana = "0.5"
+
+[package.metadata.certora]
+sources = ["Cargo.toml", "src/**/*.rs"]
+solana_inlining = ["./cvt_inlining_core.txt"]
+solana_summaries = ["./cvt_summaries_core.txt"]
+
+[patch.crates-io]
+# use git dependency until v0.5 of cvlr-solana and cvlr-solana-stake are released
+cvlr-solana = { git = "https://github.com/Certora/cvlr-solana.git", branch = "v0.5" }

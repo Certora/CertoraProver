@@ -39,6 +39,10 @@ internal const val EXIT_SYNTAX_FAILURE = 2
 @Suppress("ForbiddenMethodCall")
 internal fun println(message: Any?) = kotlin.io.println(message)
 
+/** this is here to silence Detekt. we actually do want to use print in this module. */
+@Suppress("ForbiddenMethodCall")
+internal fun print(message: Any?) = kotlin.io.print(message)
+
 internal fun errprintln(message: Any?) = System.err.println(message)
 
 internal fun exitError(message: () -> String): Nothing {

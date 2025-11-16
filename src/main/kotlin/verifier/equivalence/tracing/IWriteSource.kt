@@ -16,6 +16,8 @@
  */
 package verifier.equivalence.tracing
 
+import analysis.TACExprWithRequiredCmdsAndDecls
+import vc.data.TACCmd
 import vc.data.TACSymbol
 
 /**
@@ -35,6 +37,7 @@ internal sealed interface IWriteSource {
      */
     sealed interface LongMemCopy : IWriteSource {
         val sourceBuffer: ILongReadInstrumentation
+        fun getBufferIdentity(): TACExprWithRequiredCmdsAndDecls<TACCmd.Simple>
     }
 
     /**
@@ -48,6 +51,14 @@ internal sealed interface IWriteSource {
         val extraContext: TACSymbol?
 
         val sortRepr: Int
+    }
+
+    sealed interface ConditionalReturnCopy : IWriteSource {
+        val conditionalOn: TACExprWithRequiredCmdsAndDecls<TACCmd.Simple>
+
+        val translatedReturnCopy: LongMemCopy
+        val fallbackCopy: LongMemCopy
+
     }
 
     /**

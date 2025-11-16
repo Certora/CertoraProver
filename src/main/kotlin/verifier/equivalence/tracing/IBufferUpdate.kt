@@ -16,6 +16,7 @@
  */
 package verifier.equivalence.tracing
 
+import analysis.CmdPointer
 import vc.data.TACSymbol
 
 /**
@@ -38,4 +39,9 @@ internal interface IBufferUpdate {
      * Length of the write
      */
     val len: TACSymbol
+
+    /**
+     * Where the write occurs
+     */
+    val where: CmdPointer
 }

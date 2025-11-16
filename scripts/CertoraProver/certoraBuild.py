@@ -20,24 +20,24 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 import typing
 from collections import OrderedDict, defaultdict
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from Crypto.Hash import keccak
-import tempfile
-
 from typing import Any, Dict, List, Tuple, Optional, Set, Iterator, NoReturn
 
+from Crypto.Hash import keccak
 
+from CertoraProver.castingInstrumenter import generate_casting_instrumentation
 from CertoraProver.certoraBuildCacheManager import CertoraBuildCacheManager, CachedFiles
 from CertoraProver.certoraBuildDataClasses import CONTRACTS, ImmutableReference, ContractExtension, ContractInSDC, SDC, \
     Instrumentation, InsertBefore, InsertAfter, UnspecializedSourceFinder, instrumentation_logger
 from CertoraProver.certoraCompilerParameters import SolcParameters
+from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes, VyperMetadata
 from CertoraProver.certoraSourceFinders import add_source_finders
 from CertoraProver.certoraVerifyGenerator import CertoraVerifyGenerator
-from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
@@ -1381,10 +1381,16 @@ class CertoraBuildGenerator:
 
         return bytecode
 
-    def get_solc_via_ir_value(self, contract_file_path: Path) -> bool:
-        match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_via_ir')
-        assert isinstance(match, (bool, type(None))), f"Expected solc_via_ir to be bool or None, got {type(match)}"
+    def get_map_bool_attribute_value(self, contract_file_path: Path, attr_name: str) -> bool:
+        match = Ctx.get_map_attribute_value(self.context, contract_file_path, attr_name)
+        assert isinstance(match, (bool, type(None))), f"Expected {attr_name} to be bool or None, got {type(match)}"
         return bool(match)
+
+    def get_solc_via_ir_value(self, contract_file_path: Path) -> bool:
+        return self.get_map_bool_attribute_value(contract_file_path, 'solc_via_ir')
+
+    def get_vyper_venom_value(self, contract_file_path: Path) -> bool:
+        return self.get_map_bool_attribute_value(contract_file_path, 'vyper_venom')
 
     def get_solc_evm_version_value(self, contract_file_path: Path) -> Optional[str]:
         match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_evm_version')
@@ -1397,6 +1403,10 @@ class CertoraBuildGenerator:
         if isinstance(match, int):
             match = str(match)
         return match
+
+    def _handle_venom(self, contract_file_path: Path, settings_dict: Dict[str, Any]) -> None:
+        if self.get_vyper_venom_value(contract_file_path):
+            settings_dict["experimentalCodegen"] = True
 
     def _handle_via_ir(self, contract_file_path: Path, settings_dict: Dict[str, Any]) -> None:
         if self.get_solc_via_ir_value(contract_file_path):
@@ -1510,6 +1520,9 @@ class CertoraBuildGenerator:
         self._handle_via_ir(contract_file_path, settings_dict)
         self._handle_evm_version(contract_file_path, settings_dict)
         self._handle_optimize(contract_file_path, settings_dict, compiler_collector)
+        compiler_lang = compiler_collector.smart_contract_lang
+        if compiler_lang == CompilerLangVy():
+            self._handle_venom(contract_file_path, settings_dict)
 
     @staticmethod
     def solc_setting_optimizer_runs(settings_dict: Dict[str, Any]) -> Tuple[bool, Optional[int]]:
@@ -1569,6 +1582,8 @@ class CertoraBuildGenerator:
                 contents = f.read()
                 sources_dict = {str(contract_file_posix_abs): {"content": contents}}
                 output_selection = ["abi", "evm.bytecode", "evm.deployedBytecode", "evm.methodIdentifiers"]
+                if compiler_collector.compiler_version >= (0, 4, 4):
+                    output_selection += ["metadata", "evm.deployedBytecode.symbolMap"]
                 ast_selection = ["ast"]
 
         settings_dict: Dict[str, Any] = \
@@ -2225,6 +2240,40 @@ class CertoraBuildGenerator:
             storage_slot['descriptor'] = type_descriptor.as_dict()
         return storage_data
 
+    @staticmethod
+    def add_vyper_internal_function_data(internal_funcs: Set[Func], contract_data: Dict[str, Any]) -> None:
+        metadata = contract_data["metadata"]
+        symbol_map = contract_data["evm"]["deployedBytecode"]["symbolMap"]
+
+        for internal_func in internal_funcs:
+            # find metadata entry
+            func_name = internal_func.name
+            func_info = metadata['function_info']
+            metadata_func_info = None
+            for value in func_info.values():
+                if value.get("name") == func_name:
+                    metadata_func_info = value
+                    break
+            assert metadata_func_info is not None, f"Could not find metadata for internal function {func_name}"
+            vyper_metadata = VyperMetadata()
+            if metadata_func_info.get('frame_info'):
+                vyper_metadata.frame_size = metadata_func_info['frame_info']['frame_size']
+                vyper_metadata.frame_start = metadata_func_info['frame_info']['frame_start']
+            if metadata_func_info.get('venom_via_stack'):
+                vyper_metadata.venom_via_stack = metadata_func_info['venom_via_stack']
+            if metadata_func_info.get('venom_return_via_stack'):
+                vyper_metadata.venom_return_via_stack = metadata_func_info['venom_return_via_stack']
+            pattern_in_symbol_map = re.compile(fr"{func_name}\(.*\)_runtime$")
+            matches = [k for k in symbol_map if pattern_in_symbol_map.search(k)]
+            if len(matches) == 0:
+                build_logger.warning(f"Could not find symbol map entry for {func_name} probably was inlined")
+                continue
+            elif len(matches) > 1:
+                raise RuntimeError(f"Found multiple matches for {func_name} in symbol map: {matches}")
+            else:
+                vyper_metadata.runtime_start_pc = symbol_map[matches[0]]
+            internal_func.vyper_metadata = vyper_metadata
+
     def get_contract_in_sdc(self,
                             source_code_file: str,
                             contract_name: str,
@@ -2348,6 +2397,9 @@ class CertoraBuildGenerator:
             compiler_parameters = SolcParameters(solc_optimizer_on, solc_optimizer_runs, solc_via_ir)
         else:
             compiler_parameters = None
+
+        if compiler_lang == CompilerLangVy() and compiler_collector_for_contract_file.compiler_version >= (0, 4, 4):
+            self.add_vyper_internal_function_data(internal_funcs, contract_data)
 
         return ContractInSDC(contract_name,
                              # somehow make sure this is an absolute path which obeys the autofinder remappings
@@ -2865,6 +2917,8 @@ class CertoraBuildGenerator:
 
                 self.SDCs[self.get_sdc_key(sdc.primary_contract, sdc.primary_contract_address)] = sdc
 
+        if self.context.dump_asts:
+            self.dump_asts()
         self.handle_links()
         self.handle_struct_links()
         self.handle_contract_extensions()
@@ -3285,6 +3339,15 @@ class CertoraBuildGenerator:
         else:
             added_source_finders = {}
 
+        try:
+            casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder)
+        except Exception as e:
+            instrumentation_logger.warning(
+                f"Computing casting instrumentation failed for {build_arg_contract_file}: {e}", exc_info=True)
+            casting_instrumentations, casting_types = {}, {}
+
+        instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, casting_instrumentations)
+
         abs_build_arg_contract_file = Util.abs_posix_path(build_arg_contract_file)
         if abs_build_arg_contract_file not in instr:
             instrumentation_logger.debug(
@@ -3337,6 +3400,13 @@ class CertoraBuildGenerator:
                             in_file.read(to_skip)
                         read_so_far += amt + 1 + to_skip
                     output.write(in_file.read(-1))
+
+                    library_name, funcs = casting_types.get(contract_file, ("", list()))
+                    if len(funcs) > 0:
+                        output.write(bytes(f"\nlibrary {library_name}" + "{\n", "utf8"))
+                        for f in funcs:
+                            output.write(bytes(f, "utf8"))
+                        output.write(bytes("}\n", "utf8"))
 
         new_file = self.to_autofinder_file(build_arg_contract_file)
         self.context.file_to_contract[new_file] = self.context.file_to_contract[
@@ -3812,6 +3882,16 @@ class CertoraBuildGenerator:
         except ImportError:
             # Avoiding Python interpreter shutdown exceptions which are safe to ignore
             pass
+
+    def dump_asts(self) -> None:
+        asts_dump_file = Util.get_asts_file()
+        filtered_asts = {k: v for k, v in self.asts.items() if not str(k).startswith(f"{Util.get_build_dir()}")}
+        with asts_dump_file.open("w+") as output_file:
+            try:
+                json.dump(filtered_asts, output_file, indent=4, sort_keys=True)
+            except Exception as e:
+                ast_logger.debug(f"Couldn't dump ASTs to {asts_dump_file}", exc_info=e)
+                raise
 
 
 # make sure each source file exists and its path is in absolute format

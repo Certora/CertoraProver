@@ -324,6 +324,17 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
         ]
     },
 
+    Vf.validate_vyper_venom_map: {
+        'valid': [
+            {'A': True, 'B': False, 'C.sol': False}
+        ],
+        'invalid': [
+            {'A': 19},
+            {'B': {'aa'}},
+            {'A': True, 'B': 19, 'C.sol': False}
+        ]
+    },
+
     Vf.validate_spec_file: {
         'valid': [
             path_test_file('erc20.spec'), path_test_file('erc20.cvl')],
@@ -383,8 +394,8 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
 
 
     Vf.validate_msg: {
-        'valid': ['a', '2', '=', ',', ' ', "'", ':', '.', '\\', '-', '/', '"', '_', '[', ']', '(', ')', 300 * 's'],
-        'invalid': ['@', '$', 'a!', 'a“']
+        'valid': ['a', '2', '=', ',', ' ', "'", ':', '.', '\\', '-', '/', '"', '_', '[', ']', '(', ')', 300 * 's', '*$'],
+        'invalid': ['@', 'a!', 'a“']
     },
 
     Vf.validate_fe_value: {

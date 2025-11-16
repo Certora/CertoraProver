@@ -160,6 +160,15 @@ val EcosystemConverter = Converter {
     }
 }
 
+val WasmHostConverter = Converter {
+    when (it.lowercase()) {
+        "none" -> WasmHost.NONE
+        "soroban" -> WasmHost.SOROBAN
+        "near" -> WasmHost.NEAR
+        else -> throw ConversionException(it, WasmHost::class.java)
+    }
+}
+
 enum class SplitOrderEnum {
     DFS, BFS
 }
@@ -293,6 +302,13 @@ enum class Ecosystem : Serializable {
     SOROBAN,
     SOLANA,
     SUI
+}
+
+enum class WasmHost: Serializable {
+    NONE,
+    SOROBAN,
+    NEAR,
+    ;
 }
 
 /**

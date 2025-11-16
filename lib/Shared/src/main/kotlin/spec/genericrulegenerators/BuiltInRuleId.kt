@@ -20,6 +20,7 @@ package spec.genericrulegenerators
 enum class BuiltInRuleId {
     hasDelegateCalls,
     trustedMethods,
+    safeCasting,
     msgValueInLoopRule,
     viewReentrancy,
     deepSanity,

@@ -101,6 +101,8 @@ object WasmTokens {
     const val I64_EXTENDI32_S = "i64.extend_i32_s"
     const val I32CLZ = "i32.clz"
     const val I64CLZ = "i64.clz"
+    const val I32CTZ = "i32.ctz"
+    const val I64CTZ = "i64.ctz"
 
     const val I32LTU = "i32.lt_u"
     const val I64LTU = "i64.lt_u"

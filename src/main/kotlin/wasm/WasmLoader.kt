@@ -138,6 +138,9 @@ class WasmLoader(wasmFile: File) {
     private val importedFunctionSize =
         module.importSection().stream().toList().count { it.importType() == ExternalType.FUNCTION }
 
+    private val uniqueNamer = mutableMapOf<String, Int>()
+    private val indexTable = mutableMapOf<FunctionIndex, WasmName>()
+
     private fun FunctionIndex.toWasmName(): WasmName {
         fun lookUpInNameSection(): String? =
             (module.customSection("name") as? NameCustomSection)?.nameOfFunction(this.idx)
@@ -154,8 +157,17 @@ class WasmLoader(wasmFile: File) {
             }
             return null
         }
+        return indexTable.getOrPut(this) {
+            val lookupNameInSection = (lookUpInExportSection() ?: lookUpInNameSection())
+                ?.let {
+                    val ctr = uniqueNamer.getOrPut(it) { 0 }
+                    uniqueNamer[it] = ctr + 1
+                    WasmName(if (ctr == 0) { "\$$it" } else { "\$$it.$ctr" })
+                }
 
-        return (lookUpInExportSection() ?: lookUpInNameSection())?.let { funcName -> WasmName("\$$funcName") } ?: WasmName(this.toString())
+            lookupNameInSection ?: WasmName(this.toString())
+        }
+
     }
 
     private fun GlobalIndex.toWasmName(): WasmName{
@@ -430,6 +442,8 @@ class WasmLoader(wasmFile: File) {
      * Conversion of all instructions below
      */
     private fun convertNonControlFlowInstruction(ins: Instruction): WasmInstruction {
+        val unimplemented: WasmInstruction by utils.lazy<WasmInstruction> { TODO("Unimplemented: $ins") }
+
         return when (ins.opcode()) {
             OpCode.LOCAL_GET -> WasmInstruction.Variable.LocalGet(WASMLocalIdx(ins.operands().first().toInt()), WASMAddress(ins.address()))
             OpCode.LOCAL_SET -> WasmInstruction.Variable.LocalSet(WASMLocalIdx(ins.operands().first().toInt()), WASMAddress(ins.address()))
@@ -460,11 +474,11 @@ class WasmLoader(wasmFile: File) {
                 WasmTypeUse(TypeIndex(ins.operands()[0].toInt()).toWasmName(), listOf(), null),
                 WASMAddress(ins.address())
             );
-            OpCode.CALL_REF -> TODO()
-            OpCode.SELECT_T -> TODO()
+            OpCode.CALL_REF -> unimplemented
+            OpCode.SELECT_T -> unimplemented
 
-            OpCode.TABLE_GET -> TODO()
-            OpCode.TABLE_SET -> TODO()
+            OpCode.TABLE_GET -> unimplemented
+            OpCode.TABLE_SET -> unimplemented
 
             OpCode.MEMORY_SIZE -> WasmInstruction.Memory.Size(WASMAddress(ins.address()))
             OpCode.MEMORY_GROW -> WasmInstruction.Memory.Grow(WASMAddress(ins.address()))
@@ -566,95 +580,113 @@ class WasmLoader(wasmFile: File) {
             OpCode.F32_CONST -> F32Const(F32Value(ins.operands()[0].toFloat()), WASMAddress(ins.address()))
             OpCode.F64_CONST -> F64Const(F64Value(ins.operands()[0].toDouble()), WASMAddress(ins.address()))
 
-            OpCode.F32_EQ -> TODO()
-            OpCode.F32_NE -> TODO()
-            OpCode.F32_LT -> TODO()
-            OpCode.F32_GT -> TODO()
-            OpCode.F32_LE -> TODO()
-            OpCode.F32_GE -> TODO()
-            OpCode.F64_EQ -> TODO()
-            OpCode.F64_NE -> TODO()
-            OpCode.F64_LT -> TODO()
-            OpCode.F64_GT -> TODO()
-            OpCode.F64_LE -> TODO()
-            OpCode.F64_GE -> TODO()
-            OpCode.I32_CTZ -> TODO()
-            OpCode.I32_POPCNT -> TODO()
-            OpCode.I32_ROTL -> TODO()
-            OpCode.I32_ROTR -> TODO()
-            OpCode.I64_CTZ -> TODO()
-            OpCode.I64_POPCNT -> TODO()
-            OpCode.I64_ROTL -> TODO()
-            OpCode.I64_ROTR -> TODO()
-            OpCode.F32_ABS -> TODO()
-            OpCode.F32_NEG -> TODO()
-            OpCode.F32_CEIL -> TODO()
-            OpCode.F32_FLOOR -> TODO()
-            OpCode.F32_TRUNC -> TODO()
-            OpCode.F32_NEAREST -> TODO()
-            OpCode.F32_SQRT -> TODO()
-            OpCode.F32_ADD -> TODO()
-            OpCode.F32_SUB -> TODO()
-            OpCode.F32_MUL -> TODO()
-            OpCode.F32_DIV -> TODO()
-            OpCode.F32_MIN -> TODO()
-            OpCode.F32_MAX -> TODO()
-            OpCode.F32_COPYSIGN -> TODO()
-            OpCode.F64_ABS -> TODO()
-            OpCode.F64_NEG -> TODO()
-            OpCode.F64_CEIL -> TODO()
-            OpCode.F64_FLOOR -> TODO()
-            OpCode.F64_TRUNC -> TODO()
-            OpCode.F64_NEAREST -> TODO()
-            OpCode.F64_SQRT -> TODO()
-            OpCode.F64_ADD -> TODO()
-            OpCode.F64_SUB -> TODO()
-            OpCode.F64_MUL -> TODO()
-            OpCode.F64_DIV -> TODO()
-            OpCode.F64_MIN -> TODO()
-            OpCode.F64_MAX -> TODO()
-            OpCode.F64_COPYSIGN -> TODO()
-            OpCode.I32_TRUNC_F32_S -> TODO()
-            OpCode.I32_TRUNC_F32_U -> TODO()
-            OpCode.I32_TRUNC_F64_S -> TODO()
-            OpCode.I32_TRUNC_F64_U -> TODO()
-            OpCode.I64_TRUNC_F32_S -> TODO()
-            OpCode.I64_TRUNC_F32_U -> TODO()
-            OpCode.I64_TRUNC_F64_S -> TODO()
-            OpCode.I64_TRUNC_F64_U -> TODO()
-            OpCode.F32_CONVERT_I32_S -> TODO()
-            OpCode.F32_CONVERT_I32_U -> TODO()
-            OpCode.F32_CONVERT_I64_S -> TODO()
-            OpCode.F32_CONVERT_I64_U -> TODO()
-            OpCode.F32_DEMOTE_F64 -> TODO()
-            OpCode.F64_CONVERT_I32_S -> TODO()
-            OpCode.F64_CONVERT_I32_U -> TODO()
-            OpCode.F64_CONVERT_I64_S -> TODO()
-            OpCode.F64_CONVERT_I64_U -> TODO()
-            OpCode.F64_PROMOTE_F32 -> TODO()
-            OpCode.I32_REINTERPRET_F32 -> TODO()
-            OpCode.I64_REINTERPRET_F64 -> TODO()
-            OpCode.F32_REINTERPRET_I32 -> TODO()
-            OpCode.F64_REINTERPRET_I64 -> TODO()
-            OpCode.REF_NULL -> TODO()
-            OpCode.REF_IS_NULL -> TODO()
-            OpCode.REF_FUNC -> TODO()
-            OpCode.I32_TRUNC_SAT_F32_S -> TODO()
-            OpCode.I32_TRUNC_SAT_F32_U -> TODO()
-            OpCode.I32_TRUNC_SAT_F64_S -> TODO()
-            OpCode.I32_TRUNC_SAT_F64_U -> TODO()
-            OpCode.I64_TRUNC_SAT_F32_S -> TODO()
-            OpCode.I64_TRUNC_SAT_F32_U -> TODO()
-            OpCode.I64_TRUNC_SAT_F64_S -> TODO()
-            OpCode.I64_TRUNC_SAT_F64_U -> TODO()
-            OpCode.MEMORY_INIT -> TODO()
-            OpCode.DATA_DROP -> TODO()
-            OpCode.TABLE_INIT -> TODO()
-            OpCode.ELEM_DROP -> TODO()
-            OpCode.TABLE_COPY -> TODO()
-            OpCode.TABLE_GROW -> TODO()
-            OpCode.TABLE_SIZE -> TODO()
-            OpCode.TABLE_FILL -> TODO()
+            OpCode.F32_EQ -> unimplemented
+            OpCode.F32_NE -> unimplemented
+            OpCode.F32_LT -> unimplemented
+            OpCode.F32_GT -> unimplemented
+            OpCode.F32_LE -> unimplemented
+            OpCode.F32_GE -> unimplemented
+            OpCode.F64_EQ -> WasmInstruction.NondetStub.RelF64(ins.opcode())
+            OpCode.F64_NE -> WasmInstruction.NondetStub.RelF64(ins.opcode())
+            OpCode.F64_LT -> unimplemented
+            OpCode.F64_GT -> unimplemented
+            OpCode.F64_LE -> unimplemented
+            OpCode.F64_GE -> unimplemented
+            OpCode.I32_CTZ -> NumericUnary(UnaryNumericOp.I32CTZ, WASMAddress(ins.address()))
+            OpCode.I32_POPCNT -> unimplemented
+            OpCode.I32_ROTL -> unimplemented
+            OpCode.I32_ROTR -> unimplemented
+            OpCode.I64_CTZ -> NumericUnary(UnaryNumericOp.I64CTZ, WASMAddress(ins.address()))
+            OpCode.I64_POPCNT -> unimplemented
+            OpCode.I64_ROTL -> WasmInstruction.NondetStub.BinI64(ins.opcode())
+            OpCode.I64_ROTR -> unimplemented
+            OpCode.F32_ABS -> unimplemented
+            OpCode.F32_NEG -> unimplemented
+            OpCode.F32_CEIL -> unimplemented
+            OpCode.F32_FLOOR -> unimplemented
+            OpCode.F32_TRUNC -> unimplemented
+            OpCode.F32_NEAREST -> unimplemented
+            OpCode.F32_SQRT -> unimplemented
+            OpCode.F32_ADD -> unimplemented
+            OpCode.F32_SUB -> unimplemented
+            OpCode.F32_MUL -> unimplemented
+            OpCode.F32_DIV -> unimplemented
+            OpCode.F32_MIN -> unimplemented
+            OpCode.F32_MAX -> unimplemented
+            OpCode.F32_COPYSIGN -> unimplemented
+            OpCode.F64_ABS -> WasmInstruction.NondetStub.UnF64(ins.opcode())
+            OpCode.F64_NEG -> WasmInstruction.NondetStub.UnF64(ins.opcode())
+            OpCode.F64_CEIL -> unimplemented
+            OpCode.F64_FLOOR -> unimplemented
+            OpCode.F64_TRUNC -> unimplemented
+            OpCode.F64_NEAREST -> unimplemented
+            OpCode.F64_SQRT -> unimplemented
+            OpCode.F64_ADD -> unimplemented
+            OpCode.F64_SUB -> unimplemented
+            OpCode.F64_MUL -> WasmInstruction.NondetStub.BinF64(ins.opcode())
+            OpCode.F64_DIV -> WasmInstruction.NondetStub.BinF64(ins.opcode())
+            OpCode.F64_MIN -> unimplemented
+            OpCode.F64_MAX -> unimplemented
+            OpCode.F64_COPYSIGN -> unimplemented
+            OpCode.I32_TRUNC_F32_S -> unimplemented
+            OpCode.I32_TRUNC_F32_U -> unimplemented
+            OpCode.I32_TRUNC_F64_S -> unimplemented
+            OpCode.I32_TRUNC_F64_U -> unimplemented
+            OpCode.I64_TRUNC_F32_S -> unimplemented
+            OpCode.I64_TRUNC_F32_U -> unimplemented
+            OpCode.I64_TRUNC_F64_S -> unimplemented
+            OpCode.I64_TRUNC_F64_U -> unimplemented
+            OpCode.F32_CONVERT_I32_S -> unimplemented
+            OpCode.F32_CONVERT_I32_U -> unimplemented
+            OpCode.F32_CONVERT_I64_S -> unimplemented
+            OpCode.F32_CONVERT_I64_U -> unimplemented
+            OpCode.F32_DEMOTE_F64 -> unimplemented
+            OpCode.F64_CONVERT_I32_S -> unimplemented
+            OpCode.F64_CONVERT_I32_U -> unimplemented
+            OpCode.F64_CONVERT_I64_S -> unimplemented
+            OpCode.F64_CONVERT_I64_U -> WasmInstruction.NondetStub(
+                ins.opcode(),
+                WasmPrimitiveType.I64,
+                WasmPrimitiveType.F64
+            )
+            OpCode.F64_PROMOTE_F32 -> WasmInstruction.NondetStub(
+                ins.opcode(),
+                WasmPrimitiveType.F32,
+                WasmPrimitiveType.F64
+            )
+
+            OpCode.I32_REINTERPRET_F32 -> WasmInstruction.NondetStub(
+                ins.opcode(),
+                WasmPrimitiveType.F32,
+                WasmPrimitiveType.I32
+            )
+
+            OpCode.I64_REINTERPRET_F64 -> WasmInstruction.NondetStub(
+                ins.opcode(),
+                WasmPrimitiveType.F64,
+                WasmPrimitiveType.I64
+            )
+            OpCode.F32_REINTERPRET_I32 -> unimplemented
+            OpCode.F64_REINTERPRET_I64 -> unimplemented
+            OpCode.REF_NULL -> unimplemented
+            OpCode.REF_IS_NULL -> unimplemented
+            OpCode.REF_FUNC -> unimplemented
+            OpCode.I32_TRUNC_SAT_F32_S -> unimplemented
+            OpCode.I32_TRUNC_SAT_F32_U -> unimplemented
+            OpCode.I32_TRUNC_SAT_F64_S -> unimplemented
+            OpCode.I32_TRUNC_SAT_F64_U -> unimplemented
+            OpCode.I64_TRUNC_SAT_F32_S -> unimplemented
+            OpCode.I64_TRUNC_SAT_F32_U -> unimplemented
+            OpCode.I64_TRUNC_SAT_F64_S -> unimplemented
+            OpCode.I64_TRUNC_SAT_F64_U -> unimplemented
+            OpCode.MEMORY_INIT -> unimplemented
+            OpCode.DATA_DROP -> unimplemented
+            OpCode.TABLE_INIT -> unimplemented
+            OpCode.ELEM_DROP -> unimplemented
+            OpCode.TABLE_COPY -> unimplemented
+            OpCode.TABLE_GROW -> unimplemented
+            OpCode.TABLE_SIZE -> unimplemented
+            OpCode.TABLE_FILL -> unimplemented
             else -> error("Weird")
         }
     }

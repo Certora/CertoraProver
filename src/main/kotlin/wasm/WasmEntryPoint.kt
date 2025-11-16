@@ -17,6 +17,7 @@
 
 package wasm
 
+import analysis.opt.bytemaps.optimizeBytemaps
 import analysis.controlflow.*
 import analysis.loop.LoopHoistingOptimization
 import analysis.maybeNarrow
@@ -42,9 +43,9 @@ import vc.data.*
 import verifier.*
 import wasm.analysis.ConstantArrayInitializationRewriter
 import wasm.analysis.ConstantArrayInitializationSummarizer
+import wasm.analysis.WASMStackFrame
 import wasm.analysis.intervals.IntervalBasedExprSimplifier
 import wasm.cfg.WasmCFG.Companion.wasmAstToWasmCfg
-import wasm.debugsymbols.InlinedFunctionAnnotator
 import wasm.host.WasmHost
 import wasm.impCfg.StraightLine
 import wasm.impCfg.WasmCfgToWasmImpCfg.brTabToBrIf
@@ -62,6 +63,7 @@ import wasm.ir.WasmProgram
 import wasm.summarization.summarizers
 import wasm.summarization.WasmBuiltinCallSummarizer
 import wasm.summarization.WasmHostCallSummarizer
+import wasm.summarization.core.RustCoreSummarizer
 import wasm.summarization.soroban.SorobanSDKSummarizer
 import java.io.File
 import java.util.stream.Collectors
@@ -203,8 +205,9 @@ object WasmEntryPoint {
             wasmLogger.info { wasmCfg.dumpWasmCfg() }
             val wasmTac: WasmImpCfgProgram = wasmCfgToWasmImpCfg(funcId, wasmAST, elemTable, wasmCfg)
 
-            //Add function start and end annotations
-            val annotatedWasmCfg = wasmAST.wasmDebugSymbols?.let{InlinedFunctionAnnotator(it).addInlinedFunctionAnnotations(wasmTac)} ?: wasmTac
+            //This would be where we add function start and end annotations
+            // but it has been disabled [InlinedFunctionAnnotator]
+            val annotatedWasmCfg = wasmTac
             // Convert brtabs to brifs.
             val brtabFreeWtac = brTabToBrIf(annotatedWasmCfg)
             wasmLogger.info { "WasmCfg eliminate brTab $funcId" }
@@ -227,7 +230,8 @@ object WasmEntryPoint {
             listOfNotNull(
                 WasmHostCallSummarizer(env.importer(wasmAST)),
                 WasmBuiltinCallSummarizer(wasmAST.allFuncTypes, wasmAST.dataFields),
-                SorobanSDKSummarizer(wasmAST.allFuncTypes).takeIf { Config.SorobanSDKSummaries.get() }
+                SorobanSDKSummarizer(wasmAST.allFuncTypes).takeIf { Config.SorobanSDKSummaries.get() },
+                RustCoreSummarizer(wasmAST.allFuncTypes)
             )
         )
 
@@ -269,6 +273,7 @@ object WasmEntryPoint {
             ArtifactManagerFactory().dumpCodeArtifacts(coreTac, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
             val preprocessed = CoreTACProgram.Linear(coreTac)
+                .map(CoreToCoreTransformer(ReportTypes.ANNOTATE_STACK_FRAMES) { WASMStackFrame().annotate(it) })
                 .let { env.applyPreUnrollTransforms(it, wasmAST) }
                 .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
                 .map(CoreToCoreTransformer(ReportTypes.JUMP_COND_NORMALIZATION, BranchConditionSimplifier::rewrite))
@@ -317,6 +322,10 @@ object WasmEntryPoint {
                         }
                     }
                 )
+                .mapIfAllowed(CoreToCoreTransformer(ReportTypes.BYTEMAP_OPTIMIZER1) {
+                        optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true), cheap = false)
+                            .let(BlockMerger::mergeBlocks)
+                    })
                 .mapIfAllowed(CoreToCoreTransformer(ReportTypes.REMOVE_UNUSED_WRITES, SimpleMemoryOptimizer::removeUnusedWrites))
                 .mapIfAllowed(
                     CoreToCoreTransformer(ReportTypes.OPTIMIZE) { c ->

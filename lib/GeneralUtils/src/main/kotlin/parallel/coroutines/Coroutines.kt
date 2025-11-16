@@ -22,6 +22,7 @@ import datastructures.*
 import datastructures.stdcollections.*
 import kotlin.coroutines.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.*
 import parallel.ParallelPool
 import utils.*
 
@@ -84,9 +85,12 @@ suspend fun <T> ParallelPool.rpc(block: suspend CoroutineScope.() -> T): T =
  */
 context(ParallelPool)
 suspend fun <T, R> Iterable<T>.parallelMapOrdered(
+    concurrencyLimit: Int = Int.MAX_VALUE,
     transform: suspend CoroutineScope.(Int, T) -> R
 ): List<R> = coroutineScope {
     checkCanRunParallelCoroutines()
+
+    val semaphore = Semaphore(concurrencyLimit)
 
     // Transform the next element, queueing the transforms of any additional elements.  We do this one element at a
     // time, to ensure that the transforms are given the opportunity to start in order.  (Note that the ForkJoinPool
@@ -94,9 +98,12 @@ suspend fun <T, R> Iterable<T>.parallelMapOrdered(
     suspend fun transformRemaining(iterator: Iterator<T>, index: Int): PersistentStack<R> = when {
         !iterator.hasNext() -> persistentStackOf()
         else -> {
-            val t = iterator.next()
-            val next = async { transformRemaining(iterator, index + 1) }
-            val r = transform(index, t)
+            val (next, r) = semaphore.withPermit {
+                val t = iterator.next()
+                val next = async { transformRemaining(iterator, index + 1) }
+                val r = transform(index, t)
+                next to r
+            }
             next.await().push(r)
         }
     }
@@ -107,11 +114,12 @@ suspend fun <T, R> Iterable<T>.parallelMapOrdered(
     Applies [transform] to each element in parallel, starting the transforms in order.
  */
 suspend fun <T, R> Iterable<T>.parallelMapOrdered(
+    concurrencyLimit: Int = Int.MAX_VALUE,
     spawnPolicy: ParallelPool.SpawnPolicy = ParallelPool.SpawnPolicy.New(),
     transform: suspend CoroutineScope.(Int, T) -> R
 ) = ParallelPool.inherit(spawnPolicy) { pool ->
     with(pool) {
-        parallelMapOrdered(transform)
+        parallelMapOrdered(concurrencyLimit, transform)
     }
 }
 

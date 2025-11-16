@@ -32,7 +32,7 @@ private val logger = Logger(LoggerTypes.MOVE)
 
     See https://github.com/move-language/move-sui/tree/main/crates/move-binary-format#readme
  */
-class MoveModule(val path: Path) {
+class MoveModule(val scene: MoveScene, val path: Path) {
 
     /** The version of the Move VM this module was compiled for */
     val version: MoveVersion
@@ -367,82 +367,85 @@ class MoveModule(val path: Path) {
     //
     // For each table, we define an index type and a getter function.
     //
-    inner class ModuleHandleIndex(val index: Int) {
+    inner abstract class Index {
+        val module get() = this@MoveModule
+    }
+    inner class ModuleHandleIndex(val index: Int) : Index() {
         fun deref() = moduleHandles?.get(index) ?: error("Module handle $index not found")
     }
     private fun parseModuleHandleIndex(buf: ByteBuffer) = ModuleHandleIndex(buf.getLeb128UInt().toInt())
 
-    inner class DatatypeHandleIndex(val index: Int) {
+    inner class DatatypeHandleIndex(val index: Int) : Index() {
         fun deref() = datatypeHandles?.get(index) ?: error("Datatype handle $index not found")
     }
     private fun parseDatatypeHandleIndex(buf: ByteBuffer) = DatatypeHandleIndex(buf.getLeb128UInt().toInt())
 
-    inner class FunctionHandleIndex(val index: Int) {
+    inner class FunctionHandleIndex(val index: Int) : Index() {
         fun deref() = functionHandles?.get(index) ?: error("Function handle $index not found")
     }
     private fun parseFunctionHandleIndex(buf: ByteBuffer) = FunctionHandleIndex(buf.getLeb128UInt().toInt())
 
-    inner class FunctionInstantiationIndex(val index: Int) {
+    inner class FunctionInstantiationIndex(val index: Int) : Index() {
         fun deref() = functionInstantiations?.get(index) ?: error("Function instantiation $index not found")
     }
     private fun parseFunctionInstantiationIndex(buf: ByteBuffer) = FunctionInstantiationIndex(buf.getLeb128UInt().toInt())
 
-    inner class SignatureIndex(val index: Int) {
+    inner class SignatureIndex(val index: Int) : Index() {
         fun deref() = signatures?.get(index) ?: error("Signature $index not found")
     }
     private fun parseSignatureIndex(buf: ByteBuffer) = SignatureIndex(buf.getLeb128UInt().toInt())
 
-    inner class ConstantPoolIndex(val index: Int) {
+    inner class ConstantPoolIndex(val index: Int) : Index() {
         fun deref() = constantPool?.get(index) ?: error("Constant pool $index not found")
     }
     private fun parseConstantPoolIndex(buf: ByteBuffer) = ConstantPoolIndex(buf.getLeb128UInt().toInt())
 
-    inner class IdentifierIndex(val index: Int) {
+    inner class IdentifierIndex(val index: Int) : Index() {
         fun deref() = identifiers?.get(index) ?: error("Identifier $index not found")
     }
     private fun parseIdentifierIndex(buf: ByteBuffer) = IdentifierIndex(buf.getLeb128UInt().toInt())
 
-    inner class AddressIdentifierIndex(val index: Int) {
+    inner class AddressIdentifierIndex(val index: Int) : Index() {
         fun deref() = addressIdentifiers?.get(index) ?: error("Address identifier $index not found")
     }
     private fun parseAddressIdentifierIndex(buf: ByteBuffer) = AddressIdentifierIndex(buf.getLeb128UInt().toInt())
 
-    inner class StructDefinitionIndex(val index: Int) {
+    inner class StructDefinitionIndex(val index: Int) : Index() {
         fun deref() = structDefinitions?.get(index) ?: error("Struct definition $index not found")
     }
     private fun parseStructDefinitionIndex(buf: ByteBuffer) = StructDefinitionIndex(buf.getLeb128UInt().toInt())
 
-    inner class StructDefInstantiationIndex(val index: Int) {
+    inner class StructDefInstantiationIndex(val index: Int) : Index() {
         fun deref() = structDefInstantiations?.get(index) ?: error("Struct definition instantiation $index not found")
     }
     private fun parseStructDefInstantiationIndex(buf: ByteBuffer) = StructDefInstantiationIndex(buf.getLeb128UInt().toInt())
 
-    inner class FieldHandleIndex(val index: Int) {
+    inner class FieldHandleIndex(val index: Int) : Index() {
         fun deref() = fieldHandles?.get(index) ?: error("Field handle $index not found")
     }
     private fun parseFieldHandleIndex(buf: ByteBuffer) = FieldHandleIndex(buf.getLeb128UInt().toInt())
 
-    inner class FieldInstantiationIndex(val index: Int) {
+    inner class FieldInstantiationIndex(val index: Int) : Index() {
         fun deref() = fieldInstantiations?.get(index) ?: error("Field instantiation $index not found")
     }
     private fun parseFieldInstantiationIndex(buf: ByteBuffer) = FieldInstantiationIndex(buf.getLeb128UInt().toInt())
 
-    inner class VariantHandleIndex(val index: Int) {
+    inner class VariantHandleIndex(val index: Int) : Index() {
         fun deref() = variantHandles?.get(index) ?: error("Variant handle $index not found")
     }
     private fun parseVariantHandleIndex(buf: ByteBuffer) = VariantHandleIndex(buf.getLeb128UInt().toInt())
 
-    inner class VariantInstantiationHandleIndex(val index: Int) {
+    inner class VariantInstantiationHandleIndex(val index: Int) : Index() {
         fun deref() = variantInstantiationHandles?.get(index) ?: error("Variant instantiation handle $index not found")
     }
     private fun parseVariantInstantiationHandleIndex(buf: ByteBuffer) = VariantInstantiationHandleIndex(buf.getLeb128UInt().toInt())
 
-    inner class EnumDefinitionIndex(val index: Int) {
+    inner class EnumDefinitionIndex(val index: Int) : Index() {
         fun deref() = enumDefinitions?.get(index) ?: error("Enum definition $index not found")
     }
     private fun parseEnumDefinitionIndex(buf: ByteBuffer) = EnumDefinitionIndex(buf.getLeb128UInt().toInt())
 
-    inner class EnumDefInstantiationIndex(val index: Int) {
+    inner class EnumDefInstantiationIndex(val index: Int) : Index() {
         fun deref() = enumDefInstantiations?.get(index) ?: error("Enum definition instantiation $index not found")
     }
     private fun parseEnumDefInstantiationIndex(buf: ByteBuffer) = EnumDefInstantiationIndex(buf.getLeb128UInt().toInt())
@@ -462,7 +465,11 @@ class MoveModule(val path: Path) {
         val addressIndex: AddressIdentifierIndex,
         val nameIndex: IdentifierIndex
     ) {
-        val name get() = MoveModuleName(addressIndex.deref().value, nameIndex.deref().value)
+        val name get() = MoveModuleName(
+            addressIndex.module.scene,
+            addressIndex.deref().value,
+            nameIndex.deref().value
+        )
 
         companion object {
             context(MoveModule)

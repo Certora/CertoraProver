@@ -136,6 +136,7 @@ internal class RangeCollector(topLevels: List<TopLevel<*>>) {
             is FallbackPreserved -> Unit
             is GenericPreserved -> Unit
             is TransactionBoundaryPreserved -> Unit
+            is ConstructorPreserved -> ctx.params.forEach(::param)
         }
 
         ctx.withParams?.forEach(::param)

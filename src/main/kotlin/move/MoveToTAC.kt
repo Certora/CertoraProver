@@ -39,6 +39,7 @@ import instrumentation.transformers.*
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import log.*
+import move.analysis.*
 import optimizer.*
 import org.jetbrains.annotations.TestOnly
 import tac.*
@@ -61,9 +62,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         val isSatisfy: Boolean
     ) {
         fun toCoreTAC(scene: MoveScene): CoreTACProgram {
-            return annotateCallStack("rule.${rule.ruleInstanceName}") {
-                moveTACtoCoreTAC(scene, moveTAC, isSatisfy)
-            }
+            return moveTACtoCoreTAC(scene, moveTAC, isSatisfy)
         }
     }
 
@@ -89,11 +88,12 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 code
                 .transform(ReportTypes.DEDUPLICATED) { deduplicateBlocks(it) }
                 .mergeBlocks()
-                .transform(ReportTypes.SIMPLIFIED) { MoveMemory(scene).transform(it) }
+                .also { TACSizeProfiler().profile(it, "presimplified") }
+                .transform(ReportTypes.SIMPLIFIED) { MoveTACSimplifier(scene, it).transform() }
+                .also { TACSizeProfiler().profile(it, "simplified") }
             )
             .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
             .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
             .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
@@ -157,6 +157,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
             .ref
+            .also { NonlinearProfiler().profile(it, "optimized") }
 
         private fun <T : TACProgram<*>, R : TACProgram<*>> T.transform(
             reportType: ReportTypes,
@@ -169,24 +170,15 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             return patch.toCode(c)
         }
 
-        val CONST_STRING = MetaKey<String>("move.const.string")
-
         /**
-            Produces TAC code to pack a string value into a std::vector<u8>.  We store the original string value in the
-            vector variable's meta, so we can find it later in [ConstantStringPropagator].
+            Produces TAC code to pack a string value into a std::vector<u8>.
          */
         context(SummarizationContext)
-        fun packString(
-            bytes: ByteArray,
-            string: String = String(bytes, Charsets.UTF_8)
-        ): TACSymbol.Var {
+        fun packString(bytes: ByteArray): TACSymbol.Var {
             // We create a single variable for each unique string
             val stringHash = applyKeccak(bytes).toString(16)
-            val stringVar = TACSymbol.Var(
-                "mv.str.${stringHash}",
-                MoveType.Vector(MoveType.U8).toTag(),
-                meta = MetaMap(CONST_STRING to string)
-            )
+            val stringVar = TACSymbol.Var("mv.str.$stringHash", MoveType.Vector(MoveType.U8).toTag())
+
             data class Initializer(
                 val stringVar: TACSymbol.Var,
                 val bytes: ByteArray
@@ -204,11 +196,12 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 }
             }
             ensureInit(Initializer(stringVar, bytes))
+
             return stringVar
         }
 
         context(SummarizationContext)
-        fun packString(string: String) = packString(string.toByteArray(Charsets.UTF_8), string)
+        fun packString(string: String) = packString(string.toByteArray(Charsets.UTF_8))
 
         private const val REACHED_END_OF_FUNCTION = "Reached end of function"
     }
@@ -326,6 +319,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                         a.bodyIdx == b.bodyIdx
                     }
                 }
+                .transform(ReportTypes.MATERIALIZE_GHOST_MAPPINGS) { GhostMapping.materialize(it) }
         }
     }
 
@@ -406,20 +400,18 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         sanityMode: SanityMode,
         parametricTargets: Map<Int, MoveFunction>
     ): CompiledRule {
-        return annotateCallStack("rule.${rule.ruleInstanceName}") {
-            val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
-            ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
-            val isSatisfy = when (sanityMode) {
-                SanityMode.NONE -> isSatisfyRule(moveTAC)
-                // For sanity rules, it's common for the injected assert/satisfy to be unreachable, if the target
-                // function always aborts.  In that case `isSatisfyRule` would throw, failing the whole run.  These are
-                // not user-generated rules, and there is no way for the user to fix them, so let's not fail the whole
-                // run for those.
-                SanityMode.ASSERT_TRUE -> false
-                SanityMode.SATISFY_TRUE -> true
-            }
-            CompiledRule(rule, moveTAC, isSatisfy)
+        val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
+        ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
+        val isSatisfy = when (sanityMode) {
+            SanityMode.NONE -> isSatisfyRule(moveTAC)
+            // For sanity rules, it's common for the injected assert/satisfy to be unreachable, if the target
+            // function always aborts.  In that case `isSatisfyRule` would throw, failing the whole run.  These are
+            // not user-generated rules, and there is no way for the user to fix them, so let's not fail the whole
+            // run for those.
+            SanityMode.ASSERT_TRUE -> false
+            SanityMode.SATISFY_TRUE -> true
         }
+        return CompiledRule(rule, moveTAC, isSatisfy)
     }
 
     private fun compileRule(rule: CvlmRule): CompiledRule {
@@ -762,10 +754,10 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                             val stringVar = packString(bytes)
                                             add(push(type, stringVar.asSym()))
                                         } else {
-                                            val length = buf.parseList { decode(type.elemType) }.size
-                                            val values = (0..<length).map { pop().s }.reversed()
-                                            add(TACCmd.Move.VecPackCmd(push(type), values, meta).withDecls())
-                                        }
+                                        val length = buf.parseList { decode(type.elemType) }.size
+                                        val values = (0..<length).map { pop().s }.reversed()
+                                        add(TACCmd.Move.VecPackCmd(push(type), values, meta).withDecls())
+                                    }
                                     }
 
                                     // The Move compiler doesn't seem to emit LdConst for enums

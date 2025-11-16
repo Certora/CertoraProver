@@ -189,6 +189,7 @@ class ContractInSDC:
             # why are we using this and not the normal list of functions?
             "internalFunctions": {key: method.as_dict() for key, method in self.function_finders.items()},
             # this doesn't even have all functions
+            "internalFuncs": [f.as_dict() for f in self.internal_funcs],
             "allMethods": [f.as_dict() for f in self.all_funcs],
             "solidityTypes": [x.as_dict() for x in self.types],
             "compilerName": "" if not self.compiler_collector else self.compiler_collector.compiler_name,

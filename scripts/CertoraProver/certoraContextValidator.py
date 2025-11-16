@@ -417,8 +417,6 @@ def check_vyper_flag(context: CertoraContext) -> None:
         vy_paths = [path for path in context.files if path.endswith(".vy")]
         if not vy_paths:
             validation_logger.warning("vyper attribute was set but no Vyper files were set")
-        if context.solc:
-            raise Util.CertoraUserInputError("cannot set both vyper attribute and solc attribute")
 
 def check_contract_name_arg_inputs(context: CertoraContext) -> None:
     """

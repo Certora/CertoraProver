@@ -17,11 +17,12 @@
 
 package wasm.summarization
 
+import datastructures.stdcollections.*
 import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import com.certora.collect.*
+import config.Config
 import cvlr.CvlrFunctions
-import datastructures.stdcollections.*
 import log.*
 import report.CVTAlertReporter
 import report.CVTAlertSeverity
@@ -30,6 +31,8 @@ import tac.*
 import tac.generation.*
 import utils.*
 import vc.data.*
+import wasm.WasmPipelinePhase
+import wasm.WasmPostUnrollSummary
 import vc.data.TACExprFactUntyped as txf
 import wasm.host.soroban.types.MapType
 import wasm.impCfg.*
@@ -75,6 +78,7 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
      */
     enum class CompilerBuiltin(val id: WasmName, val params: List<WasmPrimitiveType>, val ret: WasmPrimitiveType?): Builtin {
         MEMCPY(WasmName("\$memcpy"), listOf(I32, I32, I32), I32),
+        MEMMOVE(WasmName("\$memmove"), listOf(I32, I32, I32), I32),
         MEMSET(WasmName("\$memset"), listOf(I32, I32, I32), I32),
         // https://github.com/llvm-mirror/compiler-rt/tree/master/lib/builtins
         MULTI3(WasmName("\$__multi3"), listOf(I32, I64, I64, I64, I64), null),
@@ -83,6 +87,11 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         DIVTI3(WasmName("\$__divti3"), listOf(I32, I64, I64, I64, I64), null),
         MODTI3(WasmName("\$__modti3"), listOf(I32, I64, I64, I64, I64), null),
 //        ASHLTI3(WasmName("\$__ashlti3"), listOf(I32, I64, I64, I32), null), May need at some point
+        REALLOC(WasmName("\$__rust_realloc"), listOf(I32, I32, I32, I32), I32),
+        ALLOC_ZEROED(WasmName("\$__rust_alloc_zeroed"), listOf(I32, I32), I32),
+        ALLOC(WasmName("\$__rust_alloc"), listOf(I32, I32), I32),
+        ALLOC_ERROR(WasmName("\$__rust_alloc_error_handler"), listOf(I32, I32), null),
+        DEALLOC(WasmName("\$__rust_dealloc"), listOf(I32, I32, I32), null)
         ;
     }
 
@@ -100,6 +109,7 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         CVT_SATISFY(CvlrFunctions.CVT_satisfy, "env", listOf(I32), null),
 
         CVT_NONDET_U8(CvlrFunctions.CVT_nondet_u8, "env", listOf(), I32),
+        CVT_NONDET_U16(CvlrFunctions.CVT_nondet_u16, "env", listOf(), I32),
         CVT_NONDET_U32(CvlrFunctions.CVT_nondet_u32, "env", listOf(), I32),
         CVT_NONDET_U64(CvlrFunctions.CVT_nondet_u64, "env", listOf(), I64),
 
@@ -107,8 +117,11 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         CVT_NONDET_I32(CvlrFunctions.CVT_nondet_i32, "env", listOf(), I32),
         CVT_NONDET_I64(CvlrFunctions.CVT_nondet_i64, "env", listOf(), I64),
 
+        CVT_NONDET_U128(CvlrFunctions.CVT_nondet_u128, "env", listOf(I32), null),
         CVT_NONDET_I128(CvlrFunctions.CVT_nondet_i128, "env", listOf(I32), null),
 
+
+        CVT_NONDET_BYTES(CvlrFunctions.CVT_nondet_bytes, "env", listOf(I32), I32),
         CVT_NONDET_MAP(CvlrFunctions.CVT_nondet_map, "env", listOf(), I64),
 
         /*
@@ -198,6 +211,30 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         val tyDesc = typeContext[call.id]
         check(tyDesc != null) { "Trying to summarize unknown $call" }
         return when (lookupBuiltin(call.id, tyDesc)) {
+
+            CompilerBuiltin.ALLOC -> {
+                check (call.maybeRet != null) { "Expected alloc to have a lhs"}
+                summarizeAlloc(call.maybeRet, call.args[0], call.args[1])
+            }
+
+            CompilerBuiltin.REALLOC -> {
+                val (_, _, alignment, newSize) = call.args
+                check(call.maybeRet != null) { "Expected realloc to have a lhs"}
+                // TODO CERT-9707
+                summarizeAlloc(call.maybeRet, newSize, alignment)
+            }
+
+            CompilerBuiltin.ALLOC_ZEROED -> {
+                val (size, alignment) = call.args
+                check(call.maybeRet != null)
+                // TODO CERT-9707
+                summarizeAlloc(call.maybeRet, size, alignment)
+            }
+
+            CompilerBuiltin.ALLOC_ERROR -> Trap.trapRevert("__rust_alloc_error")
+            CompilerBuiltin.DEALLOC -> CommandWithRequiredDecls()
+
+            CompilerBuiltin.MEMMOVE,
             CompilerBuiltin.MEMCPY -> {
                 check(call.maybeRet != null) { "expected memcpy to have a lhs "}
                 summarizeMemcpy(call.maybeRet, call.args[0], call.args[1], call.args[2])
@@ -225,6 +262,12 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
             CVTBuiltin.SATISFY, CVTBuiltin.CVT_SATISFY ->
                 summarizeAssumeAssert(pred = call.args[0], type = AssumeAssertType.SATISFY)
 
+            CVTBuiltin.CVT_NONDET_BYTES -> {
+                val ( outSize ) = call.args
+                check(call.maybeRet != null)
+                nondetBytes(call.maybeRet, outSize)
+            }
+
             CVTBuiltin.NONDET_U8, CVTBuiltin.CVT_NONDET_U8 -> {
                 check(call.maybeRet != null) { "expected nondet_u8 to have a lhs " }
                 summarizeNondet(call.maybeRet, 8)
@@ -232,6 +275,10 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
             CVTBuiltin.NONDET_I8, CVTBuiltin.CVT_NONDET_I8 -> {
                 check(call.maybeRet != null) { "expected nondet_i8 to have a lhs " }
                 summarizeNondet(call.maybeRet, 8)
+            }
+            CVTBuiltin.CVT_NONDET_U16 -> {
+                check(call.maybeRet != null) { "expected nondet_u16 to have a lhs " }
+                summarizeNondet(call.maybeRet, 16)
             }
             CVTBuiltin.NONDET_U32, CVTBuiltin.CVT_NONDET_U32 -> {
                 check(call.maybeRet != null) { "expected nondet_u32 to have a lhs " }
@@ -254,6 +301,10 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
             }
 
             CVTBuiltin.CVT_NONDET_I128 -> {
+                check(call.args.size == 1) { "expected a location in memory where the value will be written" }
+                summarizeI128Nondet(call.args[0])
+            }
+            CVTBuiltin.CVT_NONDET_U128 -> {
                 check(call.args.size == 1) { "expected a location in memory where the value will be written" }
                 summarizeI128Nondet(call.args[0])
             }
@@ -284,6 +335,37 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         }
     }
 
+    context (WasmImpCfgContext)
+    private fun nondetBytes(
+        maybeRet: Tmp,
+        outSize: Arg
+    ): CommandWithRequiredDecls<TACCmd.Simple> {
+        val outVar = TACSymbol.Var(maybeRet.toString(), Tag.Bit256)
+        return mergeMany(
+            assign(outVar) { TACKeyword.RUST_FP.toVar().asSym() },
+            assign(TACKeyword.RUST_FP.toVar()) {
+                outVar.asSym() add outSize.toTacExpr()
+            },
+            assume { outVar.asSym() le TACKeyword.RUST_FP.toVar().asSym() }
+        )
+    }
+
+    context (WasmImpCfgContext)
+    private fun summarizeAlloc(out: Tmp, size: Arg, align: Arg): CommandWithRequiredDecls<TACCmd.Simple> {
+        val outVar = TACSymbol.Var(out.toString(), Tag.Bit256)
+        return mergeMany(
+            assign(outVar) { TACKeyword.RUST_FP.toVar().asSym() },
+            TXF { (outVar.asSym() add size.toTacExpr()) }.letVar { preVal ->
+                // Need to verify if the value is the actual alignment or the index in the enum..
+                val alignment = align.toTacExpr()
+                assign(TACKeyword.RUST_FP.toVar()) {
+                    ((preVal add alignment sub BigInteger.ONE.asTACExpr()) div alignment) mul alignment
+                }
+            },
+            assume { outVar.asSym() le TACKeyword.RUST_FP.toVar().asSym() }
+        )
+    }
+
     /**
         128-bit multiplication:
 
@@ -308,8 +390,8 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
                 (loc.toTacSymbol().asSym() add 8.asTACExpr).mod(I32_MOD)
             }
             mergeMany(
-                memStore(loc.toTacSymbol().asSym(), resLow),
-                memStore(locHigh, resHigh)
+                memStore(loc.toTacSymbol().asSym(), resLow, MetaMap(WASM_MEMORY_OP_WIDTH to 8)),
+                memStore(locHigh, resHigh, MetaMap(WASM_MEMORY_OP_WIDTH to 8))
             )
         }
     }
@@ -457,12 +539,13 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
 
     context (WasmImpCfgContext)
     private fun summarizeMemcpy(lhs: Tmp, dest: Arg, src: Arg, len: Arg): CommandWithRequiredDecls<TACCmd.Simple> {
-        return MemcopySummary(
-            ret = TACSymbol.Var(lhs.toString(), Tag.Bit256),
-            dstOffset = dest.toTacSymbol(),
-            srcOffset = src.toTacSymbol(),
-            length = len.toTacSymbol()
-        ).toCmd()
+        val ret = TACSymbol.Var(lhs.toString(), Tag.Bit256)
+        return mergeMany(
+            MemcopySummary
+                .getMemcpySummary(dest.toTacSymbol(), src.toTacSymbol(), len.toTacSymbol())
+                .toCmd(),
+            assign (ret) { dest.toTacSymbol().asSym() }
+        )
     }
 
     context (WasmImpCfgContext)
@@ -490,54 +573,90 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         )
     }
 
-    @KSerializable
-    @Treapable
-    private data class MemcopySummary(
-        val ret: TACSymbol.Var,
-        val dstOffset: TACSymbol,
-        val srcOffset: TACSymbol,
+    sealed interface MemcopySummary {
+        val srcOffset: TACSymbol
+        val dstOffset: TACSymbol
         val length: TACSymbol
-    ) : ITESummary() {
-        override val inputs get() = listOf(dstOffset, srcOffset, length)
-        override val trueWriteVars get() = setOf(TACKeyword.MEMORY.toVar(), ret)
-        override val falseWriteVars get() = setOf(TACKeyword.MEMORY.toVar(), ret)
-        override fun transformSymbols(f: Transformer) =
-            MemcopySummary(
-                ret = f(ret),
-                dstOffset = f(dstOffset),
-                srcOffset = f(srcOffset),
-                length = f(length)
-            )
 
-        // if (non-overlapping or identical)
-        override val cond get() = txf {
-            (dstOffset.asSym() eq srcOffset.asSym()) or
-                ((dstOffset.asSym() add length.asSym()) le srcOffset.asSym()) or
-                ((srcOffset.asSym() add length.asSym()) le dstOffset.asSym())
+
+
+        @KSerializable
+        @Treapable
+        private data class NoOverlapMemcopySummary (
+            override val dstOffset: TACSymbol,
+            override val srcOffset: TACSymbol,
+            override val length: TACSymbol,
+        ) : WasmPostUnrollSummary(WasmPipelinePhase.PreOptimization), MemcopySummary {
+            override val inputs get() = listOf(dstOffset, srcOffset, length)
+            override val mustWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
+            override fun transformSymbols(f: Transformer) =
+                NoOverlapMemcopySummary(
+                    dstOffset = f(dstOffset),
+                    srcOffset = f(srcOffset),
+                    length = f(length)
+                )
+
+            override fun gen(
+                simplifiedInputs: List<TACExpr>,
+                analysisCache: TACCommandGraphAnalysisCache
+            ): CommandWithRequiredDecls<TACCmd.Simple> = mergeMany(
+                assert("\$memcpy undefined behavior") { memcpyNoOverlap },
+                doMemcpy(TACKeyword.MEMORY.toVar())
+            )
         }
 
-        // then mem[dst:dst+len] := mem[src:src+len]
-        override fun onTrue() =
-            doCopy(TACKeyword.MEMORY.toVar())
+        @KSerializable
+        @Treapable
+        private data class FullMemcopySummary(
+            override val dstOffset: TACSymbol,
+            override val srcOffset: TACSymbol,
+            override val length: TACSymbol,
+        ) : ITESummary(), MemcopySummary {
+            override val inputs get() = listOf(dstOffset, srcOffset, length)
+            override val trueWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
+            override val falseWriteVars get() = setOf(TACKeyword.MEMORY.toVar())
 
-        // else mem[dst:dst+len] += nondet
-        override fun onFalse() =
-            txf { unconstrained(Tag.ByteMap) }.letVar(Tag.ByteMap) { havoc ->
-                doCopy(havoc.s)
+            override fun transformSymbols(f: Transformer) =
+                FullMemcopySummary(
+                    dstOffset = f(dstOffset),
+                    srcOffset = f(srcOffset),
+                    length = f(length)
+                )
+
+            override val cond get() = memcpyNoOverlap
+
+            override fun onTrue() =
+                doMemcpy(TACKeyword.MEMORY.toVar())
+
+            override fun onFalse() = txf { unconstrained(Tag.ByteMap) }.letVar(Tag.ByteMap) { havoc ->
+                doMemcpy( havoc.s)
+            }
+        }
+
+        companion object {
+            fun getMemcpySummary(dstOffset: TACSymbol, srcOffset: TACSymbol, length: TACSymbol): AssignmentSummary =
+                if (Config.WASMMemcpyNoOverlap.get()) {
+                    NoOverlapMemcopySummary(dstOffset, srcOffset, length)
+                } else {
+                    FullMemcopySummary(dstOffset, srcOffset, length)
+                }
+        }
+
+        val memcpyNoOverlap: TACExpr get() =
+            txf {
+                (dstOffset.asSym() eq srcOffset.asSym()) or
+                    ((dstOffset.asSym() add length.asSym()) le srcOffset.asSym()) or
+                    ((srcOffset.asSym() add length.asSym()) le dstOffset.asSym())
             }
 
-        private fun doCopy(srcBase: TACSymbol.Var) =
-            mergeMany(
-                TACCmd.Simple.ByteLongCopy(
-                    dstOffset = dstOffset,
-                    srcOffset = srcOffset,
-                    length = length,
-                    dstBase = TACKeyword.MEMORY.toVar(),
-                    srcBase = srcBase,
-                    meta = MetaMap(LONG_COPY_STRIDE to 1)
-                ).withDecls(),
-                assign(ret) { dstOffset.asSym() }
-            )
+        fun doMemcpy(srcBase: TACSymbol.Var) = TACCmd.Simple.ByteLongCopy(
+                dstOffset = dstOffset,
+                srcOffset = srcOffset,
+                length = length,
+                dstBase = TACKeyword.MEMORY.toVar(),
+                srcBase = srcBase,
+                meta = MetaMap(LONG_COPY_STRIDE to 1)
+            ).withDecls()
     }
 
     // from the Solana code (can ideally reuse this)
@@ -592,8 +711,8 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
             assignHavoc(nondetI64B),
             rangeCheckTacB,
             TACCmd.Simple.AssigningCmd.AssignExpCmd(varForLocPlus8, locPlus8Bytes).withDecls(varForLocPlus8),
-            memStore(loc.toTacSymbol().asSym(), nondetI64A.asSym()),
-            memStore(varForLocPlus8.asSym(), nondetI64B.asSym())
+            memStore(loc.toTacSymbol().asSym(), nondetI64A.asSym(), MetaMap(WASM_MEMORY_OP_WIDTH to 8)),
+            memStore(varForLocPlus8.asSym(), nondetI64B.asSym(), MetaMap(WASM_MEMORY_OP_WIDTH to 8))
         )
     }
 
@@ -841,7 +960,7 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
             }
         }
     }
-
 }
+
 
 class UnknownWasmBuiltin(val f: WasmName, val t: WasmProgram.WasmFuncDesc): Exception()

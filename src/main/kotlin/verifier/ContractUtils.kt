@@ -127,6 +127,8 @@ object ContractUtils {
                     CoreToCoreTransformer(
                         ReportTypes.SOURCE_FINDER_ANNOTATOR
                     ) { c: CoreTACProgram -> SourceFinderAnnotator.annotate(c, source) },
+                    // instrument the safeCasting builtin rule
+                    CoreToCoreTransformer(ReportTypes.SAFE_CASTING_ANNOTATOR, SafeCastingAnnotator::annotate),
                     // Basic instrumentation
                     CoreToCoreTransformer(
                         ReportTypes.ENV_START_BLOCK

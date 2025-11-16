@@ -140,7 +140,7 @@ private fun format(source: String): Nothing {
     // XXX: try-catch isn't proper error handling.
     try {
         val output = FormatterInput(ast).output()
-        println(output)
+        print(output)
         exitProcess(EXIT_SUCCESS)
     } catch (e: IllegalStateException) {
         // here to catch things from `ensure`

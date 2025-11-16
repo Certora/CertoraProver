@@ -71,15 +71,26 @@ object CvlmHash {
      */
     context(SummarizationContext)
     fun hashArguments(dst: TACSymbol.Var, call: MoveCall, skipFirstArg: Boolean = false): MoveCmdsWithDecls {
+        return hashArguments(dst, call.callee.name, call.callee.typeArguments, call.args, skipFirstArg)
+    }
+
+    context(SummarizationContext)
+    fun hashArguments(
+        dst: TACSymbol.Var,
+        name: MoveFunctionName,
+        typeArguments: List<MoveType.Value>,
+        args: List<TACSymbol.Var>,
+        skipFirstArg: Boolean = false
+    ): MoveCmdsWithDecls {
         val hashArgs = mutableListOf<TACExpr>()
 
         // Add any type arguments to the hash
-        hashArgs.addAll(call.callee.typeArguments.map { typeId(it) })
+        hashArgs.addAll(typeArguments.map { typeId(it) })
 
         // Unwrap any reference arguments to get the values
         val unwrappedArgs = mutableListOf<TACSymbol.Var>()
         val unwrapArgs = mergeMany(
-            call.args.letIf(skipFirstArg) { it.drop(1) }.mapNotNull {
+            args.letIf(skipFirstArg) { it.drop(1) }.mapNotNull {
                 when (val tag = it.tag) {
                     is MoveTag.Ref -> {
                         // Unwrap references to get the value
@@ -109,7 +120,7 @@ object CvlmHash {
                         TACCmd.Move.HashCmd(
                             dst = simplified,
                             loc = it,
-                            hashFamily = ArgumentHashFamily(call.callee.name)
+                            hashFamily = ArgumentHashFamily(name)
                         ).withDecls(simplified)
                     }
                     else -> {
@@ -129,7 +140,7 @@ object CvlmHash {
                 SimpleHash(
                     hashArgs.size.asTACExpr,
                     hashArgs,
-                    FunctionHashFamily(call.callee.name)
+                    FunctionHashFamily(name)
                 )
             }
         )

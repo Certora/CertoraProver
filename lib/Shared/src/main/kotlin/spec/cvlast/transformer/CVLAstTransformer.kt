@@ -155,6 +155,7 @@ open class CVLAstTransformer<E>(
                             is CVLPreserved.ExplicitMethod -> preserved.methodSignature.params.map(::vmParam).flatten().bind { params: List<VMParam> ->
                                 preserved.copy(block = block, withParams = withParams, methodSignature = preserved.methodSignature.withParameters(newParams = params)).lift()
                             }
+                            is CVLPreserved.Constructor -> preserved.copy(block = block, withParams = withParams).lift()
                         }
                     }
 

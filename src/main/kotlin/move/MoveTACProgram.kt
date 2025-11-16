@@ -83,6 +83,8 @@ class MoveTACCommandGraph(
             )
         }
     }
+
+    fun getNaturalLoops() = getNaturalLoopsGeneric(this, domination)
 }
 
 object MoveBlockView : GraphBlockView<MoveTACCommandGraph, Block, NBId> {
@@ -95,7 +97,7 @@ object MoveBlockView : GraphBlockView<MoveTACCommandGraph, Block, NBId> {
 
 
 /**
-    Intermediate representation of a Move program, prior to transformation by [MoveMemory.transform].
+    Intermediate representation of a Move program, prior to transformation by [MoveTACSimplifier.transform].
 
     Memory-related commands are represented by `TACCmd.Move` commands.
  */

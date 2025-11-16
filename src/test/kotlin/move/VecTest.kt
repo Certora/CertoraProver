@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Assertions.*
 
 class VecTest : MoveTestFixture() {
     override val loadStdlib = true
+    override val bytecodeVersion get() = 7
 
     @Test
     fun `single element`() {
@@ -274,6 +275,39 @@ class VecTest : MoveTestFixture() {
                 cvlm_assert(vector::length(&v) == 3);
                 cvlm_assert(vector::borrow(&v, 2).x == 100);
                 cvlm_assert(vector::borrow(&v, 2).y == 200);
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `vector of enums`() {
+        addMoveSource("""
+            $testModule
+            public enum E has copy, drop {
+                A { x: u32, y: u32 },
+                B { x: u16, y: u16 },
+                C { x: u8, y: vector<u8> }
+            }
+            public fun test(a: u32, b: u16, c: u8) {
+                let v = vector[
+                    E::A { x: a, y: a },
+                    E::B { x: b, y: b },
+                    E::C { x: c, y: vector[0, 1, 2] }
+                ];
+                cvlm_assert(v.length() == 3);
+                cvlm_assert(match (v[0]) {
+                    E::A { x: n, y: m } => n == a && m == a,
+                    _ => false
+                });
+                cvlm_assert(match (v[1]) {
+                    E::B { x: n, y: m } => n == b && m == b,
+                    _ => false
+                });
+                cvlm_assert(match (v[2]) {
+                    E::C { x: n, y: m } => n == c && m.length() == 3 && m[0] == 0 && m[1] == 1 && m[2] == 2 && m == vector[0, 1, 2],
+                    _ => false
+                });
             }
         """.trimIndent())
         assertTrue(verify())

@@ -121,7 +121,7 @@ data class MethodParamFiltersMap(override val range: Range, internal val methodP
  * @param method   the name of the method
  * @param range the location of the method reference
  */
-data class MethodReferenceExp(@JvmField val contract: VariableExp?, val method: String, override val range: Range) : HasRange {
+data class MethodReferenceExp(@JvmField val contract: VariableExp?, @JvmField val method: String, override val range: Range) : HasRange {
     override fun toString() = "${contract?.id?.let { "$it." }.orEmpty()}$method"
 
     fun baseContract() = contract?.id
@@ -137,8 +137,8 @@ data class MethodReferenceExp(@JvmField val contract: VariableExp?, val method: 
 
 data class MethodSig @JvmOverloads constructor(
     override val range: Range,
-    val id: MethodReferenceExp,
-    val params: List<VMParam>,
+    @JvmField val id: MethodReferenceExp,
+    @JvmField val params: List<VMParam>,
     val resParams: List<VMParam>,
     @JvmField val methodQualifiers: MethodQualifiers? = null
 ) : Kotlinizable<QualifiedMethodParameterSignature> {

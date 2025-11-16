@@ -778,7 +778,13 @@ invariant_proof_items ::=
 
 invariant_proof_item ::=
     PRESERVED:i preserved_signature:sig with_env_opt:e block:b
-        {: RESULT = new ExplicitMethodPreserved(range(ixleft, bxright), sig, e, b); :}
+        {:
+        if (sig.id.contract == null && sig.id.method.equals("constructor")) {
+            RESULT = new ConstructorPreserved(range(ixleft, bxright), sig.params, e, b);
+        } else {
+            RESULT = new ExplicitMethodPreserved(range(ixleft, bxright), sig, e, b);
+        }
+        :}
 
   | PRESERVED:i ON_TRANSACTION_BOUNDARY with_env_opt:e block:b {: RESULT = new TransactionBoundaryPreserved(range(ixleft, bxright), e, b); :}
 
@@ -1117,11 +1123,11 @@ cmd ::=
     lhs_list:idL ASSIGN exp:e SC:sc                            {: RESULT = new DefinitionCmd(range(idLxleft,scxright),null,idL,e); :}
   | HAVOC:k havoc_target_list:htl SC:sc                        {: RESULT = new HavocCmd(range(kxleft,scxright),htl); :}
   | HAVOC:k havoc_target_list:htl ASSUMING exp:e SC:sc         {: RESULT = new HavocCmd(range(kxleft,scxright),htl,e); :}
-  | REQUIRE:k exp:e SC:sc                                      {: RESULT = new AssumeCmd(range(kxleft,scxright),e,null); :}
-  | REQUIRE:k exp:e COMMA STRING:s SC:sc                       {: RESULT = new AssumeCmd(range(kxleft,scxright),e,s); :}
-  | REQUIRE:k LP exp:e COMMA STRING:s RP SC:sc                 {: RESULT = new AssumeCmd(range(kxleft,scxright),e,s); :}
-  | REQUIREINVARIANT:r ID:i opt_args:el SC:sc                  {: RESULT = new AssumeInvariantCmd(range(rxleft,scxright),i,el); :}
-  | REQUIREINVARIANT:r LP ID:i opt_args:el RP SC:sc            {: RESULT = new AssumeInvariantCmd(range(rxleft,scxright),i,el); :}
+  | REQUIRE:k exp:e SC:sc                                      {: RESULT = new AssumeCmd(range(kxleft,scxright),e,null,false); :}
+  | REQUIRE:k exp:e COMMA STRING:s SC:sc                       {: RESULT = new AssumeCmd(range(kxleft,scxright),e,s,false); :}
+  | REQUIRE:k LP exp:e COMMA STRING:s RP SC:sc                 {: RESULT = new AssumeCmd(range(kxleft,scxright),e,s,true); :}
+  | REQUIREINVARIANT:r ID:i opt_args:el SC:sc                  {: RESULT = new AssumeInvariantCmd(range(rxleft,scxright),i,el,false); :}
+  | REQUIREINVARIANT:r LP ID:i opt_args:el RP SC:sc            {: RESULT = new AssumeInvariantCmd(range(rxleft,scxright),i,el,true); :}
   | ambiguous_apply:a SC:sc                                    {: RESULT = new ApplyCmd(range(axleft,scxright),a); :}
   | ID:contract DOT ambiguous_apply:a SC:sc                    {:
                                                                   /* Update the contract ref - in ambiguous apply it can only be null */
@@ -1146,12 +1152,13 @@ cmd ::=
         }
     :}
   | LB:k cmds:c RB:rb                                          {: RESULT = new BlockCmd(range(kxleft,rbxright),c); :}
-  | ASSERT:k exp:e SC:sc                                       {: RESULT = new AssertCmd(range(kxleft,scxright),e,null); :}
-  | ASSERT:k exp:e COMMA STRING:s SC:sc                        {: RESULT = new AssertCmd(range(kxleft,scxright),e,s); :}
-  | ASSERT:k LP exp:e COMMA STRING:s RP SC:sc                  {: RESULT = new AssertCmd(range(kxleft,scxright),e,s); :}
+  | ASSERT:k exp:e SC:sc                                       {: RESULT = new AssertCmd(range(kxleft,scxright),e,null,false); :}
+  | ASSERT:k exp:e COMMA STRING:s SC:sc                        {: RESULT = new AssertCmd(range(kxleft,scxright),e,s,false); :}
+  | ASSERT:k LP exp:e COMMA STRING:s RP SC:sc                  {: RESULT = new AssertCmd(range(kxleft,scxright),e,s,true); :}
     // Note: exp includes exp ::= (exp), so this covers `assert(exp)`
-  | SATISFY:k exp:e SC:sc                                      {: RESULT = new SatisfyCmd(range(kxleft,scxright),e,null); :}
-  | SATISFY:k exp:e COMMA STRING:s SC:sc                       {: RESULT = new SatisfyCmd(range(kxleft,scxright),e,s); :}
+  | SATISFY:k exp:e SC:sc                                      {: RESULT = new SatisfyCmd(range(kxleft,scxright),e,null,false); :}
+  | SATISFY:k exp:e COMMA STRING:s SC:sc                       {: RESULT = new SatisfyCmd(range(kxleft,scxright),e,s,false); :}
+  | SATISFY:k LP exp:e COMMA STRING:s RP SC:sc                 {: RESULT = new SatisfyCmd(range(kxleft,scxright),e,s,true); :}
   | RETURN:k exp:e SC:sc                                       {: RESULT = new ReturnCmd(range(kxleft,scxright),singletonList(e)); :}
   | RETURN:k LP exp_list_non_singleton:res RP SC:sc            {: RESULT = new ReturnCmd(range(kxleft,scxright),res); :}
   | RETURN:k SC:sc                                             {: RESULT = new ReturnCmd(range(kxleft,scxright),emptyList()); :}

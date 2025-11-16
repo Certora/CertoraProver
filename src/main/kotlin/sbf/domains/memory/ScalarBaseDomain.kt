@@ -415,11 +415,16 @@ class ScalarBaseDomain<ScalarValue>(
 
         val solanaFunction = SolanaFunction.from(stmt.name)
         check (solanaFunction == SolanaFunction.SOL_MEMCPY ||
-            solanaFunction == SolanaFunction.SOL_MEMMOVE ||
-            solanaFunction == SolanaFunction.SOL_MEMSET)
+               solanaFunction == SolanaFunction.SOL_MEMMOVE ||
+               solanaFunction == SolanaFunction.SOL_MEMSET)
 
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG) // destination
         val r3 = Value.Reg(SbfRegister.R3_ARG) // length
+
+        if (!stmt.isPromotedMemcpy()) {
+            forget(r0)
+        }
 
         val dstType = scalars.getAsScalarValue(r1).type()
         if (dstType is SbfType.PointerType.Stack) {

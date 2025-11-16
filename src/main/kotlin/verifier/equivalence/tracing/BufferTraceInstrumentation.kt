@@ -17,14 +17,18 @@
 package verifier.equivalence.tracing
 
 import algorithms.dominates
+import allocator.Allocator
 import analysis.*
 import analysis.controlflow.MustPathInclusionAnalysis
 import analysis.dataflow.StrictDefAnalysis
+import analysis.icfg.Inliner
 import analysis.numeric.IntValue
 import analysis.pta.LoopCopyAnalysis
+import analysis.pta.POP_ALLOCATION
 import bridge.SourceLanguage
 import com.certora.collect.*
 import compiler.applyKeccak
+import config.Config
 import evm.EVM_WORD_SIZE
 import evm.MASK_SIZE
 import utils.*
@@ -43,7 +47,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import vc.data.TACProgramCombiners.andThen
 import vc.data.TACProgramCombiners.flatten
 import vc.data.TACProgramCombiners.wrap
-import verifier.equivalence.DefiniteBufferConstructionAnalysis
+import verifier.equivalence.instrumentation.DefiniteBufferConstructionAnalysis
+import verifier.equivalence.instrumentation.ReturnCopyCollapser
+import verifier.equivalence.instrumentation.ReturnCopyCorrelation
 import verifier.equivalence.summarization.CommonPureInternalFunction
 import verifier.equivalence.summarization.ComputationResults
 import verifier.equivalence.summarization.ScalarEquivalenceSummary
@@ -148,7 +154,7 @@ class BufferTraceInstrumentation private constructor(
         val sourceOffset = longRead.loc
         val sourceLength = longRead.length
         if(longRead.isNullRead) {
-            return sourceInstrumentation.hashVar.lift()
+            return EMPTY_HASH_VAL.asTACSymbol().lift()
         }
         val bufferHash = TACKeyword.TMP(Tag.Bit256, "!bufferHash")
         val useAligned = TACKeyword.TMP(Tag.Bool, "!useAligned")
@@ -168,9 +174,7 @@ class BufferTraceInstrumentation private constructor(
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
                 lhs = useAligned,
                 rhs = TXF {
-                    sourceInstrumentation.allAlignedVar and (sourceOffset eq sourceInstrumentation.baseProphecy) and
-                        (sourceLength eq sourceInstrumentation.lengthProphecy) and
-                        ((sourceInstrumentation.lengthProphecy mod EVM_WORD_SIZE) eq 0)
+                    sourceInstrumentation.allAlignedVar and ((sourceInstrumentation.lengthProphecy mod EVM_WORD_SIZE) eq 0) and TACSymbol.False.asSym()
                 }
             ),
             /*
@@ -188,21 +192,42 @@ class BufferTraceInstrumentation private constructor(
                     )
                 }
             ),
-            TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
-                lhs = bufferHash,
-                memBaseMap = longRead.baseMap,
-                op1 = sourceOffset,
-                op2 = nativeLength
-            )
+            if(Config.EquivalenceSkipNativeHash.get()) {
+                TACCmd.Simple.AssigningCmd.AssignHavocCmd(bufferHash)
+            } else {
+                TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
+                    lhs = bufferHash,
+                    memBaseMap = longRead.baseMap,
+                    op1 = sourceOffset,
+                    op2 = nativeLength
+                )
+            }
         ), setOf(nativeLength, bufferHash, useAligned)).wrap("Native hashing for ${longRead.id}")
+
+        val rest = TXF {
+            ite(
+                useAligned,
+                bufferHash,
+                sourceInstrumentation.hashVar
+            )
+        }
+        val tryHashCopy = sourceInstrumentation.transparentCopyTracking?.let {tct ->
+            TXF {
+                ite(
+                    tct.statusFlagVar eq TransparentCopyTracking.HASH_COPY,
+                    tct.reprVar,
+                    rest
+                )
+            }
+        } ?: rest
         /**
          * If we are aligned (according to useAligned) use the native hash (in bufferHash) or the shadow hash var.
          */
         return prefix andThen TXF {
             ite(
-                useAligned,
-                bufferHash,
-                sourceInstrumentation.hashVar
+                sourceLength eq 0,
+                EMPTY_HASH_VAL,
+                tryHashCopy
             )
         }
     }
@@ -320,11 +345,14 @@ class BufferTraceInstrumentation private constructor(
      * Internal version of [ILongRead], extended with an internally generated [id],
      * a flag indicating whether the event is definitely of length zero ([isNullRead])
      * and an optional external event information in [TraceEventWithContext].
+     *
+     * [baseMap] is the map from which the values are read.
      */
     private sealed interface LongRead : ILongRead {
         val isNullRead: Boolean
         val traceEventInfo: TraceEventWithContext?
         val baseMap: TACSymbol.Var
+        val desc: String
     }
 
     /**
@@ -338,7 +366,27 @@ class BufferTraceInstrumentation private constructor(
         override val length: TACSymbol,
         override val id: Int,
         override val isNullRead: Boolean,
-        override val baseMap: TACSymbol.Var
+        override val baseMap: TACSymbol.Var,
+        override val desc: String
+    ) : LongRead {
+        override val traceEventInfo: TraceEventWithContext?
+            get() = null
+    }
+
+    /**
+     * A long read that occurs at the same location of some other long read. The id of this other long read is
+     * [parentId]. This is used to provide alternative buffer identities for a single long read; currently this is only
+     * used to support the [CopyFromMaybeReturn] pattern.
+     */
+    private data class ShadowLongRead(
+        override val where: CmdPointer,
+        override val isNullRead: Boolean,
+        override val baseMap: TACSymbol.Var,
+        override val desc: String,
+        override val loc: TACSymbol,
+        override val length: TACSymbol,
+        override val id: Int,
+        val parentId: Int
     ) : LongRead {
         override val traceEventInfo: TraceEventWithContext?
             get() = null
@@ -356,7 +404,8 @@ class BufferTraceInstrumentation private constructor(
         override val isNullRead: Boolean,
         override val traceEventInfo: TraceEventWithContext,
         val explicitReadId: Int?,
-        override val baseMap: TACSymbol.Var
+        override val baseMap: TACSymbol.Var,
+        override val desc: String
     ) : LongRead
 
     private fun LongRead.instrumentationInfo() = readToInstrumentation[this]!!
@@ -407,40 +456,58 @@ class BufferTraceInstrumentation private constructor(
                     hashFamily = HashFamily.Sha3
                 ), setOf(), listOf()
             )
+
+            /**
+             * Update the hash using the transparent copy information in [copyTracker].
+             * If the [copyTracker] isn't applicable (that is, [TransparentCopyTracking.statusFlagVar] == [TransparentCopyTracking.NO_COPY_FLAG])
+             * then simply use [baseCase] as the hash representation.
+             *
+             * [pred], if specified, becomes an additional condition that must be true to use the information in [copyTracker].
+             */
+            fun generateTransparentHash(
+                copyTracker: TransparentCopyTracking,
+                baseCase: TACExprWithRequiredCmdsAndDecls<TACCmd.Simple>,
+                pred: TACExpr = TACSymbol.True.asSym()
+            ) : TACExprWithRequiredCmdsAndDecls<TACCmd.Simple> {
+                return TXF {
+                    ite(
+                        (copyTracker.statusFlagVar eq TransparentCopyTracking.ENV_COPY_NO_CTXT) and pred,
+                        TACExpr.SimpleHash(
+                            length = copyTracker.sortVar.asSym(),
+                            args = listOf(
+                                currHash.asSym(),
+                                relativeOffset.asSym(),
+                                length.asSym(),
+                                copyTracker.reprVar.asSym()
+                            ),
+                            hashFamily = HashFamily.Sha3
+                        ),
+                        ite(
+                            copyTracker.statusFlagVar eq TransparentCopyTracking.ENV_COPY_WITH_CTXT and pred,
+                            TACExpr.SimpleHash(
+                                length = copyTracker.sortVar.asSym(),
+                                args = listOf(
+                                    currHash.asSym(),
+                                    relativeOffset.asSym(),
+                                    length.asSym(),
+                                    copyTracker.reprVar.asSym(),
+                                    copyTracker.extraCtxtVar.asSym()
+                                ),
+                                hashFamily = HashFamily.Sha3
+                            ),
+                            baseCase
+                        )
+                    )
+                }
+            }
             val withTransparentCopy = when(this) {
                 is WriteFromLongRead -> {
                     val copyTracker = this.sourceInstrumentation.transparentCopyTracking
                     if(copyTracker != null) {
-                        TXF {
-                            ite(
-                                copyTracker.statusFlagVar eq TransparentCopyTracking.COPY_NO_CTXT,
-                                TACExpr.SimpleHash(
-                                    length = copyTracker.sortVar.asSym(),
-                                    args = listOf(
-                                        currHash.asSym(),
-                                        relativeOffset.asSym(),
-                                        length.asSym(),
-                                        copyTracker.reprVar.asSym()
-                                    ),
-                                    hashFamily = HashFamily.Sha3
-                                ),
-                                ite(
-                                    copyTracker.statusFlagVar eq TransparentCopyTracking.COPY_WITH_CTXT,
-                                    TACExpr.SimpleHash(
-                                        length = copyTracker.sortVar.asSym(),
-                                        args = listOf(
-                                            currHash.asSym(),
-                                            relativeOffset.asSym(),
-                                            length.asSym(),
-                                            copyTracker.reprVar.asSym(),
-                                            copyTracker.extraCtxtVar.asSym()
-                                        ),
-                                        hashFamily = HashFamily.Sha3
-                                    ),
-                                    theHash
-                                )
-                            )
-                        }
+                        generateTransparentHash(
+                            copyTracker,
+                            theHash
+                        )
                     } else {
                         theHash
                     }
@@ -451,6 +518,27 @@ class BufferTraceInstrumentation private constructor(
                 is CopyFromCalldata,
                 is CopyFromReturnBuffer,
                 is UnknownEnvCopy -> theHash
+
+                is CopyFromMaybeReturn -> {
+                    /**
+                     * Use the transparent copy information from either the local memory or callee's memory if appropriate.
+                     */
+                    val returnCopyTracking = this.returnDataInstrumentation.transparentCopyTracking
+                    val fallbackCopyTracking = this.memoryInstrumentationInfo.transparentCopyTracking
+                    if(returnCopyTracking != null && fallbackCopyTracking != null) {
+                        val memoryAndFallback = generateTransparentHash(
+                            fallbackCopyTracking,
+                            theHash
+                        )
+                        generateTransparentHash(
+                            returnCopyTracking,
+                            memoryAndFallback,
+                            TXF { returnBufferTracker.isReturnDataCopyVar eq ReturnBufferCopyTracker.TRANSPOSED_RETURN_COPY }
+                        )
+                    } else {
+                        theHash
+                    }
+                }
             }
             return representative.toCRD() andThen withTransparentCopy
         }
@@ -541,7 +629,53 @@ class BufferTraceInstrumentation private constructor(
         }
     }
 
+    /**
+     * Describes how a copy out of an environment map (i.e., returndata or calldata)
+     * is translated into a region in a method's memory.
+     *
+     * [envCopyLoc] is the location of the returndatacopy or calldata copy command.
+     * [sourceMap] is the map from which the data in calldata/returndata was copied.
+     * [envMapOffset] is the offset in returndata/calldata from which the copy was performed.
+     * [sourceMemoryOffset] is the offset within [sourceMap] that was copied into the environment map.
+     *
+     * [translatedSym] is a variable which is (via requires) constrained to be equal to [envMapOffset] + [sourceMemoryOffset];
+     * i.e., the offset in [sourceMap] from which data is being copied.
+     * This [translatedSym] (along with the length of the copy and the [sourceMap]) is then treated as the [LongRead]
+     * defining a copy into memory.
+     *
+     * Consider:
+     *
+     * ```
+     * mem[x] = ...
+     * calldata@1[0:len] = mem[x:len]
+     * ...
+     * L: mem@1[y:l] = calldata@1[z:l]
+     * ```
+     *
+     * Where mem@1 and calldata@1 are the memory and calldata of some inlined callee. [envCopyLoc] will be L,
+     * [sourceMap] will be `mem`, [envMapOffset] is `z`, [sourceMemoryOffset] is `x`.
+     *
+     * [translatedSym] will be some invented variable t. At L, we won't model the write as a copy from calldata,
+     * but rather as an mcopy from `mem` from the offset `t`; remember that `t` is constrained to be [envCopyLoc] + [sourceMemoryOffset].
+     *
+     * [EnvironmentTranslationTracking] performs this instrumentation.
+     */
+    data class EnvDataTranslation(
+        val envCopyLoc: CmdPointer,
+        val sourceMap: TACSymbol.Var,
+        val sourceMemoryOffset: TACSymbol,
+        val envMapOffset: TACSymbol,
+        val translatedSym: TACSymbol.Var
+    )
+
     companion object {
+        /**
+         * We define the hash of an empty buffer to always be 0. This include buffers which are provably
+         * empty, and those whose runtime length is 0.
+         */
+        const val EMPTY_HASH_VAL = 0
+
+        val TRANSLATED_RETURN_COPY = MetaKey.Nothing("buffer.trace.translated-return-inst")
 
         fun TACCmd.Simple.isResultCommand() = this.isHalting() || (this is TACCmd.Simple.SummaryCmd && this.summ is ScalarEquivalenceSummary && when(this.summ) {
             is CommonPureInternalFunction -> false
@@ -561,6 +695,13 @@ class BufferTraceInstrumentation private constructor(
                     lhs = this,
                     rhs = TACExprFactoryExtensions.build()
                 ), this)
+        }
+
+        infix fun TACSymbol.Var.`=`(expr: TACExprWithRequiredCmdsAndDecls<TACCmd.Simple>) : CommandWithRequiredDecls<TACCmd.Simple> {
+            return expr.toCRD().merge(this) andThen TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                lhs = this,
+                rhs = expr.exp
+            )
         }
 
 
@@ -586,6 +727,15 @@ class BufferTraceInstrumentation private constructor(
 
         private val scratchPattern = PatternDSL.build {
             freePointerLoad.asBuildable() lor (freePointerLoad.asBuildable() + Const).commute
+        }
+
+        private val zeroWritePattern = PatternDSL.build {
+            commuteThree(
+                freePointerLoad.asBuildable(),
+                Var,
+                0x20(),
+                PatternDSL.CommutativeCombinator.add
+            ) { _, _, _ -> Unit }
         }
 
         /**
@@ -671,6 +821,62 @@ class BufferTraceInstrumentation private constructor(
         )
 
         /**
+         * Find mcopys in [c] that "look like" they are copying out of a copy of return data. Recall that when decoding
+         * complex outputs, solidity copies *all* of returndata into memory, and then copies subranges out of that buffer.
+         *
+         * [m] maps returndatacopy locations to the [EnvDataTranslation] describing how to map that copy back into some callee.
+         * The result is a map of [CmdPointer] for mcopys to the [EnvDataTranslation] from which the mcopy is believed (heuristically)
+         * to copy.
+         *
+         * Due to the undecidability of aliasing, we have to defer the actual determination of whether we have a copy from
+         * returndata to "runtime", via [ReturnBufferCopyTracker]
+         */
+        private fun localReturnCopyCandidates(
+            c: CoreTACProgram,
+            m: Map<CmdPointer, EnvDataTranslation>
+        ) : Map<CmdPointer, EnvDataTranslation> {
+            val gvn = c.analysisCache.gvn
+            val graph = c.analysisCache.graph
+            val queries = m.entries.mapNotNull { (where, env) ->
+                val outVar = graph.elab(where).narrow<TACCmd.Simple.ByteLongCopy>().cmd.dstOffset.let { s ->
+                    s as? TACSymbol.Var
+                } ?: return@mapNotNull null
+                LTACVar(
+                    where, outVar
+                ) to env
+            }
+            val derivedFrom = PatternMatcher.Pattern.RecursivePattern<EnvDataTranslation>{ rec ->
+                PatternDSL.build {
+                    (Var { v, where ->
+                        queries.firstNotNullOfOrNull { (lv, env) ->
+                            if(v in gvn.findCopiesAt(where.ptr, lv.ptr to lv.v)) {
+                                env
+                            } else {
+                                null
+                            }
+                        }?.let { e ->
+                            PatternMatcher.VariableMatch.Match(e)
+                        } ?: PatternMatcher.VariableMatch.NoMatch
+                    }) lor (rec.asBuildable() + PatternMatcher.Pattern.AnySymbol.anySymbol.asBuildable()).commute.first
+                }
+            }
+            val derivedFromCopyMatcher = PatternMatcher.compilePattern(
+                graph, derivedFrom
+            )
+
+            return c.parallelLtacStream().mapNotNull { lc ->
+                lc.maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.takeIf { w ->
+                    TACMeta.MCOPY_BUFFER in w.cmd.dstBase.meta && w.cmd.srcOffset is TACSymbol.Var
+                }
+            }.mapNotNull { lc ->
+                lc.ptr `to?` derivedFromCopyMatcher.query(
+                    q = lc.cmd.srcOffset as TACSymbol.Var,
+                    src = lc.wrapped
+                ).toNullableResult()
+            }.collect(Collectors.toMap({it.first}, {it.second}))
+        }
+
+        /**
          * Instrument [code] according to [options]. [code] must have been "derived" (in some fuzzy sense) from the body
          * of [context]. That is, [context] is relied upon for information about, e.g., the codedata accessed
          * in [code] or the storage.
@@ -710,9 +916,90 @@ class BufferTraceInstrumentation private constructor(
             fun isNullRead(len: TACSymbol, where: CmdPointer) = strictDefAnalysis.source(where, len) == StrictDefAnalysis.Source.Const(BigInteger.ZERO)
 
             /**
+             * Associate call ids to the call core that was inlined, from which we can get the [EnvDataTranslation.sourceMemoryOffset]
+             * and [EnvDataTranslation.sourceMap].
+             */
+            val contexts = code.parallelLtacStream().mapNotNull { lc ->
+                lc.maybeAnnotation(Inliner.CallStack.STACK_PUSH)?.let { rec ->
+                    rec `to?` rec.summary
+                }
+            }.collect(Collectors.toMap({ it.first.calleeId }, { it.second }))
+
+            /**
+             * Find all reads from calldata in inlined bodies for which we have something recorded in `contexts`,
+             * and create an [EnvDataTranslation] for those calldata copies.
+             */
+            val calldataTranslations = code.parallelLtacStream().mapNotNull { lc ->
+                lc.maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.takeIf { cpy ->
+                    TACMeta.IS_CALLDATA in cpy.cmd.srcBase.meta && TACMeta.EVM_MEMORY in cpy.cmd.dstBase.meta
+                }
+            }.filter {
+                it.ptr.block.calleeIdx in contexts
+            }.map { cc ->
+                val callerConv = contexts[cc.ptr.block.calleeIdx]!!
+                val translatedStart = TACSymbol.Var(
+                    "translatedStart!${Allocator.getFreshNumber()}",
+                    Tag.Bit256,
+                    NBId.ROOT_CALL_ID,
+                    MetaMap(TACMeta.NO_CALLINDEX)
+                )
+                cc.ptr to EnvDataTranslation(
+                    sourceMap = callerConv.inBase,
+                    sourceMemoryOffset = callerConv.inOffset,
+                    envMapOffset = cc.cmd.srcOffset,
+                    translatedSym = translatedStart,
+                    envCopyLoc = cc.ptr
+                )
+            }.collect(Collectors.toMap({it.first}, {it.second}))
+
+            /**
+             * Ibid, but for returndata copies. NB unlike calldata copies, where it's always obvious where the calldata source is,
+             * we rely on a side analysis + instrumentation here; see [ReturnCopyCorrelation] and [ReturnCopyCollapser].
+             */
+            val returnCopySources = code.parallelLtacStream().mapNotNull {
+                it.maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.takeIf {
+                    it.cmd.meta.find(ReturnCopyCollapser.CONFLUENCE_COPY) != null
+                }
+            }.map { lc ->
+                val srcId = lc.cmd.meta[ReturnCopyCollapser.CONFLUENCE_COPY]!!.id
+                srcId to (lc.cmd.srcBase to lc.cmd.srcOffset)
+            }.collect(Collectors.toMap({it.first}, {it.second}))
+
+            val returnDataTranslations = code.parallelLtacStream().mapNotNull { lc ->
+                lc.maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.takeIf {
+                    ReturnCopyCorrelation.CORRELATED_RETURN_COPY in it.cmd.meta
+                }
+            }.map { lc ->
+                val source = lc.cmd.meta[ReturnCopyCorrelation.CORRELATED_RETURN_COPY]!!.which
+                val (srcBase, srcOffset) = returnCopySources[source]!!
+                val translatedStart = TACSymbol.Var(
+                    "translatedStart!${Allocator.getFreshNumber()}",
+                    Tag.Bit256,
+                    NBId.ROOT_CALL_ID,
+                    MetaMap(TACMeta.NO_CALLINDEX)
+                )
+                lc.ptr to EnvDataTranslation(
+                    translatedSym = translatedStart,
+                    sourceMemoryOffset = srcOffset,
+                    sourceMap = srcBase,
+                    envMapOffset = lc.cmd.srcOffset,
+                    envCopyLoc = lc.ptr
+                )
+            }.collect(Collectors.toMap({it.first}, {it.second}))
+
+            /**
+             * Find mcopys out of memory that look like they *might* be copied
+             * from returndata that has been copied into the caller's memory. See [ReturnBufferCopyTracker]
+             * for the pattern in dicussion here.
+             */
+            val localReturnCopyTranslations = localReturnCopyCandidates(
+                code, returnDataTranslations
+            )
+
+            /**
              * Find all long reads (called "sources" here because they are the source of the analysis).
              */
-            val sources = code.parallelLtacStream().filter {
+            val naturalSources = code.parallelLtacStream().filter {
                 it.ptr.block !in loopWrites
             }.mapNotNull {
                 if(it.cmd is TACCmd.Simple.SummaryCmd) {
@@ -738,7 +1025,8 @@ class BufferTraceInstrumentation private constructor(
                                 it.cmd.summ.sort,
                                 it.cmd.summ.asContext,
                             ),
-                            baseMap = TACKeyword.MEMORY.toVar() // it's a FAAAAKE
+                            baseMap = TACKeyword.MEMORY.toVar(), // it's a FAAAAKE
+                            desc = "Scalar equiv summary @ ${it.ptr}"
                         )
                     }
                     if(it.cmd.summ !is LoopCopyAnalysis.LoopCopySummary) {
@@ -754,11 +1042,35 @@ class BufferTraceInstrumentation private constructor(
                         length = lenVar,
                         id = idCounter.getAndIncrement(),
                         isNullRead = isNullRead(lenVar, it.ptr),
-                        baseMap = it.cmd.summ.sourceMap
+                        baseMap = it.cmd.summ.sourceMap,
+                        desc = "Loop buffer read @ ${it.ptr}"
                     )
                 } else if(it.cmd !is TACCmd.Simple.LongAccesses) {
                     // anything else that's not a long access is, by definition, not a long read
                     return@mapNotNull null
+                }
+                if(it.ptr in calldataTranslations) {
+                    val tr = calldataTranslations[it.ptr]!!
+                    return@mapNotNull BasicLongRead(
+                        where = it.ptr,
+                        loc = tr.translatedSym,
+                        length = it.narrow<TACCmd.Simple.ByteLongCopy>().cmd.length,
+                        baseMap = tr.sourceMap,
+                        id = idCounter.getAndIncrement(),
+                        isNullRead = false,
+                        desc = "Calldata 2 Caller @ ${it.ptr}"
+                    )
+                } else if(it.ptr in returnDataTranslations) {
+                    val tr = returnDataTranslations[it.ptr]!!
+                    return@mapNotNull BasicLongRead(
+                        where = it.ptr,
+                        loc = tr.translatedSym,
+                        length = it.narrow<TACCmd.Simple.ByteLongCopy>().cmd.length,
+                        baseMap = tr.sourceMap,
+                        id = idCounter.getAndIncrement(),
+                        isNullRead = false,
+                        desc = "Returndata 2 Callee @ ${it.ptr}"
+                    )
                 }
                 /**
                  * Find the unique [vc.data.TACCmd.Simple.LongAccess] which
@@ -774,7 +1086,15 @@ class BufferTraceInstrumentation private constructor(
                 val traceInfo = getTraceEvent(it.cmd)
                 val nullRead = isNullRead(read.length, it.ptr)
                 if(traceInfo == null) {
-                    BasicLongRead(where = it.ptr, loc = read.offset, length = read.length, id = idCounter.getAndIncrement(), isNullRead = nullRead, baseMap = read.base)
+                    BasicLongRead(
+                        where = it.ptr,
+                        loc = read.offset,
+                        length = read.length,
+                        id = idCounter.getAndIncrement(),
+                        isNullRead = nullRead,
+                        baseMap = read.base,
+                        desc = "LongRead 4 $it"
+                    )
                 } else {
                     EventLongRead(
                         where = it.ptr,
@@ -784,7 +1104,8 @@ class BufferTraceInstrumentation private constructor(
                         isNullRead = nullRead,
                         traceEventInfo = traceInfo,
                         explicitReadId = it.cmd.meta.find(DefiniteBufferConstructionAnalysis.LONG_READ_ID),
-                        baseMap = read.base
+                        baseMap = read.base,
+                        desc = "Event Long Read @ ${it.ptr} 4 ${traceInfo.eventSort}"
                     )
                 }
 
@@ -800,10 +1121,51 @@ class BufferTraceInstrumentation private constructor(
                     id = idCounter.getAndIncrement(),
                     length = EVM_WORD_SIZE.asTACSymbol(),
                     isNullRead = false,
-                    baseMap = mload.cmd.base
+                    baseMap = mload.cmd.base,
+                    desc = "Long read 4 mload @ ${it.key}"
                 )
             }
-            val patternMatcher = PatternMatcher.compilePattern(graph = g, patt = scratchPattern)
+
+            /**
+             * For the mcopys sources for which we think it may come from (a copy of) returndata from an
+             * inlined callee, create a [ShadowLongRead] which defines the mcopy as being a copy out of the
+             * callee's memory. We call these "syntheticSources". syntheticTrackers provide a way to link the
+             * generated [ShadowLongRead] instances to the "real" [LongRead]
+             */
+            val (syntheticSources, syntheticTrackers) = naturalSources.mapNotNull { s ->
+                val localTranslation = localReturnCopyTranslations[s.where] ?: return@mapNotNull null
+                val srcCmd = g.elab(s.where).maybeNarrow<TACCmd.Simple.ByteLongCopy>() ?: return@mapNotNull null
+                check(TACMeta.MCOPY_BUFFER in srcCmd.cmd.dstBase.meta) {
+                    "not a local copy? what's going on $s: $srcCmd"
+                }
+                val translatedStart = TACSymbol.Var(
+                    "translatedLocalCopy!${Allocator.getFreshNumber()}",
+                    Tag.Bit256,
+                    NBId.ROOT_CALL_ID,
+                    MetaMap(TACMeta.NO_CALLINDEX) + TRANSLATED_RETURN_COPY
+                )
+                val freshId = idCounter.getAndIncrement()
+                ShadowLongRead(
+                    loc = translatedStart,
+                    where = s.where,
+                    isNullRead = false,
+                    baseMap = localTranslation.sourceMap,
+                    length = s.length,
+                    id = freshId,
+                    desc = "Synthetic read 4 local copy @ ${s.where}",
+                    parentId = s.id
+                ) to (s.id to Triple(
+                    translatedStart,
+                    localTranslation.envCopyLoc,
+                    localTranslation.translatedSym,
+                ))
+            }.unzip().mapSecond { it.toMap() }
+
+            val sources = syntheticSources + naturalSources
+
+            val scratchConsumptionPattern = PatternMatcher.compilePattern(graph = g, patt = scratchPattern)
+
+            val heuristicZeroWrite = PatternMatcher.compilePattern(graph = g, patt = zeroWritePattern)
 
             /**
              * Find long reads that look like they are using up a scratch buffer, which means that writes *after* that use
@@ -814,12 +1176,13 @@ class BufferTraceInstrumentation private constructor(
              */
             val mayConsumeScratch = sources.filter { longSource ->
                 TACMeta.EVM_MEMORY in longSource.baseMap.meta &&
+                g.elab(longSource.where).maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.cmd?.dstBase?.meta?.contains(TACMeta.MCOPY_BUFFER) != true &&
                 when(val src = strictDefAnalysis.source(ptr = longSource.where, sym = longSource.loc)) {
                     is StrictDefAnalysis.Source.Uinitialized -> false
                     is StrictDefAnalysis.Source.Const -> src.n >= BigInteger.ZERO && src.n < 0x40.toBigInteger()
                     is StrictDefAnalysis.Source.Defs -> src.ptrs.singleOrNull()?.let { defSite ->
                         g.elab(defSite).maybeNarrow<TACCmd.Simple.AssigningCmd>()?.let {
-                            patternMatcher.queryFrom(it)
+                            scratchConsumptionPattern.queryFrom(it)
                         } is PatternMatcher.ConstLattice.Match
                     } == true
                 } && (longSource as? EventLongRead)?.explicitReadId == null && !longSource.isNullRead
@@ -837,6 +1200,17 @@ class BufferTraceInstrumentation private constructor(
                 }?.cmd?.loc?.let { loc ->
                     mca.mustBeConstantAt(where = lc.ptr, v = loc)
                 } == 0x40.toBigInteger() && sourceLanguage == SourceLanguage.Solidity
+            }.map { it.ptr }.collect(Collectors.toSet()) + code.parallelLtacStream().filter {
+                lc -> lc.maybeAnnotation(POP_ALLOCATION) != null
+            }.map { it.ptr }.collect(Collectors.toSet()) + code.parallelLtacStream().mapNotNull {
+                it.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()?.takeIf { lc ->
+                    TACMeta.EVM_MEMORY in lc.cmd.base.meta && lc.cmd.loc is TACSymbol.Var &&
+                        MustBeConstantAnalysis(
+                            g
+                        ).mustBeConstantAt(lc.ptr, lc.cmd.value) == BigInteger.ZERO
+                }
+            }.filter { write ->
+                heuristicZeroWrite.query(write.cmd.loc as TACSymbol.Var, write.wrapped) is PatternMatcher.ConstLattice.Match
             }.map { it.ptr }.collect(Collectors.toSet())
             val reach = code.analysisCache.reachability
 
@@ -863,6 +1237,8 @@ class BufferTraceInstrumentation private constructor(
                 futureConsumers
             }
 
+            val environmentCopyShifts = returnDataTranslations + calldataTranslations
+
             /**
              * Now, for each [LongRead], generate its [LongReadInstrumentation].
              */
@@ -871,7 +1247,8 @@ class BufferTraceInstrumentation private constructor(
                 val useSiteControl = options.useSiteControl[s.where]
                 val isCopyBuffer = g.elab(s.where).let { lc ->
                     lc.snarrowOrNull<LoopCopyAnalysis.LoopCopySummary>()?.isMemoryByteCopy() == true ||
-                        lc.maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.cmd?.dstBase?.meta?.contains(TACMeta.MCOPY_BUFFER) == true
+                        lc.maybeNarrow<TACCmd.Simple.ByteLongCopy>()?.cmd?.dstBase?.meta?.contains(TACMeta.MCOPY_BUFFER) == true ||
+                        lc.ptr in environmentCopyShifts || Config.EquivalenceUniversalCopyTracking.get()
                 }
                 val i = s.id
                 sourceToInstrumentation[s] = i.run {
@@ -923,6 +1300,27 @@ class BufferTraceInstrumentation private constructor(
                                 extraCtxtVar = instrumentationVar("copyExtraCtxt"),
                                 reprVar = instrumentationVar("copyReprVar"),
                                 sortVar = instrumentationVar("sortReprVar")
+                            )
+                        },
+                        envTranslationTracking = environmentCopyShifts[s.where]?.let { ccTr ->
+                            EnvironmentTranslationTracking(
+                                translatedOffset = ccTr.translatedSym,
+                                envMapOffset = ccTr.envMapOffset,
+                                sourceMemoryOffset = ccTr.sourceMemoryOffset
+                            )
+                        },
+                        /**
+                         * For this mcopy, trace whether it might be defined as a copy out of some callee method's
+                         * memory. This instrumentation is how the "natural" mcopy and the "synthetic" copy from
+                         * the callee's memory can communicate.
+                         */
+                        returnBufferCopyTracker = syntheticTrackers[s.id]?.let { (localMemTranslatedToCallee, writeLoc, returnDataCopyInCallee) ->
+                            ReturnBufferCopyTracker(
+                                candidateReturnWrite = writeLoc,
+                                offsetFromReturnDataCopyDest = instrumentationVar("offsetFromReturnCopy"),
+                                isReturnDataCopyVar = instrumentationVar("isReturnDataCopy"),
+                                returnDataCopyInCallee = returnDataCopyInCallee,
+                                localMemCopyTranslatedToCallee = localMemTranslatedToCallee
                             )
                         }
                     )
@@ -1097,7 +1495,65 @@ class BufferTraceInstrumentation private constructor(
 
         override val extraContext: TACSymbol?
             get() = null
+    }
 
+    /**
+     * A write that might come from a copy of returndata. If the copy can't or shouldn't be treated as a copy
+     * from a copy of return data, the long read to use is [memoryLongRead].
+     *
+     * If the read can be translated to some callee's memory, [translatedReturnBufferRead] is the buffer defined
+     * in the callee's memory.
+     *
+     * [returnBufferTracker] is the instrumentation mixin (attached to [memoryLongRead]) that determines whether
+     * [translatedReturnBufferRead] or [memoryLongRead] should be used.
+     */
+    private inner class CopyFromMaybeReturn(
+        val memoryLongRead: LongRead,
+        val returnBufferTracker: ReturnBufferCopyTracker,
+        val translatedReturnBufferRead: LongRead
+    ) : WriteSource, IWriteSource.ConditionalReturnCopy {
+        override fun getSourceIsAlignedPredicate(): ToTACExpr {
+            return TXF {
+                ite(
+                    returnBufferTracker.isReturnDataCopyVar eq ReturnBufferCopyTracker.NO_RETURN_COPY,
+                    memoryLongRead.instrumentationInfo().allAlignedVar,
+                    translatedReturnBufferRead.instrumentationInfo().allAlignedVar
+                )
+            }
+        }
+
+        val memoryInstrumentationInfo get() = memoryLongRead.instrumentationInfo()
+
+        val returnDataInstrumentation get() = translatedReturnBufferRead.instrumentationInfo()
+
+        /**
+         * Q: Shouldn't this be returndata copy?
+         * A: No, if we are copying from "local" memory, it's a buffer copy, if we are copying from the callee's memory,
+         * it's still a buffer copy.
+         */
+        override val sort: WriteSort
+            get() = WriteSort.BUFFER_COPY
+
+        override fun getValueRepresentative(): TACExprWithRequiredCmdsAndDecls<TACCmd.Simple> {
+            val asMemory = getBufferIdentity(memoryLongRead)
+            val asTranslateReturnCopy = getBufferIdentity(translatedReturnBufferRead)
+            return asMemory.toCRD() andThen asTranslateReturnCopy.toCRD() andThen TXF {
+                ite(
+                    returnBufferTracker.isReturnDataCopyVar eq ReturnBufferCopyTracker.TRANSPOSED_RETURN_COPY,
+                    asTranslateReturnCopy.exp,
+                    asMemory.exp
+                )
+            }
+        }
+
+        override val extraContext: TACSymbol?
+            get() = null
+        override val conditionalOn: TACExprWithRequiredCmdsAndDecls<TACCmd.Simple>
+            get() = TXF { returnBufferTracker.isReturnDataCopyVar eq ReturnBufferCopyTracker.TRANSPOSED_RETURN_COPY }.lift()
+        override val translatedReturnCopy: IWriteSource.LongMemCopy
+            get() = McopyBufferRead(sourceRead = translatedReturnBufferRead)
+        override val fallbackCopy: IWriteSource.LongMemCopy
+            get() = McopyBufferRead(memoryLongRead)
 
     }
 
@@ -1136,19 +1592,7 @@ class BufferTraceInstrumentation private constructor(
      * Common interface used for writes whose source is described by another long read (i.e.,
      * copy loops and mcopy).
      */
-    private interface WriteFromLongRead : WriteSource {
-        /**
-         * The source offset in memory. Should "agree" with the [LongReadInstrumentation.baseProphecy]
-         * in [sourceInstrumentation].
-         */
-        val sourceOffset: TACSymbol
-
-        /**
-         * The length of the buffer. Should "agree" with the [LongReadInstrumentation.lengthProphecy]
-         * of [sourceInstrumentation]
-         */
-        val sourceLength: TACSymbol
-
+    private sealed interface WriteFromLongRead : WriteSource {
         /**
          * The [LongReadInstrumentation] used to describe the long read which is the source of this long *write*.
          */
@@ -1160,28 +1604,6 @@ class BufferTraceInstrumentation private constructor(
 
         override val extraContext: TACSymbol?
             get() = null
-
-        /**
-         * The representative of this read is the buffer identity. We can't use [getBufferIdentity] because
-         * this isn't an inner class :(
-         */
-        override fun getValueRepresentative(): TACExprWithRequiredCmdsAndDecls<TACCmd.Simple> {
-            val bufferHash = TACKeyword.TMP(Tag.Bit256, "!bufferHash")
-            return TACExprWithRequiredCmdsAndDecls(with(TACExprFactTypeCheckedOnlyPrimitives) {
-                ite(
-                    sourceInstrumentation.allAlignedVar,
-                    bufferHash,
-                    sourceInstrumentation.hashVar
-                )
-            }, setOfNotNull(bufferHash, sourceOffset as? TACSymbol.Var, sourceLength as? TACSymbol.Var, sourceInstrumentation.allAlignedVar, sourceInstrumentation.hashVar), listOf(
-                TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
-                    lhs = bufferHash,
-                    memBaseMap = baseMap,
-                    op1 = sourceOffset,
-                    op2 = sourceLength
-                )
-            ))
-        }
 
         val baseMap: TACSymbol.Var
     }
@@ -1239,39 +1661,63 @@ class BufferTraceInstrumentation private constructor(
 
     }
 
+    private abstract inner class AbstractLongCopy(
+        val sourceRead: LongRead,
+    ) : WriteFromLongRead, IWriteSource.LongMemCopy {
+        override val sourceInstrumentation: LongReadInstrumentation
+            get() = sourceRead.instrumentationInfo()
+
+        override val sourceBuffer: ILongReadInstrumentation
+            get() = sourceInstrumentation
+
+        override val baseMap: TACSymbol.Var
+            get() = sourceRead.baseMap
+
+        /**
+         * The representative of this read is the buffer identity. We can't use [getBufferIdentity] because
+         * this isn't an inner class :(
+         */
+        override fun getValueRepresentative(): TACExprWithRequiredCmdsAndDecls<TACCmd.Simple> {
+            return getBufferIdentity(sourceRead)
+        }
+
+        override fun getBufferIdentity(): TACExprWithRequiredCmdsAndDecls<TACCmd.Simple> {
+            return getValueRepresentative()
+        }
+    }
+
+    /*
+     * XXX(jtoman): it's unclear if these should all have separate sorts; probably not, right?
+     */
+
     /**
      * Loop copy variant of [WriteFromLongRead]. This write type isn't actually
      * described in the EC paper, but it operates equivalently to the mcopy.
      */
-    private class LoopCopy(
-        override val sourceOffset: TACSymbol,
-        override val sourceLength: TACSymbol,
-        override val sourceInstrumentation: LongReadInstrumentation,
-        override val baseMap: TACSymbol.Var
-    ) : WriteFromLongRead, IWriteSource.LongMemCopy {
+    private inner class LoopCopy(
+        sourceRead: LongRead,
+    ) : AbstractLongCopy(sourceRead) {
         override val sort: WriteSort
             get() = WriteSort.LOOP_COPY
-
-        override val sourceBuffer: ILongReadInstrumentation
-            get() = sourceInstrumentation
     }
 
     /**
      * mcopy variant of [WriteFromLongRead]
      */
-    private class McopyBufferRead(
-        override val sourceInstrumentation: LongReadInstrumentation,
-        override val sourceOffset: TACSymbol,
-        override val sourceLength: TACSymbol,
-        override val baseMap: TACSymbol.Var
-    ) : WriteFromLongRead, IWriteSource.LongMemCopy {
+    private inner class McopyBufferRead(
+        sourceRead: LongRead,
+    ) : AbstractLongCopy(sourceRead) {
         override val sort: WriteSort
             get() = WriteSort.BUFFER_COPY
-
-        override val sourceBuffer: ILongReadInstrumentation
-            get() = sourceInstrumentation
     }
 
+    private inner class TransposedEnvironmentCopy(
+        sourceRead: LongRead
+    ) : AbstractLongCopy(sourceRead) {
+        override val sort: WriteSort
+            get() = WriteSort.TRANSPOSED_COPY
+
+    }
 
     private enum class WriteSort {
         LOOP_COPY,
@@ -1281,14 +1727,16 @@ class BufferTraceInstrumentation private constructor(
         STORE,
         RETURNDATA_COPY,
         UNKNOWN_COPY,
-        STATIC_CODE_COPY
+        STATIC_CODE_COPY,
+        TRANSPOSED_COPY
     }
+
     /**
      * Private version of [IBufferUpdate], where the [source] field is an intersection of [IWriteSource]
      * and [WriteSource], letting it pull double duty as the private version of the type and the public version.
      */
     private data class BufferUpdate<T>(
-        val where: CmdPointer,
+        override val where: CmdPointer,
         val loc: TACSymbol,
         val length: TACSymbol = EVM_WORD_SIZE.asTACSymbol(),
         val buffer: TACSymbol.Var,
@@ -1338,13 +1786,30 @@ class BufferTraceInstrumentation private constructor(
          * for those mload commands whose inclusion was forced via [InstrumentationControl]
          */
         val preciseBoundedWindow: BoundedPreciseCellInstrumentation?,
+        /**
+         * Tracks whether this buffer is actually a complete copy of some other buffer
+         */
+        val transparentCopyTracking: TransparentCopyTracking?,
 
-        val transparentCopyTracking: TransparentCopyTracking?
-//        val ordinalWriteTracking: OrdinalWriteTracker?
+        /**
+         * If this is a long read that translates an env copy to the memory map that defines it,
+         * perform the instrumentation that translates the env map offset into the source memory space
+         */
+        val envTranslationTracking: EnvironmentTranslationTracking?,
+
+        val returnBufferCopyTracker: ReturnBufferCopyTracker?
     ) : WithVarInit, ILongReadInstrumentation {
         override val havocInitVars get() = listOf(lengthProphecy, baseProphecy)
 
-        val instrumentationMixins : List<InstrumentationMixin> get() = listOfNotNull(gcInfo, bufferWriteInfo, eventSiteVisited, preciseBoundedWindow, transparentCopyTracking)
+        val instrumentationMixins : List<InstrumentationMixin> get() = listOfNotNull(
+            gcInfo,
+            bufferWriteInfo,
+            eventSiteVisited,
+            preciseBoundedWindow,
+            transparentCopyTracking,
+            envTranslationTracking,
+            returnBufferCopyTracker
+        )
 
         override val constantInitVars: List<Pair<TACSymbol.Var, ToTACExpr>> = listOf(
             hashVar to TACSymbol.Zero,
@@ -1427,11 +1892,11 @@ class BufferTraceInstrumentation private constructor(
                 val thisCopySource = sources.find {
                     it.where == lc.ptr
                 }!!
+                check(thisCopySource.baseMap == lc.cmd.summ.sourceMap) {
+                    "coherence: copy source wasn't the same as summary source $lc vs $thisCopySource"
+                }
                 return BufferUpdate(where = lc.ptr, loc = lc.cmd.summ.outPtr.first(), length = lc.cmd.summ.lenVars.first(), buffer = lc.cmd.summ.destMap, source = LoopCopy(
-                    sourceOffset = lc.cmd.summ.inPtr.first(),
-                    sourceLength = lc.cmd.summ.lenVars.first(),
-                    sourceInstrumentation = readToInstrumentation[thisCopySource]!!,
-                    baseMap = lc.cmd.summ.sourceMap,
+                    sourceRead = thisCopySource,
                 ))
             }
             is TACCmd.Simple.AssigningCmd.ByteStore -> {
@@ -1456,7 +1921,20 @@ class BufferTraceInstrumentation private constructor(
                         /**
                          * look at the source to determine the type of write
                          */
-                        if(lc.cmd.srcBase == TACKeyword.CALLDATA.toVar()) {
+                        if(TACMeta.IS_CALLDATA in lc.cmd.srcBase.meta) {
+                            sources.singleOrNull {
+                                it.where == lc.ptr
+                            }?.let { tr ->
+                                return BufferUpdate(
+                                    where = lc.ptr,
+                                    loc = lc.cmd.dstOffset,
+                                    length = lc.cmd.length,
+                                    buffer = lc.cmd.dstBase,
+                                    source = TransposedEnvironmentCopy(
+                                        tr
+                                    )
+                                )
+                            }
                             return BufferUpdate(
                                 where = lc.ptr,
                                 loc = lc.cmd.dstOffset,
@@ -1464,7 +1942,20 @@ class BufferTraceInstrumentation private constructor(
                                 buffer = lc.cmd.dstBase,
                                 source = CopyFromCalldata(lc.cmd.srcOffset)
                             )
-                        } else if(lc.cmd.srcBase == TACKeyword.RETURNDATA.toVar()) {
+                        } else if(TACMeta.IS_RETURNDATA in lc.cmd.srcBase.meta) {
+                            sources.singleOrNull {
+                                it.where == lc.ptr
+                            }?.let { tr ->
+                                return BufferUpdate(
+                                    where = lc.ptr,
+                                    loc = lc.cmd.dstOffset,
+                                    length = lc.cmd.length,
+                                    buffer = lc.cmd.dstBase,
+                                    source = TransposedEnvironmentCopy(
+                                        tr
+                                    )
+                                )
+                            }
                             return BufferUpdate(
                                 where = lc.ptr,
                                 loc = lc.cmd.dstOffset,
@@ -1492,22 +1983,32 @@ class BufferTraceInstrumentation private constructor(
                              * weaken this to reachability.
                              */
                             val definingCopy = potentialDefinitions.withIndex().single { (idx, src) ->
-                                potentialDefinitions.withIndex().all { (otherIdx, otherSrc) ->
+                                src !is ShadowLongRead && potentialDefinitions.withIndex().all { (otherIdx, otherSrc) ->
                                     otherIdx == idx || g.cache.domination.dominates(otherSrc.where, src.where)
                                 }
                             }.value
-                            val shadowCopySource = readToInstrumentation[definingCopy]!!
+
+                            val translatedReturnLongRead = sources.singleOrNull {
+                                it is ShadowLongRead && it.parentId == definingCopy.id
+                            }
+                            val mcopySource = if(translatedReturnLongRead != null) {
+                                val returnTranslation = definingCopy.instrumentationInfo().returnBufferCopyTracker!!
+                                CopyFromMaybeReturn(
+                                    memoryLongRead = definingCopy,
+                                    returnBufferTracker = returnTranslation,
+                                    translatedReturnBufferRead = translatedReturnLongRead
+                                )
+                            } else {
+                                McopyBufferRead(
+                                    definingCopy
+                                )
+                            }
                             return BufferUpdate(
                                 where = lc.ptr,
                                 loc = lc.cmd.dstOffset,
                                 length = lc.cmd.length,
                                 buffer = lc.cmd.dstBase,
-                                source = McopyBufferRead(
-                                    sourceOffset = definingCopy.loc,
-                                    sourceLength = definingCopy.length,
-                                    sourceInstrumentation = shadowCopySource,
-                                    baseMap = definingCopy.baseMap
-                                )
+                                source = mcopySource
                             )
                         } else if(TACMeta.CODEDATA_KEY in lc.cmd.srcBase.meta) {
                             val src = (context.containingContract as? IContractWithSource)?.src
@@ -1609,6 +2110,9 @@ class BufferTraceInstrumentation private constructor(
 
         val calleeCodesize = TACKeyword.TMP(Tag.Bit256, "calleeCodesize")
 
+        val returnSizeVar = TACKeyword.RETURN_SIZE.toVar(callIndex = origLc.ptr.block.calleeIdx)
+        val rcCodeVar = TACKeyword.RETURNCODE.toVar(callIndex = origLc.ptr.block.calleeIdx)
+
         /**
          * Add the sanity constraints w.r.t. callee codesize, returncode etc.
          */
@@ -1619,7 +2123,7 @@ class BufferTraceInstrumentation private constructor(
                 loc = origCommand.to
             )
         ), setOf(calleeCodesize, EthereumVariables.extcodesize)) andThen ExprUnfolder.unfoldPlusOneCmd("constrainReturnSize", TACExprFactTypeCheckedOnlyPrimitives {
-            (TACKeyword.RETURN_SIZE.toVar() lt BigInteger.TWO.pow(32).asTACExpr) and (TACKeyword.RETURNCODE.toVar() le TACSymbol.One)
+            (returnSizeVar lt BigInteger.TWO.pow(32).asTACExpr) and (rcCodeVar le TACSymbol.One)
         }) {
             TACCmd.Simple.AssumeCmd(it.s, "returnsize setup")
         /**
@@ -1627,7 +2131,7 @@ class BufferTraceInstrumentation private constructor(
          */
         } andThen ExprUnfolder.unfoldPlusOneCmd("eoaSanity", TACExprFactoryExtensions.run {
             (not(calleeCodesize eq 0) or
-                ((TACKeyword.RETURN_SIZE.toVar() eq 0) and (TACKeyword.RETURNCODE.toVar() eq 1))) and (calleeCodesize lt 24576)
+                ((returnSizeVar eq 0) and (rcCodeVar eq 1))) and (calleeCodesize lt 24576)
         }) {
             TACCmd.Simple.AssumeCmd(it.s, "eoa coherence")
         } andThen CommandWithRequiredDecls(listOf(
@@ -1644,34 +2148,36 @@ class BufferTraceInstrumentation private constructor(
                 lhs = copyAmount,
                 rhs = TACExprFactTypeCheckedOnlyPrimitives {
                     ite(
-                        TACKeyword.RETURN_SIZE.toVar() lt origCommand.outSize,
-                        TACKeyword.RETURN_SIZE.toVar(),
+                        returnSizeVar lt origCommand.outSize,
+                        returnSizeVar,
                         origCommand.outSize
                     )
                 }
             )
         ), setOf(copyAmount))
 
+        val returnDataVar = TACKeyword.RETURNDATA.toVar(callIndex = origLc.ptr.block.calleeIdx)
+
         /**
          * Actually set the environment variables
          */
         val callUpdate = CommandWithRequiredDecls(listOf(
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                lhs = TACKeyword.RETURNCODE.toVar(),
+                lhs = rcCodeVar,
                 rhs = rcExpr
             ),
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                lhs = TACKeyword.RETURN_SIZE.toVar(),
+                lhs = returnSizeVar,
                 rhs = returnDataSizeExpr
             ),
             TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                lhs = TACKeyword.RETURNDATA.toVar(),
+                lhs = returnDataVar,
                 rhs = returnDataExpr
             )
         ), setOf(
-            TACKeyword.RETURNCODE.toVar(),
-            TACKeyword.RETURNDATA.toVar(),
-            TACKeyword.RETURN_SIZE.toVar()
+            rcCodeVar,
+            returnDataVar,
+            returnSizeVar
         ))
 
         val returnDataSampleSize = g.cache[MustBeConstantAnalysis].mustBeConstantAt(
@@ -1690,7 +2196,7 @@ class BufferTraceInstrumentation private constructor(
                     TACCmd.Simple.AssigningCmd.ByteLoad(
                         lhs = t,
                         loc = (ind * EVM_WORD_SIZE_INT).asTACSymbol(),
-                        base = TACKeyword.RETURNDATA.toVar()
+                        base = returnDataVar
                     ),
                     t
                 )
@@ -1725,8 +2231,8 @@ class BufferTraceInstrumentation private constructor(
                     bufferStart = origCommand.inOffset,
                     memoryCapture = origCommand.inBase,
                     calleeCodeSize = calleeCodesize,
-                    returnCode = TACKeyword.RETURNCODE.toVar(),
-                    returnDataSize = TACKeyword.RETURN_SIZE.toVar(),
+                    returnCode = rcCodeVar,
+                    returnDataSize = returnSizeVar,
                     value = origCommand.value,
                     returnDataSample = returnDataSamples
                 )
@@ -1737,7 +2243,7 @@ class BufferTraceInstrumentation private constructor(
                 length = copyAmount,
                 dstOffset = origCommand.outOffset,
                 srcOffset = TACSymbol.Zero,
-                srcBase = TACKeyword.RETURNDATA.toVar()
+                srcBase = returnDataVar
             )
     }
 
@@ -2304,16 +2810,9 @@ class BufferTraceInstrumentation private constructor(
         }
     }
 
-    /**
-     * Instruments a long read. If this long read corresponds to a memory write (which will only be the case for call cores)
-     * this is included in [bufferUpdateWork].
-     */
-    private fun instrumentLongRead(s: LongRead, patcher: SimplePatchingProgram, bufferUpdateWork: BufferUpdate<*>?) {
-        if(!patcher.isBlockStillInGraph(s.where.block)) {
-            return
-        }
-        val lc = g.elab(s.where)
-        val origCommand = lc.cmd
+    private fun setupLongRead(
+        s: LongRead
+    ) : CommandWithRequiredDecls<TACCmd.Simple> {
 
         val sourceInfo = s.instrumentationInfo()
 
@@ -2334,7 +2833,33 @@ class BufferTraceInstrumentation private constructor(
             }
         }.let(CommandWithRequiredDecls.Companion::mergeMany).merge(pointerProphecy, lengthProphecy) andThen sourceInfo.instrumentationMixins.map {
             it.atLongRead(s)
-        }.flatten()
+        }.flatten() andThen TACCmd.Simple.AnnotationCmd(
+            ReadSiteInstrumentationRecord.META_KEY,
+            ReadSiteInstrumentationRecord(
+                which = s.id,
+                desc = s.desc,
+                sourceInfo.instrumentationMixins.mapNotNull { i ->
+                    i.getRecord()
+                }
+            )
+        )
+        return prophecyAndMixinUpdate
+    }
+
+    /**
+     * Instruments a long read. If this long read corresponds to a memory write (which will only be the case for call cores)
+     * this is included in [bufferUpdateWork].
+     */
+    private fun instrumentLongRead(s: LongRead, shadowRead: ShadowLongRead?, patcher: SimplePatchingProgram, bufferUpdateWork: BufferUpdate<*>?) {
+        if(!patcher.isBlockStillInGraph(s.where.block)) {
+            return
+        }
+        val lc = g.elab(s.where)
+        val origCommand = lc.cmd
+
+        val prophecyAndMixinUpdate = setupLongRead(s).letIf(shadowRead != null) { upd ->
+            upd andThen setupLongRead(shadowRead!!)
+        }
 
         /**
          * If this is an event read, update the trace
@@ -2420,8 +2945,15 @@ class BufferTraceInstrumentation private constructor(
          * Instrument the long reads, treating them as buffer updates (as is the case for call commands)
          */
         for(s in sources) {
+            if(s is ShadowLongRead) {
+                continue
+            }
             instrumentLongRead(
-                s, patcher = patcher, bufferUpdateWork = hashUpdateWork[s.where]
+                s, shadowRead = sources.firstNotNullOfOrNull { sh ->
+                    (sh as? ShadowLongRead)?.takeIf {
+                        sh.parentId == s.id
+                    }
+                }, patcher = patcher, bufferUpdateWork = hashUpdateWork[s.where]
             )
             handled.add(s.where)
         }
@@ -3183,7 +3715,7 @@ class BufferTraceInstrumentation private constructor(
             }).wrap("Alignment for ${targetBuffer.id}")
         )
 
-        val hashUpdateCommands = hashUpdate.toCRD().wrap("Hash Decls ${targetBuffer.id}") andThen toRet.toCommandWithRequiredDecls().wrap("Update Hash & Alignment")
+        val hashUpdateCommands = hashUpdate.toCRD().wrap("Hash Decls ${targetBuffer.id}") andThen toRet.toCommandWithRequiredDecls().wrap("Update Hash & Alignment ${targetBuffer.id}")
         // call the mixins. Take care not to have call instrument itself
         val instrumentationUpdates = sourceInfo.instrumentationMixins.map {
             if(targetBuffer.where == write.where && !it.intrumentSelfUpdates) {

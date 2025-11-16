@@ -33,7 +33,7 @@ import java.math.BigInteger
 
     Gives "loose" defs, as in [LooseDefAnalysis], meaning that we ignore the possiblity of an undefined variable. A
     write though a reference is considered a definition of all possible targets of the reference, which is what the
-    write will expand to in [MoveMemory] after all.
+    write will expand to in [MoveTACSimplifier] after all.
  */
 class MoveDefAnalysis private constructor(
     graph: MoveTACCommandGraph
@@ -55,7 +55,7 @@ class MoveDefAnalysis private constructor(
         is TACCmd.Move -> when (cmd) {
             is TACCmd.Move.BorrowLocCmd -> listOf(cmd.ref)
             is TACCmd.Move.ReadRefCmd -> listOf(cmd.dst)
-            is TACCmd.Move.WriteRefCmd -> ref.refTargetsOf(cmd.ref, ptr)
+            is TACCmd.Move.WriteRefCmd -> ref.targetVarsBefore(ptr, cmd.ref)
             is TACCmd.Move.PackStructCmd -> listOf(cmd.dst)
             is TACCmd.Move.UnpackStructCmd -> cmd.dsts
             is TACCmd.Move.BorrowFieldCmd -> listOf(cmd.dstRef)
@@ -63,8 +63,8 @@ class MoveDefAnalysis private constructor(
             is TACCmd.Move.VecUnpackCmd -> cmd.dsts
             is TACCmd.Move.VecLenCmd -> listOf(cmd.dst)
             is TACCmd.Move.VecBorrowCmd -> listOf(cmd.dstRef)
-            is TACCmd.Move.VecPushBackCmd -> ref.refTargetsOf(cmd.ref, ptr)
-            is TACCmd.Move.VecPopBackCmd -> ref.refTargetsOf(cmd.ref, ptr) + cmd.dst
+            is TACCmd.Move.VecPushBackCmd -> ref.targetVarsBefore(ptr, cmd.ref)
+            is TACCmd.Move.VecPopBackCmd -> ref.targetVarsBefore(ptr, cmd.ref)
             is TACCmd.Move.PackVariantCmd -> listOf(cmd.dst)
             is TACCmd.Move.UnpackVariantCmd -> cmd.dsts
             is TACCmd.Move.VariantIndexCmd -> listOf(cmd.loc)
@@ -95,7 +95,6 @@ class MoveDefAnalysis private constructor(
                 } else {
                     sites.forEach { s ->
                         val cmd = graph.toCommand(s)
-                        assert(cmd is TACCmd.Simple.AssigningCmd && cmd.lhs == v)
                         if (cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd && cmd.rhs is TACExpr.Sym.Var) {
                             vl.addLast(cmd.rhs.s)
                             pl.addLast(s)

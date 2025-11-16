@@ -252,12 +252,12 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
         val freshVars: MutableSet<TACSymbol.Var>
     ) : WithLoopIndex, WithIdRemapping
 
-    private fun unroll(patchingIn: SimplePatchingProgram, loop: Loop, loopId: Int) {
+    private fun unroll(patchingIn: SimplePatchingProgram, loop: Loop, loopId: Int, calculatedUnrollConst: Int) {
 
         // normalize the blocks for simpler reasoning later
         val patching = appendJumpsToLoopBlocks(loop, patchingIn)
 
-        var unrollCount = calculateUnrollConst(loop)
+        var unrollCount = calculatedUnrollConst
         val unrollCmds = createUnrollCmds(patching, loop) ?: unwindCondCheck(sym = TACSymbol.False, tagLoopTerminus = loopId).let { sinkCommands ->
             val pops = InlinedMethodCallStack(code.analysisCache.graph).iterateUpStackPushRecords(CmdPointer(loop.head, 0)).map { push ->
                 TACCmd.Simple.AnnotationCmd(
@@ -805,6 +805,12 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
         }
 
         var loops = consolidateLoops(getNaturalLoops(code.analysisCache.graph))
+
+        // Precompute unroll constants for all loops.  This avoids having to redo the def analysis for each loop
+        // unrolling.  Note that `consolidateLoops` above ensures that we have exactly one loop per loop head, so we can
+        // key off of that.
+        val calculatedUnrollConsts = loops.associate { it.head to calculateUnrollConst(it) }
+
         while (loops.isNotEmpty()) {
             // Always unroll the innermost loops first, which avoids needing to unroll the same inner loop over and over
             // after an outer loop was unrolled.
@@ -815,6 +821,10 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
                 && (it.body intersect loopTails).singleOrNull() == it.tail
             }
             for (loopToUnrollBasic in innermostLoops) {
+                // Since we unroll loops from innermost to outermost, we can be sure that each loop head ID we encounter
+                // here was also a loop head in the original set of loops (and thus is still a valid key here).
+                val unrollConst = calculatedUnrollConsts[loopToUnrollBasic.head]!!
+
                 /**
                 * If our loop body itself had a loop within it that has a complicated exit condition (such that [createUnrollCmds]
                 * returns null) then for that *inner* loop we unroll an extra time, which we wire up to a block that simply ends with
@@ -978,7 +988,7 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
                 val loopId = Allocator.getFreshId(Allocator.Id.LOOP)
                 val patching = annotateLoop(loopToUnroll, loopId)
                 // We assume that `patching` is built from the current value of `code`.
-                unroll(patching, loopToUnroll, loopId)
+                unroll(patching, loopToUnroll, loopId, unrollConst)
             }
             loops = getNaturalLoops(code.analysisCache.graph)
         }

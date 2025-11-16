@@ -162,8 +162,16 @@ object ConstantStringAlloc {
     This will not work for solc4. Ask me if I care.
      */
     class ShortConstantStringAllocWorker(private val graph: TACCommandGraph) {
+        private val indexPatternWitNull by lazy {
+            PatternMatcher.Pattern.RecursivePattern<CmdPointer> { rec ->
+                PatternDSL.build {
+                    (0x0() + rec.asBuildable()).commute.second `^` indexPattern.asBuildable()
+                }
+            }
+        }
+
         private val indexMatcher by lazy {
-            PatternMatcher.compilePattern(graph, indexPattern)
+            PatternMatcher.compilePattern(graph, indexPatternWitNull)
         }
         private val fpAllocMatcher by lazy {
             PatternMatcher.compilePattern(graph, smallStringAllocPattern)

@@ -20,9 +20,9 @@ package move
 import bridge.*
 import config.*
 import datastructures.stdcollections.*
+import diagnostics.*
+import java.io.Closeable
 import kotlin.io.path.*
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import log.*
 import parallel.coroutines.*
 import report.*
@@ -40,18 +40,29 @@ import vc.data.*
 import verifier.*
 import verifier.mus.*
 
-class MoveVerifier {
+class MoveVerifier : Closeable {
     private val modulePath = Config.MoveModulePath.get()
     private val moveScene = MoveScene(Path(modulePath))
     private val cvlScene = SceneFactory.getScene(DegenerateContractSource(modulePath))
     private val reporterContainer = ReporterContainer(listOf(ConsoleReporter))
     private val treeView = TreeViewReporter("MoveMainProgram", "", cvlScene)
 
+    override fun close() {
+        treeView.close()
+    }
+
     /**
         The entrypoint for verification of Move projects
     */
     suspend fun verify() {
-        // See notes in `MoveMemory`
+        /*
+            The Move prover currently does not support precise bitwise operation mode, due to all of the [Tag.Int] math
+            done in [MemoryLayout].  If we need this in the future, we will also need to update [MemoryLayout] to
+            constrain the maximum composed layout size to fit in 256 bits.  This will require (among other things) a
+            different "ghost array" implementation.
+
+            For now, we simply fail if this is enabled.
+         */
         if (Config.Smt.UseBV.get()) {
             throw CertoraException(
                 CertoraErrorType.BAD_CONFIG,
@@ -59,13 +70,14 @@ class MoveVerifier {
             )
         }
 
-        val throttle = Semaphore(Config.MaxConcurrentRules.get())
+        val concurrencyLimit = Config.MaxConcurrentRules.get()
 
         val rules = moveScene
             .getSelectedCvlmRules()
             .resultOrExitProcess(1, CVLError::printErrors)
-            .parallelMapOrdered { _, rule ->
-                throttle.withPermit {
+            .sortedBy { it.ruleInstanceName }
+            .parallelMapOrdered(concurrencyLimit) { _, rule ->
+                annotateCallStack("rule.${rule.ruleInstanceName}") {
                     val compiled = MoveToTAC.compileRule(rule, moveScene)
                     EcosystemAgnosticRule(
                         ruleIdentifier = RuleIdentifier.freshIdentifier(compiled.rule.ruleInstanceName),
@@ -80,8 +92,8 @@ class MoveVerifier {
 
         treeView.buildRuleTree(rules.map { (rule, _) -> rule })
 
-        rules.consuming().parallelMapOrdered { _, (rule, compiled) ->
-            throttle.withPermit {
+        rules.consuming().parallelMapOrdered(concurrencyLimit) { _, (rule, compiled) ->
+            annotateCallStackAsync("rule.${rule.ruleIdentifier.displayName}") {
                 treeView.signalStart(rule)
 
                 val coretac = compiled.toCoreTAC(moveScene)

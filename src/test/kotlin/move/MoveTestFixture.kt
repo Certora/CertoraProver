@@ -84,6 +84,12 @@ abstract class MoveTestFixture() {
                 public native fun hash(hashFunName: vector<u8>);
                 public native fun shadow(shadowFunName: vector<u8>);
                 public native fun field_access(accessorFunName: vector<u8>, fieldName: vector<u8>);
+                public native fun function_access(
+                    accessorFunName: vector<u8>,
+                    accessedFunAddr: address,
+                    accessedFunModule: vector<u8>,
+                    accessedFunName: vector<u8>
+                );
                 public native fun target(module_address: address, module_name: vector<u8>, function_name: vector<u8>);
                 public native fun invoker(function_name: vector<u8>);
                 public native fun target_sanity();

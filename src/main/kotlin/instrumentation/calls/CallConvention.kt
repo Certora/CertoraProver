@@ -27,6 +27,7 @@ import analysis.EthereumVariables.returnsize
 import analysis.icfg.CallGraphBuilder
 import analysis.icfg.CallInput
 import analysis.icfg.ExpressionSimplifier
+import config.Config
 import datastructures.stdcollections.setOfNotNull
 import kotlinx.serialization.UseSerializers
 import scene.ITACMethod
@@ -44,7 +45,10 @@ import java.math.BigInteger
  */
 private fun longStore(srcBase: TACSymbol.Var, srcOffset: TACSymbol, dstBase: TACSymbol.Var, dstOffset: TACSymbol, size: TACExpr): CommandWithRequiredDecls<TACCmd.Simple> {
     // long copy
-    if (size !is TACExpr.Sym.Const) {
+    /*
+     * It is vitally important that all returndata copying is done via longstores in equivalence checking mode
+     */
+    if (size !is TACExpr.Sym.Const || Config.EquivalenceCheck.get()) {
         return longStoreAssignment(dstBase, dstOffset, srcBase, srcOffset, size)
     }
     val sz = size.s.value

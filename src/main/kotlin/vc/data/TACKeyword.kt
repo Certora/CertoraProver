@@ -163,7 +163,9 @@ enum class TACKeyword(private val varName: String, val type: Tag, val metaMap: M
     /** prev_digest -> new_digest */
     MOVE_VECTOR_POP_BACK_DIGEST("tacMvVecPopBackDigest", Tag.GhostMap(listOf(Tag.Bit256), Tag.Bit256)),
 
-    MOVE_NONDET_TYPE_EQUIV("tacMoveNondetTypeIds", Tag.GhostMap(listOf(Tag.Bit256), Tag.Bit256))
+    MOVE_NONDET_TYPE_EQUIV("tacMoveNondetTypeIds", Tag.GhostMap(listOf(Tag.Bit256), Tag.Bit256)),
+
+    RUST_FP("tacRustFreePointer", Tag.Bit256)
     ;
 
     init {

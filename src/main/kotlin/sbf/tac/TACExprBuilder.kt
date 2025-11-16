@@ -27,6 +27,8 @@ import sbf.SolanaConfig
 
 class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
     private val mask64 =  (BigInteger.valueOf(Long.MAX_VALUE) * BigInteger.TWO + BigInteger.ONE).asTACExpr()
+    private val mask128 =  (BigInteger.TWO.pow(128) - BigInteger.ONE).asTACExpr()
+
     private val MINUS_ONE = mkConst(-1)
     val ONE = mkConst(1)
     val ZERO = mkConst(0)
@@ -289,6 +291,11 @@ class TACExprBuilder(private val regVars: ArrayList<TACSymbol.Var>) {
     /** Return the equivalent TAC expression to [e] && MASK64 **/
     fun mask64(e: TACExpr): TACExpr {
         return TACExpr.BinOp.BWAnd(e, mask64)
+    }
+
+    /** Return the equivalent TAC expression to [e] && MASK128 **/
+    fun mask128(e: TACExpr): TACExpr {
+        return TACExpr.BinOp.BWAnd(e, mask128)
     }
 
     /** Sign extend [e] from 64 to 256 bits **/

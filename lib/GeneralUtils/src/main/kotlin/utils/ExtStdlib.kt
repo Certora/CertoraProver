@@ -25,6 +25,7 @@ import utils.Color.Companion.bRed
 import utils.Color.Companion.bRedBg
 import utils.Color.Companion.green
 import utils.Color.Companion.yellow
+import utils.ModZm.Companion.lowOnes
 import java.io.BufferedOutputStream
 import java.io.ObjectOutputStream
 import java.io.OutputStream
@@ -1277,4 +1278,19 @@ fun <T> Sequence<T>.skipAdjacentDuplicates() = sequence<T> {
             isFirst = false
         }
     }
+}
+
+/**
+ * Parses a BigInteger into parts based on given lengths in bits.
+ * Each length specifies how many bits to extract, from left to right.
+ */
+fun BigInteger.parseToParts(vararg lengths: Int): List<BigInteger> {
+    require(lengths.all { it > 0 }) { "All lengths must be positive" }
+
+    var remaining = this
+    return lengths.reversed().map { l ->
+        (remaining and lowOnes(l)).also {
+            remaining = remaining shr l
+        }
+    }.reversed()
 }

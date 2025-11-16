@@ -46,7 +46,10 @@ sealed class MoveType : AmbiSerializable {
 
     /** A [Value] that is represented as a single slot in a memory location */
     @KSerializable
-    sealed class Simple : Value()
+    sealed class Simple : Value() {
+        /** The tag to use for this type in Core TAC */
+        abstract fun toCoreTag(): Tag
+    }
 
     @KSerializable
     sealed class Primitive : Simple() {
@@ -56,6 +59,7 @@ sealed class MoveType : AmbiSerializable {
     @KSerializable
     object Bool : Primitive() {
         override fun toTag() = Tag.Bool
+        override fun toCoreTag() = Tag.Bool
         override fun displayName() = "bool"
         override fun symNameExt() = "bool"
         override fun hashCode() = hashObject(this)
@@ -65,6 +69,7 @@ sealed class MoveType : AmbiSerializable {
     @KSerializable
     sealed class Bits(val size: Int) : Primitive() {
         override fun toTag() = Tag.Bit256
+        override fun toCoreTag() = Tag.Bit256
         override fun displayName() = "u$size"
         override fun symNameExt() = "u$size"
     }
@@ -78,9 +83,15 @@ sealed class MoveType : AmbiSerializable {
     @KSerializable object Address : Bits(256) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = Address }
     @KSerializable object Signer : Bits(256) { override fun hashCode() = hashObject(this); private fun readResolve(): Any = Signer }
 
+    sealed interface Container
 
     @KSerializable
-    data class Vector(val elemType: MoveType.Value) : Value() {
+    sealed class Array : Value(), Container {
+        abstract val elemType: MoveType.Value
+    }
+
+    @KSerializable
+    data class Vector(override val elemType: MoveType.Value) : Array() {
         override fun toString() = "vector<$elemType>"
         override fun displayName() = "vector<${elemType.displayName()}>"
         override fun toTag() = MoveTag.Vec(elemType)
@@ -131,7 +142,7 @@ sealed class MoveType : AmbiSerializable {
         override val name: MoveDatatypeName,
         override val typeArguments: List<MoveType.Value>,
         val variants: List<Variant>
-    ) : Datatype() {
+    ) : Datatype(), Container {
         override fun toTag() = MoveTag.Enum(this)
         override fun toString() = super.toString() // Don't use compiler-generated toString
 
@@ -151,7 +162,7 @@ sealed class MoveType : AmbiSerializable {
     }
 
     @KSerializable
-    data class GhostArray(val elemType: MoveType.Value) : Value() {
+    data class GhostArray(override val elemType: MoveType.Value) : Array() {
         override fun toString() = "array<${elemType}>"
         override fun displayName() = "(ghost)<${elemType.displayName()}>"
         override fun toTag() = MoveTag.GhostArray(elemType)
@@ -163,6 +174,7 @@ sealed class MoveType : AmbiSerializable {
         override fun toString() = "mathint"
         override fun displayName() = "(mathint)"
         override fun toTag() = Tag.Int
+        override fun toCoreTag() = Tag.Int
         override fun symNameExt() = "mathint"
         override fun hashCode() = hashObject(this)
         private fun readResolve(): Any = MathInt
@@ -194,6 +206,7 @@ sealed class MoveType : AmbiSerializable {
         override fun toString() = "nondet#$id"
         override fun displayName() = "(nondet#$id)"
         override fun toTag() = MoveTag.Nondet(this)
+        override fun toCoreTag() = Tag.Bit256
         override fun symNameExt() = "nondet!$id"
     }
 
@@ -209,6 +222,7 @@ sealed class MoveType : AmbiSerializable {
         override fun toString() = "fun"
         override fun displayName() = "(fun)"
         override fun toTag() = Tag.Bit256
+        override fun toCoreTag() = Tag.Bit256
         override fun symNameExt() = "fun"
         override fun hashCode() = hashObject(this)
         private fun readResolve(): Any = Function
@@ -332,50 +346,12 @@ fun MoveModule.EnumDefInstantiation.toMoveEnum(
     return enumDef.toMoveEnum(typeParameters.deref().tokens.map { it.toMoveValueType(typeArgs) })
 }
 
-/**
-    Assigns a Tag.Int-valued expression to a location of this MoveType.  The expression is assumed to have a value that
-    is in bounds for the type.  Typically this is because the Int in question was produced from this MoveType
-    originally, as in values that are stored in fields of a struct, etc.
- */
-fun MoveType.Simple.assignFromIntInBounds(
-    dest: TACSymbol.Var,
-    meta: MetaMap = MetaMap(),
-    value: TACExprFact.() -> TACExpr
-): SimpleCmdsWithDecls {
-    return when (this) {
-        is MoveType.Bits -> {
-            value.letVar(tag = Tag.Int, meta = meta) { intValue ->
-                assign(dest, meta) {
-                    safeMathNarrowAssuming(intValue, Tag.Bit256, MASK_SIZE(size))
-                }
-            }
-        }
-        is MoveType.Nondet,
-        is MoveType.Function -> {
-            value.letVar(tag = Tag.Int, meta = meta) { intValue ->
-                assign(dest, meta) {
-                    safeMathNarrowAssuming(intValue, Tag.Bit256)
-                }
-            }
-        }
-        is MoveType.Bool -> {
-            assign(dest, meta) { value() neq 0.asTACExpr }
-        }
-        is MoveType.MathInt -> {
-            assign(dest, meta) { value() }
-        }
-    }
-}
-
-fun MoveType.Simple.getIntInBounds(meta: MetaMap = MetaMap(), value: TACExprFact.() -> TACExpr): TACExprWithSimpleCmds {
-    val s = TACKeyword.TMP(this.toTag())
-    return s.asSym().withCmds(assignFromIntInBounds(s, meta, value))
-}
-
 fun MoveType.Simple.assignHavoc(dest: TACSymbol.Var, meta: MetaMap = MetaMap()): SimpleCmdsWithDecls {
     return when (this) {
         is MoveType.Bits -> {
-            assignFromIntInBounds(dest, meta) { unconstrained(Tag.Int) }
+            tac.generation.assign(dest, meta) {
+                safeMathNarrowAssuming(unconstrained(Tag.Int), Tag.Bit256, MASK_SIZE(size))
+            }
         }
         is MoveType.Bool, is MoveType.MathInt, is MoveType.Nondet -> {
             tac.generation.assignHavoc(dest, meta)

@@ -17,6 +17,8 @@
 
 package wasm.impCfg
 
+import allocator.Allocator
+import allocator.GeneratedBy
 import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
@@ -308,11 +310,8 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
 
         context(WasmImpCfgContext)
         override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
-            val tacExpr = expr.toTacExpr()
-            val lhsSym = TACSymbol.Var(lhs.toString(), tacExpr.tag!!)
-            return assign(lhsSym) {
-                tacExpr
-            }
+            val lhsSym = TACSymbol.Var(lhs.toString(), expr.tag)
+            return expr.assignTACExpr(lhsSym)
         }
     }
 
@@ -855,6 +854,7 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
         val funcId: String,
         val funcArgs: List<Arg>,
         val callIdx: Int,
+        val id: Int,
         val range: Range.Range? = null
     ) : StraightLine() {
         override fun hasHavoc(): Boolean {
@@ -869,12 +869,12 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
             get() = setOf()
 
         @KSerializable
-        @com.certora.collect.Treapable
-        data class TAC(val funcName: String, val funcArgs: List<TACSymbol>, val range: Range.Range?) :
-            TransformableVarEntityWithSupport<TAC>, HasKSerializable, AmbiSerializable {
+        @Treapable
+        data class TAC(val funcName: String, val funcArgs: List<TACSymbol>, @GeneratedBy(Allocator.Id.CALL_ID, source = true) val id: Int, val range: Range.Range?) :
+            TransformableVarEntityWithSupport<TAC>, HasKSerializable, AmbiSerializable, UniqueIdEntity<TAC> {
 
             constructor(fromWasm: InlinedFuncStartAnnotation) :
-                this(fromWasm.funcId, fromWasm.funcArgs.map { it.toTacSymbol() }, fromWasm.range)
+                this(fromWasm.funcId, fromWasm.funcArgs.map { it.toTacSymbol() }, fromWasm.id, fromWasm.range)
 
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): TAC =
                 copy(funcArgs = funcArgs.map { (it as? TACSymbol.Var)?.let(f) ?: it })
@@ -883,7 +883,11 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
                 funcArgs.filterIsInstanceTo(mutableSetOf())
 
             override fun toString(): String =
-                "TAC(funcName=${funcName.replaceHTMLEscapes()}, funcArgs=$funcArgs, range=$range)"
+                "TAC(funcName=${funcName.replaceHTMLEscapes()}, funcArgs=$funcArgs, range=$range, id=$id)"
+
+            override fun mapId(f: (Any, Int, () -> Int) -> Int): TAC = this.copy(
+                id = f(Allocator.Id.CALL_ID, id) { Allocator.getFreshId(Allocator.Id.CALL_ID) },
+            )
         }
 
         private fun toTacAnnot() =
@@ -902,6 +906,7 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
     data class InlinedFuncEndAnnotation(
         val funcId: String,
         val callIdx: Int,
+        val id: Int,
     ) : StraightLine() {
         override fun hasHavoc(): Boolean {
             return false
@@ -915,13 +920,17 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
             get() = setOf()
 
         @KSerializable
-        @com.certora.collect.Treapable
-        data class TAC(val funcName: String) : HasKSerializable, AmbiSerializable {
+        @Treapable
+        data class TAC(val funcName: String,  @GeneratedBy(Allocator.Id.CALL_ID, source = false) val id: Int) : HasKSerializable, AmbiSerializable, UniqueIdEntity<TAC> {
             constructor(fromWasm: InlinedFuncEndAnnotation) :
-                this(fromWasm.funcId)
+                this(fromWasm.funcId, fromWasm.id)
 
             override fun toString(): String =
-                "TAC(funcName=${funcName.replaceHTMLEscapes()})"
+                "TAC(funcName=${funcName.replaceHTMLEscapes()}, id=$id)"
+
+            override fun mapId(f: (Any, Int, () -> Int) -> Int): TAC = this.copy(
+                id = f(Allocator.Id.CALL_ID, id) { Allocator.getFreshId(Allocator.Id.CALL_ID) },
+            )
         }
 
         private fun toTacAnnot() =

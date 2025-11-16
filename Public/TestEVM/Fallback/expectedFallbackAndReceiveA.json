@@ -1,0 +1,193 @@
+{
+  "assertMessages": {},
+  "rules": {
+    "envfreeFuncsStaticCheck": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "getN()",
+        "getLastCalledFallback()",
+        "getLastCalledReceive()",
+        "getLastCalledNameclash()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "last_called_consistent_with_n": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "A.<receiveOrFallback>()",
+            "A.receiveOrFallback()",
+            "Caller.<receiveOrFallback>()",
+            "Caller.noSuchFun()",
+            "Caller.should_call_fallback()",
+            "Caller.should_call_receive_if_exists()",
+            "Caller.should_call_receive_more_low_level()",
+            "Caller.should_call_nameclash()"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "last_called_consistent_with_n_wrong_for_fallback": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "A.<receiveOrFallback>()",
+            "Caller.should_call_fallback()",
+            "Caller.should_call_receive_if_exists()",
+            "Caller.should_call_receive_more_low_level()"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "Caller.<receiveOrFallback>()",
+            "Caller.noSuchFun()",
+            "Caller.should_call_nameclash()",
+            "A.receiveOrFallback()"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "last_called_consistent_with_n_wrong_for_receive": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "A.<receiveOrFallback>()",
+            "Caller.<receiveOrFallback>()",
+            "Caller.noSuchFun()",
+            "Caller.should_call_fallback()",
+            "Caller.should_call_receive_if_exists()",
+            "Caller.should_call_receive_more_low_level()",
+            "Caller.should_call_nameclash()",
+            "A.receiveOrFallback()"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "last_called_consistent_with_n_wrong_for_nameclash": {
+      "Induction base: After the constructor": "SUCCESS",
+      "Induction step: after external (non-view) methods": {
+        "Using general requirements": {
+          "FAIL": [
+            "Caller.should_call_nameclash()",
+            "A.receiveOrFallback()"
+          ],
+          "SANITY_FAIL": [],
+          "SUCCESS": [
+            "A.<receiveOrFallback>()",
+            "Caller.<receiveOrFallback>()",
+            "Caller.noSuchFun()",
+            "Caller.should_call_fallback()",
+            "Caller.should_call_receive_if_exists()",
+            "Caller.should_call_receive_more_low_level()"
+          ],
+          "TIMEOUT": [],
+          "UNKNOWN": []
+        }
+      }
+    },
+    "hasDelegateCalls": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "<receiveOrFallback>()",
+        "getLastCalledFallback()",
+        "getLastCalledNameclash()",
+        "getLastCalledReceive()",
+        "getN()",
+        "noSuchFun()",
+        "should_call_fallback()",
+        "should_call_nameclash()",
+        "should_call_receive_if_exists()",
+        "should_call_receive_more_low_level()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "deepSanity": {
+      "FAIL": [
+        "Caller.<receiveOrFallback>()",
+        "Caller.getLastCalledFallback()",
+        "Caller.getLastCalledNameclash()",
+        "Caller.getLastCalledReceive()",
+        "Caller.getN()",
+        "Caller.noSuchFun()",
+        "Caller.should_call_fallback()",
+        "Caller.should_call_nameclash()",
+        "Caller.should_call_receive_if_exists()",
+        "Caller.should_call_receive_more_low_level()"
+      ],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "A.<receiveOrFallback>()",
+        "A.last_called_fallback()",
+        "A.last_called_nameclash()",
+        "A.last_called_receive()",
+        "A.n()",
+        "A.receiveOrFallback()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "msgValueInLoopRule": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "A.receiveOrFallback()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "sanity": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "A.<receiveOrFallback>()",
+        "A.last_called_fallback()",
+        "A.last_called_nameclash()",
+        "A.last_called_receive()",
+        "A.n()",
+        "A.receiveOrFallback()",
+        "Caller.<receiveOrFallback>()",
+        "Caller.getLastCalledFallback()",
+        "Caller.getLastCalledNameclash()",
+        "Caller.getLastCalledReceive()",
+        "Caller.getN()",
+        "Caller.noSuchFun()",
+        "Caller.should_call_fallback()",
+        "Caller.should_call_nameclash()",
+        "Caller.should_call_receive_if_exists()",
+        "Caller.should_call_receive_more_low_level()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    },
+    "viewReentrancy": {
+      "FAIL": [],
+      "SANITY_FAIL": [],
+      "SUCCESS": [
+        "<receiveOrFallback>()",
+        "noSuchFun()",
+        "should_call_fallback()",
+        "should_call_nameclash()",
+        "should_call_receive_if_exists()",
+        "should_call_receive_more_low_level()"
+      ],
+      "TIMEOUT": [],
+      "UNKNOWN": []
+    }
+  }
+}

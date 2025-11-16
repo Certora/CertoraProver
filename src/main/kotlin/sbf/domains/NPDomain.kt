@@ -20,16 +20,17 @@ package sbf.domains
 import sbf.callgraph.*
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
-import sbf.sbfLogger
 import sbf.SolanaConfig
 import datastructures.stdcollections.*
+import log.*
 import sbf.analysis.AnalysisRegisterTypes
 import utils.*
 import java.math.BigInteger
 
 class NPDomainError(msg: String): RuntimeException("NPDomain error:$msg")
 
-private const val debugNPDomain = false
+private val logger = Logger(LoggerTypes.SBF_BACKWARD_SCALAR_ANALYSIS)
+private fun dbg(msg: () -> Any) { logger.info(msg)}
 
 /**
  * Synthetic variable that represents the content of a regular register [reg]
@@ -82,7 +83,7 @@ data class ScratchRegisterVariable(val callId: ULong, val reg: Value.Reg, privat
  *  - "false" is represented as any set of constraints that contains a contradiction
  *  - If csts is false then the whole abstract state is normalized to bottom.
  */
-data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConstraint>)
+data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConstraint>, private val isBot: Boolean)
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
@@ -93,12 +94,12 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         fun <D, TNum, TOffset> mkTrue() where TNum: INumValue<TNum>,
                                               TOffset: IOffset<TOffset>,
                                               D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> =
-            NPDomain<D, TNum, TOffset>(SetIntersectionDomain())
+            NPDomain<D, TNum, TOffset>(SetIntersectionDomain(), isBot = false)
 
         fun <D, TNum, TOffset>  mkBottom() where TNum: INumValue<TNum>,
                                                  TOffset: IOffset<TOffset>,
                                                  D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> =
-            NPDomain<D, TNum, TOffset>(SetIntersectionDomain.mkBottom())
+            NPDomain<D, TNum, TOffset>(SetIntersectionDomain(), isBot = true)
 
         fun getLinCons(cond: Condition, vFac: VariableFactory): SbfLinearConstraint {
             val left = cond.left
@@ -116,7 +117,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         private fun eval(csts: SetIntersectionDomain<SbfLinearConstraint>,
                          v: ExpressionVar, n: ExpressionNum): SetIntersectionDomain<SbfLinearConstraint> {
             var outCsts = SetIntersectionDomain<SbfLinearConstraint>()
-            for (c in csts.iterator()) {
+            for (c in csts) {
                 val outCst = c.eval(v,n)
                 outCsts = outCsts.add(outCst)  as SetIntersectionDomain<SbfLinearConstraint>
             }
@@ -149,19 +150,93 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         }
 
         private fun isFalse(csts: SetDomain<SbfLinearConstraint>): Boolean {
-            for (c in csts.iterator()) {
+            for (c in csts) {
                 if (c.isContradiction()) {
                     return true
                 }
             }
             return false
         }
+
+        /**
+         * Very limited propagation.
+         *  - only equalities between variables and constants.
+         *
+         * Return null if [csts] is detected as unsatisfiable
+         **/
+        private fun propagateOneStep(csts: SetDomain<SbfLinearConstraint>): SetDomain<SbfLinearConstraint>? {
+            /// Split `csts` into several kind of constraints
+            val eqs = mutableListOf<SbfLinearConstraint>()
+            val nonEqs = mutableListOf<SbfLinearConstraint>()
+            val intervalIneqs = mutableListOf<SbfLinearConstraint>()
+            for (c in csts) {
+                when (c.op) {
+                    CondOp.EQ -> eqs.add(c)
+                    CondOp.SLE, CondOp.LE, CondOp.SGE, CondOp.GE -> {
+                        nonEqs.add(c)
+                        if (c.e1.getVariable() != null && c.e2.getConstant() != null) {
+                            intervalIneqs.add(c)
+                        }
+                    }
+                    CondOp.NE -> nonEqs.add(c)
+                    CondOp.SLT, CondOp.LT, CondOp.SGT, CondOp.GT -> {
+                        check(false) {"After preprocessing no strict inequalities are expected"}
+                    }
+                }
+            }
+
+            /// Find trivial inconsistencies: if cst and not(cst) then false
+            for (cst in nonEqs) {
+                for (other in csts) {
+                    if (other.negate() == cst) {
+                        return null
+                    }
+                }
+            }
+
+            /// Find inconsistencies between interval constraints
+            val solver = IntervalSolver(intervalIneqs, UnsignedIntervalFactory())
+            val intervals = solver.run() ?: return null
+            /// Extract equalities from the interval solver
+            for ( (v, i) in intervals) {
+                if (i.lb == i.ub) {
+                    eqs.add(SbfLinearConstraint(CondOp.EQ, v, ExpressionNum(i.lb.toLong())))
+                }
+            }
+
+            /// Propagate all equalities
+            var outCsts = csts
+            for (eq in eqs) {
+                outCsts = evalEquality(outCsts as SetIntersectionDomain<SbfLinearConstraint>, eq)
+            }
+            return outCsts
+        }
+
+        /**
+         *  Preprocess [csts] for easier reasoning.
+         *  Return null if [csts] is detected as unsatisfiable.
+         */
+        private fun preprocess(csts: SetDomain<SbfLinearConstraint>): SetDomain<SbfLinearConstraint>? {
+            val nonTrivialCsts = csts.removeAll { it.isTautology()}
+            var out = SetIntersectionDomain<SbfLinearConstraint>()
+            for (c in nonTrivialCsts) {
+                if (c.isContradiction()) {
+                    return null
+                }
+                out = out.add(c.normalize()) as SetIntersectionDomain<SbfLinearConstraint>
+            }
+            return out
+        }
     }
 
-    fun isBottom() = csts.isBottom()
+    fun isBottom() = isBot
 
     fun contains(cst: SbfLinearConstraint): Boolean {
-        return csts.contains(cst)
+        return if (isBottom()) {
+            false
+        } else {
+            csts.contains(cst)
+        }
     }
 
 
@@ -183,91 +258,25 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                 newCsts = newCsts.remove(cst)
             }
         }
-        return NPDomain(newCsts)
+        return NPDomain(newCsts, isBot = false)
     }
+
 
 
     /**
-     * Very limited propagation.
-     *  - only equalities between variables and constants.
-     **/
-    private fun propagateOneStep(csts: SetDomain<SbfLinearConstraint>): SetDomain<SbfLinearConstraint> {
-        if (csts.isBottom()) {
-            return csts
+     *  Return null if `csts` is unsatisfiable. Note that it is not an "if and only if".
+     */
+    private fun propagate(maxNumSteps: Int = 5): SetDomain<SbfLinearConstraint>? {
+        if (isBottom()) {
+            return null
         }
 
-        /// Split `csts` into several kind of constraints
-        val eqs = mutableListOf<SbfLinearConstraint>()
-        val nonEqs = mutableListOf<SbfLinearConstraint>()
-        val intervalIneqs = mutableListOf<SbfLinearConstraint>()
-        for (c in csts.iterator()) {
-            when (c.op) {
-                CondOp.EQ -> eqs.add(c)
-                CondOp.SLE, CondOp.LE, CondOp.SGE, CondOp.GE -> {
-                    nonEqs.add(c)
-                    if (c.e1.getVariable() != null && c.e2.getConstant() != null) {
-                        intervalIneqs.add(c)
-                    }
-                }
-                CondOp.NE -> nonEqs.add(c)
-                CondOp.SLT, CondOp.LT, CondOp.SGT, CondOp.GT -> {
-                    check(false) {"After preprocessing no strict inequalities are expected"}
-                }
-            }
-        }
-
-        /// Find trivial inconsistencies: if cst and not(cst) then false
-        for (cst in nonEqs) {
-            for (other in csts.iterator()) {
-                if (other.negate() == cst) {
-                    return SetIntersectionDomain.mkBottom()
-                }
-            }
-        }
-
-        /// Find inconsistencies between interval constraints
-        val solver = IntervalSolver(intervalIneqs, UnsignedIntervalFactory())
-        val intervals = solver.run() ?: return SetIntersectionDomain.mkBottom()
-        /// Extract equalities from the interval solver
-        for ( (v, i) in intervals) {
-           if (i.lb == i.ub) {
-               eqs.add(SbfLinearConstraint(CondOp.EQ, v, ExpressionNum(i.lb.toLong())))
-           }
-        }
-
-        /// Propagate all equalities
-        var outCsts = csts
-        for (eq in eqs) {
-            outCsts = evalEquality(outCsts as SetIntersectionDomain<SbfLinearConstraint>, eq)
-        }
-        return outCsts
-    }
-
-    private fun preprocess(csts: SetDomain<SbfLinearConstraint>): SetDomain<SbfLinearConstraint> {
-        val nonTrivialCsts = csts.removeAll { it.isTautology()}
-        var out = SetIntersectionDomain<SbfLinearConstraint>()
-        for (c in nonTrivialCsts.iterator()) {
-            if (c.isContradiction()) {
-                return SetIntersectionDomain.mkBottom()
-            }
-            out = out.add(c.normalize()) as SetIntersectionDomain<SbfLinearConstraint>
-        }
-        return out
-    }
-
-    private fun propagate(maxNumSteps: Int = 5): SetDomain<SbfLinearConstraint> {
-        var newCsts = preprocess(csts)
-        if (newCsts.isBottom()) {
-            return newCsts
-        }
+        var newCsts: SetDomain<SbfLinearConstraint>? = preprocess(csts) ?: return null
         var change = true
         var i = 0
         while (change && i < maxNumSteps) {
-            val oldCsts = newCsts
-            newCsts = propagateOneStep(oldCsts)
-            if (newCsts.isBottom()) {
-                return newCsts
-            }
+            val oldCsts = newCsts!!
+            newCsts = propagateOneStep(oldCsts) ?: return null
             change = !(oldCsts.lessOrEqual(newCsts) && newCsts.lessOrEqual(oldCsts))
             i++
         }
@@ -279,43 +288,86 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             mkBottom()
         } else {
             val outCsts = propagate()
-            if (outCsts.isBottom() || isFalse(outCsts)) {
+            if (outCsts == null || isFalse(outCsts)) {
                 mkBottom()
             } else {
-                NPDomain(outCsts)
+                NPDomain(outCsts, isBot = false)
             }
         }
     }
 
-    fun lessOrEqual(other: NPDomain<D, TNum, TOffset>) = csts.lessOrEqual(other.csts)
+    fun lessOrEqual(other: NPDomain<D, TNum, TOffset>): Boolean {
+        return if (isBottom()) {
+            true
+        } else if (other.isBottom()) {
+            false
+        } else {
+            csts.lessOrEqual(other.csts)
+        }
+    }
 
-    fun join(other: NPDomain<D, TNum, TOffset>) = NPDomain<D, TNum, TOffset>(csts.join(other.csts))
+    fun join(other: NPDomain<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
+        return if (isBottom()) {
+            other
+        } else if (other.isBottom()) {
+            this
+        } else {
+            NPDomain(csts.join(other.csts), isBot = false)
+        }
+    }
 
     private fun havoc(v: ExpressionVar): NPDomain<D, TNum, TOffset> {
-        return NPDomain(csts.removeAll {
-            it.contains(v)
-        })
+        return if (isBottom()) {
+            this
+        } else {
+            NPDomain(
+                csts.removeAll {
+                    it.contains(v)
+                }, isBot = false
+            )
+        }
     }
 
     private fun substitute(oldV: ExpressionVar, newV: ExpressionVar): NPDomain<D, TNum, TOffset> {
-        return substitute(oldV, LinearExpression(newV))
+        return if (isBottom()) {
+            this
+        } else {
+            substitute(oldV, LinearExpression(newV))
+        }
     }
 
     private fun substitute(oldV: ExpressionVar, newE: LinearExpression): NPDomain<D, TNum, TOffset> {
+        if (isBottom()) {
+            return this
+        }
+
         var outCsts = SetIntersectionDomain<SbfLinearConstraint>()
-        for (c in csts.iterator()) {
+        for (c in csts) {
             val outCst = c.substitute(oldV, newE)
             outCsts = outCsts.add(outCst) as SetIntersectionDomain<SbfLinearConstraint>
         }
-        return NPDomain<D, TNum, TOffset>(outCsts).normalize()
+        return NPDomain<D, TNum, TOffset>(outCsts, isBot = false).normalize()
     }
 
-    private fun eval(v: ExpressionVar, n: ExpressionNum) =
-        NPDomain<D, TNum, TOffset>(eval(csts as SetIntersectionDomain<SbfLinearConstraint>, v, n)).normalize()
+    private fun eval(v: ExpressionVar, n: ExpressionNum): NPDomain<D, TNum, TOffset> {
+        return if (isBottom()) {
+            this
+        } else {
+            NPDomain<D, TNum, TOffset>(
+                eval(csts as SetIntersectionDomain<SbfLinearConstraint>, v, n),
+                isBot = false
+            ).normalize()
+        }
+    }
+
 
     private fun assign(lhsE: ExpressionVar, rhs: Value,
                        locInst: LocatedSbfInstruction, registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>,
                        vFac: VariableFactory): NPDomain<D, TNum, TOffset> {
+        if (isBottom()) {
+            return this
+        }
+
         // We use information from the forward analysis.
         // The current implementation is too rigid because it assumes that the forward domain is
         // convertible to SbfType, but in the future we would like to allow arbitrary domains as
@@ -360,7 +412,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             val linCons = SbfLinearConstraint (CondOp.EQ,
                 LinearExpression(RegisterVariable(reg, vFac)),
                 LinearExpression(StackSlotVariable(stackContent.offset, stackContent.width, vFac)))
-            val res = NPDomain<D, TNum, TOffset>(csts.add(linCons)).normalize()
+            val res = NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false).normalize()
             res
         } else {
             this
@@ -381,7 +433,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             return if (linCons.isContradiction()) {
                 mkBottom()
             } else {
-                NPDomain<D, TNum, TOffset>(csts.add(linCons)).normalize()
+                NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false).normalize()
             }
         }
 
@@ -403,99 +455,163 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             if (linCons.isContradiction()) {
                 mkBottom()
             } else {
-                NPDomain<D, TNum, TOffset>(csts.add(linCons)).normalize()
+                NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false).normalize()
             }
         }
     }
 
+    /** Extracts known constant length from a register, or throws a detailed error. */
+    private fun extractKnownLength(
+        locInst: LocatedSbfInstruction,
+        reg: SbfRegister,
+        registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): Long {
+        return (registerTypes.typeAtInstruction(locInst, reg) as? SbfType.NumType)?.value?.toLongOrNull()
+            ?: throw NPDomainError("Statically unknown length in ${locInst.inst}")
+    }
+
+    /** Ensures a stack pointer offset is not top, otherwise throws an exception */
+    private fun ensureKnownStackOffset(
+        locInst: LocatedSbfInstruction,
+        offset: TOffset,
+        reg: SbfRegister
+    ) {
+        if (offset.isTop()) {
+            throw NPDomainError("Statically unknown stack offset $reg in ${locInst.inst}")
+        }
+    }
+
+    private fun anyStackVariableInRange(cst: SbfLinearConstraint, interval: FiniteInterval): Boolean {
+        return cst.getVariables().any { v ->
+            v is StackSlotVariable && interval.overlap(v.toFiniteInterval())
+        }
+    }
+
     /**
-     *  Modeling of memcpy and memmove.
+     *  Analyze `memcpy(dst, src, len)` and `memmove(dst, src, len)`.
      *
-     *  Recall that NPDomain only reasons about stack memory (i.e., heap is completely ignored). Thus, we only care
+     *  Recall that [NPDomain] only reasons about stack memory (i.e., heap is completely ignored). Thus, we only care
      *  when we transfer to the stack.
      **/
     private fun analyzeMemTransfer(locatedInst: LocatedSbfInstruction,
                                    @Suppress("UNUSED_PARAMETER")
                                    vFac: VariableFactory,
                                    registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
+        if (isBottom()) {
+            return this
+        }
+
         val inst = locatedInst.inst
-        check(inst is SbfInstruction.Call) {"Precondition 1 of analyzeMemTransfer"}
+        check(inst is SbfInstruction.Call)
         val solanaFunction = SolanaFunction.from(inst.name)
-        check(solanaFunction == SolanaFunction.SOL_MEMCPY ||
-                    solanaFunction == SolanaFunction.SOL_MEMMOVE) {"Precondition 2 of analyzeMemTransfer"}
+        check(solanaFunction == SolanaFunction.SOL_MEMCPY || solanaFunction == SolanaFunction.SOL_MEMMOVE)
 
-        val dstTy = registerTypes.typeAtInstruction(locatedInst, SbfRegister.R1_ARG)
-        return if (dstTy is SbfType.PointerType.Stack) {
-            val lenTy = registerTypes.typeAtInstruction(locatedInst, SbfRegister.R3_ARG)
-            if (lenTy is SbfType.NumType) {
-                val len = lenTy.value.toLongOrNull()
-                    ?: throw NPDomainError("cannot analyze $solanaFunction on stack without knowing length (1)")
-                if (dstTy.offset.isTop()) {
-                    throw NPDomainError("cannot analyze $solanaFunction on stack without knowing destination offset")
-                }
+        val r0 = SbfRegister.R0_RETURN_VALUE
+        val r1 = SbfRegister.R1_ARG
+        val r2 = SbfRegister.R2_ARG
+        val r3 = SbfRegister.R3_ARG
 
-                // We don't need to be precise on `srcStart` for soundness. This is why we don't throw an exception.
-                val srcTy = registerTypes.typeAtInstruction(locatedInst, SbfRegister.R2_ARG)
-                val srcStart = if (srcTy is SbfType.PointerType.Stack) {
-                    srcTy.offset.toLongOrNull()
-                } else {
-                    null
-                }
+        val dstTy = registerTypes.typeAtInstruction(locatedInst, r1)
+        val outState = if (dstTy is SbfType.PointerType.Stack) {
+            val len = extractKnownLength(locatedInst, r3, registerTypes)
+            ensureKnownStackOffset(locatedInst, dstTy.offset, r1)
 
-                var newCsts = csts
+            // We don't need to be precise on `srcStart` for soundness. This is why we don't throw an exception.
+            val srcTy = registerTypes.typeAtInstruction(locatedInst, r2)
+            val srcStart = if (srcTy is SbfType.PointerType.Stack) {
+                srcTy.offset.toLongOrNull()
+            } else {
+                null
+            }
 
-                // We know that dstOffsets are sorted
-                val dstOffsets = dstTy.offset.toLongList()
-                check(dstOffsets.isNotEmpty()) {"destination offsets cannot be empty in analyzeMemTransfer"}
+            // We know that dstOffsets are sorted
+            val dstOffsets = dstTy.offset.toLongList()
+            check(dstOffsets.isNotEmpty()) {"destination offsets cannot be empty in analyzeMemTransfer"}
+            val dstInterval = FiniteInterval(dstOffsets.first(), dstOffsets.last() + len - 1)
+            // We don't need to be precise on `dstStart` for soundness
+            val dstStart = dstTy.offset.toLongOrNull()
 
-                val dstInterval = FiniteInterval(dstOffsets.first(), dstOffsets.last() + len - 1)
-
-                // We don't need to be precise on `dstStart` for soundness
-                val dstStart = dstTy.offset.toLongOrNull()
-
-                // Do the transfer from source to destination
-                // Note that the transfer function goes in the other direction
-                for (cst in csts.iterator()) {
-                    // If there is a constraint C over destination variables then
-                    //   1. add new C' by substituting destination variables with source variables
-                    //   2. remove C
-                    if (solanaFunction == SolanaFunction.SOL_MEMCPY && srcStart != null && dstStart != null) {
-                        var newCst: SbfLinearConstraint? = null
-                        for (dstV in cst.getVariables()) {
-                            if (dstV is StackSlotVariable) {
-                                val dstVInterval = FiniteInterval.mkInterval(dstV.offset, dstV.getWidth().toLong())
-                                val adjOffset = dstStart - srcStart
-                                if (dstInterval.includes(dstVInterval)) {
-                                    val srcV = StackSlotVariable(offset=dstV.offset - adjOffset, width= dstV.getWidth(), vFac)
-                                    newCst = newCst?.substitute(dstV, LinearExpression(srcV)) ?: cst.substitute(dstV, LinearExpression(srcV))
-                                }
-                            }
-                        }
-                        if (newCst != null) {
-                            newCsts = newCsts.add(newCst)
-                        }
-                    }
-
-                    // Remove constraint C if it uses a destination variable
+            var newCsts = csts
+            // Do the transfer from source to destination
+            // Note that the transfer function goes in the other direction
+            for (cst in csts) {
+                // If there is a constraint C over destination variables then
+                //   1. add new C' by substituting destination variables with source variables
+                //   2. remove C
+                if (solanaFunction == SolanaFunction.SOL_MEMCPY && srcStart != null && dstStart != null) {
+                    var newCst: SbfLinearConstraint? = null
                     for (dstV in cst.getVariables()) {
                         if (dstV is StackSlotVariable) {
-                            if (dstInterval.overlap(dstV.toFiniteInterval())) {
-                                newCsts = newCsts.remove(cst)
-                                break
+                            val dstVInterval = FiniteInterval.mkInterval(dstV.offset, dstV.getWidth().toLong())
+                            val adjOffset = dstStart - srcStart
+                            if (dstInterval.includes(dstVInterval)) {
+                                val srcV = StackSlotVariable(offset=dstV.offset - adjOffset, width= dstV.getWidth(), vFac)
+                                newCst = newCst?.substitute(dstV, LinearExpression(srcV)) ?: cst.substitute(dstV, LinearExpression(srcV))
                             }
                         }
                     }
+                    if (newCst != null) {
+                        newCsts = newCsts.add(newCst)
+                    }
                 }
-                NPDomain(newCsts)
-            } else {
-                throw NPDomainError("cannot analyze $solanaFunction on stack without knowing length (2)")
+
+                // Remove constraint `cst` if it uses a variable that refers to the destination slice
+                if (anyStackVariableInRange(cst, dstInterval)) {
+                    newCsts = newCsts.remove(cst)
+                }
             }
+            NPDomain(newCsts, isBot = false)
         } else {
             this
         }
+        return if (!inst.isPromotedMemcpy()) {
+            outState.havoc(RegisterVariable(Value.Reg(r0), vFac))
+        } else {
+            outState
+        }
+    }
+
+    /** Transfer function for `memset(ptr, val, len)` **/
+    private fun analyzeMemset(locatedInst: LocatedSbfInstruction,
+                              @Suppress("UNUSED_PARAMETER")
+                              vFac: VariableFactory,
+                              registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
+        val inst = locatedInst.inst
+        check(inst is SbfInstruction.Call)
+        val solanaFunction = SolanaFunction.from(inst.name)
+        check(solanaFunction == SolanaFunction.SOL_MEMSET)
+
+        val r0 = SbfRegister.R0_RETURN_VALUE
+        val r1 = SbfRegister.R1_ARG
+        val r3 = SbfRegister.R3_ARG
+
+        val ptrTy = registerTypes.typeAtInstruction(locatedInst, r1)
+        return if (ptrTy is SbfType.PointerType.Stack) {
+            val len = extractKnownLength(locatedInst, r3, registerTypes)
+            ensureKnownStackOffset(locatedInst, ptrTy.offset, r1)
+
+            // We know that dstOffsets are sorted
+            val dstOffsets = ptrTy.offset.toLongList()
+            check(dstOffsets.isNotEmpty()) {"destination offsets cannot be empty in analyzeMemset"}
+            val dstInterval = FiniteInterval(dstOffsets.first(), dstOffsets.last() + len - 1)
+
+            // Remove any constraint `cst` if it uses a variable that refers to the destination slice
+            var newCsts = csts
+            for (cst in csts) {
+                if (anyStackVariableInRange(cst, dstInterval)) {
+                    newCsts = newCsts.remove(cst)
+                }
+            }
+            NPDomain(newCsts, isBot = false)
+        } else {
+            this
+        }.havoc(RegisterVariable(Value.Reg(r0), vFac))
     }
 
     private fun analyzeSaveScratchRegisters(curVal: NPDomain<D, TNum, TOffset>, inst: SbfInstruction.Call, vFac: VariableFactory): NPDomain<D, TNum, TOffset> {
+        if (isBottom()) {
+            return this
+        }
+
         val r6 = Value.Reg(SbfRegister.R6)
         val r7 = Value.Reg(SbfRegister.R7)
         val r8 = Value.Reg(SbfRegister.R8)
@@ -521,6 +637,10 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
     }
 
     private fun analyzeRestoreScratchRegisters(curVal: NPDomain<D, TNum, TOffset>, inst: SbfInstruction.Call, vFac: VariableFactory): NPDomain<D, TNum, TOffset> {
+        if (isBottom()) {
+            return this
+        }
+
         val r6 = Value.Reg(SbfRegister.R6)
         val r7 = Value.Reg(SbfRegister.R7)
         val r8 = Value.Reg(SbfRegister.R8)
@@ -547,6 +667,10 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
 
     private fun analyze(locatedInst: LocatedSbfInstruction, vFac: VariableFactory,
                         registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
+        if (isBottom()) {
+            return this
+        }
+
         val curVal = this
         when (val inst = locatedInst.inst) {
             is SbfInstruction.Assume -> {
@@ -624,6 +748,9 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                         }
                         SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE -> {
                             analyzeMemTransfer(locatedInst, vFac, registerTypes)
+                        }
+                        SolanaFunction.SOL_MEMSET -> {
+                            analyzeMemset(locatedInst, vFac, registerTypes)
                         }
                         else -> {
                             curVal.havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
@@ -705,14 +832,21 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                             // remove any stack location that overlap with baseV
                             val curValNoOverlaps = curVal.remove(baseV.toFiniteInterval())
 
-                            val immVal: Long? = when (inst.value) {
-                                is Value.Imm -> inst.value.v.toLong()
-                                is Value.Reg -> getNum(registerTypes.typeAtInstruction(locatedInst, inst.value.r))
+                            val rhsValues: List<Long>? = when (inst.value) {
+                                is Value.Imm -> listOf(inst.value.v.toLong())
+                                is Value.Reg -> {
+                                    (registerTypes.typeAtInstruction(locatedInst, inst.value.r) as? SbfType.NumType)?.value?.toLongList()?.let {
+                                        it.ifEmpty { null }
+                                    }
+                                }
                             }
-                            if (immVal != null) {
+                            if (rhsValues != null) {
                                 // Use of the forward analysis to refine backward analysis.
                                 // See above discussion applies here.
-                                curValNoOverlaps.eval(baseV, ExpressionNum(immVal))
+                                check(rhsValues.isNotEmpty())
+                                rhsValues.fold(mkBottom()) { acc, rhsValue ->
+                                    acc.join(curValNoOverlaps.eval(baseV, ExpressionNum(rhsValue)))
+                                }
                             } else {
                                 check(inst.value is Value.Reg) { "NPDomain in memory store expects the value to be a register" }
                                 val regV = RegisterVariable(inst.value, vFac)
@@ -768,9 +902,9 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         //
         // (Note that if the block has no successors can be only visited by the backward analysis if it has an assertion)
         for (locInst in b.getLocatedInstructions().reversed()) {
-            if (debugNPDomain) {
-                sbfLogger.info { "CoI analysis of ${b.getLabel()}::${locInst.inst}: $curVal" }
-            }
+
+            dbg { "Backward scalar analysis of ${b.getLabel()}::${locInst.inst}: $curVal" }
+
             if (curVal.isBottom()) {
                 return Pair(curVal, outInst)
             }
@@ -780,17 +914,14 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                 outInst[locInst] = curVal
             }
             curVal = if (propagateOnlyFromAsserts && isSink && !analyzedLastAssert) {
-                if (debugNPDomain) {
-                    sbfLogger.info {"\tSkipped analysis of ${locInst.inst} because no assertion found yet"}
-                }
+                dbg {"\tSkipped analysis of ${locInst.inst} because no assertion found yet"}
                 curVal
             } else {
                 curVal.analyze(locInst, vFac, registerTypes)
             }
 
-            if (debugNPDomain) {
-                sbfLogger.info { "res=${curVal}" }
-            }
+            dbg { "res=${curVal}" }
+
         }
         return Pair(curVal, outInst)
     }

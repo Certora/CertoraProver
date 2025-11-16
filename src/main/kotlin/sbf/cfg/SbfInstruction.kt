@@ -501,6 +501,11 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
                     CompilerRtFunction.from(name) != null)
         }
 
+        fun isPromotedMemcpy(): Boolean {
+            return SolanaFunction.from(name) == SolanaFunction.SOL_MEMCPY &&
+                   metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
+        }
+
         override val writeRegister: Set<Value.Reg>
             get() {
                 val cvtFunction = CVTFunction.from(name)

@@ -130,17 +130,10 @@ class MoveIntervalInterpreter(val g: MoveTACCommandGraph) {
     private val simpleInterpreter = SimpleIntervalInterpreter(qualifierManager)
 
     private fun refToLocVars(ref: TACSymbol.Var, where: CmdPointer) =
-        refToLocs(ref, where).map {
-            referenceAnalysis.idToVar[it]!!
-        }
-
-    private fun refToLocs(ref: TACSymbol.Var, where: CmdPointer) =
-        refTargets(ref, where)?.mapToSet { tgt ->
-            tgt.locId
-        }.orEmpty()
+        refTargets(ref, where).mapToSet { it.locVar }
 
     private fun refTargets(ref: TACSymbol.Var, where: CmdPointer) =
-        referenceAnalysis.refTargets[where]?.get(ref)
+        referenceAnalysis.refTargetsBefore(where, ref)
 
     private fun TACCmd.Move.modified(where: CmdPointer): Collection<TACSymbol.Var> = when(this) {
         is TACCmd.Move.VecPopBackCmd -> setOf(dst) + refToLocVars(ref, where)
@@ -176,7 +169,7 @@ class MoveIntervalInterpreter(val g: MoveTACCommandGraph) {
             }
 
             is TACCmd.Move.VecLenCmd -> {
-                val targets = refTargets(cmd.ref, ptr) ?: return toStep
+                val targets = refTargets(cmd.ref, ptr)
 
                 // Can't really do anything with a nested vector
                 if (targets.any { it.path.contains(ReferenceAnalysis.PathComponent.VecElem) }) {

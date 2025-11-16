@@ -149,11 +149,11 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     val xHighE = exprBuilder.mkVar(SbfRegister.R3_ARG).asSym()
     val yLowE  = exprBuilder.mkVar(SbfRegister.R4_ARG).asSym()
     val yHighE = exprBuilder.mkVar(SbfRegister.R5_ARG).asSym()
-    val args = U128Operands(resLow.tacVar, resHigh.tacVar, overflow?.tacVar, xLowE, xHighE, yLowE, yHighE)
+    val args = U128BinaryOperands(resLow.tacVar, resHigh.tacVar, overflow?.tacVar, xLowE, xHighE, yLowE, yHighE)
 
     val (xMath, yMath, resMath) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())
     val cmds = mutableListOf(Debug.externalCall(inst))
-    applyU128Operation(args, cmds) { res, _, x, y ->
+    applyU128BinaryOperation(args, cmds) { res, _, x, y ->
         cmds.add(promoteToMathInt(x.asSym(), xMath))
         cmds.add(promoteToMathInt(y.asSym(), yMath))
         cmds.add(assign(resMath, TACExpr.BinOp.IntDiv(

@@ -1274,6 +1274,11 @@ data class CVLInvariant(
         if (fallbacks.size > 1) { collectError(DuplicatePreserved(this@CVLInvariant, fallbacks, DuplicatePreserved.Fallback())) }
         fallbacks.singleOrNull()?. let { checkWithParams(it.withParams, "fallback", it.range) }
 
+        // Check for duplicate constructor preserved blocks
+        val constructors = proof.preserved.filterIsInstance<CVLPreserved.Constructor>()
+        if (constructors.size > 1) { collectError(DuplicatePreserved(this@CVLInvariant, constructors, DuplicatePreserved.Constructor())) }
+        constructors.singleOrNull()?. let { checkWithParams(it.withParams, "constructor", it.range) }
+
         // Check for duplicate explicit preserved blocks
         val (duplicated, singles) = proof.preserved.filterIsInstance<CVLPreserved.ExplicitMethod>()
             .groupBy { it.methodSignature.qualifiedMethodName.host.name to it.methodSignature.sighashInt }.values
@@ -1389,6 +1394,20 @@ sealed class CVLPreserved : CreatesScope, AmbiSerializable {
 
         override fun toString(): String {
             return "preserved on transaction boundary in scope $scope"
+        }
+    }
+
+    @Serializable
+    data class Constructor(
+        override val range: Range,
+        override val block: List<CVLCmd>,
+        override val withParams: List<CVLParam>,
+        override val scope: CVLScope
+    ) : CVLPreserved() {
+        override val params: List<CVLParam> get() = emptyList()
+
+        override fun toString(): String {
+            return "preserved constructor in scope $scope"
         }
     }
 }

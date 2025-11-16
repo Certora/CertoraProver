@@ -562,4 +562,44 @@ class IntTest : WasmTestFixture() {
             certoraAssert(fake() le u64(ULong.MAX_VALUE))
         })
     }
+
+    @Test
+    fun `i32 ctz range`() {
+        val fake = WatImport("fake", "fake", result = i32)
+        assertTrue(verifyWasm(allowUnresolvedCalls = true) {
+            certoraAssert(
+                fake().ctz() le i32(32)
+            )
+        })
+    }
+
+    @Test
+    fun `i64 ctz range`() {
+        val fake = WatImport("fake", "fake", result = i64)
+        assertTrue(verifyWasm(allowUnresolvedCalls = true) {
+            certoraAssert(
+                fake().ctz() le i64(64)
+            )
+        })
+    }
+
+    @Test
+    fun `i32 clz range`() {
+        val fake = WatImport("fake", "fake", result = i32)
+        assertTrue(verifyWasm(allowUnresolvedCalls = true) {
+            certoraAssert(
+                fake().clz() le i32(32)
+            )
+        })
+    }
+
+    @Test
+    fun `i64 clz range`() {
+        val fake = WatImport("fake", "fake", result = i64)
+        assertTrue(verifyWasm(allowUnresolvedCalls = true) {
+            certoraAssert(
+                fake().clz() le i64(64)
+            )
+        })
+    }
 }

@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"Equivalence of V1 and V2 on entry(bytes,uint256)": "SUCCESS"
+	}
+}

@@ -91,6 +91,22 @@ class CodeGen private constructor() {
         }
     }
 
+    fun e(exp: TACExpr) = VarProxyProvider(exp.tagAssumeChecked) { exp }
+
+    infix fun TACSymbol.Var.`=`(e: TACExpr) {
+        commands.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
+            lhs = this,
+            rhs = e
+        ))
+    }
+
+    infix fun TACSymbol.Var.`=`(e: TACExprFactoryExtensions.() -> ToTACExpr) {
+        commands.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
+            lhs = this,
+            rhs = TACExprFactoryExtensions.e().toTACExpr()
+        ))
+    }
+
     fun e(tag: Tag = Tag.Bit256, x: TACExprFactoryExtensions.() -> ToTACExpr) = VarProxyProvider(tag, x)
     operator fun TACCmd.Simple.unaryPlus() {
         commands.add(this)

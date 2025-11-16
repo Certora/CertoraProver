@@ -33,7 +33,9 @@ import analysis.worklist.StepResult
 import tac.NBId
 import utils.lazy
 import utils.parallelStream
+import utils.`to?`
 import vc.data.TACCmd
+import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Stream
 
 /** A worklist-based interval analysis */
@@ -58,6 +60,8 @@ abstract class AbstractNaturalBlockScheduledAnalysis<W, T: TACCmd, U: LTACCmdGen
     private val inState = mutableMapOf<NBId, W>()
     private val outState = mutableMapOf<NBId, W>()
 
+    private val inStateCache = ConcurrentHashMap<CmdPointer, W>()
+
     // Maps loop header |-> loop
     private val loopsByHead by lazy {
         getNaturalLoopsGeneric(graph, dom).groupBy { it.head }
@@ -76,6 +80,30 @@ abstract class AbstractNaturalBlockScheduledAnalysis<W, T: TACCmd, U: LTACCmdGen
             st = step(cmd, st) ?: return null
         }
         throw IllegalArgumentException("No in state for $ptr")
+    }
+
+    private fun firstCachedPred(ptr: CmdPointer): Pair<CmdPointer, W?> =
+        graph
+            .lcmdSequence(ptr.block, 0, ptr.pos, true)
+            .firstNotNullOfOrNull { it.ptr `to?` inStateCache[it.ptr] } ?: run {
+            val start = ptr.copy(pos = 0)
+            val initState = inState(start)
+            if (initState != null) {
+                inStateCache[start] = initState
+            }
+            start to initState
+        }
+
+    fun cachingInState(ptr: CmdPointer): W? {
+        val (start, cachedState) = firstCachedPred(ptr)
+
+        var st: W = cachedState ?: return null
+
+        for (cmd in graph.iterateBlock(start, ptr.pos)) {
+            st = step(cmd, st) ?: return null
+            inStateCache[cmd.ptr] = st
+        }
+        return st
     }
 
     fun parallelStreamStates(): Stream<Pair<CmdPointer, W>> {

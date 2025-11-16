@@ -130,6 +130,7 @@ enum class LoggerTypes : LoggerName {
     REPORT_UTILS,
     SBF,
     SBF_SCALAR_ANALYSIS,
+    SBF_BACKWARD_SCALAR_ANALYSIS,
     WASM,
     WASM_ANALYSIS,
     CVLR,

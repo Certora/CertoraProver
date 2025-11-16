@@ -23,6 +23,7 @@ import sbf.domains.*
 import sbf.support.UnknownStackContentError
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.*
+import sbf.callgraph.SolanaFunction
 import sbf.support.UnknownMemcpyLenError
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
@@ -51,6 +52,8 @@ class MemoryMemcpyTest {
                                   node: PTANode<Flags>) {
         Assertions.assertEquals(true, load(g, base, offset, width)?.getNode()?.id == node.getNode().id)
     }
+
+    private fun createMemcpy() = LocatedSbfInstruction(Label.fresh(),0, SbfInstruction.Call(SolanaFunction.SOL_MEMCPY.syscall.name))
 
     @Test
     fun test01() {
@@ -82,7 +85,7 @@ class MemoryMemcpyTest {
         val scalars = ScalarDomain(sbfTypesFac)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -124,7 +127,7 @@ class MemoryMemcpyTest {
         val scalars = ScalarDomain(sbfTypesFac)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -167,7 +170,7 @@ class MemoryMemcpyTest {
         val scalars = ScalarDomain(sbfTypesFac)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         Assertions.assertEquals(true, !dstN.isUnaccessed())
@@ -220,7 +223,7 @@ class MemoryMemcpyTest {
         // memcpy(r1, r2, 24)
 
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -274,7 +277,7 @@ class MemoryMemcpyTest {
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -331,7 +334,7 @@ class MemoryMemcpyTest {
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         Assertions.assertEquals(true, !n4.getNode().isUnaccessed())
@@ -388,7 +391,7 @@ class MemoryMemcpyTest {
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.anyNum()))
         // memcpy(r1, r2, r3)
         println("Before memcpy(r1,r2,r3) with r3=top -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,r3) with r3=top -> $g")
 
         // It should unify the nodes pointed by src with those pointed by dst.
@@ -441,7 +444,7 @@ class MemoryMemcpyTest {
         try {
             // memcpy(r1, r2, r3)
             println("Before memcpy(r1,r2,r3) with r3=top -> $g")
-            g.doMemcpy(scalars, newGlobalVariableMap())
+            g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
             println("After memcpy(r1,r2,r3) with r3=top -> $g")
         }
         catch (e: UnknownMemcpyLenError) {
@@ -507,7 +510,7 @@ class MemoryMemcpyTest {
         // memcpy(r1, r2, 24)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
 
@@ -589,7 +592,7 @@ class MemoryMemcpyTest {
         // memcpy(r1, r2, 24)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         val c1 = stackC.getNode().getSucc(PTAField(PTAOffset(3030), 8))
@@ -655,7 +658,7 @@ class MemoryMemcpyTest {
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         // It should unify the nodes pointed by src with those pointed by dst.
@@ -719,7 +722,7 @@ class MemoryMemcpyTest {
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println( "Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println( "After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -798,7 +801,7 @@ class MemoryMemcpyTest {
         // memcpy(r1, r2, 24)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32UL)))
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         Assertions.assertEquals(true, load(g, r1, 0, 8)?.getNode() == n1)
@@ -866,7 +869,7 @@ class MemoryMemcpyTest {
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -937,7 +940,7 @@ class MemoryMemcpyTest {
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(scalars, newGlobalVariableMap())
+        g.doMemcpy(createMemcpy(), scalars, newGlobalVariableMap())
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)

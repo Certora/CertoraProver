@@ -667,14 +667,14 @@ def validate_address(value: str) -> str:
     return value
 
 
-def validate_solc_via_ir_map(args: Dict[str, bool]) -> None:
+def validate_boolean_map(args: Dict[str, bool], attr_name: str) -> None:
+    attr_map_name = attr_name + "_map"
     if not isinstance(args, dict):
-        raise Util.CertoraUserInputError("'solc_via_ir_map' should be stored as a map "
-                                         f"(type was {type(args).__name__})")
+        raise Util.CertoraUserInputError(f"'{attr_map_name}' should be stored as a map (type was {type(args).__name__})")
 
     for contract, value in args.items():
         if not isinstance(value, bool):
-            raise Util.CertoraUserInputError(f"'solc_via_ir_map' should map {contract} to a boolean value, "
+            raise Util.CertoraUserInputError(f"'{attr_map_name}' should map {contract} to a boolean value, "
                                              f"got ({value}, type: {type(value).__name__})")
 
     values = args.values()
@@ -682,9 +682,15 @@ def validate_solc_via_ir_map(args: Dict[str, bool]) -> None:
 
     if all(x == first for x in values):
         if first:
-            validation_logger.warning("all via_ir values are set to True '--solc_via_ir' can be used instead")
+            validation_logger.warning(f"all {attr_map_name} values are set to True '{attr_name}' can be used instead")
         else:
-            validation_logger.warning("all via_ir values are set to False, this flag/attribute can be omitted")
+            validation_logger.warning(f"all {attr_map_name} values are set to False, this flag/attribute can be omitted")
+
+def validate_solc_via_ir_map(args: Dict[str, bool]) -> None:
+    validate_boolean_map(args, 'solc_via_ir')
+
+def validate_vyper_venom_map(args: Dict[str, bool]) -> None:
+    validate_boolean_map(args, 'vyper_venom')
 
 def validate_solc_evm_version_map(args: Dict[str, str]) -> None:
     if not isinstance(args, dict):
@@ -838,7 +844,7 @@ def validate_evm_rule_name(rule_str: str) -> str:
         return __validate_solidity_id(rule_str, "rule")
 
 def validate_move_function_name(name: str) -> str:
-    if not re.match(r"^0x[0-9a-fA-F]+::[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_]*$", name):
+    if not re.match(r"^(0x[0-9a-fA-F]+|([a-zA-Z_][a-zA-Z0-9_]*))::[a-zA-Z_][a-zA-Z0-9_]*::[a-zA-Z_][a-zA-Z0-9_]*$", name):
         raise Util.CertoraUserInputError(f"invalid Move function name \"{name}\": must be a fully-qualified Move "
                                          "function name")
     return name
@@ -859,7 +865,7 @@ def validate_msg(msg: str) -> str:
         msg = (msg[:MAX_MSG_LEN - 3] + "...")
         validation_logger.warning(f"'msg' can't accept strings longer than {MAX_MSG_LEN} chars, string was truncated")
 
-    additional_chars = {'(', ' ', ',', '/', '[', "'", '-', '"', '_', ']', '.', ')', ':', '\\', '='}
+    additional_chars = {'(', ' ', ',', '/', '[', "'", '-', '"', '_', ']', '.', ')', ':', '\\', '=', '*', '$'}
     valid_chars = set(string.ascii_letters) | set(string.digits) | additional_chars
     invalid_chars = set(msg) - valid_chars
     if len(invalid_chars) > 0:

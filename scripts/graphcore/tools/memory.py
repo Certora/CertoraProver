@@ -13,7 +13,7 @@
 #      You should have received a copy of the GNU General Public License
 #      along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from typing import Literal, Optional, override, Protocol, Any, Self, TypeVar, Generic, Iterator
+from typing import Literal, Optional, override, Protocol, Any, TypeVar, Generic, Iterator, ContextManager, TypeAlias, LiteralString, cast
 from typing_extensions import Iterable
 from abc import ABC, abstractmethod
 import shutil
@@ -23,7 +23,7 @@ import pathlib
 from contextlib import contextmanager
 import re
 
-from psycopg2.extensions import connection
+from psycopg import Connection
 
 from langchain_core.tools import BaseTool, tool
 
@@ -206,12 +206,16 @@ class MemoryBackend(ABC):
         self.write_file(path, new_content)
         return f"File {path} has been edited"
 
-class DBCursor(Protocol):
+
+Q = TypeVar("Q", contravariant=True)
+
+
+class DBCursorG(Protocol[Q]):
     """
     Intersection type necessary for the SQLBackend, implemented by both the
     postgres and sqlite cursor classes.
     """
-    def execute(self, query: str, vars: tuple[Any, ...] | dict[str, Any], /) -> Any:
+    def execute(self, query: Q, vars: tuple[Any, ...] | dict[str, Any], /) -> Any:
         ...
 
     def fetchone(self, /) -> None | tuple[Any, ...]:
@@ -220,38 +224,16 @@ class DBCursor(Protocol):
     def close(self) -> None:
         ...
 
-    def __iter__(self) -> Self:
-        ...
-
-    def __next__(self) -> tuple[Any, ...]:
+    def __iter__(self) -> Iterator[tuple[Any, ...]]:
         ...
 
     @property
     def rowcount(self) -> int:
         ...
 
+DBCursor : TypeAlias = DBCursorG[str]
 
-class DBConnection(Protocol):
-    """
-    Intersection type necessary for the SQLBackend, implemented by both the
-    postgres and sqlite connection classes.
-    """
-    def __enter__(self) -> Self:
-        ...
-
-    def __exit__(
-        self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
-        /
-    ) -> Optional[bool]:
-        ...
-
-    def cursor(self, /) -> DBCursor:
-        ...
-
-CONN = TypeVar('CONN', bound=DBConnection)
+CONN = TypeVar('CONN')
 
 CURSOR = TypeVar('CURSOR', bound=DBCursor)
 
@@ -259,10 +241,12 @@ class SQLBackend(MemoryBackend, Generic[CONN]):
     """
     Generic SQL backend for the memory tool.
     """
-    def __init__(self, ns: str, conn: CONN):
+    def __init__(self, ns: str, conn: CONN, init_from: str | None = None):
         self.conn = conn
         self.ns = ns
         self._setup()
+        if self._is_empty() and init_from is not None:
+            self._init_from(init_from)
 
     @property
     @abstractmethod
@@ -286,21 +270,6 @@ class SQLBackend(MemoryBackend, Generic[CONN]):
         Create the table/indices necessary for the operation of this memory backend.
         """
         ...
-
-    @contextmanager
-    def _cursor(self) -> Iterator[DBCursor]:
-        """
-        postgres' cursor is a context manager, sqlite's isn't.
-        Both use the connection as a context manager for transaction control.
-        Paper over this difference, so that when `with self._cursor()` exits
-        the transaction is committed (or rolled back) and the cursor is closed.
-        """
-        with self.conn:
-            cur = self.conn.cursor()
-            try:
-                yield cur
-            finally:
-                cur.close()
 
     def _mkdirs(self, cursor: DBCursor, path: pathlib.Path) -> str | None:
         if str(path) == '/':
@@ -346,7 +315,7 @@ INSERT INTO memories_fs(
                 self._mkdirs(cur, new_parent)
                 cur.execute(f"""
 UPDATE memories_fs SET entry_name = {self.pos_placeholder}, full_path = {self.pos_placeholder}, parent_path = {self.pos_placeholder} WHERE full_path = {self.pos_placeholder} AND namespace = {self.pos_placeholder}
-                            """, (new_path_obj.name, new_path, new_parent, self.ns))
+                            """, (new_path_obj.name, new_path, new_parent, old_path, self.ns))
                 return f"Renamed file {old_path} -> {new_path}"
         with self._cursor() as cur:
             self._mkdirs(cur, new_path_obj.parent)
@@ -388,23 +357,20 @@ END WHERE namespace = {self.named_placeholder("ns")} AND full_path LIKE {self.na
 
     @override
     def list_dir(self, path: str) -> Iterable[tuple[str, bool]]:
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             cur.execute(f"SELECT entry_name, is_directory FROM memories_fs WHERE namespace = {self.pos_placeholder} AND parent_path = {self.pos_placeholder}", (self.ns, path))
             for r in cur:
                 yield (r[0], r[1])
 
     @override
     def rm(self, path: str) -> str:
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             cur.execute(f"DELETE FROM memories_fs WHERE namespace = {self.pos_placeholder} AND full_path = {self.pos_placeholder}", (self.ns, path))
             return f"Deleted {cur.rowcount} entries"
 
     @override
     def read_file(self, path: str) -> Optional[str]:
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             cur.execute(f"SELECT contents FROM memories_fs WHERE namespace = {self.pos_placeholder} AND full_path = {self.pos_placeholder} AND contents IS NOT NULL", (self.ns, path))
             r = cur.fetchone()
             if r is None:
@@ -413,8 +379,7 @@ END WHERE namespace = {self.named_placeholder("ns")} AND full_path LIKE {self.na
 
     @override
     def write_file(self, path: str, content: str):
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             target_path = pathlib.Path(path)
             self._mkdirs(cur, path=target_path.parent)
             cur.execute(f"""
@@ -425,17 +390,34 @@ ON CONFLICT(namespace, full_path) DO UPDATE SET contents = excluded.contents
 
     @override
     def stat(self, path: str) -> MemoryBackend.FileStat:
-        with self.conn:
-            cur = self.conn.cursor()
+        with self._cursor() as cur:
             cur.execute(f"SELECT is_directory FROM memories_fs WHERE namespace = {self.pos_placeholder} AND full_path = {self.pos_placeholder}", (self.ns, path))
             r = cur.fetchone()
             if not r:
                 return MemoryBackend.FileStat(exists=False, is_dir=False)
             return MemoryBackend.FileStat(exists=True, is_dir=r[0])
 
-class PostgresMemoryBackend(SQLBackend[connection]):
-    def __init__(self, ns: str, conn: connection):
-        super().__init__(ns, conn)
+    def _is_empty(self) -> bool:
+        with self._cursor() as cur:
+            cur.execute(f"SELECT count(*) FROM memories_fs WHERE namespace = {self.pos_placeholder} AND full_path != '/memories'", (self.ns,))
+            r = cur.fetchone()
+            return r is not None and r[0] == 0
+
+    def _init_from(self, other_ns: str) -> None:
+        with self._cursor() as cur:
+            cur.execute(f"""
+INSERT INTO memories_fs(namespace, full_path, entry_name, parent_path, is_directory, contents)
+SELECT {self.pos_placeholder}, full_path, entry_name, parent_path, is_directory, contents FROM memories_fs as s
+WHERE s.namespace = {self.pos_placeholder}
+                        """, (self.ns, other_ns))
+
+    @abstractmethod
+    def _cursor(self) -> ContextManager[DBCursor]:
+        ...
+
+class PostgresMemoryBackend(SQLBackend[Connection]):
+    def __init__(self, ns: str, conn: Connection, init_from: str | None = None):
+        super().__init__(ns, conn, init_from)
 
     @property
     def pos_placeholder(self) -> str:
@@ -444,6 +426,35 @@ class PostgresMemoryBackend(SQLBackend[connection]):
     @override
     def named_placeholder(self, nm: str) -> str:
         return f"%({nm})s"
+
+    def _adapt(self, q: DBCursorG[LiteralString]) -> DBCursor:
+        """
+        The only reason postgres' cursor isn't a DBCursor is because of their "clever"
+        insistence queries are literalstrings. The attempt to prevent sql injections is admirable (I guess)
+        but annoying for our purposes. This function ensure that the ONLY difference between the postgres cursor
+        is that it expects a literal string (vs a normal string) and then cast them.
+
+        This casting is itself safe because the runtime representation of literal strings is the same as regular strings,
+        and we are extra careful to not have sql injections in our string interpolation.
+        """
+        return cast(DBCursor, q)
+
+    @contextmanager
+    def _cursor(self) -> Iterator['DBCursor']:
+        """
+        Override to handle PostgreSQL connection properly.
+        Don't use the connection as context manager to avoid closing it.
+        Instead, manually manage transactions per cursor operation.
+        """
+        cur = self.conn.cursor()
+        try:
+            yield self._adapt(cur)
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        finally:
+            cur.close()
 
     @override
     def _setup(self):
@@ -466,6 +477,7 @@ CREATE TABLE IF NOT EXISTS memories_fs(
 
 CREATE INDEX IF NOT EXISTS memories_namespace_path ON memories_fs(namespace, full_path text_pattern_ops); -- text pattern ops lets us use the index for LIKE
                          """)
+        self.conn.commit()
 
     @override
     def do_replace_first(self, replace_attribute: str, to_replace: str, replace_with: str, seq: int) -> tuple[str, dict[str, str]]:
@@ -477,10 +489,22 @@ CREATE INDEX IF NOT EXISTS memories_namespace_path ON memories_fs(namespace, ful
             replace_str_p: replace_with
         })
 
+    def __del__(self):
+        try:
+            if hasattr(self, 'conn') and self.conn and not self.conn.closed:
+                # Commit any pending transaction before closing
+                if not self.conn.autocommit:
+                    try:
+                        self.conn.commit()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
 
 class SqliteMemoryBackend(SQLBackend[sqlite3.Connection]):
-    def __init__(self, ns: str, conn: sqlite3.Connection):
-        super().__init__(ns, conn)
+    def __init__(self, ns: str, conn: sqlite3.Connection, init_from: str | None = None):
+        super().__init__(ns, conn, init_from)
 
     @property
     def pos_placeholder(self) -> str:
@@ -489,6 +513,21 @@ class SqliteMemoryBackend(SQLBackend[sqlite3.Connection]):
     @override
     def named_placeholder(self, nm: str) -> str:
         return f":{nm}"
+
+    @contextmanager
+    def _cursor(self) -> Iterator[DBCursor]:
+        """
+        postgres' cursor is a context manager, sqlite's isn't.
+        Both use the connection as a context manager for transaction control.
+        Paper over this difference, so that when `with self._cursor()` exits
+        the transaction is committed (or rolled back) and the cursor is closed.
+        """
+        with self.conn:
+            cur = self.conn.cursor()
+            try:
+                yield cur
+            finally:
+                cur.close()
 
     @override
     def _setup(self):
@@ -532,8 +571,10 @@ class FileSystemMemoryBackend(MemoryBackend):
     """
     A simple backend that "mounts" `/memories` to the storage folder given as the constructor arg.
     """
-    def __init__(self, storage_folder: pathlib.Path):
+    def __init__(self, storage_folder: pathlib.Path, init_from: pathlib.Path | None = None):
         self.memory_root = storage_folder
+        if self._is_empty() and init_from is not None:
+            self._init_from(init_from)
 
     def _relativize(self, path: str) -> pathlib.Path:
         r = pathlib.Path(path).relative_to("/memories")
@@ -583,6 +624,20 @@ class FileSystemMemoryBackend(MemoryBackend):
         r = self._relativize(path)
         for it in r.iterdir():
             yield (str(it.relative_to(r)), it.is_dir())
+
+    def _is_empty(self) -> bool:
+        try:
+            next(pathlib.Path(self.memory_root).rglob("*"))
+            return False
+        except StopIteration:
+            return True
+
+    def _init_from(self, other_dir: pathlib.Path) -> None:
+        for r in other_dir.glob("*"):
+            if r.is_dir():
+                shutil.copytree(src=r, dst=pathlib.Path(self.memory_root) / r.name)
+            else:
+                shutil.copy(r, self.memory_root)
 
 def memory_tool(backend: MemoryBackend) -> BaseTool:
     """

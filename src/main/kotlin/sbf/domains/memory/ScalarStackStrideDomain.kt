@@ -120,15 +120,13 @@ data class SetOfStackStridePredicate(private val predicates: StackStridePredicat
         fun mkTop() =  SetOfStackStridePredicate(StackStridePredicateSetT.mkTop())
     }
 
-    override fun isBottom() = predicates.isBottom()
-
+    /** Return true if no predicates **/
     override fun isTop() = predicates.isTop()
 
+    /** Required by [StackEnvironmentValue], nobody should call it except [StackEnvironmentValue] **/
+    override fun isBottom() = false
+
     override fun mkTop() = SetOfStackStridePredicate(StackStridePredicateSetT.mkTop())
-
-    fun size() = predicates.size()
-
-    fun isEmpty() = size() == 0
 
     override fun join(other: SetOfStackStridePredicate) =
         SetOfStackStridePredicate(predicates.join(other.predicates) as StackStridePredicateSetT)
@@ -150,12 +148,12 @@ data class SetOfStackStridePredicate(private val predicates: StackStridePredicat
     fun transform(pred: (StackStridePredicate) -> Boolean,
                   transformer: (StackStridePredicate) -> StackStridePredicate
     ): SetOfStackStridePredicate {
-        if (isBottom() || isTop()) {
+        if (isTop()) {
             return this
         }
 
         val updates = mutableListOf<StackStridePredicate>()
-        for (p in predicates.iterator()) {
+        for (p in predicates) {
             if (pred(p)) {
                 updates.add(p)
             }
@@ -251,7 +249,7 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         }
 
         for ((reg, preds) in elements) {
-            if (!preds.isTop() && !preds.isBottom()) {
+            if (!preds.isTop()) {
                 val oldScalarVal = scalars.getValue(reg)
                 var refinedScalarVal = oldScalarVal
                 for (pred in preds) {
@@ -485,7 +483,7 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
 
         val oldPredicates = base.getRegister(reg)
         // Important: if we have already some predicate for `reg` we don't trigger the inference process again
-        if (!oldPredicates.isTop() && !oldPredicates.isEmpty()) {
+        if (!oldPredicates.isTop()) {
             return SetOfStackStridePredicate()
         }
 
@@ -582,7 +580,7 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
                                         acc.add(pred.update(inst.op, k))
                                     }
 
-                                if (post.isEmpty()) {
+                                if (post.isTop()) {
                                     forget(lhs)
                                 } else {
                                     // We intentionally do not preserve old predicates
@@ -909,7 +907,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         for (i in 0 until NUM_OF_SBF_REGISTERS) {
             val reg = Value.Reg(SbfRegister.getByValue(i.toByte()))
             val preds = other.predicates.getRegister(reg)
-            if (!preds.isTop() && !preds.isBottom()) {
+            if (!preds.isTop()) {
                 val scalarVal = this.scalars.getValue(reg)
                 // Predicates from `other` that are also true in `this`
                 val importedPredicates = preds.fold(SetOfStackStridePredicate()) { acc, pred ->
@@ -974,8 +972,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
                             if (k != 0L) {
                                 // REDUCTION: if pointer arithmetic over the stack: infer new predicate
                                 predicates.inferPredicate(inst.dst, scalars, inst).let { preds ->
-                                    check(!preds.isTop() && !preds.isBottom()) { "inferPredicate cannot return neither bottom nor top" }
-                                    if (!preds.isEmpty()) {
+                                    if (!preds.isTop()) {
                                         predicates.setRegister(inst.dst, preds)
                                     }
                                 }

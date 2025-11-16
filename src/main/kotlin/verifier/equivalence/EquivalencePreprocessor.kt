@@ -17,9 +17,15 @@
 
 package verifier.equivalence
 
+import analysis.hash.DisciplinedHashModel
+import analysis.icfg.CallGraphBuilder
+import analysis.icfg.ContractLinker
+import analysis.icfg.ExtCallSummarization
+import analysis.icfg.Inliner
 import analysis.ip.InternalFunctionExitAnnot
 import analysis.ip.InternalFunctionStartAnnot
 import bridge.SourceLanguage
+import config.Config
 import config.ReportTypes
 import datastructures.stdcollections.*
 import log.*
@@ -32,6 +38,7 @@ import verifier.equivalence.EquivalenceChecker.Companion.resolve
 import verifier.equivalence.data.EquivalenceQueryContext
 import verifier.equivalence.data.MethodMarker
 import verifier.equivalence.data.ProgramContext
+import verifier.equivalence.instrumentation.*
 import verifier.equivalence.summarization.PureFunctionExtraction
 import verifier.equivalence.summarization.SharedPureSummarization
 
@@ -244,6 +251,34 @@ object EquivalencePreprocessor {
             )))
         }
 
+        if(Config.EquivalenceIncludeDelegateCalls.get()) {
+            scene.mapContractMethodsInPlace("extcall_resolution") { theScene, method ->
+                ContractUtils.transformMethodInPlace(method as TACMethod, ChainedMethodTransformers(listOf(
+                    CoreToCoreTransformer(ReportTypes.CONTRACT_LINKING) { c: CoreTACProgram ->
+                        ContractLinker.linkContracts(c, theScene)
+                    }.lift(),
+                    MethodToCoreTACTransformer(ReportTypes.EXTCALL_RESOLUTION) { m ->
+                        val (analysisResults, _) = CallGraphBuilder.doSigAndInputAndCalleeAnalysis(m, theScene)
+                        val code = method.code as CoreTACProgram
+                        val patch = code.toPatchingProgram()
+                        ExtCallSummarization.annotateCallsAndReturnsWithAnalysisResultsWithPatching(patch, code, analysisResults, DisciplinedHashModel.HashRewriteEffect.empty)
+                        patch.toCode(code)
+                    }
+                )))
+            }
+            scene.mapScene("inline_delegates") {
+                Inliner.inlineDelegates(scene) { _, _ -> true }
+            }
+            scene.mapContractMethodsInPlace("renormalize") { _, method ->
+                ContractUtils.transformMethodInPlace(method as TACMethod, ChainedMethodTransformers(listOf(
+                    CoreToCoreTransformer(ReportTypes.EQUIVALENCE_RENORMALIZATION) { c ->
+                        EquivalenceRenormalizer.renormalize(c)
+                    }.lift(),
+                    CoreToCoreTransformer(ReportTypes.RETURN_COPY_COLLAPSE, ReturnCopyCollapser::collapseReturns).lift()
+                )))
+            }
+        }
+
         IntegrativeChecker.runLoopUnrolling(scene)
         scene.mapContractMethodsInPlace("initial_postInline") { _, method ->
             val isLibrary = (method.getContainingContract() as? IContractWithSource)?.src?.isLibrary == true
@@ -255,15 +290,19 @@ object EquivalencePreprocessor {
                 ContractUtils.tacOptimizations()
             )
         }
+
         /**
          * Give a unique numbering to all mloads [MemoryReadNumbering]. This helps identify reads that need to have a bounded precision window.
          *
          * Further, annotate buffers for which we can statically determine the writes which define their contents [DefiniteBufferConstructionAnalysis].
          */
-        scene.mapContractMethodsInPlace("read_numbering") { _, method ->
-            ContractUtils.transformMethodInPlace(method, ChainedMethodTransformers(listOf(
+        scene.mapContractMethodsInPlace("buffer_mutation") { _, method ->
+            ContractUtils.transformMethodInPlace(method, ChainedMethodTransformers(listOfNotNull(
                 CoreToCoreTransformer(ReportTypes.READ_NUMBERING, MemoryReadNumbering::instrument).lift(),
-                CoreToCoreTransformer(ReportTypes.DEFINITE_BUFFER_ANALYSIS, DefiniteBufferConstructionAnalysis::instrument).lift()
+                CoreToCoreTransformer(ReportTypes.DEFINITE_BUFFER_ANALYSIS, DefiniteBufferConstructionAnalysis::instrument).lift(),
+                CoreToCoreTransformer(ReportTypes.RETURN_COPY_LABELLING, ReturnCopyCorrelation::correlateCopies).lift<ITACMethod>().takeIf {
+                    Config.EquivalenceIncludeDelegateCalls.get()
+                }
             )))
         }
 

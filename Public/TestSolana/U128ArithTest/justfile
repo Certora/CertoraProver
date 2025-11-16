@@ -1,0 +1,55 @@
+# This justfile compiles the code and copies the executable in the current
+# working directory. After modifying the source code, remember to recompile the
+# code and commit the changes to the executable.
+# This script is only used to update the .so file when needed. The test itself
+# does not call `cargo certora-sbf`
+
+export EXECUTABLE_PATH := "./target/sbf-solana-solana/release/u128_arith.so"
+
+build-sbf:
+    cargo certora-sbf --tools-version v1.43
+    cp $EXECUTABLE_PATH .
+    rm -Rf target
+
+# java executable
+export JAVA := env_var_or_default("JAVA", "java")
+# optimization level, 0 by default
+export TAC_OPT_LEVEL := env_var_or_default("TAC_OPT_LEVEL", "0")
+# sanity check level: none, basic, advanced (none by default)
+export SANITY_CHECKS := env_var_or_default("SANITY_CHECKS", "none")
+
+inliner_cfg := "../cvlr_inlining.txt"
+summaries_cfg := "../cvlr_summaries.txt"
+sbf_file := "../u128_arith.so"
+
+# location of prover jar
+emv_jar := "$CERTORA/emv.jar"
+
+# Usage: verify name_of_rule extra_options
+verify RULE *OPTS: # build-sbf
+		mkdir -p certora_out
+		cd certora_out && ${JAVA} \
+		-Dtopic.spec -Dlevel.sbf=${CERTORA_VERBOSE:-info} \
+		-Dverbose.times -Dcvt.simple.parallel -Djava.awt.headless=true \
+		-jar {{ emv_jar }} \
+		-deleteSMTFile false -graphDrawLimit 2000 \
+		{{ sbf_file }} \
+		-solanaInlining {{ inliner_cfg }} \
+		-solanaSummaries {{ summaries_cfg }} \
+		-solanaOptimisticJoin true \
+		-solanaOptimisticOverlaps true \
+		-solanaOptimisticMemcpyPromotion true \
+		-solanaOptimisticMemcmp true \
+		-solanaOptimisticNoMemmove true \
+		-solanaPrintDevMsg true \
+		-solanaPrintAnalyzedToDot \
+		-solanaTACMathInt true \
+		-solanaTACOptimize ${TAC_OPT_LEVEL} \
+		-ruleSanityChecks ${SANITY_CHECKS} \
+		-rule {{ RULE }} \
+		{{ OPTS }}
+
+clean:
+    rm -Rf emv-*
+    rm -f *.dot *.svg *.pdf
+    rm -Rf .certora_internal

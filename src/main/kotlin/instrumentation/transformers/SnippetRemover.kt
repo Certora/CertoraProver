@@ -17,19 +17,25 @@
 
 package instrumentation.transformers
 
-import analysis.*
+import analysis.ip.SafeCastingAnnotator.CastingKey
+import analysis.maybeAnnotation
 import datastructures.stdcollections.*
-import utils.*
-import vc.data.*
+import vc.data.CoreTACProgram
+import vc.data.TACMeta
+import vc.data.destructiveOptimizations
 
 /**
- * Removes Snippets based on [CoreTACProgram.destructiveOptimizations]
+ * Removes Snippets based on [CoreTACProgram.destructiveOptimizations],
+ * and removes ...
  */
 object SnippetRemover {
-    fun rewrite(ctp: CoreTACProgram): CoreTACProgram = ctp.letIf(ctp.destructiveOptimizations) { c ->
-        c.patching { patcher ->
+    fun rewrite(ctp: CoreTACProgram): CoreTACProgram {
+        return ctp.patching { patcher ->
             ctp.ltacStream()
-                .filter { it.maybeAnnotation(TACMeta.SNIPPET) != null }
+                .filter {
+                    it.maybeAnnotation(CastingKey) != null ||
+                        (ctp.destructiveOptimizations && it.maybeAnnotation(TACMeta.SNIPPET) != null)
+                }
                 .forEach { patcher.replaceCommand(it.ptr, listOf()) }
         }
     }

@@ -21,7 +21,6 @@ import sbf.SolanaConfig
 import sbf.callgraph.SbfCallGraph
 import sbf.domains.MemorySummaries
 import sbf.disassembler.GlobalVariableMap
-import datastructures.stdcollections.*
 
 /**
  * Simple (local) CFG optimizations that help the pointer analysis.
@@ -75,10 +74,10 @@ fun runPTAOptimizations(prog: SbfCallGraph, memSummaries: MemorySummaries): SbfC
 fun runPostSlicingOptimizations(prog: SbfCallGraph): SbfCallGraph {
     return prog.transformSingleEntry { entryCFG ->
         val optEntryCFG = entryCFG.clone(entryCFG.getName())
-        // prerequisite for `markAddWithOverflow`
+        // prerequisite for detectOverflowPatterns
         simplifyBools(optEntryCFG)
         optEntryCFG.verify(false, "[after simplifyBools]")
-        markAddWithOverflow(optEntryCFG)
+        detectOverflowPatterns(optEntryCFG)
         optEntryCFG.verify(false, "[after markAddWithOverflow]")
         optEntryCFG.normalize()
         optEntryCFG.verify(true, "after post-slicing optimizations")

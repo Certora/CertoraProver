@@ -40,11 +40,12 @@ data class MoveSourceMap(
     @SerialName("struct_map") val structMap: Map<Int, Struct>,
     @SerialName("function_map") val functionMap: Map<Int, Function>,
 ) {
-    val moduleName: MoveModuleName get() {
+    fun moduleName(scene: MoveScene): MoveModuleName {
         check(moduleNameParts.size == 2) {
             "Module name must consist of exactly two parts, but got: $moduleNameParts"
         }
         return MoveModuleName(
+            scene,
             BigInteger(moduleNameParts[0], 16),
             moduleNameParts[1]
         )

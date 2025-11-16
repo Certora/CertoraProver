@@ -28,6 +28,7 @@ import wasm.impCfg.TransferFunction.transferControl
 import wasm.impCfg.TransferFunction.transferMemory
 import wasm.impCfg.TransferFunction.transferNumeric
 import wasm.impCfg.TransferFunction.transferPar
+import wasm.impCfg.TransferFunction.transferUnimplemented
 import wasm.impCfg.TransferFunction.transferVar
 import wasm.impCfg.WasmImpInstr.reconstructStraight
 import wasm.ir.*
@@ -92,6 +93,8 @@ object WasmCfgToWasmImpCfg {
                 Pair(dummyBlock, Bottom)
             } else {
                 when (instr) {
+                    is WasmInstruction.NondetStub ->
+                        transferUnimplemented(funcId, instr, singleSuccessor(succs), enFact.args)
                     is WasmInstruction.Numeric ->
                         transferNumeric(funcId, pc, instr, singleSuccessor(succs), enFact.args)
                     is WasmInstruction.Memory ->

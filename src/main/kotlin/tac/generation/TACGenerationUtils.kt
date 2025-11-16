@@ -60,10 +60,10 @@ fun TACExpr.letVarEx(
     )
 }
 
-fun memStore(l: TACExpr, v: TACExpr) =
+fun memStore(l: TACExpr, v: TACExpr, meta: MetaMap = MetaMap()) =
     l.letVar { ls ->
         v.letVar { vs ->
-            TACCmd.Simple.AssigningCmd.ByteStore(ls.s, vs.s, TACKeyword.MEMORY.toVar())
+            TACCmd.Simple.AssigningCmd.ByteStore(ls.s, vs.s, TACKeyword.MEMORY.toVar(), meta = meta)
                 .withDecls(TACKeyword.MEMORY.toVar())
         }
     }

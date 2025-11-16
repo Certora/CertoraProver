@@ -39,6 +39,7 @@ class FormatterTest {
         "multi_assert",
         "upgrade_admin",
         "custom_linebreaks_in_block",
+        "respect_parenthesis",
     )
     fun compare(fileName: Path) {
         val source = readSource(fileName)
