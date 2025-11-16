@@ -17,7 +17,9 @@
 
 package wasm.ir
 
+import datastructures.stdcollections.*
 import com.certora.collect.*
+import com.dylibso.chicory.wasm.types.OpCode
 import utils.*
 import wasm.tokens.WasmTokens
 import wasm.tokens.WasmTokens.ALIGN
@@ -30,6 +32,8 @@ import wasm.tokens.WasmTokens.CALL_INDIRECT
 import wasm.tokens.WasmTokens.DROP
 import wasm.tokens.WasmTokens.ELSE
 import wasm.tokens.WasmTokens.EQUAL
+import wasm.tokens.WasmTokens.F32CONST
+import wasm.tokens.WasmTokens.F64CONST
 import wasm.tokens.WasmTokens.GLOBALGET
 import wasm.tokens.WasmTokens.GLOBALSET
 import wasm.tokens.WasmTokens.I32CONST
@@ -148,7 +152,9 @@ enum class UnaryNumericOp(val token: String, override val type: WasmPrimitiveTyp
     I64_EXTENDI32_U(WasmTokens.I64_EXTENDI32_U, WasmPrimitiveType.I64),
     I64_EXTENDI32_S(WasmTokens.I64_EXTENDI32_S, WasmPrimitiveType.I64),
     I32CLZ(WasmTokens.I32CLZ, WasmPrimitiveType.I32),
-    I64CLZ(WasmTokens.I64CLZ, WasmPrimitiveType.I64);
+    I64CLZ(WasmTokens.I64CLZ, WasmPrimitiveType.I64),
+    I32CTZ(WasmTokens.I32CTZ, WasmPrimitiveType.I32),
+    I64CTZ(WasmTokens.I64CTZ, WasmPrimitiveType.I64);
 
     override fun toString(): String = token
 }
@@ -211,11 +217,35 @@ sealed interface WasmCFGInstruction : WasmInstruction {
     }
 }
 
+
 /**
  * The AST representation of Wasm instructions.
  * */
 // TODO: CERT-6020 not handling folded instructions right now https://www.w3.org/TR/wasm-core-1/#folded-instructions%E2%91%A0
 sealed interface WasmInstruction {
+    /**
+     * A "stub" implementation for [orig] that overapproximates its behavior on inputs [inputs]
+     */
+    data class NondetStub(
+        val orig: OpCode,
+        val inputs: List<WasmPrimitiveType>,
+        val outputs: List<WasmPrimitiveType>
+    ) : WasmInstruction, WasmCFGInstruction {
+
+        constructor (orig: OpCode, i: WasmPrimitiveType, o: WasmPrimitiveType): this(orig, listOf(i), listOf(o))
+
+        companion object {
+            private fun bin(op: OpCode, t: WasmPrimitiveType) = NondetStub(op, listOf(t, t), listOf(t))
+            private fun bin(op: OpCode, t: WasmPrimitiveType, o: WasmPrimitiveType) = NondetStub(op, listOf(t, t), listOf(o))
+
+            fun UnF64(op: OpCode) = NondetStub(op, WasmPrimitiveType.F64, WasmPrimitiveType.F64)
+            fun UnI64(op: OpCode) = NondetStub(op, WasmPrimitiveType.I64, WasmPrimitiveType.I64)
+
+            fun BinI64(op: OpCode) = bin(op, WasmPrimitiveType.I64)
+            fun BinF64(op: OpCode) = bin(op, WasmPrimitiveType.I64)
+            fun RelF64(op: OpCode) = bin(op, WasmPrimitiveType.F64, WasmPrimitiveType.I32)
+        }
+    }
 
     sealed class Control: WasmInstruction {
 
@@ -421,21 +451,21 @@ sealed interface WasmInstruction {
         // TODO: CERT-6021 may do the float ops later
         data class F32Const(val num: F32Value, val address: WASMAddress? = null) : Numeric() {
             override fun toString(): String {
-                TODO("operator not supported")
+                return "$F32CONST $num"
             }
 
             override fun toWasmCfgString(): String {
-                throw UnsupportedOperationException("operator not supported")
+                return WASMCFG + F32CONST + "$num"
             }
         }
 
         data class F64Const(val num: F64Value, val address: WASMAddress? = null) : Numeric() {
             override fun toString(): String {
-                TODO("operator not supported")
+                return "$F64CONST $num"
             }
 
             override fun toWasmCfgString(): String {
-                throw UnsupportedOperationException("operator not supported")
+                return WASMCFG + F64CONST + "$num"
             }
         }
 

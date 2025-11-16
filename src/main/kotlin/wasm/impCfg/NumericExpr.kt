@@ -17,8 +17,12 @@
 
 package wasm.impCfg
 
+import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import datastructures.stdcollections.*
 import tac.*
+import tac.generation.assign
+import tac.generation.assignHavoc
+import tac.generation.assume
 import vc.data.*
 import vc.data.TACExpr.Companion.zeroExpr
 import vc.data.TACSymbol.Companion.One
@@ -35,7 +39,10 @@ class UnsupportedOperator(msg: String) : Exception(msg)
 // Here we only care about ops that produce a value. So only numeric ops basically.
 interface WasmIcfgExpr : Serializable {
     override fun toString(): String
-    fun toTacExpr(): TACExpr
+
+    fun assignTACExpr(lhs: TACSymbol.Var): WasmToTacInfo
+
+    val tag: Tag
 
     fun hasHavoc(): Boolean
 
@@ -50,8 +57,11 @@ data class WasmIcfgExpArgument(val regArg: Arg) : WasmIcfgExpr {
         return regArg.toString()
     }
 
-    override fun toTacExpr(): TACExpr {
-        return regArg.toTacExpr()
+    override val tag: Tag
+        get() = regArg.toTacExpr().tag!!
+
+    override fun assignTACExpr(lhs: TACSymbol.Var): WasmToTacInfo {
+        return assign(lhs) { regArg.toTacExpr() }
     }
 
     override fun hasHavoc(): Boolean {
@@ -69,16 +79,19 @@ data class WasmIcfgUnaryExpr(val op: Unop, val regArg1: Arg) : WasmIcfgExpr {
         return "$op $regArg1"
     }
 
-    override fun toTacExpr(): TACExpr {
+    override val tag: Tag
+        get() = Tag.Bit256
+
+    override fun assignTACExpr(lhs: TACSymbol.Var): WasmToTacInfo {
         when (op) {
             is UnaryNumericOp -> {
                 val arg1 = regArg1.toTacExpr()
-                return wasmNumericUnaryOpToTacUnary(op, arg1)
+                return wasmNumericUnaryOpToTacUnary(op, lhs, arg1)
             }
 
             is UnaryComparisonOp -> {
                 val arg1 = regArg1.toTacExpr()
-                return wasmComparisonUnaryOpToTacTernary(op, arg1)
+                return assign(lhs) { wasmComparisonUnaryOpToTacTernary(op, arg1) }
             }
         }
     }
@@ -98,18 +111,21 @@ data class WasmIcfgBinaryExpr(val op: Binop, val regArg1: Arg, val regArg2: Arg)
         return "$regArg1 $op $regArg2"
     }
 
-    override fun toTacExpr(): TACExpr {
+    override val tag: Tag
+        get() = Tag.Bit256
+
+    override fun assignTACExpr(lhs: TACSymbol.Var): WasmToTacInfo {
         when (op) {
             is BinaryNumericOp -> {
                 val arg1 = regArg1.toTacExpr()
                 val arg2 = regArg2.toTacExpr()
-                return wasmNumericBinaryOpToTacBinary(op, arg1, arg2)
+                return assign(lhs) { wasmNumericBinaryOpToTacBinary(op, arg1, arg2) }
             }
 
             is BinaryComparisonOp -> {
                 val arg1 = regArg1.toTacExpr()
                 val arg2 = regArg2.toTacExpr()
-                return wasmComparisonBinaryOpToTacTernary(op, arg1, arg2)
+                return assign(lhs) { wasmComparisonBinaryOpToTacTernary(op, arg1, arg2) }
             }
         }
     }
@@ -128,8 +144,17 @@ data class WasmIcfgIteExpr(val regArg1: Arg, val regArg2: Arg, val regArg3: Arg)
         return "$regArg1 ? $regArg2 : $regArg3"
     }
 
-    override fun toTacExpr(): TACExpr {
-        return TACExpr.TernaryExp.Ite(TACExpr.BinRel.Eq(regArg1.toTacExpr(), One.asSym()), regArg2.toTacExpr(), regArg3.toTacExpr(), Tag.Bit256)
+    override val tag: Tag
+        get() = Tag.Bit256
+
+    override fun assignTACExpr(lhs: TACSymbol.Var): WasmToTacInfo {
+        val e = TACExpr.TernaryExp.Ite(
+            TACExpr.BinRel.Eq(regArg1.toTacExpr(), One.asSym()),
+            regArg2.toTacExpr(),
+            regArg3.toTacExpr(),
+            Tag.Bit256
+        )
+        return assign(lhs) { e }
     }
 
     override fun hasHavoc(): Boolean {
@@ -150,21 +175,36 @@ object WasmNumericExpr {
     private fun TACExpr.signExt32() = TACExpr.BinOp.SignExtend(3.asTACExpr, this, Tag.Bit256)
     private fun TACExpr.signExt64() = TACExpr.BinOp.SignExtend(7.asTACExpr, this, Tag.Bit256)
 
-    fun wasmNumericUnaryOpToTacUnary(op: UnaryNumericOp, arg1: TACExpr): TACExpr {
+    fun wasmNumericUnaryOpToTacUnary(op: UnaryNumericOp, lhs: TACSymbol.Var, arg1: TACExpr): WasmToTacInfo {
         return when (op) {
-            UnaryNumericOp.I32WRAP64 -> arg1.mod(I32_MOD)
-            UnaryNumericOp.I64_EXTENDI32_U -> arg1
-            UnaryNumericOp.I64_EXTENDI32_S -> arg1.signExt32().mod(I64_MOD)
+            UnaryNumericOp.I32WRAP64 -> assign(lhs) { arg1.mod(I32_MOD) }
+            UnaryNumericOp.I64_EXTENDI32_U -> assign(lhs) { arg1 }
+            UnaryNumericOp.I64_EXTENDI32_S -> assign(lhs) { arg1.signExt32().mod(I64_MOD) }
 
-            UnaryNumericOp.I32_EXTEND8_S -> arg1.signExt8().mod(I32_MOD)
-            UnaryNumericOp.I64_EXTEND8_S -> arg1.signExt8().mod(I64_MOD)
-            UnaryNumericOp.I32_EXTEND16_S -> arg1.signExt16().mod(I32_MOD)
-            UnaryNumericOp.I64_EXTEND16_S -> arg1.signExt16().mod(I64_MOD)
-            UnaryNumericOp.I64_EXTEND32_S -> arg1.signExt32().mod(I64_MOD)
+            UnaryNumericOp.I32_EXTEND8_S ->  assign(lhs) { arg1.signExt8().mod(I32_MOD) }
+            UnaryNumericOp.I64_EXTEND8_S ->  assign(lhs) { arg1.signExt8().mod(I64_MOD) }
+            UnaryNumericOp.I32_EXTEND16_S -> assign(lhs) {  arg1.signExt16().mod(I32_MOD) }
+            UnaryNumericOp.I64_EXTEND16_S -> assign(lhs) {  arg1.signExt16().mod(I64_MOD) }
+            UnaryNumericOp.I64_EXTEND32_S -> assign(lhs) {  arg1.signExt32().mod(I64_MOD) }
 
             UnaryNumericOp.I32CLZ, UnaryNumericOp.I64CLZ -> {
                 // TODO: https://certora.atlassian.net/browse/CERT-6396
-                TACExpr.Unconstrained(Tag.Bit256)
+                mergeMany(
+                    assignHavoc(lhs),
+                    assume {
+                       if (op == UnaryNumericOp.I32CLZ)  { lhs le 32.asTACExpr } else { lhs le 64.asTACExpr }
+                    }
+                )
+            }
+
+            UnaryNumericOp.I32CTZ, UnaryNumericOp.I64CTZ -> {
+                // TODO: https://certora.atlassian.net/browse/CERT-6396
+                mergeMany(
+                    assignHavoc(lhs),
+                    assume {
+                        if (op == UnaryNumericOp.I32CTZ) { lhs le 32.asTACExpr } else { lhs le 64.asTACExpr }
+                    }
+                )
             }
         }
     }
@@ -235,7 +275,7 @@ object WasmNumericExpr {
             BinaryComparisonOp.I32LTU -> wasmExprToTacExprHelper(TACExpr.BinRel.Lt(arg1, arg2))
             BinaryComparisonOp.I64LTU -> wasmExprToTacExprHelper(TACExpr.BinRel.Lt(arg1, arg2))
             BinaryComparisonOp.I32GTU -> wasmExprToTacExprHelper(TACExpr.BinRel.Gt(arg1, arg2))
-            BinaryComparisonOp.I64GTU -> wasmExprToTacExprHelper(TACExpr.BinRel.Gt(arg1, arg2))
+            BinaryComparisonOp.I64GTU -> wasmExprToTacExprHelper(TACExpr.BinRel.Lt(arg2, arg1))
             BinaryComparisonOp.I32LTS -> wasmExprToTacExprHelper(TACExpr.BinRel.Slt(arg1.signExt32(), arg2.signExt32()))
             BinaryComparisonOp.I64LTS -> wasmExprToTacExprHelper(TACExpr.BinRel.Slt(arg1.signExt64(), arg2.signExt64()))
             BinaryComparisonOp.I32GTS -> wasmExprToTacExprHelper(TACExpr.BinRel.Sgt(arg1.signExt32(), arg2.signExt32()))
@@ -278,7 +318,7 @@ object WasmNumericExpr {
             }
 
             is WasmIcfgIteExpr -> {
-                check(vars.size == 2)
+                check(vars.size == 3)
                 return WasmIcfgIteExpr(vars[0], vars[1], vars[2])
             }
         }

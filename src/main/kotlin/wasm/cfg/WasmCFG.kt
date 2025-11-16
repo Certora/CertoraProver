@@ -19,7 +19,6 @@ package wasm.cfg
 
 import algorithms.getReachable
 import datastructures.stdcollections.*
-import log.*
 import utils.*
 import wasm.ir.*
 import wasm.tokens.WasmTokens.ENTRYPOINT
@@ -131,6 +130,9 @@ class WasmCFG(
     * */
     private fun addWasmInstruction(labels: LabelStack, instr: WasmInstruction, succ: PC): PC {
         return when (instr) {
+            is WasmInstruction.NondetStub -> {
+                addNode(instr, listOf(succ))
+            }
             is WasmInstruction.Numeric -> {
                 addNode(instr, listOf(succ))
             }

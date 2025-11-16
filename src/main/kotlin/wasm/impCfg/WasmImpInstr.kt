@@ -308,11 +308,8 @@ sealed class StraightLine(addr: WASMAddress? = null) : WasmImpCfgCmd(addr) {
 
         context(WasmImpCfgContext)
         override fun wasmImpcfgToTacSimpleInternal(): WasmToTacInfo {
-            val tacExpr = expr.toTacExpr()
-            val lhsSym = TACSymbol.Var(lhs.toString(), tacExpr.tag!!)
-            return assign(lhsSym) {
-                tacExpr
-            }
+            val lhsSym = TACSymbol.Var(lhs.toString(), expr.tag)
+            return expr.assignTACExpr(lhsSym)
         }
     }
 

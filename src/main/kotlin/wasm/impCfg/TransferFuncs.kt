@@ -173,6 +173,18 @@ object TransferFunction {
         }
     }
 
+    fun transferUnimplemented(
+        funcId: WasmName,
+        instr: WasmInstruction.NondetStub,
+        succ: PC,
+        refs: List<Arg>
+    ): Pair<WasmBlock, ArgStack> {
+        check (refs.size >= instr.inputs.size) { "Not enough for unimplemented instruction"}
+        check (instr.outputs.size == 1)
+        val o = instr.outputs.single()
+        val newRefs = listOf(Havoc(o)) + refs.drop(instr.inputs.size)
+        return mkBlockFromJump(succ, funcId, null) to RefStack(newRefs)
+    }
 
     /**
      * For each cfg instruction for numeric and comparison ops,
@@ -241,11 +253,13 @@ object TransferFunction {
             }
 
             is WasmInstruction.Numeric.F32Const -> {
-                throw UnsupportedWasmCFGNumericInstr("$instr is not supported yet or not valid.")
+                val newRefs = listOf(Havoc(WasmPrimitiveType.F32)) + refs
+                mkBlockFromJump(succ, funcId, instr.address) to RefStack(newRefs)
             }
 
             is WasmInstruction.Numeric.F64Const -> {
-                throw UnsupportedWasmCFGNumericInstr("$instr is not supported yet or not valid.")
+                val newRefs = listOf(Havoc(WasmPrimitiveType.F64)) + refs
+                mkBlockFromJump(succ, funcId, instr.address) to RefStack(newRefs)
             }
         }
     }
