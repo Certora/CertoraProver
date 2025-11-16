@@ -17,6 +17,7 @@
 
 package wasm.host.soroban
 
+import allocator.Allocator
 import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
@@ -117,16 +118,17 @@ object SorobanHost : WasmHost {
                 return assertFalse("${module.name}/${import.what} expects a return variable")
             }
 
+            val callId = Allocator.getFreshId(Allocator.Id.CALL_ID)
             // Some useful labels to make the TAC dumps easier to read
             val name = "${module.name}/${func.name}"
             val enter = listOf(TACCmd.Simple.AnnotationCmd(
                 WASM_HOST_FUNC_SUMMARY_START,
-                StraightLine.InlinedFuncStartAnnotation.TAC(name, args, null)
+                StraightLine.InlinedFuncStartAnnotation.TAC(name, args, callId, null)
             )).withDecls()
 
             val exit = listOf(TACCmd.Simple.AnnotationCmd(
                 WASM_HOST_FUNC_SUMMARY_END,
-                StraightLine.InlinedFuncEndAnnotation.TAC(name)
+                StraightLine.InlinedFuncEndAnnotation.TAC(name, callId)
             )).withDecls()
 
             // Validate and decode the tagged arguments

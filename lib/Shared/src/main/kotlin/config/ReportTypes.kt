@@ -286,7 +286,8 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     INLINE_PARAMETRIC_CALLS(LoggerTypes.MOVE),
     BYTESK_INSTRUMENTER(LoggerTypes.NORMALIZER),
     HASH_FP_REUSE_NORMALIZATION(LoggerTypes.ALLOC),
-    EQUIVALENCE_DEBUG(LoggerTypes.EQUIVALENCE)
+    EQUIVALENCE_DEBUG(LoggerTypes.EQUIVALENCE),
+    ANNOTATE_STACK_FRAMES(LoggerTypes.WASM),
     ;
 
     override fun isEnabled(): Boolean = this == NONE || Config.isEnabledLogger(this.loggerCategory) || Config.isEnabledReport(this)

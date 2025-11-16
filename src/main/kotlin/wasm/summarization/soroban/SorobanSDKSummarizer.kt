@@ -17,6 +17,7 @@
 
 package wasm.summarization.soroban
 
+import allocator.Allocator
 import datastructures.stdcollections.*
 import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
@@ -159,16 +160,18 @@ class SorobanSDKSummarizer(
         val lowEndianTac = lowEndianPieces.map { it.toTacSymbol() }
         val bigEndianPieces = lowEndianTac.reversed()
         val handle = TACKeyword.TMP(Tag.Bit256, "obj")
+        val id = Allocator.getFreshId(Allocator.Id.CALL_ID)
         val enter = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_START,
             StraightLine.InlinedFuncStartAnnotation.TAC(
                 name,
                 listOf(ptr) + lowEndianPieces.map { it.toTacSymbol() },
+                id,
                 null)
         )).withDecls()
         val exit = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_END,
-            StraightLine.InlinedFuncEndAnnotation.TAC(name)
+            StraightLine.InlinedFuncEndAnnotation.TAC(name, id)
         )).withDecls()
         return mergeMany(
             enter,
@@ -266,13 +269,14 @@ class SorobanSDKSummarizer(
         val pieces = (0 ..< type.numPieces).map { piece ->
             TACKeyword.TMP(Tag.Bit256, "piece!${piece}")
         }
+        val id = Allocator.getFreshId(Allocator.Id.CALL_ID)
         val enter = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_START,
-            StraightLine.InlinedFuncStartAnnotation.TAC(name, listOf(ptr, handle), null)
+            StraightLine.InlinedFuncStartAnnotation.TAC(name, listOf(ptr, handle),  id, null)
         )).withDecls()
         val exit = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_END,
-            StraightLine.InlinedFuncEndAnnotation.TAC(name)
+            StraightLine.InlinedFuncEndAnnotation.TAC(name, id)
         )).withDecls()
         return mergeMany(
             enter,

@@ -17,6 +17,7 @@
 
 package wasm.debugsymbols
 
+import allocator.Allocator
 import analysis.worklist.StepResult
 import analysis.worklist.VisitingWorklistIteration
 import aws.smithy.kotlin.runtime.util.pop
@@ -71,8 +72,9 @@ class InlinedFunctionAnnotator(private val wasmDebugSymbols: WasmDebugSymbols) {
         val toPush = nextStack.drop(sharedStack.size)
         // The annotationId is only kept to make the InlineFunc*Annotation unique
         // There is a pass that will add the annotation to a hash set, this means we will lose an annotation if they don't differ.
-        val popAnnot = toPop.reversed().map { p -> StraightLine.InlinedFuncEndAnnotation(p.asName(), nextAnnotationId()) }
-        val pushAnnot = toPush.map { StraightLine.InlinedFuncStartAnnotation(it.asName(), listOf(), nextAnnotationId(), it.getRange()) }
+        val id = Allocator.getFreshId(Allocator.Id.CALL_ID)
+        val popAnnot = toPop.reversed().map { p -> StraightLine.InlinedFuncEndAnnotation(p.asName(), nextAnnotationId(), id) }
+        val pushAnnot = toPush.map { StraightLine.InlinedFuncStartAnnotation(it.asName(), listOf(), nextAnnotationId(), id, it.getRange()) }
         return popAnnot + pushAnnot
     }
 

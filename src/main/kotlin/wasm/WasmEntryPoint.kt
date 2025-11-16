@@ -42,6 +42,7 @@ import vc.data.*
 import verifier.*
 import wasm.analysis.ConstantArrayInitializationRewriter
 import wasm.analysis.ConstantArrayInitializationSummarizer
+import wasm.analysis.WASMStackFrame
 import wasm.analysis.intervals.IntervalBasedExprSimplifier
 import wasm.cfg.WasmCFG.Companion.wasmAstToWasmCfg
 import wasm.debugsymbols.InlinedFunctionAnnotator
@@ -271,6 +272,7 @@ object WasmEntryPoint {
             ArtifactManagerFactory().dumpCodeArtifacts(coreTac, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
 
             val preprocessed = CoreTACProgram.Linear(coreTac)
+                .map(CoreToCoreTransformer(ReportTypes.ANNOTATE_STACK_FRAMES) { WASMStackFrame().annotate(it) })
                 .let { env.applyPreUnrollTransforms(it, wasmAST) }
                 .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
                 .map(CoreToCoreTransformer(ReportTypes.JUMP_COND_NORMALIZATION, BranchConditionSimplifier::rewrite))

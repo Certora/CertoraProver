@@ -17,6 +17,7 @@
 
 package wasm.impCfg
 
+import allocator.Allocator
 import config.Config
 import datastructures.stdcollections.*
 import sbf.support.runCommand
@@ -28,6 +29,7 @@ import wasm.impCfg.WasmImpInstr.transformControl
 import wasm.impCfg.WasmImpInstr.transformVars
 import wasm.ir.WASMLocalIdx
 import wasm.ir.WasmName
+import java.util.concurrent.ConcurrentHashMap
 
 private val wasmLogger = Logger(LoggerTypes.WASM)
 
@@ -251,6 +253,7 @@ class WasmInliner {
      * */
     private fun annotateInlinedFuncStartEnd(callee: WasmImpCfgProgram, call: Call, idx: Int) {
         val demangledCalleeName = demangle(callee.funcId.toString())
+        val id = Allocator.getFreshId(Allocator.Id.CALL_ID)
         for ((pc, block) in callee.getNodes().entries) {
             var straights = block.straights
             // add the start annotation to the top of the callee, right before the first actual instruction
@@ -258,14 +261,15 @@ class WasmInliner {
                 straights = listOf(InlinedFuncStartAnnotation(
                     funcId = demangledCalleeName,
                     funcArgs = call.args,
-                    callIdx = idx
+                    callIdx = idx,
+                    id = id
                 )).plus(straights)
                 val newBlock = WasmBlock(straights, block.ctrl, callee.funcId)
                 callee.updateNode(pc, newBlock)
             }
             // add the end annotation to the end of the callee, right before the return
             if (block.ctrl is Control.Ret) {
-                straights = straights.plus(InlinedFuncEndAnnotation(funcId = demangledCalleeName, callIdx = idx))
+                straights = straights.plus(InlinedFuncEndAnnotation(funcId = demangledCalleeName, callIdx = idx, id = id))
                 val newBlock = WasmBlock(straights, block.ctrl, callee.funcId)
                 callee.updateNode(pc, newBlock)
             }
@@ -273,14 +277,17 @@ class WasmInliner {
     }
 
     companion object {
+        private val cache = ConcurrentHashMap<String, String>()
         // Adapted from solana code
         fun demangle(funcName: String): String {
-            val (res, error, exitcode) = runCommand(listOf("rustfilt"), funcName)
-            if (exitcode != 0) {
-                wasmLogger.warn { "rustfilt $error" }
-                return funcName
+            return cache.getOrPut(funcName) {
+                val (res, error, exitcode) = runCommand(listOf("rustfilt"), funcName)
+                if (exitcode != 0) {
+                    wasmLogger.warn { "rustfilt $error" }
+                    return funcName
+                }
+                res
             }
-            return res
         }
     }
 
