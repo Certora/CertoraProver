@@ -20,8 +20,6 @@ package move
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import datastructures.stdcollections.*
 import config.*
-import move.ConstantStringPropagator.MESSAGE_VAR
-import move.ConstantStringPropagator.MessageVar
 import tac.*
 import tac.generation.*
 import utils.*
@@ -116,9 +114,8 @@ class CvlmApi(scene: MoveScene) {
                     TACCmd.Simple.AssertCmd(
                         call.args[0],
                         "cvlm_assert_msg (could not extract message)", // message will be replaced later
-                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (MESSAGE_VAR to MessageVar(call.args[1]))
-                    ).withDecls(),
-                    TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
+                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                    ).withDecls()
                 )
             }
         }
@@ -158,10 +155,8 @@ class CvlmApi(scene: MoveScene) {
                     ),
                     TACCmd.Simple.AssumeCmd(
                         call.args[0],
-                        "cvlm_assume_msg (could not extract message)",
-                        MetaMap(MESSAGE_VAR to MessageVar(call.args[1]))
-                    ).withDecls(),
-                    TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
+                        "cvlm_assume_msg (could not extract message)"
+                    ).withDecls()
                 )
             }
         }
@@ -211,10 +206,8 @@ class CvlmApi(scene: MoveScene) {
                             cond.s,
                             "cvlm_satisfy_msg (could not extract message)",
                             MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
-                                (TACMeta.SATISFY_ID to allocSatisfyId()) +
-                                (MESSAGE_VAR to MessageVar(call.args[1]))
-                        ).withDecls(),
-                        TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(call.args[1])).withDecls()
+                                (TACMeta.SATISFY_ID to allocSatisfyId())
+                        ).withDecls()
                     )
                 }
             }

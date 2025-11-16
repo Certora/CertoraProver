@@ -23,7 +23,7 @@ import utils.*
 
 /**
     TAC tags for Move types that are not available in "core" TAC.  These are used to communicate between `MoveToTAC` and
-    `MoveMemory.transform`, and will not appear in a TAC program after that.
+    `MoveTACSimplifier.transform`, and will not appear in a TAC program after that.
  */
 @KSerializable
 sealed class MoveTag : Tag.Move(), HasKSerializable {

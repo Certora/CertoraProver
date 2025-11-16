@@ -25,8 +25,6 @@ import move.*
 import utils.*
 import vc.data.*
 
-typealias LocId = Long
-
 /**
     For each reference, finds all the locations that might be referenced by it, and the paths to the referenced
     values in each location.
@@ -49,19 +47,15 @@ class ReferenceAnalysis private constructor(
     }
 
     data class RefTarget(
-        val locId: LocId,
+        val locVar: TACSymbol.Var,
         val path: PersistentStack<PathComponent>
     )
 
-    val refTargets: Map<CmdPointer, TreapMap<TACSymbol.Var, TreapSet<RefTarget>>>
-    val idToVar: Map<LocId, TACSymbol.Var>
-    val varToId: Map<TACSymbol.Var, LocId>
+    private val refTargetsIn: Map<CmdPointer, TreapMap<TACSymbol.Var, TreapSet<RefTarget>>>
+    private val refTargetsOut: Map<CmdPointer, TreapMap<TACSymbol.Var, TreapSet<RefTarget>>>
 
     init {
-        varToId = mutableMapOf<TACSymbol.Var, LocId>()
-        idToVar = mutableMapOf<LocId, TACSymbol.Var>()
-
-        refTargets = object : MoveTACProgram.CommandDataflowAnalysis<TreapMap<TACSymbol.Var, TreapSet<ReferenceAnalysis.RefTarget>>>(
+        object : MoveTACProgram.CommandDataflowAnalysis<TreapMap<TACSymbol.Var, TreapSet<ReferenceAnalysis.RefTarget>>>(
             graph,
             JoinLattice.ofJoin { a, b ->
                 a.union(b) { _, aLocs, bLocs -> aLocs + bLocs }
@@ -69,14 +63,6 @@ class ReferenceAnalysis private constructor(
             treapMapOf(),
             Direction.FORWARD
         ) {
-            private var nextId: LocId = 0
-
-            private fun TACSymbol.Var.toId() = varToId.getOrPut(this) {
-                val id = nextId++
-                idToVar[id] = this
-                id
-            }
-
             override fun transformCmd(
                 inState: TreapMap<TACSymbol.Var, TreapSet<RefTarget>>,
                 cmd: MoveTACProgram.LCmd
@@ -97,7 +83,7 @@ class ReferenceAnalysis private constructor(
                     inState
                 }
                 is TACCmd.Move.Borrow -> when (c) {
-                    is TACCmd.Move.BorrowLocCmd -> inState + (c.ref to treapSetOf(RefTarget(c.loc.toId(), persistentStackOf())))
+                    is TACCmd.Move.BorrowLocCmd -> inState + (c.ref to treapSetOf(RefTarget(c.loc, persistentStackOf())))
                     is TACCmd.Move.BorrowFieldCmd -> inState + (c.dstRef to inState[c.srcRef]!!.borrowField(c.fieldIndex))
                     is TACCmd.Move.VecBorrowCmd -> inState + (c.dstRef to inState[c.srcRef]!!.borrowVecElem())
                     is TACCmd.Move.GhostArrayBorrowCmd -> inState + (c.dstRef to inState[c.arrayRef]!!.borrowGhostArrayElem())
@@ -128,11 +114,14 @@ class ReferenceAnalysis private constructor(
             }
 
             init { runAnalysis() }
-        }.cmdIn
+        }.let {
+            refTargetsIn = it.cmdIn
+            refTargetsOut = it.cmdOut
+        }
     }
 
-    /**
-        Gets the variables possibly referenced by the given [ref] at the given [ptr].
-    */
-    fun refTargetsOf(ref: TACSymbol.Var, ptr: CmdPointer) = refTargets[ptr]!![ref]!!.map { idToVar[it.locId]!! }
+    fun refTargetsBefore(ptr: CmdPointer, ref: TACSymbol.Var) = refTargetsIn.get(ptr)?.get(ref).orEmpty()
+    fun refTargetsAfter(ptr: CmdPointer, ref: TACSymbol.Var) = refTargetsOut.get(ptr)?.get(ref).orEmpty()
+    fun targetVarsBefore(ptr: CmdPointer, ref: TACSymbol.Var) = refTargetsBefore(ptr, ref).mapToSet { it.locVar }
+    fun targetVarsAfter(ptr: CmdPointer, ref: TACSymbol.Var) = refTargetsAfter(ptr, ref).mapToSet { it.locVar }
 }

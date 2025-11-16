@@ -89,11 +89,10 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 code
                 .transform(ReportTypes.DEDUPLICATED) { deduplicateBlocks(it) }
                 .mergeBlocks()
-                .transform(ReportTypes.SIMPLIFIED) { MoveMemory(scene).transform(it) }
+                .transform(ReportTypes.SIMPLIFIED) { MoveTACSimplifier(scene, it).transform() }
             )
             .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATE_STRINGS, ConstantStringPropagator::transform))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.HOIST_LOOPS, LoopHoistingOptimization::hoistLoopComputations))
             .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
             .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
@@ -169,24 +168,15 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             return patch.toCode(c)
         }
 
-        val CONST_STRING = MetaKey<String>("move.const.string")
-
         /**
-            Produces TAC code to pack a string value into a std::vector<u8>.  We store the original string value in the
-            vector variable's meta, so we can find it later in [ConstantStringPropagator].
+            Produces TAC code to pack a string value into a std::vector<u8>.
          */
         context(SummarizationContext)
-        fun packString(
-            bytes: ByteArray,
-            string: String = String(bytes, Charsets.UTF_8)
-        ): TACSymbol.Var {
+        fun packString(bytes: ByteArray): TACSymbol.Var {
             // We create a single variable for each unique string
             val stringHash = applyKeccak(bytes).toString(16)
-            val stringVar = TACSymbol.Var(
-                "mv.str.${stringHash}",
-                MoveType.Vector(MoveType.U8).toTag(),
-                meta = MetaMap(CONST_STRING to string)
-            )
+            val stringVar = TACSymbol.Var("mv.str.$stringHash", MoveType.Vector(MoveType.U8).toTag())
+
             data class Initializer(
                 val stringVar: TACSymbol.Var,
                 val bytes: ByteArray
@@ -204,11 +194,12 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 }
             }
             ensureInit(Initializer(stringVar, bytes))
+
             return stringVar
         }
 
         context(SummarizationContext)
-        fun packString(string: String) = packString(string.toByteArray(Charsets.UTF_8), string)
+        fun packString(string: String) = packString(string.toByteArray(Charsets.UTF_8))
 
         private const val REACHED_END_OF_FUNCTION = "Reached end of function"
     }
@@ -762,10 +753,10 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                             val stringVar = packString(bytes)
                                             add(push(type, stringVar.asSym()))
                                         } else {
-                                            val length = buf.parseList { decode(type.elemType) }.size
-                                            val values = (0..<length).map { pop().s }.reversed()
-                                            add(TACCmd.Move.VecPackCmd(push(type), values, meta).withDecls())
-                                        }
+                                        val length = buf.parseList { decode(type.elemType) }.size
+                                        val values = (0..<length).map { pop().s }.reversed()
+                                        add(TACCmd.Move.VecPackCmd(push(type), values, meta).withDecls())
+                                    }
                                     }
 
                                     // The Move compiler doesn't seem to emit LdConst for enums

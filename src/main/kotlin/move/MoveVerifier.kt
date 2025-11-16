@@ -49,7 +49,14 @@ class MoveVerifier {
         The entrypoint for verification of Move projects
     */
     suspend fun verify() {
-        // See notes in `MoveMemory`
+        /*
+            The Move prover currently does not support precise bitwise operation mode, due to all of the [Tag.Int] math
+            done in [MemoryLayout].  If we need this in the future, we will also need to update [MemoryLayout] to
+            constrain the maximum composed layout size to fit in 256 bits.  This will require (among other things) a
+            different "ghost array" implementation.
+
+            For now, we simply fail if this is enabled.
+         */
         if (Config.Smt.UseBV.get()) {
             throw CertoraException(
                 CertoraErrorType.BAD_CONFIG,

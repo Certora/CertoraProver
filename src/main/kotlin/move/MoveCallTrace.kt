@@ -23,8 +23,6 @@ import analysis.SimpleCmdsWithDecls
 import com.certora.collect.*
 import config.*
 import datastructures.stdcollections.*
-import move.ConstantStringPropagator.MESSAGE_VAR
-import move.ConstantStringPropagator.MessageVar
 import tac.*
 import tac.generation.*
 import utils.*
@@ -168,12 +166,31 @@ object MoveCallTrace {
         )
     }
 
+    /**
+        Used for snippet types that have a textual message variable.  We may be able to extract a constant message
+        value for these variables.
+     */
+    interface WithMessageFromVar {
+        val messageVar: TACSymbol.Var?
+        fun resolveMessage(message: String?): SnippetCmd.MoveSnippetCmd
+    }
+
     /** Snippet for a user-defined assume */
     @KSerializable
     data class Assume(
         val message: String?,
+        override val messageVar: TACSymbol.Var?,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd()
+    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<Assume>, WithMessageFromVar {
+        override val support: Set<TACSymbol.Var> get() = setOfNotNull(messageVar)
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
+            messageVar = messageVar?.let(f)
+        )
+        override fun resolveMessage(message: String?) = when (message) {
+            null -> copy(messageVar = null)
+            else -> copy(message = message, messageVar = null)
+        }
+    }
 
     /** Snippet for a user-defined assert */
     @KSerializable
@@ -181,12 +198,18 @@ object MoveCallTrace {
         val isSatisfy: Boolean,
         val condition: TACSymbol,
         val message: String?,
+        override val messageVar: TACSymbol.Var?,
         override val range: Range.Range?
-    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<Assert> {
-        override val support: Set<TACSymbol.Var> get() = setOfNotNull(condition as? TACSymbol.Var)
+    ) : SnippetCmd.MoveSnippetCmd(), TransformableVarEntityWithSupport<Assert>, WithMessageFromVar {
+        override val support: Set<TACSymbol.Var> get() = setOfNotNull(condition as? TACSymbol.Var, messageVar)
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
-            condition = (condition as? TACSymbol.Var)?.let(f) ?: condition
+            condition = (condition as? TACSymbol.Var)?.let(f) ?: condition,
+            messageVar = messageVar?.let(f)
         )
+        override fun resolveMessage(message: String?) = when (message) {
+            null -> copy(messageVar = null)
+            else -> copy(message = message, messageVar = null)
+        }
     }
 
     /**
@@ -367,14 +390,7 @@ object MoveCallTrace {
         messageVar: TACSymbol.Var? = null,
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
-        return if (messageVar == null) {
-            Assume(messageText, range).toAnnotation().withDecls()
-        } else {
-            mergeMany(
-                Assume(messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to MessageVar(messageVar))).withDecls(),
-                TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(messageVar)).withDecls()
-            )
-        }
+        return Assume(messageText, messageVar, range).toAnnotation().withDecls()
     }
 
     /**
@@ -387,13 +403,6 @@ object MoveCallTrace {
         messageVar: TACSymbol.Var? = null,
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
-        return if (messageVar == null) {
-            Assert(isSatisfy, condition, messageText, range).toAnnotation().withDecls()
-        } else {
-            mergeMany(
-                Assert(isSatisfy, condition, messageText, range).toAnnotation().withMeta(MetaMap(MESSAGE_VAR to MessageVar(messageVar))).withDecls(),
-                TACCmd.Simple.AnnotationCmd(MESSAGE_VAR, MessageVar(messageVar)).withDecls()
-            )
-        }
+        return Assert(isSatisfy, condition, messageText, messageVar, range).toAnnotation().withDecls()
     }
 }
