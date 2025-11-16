@@ -35,3 +35,14 @@ class SolcParameters(CompilerParameters):
         as_dict.update({"optimizerOn": self.optimizer_on, "optimizerRuns": self.optimizer_runs, "viaIR": self.via_ir,
                         "type": "SolcParameters"})
         return as_dict
+
+class VyperParameters(CompilerParameters):
+
+    def __init__(self, is_venom: bool):
+        self.is_venom = is_venom
+        CompilerParameters.__init__(self)
+
+    def as_dict(self) -> Dict[str, Any]:
+        as_dict = CompilerParameters.as_dict(self)
+        as_dict.update({"is_venom": self.is_venom, "type": "VyperParameters"})
+        return as_dict

@@ -659,7 +659,7 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
 
     @staticmethod
     def extract_type_from_enum_def(ast_enumdef_node: Dict[str, Any]) -> VyperType:
-        fields = [n['target']['id'] for n in ast_enumdef_node['body']]
+        fields = [n['target']['id'] if "target" in n else n["value"]["id"] for n in ast_enumdef_node['body']]
         return CompilerLangVy.VyperTypeEnum(ast_enumdef_node['name'], fields)
 
     @staticmethod
@@ -1273,7 +1273,7 @@ class Collector:
             self._collect_const(v)
 
         # Extract and resolve types
-        type_asts = {'EnumDef', 'StructDef', 'InterfaceDef', 'Import', 'Import', 'ImportFrom'}
+        type_asts = {'EnumDef', 'StructDef', 'InterfaceDef', 'Import', 'Import', 'ImportFrom', 'FlagDef'}
         types = [e for e in module_node['body'] if e['ast_type'] in type_asts]
         for t in types:
             self._collect_type_decl(t)
@@ -1300,7 +1300,7 @@ class Collector:
 
     def _collect_type_decl(self, type_decl_node: Dict[str, Any]) -> None:
         """Update self.types to add type definition from `type_decl_node`.  Expects self.consts to be initialized"""
-        if type_decl_node['ast_type'] == 'EnumDef':
+        if type_decl_node['ast_type'] in ('EnumDef', 'FlagDef'):
             vy_type = CompilerLangVy.extract_type_from_enum_def(type_decl_node)
         elif type_decl_node['ast_type'] == 'StructDef':
             vy_type = CompilerLangVy.extract_type_from_struct_def(type_decl_node, self.consts)

@@ -667,14 +667,14 @@ def validate_address(value: str) -> str:
     return value
 
 
-def validate_solc_via_ir_map(args: Dict[str, bool]) -> None:
+def validate_boolean_map(args: Dict[str, bool], attr_name: str) -> None:
+    attr_map_name = attr_name + "_map"
     if not isinstance(args, dict):
-        raise Util.CertoraUserInputError("'solc_via_ir_map' should be stored as a map "
-                                         f"(type was {type(args).__name__})")
+        raise Util.CertoraUserInputError(f"'{attr_map_name}' should be stored as a map (type was {type(args).__name__})")
 
     for contract, value in args.items():
         if not isinstance(value, bool):
-            raise Util.CertoraUserInputError(f"'solc_via_ir_map' should map {contract} to a boolean value, "
+            raise Util.CertoraUserInputError(f"'{attr_map_name}' should map {contract} to a boolean value, "
                                              f"got ({value}, type: {type(value).__name__})")
 
     values = args.values()
@@ -682,9 +682,15 @@ def validate_solc_via_ir_map(args: Dict[str, bool]) -> None:
 
     if all(x == first for x in values):
         if first:
-            validation_logger.warning("all via_ir values are set to True '--solc_via_ir' can be used instead")
+            validation_logger.warning(f"all {attr_map_name} values are set to True '{attr_name}' can be used instead")
         else:
-            validation_logger.warning("all via_ir values are set to False, this flag/attribute can be omitted")
+            validation_logger.warning(f"all {attr_map_name} values are set to False, this flag/attribute can be omitted")
+
+def validate_solc_via_ir_map(args: Dict[str, bool]) -> None:
+    validate_boolean_map(args, 'solc_via_ir')
+
+def validate_vyper_venom_map(args: Dict[str, bool]) -> None:
+    validate_boolean_map(args, 'vyper_venom')
 
 def validate_solc_evm_version_map(args: Dict[str, str]) -> None:
     if not isinstance(args, dict):

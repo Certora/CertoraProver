@@ -37,7 +37,7 @@ from CertoraProver.certoraBuildDataClasses import CONTRACTS, ImmutableReference,
 from CertoraProver.certoraCompilerParameters import SolcParameters
 from CertoraProver.certoraSourceFinders import add_source_finders
 from CertoraProver.certoraVerifyGenerator import CertoraVerifyGenerator
-from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes
+from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes, VyperMetadata
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
@@ -1381,10 +1381,16 @@ class CertoraBuildGenerator:
 
         return bytecode
 
-    def get_solc_via_ir_value(self, contract_file_path: Path) -> bool:
-        match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_via_ir')
-        assert isinstance(match, (bool, type(None))), f"Expected solc_via_ir to be bool or None, got {type(match)}"
+    def get_map_bool_attribute_value(self, contract_file_path: Path, attr_name: str) -> bool:
+        match = Ctx.get_map_attribute_value(self.context, contract_file_path, attr_name)
+        assert isinstance(match, (bool, type(None))), f"Expected {attr_name} to be bool or None, got {type(match)}"
         return bool(match)
+
+    def get_solc_via_ir_value(self, contract_file_path: Path) -> bool:
+        return self.get_map_bool_attribute_value(contract_file_path, 'solc_via_ir')
+
+    def get_vyper_venom_value(self, contract_file_path: Path) -> bool:
+        return self.get_map_bool_attribute_value(contract_file_path, 'vyper_venom')
 
     def get_solc_evm_version_value(self, contract_file_path: Path) -> Optional[str]:
         match = Ctx.get_map_attribute_value(self.context, contract_file_path, 'solc_evm_version')
@@ -1397,6 +1403,10 @@ class CertoraBuildGenerator:
         if isinstance(match, int):
             match = str(match)
         return match
+
+    def _handle_venom(self, contract_file_path: Path, settings_dict: Dict[str, Any]) -> None:
+        if self.get_vyper_venom_value(contract_file_path):
+            settings_dict["experimentalCodegen"] = True
 
     def _handle_via_ir(self, contract_file_path: Path, settings_dict: Dict[str, Any]) -> None:
         if self.get_solc_via_ir_value(contract_file_path):
@@ -1510,6 +1520,9 @@ class CertoraBuildGenerator:
         self._handle_via_ir(contract_file_path, settings_dict)
         self._handle_evm_version(contract_file_path, settings_dict)
         self._handle_optimize(contract_file_path, settings_dict, compiler_collector)
+        compiler_lang = compiler_collector.smart_contract_lang
+        if compiler_lang == CompilerLangVy():
+            self._handle_venom(contract_file_path, settings_dict)
 
     @staticmethod
     def solc_setting_optimizer_runs(settings_dict: Dict[str, Any]) -> Tuple[bool, Optional[int]]:
@@ -1569,6 +1582,8 @@ class CertoraBuildGenerator:
                 contents = f.read()
                 sources_dict = {str(contract_file_posix_abs): {"content": contents}}
                 output_selection = ["abi", "evm.bytecode", "evm.deployedBytecode", "evm.methodIdentifiers"]
+                if compiler_collector.compiler_version >= (0, 4, 4):
+                    output_selection += ["metadata", "evm.deployedBytecode.symbolMap"]
                 ast_selection = ["ast"]
 
         settings_dict: Dict[str, Any] = \
@@ -2225,6 +2240,40 @@ class CertoraBuildGenerator:
             storage_slot['descriptor'] = type_descriptor.as_dict()
         return storage_data
 
+    @staticmethod
+    def add_vyper_internal_function_data(internal_funcs: Set[Func], contract_data: Dict[str, Any]) -> None:
+        metadata = contract_data["metadata"]
+        symbol_map = contract_data["evm"]["deployedBytecode"]["symbolMap"]
+
+        for internal_func in internal_funcs:
+            # find metadata entry
+            func_name = internal_func.name
+            func_info = metadata['function_info']
+            metadata_func_info = None
+            for value in func_info.values():
+                if value.get("name") == func_name:
+                    metadata_func_info = value
+                    break
+            assert metadata_func_info is not None, f"Could not find metadata for internal function {func_name}"
+            vyper_metadata = VyperMetadata()
+            if metadata_func_info.get('frame_info'):
+                vyper_metadata.frame_size = metadata_func_info['frame_info']['frame_size']
+                vyper_metadata.frame_start = metadata_func_info['frame_info']['frame_start']
+            if metadata_func_info.get('venom_via_stack'):
+                vyper_metadata.venom_via_stack = metadata_func_info['venom_via_stack']
+            if metadata_func_info.get('venom_return_via_stack'):
+                vyper_metadata.venom_return_via_stack = metadata_func_info['venom_return_via_stack']
+            pattern_in_symbol_map = re.compile(fr"{func_name}\(.*\)_runtime$")
+            matches = [k for k in symbol_map if pattern_in_symbol_map.search(k)]
+            if len(matches) == 0:
+                build_logger.warning(f"Could not find symbol map entry for {func_name} probably was inlined")
+                continue
+            elif len(matches) > 1:
+                raise RuntimeError(f"Found multiple matches for {func_name} in symbol map: {matches}")
+            else:
+                vyper_metadata.runtime_start_pc = symbol_map[matches[0]]
+            internal_func.vyper_metadata = vyper_metadata
+
     def get_contract_in_sdc(self,
                             source_code_file: str,
                             contract_name: str,
@@ -2348,6 +2397,9 @@ class CertoraBuildGenerator:
             compiler_parameters = SolcParameters(solc_optimizer_on, solc_optimizer_runs, solc_via_ir)
         else:
             compiler_parameters = None
+
+        if compiler_lang == CompilerLangVy() and compiler_collector_for_contract_file.compiler_version >= (0, 4, 4):
+            self.add_vyper_internal_function_data(internal_funcs, contract_data)
 
         return ContractInSDC(contract_name,
                              # somehow make sure this is an absolute path which obeys the autofinder remappings

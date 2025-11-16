@@ -298,6 +298,34 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False
     )
 
+    VYPER_VENOM_MAP = AttrUtil.AttributeDefinition(
+        attr_validation_func=Vf.validate_vyper_venom_map,
+        arg_type=AttrUtil.AttrArgType.MAP,
+        help_msg="Map contracts to the appropriate experimental-codegen option (Vyper >= 4 only)",
+        default_desc="All contracts are compiled without experimental codegen",
+        argparse_args={
+            "action": AttrUtil.UniqueStore,
+            "type": lambda value: Vf.parse_ordered_dict("vyper_venom_map", value, bool)
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(main_section=MainSection.SOLIDITY_COMPILER)
+    )
+
+    VYPER_VENOM = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="Whether to use experimental-codegen (Vyper >= 4 only)",
+        default_desc="All contracts are compiled without experimental codegen",
+        argparse_args={
+            "action": AttrUtil.STORE_TRUE
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+        config_data=AttributeJobConfigData(
+            main_section=MainSection.SOLIDITY_COMPILER
+        )
+    )
+
     SOLC_VIA_IR = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.BOOLEAN,
         help_msg="Pass the `--via-ir` flag to the Solidity compiler",

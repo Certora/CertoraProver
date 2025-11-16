@@ -13,7 +13,7 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple, Dict, Any, cast
 from CertoraProver import certoraType as CT
 from Shared import certoraUtils as Util
 
@@ -46,6 +46,30 @@ class SourceBytes:
         except (KeyError, ValueError):
             return None
 
+class VyperMetadata:
+    def __init__(
+        self,
+        frame_size: Optional[int] = None,
+        frame_start: Optional[int] = None,
+        venom_via_stack: Optional[List[str]] = None,
+        venom_return_via_stack: bool = False,
+        runtime_start_pc: Optional[int] = None,
+    ):
+        self.frame_size = frame_size
+        self.frame_start = frame_start
+        self.venom_via_stack = venom_via_stack
+        self.venom_return_via_stack = venom_return_via_stack
+        self.runtime_start_pc = runtime_start_pc
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "frame_size": self.frame_size,
+            "frame_start": self.frame_start,
+            "venom_via_stack": self.venom_via_stack,
+            "venom_return_via_stack": self.venom_return_via_stack,
+            "runtime_start_pc": self.runtime_start_pc,
+        }
+
 
 class Func:
     def __init__(self,
@@ -69,6 +93,7 @@ class Func:
                  original_file: Optional[str],
                  location: Optional[str],
                  body_location: Optional[str],
+                 vyper_metadata: Optional[VyperMetadata] = None
                  ):
         self.name = name
         self.fullArgs = fullArgs
@@ -90,6 +115,7 @@ class Func:
         self.virtual = virtual
         self.contractName = contractName
         self.source_bytes = source_bytes
+        self.vyper_metadata = vyper_metadata
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -105,6 +131,7 @@ class Func:
             "contractName": self.contractName,
             "sourceBytes": None if self.source_bytes is None else self.source_bytes.as_dict(),
             "originalFile": None if self.original_file is None else Util.resolve_original_file(self.original_file),
+            "vyper_metadata": cast(VyperMetadata, self.vyper_metadata).as_dict() if self.vyper_metadata is not None else None
         }
 
     def name_for_contract(self, contract_name: str) -> str:
