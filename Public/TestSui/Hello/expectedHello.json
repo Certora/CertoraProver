@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"hello::hello::hello_world": "SUCCESS"
+	}
+}

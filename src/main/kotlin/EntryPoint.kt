@@ -670,7 +670,9 @@ suspend fun handleMoveFlow() {
         File(Config.MoveModulePath.get()).walk().filter { it.isFile }.map { it.toString() }.toSet()
     )
 
-    MoveVerifier().verify()
+    MoveVerifier().use {
+        it.verify()
+    }
 }
 
 suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Single>> {

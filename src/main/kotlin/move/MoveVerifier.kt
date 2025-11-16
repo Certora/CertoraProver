@@ -20,6 +20,7 @@ package move
 import bridge.*
 import config.*
 import datastructures.stdcollections.*
+import java.io.Closeable
 import kotlin.io.path.*
 import log.*
 import parallel.coroutines.*
@@ -38,12 +39,16 @@ import vc.data.*
 import verifier.*
 import verifier.mus.*
 
-class MoveVerifier {
+class MoveVerifier : Closeable {
     private val modulePath = Config.MoveModulePath.get()
     private val moveScene = MoveScene(Path(modulePath))
     private val cvlScene = SceneFactory.getScene(DegenerateContractSource(modulePath))
     private val reporterContainer = ReporterContainer(listOf(ConsoleReporter))
     private val treeView = TreeViewReporter("MoveMainProgram", "", cvlScene)
+
+    override fun close() {
+        treeView.close()
+    }
 
     /**
         The entrypoint for verification of Move projects
