@@ -77,6 +77,7 @@ sealed class BuiltInRuleGenerator {
             when (val birId = birMetadata.birId) {
                 BuiltInRuleId.hasDelegateCalls -> HasDelegateCalls(methodParamFilters).lift()
                 BuiltInRuleId.trustedMethods -> TrustedMethods(methodParamFilters).lift()
+                BuiltInRuleId.safeCasting -> SafeCastingGenerator(methodParamFilters).lift()
                 BuiltInRuleId.msgValueInLoopRule -> if (!methodParamFilters.isEmpty()) {
                     InvalidMethodParamFiltersOnBuiltinRule(
                         birMetadata.birUseDecl.range,

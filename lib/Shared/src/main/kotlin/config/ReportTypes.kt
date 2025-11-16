@@ -71,6 +71,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     INTERNAL_FUNCTION_VALIDATED(LoggerTypes.FUNCTION_BUILDER),
     DEDUPLICATED(LoggerTypes.OPTIMIZE),
     SOURCE_FINDER_ANNOTATOR(LoggerTypes.FUNCTION_BUILDER),
+    SAFE_CASTING_ANNOTATOR(LoggerTypes.FUNCTION_BUILDER),
     INLINED(LoggerTypes.INLINER),
     CALLEE_ANALYSIS(LoggerTypes.INLINER),
     REVERT_MATERIALIZATION(LoggerTypes.INLINER),

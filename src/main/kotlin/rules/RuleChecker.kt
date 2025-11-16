@@ -846,7 +846,7 @@ class RuleChecker(
 
                 else -> throw IllegalStateException(
                     "Reached the default case in compiledSingleRuleCheck, even though " +
-                        "all cases should have already been accounted for."
+                        "all cases should have already been accounted for. Rule type: ${rule.ruleType}"
                 )
             }.fold(
                 onSuccess = { ruleAlertReport -> RuleCheckResult.Skipped(rule, ruleAlertReport) },

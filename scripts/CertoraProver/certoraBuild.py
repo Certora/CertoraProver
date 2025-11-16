@@ -20,24 +20,24 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 import typing
 from collections import OrderedDict, defaultdict
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from Crypto.Hash import keccak
-import tempfile
-
 from typing import Any, Dict, List, Tuple, Optional, Set, Iterator, NoReturn
 
+from Crypto.Hash import keccak
 
+from CertoraProver.castingInstrumenter import generate_casting_instrumentation
 from CertoraProver.certoraBuildCacheManager import CertoraBuildCacheManager, CachedFiles
 from CertoraProver.certoraBuildDataClasses import CONTRACTS, ImmutableReference, ContractExtension, ContractInSDC, SDC, \
     Instrumentation, InsertBefore, InsertAfter, UnspecializedSourceFinder, instrumentation_logger
 from CertoraProver.certoraCompilerParameters import SolcParameters
+from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes, VyperMetadata
 from CertoraProver.certoraSourceFinders import add_source_finders
 from CertoraProver.certoraVerifyGenerator import CertoraVerifyGenerator
-from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes, VyperMetadata
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
@@ -3337,6 +3337,15 @@ class CertoraBuildGenerator:
         else:
             added_source_finders = {}
 
+        try:
+            casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder)
+        except Exception as e:
+            instrumentation_logger.warning(
+                f"Computing casting instrumentation failed for {build_arg_contract_file}: {e}", exc_info=True)
+            casting_instrumentations, casting_types = {}, {}
+
+        instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, casting_instrumentations)
+
         abs_build_arg_contract_file = Util.abs_posix_path(build_arg_contract_file)
         if abs_build_arg_contract_file not in instr:
             instrumentation_logger.debug(
@@ -3389,6 +3398,13 @@ class CertoraBuildGenerator:
                             in_file.read(to_skip)
                         read_so_far += amt + 1 + to_skip
                     output.write(in_file.read(-1))
+
+                    library_name, funcs = casting_types.get(contract_file, ("", list()))
+                    if len(funcs) > 0:
+                        output.write(bytes(f"\nlibrary {library_name}" + "{\n", "utf8"))
+                        for f in funcs:
+                            output.write(bytes(f, "utf8"))
+                        output.write(bytes("}\n", "utf8"))
 
         new_file = self.to_autofinder_file(build_arg_contract_file)
         self.context.file_to_contract[new_file] = self.context.file_to_contract[

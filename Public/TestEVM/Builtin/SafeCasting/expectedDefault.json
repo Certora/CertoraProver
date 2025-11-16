@@ -1,0 +1,17 @@
+{
+	"rules": {
+		"safeCasting": {
+			"FAIL": [
+				"complex(int8,int8)",
+				"noWidth(uint256)"
+			],
+			"SUCCESS": [
+				"should_pass(int8)"
+			],
+			"signed(uint256,uint128)": [
+				"FAIL",
+				"FAIL"
+			]
+		}
+	}
+}
