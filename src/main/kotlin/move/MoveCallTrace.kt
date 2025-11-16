@@ -136,11 +136,21 @@ object MoveCallTrace {
     }
 
     /**
-        Snippet holding the function start information.  We also put the return types here, because we need those when
-        initially constructing the call node in the trace.
+        Marks the start of a function call in the TAC
      */
     @KSerializable
     data class FuncStart(
+        val callId: Int,
+        val name: MoveFunctionName,
+        override val range: Range.Range?
+    ) : SnippetCmd.MoveSnippetCmd()
+
+    /**
+        Snippet holding the arguments to a function.  We also put the return types here, because we need those when
+        initially constructing the call node in the trace.
+     */
+    @KSerializable
+    data class FuncArgs(
         val callId: Int,
         val name: MoveFunctionName,
         val params: List<MoveFunction.DisplayParam>,
@@ -148,7 +158,7 @@ object MoveCallTrace {
         val args: List<Value>,
         val typeArgIds: List<TACSymbol.Var>,
         override val range: Range.Range?
-    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncStart> {
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<FuncArgs> {
         override val support: Set<TACSymbol.Var> get() = args.map { it.support }.unionAll() + typeArgIds
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
             args = args.map { it.transformSymbols(f) },
@@ -359,17 +369,23 @@ object MoveCallTrace {
     context(SummarizationContext)
     fun annotateFuncStart(callId: Int, func: MoveFunction, args: List<TACSymbol.Var>): MoveCmdsWithDecls {
         val cmds = mutableListOf<MoveCmdsWithDecls>()
+        // The current implementation of [report.dumps.AddInternalFunctions] doesn't work if a) the func start
+        // annotation is at the beginning of a block, or b) there are no commands between the previous func end and the
+        // next func start.  Apparently this is hard to fix, so we insert some padding for now.
+        cmds += Padding.toAnnotation().withDecls()
+        cmds += FuncStart(
+            callId = callId,
+            name = func.name,
+            range = func.range
+        ).toAnnotation().withDecls()
+
         val argVals = func.params.zip(args).map { (argType, argVal) -> makeValue(cmds, argType, argVal) }
         val typeArgIds = func.typeArguments.mapIndexed { i, typeArg ->
             TACSymbol.Var("type_arg_$i", Tag.Bit256).toUnique("!").also {
                 cmds += assign(it) { CvlmHash.typeId(typeArg) }
             }
         }
-        // The current implementation of [report.dumps.AddInternalFunctions] doesn't work if a) the func start
-        // annotation is tat the beginning of a block, or b) there are no commands between the previous func end and
-        // the next func start.  Apparently this is hard to fix, so we insert some padding for now.
-        cmds += Padding.toAnnotation().withDecls()
-        cmds += FuncStart(
+        cmds += FuncArgs(
             callId = callId,
             name = func.name,
             params = func.displayParams,
@@ -378,6 +394,7 @@ object MoveCallTrace {
             typeArgIds = typeArgIds,
             range = func.range
         ).toAnnotation().withDecls()
+
         return mergeMany(cmds)
     }
 

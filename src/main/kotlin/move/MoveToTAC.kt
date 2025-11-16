@@ -39,6 +39,7 @@ import instrumentation.transformers.*
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import log.*
+import move.analysis.*
 import optimizer.*
 import org.jetbrains.annotations.TestOnly
 import tac.*
@@ -61,9 +62,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         val isSatisfy: Boolean
     ) {
         fun toCoreTAC(scene: MoveScene): CoreTACProgram {
-            return annotateCallStack("rule.${rule.ruleInstanceName}") {
-                moveTACtoCoreTAC(scene, moveTAC, isSatisfy)
-            }
+            return moveTACtoCoreTAC(scene, moveTAC, isSatisfy)
         }
     }
 
@@ -89,7 +88,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 code
                 .transform(ReportTypes.DEDUPLICATED) { deduplicateBlocks(it) }
                 .mergeBlocks()
+                .also { TACSizeProfiler().profile(it, "presimplified") }
                 .transform(ReportTypes.SIMPLIFIED) { MoveTACSimplifier(scene, it).transform() }
+                .also { TACSizeProfiler().profile(it, "simplified") }
             )
             .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
@@ -156,6 +157,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
             .ref
+            .also { NonlinearProfiler().profile(it, "optimized") }
 
         private fun <T : TACProgram<*>, R : TACProgram<*>> T.transform(
             reportType: ReportTypes,
@@ -398,20 +400,18 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         sanityMode: SanityMode,
         parametricTargets: Map<Int, MoveFunction>
     ): CompiledRule {
-        return annotateCallStack("rule.${rule.ruleInstanceName}") {
-            val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
-            ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
-            val isSatisfy = when (sanityMode) {
-                SanityMode.NONE -> isSatisfyRule(moveTAC)
-                // For sanity rules, it's common for the injected assert/satisfy to be unreachable, if the target
-                // function always aborts.  In that case `isSatisfyRule` would throw, failing the whole run.  These are
-                // not user-generated rules, and there is no way for the user to fix them, so let's not fail the whole
-                // run for those.
-                SanityMode.ASSERT_TRUE -> false
-                SanityMode.SATISFY_TRUE -> true
-            }
-            CompiledRule(rule, moveTAC, isSatisfy)
+        val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
+        ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
+        val isSatisfy = when (sanityMode) {
+            SanityMode.NONE -> isSatisfyRule(moveTAC)
+            // For sanity rules, it's common for the injected assert/satisfy to be unreachable, if the target
+            // function always aborts.  In that case `isSatisfyRule` would throw, failing the whole run.  These are
+            // not user-generated rules, and there is no way for the user to fix them, so let's not fail the whole
+            // run for those.
+            SanityMode.ASSERT_TRUE -> false
+            SanityMode.SATISFY_TRUE -> true
         }
+        return CompiledRule(rule, moveTAC, isSatisfy)
     }
 
     private fun compileRule(rule: CvlmRule): CompiledRule {

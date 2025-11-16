@@ -52,7 +52,8 @@ internal class MoveCallTraceGenerator(
             when (it) {
                 is MoveCallTrace.MoveSnippetCmd -> when (it) {
                     is MoveCallTrace.TypeId -> handleTypeId(it)
-                    is MoveCallTrace.FuncStart -> handleFuncStart(it)
+                    is MoveCallTrace.FuncStart -> HandleCmdResult.Continue // skip to the args
+                    is MoveCallTrace.FuncArgs -> handleFuncStart(it)
                     is MoveCallTrace.FuncEnd -> handleFuncEnd(it)
                     is MoveCallTrace.Assert -> handleAssert(it)
                     is MoveCallTrace.Assume -> handleAssume(it)
@@ -77,7 +78,7 @@ internal class MoveCallTraceGenerator(
         return HandleCmdResult.Continue
     }
 
-    private fun handleFuncStart(annot: MoveCallTrace.FuncStart): HandleCmdResult {
+    private fun handleFuncStart(annot: MoveCallTrace.FuncArgs): HandleCmdResult {
         val typeArgs = annot.typeArgIds.map {
             model.valueAsBigInteger(it).leftOrNull()?.let {
                 typesById[it]?.displayName() ?: "(#$it)"

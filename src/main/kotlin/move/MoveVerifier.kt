@@ -20,6 +20,7 @@ package move
 import bridge.*
 import config.*
 import datastructures.stdcollections.*
+import diagnostics.*
 import java.io.Closeable
 import kotlin.io.path.*
 import log.*
@@ -76,43 +77,47 @@ class MoveVerifier : Closeable {
             .resultOrExitProcess(1, CVLError::printErrors)
             .sortedBy { it.ruleInstanceName }
             .parallelMapOrdered(concurrencyLimit) { _, rule ->
-                val compiled = MoveToTAC.compileRule(rule, moveScene)
-                EcosystemAgnosticRule(
-                    ruleIdentifier = RuleIdentifier.freshIdentifier(compiled.rule.ruleInstanceName),
-                    ruleType = when (compiled.rule) {
-                        is CvlmRule.UserRule -> SpecType.Single.FromUser.SpecFile
-                        is CvlmRule.TargetSanity -> SpecType.Single.BuiltIn(BuiltInRuleId.sanity)
-                    },
-                    isSatisfyRule = compiled.isSatisfy
-                ) to compiled
+                annotateCallStack("rule.${rule.ruleInstanceName}") {
+                    val compiled = MoveToTAC.compileRule(rule, moveScene)
+                    EcosystemAgnosticRule(
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(compiled.rule.ruleInstanceName),
+                        ruleType = when (compiled.rule) {
+                            is CvlmRule.UserRule -> SpecType.Single.FromUser.SpecFile
+                            is CvlmRule.TargetSanity -> SpecType.Single.BuiltIn(BuiltInRuleId.sanity)
+                        },
+                        isSatisfyRule = compiled.isSatisfy
+                    ) to compiled
+                }
             }
 
         treeView.buildRuleTree(rules.map { (rule, _) -> rule })
 
         rules.consuming().parallelMapOrdered(concurrencyLimit) { _, (rule, compiled) ->
-            treeView.signalStart(rule)
+            annotateCallStackAsync("rule.${rule.ruleIdentifier.displayName}") {
+                treeView.signalStart(rule)
 
-            val coretac = compiled.toCoreTAC(moveScene)
+                val coretac = compiled.toCoreTAC(moveScene)
 
-            @OptIn(Config.DestructiveOptimizationsOption::class)
-            val res = when (Config.DestructiveOptimizationsMode.get()) {
-                DestructiveOptimizationsModeEnum.DISABLE -> {
-                    verifyTAC(rule, coretac)
-                }
-                DestructiveOptimizationsModeEnum.ENABLE -> {
-                    verifyTAC(rule, coretac.withDestructiveOptimizations(true))
-                }
-                DestructiveOptimizationsModeEnum.TWOSTAGE, DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> {
-                    twoStageDestructiveOptimizationsCheck(rule, rule.ruleIdentifier.displayName, coretac) {
-                        verifyTAC(rule, it)
+                @OptIn(Config.DestructiveOptimizationsOption::class)
+                val res = when (Config.DestructiveOptimizationsMode.get()) {
+                    DestructiveOptimizationsModeEnum.DISABLE -> {
+                        verifyTAC(rule, coretac)
+                    }
+                    DestructiveOptimizationsModeEnum.ENABLE -> {
+                        verifyTAC(rule, coretac.withDestructiveOptimizations(true))
+                    }
+                    DestructiveOptimizationsModeEnum.TWOSTAGE, DestructiveOptimizationsModeEnum.TWOSTAGE_CHECKED -> {
+                        twoStageDestructiveOptimizationsCheck(rule, rule.ruleIdentifier.displayName, coretac) {
+                            verifyTAC(rule, it)
+                        }
                     }
                 }
-            }
 
-            res.toCheckResult(cvlScene, rule).mapCatching { checkResult ->
-                reporterContainer.addResults(checkResult)
-                treeView.signalEnd(rule, checkResult)
-                reporterContainer.hotUpdate(cvlScene)
+                res.toCheckResult(cvlScene, rule).mapCatching { checkResult ->
+                    reporterContainer.addResults(checkResult)
+                    treeView.signalEnd(rule, checkResult)
+                    reporterContainer.hotUpdate(cvlScene)
+                }
             }
         }
 

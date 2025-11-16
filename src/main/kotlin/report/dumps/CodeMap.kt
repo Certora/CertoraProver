@@ -410,7 +410,8 @@ data class CodeMap(
                         }
                     }", Color.DARKBLUE).withTitle(metaValue.toString())
                     is InternalFuncExitAnnotation -> colorText("$larrow Method call ${wrapInternalFunEnd(metaValue.id)} ${metaValue.rets.joinToString(", ","(rets: ",")") { getHtmlRep(it.s) }})", Color.DARKBLUE).withTitle(metaValue.toString())
-                    is MoveCallTrace.FuncStart -> colorText("$rarrow ${metaValue.name.toString().escapeHTML()}(${metaValue.args.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is MoveCallTrace.FuncStart -> colorText("$rarrow ${metaValue.name.toString().escapeHTML()}", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is MoveCallTrace.FuncArgs -> colorText("${metaValue.name.toString().escapeHTML()}(${metaValue.args.joinToString(", ") { getHtmlRep(it) }})", Color.DARKGREY).withTitle(metaValue.toString())
                     is MoveCallTrace.FuncEnd -> colorText("$larrow ${metaValue.name.toString().escapeHTML()}(returns ${metaValue.returns.joinToString(", ") { getHtmlRep(it) }})", Color.DARKBLUE).withTitle(metaValue.toString())
                     is Inliner.CallStack.PushRecord -> colorText("$rarrow Solidity call ${metaValue.calleeId}", Color.DARKBLUE).withTitle(metaValue.toString())
                     is Inliner.CallStack.PopRecord -> colorText("$larrow Solidity call ${metaValue.calleeId}", Color.DARKBLUE).withTitle(metaValue.toString())
