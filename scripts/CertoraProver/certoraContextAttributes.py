@@ -1154,7 +1154,7 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False,
     )
 
-    DISALLOW_INTERNAL_FUNCTION_CALLS = AttrUtil.AttributeDefinition(
+    ALLOW_INTERNAL_FUNCTION_CALLS = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.BOOLEAN,
         argparse_args={
             'action': AttrUtil.STORE_TRUE

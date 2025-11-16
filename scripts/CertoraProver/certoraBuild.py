@@ -2717,7 +2717,7 @@ class CertoraBuildGenerator:
         context = self.context
 
         spec_calls: List[str] = []
-        if context.verify and not context.disallow_internal_function_calls:
+        if context.verify and context.allow_internal_function_calls:
             with tempfile.NamedTemporaryFile("r", dir=Util.get_build_dir()) as tmp_file:
                 try:
                     Ctx.run_local_spec_check(False, context, ["-listCalls",  tmp_file.name], print_errors=False)
@@ -3262,7 +3262,7 @@ class CertoraBuildGenerator:
         instr = function_instr
 
         added_internal_function_harnesses: Dict[str, str] = {}
-        if not self.context.disallow_internal_function_calls:
+        if self.context.allow_internal_function_calls:
             added_internal_func_harness_tuple = self.add_internal_func_harnesses(build_arg_contract_file, sdc_pre_finder, spec_calls)
             if added_internal_func_harness_tuple:
                 instr = CertoraBuildGenerator.merge_dicts_instrumentation(function_instr, added_internal_func_harness_tuple[1])
@@ -4012,7 +4012,7 @@ def build_from_cache_or_scratch(context: CertoraContext,
 
     # Check whether there are any new internal function calls in the spec file - if there are then we need to build
     # from scratch in order to create the relevant harness function.
-    if context.verify and not context.disallow_internal_function_calls:
+    if context.verify and context.allow_internal_function_calls:
         with tempfile.NamedTemporaryFile("r", dir=Util.get_build_dir()) as tmp_file:
             internal_calls = []
             try:
