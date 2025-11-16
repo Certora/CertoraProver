@@ -3538,6 +3538,14 @@ object Config {
         )
     ) {}
 
+    val WASMMemcpyNoOverlap = object : ConfigType.BooleanCmdLine(
+        default = true,
+        option = Option(
+            "assertWasmMemcpyNoOverlap",
+            true,
+            "Check that memcpy args do not overlap (reduces branching in generated TAC) [default: true]"
+        )
+    ) {}
 
     val SorobanConcreteObjectVals = object : ConfigType.BooleanCmdLine(
         true,

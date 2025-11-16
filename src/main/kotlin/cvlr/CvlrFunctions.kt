@@ -33,6 +33,7 @@ object CvlrFunctions {
     const val CVT_assert = "CVT_assert"
     const val CVT_satisfy = "CVT_satisfy"
     const val CVT_sanity = "CVT_sanity"
+    const val CVT_nondet_bytes = "CVT_nondet_bytes"
     const val CVT_nondet_map = "CVT_nondet_map"
     const val CVT_rule_location = "CVT_rule_location"
     const val CVT_calltrace_print_u32_1 = "CVT_calltrace_print_u32_1"

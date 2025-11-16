@@ -62,6 +62,7 @@ import wasm.ir.WasmProgram
 import wasm.summarization.summarizers
 import wasm.summarization.WasmBuiltinCallSummarizer
 import wasm.summarization.WasmHostCallSummarizer
+import wasm.summarization.core.RustCoreSummarizer
 import wasm.summarization.soroban.SorobanSDKSummarizer
 import java.io.File
 import java.util.stream.Collectors
@@ -227,7 +228,8 @@ object WasmEntryPoint {
             listOfNotNull(
                 WasmHostCallSummarizer(env.importer(wasmAST)),
                 WasmBuiltinCallSummarizer(wasmAST.allFuncTypes, wasmAST.dataFields),
-                SorobanSDKSummarizer(wasmAST.allFuncTypes).takeIf { Config.SorobanSDKSummaries.get() }
+                SorobanSDKSummarizer(wasmAST.allFuncTypes).takeIf { Config.SorobanSDKSummaries.get() },
+                RustCoreSummarizer(wasmAST.allFuncTypes)
             )
         )
 

@@ -268,7 +268,7 @@ class SorobanSDKSummarizer(
         }
         val enter = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_START,
-            StraightLine.InlinedFuncStartAnnotation.TAC(name, listOf(ptr, handle),  null)
+            StraightLine.InlinedFuncStartAnnotation.TAC(name, listOf(ptr, handle), null)
         )).withDecls()
         val exit = listOf(TACCmd.Simple.AnnotationCmd(
             WASM_SDK_FUNC_SUMMARY_END,
