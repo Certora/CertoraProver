@@ -284,6 +284,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     NORMALIZE_MASK(LoggerTypes.OPTIMIZE),
     PROPAGATE_STRINGS(LoggerTypes.MOVE),
     INLINE_PARAMETRIC_CALLS(LoggerTypes.MOVE),
+    MATERIALIZE_GHOST_MAPPINGS(LoggerTypes.MOVE),
     BYTESK_INSTRUMENTER(LoggerTypes.NORMALIZER),
     HASH_FP_REUSE_NORMALIZATION(LoggerTypes.ALLOC),
     EQUIVALENCE_DEBUG(LoggerTypes.EQUIVALENCE),

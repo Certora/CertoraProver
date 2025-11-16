@@ -391,98 +391,14 @@ class CvlmManifest(val scene: MoveScene) {
 
         addSummarizer(ghostName) { call ->
             singleBlockSummary(call) {
-                /*
-                    - For a nongeneric ghost function with no parameters `native fun ghost(): &R`, we generate a single
-                      TAC variable of type `R.toTag()`.
-                    - For a nongeneric ghost function with a single numeric parameter, we generate a single TAC variable
-                      of type `MoveTag.GhostArray(R)`, and use the parameter as an index into the array.
-                    - For a nongeneric ghost function with multiple parameters, we generate a single TAC variable of
-                      type `MoveTag.GhostArray(R)`, and hash the parameters to get the index.
-                    - Generic ghost functions work exactly as above, except we generate a separate variable for each
-                      instantiation of the ghost function.
-                */
-
-                val ghostFunc = call.callee
-
-                fun ghostVar(tag: Tag): TACSymbol.Var {
-                    val name = ghostFunc.name.toVarName()
-                    return TACSymbol.Var(
-                        name,
-                        tag,
-                        // treat ghost variables as keywords, to preserve their names in TAC dumps
-                        meta = MetaMap(TACSymbol.Var.KEYWORD_ENTRY to TACSymbol.Var.KeywordEntry(name))
-                    ).letIf(ghostFunc.typeArguments.isNotEmpty()) {
-                            it.withSuffix(
-                                ghostFunc.typeArguments.joinToString("!") { it.symNameExt() },
-                                "!"
-                            )
-                        }
-                }
-
-                val (isRefReturn, resultValType) = when (val resultType = ghostFunc.returns[0]) {
-                    is MoveType.Reference -> true to resultType.refType
-                    is MoveType.Value -> false to resultType
-                }
-
-                val refVar = if (isRefReturn) {
-                    call.returns[0]
-                } else {
-                    TACKeyword.TMP(MoveTag.Ref(resultValType))
-                }
-
-                val makeRef = when {
-                    ghostFunc.params.isEmpty() -> {
-                        // No parameters: just use a simple TAC variable
-                        TACCmd.Move.BorrowLocCmd(
-                            ref = refVar,
-                            loc = ghostVar(resultValType.toTag()).ensureHavocInit(resultValType)
-                        ).withDecls(refVar)
-                    }
-                    ghostFunc.params.size == 1 && ghostFunc.params[0] is MoveType.Bits -> {
-                        // A single numeric parameter: use it as an index into a ghost array
-                        val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(resultValType)))
-                        mergeMany(
-                            TACCmd.Move.BorrowLocCmd(
-                                ref = ghostArrayRef,
-                                loc = ghostVar(MoveTag.GhostArray(resultValType)).ensureHavocInit()
-                            ).withDecls(ghostArrayRef),
-                            TACCmd.Move.GhostArrayBorrowCmd(
-                                dstRef = refVar,
-                                arrayRef = ghostArrayRef,
-                                index = call.args[0]
-                            ).withDecls(refVar)
-                        )
-                    }
-                    else -> {
-                        // Hash the arguments to get an index into a ghost array
-                        val hash = TACKeyword.TMP(Tag.Bit256)
-                        val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(resultValType)))
-                        mergeMany(
-                            CvlmHash.hashArguments(hash, call),
-                            TACCmd.Move.BorrowLocCmd(
-                                ref = ghostArrayRef,
-                                loc = ghostVar(MoveTag.GhostArray(resultValType)).ensureHavocInit()
-                            ).withDecls(ghostArrayRef),
-                            TACCmd.Move.GhostArrayBorrowCmd(
-                                dstRef = refVar,
-                                arrayRef = ghostArrayRef,
-                                index = hash
-                            ).withDecls(refVar)
-                        )
-                    }
-                }
-
-                if (isRefReturn) {
-                    makeRef
-                } else {
-                    mergeMany(
-                        makeRef,
-                        TACCmd.Move.ReadRefCmd(
-                            dst = call.returns[0],
-                            ref = refVar
-                        ).withDecls(call.returns[0])
-                    )
-                }
+                GhostMapping(
+                    name = call.callee.name,
+                    typeArgs = call.callee.typeArguments,
+                    params = call.callee.params,
+                    args = call.args,
+                    resultType = call.callee.returns[0],
+                    result = call.returns[0]
+                ).toCmd()
             }
         }
     }

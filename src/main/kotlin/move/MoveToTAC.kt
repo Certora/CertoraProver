@@ -317,6 +317,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                         a.bodyIdx == b.bodyIdx
                     }
                 }
+                .transform(ReportTypes.MATERIALIZE_GHOST_MAPPINGS) { GhostMapping.materialize(it) }
         }
     }
 

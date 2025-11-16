@@ -83,6 +83,8 @@ class MoveTACCommandGraph(
             )
         }
     }
+
+    fun getNaturalLoops() = getNaturalLoopsGeneric(this, domination)
 }
 
 object MoveBlockView : GraphBlockView<MoveTACCommandGraph, Block, NBId> {
