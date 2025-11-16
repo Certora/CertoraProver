@@ -392,6 +392,12 @@ data class CodeMap(
                             }", Color.ORANGE
                         )
                     }
+                    is SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue -> {
+                        colorText (
+                            s="${metaValue.displayMessage.sanitize()}: ${getHtmlRep(metaValue.low)}::${getHtmlRep(metaValue.high)}",
+                            color=Color.ORANGE
+                        )
+                    }
                     is InternalFuncStartAnnotation -> colorText("$rarrow Method call ${wrapInternalFunStart(metaValue.id)} to ${
                         if (metaValue.args.isNotEmpty() && metaValue.args.size == metaValue.methodSignature.params.size) {
                             metaValue.methodSignature.let { sig ->
