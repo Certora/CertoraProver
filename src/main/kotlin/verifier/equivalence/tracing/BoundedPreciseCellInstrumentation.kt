@@ -307,6 +307,7 @@ internal class BoundedPreciseCellInstrumentation(
                 }
 
             }
+            is IWriteSource.ConditionalReturnCopy,
             is IWriteSource.LongMemCopy,
             is IWriteSource.Other -> {
                 TACExprFactTypeCheckedOnlyPrimitives.run {

@@ -386,7 +386,7 @@ class ContractClass(
             }
 
             transforms.addExpensive(ReportTypes.INITIALIZATION) { c: CoreTACProgram ->
-                if (Config.EnabledInitializationAnalysis.get() && !Config.EquivalenceCheck.get()) {
+                if (Config.EnabledInitializationAnalysis.get() && !Config.EquivalenceNoPTA) {
                     InitAnnotation.annotateInitializationWindows(c)
                 } else {
                     c

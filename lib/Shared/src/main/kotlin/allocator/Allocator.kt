@@ -157,7 +157,8 @@ object Allocator : WithMemento<Allocator.Memento> {
         DIV_0_NONDET,
         MOD_0_NONDET,
         INTERNAL_CALL_SUMMARY,
-        REQUIRE_INVARIANT_CMDS
+        REQUIRE_INVARIANT_CMDS,
+        RETURN_COPY_CONFLUENCE
     }
 
     // all variables must be memento'd!

@@ -87,6 +87,9 @@ internal data class BufferContentsInstrumentation(
             is IWriteSource.LongMemCopy -> {
                 bufferCopySource to src.sourceBuffer.id.asTACExpr
             }
+            is IWriteSource.ConditionalReturnCopy -> {
+                bufferCopySource to src.fallbackCopy.sourceBuffer.id.asTACExpr
+            }
             is IWriteSource.EnvCopy,
             is IWriteSource.Other -> {
                 return (conditionalUpdateOf(overlapSym, preciseBuffer, TACSymbol.Zero) andThen TXF {

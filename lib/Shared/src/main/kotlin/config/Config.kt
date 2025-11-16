@@ -1286,6 +1286,33 @@ object Config {
         )
     ) {}
 
+    val EquivalenceIncludeDelegateCalls = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "equivalenceIncludeDelegates",
+            true,
+            "Allow running the pointer analysis for inlining delegate calls"
+        )
+    ) {}
+
+    val EquivalenceSkipNativeHash = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "equivalenceSkipNativeHash",
+            true,
+            "Never use the native hash for equivalence checking. Should be used in debugging for minimizing instrumentation"
+        )
+    ) {}
+
+    val EquivalenceUniversalCopyTracking = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "equivalenceUniversalCopyTracking",
+            true,
+            "Always enable copy-tracking for all long reads. Gains precision at the cost of formula complexity/size."
+        )
+    ) {}
+
     val EquivalenceTraceFile = object : ConfigType.StringCmdLine(
         "",
         Option(
@@ -1305,7 +1332,9 @@ object Config {
         )
     ) {}
 
-    val Mem0x0To0x40AsScalar get() = _Mem0x0To0x40AsScalar.get() && !EquivalenceCheck.get()
+    val EquivalenceNoPTA get() = EquivalenceCheck.get() && !EquivalenceIncludeDelegateCalls.get()
+
+    val Mem0x0To0x40AsScalar get() = _Mem0x0To0x40AsScalar.get() && !EquivalenceNoPTA
 
     val HavocInitEVMMemory = object : ConfigType.BooleanCmdLine(
         false,

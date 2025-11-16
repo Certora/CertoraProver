@@ -279,6 +279,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     LOG_FP_REUSE_NORMALIZATION(LoggerTypes.ALLOC),
     BMC_FUNC(LoggerTypes.BOUNDED_MODEL_CHECKER),
     DEFINITE_BUFFER_ANALYSIS(LoggerTypes.EQUIVALENCE),
+    EQUIVALENCE_RENORMALIZATION(LoggerTypes.EQUIVALENCE),
     REROUTE_SUMMARIES(LoggerTypes.SUMMARIZATION),
     REROUTE_SUMMARIES_MATERIALIZE(LoggerTypes.SUMMARIZATION),
     OPTIMISTIC_SPILL_REWRITE(LoggerTypes.PER_FUNCTION_SIMPLIFICATION),
@@ -291,6 +292,8 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     EQUIVALENCE_DEBUG(LoggerTypes.EQUIVALENCE),
     ELIMINATE_DROPS(LoggerTypes.WASM),
     ANNOTATE_STACK_FRAMES(LoggerTypes.WASM),
+    RETURN_COPY_COLLAPSE(LoggerTypes.EQUIVALENCE),
+    RETURN_COPY_LABELLING(LoggerTypes.EQUIVALENCE),
     ;
 
     override fun isEnabled(): Boolean = this == NONE || Config.isEnabledLogger(this.loggerCategory) || Config.isEnabledReport(this)

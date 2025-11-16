@@ -172,7 +172,7 @@ internal data class GarbageCollectionInfo(
                     isCompleteInit `=` (
                             not(lowerBound eq uninitMarker) and (
                                     lowerBound le s.loc and ((s.loc add s.length) le upperBound)
-                                    )
+                                )
                             )
                 )
             ) andThen initTerms

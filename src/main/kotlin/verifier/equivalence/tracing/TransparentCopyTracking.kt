@@ -19,10 +19,15 @@ package verifier.equivalence.tracing
 
 import datastructures.stdcollections.*
 import analysis.CommandWithRequiredDecls
+import analysis.TACExprWithRequiredCmdsAndDecls
+import tac.Tag
 import utils.*
 import vc.data.*
 import vc.data.TACProgramCombiners.andThen
+import vc.data.TACProgramCombiners.flatten
+import vc.data.TACProgramCombiners.wrap
 import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.`=`
+import verifier.equivalence.tracing.BufferTraceInstrumentation.Companion.lift
 
 /**
  * Tracks whether a buffer is itself a "transparent copy" of another buffer.
@@ -56,9 +61,57 @@ internal class TransparentCopyTracking(
 ) : InstrumentationMixin, TransparentCopyData {
     companion object {
         const val NO_COPY_FLAG = 0
-        const val COPY_NO_CTXT = 1
-        const val COPY_WITH_CTXT = 2
+        const val HASH_COPY = 1
+        const val ENV_COPY_NO_CTXT = 2
+        const val ENV_COPY_WITH_CTXT = 3
     }
+
+    /**
+     * Update the instrumentation variables for the copy trackking [copyData] based on the copy from [long].
+     */
+    private fun generateUpdate(
+        s: IBufferUpdate,
+        overlapSym: TACSymbol.Var,
+        baseInstrumentation: ILongReadInstrumentation,
+        copyData: TransparentCopyData,
+        long: IWriteSource.LongMemCopy
+    ) : List<Pair<TACSymbol.Var, TACExprWithRequiredCmdsAndDecls<TACCmd.Simple>>> {
+        val isCopyOfCopy = TXF {
+            overlapSym and (s.updateLoc eq baseInstrumentation.baseProphecy) and (s.len eq baseInstrumentation.lengthProphecy) and
+                (copyData.statusFlagVar gt NO_COPY_FLAG)
+        }
+
+        val isCopyOfHash = TXF {
+            overlapSym and (s.updateLoc eq baseInstrumentation.baseProphecy) and (s.len eq baseInstrumentation.lengthProphecy)
+        }
+
+        /**
+         * NB: we take care to zero out this buffer's flag on an overlap (but not a `copyOfCopy`).
+         * We DO NOT bother zeroing out the other variables because per our invariant, once we set
+         * the status flag to 0, their value becomes irrelevant.
+         */
+        val update = listOf(
+            statusFlagVar to TXF {
+                ite(isCopyOfCopy,
+                    copyData.statusFlagVar,
+                    ite(
+                        isCopyOfHash,
+                        HASH_COPY,
+                        ite(overlapSym, NO_COPY_FLAG, statusFlagVar)))
+            }.lift(),
+            reprVar to TXF {
+                ite(isCopyOfCopy, copyData.reprVar, ite(isCopyOfHash, long.getBufferIdentity(), reprVar))
+            },
+            sortVar to TXF {
+                ite(isCopyOfCopy, copyData.sortVar, sortVar)
+            }.lift(),
+            extraCtxtVar to TXF {
+                ite(isCopyOfCopy, copyData.extraCtxtVar, extraCtxtVar)
+            }.lift()
+        )
+        return update
+    }
+
     override fun atPrecedingUpdate(
         s: IBufferUpdate,
         overlapSym: TACSymbol.Var,
@@ -84,6 +137,43 @@ internal class TransparentCopyTracking(
             ))
         }
         when(val src = s.updateSource) {
+            is IWriteSource.ConditionalReturnCopy -> {
+                /**
+                 * Update the transparent copy variables based on the state of the
+                 * [verifier.equivalence.tracing.IWriteSource.ConditionalReturnCopy.fallbackCopy]
+                 * or the [verifier.equivalence.tracing.IWriteSource.ConditionalReturnCopy.translatedReturnCopy],
+                 * depending on the return status flag recorded in [ReturnBufferCopyTracker] (exposed to us via
+                 * [verifier.equivalence.tracing.IWriteSource.ConditionalReturnCopy.conditionalOn]).
+                 */
+                val translatedReturnData = src.translatedReturnCopy.sourceBuffer.transparentCopyData ?: return fallback
+                val fallbackCopyData = src.fallbackCopy.sourceBuffer.transparentCopyData ?: return fallback
+                val conditionalVar = TACSymbol.Var("useReturnBufferCopy", Tag.Bool).toUnique("!")
+                val translatedCase = generateUpdate(
+                    baseInstrumentation = baseInstrumentation,
+                    copyData = translatedReturnData,
+                    long = src.translatedReturnCopy,
+                    overlapSym = overlapSym,
+                    s = s
+                ).toMap()
+                val fallbackCase = generateUpdate(
+                    baseInstrumentation = baseInstrumentation,
+                    copyData = fallbackCopyData,
+                    s = s,
+                    overlapSym = overlapSym,
+                    long = src.fallbackCopy
+                ).toMap()
+                check(translatedCase.keys == fallbackCase.keys) {
+                    "Mismatched instrumentation updates"
+                }
+                /**
+                 * Use the transparent copying data of the fallbackCopy or the translatedReturnCopy, depending on the returnCopy flag.
+                 */
+                return ((conditionalVar `=` src.conditionalOn) andThen translatedCase.map { (v, update) ->
+                    v `=` TXF {
+                        ite(conditionalVar, update, fallbackCase[v]!!)
+                    }
+                }.flatten()).wrap("Transparent copy tracking for ${baseInstrumentation.id}")
+            }
             /**
              * are we copying from another buffer that is itself a transparent copy? If so, copy its status.
              */
@@ -94,15 +184,19 @@ internal class TransparentCopyTracking(
                         (copyData.statusFlagVar gt NO_COPY_FLAG)
                 }
 
-                /**
-                 * NB: we take care to zero out this buffer's flag on an overlap (but not a `copyOfCopy`).
-                 * We DO NOT bother zeroing out the other variables because per our invariant, once we set
-                 * the status flag to 0, their value becomes irrelevant.
-                 */
+                val isCopyOfHash = TXF {
+                    overlapSym and (s.updateLoc eq baseInstrumentation.baseProphecy) and (s.len eq baseInstrumentation.lengthProphecy)
+                }
+
                 val update = statusFlagVar `=` {
-                    ite(isCopyOfCopy, copyData.statusFlagVar, ite(overlapSym, NO_COPY_FLAG, statusFlagVar))
-                } andThen (reprVar `=` {
-                    ite(isCopyOfCopy, copyData.reprVar, reprVar)
+                    ite(isCopyOfCopy,
+                        copyData.statusFlagVar,
+                        ite(
+                            isCopyOfHash,
+                            HASH_COPY,
+                            ite(overlapSym, NO_COPY_FLAG, statusFlagVar)))
+                } andThen (reprVar `=` TXF {
+                    ite(isCopyOfCopy, copyData.reprVar, ite(isCopyOfHash, src.getBufferIdentity(), reprVar))
                 }) andThen (
                     sortVar `=` {
                         ite(isCopyOfCopy, copyData.sortVar, sortVar)
@@ -112,7 +206,7 @@ internal class TransparentCopyTracking(
                         ite(isCopyOfCopy, copyData.extraCtxtVar, extraCtxtVar)
                     }
                 )
-                return update
+                return update.wrap("Transparent copy tracking for ${baseInstrumentation.id}")
             }
             is IWriteSource.EnvCopy -> {
                 /**
@@ -128,9 +222,9 @@ internal class TransparentCopyTracking(
                 }
                 val extra = src.extraContext
                 val statusFlag = if(extra != null) {
-                    COPY_WITH_CTXT
+                    ENV_COPY_WITH_CTXT
                 } else {
-                    COPY_NO_CTXT
+                    ENV_COPY_NO_CTXT
                 }
 
                 /**
@@ -159,6 +253,18 @@ internal class TransparentCopyTracking(
 
     override fun atLongRead(s: ILongRead): CommandWithRequiredDecls<TACCmd.Simple> {
         return CommandWithRequiredDecls()
+    }
+
+    override fun getRecord(): InstrumentationRecord {
+        return InstrumentationRecord(
+            "Copy-Tracking",
+            listOf(
+                "copyStatus" to statusFlagVar,
+                "reprVar" to reprVar,
+                "contextVar" to extraCtxtVar,
+                "sortVar" to sortVar
+            )
+        )
     }
 
     override val havocInitVars: List<TACSymbol.Var>

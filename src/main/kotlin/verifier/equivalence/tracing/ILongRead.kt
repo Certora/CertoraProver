@@ -23,7 +23,9 @@ import vc.data.TACSymbol
  * Basic external interface for a long read. Includes [where]
  * the long read occurs, it's byte location [loc] within memory,
  * and the [length] of the buffer. These are the *original* symbols used in the
- * original command, *not* the prophecy variables.
+ * original command, *not* the prophecy variables. As such
+ * they are guaranteed to only be in-scope AND bound to their correct
+ * value at [where].
  */
 internal sealed interface ILongRead {
     val where: CmdPointer

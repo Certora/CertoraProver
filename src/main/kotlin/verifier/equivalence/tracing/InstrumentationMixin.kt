@@ -45,4 +45,6 @@ internal interface InstrumentationMixin : WithVarInit {
     fun atLongRead(s: ILongRead): CommandWithRequiredDecls<TACCmd.Simple>
 
     val intrumentSelfUpdates: Boolean get() = false
+
+    fun getRecord() : InstrumentationRecord? = null
 }

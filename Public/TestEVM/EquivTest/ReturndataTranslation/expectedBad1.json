@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"Equivalence of V1_Diff and V2 on entry(bytes)": "FAIL"
+	}
+}
