@@ -193,6 +193,8 @@ private fun solanaRuleToTAC(
         throw NoAssertionError(target)
     }
 
+    val isSatisfiedRule = hasSatisfies || isVacuityRule
+
     // 2. Slicing + PTA optimizations
     val optProg = try {
         sliceAndPTAOptLoop(target,
@@ -260,14 +262,14 @@ private fun solanaRuleToTAC(
     sbfLogger.info { "[$target] Started TAC optimizations" }
     val start3 = System.currentTimeMillis()
     val optCoreTAC = if (SolanaConfig.UseLegacyTACOpt.get()) {
-        legacyOptimize(coreTAC, hasSatisfies)
+        legacyOptimize(coreTAC, isSatisfiedRule)
     } else {
-        optimize(coreTAC, hasSatisfies)
+        optimize(coreTAC, isSatisfiedRule)
     }
     val end0 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished TAC optimizations in ${(end0 - start3) / 1000}s" }
 
-    return attachRangeToRule(rule, optCoreTAC, hasSatisfies)
+    return attachRangeToRule(rule, optCoreTAC, isSatisfiedRule)
 }
 
 /**
