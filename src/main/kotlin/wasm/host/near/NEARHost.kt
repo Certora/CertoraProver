@@ -64,6 +64,7 @@ object NEARHost : WasmHost {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE) { ConstantPropagator.propagateConstants(it,
                 setOf()
             ) })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.ALIAS, NEARStackOptimizer::transform))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE) { ConstantPropagator.propagateConstants(it, setOf()) })

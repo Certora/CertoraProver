@@ -20,12 +20,13 @@ package wasm.impCfg
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import datastructures.stdcollections.*
-import log.*
 import tac.*
+import tac.generation.assign
 import utils.*
 import vc.data.*
 import wasm.analysis.memory.StaticMemoryAnalysis
 import wasm.cfg.PC
+import wasm.ir.WasmInstruction
 import wasm.ir.WasmProgram
 import wasm.summarization.WasmCallSummarizer
 import wasm.tokens.WasmTokens.ENTRYPOINT
@@ -46,13 +47,17 @@ object WasmImpCfgToTAC {
             WasmImpCfgContext(summarizer)
         ) {
             val staticDataAnnotations = StaticMemoryAnalysis.getStaticDataAnnotations(wasmAST)
-
+            // TODO  https://certora.atlassian.net/browse/CERT-9728
+            val heapStart = wasmAST.allGlobals.mapNotNull {
+                it.value.init.tryAs<WasmInstruction.Numeric.I32Const>()?.num?.v
+            }.maxOrNull()?.asTACExpr ?: TACExpr.Unconstrained(Tag.Bit256)
             val symbols = mutableSetOf<TACSymbol>()
             val code: BlockNodes<TACCmd.Simple> = wasmTac.getNodes().entries.associate { (pc, wblock) ->
                 val init = if (pc == ENTRYPOINT) {
                     mergeMany(
                         initMemory(),
                         hostInit,
+                        assign(TACKeyword.RUST_FP.toVar()) { heapStart },
                         staticDataAnnotations,
                     )
                 } else {

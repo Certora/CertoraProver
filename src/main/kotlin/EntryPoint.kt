@@ -24,6 +24,7 @@ import bridge.NamedContractIdentifier
 import certora.CVTVersion
 import cli.Ecosystem
 import cli.SanityValues
+import cli.WasmHost
 import config.*
 import config.Config.BytecodeFiles
 import config.Config.CustomBuildScript
@@ -72,6 +73,8 @@ import vc.data.CoreTACProgram
 import verifier.*
 import verifier.mus.UnsatCoreAnalysis
 import wasm.WasmEntryPoint
+import wasm.host.NullHost
+import wasm.host.near.NEARHost
 import wasm.host.soroban.SorobanHost
 import java.io.File
 import java.io.FileInputStream
@@ -643,10 +646,15 @@ suspend fun handleGenericFlow(
 suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Single> {
     val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName, "SorobanMainProgram")
     treeView.use {
+        val env = when(Config.WASMHostEnv.get()) {
+            WasmHost.SOROBAN -> SorobanHost
+            WasmHost.NEAR -> NEARHost
+            WasmHost.NONE -> NullHost
+        }
         val wasmRules = WasmEntryPoint.webAssemblyToTAC(
             inputFile = File(fileName),
             selectedRules = Config.WasmEntrypoint.getOrNull().orEmpty(),
-            env = SorobanHost,
+            env = env,
             optimize = true
         )
         val result = handleGenericFlow(
