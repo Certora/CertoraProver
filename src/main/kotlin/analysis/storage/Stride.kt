@@ -335,6 +335,9 @@ sealed class Stride {
          *
          * Note this does not include sums resulting from combining different terms
          *
+         * Further note this is not intended to model EVM subtraction, it has a specific
+         * use in the [StorageAnalysis]
+         *
          * @param o the value to subtract
          * @return a set of SumOfTerms, whose denotations are equal to this - [o]
          */
@@ -397,9 +400,6 @@ sealed class Stride {
                 }
             }
 
-            if (newSums.isEmpty())
-                return setOf()
-
             return newSums
         }
 
@@ -445,12 +445,8 @@ sealed class Stride {
                             return Top
                         }
                         // case b)
-                        val range = IntValue(
-                            symVal.v.lb,
-                            symVal.v.ub
-                        )
                         sumOf(
-                            factored = treapMapOf(newK to SymValue(null, range)),
+                            factored = treapMapOf(newK to symVal),
                             off = off / i.value
                         )
                     }
