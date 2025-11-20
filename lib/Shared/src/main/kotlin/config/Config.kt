@@ -2487,6 +2487,15 @@ object Config {
         )
     ) {}
 
+    val SafeCastingBuiltin: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "safeCastingBuiltin", true,
+            "Used to signal that the python side instrumented the safeCasting builtin rule [default: false]"
+        ),
+        pythonName = "--safe_casting_builtin"
+    ) {}
+
     val CallTraceHardFail = object : ConfigType.HardFailCmdLine(
         HardFailMode.OFF,
         Option(
