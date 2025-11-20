@@ -18,6 +18,7 @@
 package rules.genericrulecheckers
 
 import analysis.icfg.Inliner
+import config.Config
 import datastructures.stdcollections.*
 import log.*
 import report.*
@@ -88,6 +89,10 @@ sealed class BuiltInRuleCustomChecker<G : BuiltInRuleGenerator> {
                     TrustedMethodChecker()
                 }
                 BuiltInRuleId.safeCasting -> {
+                    require(Config.SafeCastingBuiltin.get()) {
+                        "The safeCasting rule can't run unless ${Config.SafeCastingBuiltin.pythonName} is set to true " +
+                            "on the command line (or conf file)"
+                    }
                     SafeCastingChecker
                 }
                 BuiltInRuleId.msgValueInLoopRule -> {

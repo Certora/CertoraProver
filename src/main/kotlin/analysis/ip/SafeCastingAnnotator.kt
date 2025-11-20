@@ -19,6 +19,7 @@ package analysis.ip
 
 import analysis.CmdPointer
 import analysis.MustBeConstantAnalysis
+import config.Config
 import datastructures.stdcollections.*
 import tac.MetaKey
 import utils.*
@@ -62,6 +63,9 @@ object SafeCastingAnnotator {
      * builtin rule.
      */
     fun annotate(code: CoreTACProgram): CoreTACProgram {
+        if (!Config.SafeCastingBuiltin.get()) {
+            return code
+        }
         val g = code.analysisCache.graph
         val constantAnalysis = MustBeConstantAnalysis(g)
 
