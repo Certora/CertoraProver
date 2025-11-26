@@ -7,7 +7,6 @@ sly
 tabulate
 tqdm
 StrEnum
-universalmutator
 jinja2
 wcmatch
 typing_extensions

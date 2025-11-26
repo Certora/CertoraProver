@@ -249,7 +249,10 @@ def validate_mutate_command() -> None:
         Util.CertoraUserInputError: If validation fails.
     """
     if shutil.which("mutate") is None:
-        raise Util.CertoraUserInputError("universalmutator command 'mutate' not found in PATH.")
+        raise Util.CertoraUserInputError("Currently for Rust projects, universalmutator is required to generate mutants. "
+                                         "The universalmutator command 'mutate' not found in PATH. "
+                                         "To install universalmutator, please follow the instructions at"
+                                         " https://github.com/agroce/universalmutator")
 
 
 def run_mutate(file_to_mutate: Path, mutants_location: Path, build_command: str) -> None:
