@@ -30,7 +30,7 @@ import kotlin.collections.iterator
 import datastructures.stdcollections.*
 import sbf.domains.*
 
-private val cpiLog = Logger(LoggerTypes.CPI)
+private val cpiLog = Logger(LoggerTypes.SBF_CPI)
 
 /** Demangled name of `invoke`. */
 const val INVOKE_FUNCTION_NAME = "solana_program::program::invoke"

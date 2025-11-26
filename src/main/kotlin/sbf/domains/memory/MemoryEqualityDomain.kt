@@ -46,9 +46,6 @@ import sbf.callgraph.SolanaFunction
  * the number of predicates low since some operations such as join is quadratic on the number of predicates.
  **/
 
-private val logger = Logger(LoggerTypes.SBF_SCALAR_ANALYSIS)
-private fun dbg(msg: () -> Any) { logger.info(msg) }
-
 /**
  * Represent a stack or heap/external location.
  *
@@ -1301,7 +1298,6 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
                 is SbfInstruction.Exit -> {}
             }
         }
-        dbg { "After $s: $this\n" }
     }
 
     override fun analyze(

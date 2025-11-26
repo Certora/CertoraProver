@@ -44,7 +44,7 @@ import sbf.inliner.inline
 import sbf.output.annotateWithTypes
 import sbf.slicer.sliceAndPTAOptLoop
 
-private val cpiLog = Logger(LoggerTypes.CPI)
+private val cpiLog = Logger(LoggerTypes.SBF_CPI)
 
 fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> substituteCpiCalls(
     analysis: WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>,

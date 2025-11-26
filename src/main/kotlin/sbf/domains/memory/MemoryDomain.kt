@@ -20,9 +20,9 @@ package sbf.domains
 import sbf.SolanaConfig
 import sbf.cfg.*
 import sbf.disassembler.*
-import sbf.sbfLogger
 import sbf.support.SolanaInternalError
 import com.certora.collect.*
+import log.*
 import org.jetbrains.annotations.TestOnly
 import sbf.callgraph.SolanaFunction
 
@@ -63,6 +63,10 @@ import sbf.callgraph.SolanaFunction
  * unless the scalar domain says definitely otherwise.
  *
  **/
+
+private val logger = Logger(LoggerTypes.SBF_MEMORY_ANALYSIS)
+private fun dbg(msg: () -> Any) { logger.info(msg)}
+
 
 const val enableDefensiveChecks = false
 
@@ -563,7 +567,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                         memSummaries: MemorySummaries) {
 
         val inst = locInst.inst
-        sbfLogger.debug { "TRANSFER FUNCTION for $inst\n" }
+        dbg { "$inst\n" }
         if (!isBottom()) {
             if (opts.useEqualityDomain) {
                 memcmpPreds.analyze(locInst, this, globals, memSummaries)
@@ -588,7 +592,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 is SbfInstruction.Exit -> {}
             }
         }
-        sbfLogger.debug {"$this\n"}
+        dbg {"$this\n"}
     }
 
     override fun analyze(b: SbfBasicBlock,
@@ -597,7 +601,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                          listener: InstructionListener<MemoryDomain<TNum, TOffset, Flags>>): MemoryDomain<TNum, TOffset, Flags> {
 
 
-        sbfLogger.debug { "=== Memory Domain analyzing ${b.getLabel()} ===\n$this\n" }
+        dbg { "=== Memory Domain analyzing ${b.getLabel()} ===\n$this\n" }
         if (listener is DefaultInstructionListener) {
             if (isBottom()) {
                 return makeBottom(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts)
