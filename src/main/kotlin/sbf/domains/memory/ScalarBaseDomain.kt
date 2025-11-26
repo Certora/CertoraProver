@@ -214,10 +214,23 @@ class ScalarBaseDomain<ScalarValue>(
         return registers[getIndex(reg)]
     }
 
-    fun setRegister(reg: Value.Reg, value: ScalarValue) {
-        check(!isBottom()) {"Unexpected setRegister on bottom"}
-        registers[getIndex(reg)] = value
+    /** Return false if `this` becomes bottom **/
+    fun setRegister(reg: Value.Reg, value: ScalarValue): Boolean {
+       return setRegister(getIndex(reg), value)
     }
+
+    private fun setRegister(i: Int, value: ScalarValue): Boolean {
+        check(!isBottom()) {"Unexpected setRegister on bottom"}
+        check(i >=0 && i < registers.size)
+        return if (value.isBottom()) {
+            setToBottom()
+            false
+        } else {
+            registers[i] = value
+            true
+        }
+    }
+
 
     private fun pushScratchReg(v: ScalarValue) {
         scratchRegisters.add(v)
@@ -287,7 +300,10 @@ class ScalarBaseDomain<ScalarValue>(
             for (i in 0 until registers.size) {
                 val oldVal = registers[i]
                 if (pred(oldVal)) {
-                    registers[i] = transformer(oldVal)
+                    val newVal = transformer(oldVal)
+                    if (!setRegister(i, newVal)) {
+                        return
+                    }
                 }
             }
         }
@@ -298,7 +314,9 @@ class ScalarBaseDomain<ScalarValue>(
             for (i in 0 until scratchRegisters.size) {
                 val oldVal = scratchRegisters[i]
                 if (pred(oldVal)) {
-                    scratchRegisters[i] = transformer(oldVal)
+                    val newVal = transformer(oldVal)
+                    check(!newVal.isBottom()) {"unexpected bottom in updateScratchRegisters"}
+                    scratchRegisters[i] = newVal
                 }
             }
         }

@@ -382,7 +382,8 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         inst: SbfInstruction.Bin,
      ): SetOfStackStridePredicate {
         val k = (scalars.getValue(inst.v).type() as? SbfType.NumType)?.value?.toLongOrNull()
-        check(k != null) {"Extrapolate expects a non-null right operand in $inst"}
+            ?: // the implementation only supports for now constant offsets
+            return SetOfStackStridePredicate()
 
         val isIncreasingStackPtr: Boolean = when(inst.op) {
             BinOp.ADD -> k >= 0L
