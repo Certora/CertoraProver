@@ -17,12 +17,17 @@
 
 package analysis.opt
 
+import analysis.numeric.MAX_UINT
 import analysis.opt.PatternRewriter.PatternHandler
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import sbf.tac.solanaPatternsList
+import tac.Tag
+import utils.ModZm.Companion.lowOnes
 import vc.data.TACBuilderAuxiliaries
 import vc.data.TACProgramBuilder
 import vc.data.asTACExpr
+import java.math.BigInteger
 
 class PatternRewriterTest : TACBuilderAuxiliaries() {
 
@@ -134,6 +139,34 @@ class PatternRewriterTest : TACBuilderAuxiliaries() {
             c assign BWNot(bS)
         }
         checkStat(prog, "bwnot-bwnot", 1)
+    }
+
+    @Test
+    fun testMulShr() {
+        val prog = TACProgramBuilder {
+            b assign ShiftRightLogical(aS, 0x40.asTACExpr)
+            i assign IntMul(bS, BigInteger("10000000000000000", 16).asTACExpr)
+        }
+        checkStat(prog, "mul-shr", 1, PatternRewriter::solanaPatternsList)
+    }
+
+    @Test
+    fun testComplementMasks() {
+        val prog = TACProgramBuilder {
+            b assign BWAnd(aS, lowOnes(10).asTACExpr)
+            c assign BWAnd(aS, (MAX_UINT - lowOnes(10)).asTACExpr)
+            i assign IntAdd(bS, cS)
+        }
+        checkStat(prog, "complement-masks", 1, PatternRewriter::solanaPatternsList)
+    }
+
+    @Test
+    fun testRedundantNarrow() {
+        val prog = TACProgramBuilder {
+            j assign safeMathNarrow(iS, Tag.Bit256)
+            b assign safeMathNarrow(jS, Tag.Bit256)
+        }
+        checkStat(prog, "redundant-narrow2", 1, PatternRewriter::solanaPatternsList)
     }
 
 }

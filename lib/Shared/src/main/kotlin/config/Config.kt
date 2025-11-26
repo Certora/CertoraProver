@@ -2267,6 +2267,15 @@ object Config {
         )
     ) {}
 
+    val extraSolanaPatterns = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "extraSolanaPatterns",
+            true,
+            "Apply some extra solana rewrite pattern [default=true]"
+        )
+    ) {}
+
     val globalInliner = object : ConfigType.IntCmdLine(
         default = 1,
         option = Option(

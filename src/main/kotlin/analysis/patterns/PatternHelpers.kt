@@ -33,6 +33,7 @@ import analysis.patterns.PatternHelpers.sha3
 import evm.MAX_EVM_UINT256
 import tac.Tag
 import utils.*
+import vc.data.TACBuiltInFunction
 import vc.data.TACCmd
 import vc.data.TACExpr
 import vc.data.TACSymbol
@@ -87,6 +88,21 @@ object PatternHelpers {
 
     fun lSym(key: InfoKey<LTACSymbol>? = null) =
         anyLSymbol.mapResult { s -> Info(key, s) }
+
+    private fun unaryApply(bif : TACBuiltInFunction, p1 : PI) =
+        Pattern.FromUnaryApply(
+            extractor = { _, u ->
+                runIf((u.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif == bif) {
+                    (u.ops.single() as? TACExpr.Sym)?.s
+                }
+            },
+            inner = p1,
+            out = { _, i -> i }
+        )
+
+    fun safeMathNarrow(p1: PI) = unaryApply(TACBuiltInFunction.SafeMathNarrow.Implicit(Tag.Bit256), p1)
+
+    fun maybeNarrow(p1: PI) = p1 OR safeMathNarrow(p1)
 
     inline fun <reified T : Tag> lSymTag(key: InfoKey<LTACSymbol>? = null) =
         anyLSymbol.mapResult { s -> runIf(s.symbol.tag is T) { Info(key, s) } }
@@ -206,6 +222,12 @@ object PatternHelpers {
     infix operator fun PI.minus(p2: PI) = combiner(TACExpr.BinOp.Sub::class.java, this, p2)
     infix operator fun PI.plus(p2: PI) = commutativeCombiner(TACExpr.Vec.Add::class.java, this, p2)
     infix fun PI.sDiv(p2: PI) = combiner(TACExpr.BinOp.SDiv::class.java, this, p2)
+
+    infix fun PI.intMul(p2: PI) = commutativeCombiner(TACExpr.Vec.IntMul::class.java, this, p2)
+    infix fun PI.anyMul(p2: PI) = (this * p2) OR (this intMul p2)
+    infix fun PI.intAdd(p2: PI) = commutativeCombiner(TACExpr.Vec.IntAdd::class.java, this, p2)
+    infix fun PI.anyAdd(p2: PI) = (this + p2) OR (this intAdd p2)
+    infix fun PI.intDiv(p2: PI) = commutativeCombiner(TACExpr.BinOp.IntDiv::class.java, this, p2)
 
     infix fun PI.eq(p2: PI) = commutativeCombiner(TACExpr.BinRel.Eq::class.java, this, p2)
     infix fun PI.lt(p2: PI) = combiner(TACExpr.BinRel.Lt::class.java, this, p2)
