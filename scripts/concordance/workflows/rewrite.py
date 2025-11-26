@@ -78,7 +78,7 @@ def execute_rewrite_workflow(
     rewrite_llm: BaseChatModel,
     harness: str,
     args: argparse.Namespace,
-    original_func: str
+    original_func: str,
 ) -> int:
     """Execute the rewrite workflow with interrupt handling."""
     # Add checkpointer for interrupt functionality
@@ -127,6 +127,8 @@ def execute_rewrite_workflow(
         config["configurable"]["checkpoint_id"] = args.checkpoint_id
         current_input = None
 
+    config["recursion_limit"] = args.iteration_limit
+
     while True:
         # Stream execution
         interrupted = False
@@ -155,8 +157,10 @@ def execute_rewrite_workflow(
         # If we were interrupted, continue the loop to resume
         if interrupted:
             continue
-
-        state = rewriter_exec.get_state(config)
+        final_conf : RunnableConfig = {"configurable": {
+            "thread_id": thread_id
+        }}
+        state = rewriter_exec.get_state(final_conf)
         result = state.values.get("result", None)
         if result is None or not isinstance(result, RewriteResultSchema):
             return 1

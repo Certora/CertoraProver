@@ -41,6 +41,7 @@ def setup_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--checkpoint-id", type=str, help="Checkpoint id for resuming workflows")
     parser.add_argument("--thread-id", type=str, help="Thread id to use for execution. Randomly generated if not provided")
     parser.add_argument("--db", type=str, help="Path for a database file for persistent executions")
+    parser.add_argument("--iteration-limit", type=int, help="The maximum number of iterations allowed during rewrites", default=40)
     return parser
 
 
