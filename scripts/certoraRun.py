@@ -74,7 +74,7 @@ def run_certora(args: List[str], app: Type[App.CertoraApp] = App.EvmApp,
     # Collect and dump configuration layout
     collect_and_dump_config_layout(context)
 
-    if context.split_rules:
+    if context.split_rules and not (context.build_only or context.compilation_steps_only):
         context.build_only = True
         build(context)
         context.build_only = False

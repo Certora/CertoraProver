@@ -238,7 +238,8 @@ class CertoraContextValidator:
         check_rule(context)
 
         if context.split_rules and (context.build_only or context.compilation_steps_only):
-            raise Util.CertoraUserInputError("cannot use 'compilation_steps_only' or 'build_only' with 'split_rules'")
+            validation_logger.warning("When running with 'compilation_steps_only' or 'build_only', "
+                                      "'split_rules' attribute has no effect and will be ignored.")
 
         if context.compilation_steps_only and context.build_only:
             raise Util.CertoraUserInputError("cannot use both 'compilation_steps_only' and 'build_only'")
