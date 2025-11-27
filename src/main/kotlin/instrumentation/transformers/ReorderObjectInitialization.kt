@@ -17,17 +17,35 @@
 
 package instrumentation.transformers
 
-import analysis.maybeNarrow
-import tac.MetaKey
-import utils.mapNotNull
+import analysis.*
+import analysis.pta.*
+import datastructures.stdcollections.*
+import log.*
+import tac.*
+import utils.*
 import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
+import vc.data.tacexprutil.*
 import java.math.BigInteger
 
+private val logger = Logger(LoggerTypes.INITIALIZATION)
+
+/**
+    Attempts to reorder memory writes during object initialization so that they conform to the expectations of
+    [SimpleInitializationAnalysis].  We look for sequences of memory writes following a read from the free pointer,
+    where the memory locations written to are not monotonically increasing, and we reorder them to be so (subject to a
+    few constraints).
+ */
 object ReorderObjectInitialization {
 
     val FENCE = MetaKey.Nothing("init.reorder.fence")
 
+    /**
+        Inserts fence annotations to ensure that constant-size array allocations keep the write of the (constant) length
+        after any previous writes.
+
+        We could probably just do this check in [rewriteSegment], this code predates that code, and it works.
+     */
     fun reorderingFenceInstrumentation(c: CoreTACProgram) : CoreTACProgram {
         return c.parallelLtacStream().mapNotNull {
             it.maybeNarrow<TACCmd.Simple.AssigningCmd.ByteStore>()?.takeIf { store ->
@@ -51,150 +69,214 @@ object ReorderObjectInitialization {
         }
     }
 
-    private data class Info(val base: Int?, val offset: BigInteger?, val pos: Int)
-
-    private fun mkRegMap(cs: List<TACCmd.Simple>): Map<TACSymbol.Var, Info> {
-        val map = mutableMapOf<TACSymbol.Var, Info>()
-        var unknown = 0
-        var pos = 0
-        for (c in cs) {
-            if (c is TACCmd.Simple.AssigningCmd.AssignExpCmd) {
-                val assgnLhs = c.lhs
-                when (val assgnRhs = c.rhs) {
-                    is TACExpr.Sym.Var -> {
-                        map[assgnLhs] = Info(unknown, BigInteger.ZERO, pos)
-                        unknown += 1
-                        pos += 1
-                    }
-                    is TACExpr.Vec.Add -> {
-                        if (assgnRhs.ls.size == 2) {
-                            val o1 = assgnRhs.o1
-                            val o2 = assgnRhs.o2
-                            if (o1 is TACExpr.Sym.Var && o2 is TACExpr.Sym.Const) {
-                                map[assgnLhs] =
-                                    Info(
-                                        map[o1.s]?.base,
-                                        map[o1.s]?.offset?.add(o2.s.value),
-                                        pos
-                                    )
-                                pos += 1
-                            }
-                            if (o1 is TACExpr.Sym.Const && o2 is TACExpr.Sym.Var) {
-                                map[assgnLhs] =
-                                    Info(
-                                        map[o2.s]?.base,
-                                        map[o2.s]?.offset?.add(o1.s.value),
-                                        pos
-                                    )
-                                pos += 1
-                            }
-                        }
-                    }
-                    else -> {}
-                }
-            }
-        }
-        return map
-    }
-
-    private fun sameBase(
-        c1: TACCmd.Simple,
-        c2: TACCmd.Simple,
-        map: Map<TACSymbol.Var, Info>
-    ): Boolean {
-        if (c1 is TACCmd.Simple.AssigningCmd.ByteStore && c2 is TACCmd.Simple.AssigningCmd.ByteStore) {
-            return (c1.loc as? TACSymbol.Var)?.let(map::get)?.base?.equals(
-                (c2.loc as? TACSymbol.Var)?.let(map::get)?.base ?: return false
-            ) == true
-        }
-        return false
-    }
-
-    private fun isBigger(
-        c1: TACCmd.Simple,
-        c2: TACCmd.Simple,
-        map: Map<TACSymbol.Var, Info>
-    ): Boolean {
-        if (c1 is TACCmd.Simple.AssigningCmd.ByteStore && c2 is TACCmd.Simple.AssigningCmd.ByteStore) {
-            val bigger =
-                ((c1.loc as? TACSymbol.Var)?.let(map::get)?.offset ?: return false) > ((c2.loc as? TACSymbol.Var)?.let(
-                    map::get
-                )?.offset ?: return false)
-            return sameBase(c1, c2, map) && bigger
-        }
-        return false
-    }
-
-    private fun seenBefore(
-        c1: TACCmd.Simple,
-        c2: TACCmd.Simple,
-        map: Map<TACSymbol.Var, Info>
-    ): Boolean {
-        if (c1 is TACCmd.Simple.AssigningCmd.ByteStore && c2 is TACCmd.Simple.AssigningCmd.ByteStore) {
-            // if there is another location (key) mapped to the same (base, offset) and which appears earlier in the HashMap
-            // works since we are in SSA
-            val c2Val = map[(c2.loc as? TACSymbol.Var)] ?: return false
-            val seen =
-                map.any {
-                    (it.value.base == c2Val.base) && (it.value.offset == c2Val.offset) && (it.value.pos < (c2Val.pos))
-                }
-            return sameBase(c1, c2, map) && seen
-        }
-        return false
-    }
-
-    private fun shouldSwap(
-        c1: TACCmd.Simple,
-        c2: TACCmd.Simple,
-        map: Map<TACSymbol.Var, Info>
-    ): Boolean {
-        if (c2 is TACCmd.Simple.AssigningCmd && c2.lhs == TACKeyword.MEM64.toVar()) {
-            return false
-        }
-        if (c2 is TACCmd.Simple.AssigningCmd.AssignExpCmd && c2.rhs is TACExpr.Sym.Var && c2.rhs.s == TACKeyword.MEM64.toVar()) {
-            return false
-        }
-        if(c1.maybeAnnotation(FENCE)) {
-            return false
-        }
-
-        if (c1 is TACCmd.Simple.AssigningCmd.ByteStore && c2 is TACCmd.Simple.AssigningCmd.AssignExpCmd) {
-            return (c1.loc as? TACSymbol.Var)?.let(map::get)?.base?.equals(
-                (c2.lhs).let(map::get)?.base ?: return false
-            ) == true
-        }
-        if (c1 is TACCmd.Simple.AssigningCmd.ByteStore && c2 is TACCmd.Simple.AssigningCmd.ByteStore) {
-            return isBigger(c1, c2, map) && !seenBefore(c1, c2, map)
-        }
-        return false
-    }
-
+    /**
+        Reorders object initialization writes in the given program.
+     */
     fun rewrite(p: CoreTACProgram): CoreTACProgram {
-        val blocks = p.analysisCache.graph.blocks
         val mut = p.toPatchingProgram()
-        for (b in blocks) {
-            val cs = b.commands.map { it.cmd }.toMutableList()
-            if (cs.filterIsInstance<TACCmd.Simple.AssigningCmd.ByteStore>().size < 2) {
-                continue
-            }
-            val map = mkRegMap(cs)
-            var changed = true
-            while (changed) {
-                changed = false
-                for (i in 1 until cs.size) {
-                    if (shouldSwap(cs[i - 1], cs[i], map)) {
-                        val tmp = cs[i - 1]
-                        cs[i - 1] = cs[i]
-                        cs[i] = tmp
-                        changed = true
-                    }
-                }
-            }
-            assert(b.commands.size == cs.size)
-            for (i in 0 until b.commands.size) {
-                mut.replaceCommand(b.commands[i].ptr, listOf(cs[i]))
-            }
+        for (b in p.analysisCache.graph.blocks) {
+            rewriteBlock(p, b, mut)
         }
         return mut.toCode(p)
+    }
+
+    private fun rewriteBlock(
+        p: CoreTACProgram,
+        b: TACBlock,
+        mut: SimplePatchingProgram
+    ) {
+        // Group the commands in the block into segments to be reordered.  A segment is the commands between a read from
+        // the FP and a write to the FP (or the end of the block), *or* the commands between a write to the FP and the
+        // next read from the FP / end of block.
+        //
+        // I.e., we reorder the memory writes between two FP reads, but do not allow reordering across FP writes.
+        var currFp: TACSymbol.Var? = null
+        var inAlloc: Boolean = false
+        b.commands.groupBy {
+            if (it.cmd is TACCmd.Simple.AssigningCmd.AssignExpCmd) {
+                if (it.cmd.rhs == TACKeyword.MEM64.toVar().asSym()) {
+                    inAlloc = true
+                    currFp = it.cmd.lhs
+                    return@groupBy null // Don't include this command in the init group
+                } else if (it.cmd.lhs == TACKeyword.MEM64.toVar()) {
+                    inAlloc = false
+                    return@groupBy null // Don't include this command in the init group
+                }
+            }
+            currFp?.let { it to inAlloc }
+        }.forEachEntry { (fpAndAlloc, cmds) ->
+            val (fp, _) = fpAndAlloc ?: return@forEachEntry
+            rewriteSegment(p, fp, cmds, mut)
+        }
+    }
+
+    private sealed class Value {
+        /** A known constant value */
+        data class Const(val value: BigInteger) : Value()
+        /** A known offset from the previously read FP value */
+        data class Offset(val offset: BigInteger) : Value()
+        /** A length of memory (computed by subtracting two offsets) */
+        object Length : Value()
+        /** An unknown value */
+        object Unknown : Value()
+    }
+
+    private fun rewriteSegment(
+        p: CoreTACProgram,
+        fp: TACSymbol.Var,
+        cmds: List<LTACCmd>,
+        mut: SimplePatchingProgram
+    ) {
+        // Abstract values for each variable we encounter
+        val values = mutableMapOf<TACSymbol.Var, Value>(fp to Value.Offset(BigInteger.ZERO))
+
+        // Evaluates an expression.  Returns null if e reads from memory, or appears to be nonsensical.
+        fun eval(e: TACExpr): Value? {
+            return when (e) {
+                is TACExpr.Sym.Const -> Value.Const(e.s.value)
+                is TACExpr.Sym.Var -> values[e.s] ?: Value.Unknown.also {
+                    // If we see a variable we don't know about, treat it as an assignment; if we later see another
+                    // assignment, we'll abort this initialization.
+                    values[e.s] = it
+                }
+                is TACExpr.Vec.Add -> e.ls.map { eval(it) }.reduce { a, b ->
+                    when (a) {
+                        null -> null
+                        Value.Unknown -> Value.Unknown
+                        is Value.Const -> when (b) {
+                            null -> null
+                            Value.Unknown -> Value.Unknown
+                            is Value.Const -> Value.Const(a.value + b.value)
+                            is Value.Offset -> Value.Offset(a.value + b.offset)
+                            is Value.Length -> Value.Length
+                        }
+                        is Value.Offset -> when (b) {
+                            null -> null
+                            Value.Unknown -> Value.Unknown
+                            is Value.Const -> Value.Offset(a.offset + b.value)
+                            is Value.Offset -> null
+                            Value.Length -> null
+                        }
+                        Value.Length -> when (b) {
+                            null -> null
+                            Value.Unknown -> Value.Unknown
+                            is Value.Const -> Value.Length
+                            is Value.Offset -> null
+                            Value.Length -> null
+                        }
+                    }
+                }
+                is TACExpr.BinOp.Sub -> {
+                    val o1 = eval(e.o1) ?: return null
+                    val o2 = eval(e.o2) ?: return null
+                    when {
+                        o1 is Value.Offset && o2 is Value.Offset -> Value.Length
+                        else -> Value.Unknown
+                    }
+                }
+                else -> when {
+                    e.subs.any { it is TACExpr.Select || it is TACExpr.StoreExpr } -> null
+                    else -> Value.Unknown
+                }
+            }
+        }
+
+        // Track whether the last write in the segment wrote a length value (we might want to preserve its position)
+        var lastWriteIsLength = false
+
+        // Find the offsets from the FP, for each memory write in the segment.  If we encounter anything that would
+        // prevent us from reordering this segment (such as a read from memory, or an expression we can't evaluate),
+        // we abort the whole segment.
+        val writesWithOffsets = cmds.takeWhile {
+            // Stop at fences; we can't reorder across them
+            !it.maybeAnnotation(FENCE)
+        }.mapNotNull {
+            when (it.cmd) {
+                is TACCmd.Simple.AssigningCmd.AssignExpCmd -> {
+                    val value = eval(it.cmd.rhs) ?: run {
+                        logger.debug { "Cannot evaluate expression in ${p.name} at $it; skipping reordering" }
+                        return
+                    }
+                    val overwritten = values.put(it.cmd.lhs, value)
+                    if (overwritten != null) {
+                        logger.debug { "Variable assigned multiple times in ${p.name}: ${it.cmd.lhs}; skipping reordering" }
+                        return
+                    }
+                    null
+                }
+                is TACCmd.Simple.AssigningCmd.ByteStore -> {
+                    if (it.cmd.base != TACKeyword.MEMORY.toVar()) {
+                        logger.debug { "Writing to non-memory location in ${p.name} at $it; skipping reordering" }
+                        return
+                    }
+                    if (it.cmd.loc !is TACSymbol.Var) {
+                        logger.debug { "Writing to constant offset in ${p.name} at $it; skipping reordering" }
+                        return
+                    }
+                    val offset = values[it.cmd.loc] as? Value.Offset
+                    if (offset == null) {
+                        logger.debug { "Cannot determine offset in ${p.name} at $it; skipping reordering" }
+                        return
+                    }
+                    val value = eval(it.cmd.value.asSym())
+                    if (value == null) {
+                        logger.debug { "Writing from memory or nonsensical expression in ${p.name} at $it; skipping reordering" }
+                        return
+                    }
+                    if (value == Value.Length) {
+                        lastWriteIsLength = true
+                    } else {
+                        lastWriteIsLength = false
+                    }
+                    it to offset.offset
+                }
+                is TACCmd.Simple.AssigningCmd.ByteLoad -> {
+                    logger.debug { "Reading from memory in ${p.name} at $it; skipping reordering" }
+                    return
+                }
+                else -> {
+                    // Ignore other commands.
+                    null
+                }
+            }
+        }
+
+        if (writesWithOffsets.size < 2) {
+            // Nothing to reorder
+            return
+        }
+
+        // If the last write is a length, and the other writes are already in order, this is probably a dynamic array
+        // initialization; don't reorder it.
+        if (lastWriteIsLength) {
+            val inOrder =
+                writesWithOffsets.size <= 2 ||
+                writesWithOffsets.dropLast(1).zipWithNext().all { (a, b) -> a.second <= b.second }
+            if (inOrder) {
+                val (c, _) = writesWithOffsets.last()
+                logger.debug { "Dynamic array initialization in ${p.name} at $c; skipping reordering" }
+                return
+            }
+        }
+
+        // Sort the writes by offset (and make sure there are no duplicate offsets)
+        val writesByOffset = buildSortedMap {
+            writesWithOffsets.forEach { (c, offset) ->
+                if (put(offset, c.cmd) != null) {
+                    // Two writes to the same offset; skip this whole initialization
+                    logger.debug { "Multiple writes to same offset in ${p.name} at $c; skipping reordering" }
+                    return
+                }
+            }
+        }
+
+        // Move the sorted writes to the position of the last original write
+        writesWithOffsets.forEachIndexed { i, (c, _) ->
+            if (i != writesWithOffsets.lastIndex) {
+                mut.delete(c.ptr)
+            } else {
+                mut.replaceCommand(c.ptr, writesByOffset.values.toList())
+            }
+        }
     }
 }

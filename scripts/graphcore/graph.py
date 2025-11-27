@@ -306,7 +306,7 @@ def build_workflow(
             return "__end__"
         return "tool_result"
 
-    if isinstance(unbound_llm, ChatAnthropic) and "context-management-2025-06-27" in getattr(unbound_llm, "betas", []):
+    if isinstance(unbound_llm, ChatAnthropic) and (beta_attr := getattr(unbound_llm, "betas", [])) is not None and "context-management-2025-06-27" in beta_attr:
         llm = unbound_llm.bind_tools([{
             "type": "memory_20250818",
             "name": "memory"

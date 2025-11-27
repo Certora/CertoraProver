@@ -20,31 +20,43 @@ package sbf.domains
 import datastructures.stdcollections.*
 import sbf.cfg.CondOp
 
-data class ConstantSet(private val values: Set<Constant>, private val maxNumDisjuncts: ULong): INumValue<ConstantSet>, IOffset<ConstantSet> {
+@Suppress("DataClassPrivateConstructor")
+data class ConstantSet private constructor(
+    private val values: Set<Constant>,
+    private val maxNumDisjuncts: ULong
+    ): INumValue<ConstantSet>, IOffset<ConstantSet> {
+
     init {
+        check(maxNumDisjuncts >= 1UL) { "ConstantSet expects maxNumDisjuncts >= 1" }
         check(values.isNotEmpty()) { "ConstantSet must have a non-empty list" }
+    }
+
+    companion object {
+        private fun normalize(xs: Set<Constant>, maxNumDisjuncts: ULong): ConstantSet {
+            return if (xs.any { it.isTop() }) {
+                mkTop(maxNumDisjuncts)
+            } else{
+                val ys = xs.filter { !it.isBottom() }
+                if (ys.isEmpty()) {
+                    mkBottom(maxNumDisjuncts)
+                } else {
+                    val res = ConstantSet(ys.toSet(), maxNumDisjuncts)
+                    if (res.values.size.toULong() > maxNumDisjuncts) {
+                        res.smash()
+                    } else {
+                        res
+                    }
+                }
+            }
+        }
+
+        operator fun invoke(values: Set<Constant>, maxNumDisjuncts: ULong) = normalize(values, maxNumDisjuncts)
+        fun mkTop(maxNumDisjuncts: ULong) = ConstantSet(Constant.makeTop(), maxNumDisjuncts)
+        fun mkBottom(maxNumDisjuncts: ULong) = ConstantSet(Constant.makeBottom(), maxNumDisjuncts)
     }
 
     constructor(c: Constant, maxNumDisjuncts: ULong) : this(setOf(c), maxNumDisjuncts)
     constructor(c: Long, maxNumDisjuncts: ULong) : this(Constant(c), maxNumDisjuncts)
-
-    private fun normalize(xs: Set<Constant>): ConstantSet {
-        return if (xs.any { it.isTop() }) {
-            mkTop(maxNumDisjuncts)
-        } else{
-            val ys = xs.filter { !it.isBottom() }
-            if (ys.isEmpty()) {
-                mkBottom(maxNumDisjuncts)
-            } else {
-                val res = ConstantSet(ys.toSet(), maxNumDisjuncts)
-                if (res.values.size.toULong() > maxNumDisjuncts) {
-                    res.smash()
-                } else {
-                    res
-                }
-            }
-        }
-    }
 
     /** Reduce `values` to a singleton set **/
     private fun smash(): ConstantSet {
@@ -66,7 +78,6 @@ data class ConstantSet(private val values: Set<Constant>, private val maxNumDisj
         check(res != null) {"single() called on a non-singleton list $values"}
         return res
     }
-
 
     private fun binOp(other: ConstantSet, op: (Constant, Constant) -> Constant) : ConstantSet {
         return if (this.isBottom() || other.isBottom()) {
@@ -98,7 +109,7 @@ data class ConstantSet(private val values: Set<Constant>, private val maxNumDisj
     }
 
     override fun toLongList(): List<Long> {
-        val normalizedSet = normalize(values)
+        val normalizedSet = normalize(values, maxNumDisjuncts)
         return if (normalizedSet.isTop() || normalizedSet.isBottom()) {
             listOf()
         } else {
@@ -114,12 +125,6 @@ data class ConstantSet(private val values: Set<Constant>, private val maxNumDisj
 
     override fun isTop() = values.any {it.isTop() }
 
-    companion object {
-        fun mkTop(maxNumDisjuncts: ULong) = ConstantSet(Constant.makeTop(), maxNumDisjuncts)
-
-        fun mkBottom(maxNumDisjuncts: ULong) = ConstantSet(Constant.makeBottom(), maxNumDisjuncts)
-    }
-
     override fun join(other: ConstantSet): ConstantSet {
         return if (isTop() || other.isBottom()) {
             this
@@ -128,7 +133,7 @@ data class ConstantSet(private val values: Set<Constant>, private val maxNumDisj
         } else if (other.isTop()) {
             other
         } else {
-            normalize(values + other.values)
+            normalize(values + other.values, maxNumDisjuncts)
         }
     }
 

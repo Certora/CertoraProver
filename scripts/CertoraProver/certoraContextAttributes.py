@@ -1202,6 +1202,19 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False,
     )
 
+    SAFE_CASTING_BUILTIN = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="This needs to be set to true for the safeCasting builtin to work",
+        default_desc="This needs to be set to true for the safeCasting builtin to work",
+        jar_flag='-safeCastingBuiltin',
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE,
+            'default': False
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+    )
+
     @classmethod
     def hide_attributes(cls) -> List[str]:
         # do not show these attributes in the help message

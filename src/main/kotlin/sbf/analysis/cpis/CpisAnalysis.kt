@@ -30,7 +30,7 @@ import kotlin.collections.iterator
 import datastructures.stdcollections.*
 import sbf.domains.*
 
-private val cpiLog = Logger(LoggerTypes.CPI)
+private val cpiLog = Logger(LoggerTypes.SBF_CPI)
 
 /** Demangled name of `invoke`. */
 const val INVOKE_FUNCTION_NAME = "solana_program::program::invoke"
@@ -111,7 +111,7 @@ fun getInvokes(analyzedProg: SbfCallGraph): List<LocatedInvoke> {
  * The parameter [cpisSubstitutionMap] describes how to associate program IDs to specific mocking functions.
  */
 class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>(
-    val cpisSubstitutionMap: CpisSubstitutionMap, val invokes: Iterable<LocatedInvoke>, val globals: GlobalVariableMap
+    private val cpisSubstitutionMap: CpisSubstitutionMap, val invokes: Iterable<LocatedInvoke>, val globals: GlobalVariableMap
 ) : InstructionListener<MemoryDomain<TNum, TOffset, TFlags>> {
 
     private val cpiInstructions: MutableMap<LocatedInvoke, InvokeMock?> = mutableMapOf()
@@ -186,54 +186,9 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     memoryDomain: MemoryDomain<TNum, TOffset, TFlags>,
     globals: GlobalVariableMap
 ): ProgramId? {
-    val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
-    if (r2 == null) {
-        cpiLog.warn { "Could not infer register cell associated with R2" }
-        return null
-    }
-
-    val pointerToInstruction = r2.concretize()
-    if (!pointerToInstruction.getNode().isExactNode()) {
-        cpiLog.warn { "The PTA node pointed by register R2 is not exact" }
-        return null
-    }
-    cpiLog.info { "Pointer to instruction: $pointerToInstruction - node ${pointerToInstruction.getNode()}. Offset ${pointerToInstruction.getOffset()}" }
-    val offsetToProgramId = pointerToInstruction.getOffset() + OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID
-
-    // We know collect the chunks composing the program id.
-    // Currently, we expect that the four u64s that compose the program id (overall, 32 bytes) are explicitly
-    // written to memory.
-    // This will change in principle in the future once the value analysis becomes more precise.
-    // For now, we then expect to collect four chunks of the program id (each one is a u64).
-    val chunks = mutableListOf<ULong>()
-    for (i in 0 until 4) {
-        val field = PTAField(offsetToProgramId + (8 * i), 8)
-        val instructionIdChunk = pointerToInstruction.getNode().getSucc(field)
-        if (instructionIdChunk == null) {
-            cpiLog.warn { "Cannot infer program id chunk" }
-            return null
-        }
-
-        if (!instructionIdChunk.getNode().mustBeInteger()) {
-            // We want only precise values.
-            cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (could be something that is not an integer)" }
-            return null
-        }
-
-        val chunk = instructionIdChunk.getNode().flags.getInteger().toLongOrNull()?.toULong()
-        if (chunk == null) {
-            cpiLog.warn { "PTA node pointing to chunk of program id is not precise enough (numeric value is not precise enough)" }
-            return null
-        }
-
-        chunks.add(chunk)
-    }
-
-    return if (chunks.size == 4) {
-        ProgramId(chunks[0], chunks[1], chunks[2], chunks[3])
-    } else {
-        null
-    }
+    val r2 = Value.Reg(SbfRegister.R2_ARG)
+    val pubkey = memoryDomain.getPubkey(r2, OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID.toLong(), globals) ?: return null
+    return ProgramId(pubkey.word0, pubkey.word1, pubkey.word2, pubkey.word3)
 }
 
 

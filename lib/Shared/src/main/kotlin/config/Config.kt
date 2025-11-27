@@ -2267,6 +2267,15 @@ object Config {
         )
     ) {}
 
+    val extraSolanaPatterns = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "extraSolanaPatterns",
+            true,
+            "Apply some extra solana rewrite pattern [default=true]"
+        )
+    ) {}
+
     val globalInliner = object : ConfigType.IntCmdLine(
         default = 1,
         option = Option(
@@ -2485,6 +2494,15 @@ object Config {
             "Enabled entries in the calltrace informing about branching in the code. " +
                 "Can be disabled if too noisy. [default: true]"
         )
+    ) {}
+
+    val SafeCastingBuiltin: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "safeCastingBuiltin", true,
+            "Used to signal that the python side instrumented the safeCasting builtin rule [default: false]"
+        ),
+        pythonName = "--safe_casting_builtin"
     ) {}
 
     val CallTraceHardFail = object : ConfigType.HardFailCmdLine(

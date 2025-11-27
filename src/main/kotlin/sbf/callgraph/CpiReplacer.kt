@@ -44,7 +44,7 @@ import sbf.inliner.inline
 import sbf.output.annotateWithTypes
 import sbf.slicer.sliceAndPTAOptLoop
 
-private val cpiLog = Logger(LoggerTypes.CPI)
+private val cpiLog = Logger(LoggerTypes.SBF_CPI)
 
 fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> substituteCpiCalls(
     analysis: WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>,
@@ -54,14 +54,19 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     startTime: Long
 ): SbfCallGraph {
     val p0 = analysis.program
+    if (cpiLog.isEnabled && SolanaConfig.PrintAnalyzedToDot.get()) {
+        annotateWithTypes(p0, analysis.memSummaries).also {
+            it.toDot(ArtifactManagerFactory().outputDir, onlyEntryPoint = true, ".before.cpi.sbf.dot")
+        }
+    }
     val p1 = replaceCpis(p0, cpiCalls)
     // We need to inline the code of the mocks for the CPI calls
     val p2 = inline(target, target, p1, analysis.memSummaries, inliningConfig)
     // Since we injected new code, this might create new unreachable blocks
     val p3 = sliceAndPTAOptLoop(target, p2, analysis.memSummaries, startTime)
-    if (cpiLog.isDebugEnabled && SolanaConfig.PrintAnalyzedToDot.get()) {
+    if (cpiLog.isEnabled && SolanaConfig.PrintAnalyzedToDot.get()) {
         annotateWithTypes(p3, analysis.memSummaries).also {
-           it.toDot(ArtifactManagerFactory().outputDir, onlyEntryPoint = true, ".cpi.sbf.dot")
+           it.toDot(ArtifactManagerFactory().outputDir, onlyEntryPoint = true, ".after.cpi.sbf.dot")
         }
     }
     return p3

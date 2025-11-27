@@ -38,13 +38,14 @@ class WholeProgramMemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset
     val memSummaries: MemorySummaries,
     val sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
     private val flagsFac: () -> TFlags,
+    private val opts: MemoryDomainOpts,
     val processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?) {
     private val results : MutableMap<String, MemoryAnalysis<TNum, TOffset, TFlags>> = mutableMapOf()
 
     fun inferAll() {
         val cfg = program.getCallGraphRootSingleOrFail()
         sbfLogger.info {"  Started memory analysis of ${cfg.getName()}... "}
-        val analysis = MemoryAnalysis(cfg, program.getGlobals(), memSummaries, sbfTypesFac, flagsFac, processor)
+        val analysis = MemoryAnalysis(cfg, program.getGlobals(), memSummaries, sbfTypesFac, flagsFac, opts, processor)
         sbfLogger.info {"  Finished memory analysis of ${cfg.getName()} ... "}
         results[cfg.getName()] = analysis
     }
@@ -147,6 +148,7 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFla
      open val memSummaries: MemorySummaries,
      open val sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
      open val flagsFac: () -> TFlags,
+     private val opts: MemoryDomainOpts,
      open val processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?,
      private val isEntryPoint: Boolean = true): IAnalysis<MemoryDomain<TNum, TOffset, TFlags>> {
 
@@ -165,12 +167,12 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFla
     private fun run() {
         val nodeAllocator = PTANodeAllocator(flagsFac)
         val entry = cfg.getEntry()
-        val bot = MemoryDomain.makeBottom(nodeAllocator, sbfTypesFac)
-        val top = MemoryDomain.makeTop(nodeAllocator, sbfTypesFac)
-        val opts = WtoBasedFixpointOptions(2U,1U)
-        val fixpo = WtoBasedFixpointSolver(bot, top, opts, globalsMap, memSummaries)
+        val bot = MemoryDomain.makeBottom(nodeAllocator, sbfTypesFac, opts)
+        val top = MemoryDomain.makeTop(nodeAllocator, sbfTypesFac, opts)
+        val fixpoOpts = WtoBasedFixpointOptions(2U,1U)
+        val fixpo = WtoBasedFixpointSolver(bot, top, fixpoOpts, globalsMap, memSummaries)
         if (isEntryPoint) {
-            preMap[entry.getLabel()] = MemoryDomain.initPreconditions(nodeAllocator, sbfTypesFac)
+            preMap[entry.getLabel()] = MemoryDomain.initPreconditions(nodeAllocator, sbfTypesFac, opts)
         }
         val liveMapAtExit = LivenessAnalysis(cfg).getLiveRegistersAtExit()
         fixpo.solve(cfg, preMap, postMap, liveMapAtExit, processor)

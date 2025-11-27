@@ -49,6 +49,7 @@ class NumericPTAAnalysisTest {
             memSummaries,
             sbfTypeFac,
             nodeAllocator.flagsFactory,
+            MemoryDomainOpts(useEqualityDomain = false),
             processor = null)
         analysis.inferAll()
         val analysisResults = analysis.getResults()[entrypointCfgName]!!

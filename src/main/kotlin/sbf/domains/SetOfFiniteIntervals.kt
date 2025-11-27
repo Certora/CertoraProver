@@ -37,6 +37,8 @@ data class FiniteInterval(val l: Long, val u: Long) {
         return (u-l).toULong() + 1UL
     }
 
+    fun add(x: Long) = FiniteInterval(l+x, u+x)
+
     // i1 and i2 are closed intervals
     fun lessThan(other: FiniteInterval): Boolean {
         val u1 = this.u

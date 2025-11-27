@@ -101,7 +101,7 @@ class IntervalsRewriter(
     private val txf = TACExprFactTypeChecked(code.symbolTable)
 
     /** Returns a string with the original program code plus calculated intervals and what rewrites were done */
-    private fun debug() =
+    fun debug() =
         patcher.debugPrinter()
             .extraLines { (ptr, cmd) ->
                 listOf(

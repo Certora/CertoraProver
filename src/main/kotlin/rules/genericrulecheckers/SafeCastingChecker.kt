@@ -61,7 +61,7 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
             val (fromType, toType, sym, range) = info
             // if we go from a type to a wider one, no chance this will fail.
             // the second case is when we cast an unsigned narrow int to a wider signed int.
-            if ((toType.isSigned == fromType.isSigned && toType.width <= fromType.width) ||
+            if ((toType.isSigned == fromType.isSigned && fromType.width <= toType.width) ||
                 (!fromType.isSigned && toType.isSigned && fromType.width < toType.width)
             ) {
                 return@mapNotNull null

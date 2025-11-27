@@ -48,6 +48,9 @@ class MemorySummariesTest {
         return sc.getNode()
     }
 
+    private fun createMemoryDomain() =
+        MemoryDomain(nodeAllocator, sbfTypesFac, MemoryDomainOpts(false),true)
+
     @Test
     fun test01() {
         println("====== TEST 1 =======")
@@ -61,7 +64,7 @@ class MemorySummariesTest {
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         // Create abstract state
-        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac, true)
+        val absVal = createMemoryDomain()
         val stackC = absVal.getRegCell(r10, newGlobalVariableMap())
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()

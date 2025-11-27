@@ -3339,14 +3339,14 @@ class CertoraBuildGenerator:
         else:
             added_source_finders = {}
 
-        try:
-            casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder)
-        except Exception as e:
-            instrumentation_logger.warning(
-                f"Computing casting instrumentation failed for {build_arg_contract_file}: {e}", exc_info=True)
-            casting_instrumentations, casting_types = {}, {}
-
-        instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, casting_instrumentations)
+        if self.context.safe_casting_builtin:
+            try:
+                casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder)
+            except Exception as e:
+                instrumentation_logger.warning(
+                    f"Computing casting instrumentation failed for {build_arg_contract_file}: {e}", exc_info=True)
+                casting_instrumentations, casting_types = {}, {}
+            instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, casting_instrumentations)
 
         abs_build_arg_contract_file = Util.abs_posix_path(build_arg_contract_file)
         if abs_build_arg_contract_file not in instr:
@@ -3401,12 +3401,13 @@ class CertoraBuildGenerator:
                         read_so_far += amt + 1 + to_skip
                     output.write(in_file.read(-1))
 
-                    library_name, funcs = casting_types.get(contract_file, ("", list()))
-                    if len(funcs) > 0:
-                        output.write(bytes(f"\nlibrary {library_name}" + "{\n", "utf8"))
-                        for f in funcs:
-                            output.write(bytes(f, "utf8"))
-                        output.write(bytes("}\n", "utf8"))
+                    if self.context.safe_casting_builtin:
+                        library_name, funcs = casting_types.get(contract_file, ("", list()))
+                        if len(funcs) > 0:
+                            output.write(bytes(f"\nlibrary {library_name}" + "{\n", "utf8"))
+                            for f in funcs:
+                                output.write(bytes(f, "utf8"))
+                            output.write(bytes("}\n", "utf8"))
 
         new_file = self.to_autofinder_file(build_arg_contract_file)
         self.context.file_to_contract[new_file] = self.context.file_to_contract[

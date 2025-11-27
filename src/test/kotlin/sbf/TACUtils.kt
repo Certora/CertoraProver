@@ -93,6 +93,7 @@ fun toTAC (cfg: SbfCFG,
         memSummaries,
         sbfTypesFac,
         flagsFac,
+        MemoryDomainOpts(useEqualityDomain = false),
         processor = null)
     memAnalysis.inferAll()
     return sbfCFGsToTAC(prog, memSummaries, globalsSymbolTable, memAnalysis.getResults())

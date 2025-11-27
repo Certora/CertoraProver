@@ -1171,6 +1171,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 globals: GlobalVariableMap,
                 memSummaries: MemorySummaries) {
         val s = locInst.inst
+        dbg { "$s\n" }
         if (!isBottom()) {
             when (s) {
                 is SbfInstruction.Un -> analyzeUn(s)
@@ -1193,19 +1194,23 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 is SbfInstruction.Exit -> {}
             }
         }
-        dbg { "After $s: $this\n" }
+        dbg { "$this\n" }
     }
 
     override fun analyze(b: SbfBasicBlock,
                          globals: GlobalVariableMap,
                          memSummaries: MemorySummaries,
-                         listener: InstructionListener<ScalarDomain<TNum, TOffset>>): ScalarDomain<TNum, TOffset> =
-        analyzeBlock(b,
-                    inState = this,
-                    transferFunction = { mutState, locInst ->
-                        mutState.analyze(locInst, globals, memSummaries)
-                    },
-                    listener)
+                         listener: InstructionListener<ScalarDomain<TNum, TOffset>>): ScalarDomain<TNum, TOffset> {
+        dbg { "=== Scalar domain analyzing ${b.getLabel()} ===\nAt entry: $this\n" }
+        return analyzeBlock(
+            b,
+            inState = this,
+            transferFunction = { mutState, locInst ->
+                mutState.analyze(locInst, globals, memSummaries)
+            },
+            listener
+        )
+    }
 
     override fun toString() = base.toString()
 }
@@ -1216,11 +1221,6 @@ fun<ScalarDomain: AbstractDomain<ScalarDomain>> analyzeBlock(
     inState: ScalarDomain,
     transferFunction: (mutState: ScalarDomain, locInst: LocatedSbfInstruction) -> Unit,
     listener: InstructionListener<ScalarDomain>): ScalarDomain {
-
-
-    dbg { "=== Scalar domain analyzing ${b.getLabel()} ===\n" +
-          "At entry: $inState\n"
-    }
 
     if (listener is DefaultInstructionListener) {
         /**

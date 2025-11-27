@@ -249,6 +249,7 @@ private fun solanaRuleToTAC(
             memSummaries,
             sbfTypesFac,
             ptaFlagsFac,
+            MemoryDomainOpts(useEqualityDomain = false),
             processor = null)?.getResults()
 
     // 5. Convert to TAC
@@ -281,12 +282,13 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     memSummaries: MemorySummaries,
     sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
     ptaFlagsFac: () -> TFlags,
+    opts: MemoryDomainOpts,
     processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?
 ): WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>? = if (SolanaConfig.UsePTA.get()) {
     sbfLogger.info { "[$target] Started whole-program memory analysis " }
 
     val start = System.currentTimeMillis()
-    val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, ptaFlagsFac, processor)
+    val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, ptaFlagsFac, opts, processor)
     try {
         analysis.inferAll()
     } catch (e: PointerAnalysisError) {
@@ -354,7 +356,8 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
         invokes,
         p2.getGlobals()
     )
-    val memAnalysis = getMemoryAnalysis(target, p2, memSummaries, sbfTypesFac, ptaFlagsFac, processor = processor)
+    val memDomOpts = MemoryDomainOpts(useEqualityDomain = true)
+    val memAnalysis = getMemoryAnalysis(target, p2, memSummaries, sbfTypesFac, ptaFlagsFac, memDomOpts, processor = processor)
     if (memAnalysis == null) {
         val end = System.currentTimeMillis()
         sbfLogger.info { "\tUnexpected problem during memory analysis. Skipped lowering of CPI calls" }

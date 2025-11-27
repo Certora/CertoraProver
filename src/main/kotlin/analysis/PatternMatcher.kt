@@ -19,7 +19,6 @@
 
 package analysis
 
-import analysis.PatternDSL.Coalesce2
 import analysis.PatternDSL.PatternBuilder
 import analysis.PatternMatcher.Pattern
 import analysis.PatternMatcher.VariableMatch.Continue
@@ -1012,6 +1011,13 @@ object PatternMatcher {
      */
     sealed class Pattern<out R> {
 
+        abstract class UnaryOpOrApply<R, T> : Pattern<R>() {
+            abstract val inner: Pattern<T>
+            abstract val out: (LTACCmd, T) -> R
+
+            abstract fun extract(p: CmdPointer, e : TACExpr) : TACSymbol?
+        }
+
         /**
          * Adds a transformation [map] on top of the pattern [wrapped].
          * Importantly, if [map] run on the payload of the [wrapped] pattern returns null, then this pattern will be
@@ -1048,17 +1054,24 @@ object PatternMatcher {
          */
         data class FromUnaryOp<R, T>(
             val extractor: (CmdPointer, TACExpr.UnaryExp) -> TACSymbol?,
-            val inner: Pattern<T>,
-            val out: (LTACCmd, T) -> R,
-            override val patternName: String?
-        ) : Pattern<R>() {
-            constructor(
-                extractor: (CmdPointer, TACExpr.UnaryExp) -> TACSymbol?,
-                inner: Pattern<T>,
-                out: (LTACCmd, T) -> R
-            ) : this(extractor, inner, out, null)
-
+            override val inner: Pattern<T>,
+            override val out: (LTACCmd, T) -> R,
+            override val patternName: String? = null
+        ) : UnaryOpOrApply<R, T>() {
             override fun toSymbolPredicate(): SymbolPredicate<R> = this::expectVariable
+            override fun extract(p : CmdPointer, e: TACExpr) =
+                (e as? TACExpr.UnaryExp)?.let { extractor(p, it) }
+        }
+
+        data class FromUnaryApply<R, T>(
+            val extractor: (CmdPointer, TACExpr.Apply) -> TACSymbol?,
+            override val inner: Pattern<T>,
+            override val out: (LTACCmd, T) -> R,
+            override val patternName: String? = null
+        ) : UnaryOpOrApply<R, T>() {
+            override fun toSymbolPredicate(): SymbolPredicate<R> = this::expectVariable
+            override fun extract(p : CmdPointer, e: TACExpr) =
+                (e as? TACExpr.Apply)?.takeIf { it.ops.size == 1 }?.let { extractor(p, it) }
         }
 
         /**
@@ -1817,7 +1830,7 @@ object PatternMatcher {
     ): SymbolQuery<ConstLattice<R>> {
         @Suppress("UNCHECKED_CAST")
         return when (patt) {
-            is Pattern.FromUnaryOp<R, *> -> compileUnaryOp(graph, patt, traverseFilter)
+            is Pattern.UnaryOpOrApply<R, *> -> compileUnaryOp(graph, patt, traverseFilter)
             is Pattern.FromBinOp<R, *, *> -> compileBinOp(graph, patt, traverseFilter)
             is Pattern.FromConstant<R, *> -> compileConstant(graph, patt, traverseFilter)
             is Pattern.FromVar -> compileFromVar(graph, patt, traverseFilter)
@@ -2435,9 +2448,9 @@ object PatternMatcher {
     }
 
     private fun <R, T> compileUnaryOp(
-            graph: TACCommandGraph,
-            patt: Pattern.FromUnaryOp<R, T>,
-            traverseFilter: (TACSymbol.Var) -> Boolean
+        graph: TACCommandGraph,
+        patt: Pattern.UnaryOpOrApply<R, T>,
+        traverseFilter: (TACSymbol.Var) -> Boolean
     ): BackwardsFlowQuery<ConstLattice<R>> {
         val innerMatcher = compilePattern(graph, patt.inner, traverseFilter)
         return object : LoggingFlowQuery<R>(patt, graph) {
@@ -2464,14 +2477,14 @@ object PatternMatcher {
                     }
                 }
                 return if (first is TACCmd.Simple.AssigningCmd.AssignExpCmd) {
-                    when (first.rhs) {
-                        is TACExpr.UnaryExp -> {
+                    when (val rhs = first.rhs) {
+                        is TACExpr.UnaryExp, is TACExpr.Apply -> {
                             patt.taggedDebug {
-                                "Reached definition in-terms of ${first.rhs}, at ${graph.elab(where)}"
+                                "Reached definition in-terms of ${rhs}, at ${graph.elab(where)}"
                             }
-                            val ext = patt.extractor(where, first.rhs)
+                            val ext = patt.extract(where, rhs)
                             patt.taggedDebug {
-                                "Extractor returned $ext for ${first.rhs}"
+                                "Extractor returned $ext for $rhs"
                             }
                             return if (ext == null) {
                                 patt.taggedDebug {
@@ -2499,13 +2512,13 @@ object PatternMatcher {
                         }
                         is TACExpr.Sym.Var -> {
                             patt.taggedDebug {
-                                "Hit definition in terms of ${first.rhs.s} @ ${graph.elab(where)}. Requery"
+                                "Hit definition in terms of ${rhs.s} @ ${graph.elab(where)}. Requery"
                             }
-                            query(first.rhs.s, where, active)
+                            query(rhs.s, where, active)
                         }
                         else -> {
                             patt.taggedDebug {
-                                "Unrecognized RHS: ${first.rhs} @ ${graph.elab(where)}. Fail"
+                                "Unrecognized RHS: ${rhs} @ ${graph.elab(where)}. Fail"
                             }
                             ConstLattice.NoMatch
                         }

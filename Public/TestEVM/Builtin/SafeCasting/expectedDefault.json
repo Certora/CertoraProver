@@ -3,6 +3,7 @@
 		"safeCasting": {
 			"FAIL": [
 				"complex(int8,int8)",
+				"narrow(int64)",
 				"noWidth(uint256)"
 			],
 			"SUCCESS": [

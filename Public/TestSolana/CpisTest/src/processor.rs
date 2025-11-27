@@ -5,8 +5,8 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
 };
-
 use spl_token::instruction::{burn, close_account, mint_to, transfer};
+
 
 const SEED1: &[u8] = b"seed1";
 const SEED2: &[u8] = b"seed2";
@@ -29,6 +29,7 @@ pub fn process_transfer_token<const N_SIGNERS: usize>(
     Ok(())
 }
 
+#[cvlr::early_panic]
 fn invoke_transfer_token<'a, const N_SIGNERS: usize>(
     token_program: &AccountInfo<'a>,
     from: &AccountInfo<'a>,
@@ -87,6 +88,7 @@ pub fn process_mint_token<const N_SIGNERS: usize>(
     Ok(())
 }
 
+#[cvlr::early_panic]
 fn invoke_mint_token<'a, const N_SIGNERS: usize>(
     token_program: &AccountInfo<'a>,
     mint: &AccountInfo<'a>,
@@ -146,6 +148,7 @@ pub fn process_burn_token<const N_SIGNERS: usize>(
     Ok(())
 }
 
+#[cvlr::early_panic]
 fn invoke_burn_token<'a, const N_SIGNERS: usize>(
     token_program: &AccountInfo<'a>,
     source: &AccountInfo<'a>,
@@ -198,6 +201,7 @@ pub fn process_close_account<const N_SIGNERS: usize>(
     Ok(())
 }
 
+#[cvlr::early_panic]
 fn invoke_close_account<'a, const N_SIGNERS: usize>(
     token_program: &AccountInfo<'a>,
     account: &AccountInfo<'a>,
@@ -241,6 +245,7 @@ pub fn process_unknown_program(
     Ok(())
 }
 
+#[cvlr::early_panic]
 fn invoke_unknown_program<'a>(
     acc1: &AccountInfo<'a>,
     acc2: &AccountInfo<'a>,

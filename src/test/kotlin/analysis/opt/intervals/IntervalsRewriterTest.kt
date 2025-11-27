@@ -38,6 +38,7 @@ class IntervalsRewriterTest : TACBuilderAuxiliaries() {
     private fun TACProgramBuilder.BuiltTACProgram.checkStats(vararg statsToCheck: Pair<String, Int>) {
         val ic = IntervalsRewriter(code, false, preserve = { false }, calcJumpPostConditions = true)
         ic.rewrite()
+//        println(ic.debug())
         val stats = ic.statsForTest()
 //        println(stats.toString("STATS").yellow)
         for ((name, count) in statsToCheck) {

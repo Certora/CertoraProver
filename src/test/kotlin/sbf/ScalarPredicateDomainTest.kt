@@ -545,4 +545,57 @@ class ScalarPredicateDomainTest {
             Assertions.assertEquals(true, exception)
         }
     }
+
+    /**
+     * The stack pointer is increased by a non-constant offset
+     *
+     * ```
+     *  r1 = r10 - 32    // r1 is the stack pointer
+     *  r3 = 0           // r3 is the loop counter
+     *  while (r3 < 4) {
+     *     r1 += (r3 * 8) <-- this is challenging for the current analysis
+     *     r3 += 1
+     *  }
+     * ```
+     *
+     * Currently, unsupported.
+     * Right now, the analysis assumes a constant offset.
+     */
+    @Test
+    fun test10() {
+        println("====== TEST 10  =======")
+        val cfg = SbfTestDSL.makeCFG("test10") {
+            bb(1) {
+                r1 = r10
+                BinOp.SUB(r1, 32)
+                r3 = 0
+                goto(2)
+            }
+            bb(2) {
+                br(CondOp.LT(r3, 4), 3, 4)
+            }
+            bb(3) {
+                BinOp.MOV(r6, r3)
+                BinOp.MUL(r6, 8)
+                BinOp.ADD(r1, r6)
+                BinOp.ADD(r3, 1)
+                goto (2)
+            }
+            bb(4) {
+                r1[0] = 0 // This should case a PTA error
+                exit()
+            }
+        }
+        cfg.lowerBranchesIntoAssume()
+        println("$cfg")
+
+        var exception = false
+        try {
+            checkWithScalarPredicateAnalysis(cfg, true, 20UL)
+        } catch (e: UnknownStackPointerError) {
+             exception = true
+        }
+        Assertions.assertEquals(true, exception)
+    }
+
 }

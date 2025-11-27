@@ -25,6 +25,7 @@ import analysis.opt.inliner.GlobalInliner
 import analysis.opt.intervals.IntervalsRewriter
 import analysis.opt.overflow.OverflowPatternRewriter
 import analysis.split.BoolOptimizer
+import config.Config
 import config.ReportTypes
 import instrumentation.transformers.FilteringFunctions
 import instrumentation.transformers.TACDSA
@@ -35,8 +36,10 @@ import sbf.SolanaConfig
 import tac.DumpTime
 import utils.*
 import vc.data.CoreTACProgram
+import vc.data.TACBuiltInFunction
 import vc.data.TACExpr
 import vc.data.tacexprutil.ExprUnfolder.Companion.unfoldAll
+import vc.data.tacexprutil.TACExprUtils.contains
 import verifier.BlockMerger
 import verifier.CoreToCoreTransformer
 import verifier.SimpleMemoryOptimizer
@@ -226,6 +229,25 @@ fun legacyOptimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProg
                 optimizeBytemaps(it, FilteringFunctions.default(it, keepRevertManagment = true), cheap = false)
                     .let(BlockMerger::mergeBlocks)
             })
+            .letIf(Config.extraSolanaPatterns.get()) { c ->
+                c.map(CoreToCoreTransformer(ReportTypes.PATTERN_REWRITER) { code ->
+                    unfoldAll(code) { e ->
+                        e.rhs.contains {
+                            it is TACExpr.Vec.IntMul ||
+                                it is TACExpr.BinOp.ShiftRightLogical ||
+                                ((it as? TACExpr.Apply)?.f as? TACExpr.TACFunctionSym.BuiltIn)
+                                    ?.bif is TACBuiltInFunction.SafeMathNarrow
+                        }
+                    }.let { c ->
+                        PatternRewriter.rewrite(c, PatternRewriter::solanaPatternsList)
+                    }
+                }).mapIfAllowed(CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
+                    IntervalsRewriter.rewrite(it, handleLeinoVars = false)
+                }).map(CoreToCoreTransformer(ReportTypes.PATTERN_REWRITER) {
+                    PatternRewriter.rewrite(it, PatternRewriter::solanaPatternsList)
+                })
+            }
+
     }
 
     val maybeOptimized3 = runIf(optLevel >= 3) {

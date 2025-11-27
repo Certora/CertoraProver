@@ -50,6 +50,9 @@ class MemoryMemsetTest {
         node: PTANode<Flags>
     ) = getNode(g, base, offset, 8)?.id == node.getNode().id
 
+    private fun createMemoryDomain() =
+        MemoryDomain(nodeAllocator, sbfTypesFac, MemoryDomainOpts(false),true)
+
     @Test
     fun test01() {
         println("====== TEST 1: memset on stack and known length =======")
@@ -60,7 +63,7 @@ class MemoryMemsetTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         // Create abstract state
-        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac, true)
+        val absVal = createMemoryDomain()
         val stackC = absVal.getRegCell(r10, newGlobalVariableMap())
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
@@ -98,7 +101,7 @@ class MemoryMemsetTest {
         val r2 = Value.Reg(SbfRegister.R2_ARG)
 
         // Create abstract state
-        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac,true)
+        val absVal = createMemoryDomain()
         val stackC = absVal.getRegCell(r10, newGlobalVariableMap())
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
@@ -134,7 +137,7 @@ class MemoryMemsetTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         // Create abstract state
-        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac, true)
+        val absVal = createMemoryDomain()
         val g = absVal.getPTAGraph()
         val heapNode  = g.mkNode()
         heapNode.setWrite()

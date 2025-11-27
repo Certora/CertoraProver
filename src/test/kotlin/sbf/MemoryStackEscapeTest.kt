@@ -32,6 +32,7 @@ import sbf.analysis.AnalysisRegisterTypes
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
+private val memDomOpts = MemoryDomainOpts(useEqualityDomain = false)
 
 class MemoryStackEscapeTest {
     @Test
@@ -88,6 +89,7 @@ class MemoryStackEscapeTest {
             memSummaries,
             sbfTypesFac,
             nodeAllocator.flagsFactory,
+            memDomOpts,
             processor = null)
         var exception = false
         try {
@@ -163,6 +165,7 @@ class MemoryStackEscapeTest {
             memSummaries,
             sbfTypesFac,
             nodeAllocator.flagsFactory,
+            memDomOpts,
             processor = null)
         var exception = false
         try {

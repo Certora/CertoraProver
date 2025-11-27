@@ -27,7 +27,7 @@ import datastructures.stdcollections.*
 import log.*
 import sbf.callgraph.SolanaFunction
 
-private val logger = Logger(LoggerTypes.SBF_SCALAR_ANALYSIS)
+private val logger = Logger(LoggerTypes.SBF_SCALAR_WITH_PREDS_ANALYSIS)
 private fun dbg(msg: () -> Any) { logger.info(msg) }
 
 /**
@@ -382,7 +382,8 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         inst: SbfInstruction.Bin,
      ): SetOfStackStridePredicate {
         val k = (scalars.getValue(inst.v).type() as? SbfType.NumType)?.value?.toLongOrNull()
-        check(k != null) {"Extrapolate expects a non-null right operand in $inst"}
+            ?: // the implementation only supports for now constant offsets
+            return SetOfStackStridePredicate()
 
         val isIncreasingStackPtr: Boolean = when(inst.op) {
             BinOp.ADD -> k >= 0L
@@ -963,6 +964,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
 
     fun analyze(locInst: LocatedSbfInstruction, globals: GlobalVariableMap, memSummaries: MemorySummaries) {
         val inst = locInst.inst
+        dbg { "$inst\n" }
         if (!isBottom()) {
             if (SolanaConfig.UseScalarPredicateDomain.get()) {
                 if (inst is SbfInstruction.Bin) {
@@ -997,21 +999,24 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
                 }
             }
         }
-
-        dbg { "After $inst: $this\n" }
+        dbg { "$this\n" }
     }
 
     override fun analyze(b: SbfBasicBlock,
                          globals: GlobalVariableMap,
                          memSummaries: MemorySummaries,
                          listener: InstructionListener<ScalarStackStridePredicateDomain<TNum, TOffset>>
-    ): ScalarStackStridePredicateDomain<TNum, TOffset> =
-        analyzeBlock(b,
-                inState = this,
-                transferFunction = { mutState, locInst ->
-                    mutState.analyze(locInst, globals, memSummaries)
-                },
-                listener)
+    ): ScalarStackStridePredicateDomain<TNum, TOffset> {
+        dbg { "=== Scalar+StackStridePredicate domain analyzing ${b.getLabel()} ===\nAt entry: $this\n" }
+        return analyzeBlock(
+            b,
+            inState = this,
+            transferFunction = { mutState, locInst ->
+                mutState.analyze(locInst, globals, memSummaries)
+            },
+            listener
+        )
+    }
 
     override fun toString() =
         if (predicates.isTop()) {
