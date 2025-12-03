@@ -582,6 +582,12 @@ def run_local_spec_check(with_typechecking: bool, context: CertoraContext, extra
     """
 
     args = collect_jar_args(context)
+
+    # Add -printAst flag if dump_cvl_ast option is set
+    # We only want the elementary typecheck run to produce a file, not any of the auxiliary ones
+    if hasattr(context, 'dump_cvl_ast') and context.dump_cvl_ast and not extra_args and with_typechecking:
+        args.extend(['-printAst', context.dump_cvl_ast])
+
     if Util.is_java_installed(context.java_version):
         run_typechecker("Typechecker.jar", with_typechecking, args + extra_args, print_errors)
     else:

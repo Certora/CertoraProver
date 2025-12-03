@@ -236,6 +236,15 @@ object Config {
             )
         ) {}
 
+    val PrintAst = object :
+        ConfigType.StringCmdLine(
+            null, Option(
+                "printAst", true,
+                "This option is only used by the TypeChecker.jar. " +
+                    "It writes to the provided file a JSON of the full AST"
+            )
+        ) {}
+
     val AllowSolidityQuantifierCalls = object : ConfigType.BooleanCmdLine(
             false,
             Option(

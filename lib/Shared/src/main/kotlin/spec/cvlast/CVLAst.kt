@@ -1616,6 +1616,7 @@ sealed class CVLGhostDeclaration : AmbiSerializable {
     @KSerializable
     data class Variable(
         override val range: Range,
+        @SerialName("Named_type")
         val type: CVLType.PureCVLType,
         override val id: String,
         override val persistent: Boolean,
@@ -2923,6 +2924,7 @@ sealed class CVLExp : HasCVLExpTag, AmbiSerializable {
 
         @KSerializable
         data class ArrayLiteralTypeHint(
+            @SerialName("Named_type")
             val type: CVLType.PureCVLType
         ) : ExpressionAnnotation
 

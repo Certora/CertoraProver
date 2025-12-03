@@ -171,7 +171,7 @@ class ContractInSDC:
         """
         return {
             "name": self.name,
-            "original_file": Util.find_filename_in(Util.get_certora_sources_dir(), self.original_file),
+            "original_file": Util.find_filename_in(Util.get_certora_sources_dir(), self.original_file) or self.original_file,
             "lang": self.lang,
             "file": self.report_source_file,
             "address": self.address,
