@@ -194,7 +194,7 @@ object ProverInputPreprocessor {
         File(outFile).writeText(calls)
     }
 
-    private fun printAst(ast: CVL) {
+    private fun printAst(ast: CVL, contractSource: IContractSource) {
         val outFile = Config.PrintAst.getOrNull() ?: return
 
         val lspJsonConfig = Json {
@@ -213,6 +213,7 @@ object ProverInputPreprocessor {
             val internalSummaries: List<Pair<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>>,
             val externalSummaries: List<Pair<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>>,
             val unresolvedSummaries: List<Pair<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>>,
+            val instances: List<Pair<String, String>> // map addresses to names
         )
 
         PrintedAST(
@@ -224,7 +225,8 @@ object ProverInputPreprocessor {
             ast.hooks,
             ast.internalSummaries.toList(),
             ast.externalSummaries.toList(),
-            ast.unresolvedSummaries.toList()
+            ast.unresolvedSummaries.toList(),
+            contractSource.instances().map { it.address.toString(16) to it.name }
         ).let { dumpIt ->
             val serialized = lspJsonConfig.encodeToString(dumpIt)
 
@@ -262,7 +264,7 @@ object ProverInputPreprocessor {
                         // of `rules`, so no need to explicitly add them here
                         printFilteredRules(ast.rules.mapToSet { it.declarationId })
                         printFunctionCalls(ast, ast.importedContracts, verify.primary_contract)
-                        printAst(ast)
+                        printAst(ast, contractSource)
                         ast
                     }
                 } else {
