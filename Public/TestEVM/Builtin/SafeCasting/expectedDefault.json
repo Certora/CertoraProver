@@ -6,6 +6,9 @@
 				"narrow(int64)",
 				"noWidth(uint256)"
 			],
+			"SANITY_FAIL": [
+				"vacuous(uint32)"
+			],
 			"SUCCESS": [
 				"should_pass(int8)"
 			],

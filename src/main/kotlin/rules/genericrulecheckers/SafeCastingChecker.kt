@@ -18,15 +18,14 @@
 package rules.genericrulecheckers
 
 import analysis.ip.SafeCastingAnnotator.CastingKey
+import datastructures.nonEmptyListOf
 import datastructures.stdcollections.*
 import evm.EVM_MOD_GROUP256
 import evm.twoToThe
 import log.*
 import report.RuleAlertReport
-import rules.CheckableTAC
-import rules.CompiledRule
-import rules.RuleCheckResult
-import rules.RuleChecker
+import rules.*
+import spec.cvlast.SpecType
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.genericrulegenerators.SafeCastingGenerator
 import spec.rules.CVLSingleRule
@@ -34,10 +33,7 @@ import spec.rules.IRule
 import spec.rules.SingleRuleGenerationMeta
 import tac.Tag
 import utils.*
-import vc.data.CoreTACProgram
-import vc.data.TACCmd
-import vc.data.TACExprFactUntyped
-import vc.data.asTACExpr
+import vc.data.*
 import vc.data.tacexprutil.tempVar
 import java.util.stream.Collectors
 
@@ -53,8 +49,14 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
 
     private val txf = TACExprFactUntyped
 
-    private fun replaceCastsWithAsserts(code: CoreTACProgram): List<Pair<CoreTACProgram, Range.Range?>> {
-        val casts = code.parallelLtacStream()
+    /**
+     * Returns pairs of programs, one for each cast:
+     *  1. The cast being replaced by an assert that checks if the cast is in range.
+     *  2. The cast being replaced by an `assert false`
+     * Each such pair is accompanied with the source information for the original assert.
+     */
+    private fun replaceCastsWithAsserts(originalCode: CoreTACProgram): List<Pair<SimplePair<CoreTACProgram>, Range.Range?>> {
+        val casts = originalCode.parallelLtacStream()
             .mapNotNull { it.ptr `to?` it.cmd.maybeAnnotation(CastingKey) }
             .collect(Collectors.toList())
         return casts.mapNotNull { (ptr, info) ->
@@ -80,7 +82,9 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
                     else -> `impossible!`
                 }
             }
-            val patcher = code.toPatchingProgram()
+            val patcher = originalCode.toPatchingProgram()
+            val sanityPatcher = originalCode.toPatchingProgram()
+
             val t = tempVar("safeCast", Tag.Bool)
             patcher.addVarDecl(t)
             patcher.replace(ptr) { _ ->
@@ -89,7 +93,13 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
                     TACCmd.Simple.AssertCmd(t, "safe casting from $fromType to $toType at $range")
                 )
             }
-            patcher.toCode(code) to range
+            sanityPatcher.update(
+                ptr,
+                TACCmd.Simple.AssertCmd(TACSymbol.False, "safe casting sanity from $fromType to $toType at $range")
+            )
+            val code = patcher.toCode(originalCode)
+            val sanityCode = sanityPatcher.toCode(originalCode)
+            (code to sanityCode) to range
         }
     }
 
@@ -104,17 +114,30 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
                 val methodName = currMethodInst.values.singleOrNull()?.toExternalABIName()
                     ?: error("Expected the compiled builtin rule ${rule.declarationId} to contain one method parameter, but got $currMethodInst")
 
-                replaceCastsWithAsserts(currCode).mapIndexed { i, (code, range) ->
+                replaceCastsWithAsserts(currCode).mapIndexed { i, (codes, range) ->
+                    val (code, sanityCode) = codes
                     val newRule = singleRule.copy(
                         ruleGenerationMeta = SingleRuleGenerationMeta.WithMethodInstantiations(
-                            SingleRuleGenerationMeta.Sanity.DISABLED_SANITY_CHECK,
+                            SingleRuleGenerationMeta.Sanity.PRE_SANITY_CHECK,
                             currMethodInst.range(),
                             methodName,
                         ),
                         range = range ?: singleRule.range,
                         ruleIdentifier = rule.ruleIdentifier.freshDerivedIdentifier("${methodName}-${i + 1}")
                     )
-                    CheckableTAC(code, currMethodInst, newRule)
+                    val sanityRule = newRule.copy(
+                        ruleGenerationMeta = SingleRuleGenerationMeta.WithMethodInstantiations(
+                            SingleRuleGenerationMeta.Sanity.BASIC_SANITY,
+                            currMethodInst.range(),
+                            methodName,
+                        ),
+                        ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(newRule),
+                        ruleIdentifier = newRule.ruleIdentifier.freshDerivedIdentifier("-sanity")
+                    )
+                    CheckableTACWithSanity(
+                        code, currMethodInst, newRule,
+                        nonEmptyListOf(CheckableTAC(sanityCode, currMethodInst, sanityRule))
+                    )
                 }
             }
             if (checkableTACs.isEmpty()) {
@@ -136,3 +159,4 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
         }
     }
 }
+
