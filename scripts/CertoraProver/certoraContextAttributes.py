@@ -1202,6 +1202,17 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False,
     )
 
+    DUMP_CVL_AST = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.STRING,
+        help_msg="Path to output file where the CVL AST will be printed during typechecking",
+        default_desc="",
+        argparse_args={
+            'action': AttrUtil.UniqueStore
+        },
+        affects_build_cache_key=False,
+        disables_build_cache=False
+    )
+
     SAFE_CASTING_BUILTIN = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.BOOLEAN,
         help_msg="This needs to be set to true for the safeCasting builtin to work",

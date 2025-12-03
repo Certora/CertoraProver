@@ -17,7 +17,7 @@
 import sys
 import time
 import logging
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Any
 from pathlib import Path
 
 scripts_dir_path = Path(__file__).parent.resolve()  # containing directory
@@ -27,6 +27,7 @@ from Shared import certoraUtils as Util
 from CertoraProver.certoraCloudIO import CloudVerification
 
 from CertoraProver.certoraBuild import build
+from CertoraProver.certoraContextClass import CertoraContext
 import CertoraProver.certoraContext as Ctx
 import CertoraProver.certoraApp as App
 
@@ -110,7 +111,11 @@ def run_certora(args: List[str], app: Type[App.CertoraApp] = App.EvmApp,
         if context.test == str(Util.TestValue.AFTER_BUILD):
             raise Util.TestResultsReady(context)
 
-    if context.build_only:
+    if context.build_only or context.compilation_steps_only:
+        # build_only does not perform CVL typechecking, just Solidity/Vyper building.
+        # compilation_steps_only includes the CVL typechecking
+        if context.compilation_steps_only:
+            run_syntax_and_typechecking_with_timings(context, timings)
         return return_value
 
     # either we skipped building (TAC MODE) or build succeeded
@@ -133,13 +138,7 @@ def run_certora(args: List[str], app: Type[App.CertoraApp] = App.EvmApp,
             if not result:
                 exit_code = 1
     else:  # Remote run
-        # Syntax checking and typechecking
-        if Cv.mode_has_spec_file(context):
-            if Ctx.should_run_local_speck_check(context):
-                typechecking_start = time.perf_counter()
-                Ctx.run_local_spec_check(True, context)
-                typechecking_end = time.perf_counter()
-                timings['typecheckingTime'] = round(typechecking_end - typechecking_start, 4)
+        run_syntax_and_typechecking_with_timings(context, timings)
 
         # Remove debug logger and run remote verification
         logging_manager.remove_debug_logger()
@@ -147,6 +146,16 @@ def run_certora(args: List[str], app: Type[App.CertoraApp] = App.EvmApp,
 
     # Handle exit codes and return
     return handle_exit(exit_code, return_value)
+
+
+def run_syntax_and_typechecking_with_timings(context: CertoraContext, timings: dict[Any, Any]) -> None:
+    # Syntax checking and typechecking
+    if Cv.mode_has_spec_file(context):
+        if Ctx.should_run_local_speck_check(context):
+            typechecking_start = time.perf_counter()
+            Ctx.run_local_spec_check(True, context)
+            typechecking_end = time.perf_counter()
+            timings['typecheckingTime'] = round(typechecking_end - typechecking_start, 4)
 
 
 def latest_emv_dir() -> Optional[Path]:

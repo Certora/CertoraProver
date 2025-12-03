@@ -194,6 +194,7 @@ fun main(args: Array<String>) {
                             null,
                             CheckedUrl.TIMEOUT_PREVENTION,
                         )
+                        finalResult = FinalResult.ERROR
 
                         Logger.always("Interrupting main thread", respectQuiet = false)
                         thisThread.interrupt()

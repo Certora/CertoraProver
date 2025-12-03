@@ -32,4 +32,11 @@ contract C {
         return z;
     }
 
+    function vacuous(uint32 x) public pure returns (uint8)  {
+        require(x < 100);
+        require(x > 100);
+        uint8 z = uint8(x);
+        return z;
+    }
 }
+

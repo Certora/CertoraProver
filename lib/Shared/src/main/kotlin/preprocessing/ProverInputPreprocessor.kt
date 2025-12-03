@@ -25,8 +25,10 @@ import bridge.VerificationQueryType
 import config.*
 import datastructures.stdcollections.*
 import disassembler.DisassembledEVMBytecode
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import scene.*
 import spec.CVL
@@ -34,6 +36,7 @@ import spec.CVLAstBuilder
 import spec.DummyTypeResolver
 import spec.cvlast.*
 import spec.cvlast.typechecker.CVLError
+import spec.rules.ICVLRule
 import java.io.File
 import java.math.BigInteger
 import kotlin.system.exitProcess
@@ -191,6 +194,46 @@ object ProverInputPreprocessor {
         File(outFile).writeText(calls)
     }
 
+    private fun printAst(ast: CVL, contractSource: IContractSource) {
+        val outFile = Config.PrintAst.getOrNull() ?: return
+
+        val lspJsonConfig = Json {
+            serializersModule = CVLSerializerModules.modules
+            encodeDefaults = true
+        }
+
+        @Serializable
+        data class PrintedAST(
+            val rules: List<ICVLRule>,
+            val subs: List<CVLFunction>,
+            val invs: List<CVLInvariant>,
+            val ghosts: List<CVLGhostDeclaration>,
+            val definitions: List<CVLDefinition>,
+            val hooks: List<CVLHook>,
+            val internalSummaries: List<Pair<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>>,
+            val externalSummaries: List<Pair<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>>,
+            val unresolvedSummaries: List<Pair<CVL.SummarySignature.External, SpecCallSummary.ExpressibleInCVL>>,
+            val instances: List<Pair<String, String>> // map addresses to names
+        )
+
+        PrintedAST(
+            ast.rules,
+            ast.subs,
+            ast.invs,
+            ast.ghosts,
+            ast.definitions,
+            ast.hooks,
+            ast.internalSummaries.toList(),
+            ast.externalSummaries.toList(),
+            ast.unresolvedSummaries.toList(),
+            contractSource.instances().map { it.address.toString(16) to it.name }
+        ).let { dumpIt ->
+            val serialized = lspJsonConfig.encodeToString(dumpIt)
+
+            File(outFile).writeText(serialized)
+        }
+
+    }
     /**
      * A template of a main function for a Jar using this object's preprocessing capabilities
      * can run in one of three modes:
@@ -221,6 +264,7 @@ object ProverInputPreprocessor {
                         // of `rules`, so no need to explicitly add them here
                         printFilteredRules(ast.rules.mapToSet { it.declarationId })
                         printFunctionCalls(ast, ast.importedContracts, verify.primary_contract)
+                        printAst(ast, contractSource)
                         ast
                     }
                 } else {
