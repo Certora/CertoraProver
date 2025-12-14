@@ -993,12 +993,13 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     val base = exprBuilder.mkVar((inst.access.baseReg).r).asSym()
                     val offset = exprBuilder.mkConst(inst.access.offset.toLong()).asSym()
                     if (inst.isLoad) {
-                       newCmds += stackLoad(
+                        val lhs = inst.value as Value.Reg
+                        newCmds += stackLoad(
                             base,
                             offset,
                             loadOrStore.variables,
                             loadOrStore.preservedValues,
-                            exprBuilder.mkVar((inst.value as Value.Reg).r)
+                            exprBuilder.mkVar(lhs.r)
                         )
                     } else {
                         if (SolanaConfig.UsePTA.get()) {
@@ -1030,8 +1031,17 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     val newCmds = mutableListOf<TACCmd.Simple>()
                     val loc = computeTACMapIndex(exprBuilder.mkVar(baseReg), PTAOffset(offset.toLong()), newCmds)
                     if (inst.isLoad) {
-                        val lhs = exprBuilder.mkVar((inst.value as Value.Reg).r)
-                        newCmds.add(TACCmd.Simple.AssigningCmd.ByteLoad(lhs, loc, memVar.tacVar))
+                        val lhs = inst.value as Value.Reg
+                        val lhsV = exprBuilder.mkVar(lhs.r)
+                        val lhsType = regTypes.typeAtInstruction(locInst, lhs.r, isWritten = true)
+                        val lhsVal = (lhsType as? SbfType.NumType)?.value?.toLongOrNull()
+                        if (lhsVal != null) {
+                            // optimization, specially important for read-only globals: if the scalar analysis knows
+                            // the value of the lhs then we don't read from the map
+                            newCmds.add(assign(lhsV, exprBuilder.mkConst(lhsVal).asSym()))
+                        } else {
+                            newCmds.add(TACCmd.Simple.AssigningCmd.ByteLoad(lhsV, loc, memVar.tacVar))
+                        }
                     } else {
                         if (SolanaConfig.UsePTA.get()) {
                             // havoc any possible overlaps
