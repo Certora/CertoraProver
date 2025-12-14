@@ -49,7 +49,12 @@ data class GhostMapping(
     )
 
     context(SummarizationContext)
-    private fun materialize(ptr: CmdPointer, patch: PatchingTACProgram<TACCmd>, ignoreParams: Boolean) {
+    private fun materialize(
+        ptr: CmdPointer,
+        patch: PatchingTACProgram<TACCmd>,
+        callCountsByTypeArgs: Map<List<MoveType.Value>, Int>,
+        loopBlocks: Set<NBId>
+    ) {
         /*
             - For a nongeneric ghost function with no parameters `native fun ghost(): &R`, we generate a single
                 TAC variable of type `R.toTag()`.
@@ -61,16 +66,16 @@ data class GhostMapping(
                 instantiation of the ghost function.
         */
 
-        fun ghostVar(tag: Tag): TACSymbol.Var {
+        fun ghostVar(tag: Tag, staticTypeArgs: List<MoveType.Value>): TACSymbol.Var {
             val name = name.toVarName()
             return TACSymbol.Var(
                 name,
                 tag,
                 // treat ghost variables as keywords, to preserve their names in TAC dumps
                 meta = MetaMap(TACSymbol.Var.KEYWORD_ENTRY to TACSymbol.Var.KeywordEntry(name))
-            ).letIf(typeArgs.isNotEmpty()) {
+            ).letIf(staticTypeArgs.isNotEmpty()) {
                 it.withSuffix(
-                    typeArgs.joinToString("!") { it.symNameExt() },
+                    staticTypeArgs.joinToString("!") { it.symNameExt() },
                     "!"
                 )
             }
@@ -87,21 +92,35 @@ data class GhostMapping(
             TACKeyword.TMP(MoveTag.Ref(resultValType))
         }
 
+        // If all uses have static type args, we might be able to optimize.
+        val typeArgsAreStatic = callCountsByTypeArgs.none { (typeArgs, _) -> typeArgs.any { it is MoveType.Nondet } }
+
+        // If we have only a single use, or only a single use with these type args, we might be able to optimize.
+        val singleUse = callCountsByTypeArgs.values.sum() == 1 && ptr.block !in loopBlocks
+        val singleUseWithTheseTypeArgs = callCountsByTypeArgs[typeArgs] == 1 && ptr.block !in loopBlocks
+
         val makeRef = when {
-            params.isEmpty() || ignoreParams -> {
-                // No parameters: just use a simple TAC variable
+            singleUse -> {
+                // No other uses; just use a simple TAC variable
                 TACCmd.Move.BorrowLocCmd(
                     ref = refVar,
-                    loc = ghostVar(resultValType.toTag()).ensureHavocInit(resultValType)
+                    loc = ghostVar(resultValType.toTag(), emptyList()).ensureHavocInit(resultValType)
                 ).withDecls(refVar)
             }
-            params.size == 1 && params[0] is MoveType.Bits -> {
+            typeArgsAreStatic && (singleUseWithTheseTypeArgs || params.isEmpty()) -> {
+                // We know the type args statically, and can ignore the parameters, so we can use a simple TAC variable
+                TACCmd.Move.BorrowLocCmd(
+                    ref = refVar,
+                    loc = ghostVar(resultValType.toTag(), typeArgs).ensureHavocInit(resultValType)
+                ).withDecls(refVar)
+            }
+            typeArgsAreStatic && params.size == 1 && params[0] is MoveType.Bits -> {
                 // A single numeric parameter: use it as an index into a ghost array
                 val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(resultValType)), "ghostArrayRef")
                 mergeMany(
                     TACCmd.Move.BorrowLocCmd(
                         ref = ghostArrayRef,
-                        loc = ghostVar(MoveTag.GhostArray(resultValType)).ensureHavocInit()
+                        loc = ghostVar(MoveTag.GhostArray(resultValType), typeArgs).ensureHavocInit()
                     ).withDecls(ghostArrayRef),
                     TACCmd.Move.GhostArrayBorrowCmd(
                         dstRef = refVar,
@@ -118,7 +137,7 @@ data class GhostMapping(
                     CvlmHash.hashArguments(hash, name, typeArgs, args),
                     TACCmd.Move.BorrowLocCmd(
                         ref = ghostArrayRef,
-                        loc = ghostVar(MoveTag.GhostArray(resultValType)).ensureHavocInit()
+                        loc = ghostVar(MoveTag.GhostArray(resultValType), emptyList()).ensureHavocInit()
                     ).withDecls(ghostArrayRef),
                     TACCmd.Move.GhostArrayBorrowCmd(
                         dstRef = refVar,
@@ -154,17 +173,16 @@ data class GhostMapping(
                 return code
             }
 
-            val callsByFuncInstance = calls.groupBy { (_,  call) -> call.name to call.typeArgs }
+            val callCounts = mutableMapOf<MoveFunctionName, MutableMap<List<MoveType.Value>, Int>>()
+            calls.forEach { (_, call) ->
+                val counts = callCounts.getOrPut(call.name) { mutableMapOf() }
+                counts[call.typeArgs] = (counts[call.typeArgs] ?: 0) + 1
+            }
             val loopBlocks = code.graph.getNaturalLoops().map { it.body }.unionAll()
 
             val patch = code.toPatchingProgram()
             calls.forEach { (ptr, call) ->
-                // As a special case, if there is only one use of a particular ghost mapping, and it's not in a loop (so
-                // we know it will only execute once), then we can ignore the parameters.  This avoids creating a ghost
-                // array, which can hugely benefit static analysis and solving.
-                val onlyOneCall = callsByFuncInstance[call.name to call.typeArgs]?.size == 1 && ptr.block !in loopBlocks
-
-                call.materialize(ptr, patch, ignoreParams = onlyOneCall)
+                call.materialize(ptr, patch, callCounts[call.name]!!, loopBlocks)
             }
             return patch.toCode(code)
         }

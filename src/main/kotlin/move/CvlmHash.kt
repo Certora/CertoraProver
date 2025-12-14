@@ -47,8 +47,9 @@ object CvlmHash {
         override fun toString() = "cvlm_hash_arg_${function.toVarName()}"
     }
 
-    // Type IDs so hashes can include the type arguments of the function.
-    private val typeIds = ConcurrentHashMap<MoveType.Value, Int>()
+    // Type IDs so hashes can include the type arguments of the function.  The key is the type (for nongeneric types)
+    // or the type name (for generic types).
+    private val typeIds = ConcurrentHashMap<Any, Int>()
 
     /**
         Gets an expression giving an ID for the given type.  For deterministic types, this is a fixed ID, which we
@@ -56,14 +57,33 @@ object CvlmHash {
         can choose an ID, which may or may not be one of the IDs we assigned to a deterministic type.
      */
     context(SummarizationContext)
-    fun typeId(type: MoveType.Value): TACExpr = when (type) {
-        is MoveType.Nondet -> TACExpr.Select(
-            base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
-            loc = type.id.asTACExpr
-        )
-        else -> typeIds.computeIfAbsent(type) { typeIds.size }
-            .also { MoveCallTrace.recordTypeId(type, it) }
-            .asTACExpr
+    fun typeId(type: MoveType.Value): TACExpr {
+        if (type is MoveType.Nondet) {
+            return TACExpr.Select(
+                base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
+                loc = type.id.asTACExpr
+            )
+        }
+        val expr = if (type is MoveType.Datatype && type.typeArguments.isNotEmpty()) {
+            // Generic type: get an id for the type name, and hash it with the type parameter ids
+            // We need this hashing so that if e.g. `Foo` == `Nondet(1)`, then `Bar<Foo>` == `Bar<Nondet(1)>`
+            val argIds = type.typeArguments.map { typeId(it) }
+            val typeNameId = typeIds.computeIfAbsent(type.name) { typeIds.size }.asTACExpr
+            TACExpr.SimpleHash(
+                length = (1 + argIds.size).asTACExpr,
+                args = listOf(typeNameId) + argIds,
+                hashFamily = HashFamily.MoveTypeId
+            )
+        } else {
+            // Non-generic type: just get the id for the type, and hash it
+            TACExpr.SimpleHash(
+                length = 1.asTACExpr,
+                args = listOf(typeIds.computeIfAbsent(type) { typeIds.size }.asTACExpr),
+                hashFamily = HashFamily.MoveTypeId
+            )
+        }
+        MoveCallTrace.recordTypeId(type, expr)
+        return expr
     }
 
     /**

@@ -185,4 +185,26 @@ class HashTest : MoveTestFixture() {
         """.trimIndent())
         assertTrue(verify())
     }
+
+    @Test
+    fun `hashing nested nondet types`() {
+        addMoveSource("""
+            module 0::hashes;
+            public fun cvlm_manifest() {
+                cvlm::manifest::hash(b"hash");
+            }
+            public native fun hash<T>(): u256;
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::hashes::hash;
+            public struct S<T> {
+                inner: T
+            }
+            public fun test<T>() {
+                cvlm_assert((hash<T>() == hash<u64>()) == (hash<S<T>>() == hash<S<u64>>()));
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
 }

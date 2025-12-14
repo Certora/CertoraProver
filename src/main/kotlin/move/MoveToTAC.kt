@@ -312,6 +312,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
             return allCode.toProgram(name, StartBlock, exit)
                 .transform(ReportTypes.INLINE_PARAMETRIC_CALLS) { InvokerCall.materialize(it) }
+                .transform(ReportTypes.MATERIALIZE_GHOST_MAPPINGS) { GhostMapping.materialize(it) }
                 .let {
                     it.mergeBlocks { a, b ->
                         // For now, only allow merging of blocks that are part of the same function body.  This
@@ -319,7 +320,6 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                         a.bodyIdx == b.bodyIdx
                     }
                 }
-                .transform(ReportTypes.MATERIALIZE_GHOST_MAPPINGS) { GhostMapping.materialize(it) }
         }
     }
 

@@ -74,7 +74,9 @@ internal class MoveCallTraceGenerator(
     ) : CallInstance.InvokingInstance<MoveType>()
 
     private fun handleTypeId(annot: MoveCallTrace.TypeId): HandleCmdResult {
-        typesById[annot.id.toBigInteger()] = annot.type
+        model.valueAsBigInteger(annot.id).leftOrNull()?.let {
+            typesById[it] = annot.type
+        }
         return HandleCmdResult.Continue
     }
 
