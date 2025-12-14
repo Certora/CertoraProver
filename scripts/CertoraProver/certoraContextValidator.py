@@ -143,6 +143,11 @@ class CertoraContextValidator:
                                     f'"{conf_key}": [<comma separated list of values>]{Util.NEW_LINE}{Util.NEW_LINE}'
             raise Util.CertoraUserInputError(f"The value of attribute '{conf_key}' ('{value}')' is not a "
                                              f"list {syntax_suggestion}")
+
+        # Check for duplicates
+        if len(value) != len(set(value)):
+            raise Util.CertoraUserInputError(f"The value of attribute '{conf_key}' contains duplicate entries: {value}")
+
         for v in value:
             if not isinstance(v, str):
                 raise Util.CertoraUserInputError(f"value in {conf_key} {v} in {value} is not a string")

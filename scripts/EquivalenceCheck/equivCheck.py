@@ -20,7 +20,8 @@ import sys
 import json
 from pathlib import Path
 from argparse import Namespace, ArgumentParser
-from typing import List, Optional
+from typing import List, TypeVar, Union, Optional
+
 
 # Credit for this work goes to Nick and Netanel.
 
@@ -51,6 +52,22 @@ CONTRACTS = "contracts"
 PROVER_ARGS = "prover_args"
 OPTIMISTIC_FALLBACK_SETTING = "optimistic_fallback"
 
+T = TypeVar("T", str, Path)
+
+def append_unique(lst: List[T], item: Union[str, Path]) -> None:
+    """
+    Append item to lst:
+    - If lst is List[Path] and item is str → convert to Path.
+    - If lst is List[str] → leave item as str.
+    """
+    if lst and isinstance(lst[0], Path) and isinstance(item, str):
+        if Path(item) in lst:
+            return
+        lst.append(Path(item))  # type: ignore[arg-type]
+    else:
+        if item in lst:
+            return
+        lst.append(item)  # type: ignore[arg-type]
 
 class EquivalenceChecker:
 
@@ -134,7 +151,7 @@ class EquivalenceChecker:
             solc_i = self.solcs[i]
             with (self.path / SANITY_CONF_PATH).open() as sanity_conf:
                 contents = json.load(sanity_conf)
-                contents[FILES].append(str(file_i))
+                append_unique(contents[FILES], str(file_i))
                 contents[SOLC] = solc_i
                 contents[VERIFY] = f'{contract_i}:{self.path / SANITY_PATH}'
                 contents["build_only"] = True
@@ -165,10 +182,10 @@ class EquivalenceChecker:
             for file in files:
                 # if the conf file contains absolute path already then we use it
                 if Path(file).exists():
-                    self.files.append(file)
+                    append_unique(self.files, file)
                 # otherwise append the relative path to the conf file location to create absolute path
                 else:
-                    self.files.append(resolve_file(self.conf_path.parent / file))
+                    append_unique(self.files, resolve_file(self.conf_path.parent / file))
             # case where either or both of these will be in the conf file
             if not self.functions and FUNCTIONS in contents:
                 # if the user has functions in the conf file but manually inputs different ones
@@ -307,13 +324,13 @@ class EquivalenceChecker:
                 contents['rule_sanity'] = "basic"
                 contents[FILES] = list()
                 for file in self.files:
-                    contents['files'].append(str(file))
+                    append_unique(contents['files'], str(file))
         else:
             # update default conf_file for running
             with (self.path / DEFAULT_CONF_PATH).open() as conf_file:
                 contents = json.load(conf_file)
                 for file in self.files:
-                    contents[FILES].append(str(file))
+                    append_unique(contents[FILES], str(file))
                 if self.args.bitvector is True:
                     contents.setdefault(PROVER_ARGS, []).append(["-smt_bitVectorTheory true"])
                 if self.args.test_mode is True:

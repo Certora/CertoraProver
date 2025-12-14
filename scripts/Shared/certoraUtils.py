@@ -1326,6 +1326,7 @@ def check_packages_arguments(context: SimpleNamespace) -> None:
             package = package_str.split("=")[0]
             path = package_str.split("=")[1]
             if package in context.package_name_to_path:
+
                 raise CertoraUserInputError(
                     f"package {package} was given two paths: {context.package_name_to_path[package]}, {path}")
             if path.endswith("/"):
@@ -1341,7 +1342,11 @@ def check_packages_arguments(context: SimpleNamespace) -> None:
         if PACKAGE_FILE.exists():
             try:
                 with PACKAGE_FILE.open() as package_json_file:
-                    package_json = json.load(package_json_file)
+                    try:
+                        package_json = json.load(package_json_file)
+                    except json.JSONDecodeError as e:
+                        raise CertoraUserInputError(f"Invalid JSON in package file: {PACKAGE_FILE}", e)
+
                     dict1 = package_json.get("dependencies", {})
                     dict2 = package_json.get("devDependencies", {})
                     dep_conflicts = {key: value for key, value in dict1.items() if key in dict2 and dict2[key] != value}

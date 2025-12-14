@@ -230,8 +230,6 @@ class TestClient(unittest.TestCase):
                              run_flags=[f"{_p('A.sol')}:B", '--verify', f"B:{_p('spec1.spec')}"])
         suite.expect_success(description='multiple files single assert',
                              run_flags=[_p('A.sol'), _p('B.sol'), '--verify', f"A:{_p('spec1.spec')}"])
-        suite.expect_success(description='file is repeated',
-                             run_flags=[f"{_p('A.sol')}:B", f"{_p('A.sol')}:B", '--verify', f"B:{_p('spec1.spec')}"])
         suite.expect_success(description='2 contracts in a single file',
                              run_flags=[f"{_p('A.sol')}:B", _p('A.sol'), '--verify', f"B:{_p('spec1.spec')}"])
         suite.expect_success(description='--verify with spec file',
@@ -355,8 +353,6 @@ class TestClient(unittest.TestCase):
         suite.expect_success(description='valid --struct_link multiple entries',
                              run_flags=[_p('A.sol'), _p('B.sol'), '--verify', f"A:{_p('spec1.spec')}", '--struct_link',
                                         'A:1=B', 'A:2=B', 'A:1009=A'])
-        suite.expect_success(description='valid --struct_link duplicate entries',
-                             run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}", '--struct_link', 'A:0XC=A', 'A:0XC=A'])
         suite.expect_success(description='valid --build_only',
                              run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}", '--build_only'])
         suite.expect_success(description='valid --build_only duplicate entries',
@@ -548,6 +544,10 @@ class TestClient(unittest.TestCase):
                              run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}", '--compilation_steps_only',
                                         '--build_only'],
                              expected="cannot use both 'compilation_steps_only' and 'build_only'")
+        suite.expect_failure(description='valid --struct_link duplicate entries',
+                             run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}",
+                                        '--struct_link', 'A:0XC=A', 'A:0XC=A'],
+                             expected="The value of attribute 'struct_link' contains duplicate entries")
         suite.expect_failure(description="illegal struct_link",
                              run_flags=[_p('tac_file.conf'), '--struct_link', 'tac_file:0=tac_file'],
                              expected="'struct_link' argument tac_file:0=tac_file is illegal")
@@ -585,6 +585,9 @@ class TestClient(unittest.TestCase):
         suite.expect_failure(description="other files with conf file",
                              run_flags=[_p('tac_file.conf'), _p('empty.tac')],
                              expected="No other files are allowed when using a config file")
+        suite.expect_failure(description='file is repeated',
+                             run_flags=[f"{_p('A.sol')}:B", f"{_p('A.sol')}:B", '--verify', f"B:{_p('spec1.spec')}"],
+                             expected="The value of attribute 'files' contains duplicate entries")
         suite.expect_failure(description="illegal contract in verify",
                              run_flags=[_p('empty.tac'), '--verify', f"A:{_p('spec1.spec')}"],
                              expected="'verify' argument, A, doesn't match any contract name")
