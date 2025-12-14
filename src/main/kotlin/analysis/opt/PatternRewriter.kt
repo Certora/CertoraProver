@@ -46,7 +46,7 @@ private val logger = Logger(LoggerTypes.PATTERN_REWRITER)
 class PatternRewriter private constructor(private val prog: CoreTACProgram) {
     companion object {
 
-        /** runs twice, we can run till a fixed point, but I doubt it's worth the effort */
+        /** runs till a fixed point, or at most [repeat] times. */
         fun rewrite(
             prog: CoreTACProgram,
             patternList : PatternRewriter.() -> List<PatternHandler>,

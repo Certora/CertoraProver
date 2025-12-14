@@ -70,7 +70,7 @@ fun PatternRewriter.solanaPatternsList() = listOf(
         PatternHandler(
             name = "mul-shr",
             pattern = {
-                c(C1) anyMul (lSym256(A) shr c(I1))
+                c(C1) anyMul maybeNarrow(lSym256(A) shr c(I1))
             },
             handle = {
                 runIf(C1.n == twoToThe(I1.n)) {
@@ -155,5 +155,64 @@ fun PatternRewriter.solanaPatternsList() = listOf(
             },
             TACExpr.Apply.Unary::class.java
         ),
+
+        /**
+         * This, together with the following pattern simplifies a solana 128-bit checked multiplication by a constant.
+         * It's rather specific. Look at the `PatternRewriterTest` to see the specific pattern and the effect of
+         * applying the rewriter (and intervalsRewriter) to it.
+         *
+         * We need two patterns because the original pattern also has an assume on the higher bits of the multiplication,
+         * and so we first simplify it (using this first pattern), and then simplify the actually result.
+         *
+         * Generally speaking, the multiplication pattern of `x * c` is:
+         * ```
+         *    low = (x & low-64-bits) * c
+         *    high = (x >> 64) * c
+         *    resultLow = low & low-64-bits
+         *    resultHigh = (low >> 64) + high
+         *    result = resultLow + (resultHigh << 64)
+         * ```
+         * The pattern here replaces `resultHigh` with `(x * c) >> 64`. The next pattern assumes this replacement happens
+         * and replaces `result` with `x * c`.
+         */
+        PatternHandler(
+            name = "solana-mul-by-const-1",
+            pattern = {
+                val mask = c(lowOnes(64))
+                val low = lSym(A) bwAnd mask
+                val high = lSym(B) shr c(0x40)
+                val highMul = safeMathNarrow(high intMul c(C1) { it >= BigInteger.ZERO && it <= lowOnes(64)})
+                val lowMul = safeMathNarrow(low intMul c(C1))
+                val lowHigh = lowMul shr c(0x40)
+
+                lowHigh intAdd highMul
+            },
+            handle = {
+                runIf(src(A) == src(B)) {
+                    ShiftRightLogical(safeMathNarrow(IntMul(sym(A), C1.n.asTACExpr), Tag.Bit256), 0x40.asTACExpr)
+                }
+            },
+            TACExpr.Vec.IntAdd.Binary::class.java
+        ),
+
+        PatternHandler(
+            name = "solana-mul-by-const-2",
+            pattern = {
+                val mask = c(lowOnes(64))
+                val low = lSym(A) bwAnd mask
+                val lowMul = safeMathNarrow(low intMul c(C1) { it >= BigInteger.ZERO && it <= lowOnes(64)})
+                val lowlow = lowMul bwAnd mask
+                val newHigh = safeMathNarrow(lSym(B) intMul c(C1)) bwAnd c(BigInteger("ffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000", 16))
+                lowlow intAdd safeMathNarrow(newHigh)
+            },
+            handle = {
+                runIf(src(A) == src(B)) {
+                    safeMathNarrow(IntMul(sym(A), C1.n.asTACExpr), Tag.Bit256)
+                }
+            },
+            TACExpr.Vec.IntAdd.Binary::class.java
+        ),
+
+
     )
 }.orEmpty()
