@@ -40,6 +40,13 @@ class FormatterTest {
         "upgrade_admin",
         "custom_linebreaks_in_block",
         "respect_parenthesis",
+        "linebreaks_in_methods_block",
+        "comment_at_start_of_file1",
+        "comment_at_start_of_file2",
+        "single_filter",
+        "two_filters",
+        "long_filter",
+        "many_if_predicates",
     )
     fun compare(fileName: Path) {
         val source = readSource(fileName)
@@ -47,11 +54,11 @@ class FormatterTest {
 
         val ast = parseToAst(source).force()
         val output = FormatterInput(ast).output()
-        assertEquals(output.trimEnd(), expected)
+        assertEquals(output, expected.padWithEmptyLine())
 
         val roundTripAst = parseToAst(output).force()
         val roundTripOutput = FormatterInput(roundTripAst).output()
-        assertEquals(roundTripOutput.trimEnd(), output.trimEnd())
+        assertEquals(roundTripOutput, output)
     }
 
     @ParameterizedTest
@@ -71,6 +78,12 @@ class FormatterTest {
 
         private fun readSource(fileName: Path): String = baseDir.resolve("source").resolve(fileName).readText()
         private fun readExpected(fileName: Path): String = baseDir.resolve("expected").resolve(fileName).readText()
+
+        /** pad [this] to end with an empty newline, but only if it does not already */
+        private fun String.padWithEmptyLine(): String {
+            val lb = System.lineSeparator()
+            return if (this.endsWith(lb)) { this } else { this + lb }
+        }
 
         @JvmStatic private fun slotPatternDir() = baseDir.resolve("slot_patterns").listDirectoryEntries()
     }

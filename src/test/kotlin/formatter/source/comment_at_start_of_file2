@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2019 CERTORA
+
+
+
+methods {
+    function a() external returns (address) envfree;
+    function b(address) external returns (uint256) envfree;
+    function c(address) external returns (bool) envfree;
+}

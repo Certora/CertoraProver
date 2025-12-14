@@ -39,7 +39,7 @@ internal class Tokenizer(
     private val nodeToComments: MutableMap<HasRange, List<Binding>> = fileComments
         .groupBy { binding ->
             val deepest = ranges
-                .findLast { nodeRange -> binding.token.range in nodeRange }
+                .findLast { nodeRange -> binding.boundToken.range in nodeRange }
                 ?: invariantBroken("every token is inside an AST") { "got binding: $binding, ranges: $ranges" }
 
             rangeToNode[deepest] ?: invariantBroken("ranges is derived from the set of keys of the map")
@@ -114,7 +114,10 @@ internal class Tokenizer(
     private fun methodsBlock(ctx: MethodsBlock): List<Token> {
         return flatListOf(
             Token.fromSym(sym.METHODS).asList(),
-            ctx.entries.flatMap(::methodEntry).surround(Token.Delimiter.CurlyBracket),
+            ctx
+                .entries
+                .tokenizeRespectingLinebreaks(::methodEntry)
+                .surround(Token.Delimiter.CurlyBracket)
         ).context(ctx)
     }
 
@@ -676,8 +679,8 @@ internal class Tokenizer(
     }
 
 
-    private fun <T> block(tokenizables: List<T>, tokenize: (T) -> List<Token>): List<Token> =
-        tokenizables.flatMap(tokenize).surround(Token.Delimiter.CurlyBracket)
+    private fun <T: HasRange> block(tokenizables: List<T>, tokenize: (T) -> List<Token>): List<Token> =
+        tokenizables.tokenizeRespectingLinebreaks(tokenize).surround(Token.Delimiter.CurlyBracket)
 
     /** we don't call [ctx] here because we manually check for comments */
     private fun cmdList(ctx: CmdList): List<Token> {
@@ -693,21 +696,10 @@ internal class Tokenizer(
                 ?.tokenizeToBeforeAndAfter()
                 ?: Pair(emptyList(), emptyList())
             val (afterLastElementInList, beforeStartOfList) =
-                beforeList.partition { it.binding.token.range.end == ctx.range.end }
+                beforeList.partition { it.binding.boundToken.range.end == ctx.range.end }
             val list = ctx
                 .cmds
-                .zipWithNextPartial { curr, next ->
-                    val tokens = this.cmd(curr)
-
-                    if (hadLinebreaksBetween(curr, next)) {
-                        // try and respect user's line breaks in this case,
-                        // by compressing multiple line breaks to a single one
-                        tokens + Token.LineBreak.Hard
-                    } else {
-                        tokens
-                    }
-                }
-                .flatten()
+                .tokenizeRespectingLinebreaks(::cmd)
                 .plus(afterLastElementInList)
                 .surround(Token.Delimiter.CurlyBracket)
             beforeStartOfList + list + afterList
@@ -722,19 +714,51 @@ internal class Tokenizer(
         // for now let's signal nullability with this tokenizing function
         val filters = ctx.methodParamFilters?.values?.toList() ?: return null
 
+        // format as:
+        // 1. single filter but not long predicate: `filtered { f -> f.whatever }`
+        // 2. multiple filters or any long predicates: linebreak after curly, new line before each filter starts
+
+        // XXX: this impl is messy, but this code will probably be gone
+        // when actual splitting is added.
+        // ...right?
+        var gotLongPredicate = false
+
         fun def(ctx: MethodParamFilterDef): List<Token> = flatListOf(
             exp(ctx.methodParam), // is this right?
             Token.fromSym(sym.MAPSTO).asList(),
-            exp(ctx.filterExp),
+            longPredicateOrExp(ctx.filterExp)
+                .onLeft { gotLongPredicate = true }
+                .leftOrRight()
         ).context(ctx)
 
-        return flatListOf(
-            Token.LineBreak.Hard.asList(),
-            Token.fromSym(sym.FILTERED).asList(),
-            filters
-                .tokenizeInterspersed(::def)
-                .surround(Token.Delimiter.CurlyBracket, spaceOpen = Space.TT, spaceClose = Space.TT, openScope = false)
-        ).context(ctx)
+        val tokens = mutableListOf<Token>()
+
+        val filtersTokens = filters.map(::def)
+
+        val isMultiLine = filters.size > 1 || gotLongPredicate
+
+        if (isMultiLine) {
+            tokens.add(Token.LineBreak.Hard)
+        }
+
+        tokens.add(Token.fromSym(sym.FILTERED))
+
+        // right now no multiline implies single filter, but this may change in the future
+        // for example, two short filters on a single line
+        val separator = if (isMultiLine) {
+            listOf(Token.Punctuation.Comma.toToken(), Token.LineBreak.Hard)
+        } else {
+            listOf(Token.Punctuation.Comma.toToken())
+        }
+
+        val filtersBlock = filtersTokens
+            .intersperse { separator }
+            .flatten()
+            .surround(Token.Delimiter.CurlyBracket, spaceOpen = Space.TT, spaceClose = Space.TT, openScope = isMultiLine)
+
+        tokens.addAll(filtersBlock)
+
+        return tokens.context(ctx)
     }
 
     private fun cmd(ctx: Cmd): List<Token> {
@@ -800,13 +824,19 @@ internal class Tokenizer(
                 Token.endStatement(),
             ).context(ctx)
 
-            is IfCmd -> flatListOf(
-                Token.fromSym(sym.IF).asList(),
-                exp(ctx.cond).surround(Token.Delimiter.Parenthesis, spaceOpen = Space.TF, spaceClose = Space.FT),
-                cmd(ctx.thenCmd),
-                ctx.elseCmd.letOrEmpty { Token.fromSym(sym.ELSE) + cmd(it) },
-                Token.LineBreak.Soft.asList(),
-            ).context(ctx)
+            is IfCmd -> {
+                val predicate = longPredicateOrExp(ctx.cond)
+                val isLong = predicate is Either.Left
+                flatListOf(
+                    Token.fromSym(sym.IF).asList(),
+                    predicate
+                        .leftOrRight()
+                        .surround(Token.Delimiter.Parenthesis, spaceOpen = Space.TF, spaceClose = Space.FT, openScope = isLong),
+                    cmd(ctx.thenCmd),
+                    ctx.elseCmd.letOrEmpty { Token.fromSym(sym.ELSE) + cmd(it) },
+                    Token.LineBreak.Soft.asList(),
+                ).context(ctx)
+            }
 
             is ResetStorageCmd -> flatListOf(
                 Token.fromSym(sym.RESET_STORAGE).asList(),
@@ -842,7 +872,7 @@ internal class Tokenizer(
             ).context(ctx)
 
             is SatisfyCmd -> flatListOf(
-                Token.fromSym(sym.SATISFY).asList(),
+                Token.fromSym(sym.SATISFY, spaceIfNoParenthesis(ctx.exp)).asList(),
                 ctx.optionalParenthesis(
                     exp(ctx.exp),
                     ctx.description.letOrEmpty(::reason),
@@ -932,6 +962,53 @@ internal class Tokenizer(
                     .surround(Token.Delimiter.Parenthesis, spaceOpen = Space.TF, spaceClose = Space.FT)
                     .context(ctx)
             }
+        }
+    }
+
+    /**
+     * a crude hack to display predicates as multiple lines,
+     * until we have proper line length handling.
+     *
+     * expects an already-tokenized binary predicate,
+     * and splits it into lines at the end of each clause
+     */
+    fun splitLongPredicate(tokens: List<Token>): List<Token> {
+        var reachedSecondClause = false
+        val newTokens = mutableListOf<Token>()
+
+        for (token in tokens) {
+            if (isOpOfPredicate(token)) {
+                newTokens.add(Token.LineBreak.Hard)
+
+                if (!reachedSecondClause) {
+                    newTokens.add(Token.Indent)
+                    reachedSecondClause = true
+                }
+            }
+
+            newTokens.add(token)
+        }
+
+        if (reachedSecondClause) {
+            newTokens.add(Token.Unindent)
+        }
+
+        return newTokens
+    }
+
+    private fun longPredicateOrExp(ctx: Exp): Either<List<Token>, List<Token>> {
+        val tokens = exp(ctx)
+
+        // not an great way to measure actual expanded length, but better than nothing
+        val minClausesToSplit = 4
+
+        // impl: rather than count the clauses as we're building
+        // the new token list, we count them ahead of time.
+        // that's surely faster than allocating a new list every time.
+        return if (clauseCount(tokens) >= minClausesToSplit) {
+            splitLongPredicate(tokens).toLeft()
+        } else {
+            tokens.toRight()
         }
     }
 
@@ -1134,6 +1211,24 @@ internal class Tokenizer(
         return newList
     }
 
+    private fun <T: HasRange> List<T>.tokenizeRespectingLinebreaks(
+        tokenize: (T) -> List<Token>,
+    ): List<Token> {
+        return this
+            .zipWithNextPartial { curr, next ->
+                val tokens = tokenize(curr)
+
+                if (hadEmptyLinesBetween(curr, next)) {
+                    // try and respect user's line breaks in this case,
+                    // by compressing multiple line breaks to a single one
+                    tokens + Token.LineBreak.Hard
+                } else {
+                    tokens
+                }
+            }
+            .flatten()
+    }
+
     private fun List<Token>.context(ctx: HasRange): List<Token> {
         val bindings = this@Tokenizer.nodeToComments.remove(ctx)
         return if (bindings == null) {
@@ -1228,18 +1323,29 @@ private fun List<Param>.needsLineBreaks(): Boolean {
 }
 
 /**
- * if the code originally had extra linebreaks between [curr] and [next].
+ * if the code originally had extra linebreaks between [top] and [bottom].
  *
- * also returns true if the only tokens between [curr] and [next]
+ * also returns true if the only tokens between [top] and [bottom]
  * are a comment which contains any linebreaks.
+ *
+ * impl: assumes top > bottom for consistency's sake
  */
-private fun hadLinebreaksBetween(curr: Cmd, next: Cmd?): Boolean {
-    val nextLineStart = next?.range?.nonEmpty()?.start?.line ?: return false
-    val currLineEnd = curr.range.nonEmpty()?.end?.line ?: return false
+internal fun <T: HasRange> hadEmptyLinesBetween(top: T, bottom: T?): Boolean {
+    val currRange = top.range.nonEmpty()
+    val nextrange = bottom?.range?.nonEmpty()
 
-    return nextLineStart > currLineEnd + 1U
+    return if (currRange != null && nextrange != null) {
+        lineDifference(currRange, nextrange) > 1
+    } else {
+        false
+    }
 }
 
+/** assumes [top] <= [bottom] */
+internal fun lineDifference(top: Range.Range, bottom: Range.Range): Int {
+    val diff = bottom.start.line - top.end.line
+    return diff.toInt()
+}
 
 private fun OptionalParenthesis.optionalParenthesis(vararg tokens: Iterable<Token>) =
     tokens
@@ -1251,3 +1357,12 @@ private fun OptionalParenthesis.optionalParenthesis(vararg tokens: Iterable<Toke
 
             it.surround(Token.Delimiter.Parenthesis, spaceOpen)
         }
+
+private val binOps = listOf(TerminalId(sym.LAND), TerminalId(sym.LOR))
+private fun isOpOfPredicate(token: Token): Boolean = token is Token.Terminal && token.id in binOps
+
+/**
+ * counts the number of predicates in a binary expression, of an
+ * a binary predicate has n clauses with n-1 operators connecting them
+ */
+private fun clauseCount(tokens: List<Token>) = tokens.count(::isOpOfPredicate).plus(1)

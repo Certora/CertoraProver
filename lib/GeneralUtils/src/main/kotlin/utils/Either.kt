@@ -137,3 +137,9 @@ fun <U, T: U, R> Either<T, R>.leftOrElse(default: (R) -> U): U = when (this) {
    is Either.Left -> this.d
    is Either.Right -> default(this.d)
 }
+
+/* special case for when both "sides" are the same type */
+fun <T> Either<T, T>.leftOrRight() = when (this) {
+    is Either.Left -> this.d
+    is Either.Right -> this.d
+}

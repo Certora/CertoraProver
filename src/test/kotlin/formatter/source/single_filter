@@ -1,0 +1,3 @@
+rule manyFilters(env e, method f, calldataarg args) filtered { f -> f.selector == sig:aaa().selector } {
+    assert lastReverted;
+}
