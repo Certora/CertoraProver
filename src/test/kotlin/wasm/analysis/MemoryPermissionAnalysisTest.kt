@@ -17,7 +17,6 @@
 
 package wasm.analysis
 
-import config.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import wasm.WasmEntryPoint.wasmToTAC
@@ -40,7 +39,9 @@ class MemoryPermissionAnalysisTest: WasmTestFixture() {
             memory("default", 65536)
             f()
         })
-        val tac = wasmToTAC(wasmFile.toFile(), setOf(entry), NullHost, optimize = false).single().code
+        val tac = wasmToTAC(wasmFile.toFile(), setOf(entry), NullHost, optimize = false)
+            .single()
+            .let { it as CompiledGenericRule.Compiled }.code
 
         return tac.analysisCache[MemoryPartitionAnalysis]
     }

@@ -17,13 +17,10 @@
 
 package wasm.analysis
 
-import config.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import wasm.WasmEntryPoint
-import wasm.WasmLoader
 import wasm.WasmTestFixture
-import wasm.analysis.memory.MemoryPartitionAnalysis
 import wasm.analysis.memory.StaticMemoryAnalysis
 import wasm.certoraAssert
 import wasm.host.NullHost
@@ -38,7 +35,11 @@ class StaticMemoryAnalysisTest: WasmTestFixture() {
             memory("default", 65536)
             f()
         })
-        val tac = WasmEntryPoint.wasmToTAC(wasmFile.toFile(), setOf(entry), NullHost, optimize = false).single().code
+        val tac = WasmEntryPoint
+            .wasmToTAC(wasmFile.toFile(), setOf(entry), NullHost, optimize = false)
+            .single()
+            .let { it as CompiledGenericRule.Compiled }
+            .code
         return tac.analysisCache[StaticMemoryAnalysis]
     }
 

@@ -17,6 +17,7 @@
 
 package wasm
 
+import CompiledGenericRule
 import analysis.opt.bytemaps.optimizeBytemaps
 import analysis.controlflow.*
 import analysis.loop.LoopHoistingOptimization
@@ -78,12 +79,6 @@ class MixedAssertAndSatisfy(msg: String) : Exception(msg)
 
 private val wasmLogger = Logger(LoggerTypes.WASM)
 
-data class CompiledWasmRule(
-    val code: CoreTACProgram,
-    val rule: EcosystemAgnosticRule,
-)
-
-
 @KSerializable
 sealed class WasmPipelinePhase : MaterializePhase<WasmPipelinePhase>, HasKSerializable {
     @KSerializable
@@ -107,7 +102,7 @@ object WasmEntryPoint {
     /**
      * This function takes an input file in .wasm format and generates a [CoreTACProgram] from it.
      */
-    fun webAssemblyToTAC(inputFile: File, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledWasmRule> {
+    fun webAssemblyToTAC(inputFile: File, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledGenericRule> {
         wasmLogger.info { "Starting WASM front-end" }
         val startTime = System.currentTimeMillis()
 
@@ -121,7 +116,7 @@ object WasmEntryPoint {
     }
 
     // Alternate entrypoint for tests (do we still need this? --Eric)
-    fun wasmToTAC(wasmFile: File, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledWasmRule> {
+    fun wasmToTAC(wasmFile: File, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledGenericRule> {
         return wasmProgramToTAC(WasmLoader(wasmFile).convert(), selectedRules, env, optimize)
     }
 
@@ -174,7 +169,7 @@ object WasmEntryPoint {
         return selectedRules
     }
 
-    private fun wasmProgramToTAC(wasmAST: WasmProgram, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledWasmRule> {
+    private fun wasmProgramToTAC(wasmAST: WasmProgram, selectedRules: Set<String>, env: WasmHost, optimize: Boolean): Collection<CompiledGenericRule.Compiled> {
         /*
         Convert the sexpression object to a WasmProgram AST
         */
@@ -354,13 +349,13 @@ object WasmEntryPoint {
                 .map(CoreToCoreTransformer(ReportTypes.QUANTIFIER_POLARITY) { QuantifierAnnotator(it).annotate() })
             }
 
-            CompiledWasmRule(
+            CompiledGenericRule.Compiled(
                 code = maybeOptimized?.ref ?: preprocessed.ref,
                 rule = EcosystemAgnosticRule(
                     ruleIdentifier = RuleIdentifier.freshIdentifier(ruleExportName),
                     ruleType = SpecType.Single.FromUser.SpecFile,
                     isSatisfyRule = isSatisfyRule
-                )
+                ),
             )
         }.collect(Collectors.toList())
         Logger.always("Completed initial transformations", respectQuiet = true)

@@ -68,11 +68,18 @@ class SolanaFlowTreeViewReporterTest {
         ConfigScope(Config.DoSanityChecksForRules, SanityValues.BASIC).use {
             val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rulesToAsserts.keys.toHashSet()).first
             val nodes = treeView.nodes()
-            // Basic Sanity duplicates the number of rules, i.e., we have twice as many nodes in the tree.
-            assertEquals(2 * rulesToAsserts.keys.size, nodes.size, "Found $nodes")
+            val pathsToLeaves = treeView.pathsToLeaves()
 
-            // The sanity rules are listed as children below the parent rule and the number of paths to leaves in the tree must match the number of rules
-            assertEquals(rulesToAsserts.keys.size, treeView.pathsToLeaves().size)
+            // For each rule, since there's only a single assert, we generate
+            // 1) a node for the basic sanity rule
+            // 2) a node for the user's assert (regardless if it was verified or not),
+            //    and a parent node for this user assert node
+            //
+            // therefore:
+            // 3 nodes in total for each rule, and of these 3 nodes, 2 are leaves.
+
+            assertEquals(3 * rulesToAsserts.keys.size, nodes.size, "Found $nodes")
+            assertEquals(2 * rulesToAsserts.keys.size, pathsToLeaves.size, "Found $pathsToLeaves")
         }
     }
 
@@ -82,12 +89,18 @@ class SolanaFlowTreeViewReporterTest {
             val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rulesToAsserts.keys.toHashSet()).first
             val nodes = treeView.nodes()
 
-            // Advanced mode runs all basic sanity rules and on all verified asserts the [rules.sanity.TACSanityChecks.VacuityCheck].
+            /**
+             * Advanced mode runs all basic sanity rules and on all verified asserts of the [rules.sanity.TACSanityChecks.VacuityCheck].
+             * 1) for each rule, we get 3 nodes (see comment in [sanityBasicFlow]).
+             * 2) in advanced sanity mode, verified rules get a vacuity check.
+             *    since 2 of the 3 rules are verified, that's 2 nodes in total
+             * since this is advanced mode.
+             */
             assertEquals(
-                rulesToAsserts.keys.size  // The nodes at the base level
-                    + rulesToAsserts.keys.size // The nodes for the sub rules that are duplicated due to sanity basic rules
-                    + totalVerifiedAssert // The sanity rules that are running for verified assert in [rules.sanity.TACSanityChecks.VacuityCheck]
-                , nodes.size, "Found $nodes")
+                (3 * rulesToAsserts.keys.size) + totalVerifiedAssert,
+                nodes.size,
+                "Found $nodes"
+            )
         }
     }
 

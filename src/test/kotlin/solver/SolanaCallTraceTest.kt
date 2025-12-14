@@ -19,6 +19,7 @@ package solver
 
 
 import datastructures.stdcollections.*
+import event.RuleEvent
 import handleSolanaFlow
 import infra.CertoraBuildKind
 import infra.CertoraBuild
@@ -58,10 +59,10 @@ object SolanaFlowTest {
      * */
     fun runSolanaFlowOnProjectForTests(
         rules: HashSet<String>
-    ): Pair<TreeViewReporter, List<RuleCheckResult.Single>> {
+    ): Pair<TreeViewReporter, List<RuleCheckResult.Leaf>> {
         return CertoraBuild.inTempDir(CertoraBuildKind.SolanaBuild(rules), confPath)
             .useWithBuildDir { _ ->
-                runBlocking {
+                val retVal = runBlocking {
                     // Use a safe dispatcher to ensure we don't leave the current thread context.
                     // If this is removed, the tests can incur in a [IllegalStateException].
                     withContext(Dispatchers.Default) {
@@ -69,6 +70,7 @@ object SolanaFlowTest {
                         handleSolanaFlow(elfFilePath.toString())
                     }
                 }
+                retVal
             }
     }
 }
@@ -78,7 +80,7 @@ class SolanaCallTraceTest {
     /** Object containing the results of running the Solana flow on the test projects. */
     companion object TestProjects {
         /* Results of running the Solana flow on the projects. */
-        private var results: List<RuleCheckResult.Single> = listOf()
+        private var results: List<RuleCheckResult.Leaf> = listOf()
 
         /* All the rules that appear in the projects. */
         private val rules =
@@ -134,7 +136,7 @@ class SolanaCallTraceTest {
          */
         @JvmStatic
         @BeforeAll
-        fun precomputeResults(): Unit {
+        fun precomputeResults() {
             results = SolanaFlowTest.runSolanaFlowOnProjectForTests(rules).second
         }
     }
@@ -580,7 +582,8 @@ class SolanaCallTraceTest {
         ruleContainsSolanaUserAssertAt(
             "rule_attach_location_satisfy_main_body",
             results,
-            callInstanceRange("src/attach_location.rs", 94U, 1U)
+            callInstanceRange("src/attach_location.rs", 94U, 1U),
+            isSatisfyRule = true,
         )
     }
 
@@ -589,7 +592,8 @@ class SolanaCallTraceTest {
         ruleContainsSolanaUserAssertAt(
             "rule_attach_location_satisfy_nested_call",
             results,
-            callInstanceRange("src/attach_location.rs", 103U, 1U)
+            callInstanceRange("src/attach_location.rs", 103U, 1U),
+            isSatisfyRule = true,
         )
     }
 
@@ -598,7 +602,8 @@ class SolanaCallTraceTest {
         ruleContainsSolanaUserAssertAt(
             "rule_attach_location_satisfy_other_module",
             results,
-            callInstanceRange("src/functionality.rs", 36U, 1U)
+            callInstanceRange("src/functionality.rs", 36U, 1U),
+            isSatisfyRule = true,
         )
     }
 
@@ -661,10 +666,13 @@ class SolanaCallTraceTest {
 
     private fun ruleContainsSolanaUserAssertAt(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
-        expectedRange: Range.Range
+        results: List<RuleCheckResult.Leaf>,
+        expectedRange: Range.Range,
+        isSatisfyRule: Boolean = false,
     ) {
-        val solanaUserAsserts = getUserAsserts(ruleName, results)
+        val solanaUserAsserts = getCalltraceOfRule(ruleName, results, isSatisfyRule)
+            .callHierarchyRoot
+            .filterCallInstancesOf<CallInstance.CvlrUserAssert>()
         val existsAssertWithExpectedRange = existsCallInstanceAtRange(solanaUserAsserts, expectedRange)
         assert(existsAssertWithExpectedRange) { "Did not find any asserts with range ${expectedRange.file}:${expectedRange.lineNumber}" }
     }
@@ -701,17 +709,9 @@ class SolanaCallTraceTest {
         }
     }
 
-    private fun getUserAsserts(
-        ruleName: String,
-        results: List<RuleCheckResult.Single>,
-    ): List<CallInstance.CvlrUserAssert> {
-        val calltrace = getCalltraceOfRule(ruleName, results)
-        return calltrace.callHierarchyRoot.filterCallInstancesOf<CallInstance.CvlrUserAssert> { true }
-    }
-
     private fun ruleContainsSolanaPrintTagAt(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
         expectedRange: Range.Range
     ) {
         val solanaPrintTags = getPrintTags(ruleName, results)
@@ -721,7 +721,7 @@ class SolanaCallTraceTest {
 
     private fun getPrintTags(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
     ): List<CallInstance.CvlrCexPrintTag> {
         val calltrace = getCalltraceOfRule(ruleName, results)
         return calltrace.callHierarchyRoot.filterCallInstancesOf<CallInstance.CvlrCexPrintTag> { true }
@@ -729,7 +729,7 @@ class SolanaCallTraceTest {
 
     private fun ruleContainsSolanaPrintValuesAt(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
         expectedRange: Range.Range
     ) {
         val solanaPrintTags = getPrintValues(ruleName, results)
@@ -743,7 +743,7 @@ class SolanaCallTraceTest {
      */
     private fun ruleContainsSolanaPrintValuesAtRangeWithFirstValue(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
         expectedRange: Range.Range,
         expectedFirstValue: String
     ) {
@@ -761,7 +761,7 @@ class SolanaCallTraceTest {
      */
     private fun ruleContainsSolanaPrintValuesAtRangeWithFirstDecimalValueInSarif(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
         expectedRange: Range.Range,
         expectedFirstValue: BigInteger
     ) {
@@ -776,7 +776,7 @@ class SolanaCallTraceTest {
 
     private fun getPrintValues(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
     ): List<CallInstance.CvlrCexPrintValues> {
         val calltrace = getCalltraceOfRule(ruleName, results)
         return calltrace.callHierarchyRoot.filterCallInstancesOf<CallInstance.CvlrCexPrintValues> { true }
@@ -784,7 +784,7 @@ class SolanaCallTraceTest {
 
     private fun ruleContainsSolanaExternalCallAt(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
         expectedRange: Range.Range
     ) {
         val solanaExternalCalls = getExternalCalls(ruleName, results)
@@ -794,7 +794,7 @@ class SolanaCallTraceTest {
 
     private fun getExternalCalls(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
     ): List<CallInstance.SolanaExternalCall> {
         val calltrace = getCalltraceOfRule(ruleName, results)
         return calltrace.callHierarchyRoot.filterCallInstancesOf<CallInstance.SolanaExternalCall> { true }
@@ -802,7 +802,7 @@ class SolanaCallTraceTest {
 
     private fun ruleContainsSolanaFunctionInstanceAt(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
         expectedRange: Range.Range
     ) {
         val solanaFunctionInstances = getSolanaFunctionInstance(ruleName, results)
@@ -812,7 +812,7 @@ class SolanaCallTraceTest {
 
     private fun getSolanaFunctionInstance(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
     ): List<CallInstance.InvokingInstance.SolanaFunctionInstance> {
         val calltrace = getCalltraceOfRule(ruleName, results)
         return calltrace.callHierarchyRoot.filterCallInstancesOf<CallInstance.InvokingInstance.SolanaFunctionInstance> { true }
@@ -820,10 +820,17 @@ class SolanaCallTraceTest {
 
     private fun getCalltraceOfRule(
         ruleName: String,
-        results: List<RuleCheckResult.Single>,
+        results: List<RuleCheckResult.Leaf>,
+        isSatisfyRule: Boolean = false,
     ): CallTrace {
+        val ruleNodeName = if (isSatisfyRule) {
+            ruleName
+        } else {
+            concat(ruleName, RuleEvent.ASSERTS_NODE_TITLE)
+        }
+
         // Select the results relative to the rule.
-        val resultsRelativeToTheRule = results.filter { it.rule.ruleIdentifier.toString() == ruleName }
+        val resultsRelativeToTheRule = results.filter { it.rule.ruleIdentifier.toString() == ruleNodeName }
 
         // Assert that there is only one result, that is the one for the rule that we are considering.
         assertEquals(
@@ -831,7 +838,8 @@ class SolanaCallTraceTest {
             resultsRelativeToTheRule.size,
             "Should be unreachable: rule $ruleName has either zero or more than one results associated with it"
         )
-        val result = resultsRelativeToTheRule[0]
+        val result = resultsRelativeToTheRule[0] as? RuleCheckResult.Single
+            ?: fail("Expected single result")
         val withExamplesData =
             result.ruleCheckInfo as? RuleCheckResult.Single.RuleCheckInfo.WithExamplesData
                 ?: fail("Failed to cast ruleCheckInfo to example with data. It was of type: ${result.ruleCheckInfo::class.simpleName}")
@@ -899,3 +907,5 @@ class SolanaCallTraceTest {
     }
 }
 
+internal const val ruleComponentSeparator = "-"
+internal fun concat(vararg components: String) = components.joinToString(separator = ruleComponentSeparator)

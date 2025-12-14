@@ -17,6 +17,7 @@
 
 package sbf
 
+import CompiledGenericRule
 import analysis.maybeAnnotation
 import cli.SanityValues
 import config.Config
@@ -33,9 +34,7 @@ import sbf.support.*
 import sbf.tac.*
 import log.*
 import org.jetbrains.annotations.TestOnly
-import report.CVTAlertReporter
-import report.CVTAlertSeverity
-import report.CVTAlertType
+import report.RuleAlertReport
 import sbf.analysis.cpis.InvokeInstructionListener
 import sbf.analysis.cpis.getInvokes
 import sbf.analysis.cpis.cpisSubstitutionMap
@@ -45,7 +44,6 @@ import utils.Range
 import spec.cvlast.RuleIdentifier
 import spec.rules.EcosystemAgnosticRule
 import spec.cvlast.SpecType
-import kotlin.streams.*
 import utils.*
 import java.io.File
 
@@ -53,11 +51,6 @@ import java.io.File
  * For logging solana
  */
 val sbfLogger = Logger(LoggerTypes.SBF)
-
-data class CompiledSolanaRule(
-    val code: CoreTACProgram,
-    val rule: EcosystemAgnosticRule
-)
 
 // Any rule name with these suffixes will be considered a vacuity rule
 const val devVacuitySuffix = "\$sanity"
@@ -70,7 +63,7 @@ private val ptaFlagsFac = { SolanaPTANodeFlags() }
 
 /* Entry point to the Solana SBF front-end */
 @Suppress("ForbiddenMethodCall")
-fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
+fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
     sbfLogger.info { "Started Solana front-end" }
     val start0 = System.currentTimeMillis()
     val targets = Config.SolanaEntrypoint.get().map { ruleName ->
@@ -129,23 +122,18 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledSolanaRule> {
         try {
             solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries, globalsSymbolTable, start0)
         } catch (e: SolanaError) {
-            CVTAlertReporter.reportAlert(
-                type = CVTAlertType.ANALYSIS,
-                severity = CVTAlertSeverity.ERROR,
-                jumpToDefinition = e.errorLocation,
-                message = "Cannot analyze rule ${target.ruleIdentifier.displayName}:\n$e",
-                hint = null
-            )
-            null
+            val alert = RuleAlertReport.Error(e)
+            CompiledGenericRule.AnalysisFail(target, alert)
         }
-    }.toList()
+    }
 
     val end0 = System.currentTimeMillis()
     sbfLogger.info { "End Solana front-end in ${(end0 - start0) / 1000}s" }
 
-    return multiAssertChecks(rules)
+    return rules
 }
 
+/** errors here are handled by throwing, while returning null signifies that the rule should be skipped */
 private fun solanaRuleToTAC(
     rule: EcosystemAgnosticRule,
     prog: SbfCallGraph,
@@ -153,7 +141,7 @@ private fun solanaRuleToTAC(
     memSummaries: MemorySummaries,
     globalsSymbolTable: GlobalsSymbolTable,
     start0: Long
-): CompiledSolanaRule? {
+): CompiledGenericRule? {
 
     val target = rule.ruleIdentifier.toString()
     // 1. Inline all internal calls starting from `target` as root
@@ -403,7 +391,7 @@ private fun attachRangeToRule(
     rule: EcosystemAgnosticRule,
     optCoreTAC: CoreTACProgram,
     isSatisfyRule: Boolean
-): CompiledSolanaRule {
+): CompiledGenericRule {
     return if (rule.ruleType is SpecType.Single.GeneratedFromBasicRule) {
         // If the rule has been generated from a basic rule, then we have to update the parent rule range.
         // It would be more elegant to generate the original rule with the correct range, but [getRuleRange] relies on
@@ -417,17 +405,17 @@ private fun attachRangeToRule(
             ?: getRuleRange(optCoreTAC) // If debug information is not available, reads the range from CVT_rule_location
         val newBaseRule = parentRule.copy(range = ruleRange)
         val ruleType = (rule.ruleType as SpecType.Single.GeneratedFromBasicRule).copyWithOriginalRule(newBaseRule)
-        CompiledSolanaRule(
+        CompiledGenericRule.Compiled(
+            rule = rule.copy(ruleType = ruleType, isSatisfyRule = isSatisfyRule, range = ruleRange),
             code = optCoreTAC,
-            rule = rule.copy(ruleType = ruleType, isSatisfyRule = isSatisfyRule, range = ruleRange)
         )
     } else {
         val ruleRange: Range =
             DebugInfoReader.findFunctionRangeInSourcesDir(rule.ruleIdentifier.displayName)
                 ?: getRuleRange(optCoreTAC) // If debug information is not available, reads the range from CVT_rule_location
-        CompiledSolanaRule(
+        CompiledGenericRule.Compiled(
+            rule = rule.copy(isSatisfyRule = isSatisfyRule, range = ruleRange),
             code = optCoreTAC,
-            rule = rule.copy(isSatisfyRule = isSatisfyRule, range = ruleRange)
         )
     }
 }
@@ -483,22 +471,18 @@ private fun readEnvironmentFiles(): Pair<MemorySummaries, InlinerConfig> {
     return Pair(memSummaries, inliningConfig)
 }
 
+/**
+ * given a single rule and depending on conditions,
+ * may split it into multiple asserts, which are children of the original rule
+ */
 @TestOnly
-fun multiAssertChecks(rules: List<CompiledSolanaRule>): List<CompiledSolanaRule> {
-    return if (Config.MultiAssertCheck.get()) {
-        val newRules = mutableListOf<CompiledSolanaRule>()
-        rules.forEach { solanaRule ->
-            if (TACMultiAssert.shouldExecute(solanaRule)) {
-                TACMultiAssert.transformTac(solanaRule.rule, solanaRule.code).forEach { (newRule, code) ->
-                    newRules.add(CompiledSolanaRule(code = code, rule = newRule))
-                }
-            } else {
-                newRules.add(solanaRule)
-            }
-        }
-        newRules
+fun splitAsserts(rule: CompiledGenericRule.Compiled): List<CompiledGenericRule.Compiled> {
+    return if (!TACMultiAssert.canSplit(rule)) {
+        listOf(rule)
+    } else if (Config.MultiAssertCheck.get()) {
+        TACMultiAssert.transformMulti(rule)
     } else {
-        rules
+        listOf(TACMultiAssert.transformSingle(rule))
     }
 }
 
