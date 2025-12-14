@@ -188,11 +188,79 @@ class GhostTest : MoveTestFixture() {
             use 0::ghosts::ghost;
             fun test<T>() {
                 *ghost<u8>(1) = 12;
-                *ghost<T>(2) = 34;
+                *ghost<u8>(2) = 34;
                 *ghost<T>(1) = 56;
                 *ghost<T>(2) = 78;
                 cvlm_assert(*ghost<u8>(1) == 12);
                 cvlm_assert(*ghost<u8>(2) == 34);
+            }
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
+    fun `generic ghost mapping one numeric param wrapped nondet type maybe equal`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(x: u32): &mut u32;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            public struct Wrapper<T> { value: T }
+            fun test<T>() {
+                *ghost<Wrapper<u8>>(1) = 12;
+                *ghost<Wrapper<u8>>(2) = 34;
+                *ghost<Wrapper<T>>(1) = 56;
+                *ghost<Wrapper<T>>(2) = 78;
+                cvlm_assert(*ghost<Wrapper<u8>>(1) == 12);
+                cvlm_assert(*ghost<Wrapper<u8>>(2) == 34);
+            }
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
+    fun `generic ghost mapping one numeric param nondet type maybe equal one call`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(x: u32): &mut u32;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            fun test<T>() {
+                *ghost<u8>(1) = 12;
+                *ghost<T>(1) = 56;
+                cvlm_assert(*ghost<u8>(1) == 12);
+            }
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
+    fun `generic ghost mapping one numeric param wrapped nondet type maybe equal one call`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(x: u32): &mut u32;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            public struct Wrapper<T> { value: T }
+            fun test<T>() {
+                *ghost<Wrapper<u8>>(1) = 12;
+                *ghost<Wrapper<T>>(1) = 56;
+                cvlm_assert(*ghost<Wrapper<u8>>(1) == 12);
             }
         """.trimIndent())
         assertFalse(verify())

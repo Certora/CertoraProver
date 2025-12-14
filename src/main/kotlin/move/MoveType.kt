@@ -42,6 +42,12 @@ sealed class MoveType : AmbiSerializable {
     @KSerializable
     sealed class Value : MoveType() {
         abstract fun displayName(): String
+
+        /**
+            Whether this type is statically known.  Nondet types, or generic types with nondet arguments, are not
+            static.
+         */
+        abstract val isStatic: Boolean
     }
 
     /** A [Value] that is represented as a single slot in a memory location */
@@ -54,6 +60,7 @@ sealed class MoveType : AmbiSerializable {
     @KSerializable
     sealed class Primitive : Simple() {
         override fun toString() = this::class.simpleName ?: super.toString()
+        override val isStatic get() = true
     }
 
     @KSerializable
@@ -91,6 +98,7 @@ sealed class MoveType : AmbiSerializable {
         override fun displayName() = "vector<${elemType.displayName()}>"
         override fun toTag() = MoveTag.Vec(elemType)
         override fun symNameExt() = "vector!${elemType.symNameExt()}"
+        override val isStatic get() = elemType.isStatic
     }
 
     @KSerializable
@@ -112,6 +120,8 @@ sealed class MoveType : AmbiSerializable {
             typeArguments.isEmpty() -> name.toVarName()
             else -> "${name.toVarName()}\$${typeArguments.joinToString("\$$") { it.symNameExt() }}"
         }
+
+        override val isStatic get() = typeArguments.all { it.isStatic }
     }
 
     sealed interface Composite {
@@ -172,6 +182,8 @@ sealed class MoveType : AmbiSerializable {
         override fun displayName() = "(ghost)<${sortedElemTypes.joinToString(", ") { it.displayName() }}>"
         override fun toTag() = MoveTag.GhostArray(elemTypes)
         override fun symNameExt() = "array!${elemTypes.size}!${sortedElemTypes.joinToString("!") { it.symNameExt() }}"
+
+        override val isStatic get() = elemTypes.all { it.isStatic }
     }
 
     @KSerializable
@@ -213,6 +225,7 @@ sealed class MoveType : AmbiSerializable {
         override fun toTag() = MoveTag.Nondet(this)
         override fun toCoreTag() = Tag.Bit256
         override fun symNameExt() = "nondet!$id"
+        override val isStatic get() = false
     }
 
     /**
@@ -231,6 +244,7 @@ sealed class MoveType : AmbiSerializable {
         override fun symNameExt() = "fun"
         override fun hashCode() = hashObject(this)
         private fun readResolve(): Any = Function
+        override val isStatic get() = true
     }
 }
 

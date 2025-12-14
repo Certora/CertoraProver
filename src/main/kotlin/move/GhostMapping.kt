@@ -94,7 +94,7 @@ data class GhostMapping(
         }
 
         // If all uses have static type args, we might be able to optimize.
-        val typeArgsAreStatic = callCountsByTypeArgs.none { (typeArgs, _) -> typeArgs.any { it is MoveType.Nondet } }
+        val typeArgsAreStatic = callCountsByTypeArgs.all { (typeArgs, _) -> typeArgs.all { it.isStatic } }
 
         // If we have only a single use, or only a single use with these type args, we might be able to optimize.
         val singleUse = callCountsByTypeArgs.values.sum() == 1 && ptr.block !in loopBlocks
