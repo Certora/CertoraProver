@@ -23,8 +23,12 @@ import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.sbfLogger
 import datastructures.stdcollections.*
+import report.CVTAlertReporter
+import report.CVTAlertSeverity
+import report.CVTAlertType
 import sbf.SolanaConfig
 import sbf.domains.MemorySummaries
+import utils.*
 import java.io.File
 
 class InlinerError(msg: String): RuntimeException("Inliner error: $msg")
@@ -346,8 +350,18 @@ private class Inliner(val entry: String,
             return
         }
 
+        val msg = "The following functions are neither inlined nor summarized. They are treated as external. This is likely to affect soundness"
+
+        // Report it also as warning to the global notifications tab.
+        CVTAlertReporter.reportAlert(
+            type = CVTAlertType.SUMMARIZATION,
+            severity = CVTAlertSeverity.WARNING,
+            message =  "${msg}. Consult logs and documentation for details on how to fix. ${extFunctions.joinToString(prefix = "[", postfix = "]")}",
+            jumpToDefinition = null,
+            url = CheckedUrl.SOLANA_INLINING)
+
         val sb = StringBuilder()
-        sb.append("\nThe following functions are neither inlined nor summarized. They are treated as external. This is likely to affect soundness.\n\n")
+        sb.append("\n.$msg\n\n")
         extFunctions.forEach {
             sb.append("\t$it\n")
         }
