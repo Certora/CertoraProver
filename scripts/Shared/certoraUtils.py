@@ -1387,7 +1387,9 @@ def get_mappings_from_forge_remappings() -> List[str]:
         for line in remappings_output.strip().split('\n'):
             key, value = line.split('=', 1)
             if key and value:
-                remappings.append(line.strip())
+                new_remapping = line.strip()
+                if new_remapping not in remappings:
+                    remappings.append(new_remapping)
                 for suffix in ['contracts/', 'src/']:
                     if value.endswith(suffix) and not key.endswith(suffix):
                         new_remapping = f"{key}{suffix}={value}"
