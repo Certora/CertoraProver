@@ -705,16 +705,21 @@ class GenerateRulesForInvariantsAndEnvFree(
                     )
                 }
                 val preserved = constructorPreserved?.let { getInstrumentedPreservedBlock(it, scope) } ?: listOf()
+                val (toReset, msg) = if (Config.allContractsZeroedForInvariantBaseCase.get()) {
+                    CVLKeywords.allContracts.name to "storages"
+                } else {
+                    CVLKeywords.CURRENT_CONTRACT to "storage of main contract"
+                }
                 val block =
                     // technically should be only the current contract? or let the user choose?
                     CVLCmd.Simple.ResetStorage(
                         inv.range,
                         CVLExp.VariableExp(
-                            CVLKeywords.allContracts.name,
+                            toReset,
                             tag = CVLType.PureCVLType.Primitive.AccountIdentifier.asTag()
                         ),
                         scope
-                    ).wrapWithMessageLabel("Reset storages to 0") +
+                    ).wrapWithMessageLabel("Reset $msg to 0") +
                         assumes.wrapWithMessageLabel("Init state axioms") +
                         preserved +
                         CVLCmd.Simple.contractFunction(

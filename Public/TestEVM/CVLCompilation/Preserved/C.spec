@@ -31,7 +31,6 @@ invariant DInitializedBeforeC()
     currentContract.timestamp > 0 => d.initialized_at() > 0
     {
         preserved constructor() {
-            // TODO(CERT-9671) This is a SANITY_FAIL for now because D's storage is zeroed. It will become a success.
             require d.initialized_at() != 0, "assume D was initialized already when calling Cs constructor";
         }
         preserved foo(uint i) with (env e) {

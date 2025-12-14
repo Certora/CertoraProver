@@ -1150,9 +1150,18 @@ object Config {
         Option(
             "cvlFunctionRevert",
             true,
-            "If enabled, CVL functions are treated like solidity functions on revert, bubbling up reverts of calls inside them. This allows modelling reverts in summaries. [default: false]"
+            "If enabled, CVL functions are treated like solidity functions on revert, bubbling up reverts of calls inside them. This allows modelling reverts in summaries. [default: true]"
         )
     )  {}
+
+    val allContractsZeroedForInvariantBaseCase = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "allContractsZeroedForInvariantBaseCase",
+            true,
+            "If enabled, on verifying the base step of an invariant on a constructor, we assume the storage of all contracts in the scene is fresh and zeroed, instead of just the one of the contract under construction. [default: false]"
+        )
+    ) {}
 
     // this option adds the assumption that no code is deployed at address(0) and therefore address(0).code.length
     // returns 0.

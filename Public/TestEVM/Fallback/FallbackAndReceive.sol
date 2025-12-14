@@ -48,6 +48,13 @@ contract C is FallbackAndReceive {
 
 contract Caller {
     FallbackAndReceive a;
+    constructor(FallbackAndReceive _a) {
+        a = _a;
+        require(a.n() == 0 &&
+        a.last_called_fallback() == false &&
+        a.last_called_receive() == false &&
+        a.last_called_nameclash() == false);
+    }
     function noSuchFun() external {}
     function should_call_fallback() external {
         address(a).call(abi.encodeWithSignature("noSuchFun()"));

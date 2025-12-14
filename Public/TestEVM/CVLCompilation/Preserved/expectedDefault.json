@@ -7,6 +7,6 @@
     },
 		"holdsWithParamRestrictions": "FAIL",
 		"holdsWithEnvRestrictions": "SUCCESS",
-		"DInitializedBeforeC": "SANITY_FAIL"
+		"DInitializedBeforeC": "SUCCESS"
 	}
 }
