@@ -101,18 +101,25 @@ class SummarizationContext(
         returns: List<TACSymbol.Var>
     ) = moveToTAC.compileSubprogram(entryFunc, args, returns)
 
+    private val previouslyInitialized = mutableSetOf<Initializer>()
     private val initializers = mutableSetOf<Initializer>()
 
     /** Run `initializer.initialization` once at the start of the TAC program. */
     fun ensureInit(initializer: Initializer) {
-        initializers += initializer
+        if (initializer !in previouslyInitialized) {
+            initializers += initializer
+        }
     }
 
     /** Havoc the given symbol once at the start of the TAC program.  */
     fun TACSymbol.Var.ensureHavocInit(type: MoveType? = null): TACSymbol.Var =
         apply { ensureInit(HavocInitializer(this, type)) }
 
-    fun getAndResetInitialization() = mergeMany(initializers.map { it.initialize() } ).also { initializers.clear() }
+    fun getAndResetInitialization() =
+        mergeMany(initializers.map { it.initialize() } ).also {
+            previouslyInitialized += initializers
+            initializers.clear()
+        }
 
     /**
         Produces a sequence of TAC commands to be executed at the start of the TAC program.  Subclasses must implement

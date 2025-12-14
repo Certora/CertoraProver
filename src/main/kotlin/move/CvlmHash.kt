@@ -49,7 +49,32 @@ object CvlmHash {
 
     // Type IDs so hashes can include the type arguments of the function.  The key is the type (for nongeneric types)
     // or the type name (for generic types).
-    private val typeIds = ConcurrentHashMap<Any, Int>()
+    private val rawTypeIds = ConcurrentHashMap<Any, Int>()
+
+    private class CachedTypeId(
+        private val type: MoveType.Value,
+        private val idExpr: TACExpr
+    ) : SummarizationContext.Initializer() {
+        val id = TACSymbol.Var("tacMvTypeId!${type.symNameExt()}", Tag.Bit256)
+        override fun initialize() = mergeMany(
+            assign(id) { idExpr },
+            MoveCallTrace.recordTypeId(type, id)
+        )
+        override fun equals(other: Any?) = when {
+            other === this -> true
+            other !is CachedTypeId -> false
+            type != other.type -> false
+            else -> {
+                // It's illegal for a program to define two different type IDs for the same type.  Let's fail early
+                // here if that happens.
+                check(idExpr == other.idExpr) {
+                    "CachedTypeId equality with different expressions: $idExpr vs ${other.idExpr}"
+                }
+                true
+            }
+        }
+        override fun hashCode() = type.hashCode()
+    }
 
     /**
         Gets an expression giving an ID for the given type.  For deterministic types, this is a fixed ID, which we
@@ -58,32 +83,36 @@ object CvlmHash {
      */
     context(SummarizationContext)
     fun typeId(type: MoveType.Value): TACExpr {
-        if (type is MoveType.Nondet) {
-            return TACExpr.Select(
-                base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
-                loc = type.id.asTACExpr
-            )
+        val hash = when {
+            type is MoveType.Nondet -> {
+                TACExpr.Select(
+                    base = TACKeyword.MOVE_NONDET_TYPE_EQUIV.toVar().ensureHavocInit().asSym(),
+                    loc = type.id.asTACExpr
+                )
+            }
+            type is MoveType.Datatype && type.typeArguments.isNotEmpty() -> {
+                // Generic type: get an id for the type name, and hash it with the type parameter ids
+                // We need this hashing so that if e.g. `Foo` == `Nondet(1)`, then `Bar<Foo>` == `Bar<Nondet(1)>`
+                val argIds = type.typeArguments.map { typeId(it) }
+                val typeNameId = rawTypeIds.computeIfAbsent(type.name) { rawTypeIds.size }.asTACExpr
+                TACExpr.SimpleHash(
+                    length = (1 + argIds.size).asTACExpr,
+                    args = listOf(typeNameId) + argIds,
+                    hashFamily = HashFamily.MoveTypeId
+                )
+            }
+            else -> {
+                // Non-generic type: just get the id for the type, and hash it
+                TACExpr.SimpleHash(
+                    length = 1.asTACExpr,
+                    args = listOf(rawTypeIds.computeIfAbsent(type) { rawTypeIds.size }.asTACExpr),
+                    hashFamily = HashFamily.MoveTypeId
+                )
+            }
         }
-        val expr = if (type is MoveType.Datatype && type.typeArguments.isNotEmpty()) {
-            // Generic type: get an id for the type name, and hash it with the type parameter ids
-            // We need this hashing so that if e.g. `Foo` == `Nondet(1)`, then `Bar<Foo>` == `Bar<Nondet(1)>`
-            val argIds = type.typeArguments.map { typeId(it) }
-            val typeNameId = typeIds.computeIfAbsent(type.name) { typeIds.size }.asTACExpr
-            TACExpr.SimpleHash(
-                length = (1 + argIds.size).asTACExpr,
-                args = listOf(typeNameId) + argIds,
-                hashFamily = HashFamily.MoveTypeId
-            )
-        } else {
-            // Non-generic type: just get the id for the type, and hash it
-            TACExpr.SimpleHash(
-                length = 1.asTACExpr,
-                args = listOf(typeIds.computeIfAbsent(type) { typeIds.size }.asTACExpr),
-                hashFamily = HashFamily.MoveTypeId
-            )
-        }
-        MoveCallTrace.recordTypeId(type, expr)
-        return expr
+        val cached = CachedTypeId(type, hash)
+        ensureInit(cached)
+        return cached.id.asSym()
     }
 
     /**

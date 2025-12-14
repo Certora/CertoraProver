@@ -333,4 +333,53 @@ class GhostTest : MoveTestFixture() {
         """.trimIndent())
         assertTrue(verify())
     }
+
+    @Test
+    fun `copy struct value doesn't overwrite other type`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T: copy>(x: u32, y: u32): &mut T;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            #[allow(unused_field)]
+            public struct S has drop, copy { c: vector<u8> }
+            #[allow(unused_field)]
+            public struct T has drop, copy { c: vector<u32> }
+            fun test(x: u32, y: u32, a: u32, b: u32, s: S) {
+                let t = *ghost<T>(x, y);
+                *ghost<S>(a, b) = s;
+                cvlm_assert(*ghost<T>(x, y) == t);
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `copy struct value doesn't overwrite other value`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T: copy>(x: u32, y: u32): &mut T;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            #[allow(unused_field)]
+            public struct S has drop, copy { a: u32, b: u32, c: vector<u8> }
+            fun test(x: u32, y: u32, a: u32, b: u32, s: S) {
+                cvlm_assume(x != a || y != b);
+                let t = *ghost<S>(x, y);
+                *ghost<S>(a, b) = s;
+                cvlm_assert(*ghost<S>(x, y) == t);
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
 }

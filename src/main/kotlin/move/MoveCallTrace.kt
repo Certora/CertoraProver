@@ -121,20 +121,19 @@ object MoveCallTrace {
         types.
      */
     @KSerializable
-    data class TypeId(val type: MoveType.Value, val id: TACSymbol) : MoveSnippetCmd() {
+    data class TypeId(
+        val type: MoveType.Value,
+        val id: TACSymbol.Var
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<TypeId> {
         override val range: Range.Range? get() = null
-
-        /** Summarization context initializer to ensure we only record each type once. */
-        data class Initializer(val type: MoveType.Value, val id: TACExpr) : SummarizationContext.Initializer() {
-            override fun initialize() = id.letVar { tmpVar ->
-                TypeId(type, tmpVar.s).toAnnotation().withDecls()
-            }
-        }
+        override val support: Set<TACSymbol.Var> get() = setOf(id)
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
+            id = f(id)
+        )
     }
 
-    context(SummarizationContext)
-    fun recordTypeId(type: MoveType.Value, id: TACExpr) {
-        ensureInit(TypeId.Initializer(type, id))
+    fun recordTypeId(type: MoveType.Value, id: TACSymbol.Var): MoveCmdsWithDecls {
+        return TypeId(type, id).toAnnotation().withDecls()
     }
 
     /**

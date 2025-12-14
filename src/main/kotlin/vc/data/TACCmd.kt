@@ -2654,7 +2654,8 @@ sealed class TACCmd : Serializable, ITACCmd {
             init {
                 val arrayTag = refTag(arrayRef)
                 require(arrayTag is MoveTag.GhostArray)
-                require(dstRef.tag == MoveTag.Ref(arrayTag.elemType))
+                val dstRefTag = dstRef.tag as MoveTag.Ref
+                require(dstRefTag.refType in arrayTag.elemTypes)
                 require(index.tag == Tag.Bit256)
             }
         }

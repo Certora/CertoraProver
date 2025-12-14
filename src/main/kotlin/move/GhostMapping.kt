@@ -53,6 +53,7 @@ data class GhostMapping(
         ptr: CmdPointer,
         patch: PatchingTACProgram<TACCmd>,
         callCountsByTypeArgs: Map<List<MoveType.Value>, Int>,
+        allResultValTypes: Set<MoveType.Value>,
         loopBlocks: Set<NBId>
     ) {
         /*
@@ -116,11 +117,11 @@ data class GhostMapping(
             }
             typeArgsAreStatic && params.size == 1 && params[0] is MoveType.Bits -> {
                 // A single numeric parameter: use it as an index into a ghost array
-                val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(resultValType)), "ghostArrayRef")
+                val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(setOf(resultValType))), "ghostArrayRef")
                 mergeMany(
                     TACCmd.Move.BorrowLocCmd(
                         ref = ghostArrayRef,
-                        loc = ghostVar(MoveTag.GhostArray(resultValType), typeArgs).ensureHavocInit()
+                        loc = ghostVar(MoveTag.GhostArray(setOf(resultValType)), typeArgs).ensureHavocInit()
                     ).withDecls(ghostArrayRef),
                     TACCmd.Move.GhostArrayBorrowCmd(
                         dstRef = refVar,
@@ -132,12 +133,12 @@ data class GhostMapping(
             else -> {
                 // Hash the arguments to get an index into a ghost array
                 val hash = TACKeyword.TMP(Tag.Bit256)
-                val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(resultValType)), "ghostArrayRef")
+                val ghostArrayRef = TACKeyword.TMP(MoveTag.Ref(MoveType.GhostArray(allResultValTypes)), "ghostArrayRef")
                 mergeMany(
                     CvlmHash.hashArguments(hash, name, typeArgs, args),
                     TACCmd.Move.BorrowLocCmd(
                         ref = ghostArrayRef,
-                        loc = ghostVar(MoveTag.GhostArray(resultValType), emptyList()).ensureHavocInit()
+                        loc = ghostVar(MoveTag.GhostArray(allResultValTypes), emptyList()).ensureHavocInit()
                     ).withDecls(ghostArrayRef),
                     TACCmd.Move.GhostArrayBorrowCmd(
                         dstRef = refVar,
@@ -174,15 +175,24 @@ data class GhostMapping(
             }
 
             val callCounts = mutableMapOf<MoveFunctionName, MutableMap<List<MoveType.Value>, Int>>()
+            val allResultTypes = mutableMapOf<MoveFunctionName, MutableSet<MoveType.Value>>()
             calls.forEach { (_, call) ->
                 val counts = callCounts.getOrPut(call.name) { mutableMapOf() }
                 counts[call.typeArgs] = (counts[call.typeArgs] ?: 0) + 1
+
+                val resultTypes = allResultTypes.getOrPut(call.name) { mutableSetOf() }
+                resultTypes.add(
+                    when (call.resultType) {
+                        is MoveType.Reference -> call.resultType.refType
+                        is MoveType.Value -> call.resultType
+                    }
+                )
             }
             val loopBlocks = code.graph.getNaturalLoops().map { it.body }.unionAll()
 
             val patch = code.toPatchingProgram()
             calls.forEach { (ptr, call) ->
-                call.materialize(ptr, patch, callCounts[call.name]!!, loopBlocks)
+                call.materialize(ptr, patch, callCounts[call.name]!!, allResultTypes[call.name]!!, loopBlocks)
             }
             return patch.toCode(code)
         }

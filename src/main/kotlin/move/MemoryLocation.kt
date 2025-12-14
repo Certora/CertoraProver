@@ -66,6 +66,11 @@ data class MemoryLocation(
             }
         }
 
+        /** Ghost array elements are unions of potentially several types.  We need to allocate space for the largest. */
+        private fun MoveType.GhostArray.elemSize(): BigInteger {
+            return elemTypes.maxOf { it.composedSize() }
+        }
+
         /**
             Computes the size of the contents of a vector/ghost array/enum when represented in a composed layout. We
             reserve space for the largest possible content of each type, which allows the array types to change length,
@@ -74,7 +79,7 @@ data class MemoryLocation(
         private fun MoveType.Container.contentSize(): BigInteger {
             return when (this) {
                 is MoveType.Vector -> BigInteger.TWO.pow(64) * elemType.composedSize()
-                is MoveType.GhostArray -> BigInteger.TWO.pow(256) * elemType.composedSize()
+                is MoveType.GhostArray -> BigInteger.TWO.pow(256) * elemSize()
                 is MoveType.Enum -> variants.maxOf { it.compositeSize() }
             }
         }
@@ -318,16 +323,19 @@ data class MemoryLocation(
     }
 
     /** Gets the [MemoryLocation] of an element in this (ghost-array-typed) [MemoryLocation]. */
-    fun elementLoc(type: MoveType.GhostArray, elemIndex: TACExpr): MemoryLocation {
+    fun elementLoc(type: MoveType.GhostArray, elemIndex: TACExpr, elemType: MoveType.Value): MemoryLocation {
+        check(elemType in type.elemTypes) {
+            "Element type $elemType not in ghost array element types ${type.elemTypes}"
+        }
         return when (layout) {
             is MemoryLayout.Value.GhostArray -> this.copy(
                 layout = layout.content,
-                path = path.push(PathComponent.GhostArrayElem),
-                offset = TXF { elemIndex intMul type.elemType.composedSize() }
+                path = path.push(PathComponent.GhostArrayElem(elemType)),
+                offset = TXF { elemIndex intMul type.elemSize() }
             )
             is MemoryLayout.Value.Composed -> this.copy(
-                path = path.push(PathComponent.GhostArrayElem),
-                offset = TXF { offset intAdd (elemIndex intMul type.elemType.composedSize()) }
+                path = path.push(PathComponent.GhostArrayElem(elemType)),
+                offset = TXF { offset intAdd (elemIndex intMul type.elemSize()) }
             )
             else -> error("Cannot get element of non-array layout: $layout")
         }
@@ -443,9 +451,9 @@ data class MemoryLocation(
                 }
                 is PathComponent.GhostArrayElem -> {
                     val arrayType = currentType as MoveType.GhostArray
-                    val elemIndex = TXF { offset intDiv arrayType.elemType.composedSize() }
-                    currentLoc = currentLoc.elementLoc(arrayType, elemIndex)
-                    currentType = arrayType.elemType
+                    val elemIndex = TXF { offset intDiv comp.elemType.composedSize() }
+                    currentLoc = currentLoc.elementLoc(arrayType, elemIndex, comp.elemType)
+                    currentType = comp.elemType
                 }
             }
             // If we computed a new offset, stash it in a variable so we won't recompute it

@@ -22,6 +22,7 @@ import com.certora.collect.*
 import datastructures.*
 import datastructures.stdcollections.*
 import move.*
+import tac.*
 import utils.*
 import vc.data.*
 
@@ -44,7 +45,7 @@ class ReferenceAnalysis private constructor(
         data class Field(val fieldIndex: Int) : PathComponent()
         data class EnumField(val variantIndex: Int, val fieldIndex: Int) : PathComponent()
         object VecElem : PathComponent()
-        object GhostArrayElem : PathComponent()
+        data class GhostArrayElem(val elemType: MoveType.Value) : PathComponent()
     }
 
     data class RefTarget(
@@ -87,7 +88,7 @@ class ReferenceAnalysis private constructor(
                     is TACCmd.Move.BorrowLocCmd -> inState + (c.ref to treapSetOf(RefTarget(c.loc, persistentStackOf())))
                     is TACCmd.Move.BorrowFieldCmd -> inState + (c.dstRef to inState[c.srcRef]!!.borrowField(c.fieldIndex))
                     is TACCmd.Move.VecBorrowCmd -> inState + (c.dstRef to inState[c.srcRef]!!.borrowVecElem())
-                    is TACCmd.Move.GhostArrayBorrowCmd -> inState + (c.dstRef to inState[c.arrayRef]!!.borrowGhostArrayElem())
+                    is TACCmd.Move.GhostArrayBorrowCmd -> inState + (c.dstRef to inState[c.arrayRef]!!.borrowGhostArrayElem(c.dstRef.tag))
                     is TACCmd.Move.UnpackVariantRefCmd -> borrowVariantFields(inState, c)
                 }
                 is TACCmd.Simple.SummaryCmd -> when (c.summ) {
@@ -98,7 +99,7 @@ class ReferenceAnalysis private constructor(
                                 RefTarget(
                                     TACSymbol.Var(
                                         "tacUnmaterializedGhostMappings!${c.summ.resultType.symNameExt()}",
-                                        MoveTag.GhostArray(c.summ.resultType.refType)
+                                        MoveTag.GhostArray(setOf(c.summ.resultType.refType))
                                     ),
                                     persistentStackOf()
                                 )
@@ -117,8 +118,12 @@ class ReferenceAnalysis private constructor(
             private fun TreapSet<RefTarget>.borrowVecElem() =
                 mapToTreapSet { it.copy(path = it.path.push(PathComponent.VecElem)) }
 
-            private fun TreapSet<RefTarget>.borrowGhostArrayElem() =
-                mapToTreapSet { it.copy(path = it.path.push(PathComponent.GhostArrayElem)) }
+            private fun TreapSet<RefTarget>.borrowGhostArrayElem(dstRefTag: Tag): TreapSet<RefTarget> {
+                require(dstRefTag is MoveTag.Ref)
+                return mapToTreapSet {
+                    it.copy(path = it.path.push(PathComponent.GhostArrayElem(dstRefTag.refType)))
+                }
+            }
 
             /**
                 When unpacking an enum variant by reference, we produce a new reference to each field of the varient.

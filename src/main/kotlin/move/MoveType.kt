@@ -86,12 +86,7 @@ sealed class MoveType : AmbiSerializable {
     sealed interface Container
 
     @KSerializable
-    sealed class Array : Value(), Container {
-        abstract val elemType: MoveType.Value
-    }
-
-    @KSerializable
-    data class Vector(override val elemType: MoveType.Value) : Array() {
+    data class Vector(val elemType: MoveType.Value) : Value(), Container {
         override fun toString() = "vector<$elemType>"
         override fun displayName() = "vector<${elemType.displayName()}>"
         override fun toTag() = MoveTag.Vec(elemType)
@@ -162,12 +157,21 @@ sealed class MoveType : AmbiSerializable {
         override fun symNameExt() = "ref!${refType.symNameExt()}"
     }
 
+    /**
+        Maps a 256-bit index to a union of [elemTypes].
+
+        There is no union discriminator; uses that allow multiple types must also provide for their discrimination.  For
+        example, CVLM ghost mappings do this by hashing different types into different slots in the array.
+     */
     @KSerializable
-    data class GhostArray(override val elemType: MoveType.Value) : Array() {
-        override fun toString() = "array<${elemType}>"
-        override fun displayName() = "(ghost)<${elemType.displayName()}>"
-        override fun toTag() = MoveTag.GhostArray(elemType)
-        override fun symNameExt() = "array!${elemType.symNameExt()}"
+    data class GhostArray(val elemTypes: Set<MoveType.Value>) : Value(), Container {
+        /** Sort elem types to ensure that equal sets produce equal string representations. */
+        private val sortedElemTypes get() = elemTypes.sortedBy { it.symNameExt() }
+
+        override fun toString() = "array<${sortedElemTypes.joinToString(", ")}>"
+        override fun displayName() = "(ghost)<${sortedElemTypes.joinToString(", ") { it.displayName() }}>"
+        override fun toTag() = MoveTag.GhostArray(elemTypes)
+        override fun symNameExt() = "array!${elemTypes.size}!${sortedElemTypes.joinToString("!") { it.symNameExt() }}"
     }
 
     @KSerializable
@@ -392,7 +396,7 @@ fun MoveType.consituentStructNames(): TreapSet<MoveDatatypeName> = when (this) {
     is MoveType.Enum -> variants.map { it.compositeStructNames() }.unionAll().orEmpty()
     is MoveType.Struct -> compositeStructNames() + name
     is MoveType.Reference -> refType.consituentStructNames()
-    is MoveType.GhostArray -> elemType.consituentStructNames()
+    is MoveType.GhostArray -> elemTypes.map { it.consituentStructNames() }.unionAll().orEmpty()
 }
 
 fun MoveType.Composite.compositeStructNames(): TreapSet<MoveDatatypeName> {

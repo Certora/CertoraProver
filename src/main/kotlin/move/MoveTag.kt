@@ -32,8 +32,8 @@ sealed class MoveTag : Tag.Move(), HasKSerializable {
     @KSerializable data class Enum(val type: MoveType.Enum) : MoveTag()
     @KSerializable data class Ref(val refType: MoveType.Value) : MoveTag()
 
-    /** Maps u256 -> elemType */
-    @KSerializable data class GhostArray(val elemType: MoveType.Value) : MoveTag()
+    /** Maps u256 -> union of elemTypes */
+    @KSerializable data class GhostArray(val elemTypes: Set<MoveType.Value>) : MoveTag()
 
     /** See [MoveType.Nondet] */
     @KSerializable data class Nondet(val type: MoveType.Nondet) : MoveTag()
@@ -45,7 +45,7 @@ fun MoveTag.toMoveType(): MoveType {
         is MoveTag.Struct -> type
         is MoveTag.Enum -> type
         is MoveTag.Ref -> MoveType.Reference(refType)
-        is MoveTag.GhostArray -> MoveType.GhostArray(elemType)
+        is MoveTag.GhostArray -> MoveType.GhostArray(elemTypes)
         is MoveTag.Nondet -> type
     }
 }
@@ -56,7 +56,7 @@ fun MoveTag.toMoveValueType(): MoveType.Value {
         is MoveTag.Struct -> type
         is MoveTag.Enum -> type
         is MoveTag.Ref -> error("MoveTag.Ref cannot be converted to MoveType.Value")
-        is MoveTag.GhostArray -> MoveType.GhostArray(elemType)
+        is MoveTag.GhostArray -> MoveType.GhostArray(elemTypes)
         is MoveTag.Nondet -> type
     }
 }

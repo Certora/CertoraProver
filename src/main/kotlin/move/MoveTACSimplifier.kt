@@ -505,9 +505,13 @@ class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : Me
     context(CommandContext)
     private fun transformGhostArrayBorrowCmd(cmd: TACCmd.Move.GhostArrayBorrowCmd): SimpleCmdsWithDecls {
         val arrayType = cmd.arrayRef.getTargetType<MoveType.GhostArray>()
+        val elemType = cmd.dstRef.getTargetType<MoveType.Value>()
+        check(elemType in arrayType.elemTypes) {
+            "Element type $elemType not in ghost array element types ${arrayType.elemTypes} in $origCmd"
+        }
         val dstRefLayout = MemoryLayout.Reference.fromVar(cmd.dstRef)
         return deref(cmd.arrayRef, cmd.meta) { arrayLoc ->
-            val elemLoc = arrayLoc.elementLoc(arrayType, cmd.index.asSym())
+            val elemLoc = arrayLoc.elementLoc(arrayType, cmd.index.asSym(), elemType)
             mergeMany(
                 assign(dstRefLayout.layoutId, cmd.meta) { elemLoc.layout.id },
                 assign(dstRefLayout.offset, cmd.meta) { elemLoc.offset }
