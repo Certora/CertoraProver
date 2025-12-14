@@ -24,19 +24,17 @@ import sbf.disassembler.*
 import sbf.domains.*
 import sbf.analysis.MemoryAnalysis
 import sbf.callgraph.SolanaFunction
-import tac.Tag
-import vc.data.TACSymbol
 import datastructures.stdcollections.*
 
 /**
  *  Dummy class in case no memory splitting is done.
  *  All pointers are mapped to the same variable
  **/
-class DummyMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> (// State for the TAC translation
-    declaredVars: ArrayList<TACSymbol.Var>,
-    private val regTypes: IRegisterTypes<TNum, TOffset>): TACMemSplitter {
-    private val mem: TACVariable = TACByteMapVariable(TACSymbol.Var("UntypedMem", Tag.ByteMap))
-    init { declaredVars.add(mem.tacVar) }
+class DummyMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> (
+        vFac: TACVariableFactory<TFlags>,
+        private val regTypes: IRegisterTypes<TNum, TOffset>
+    ): TACMemSplitter {
+    private val mem: TACVariable = vFac.getWholeMemoryByteMapVar()
 
     override fun getTACMemory(locInst: LocatedSbfInstruction) =
         TACMemSplitter.NonStackLoadOrStoreInfo(mem as TACByteMapVariable, TACMemSplitter.HavocScalars(mapOf()))

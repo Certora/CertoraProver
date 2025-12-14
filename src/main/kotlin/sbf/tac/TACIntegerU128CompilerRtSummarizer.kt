@@ -103,7 +103,7 @@ class SummarizeIntegerU128CompilerRtWithMathInt<TNum : INumValue<TNum>, TOffset 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     override fun summarizeMulti3(args: U128BinaryOperands): List<TACCmd.Simple> {
         // We are using 256-bits so multiplication of 128-bits cannot overflow
-        val (xMath, yMath, resMath) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())
+        val (xMath, yMath, resMath) = Triple(vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar())
         val cmds = mutableListOf<TACCmd.Simple>()
         applyU128BinaryOperation(args, cmds) { res, _, x, y ->
             cmds.add(promoteToMathInt(x.asSym(), xMath))
@@ -117,7 +117,7 @@ class SummarizeIntegerU128CompilerRtWithMathInt<TNum : INumValue<TNum>, TOffset 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     override fun summarizeUDivti3(args: U128BinaryOperands): List<TACCmd.Simple> {
         // We are using 256-bits so division of 128-bits cannot overflow
-        val (xMath, yMath, resMath) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())
+        val (xMath, yMath, resMath) = Triple(vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar())
         val cmds = mutableListOf<TACCmd.Simple>()
         applyU128BinaryOperation(args, cmds) { res, _, x, y ->
             cmds.add(promoteToMathInt(x.asSym(), xMath))

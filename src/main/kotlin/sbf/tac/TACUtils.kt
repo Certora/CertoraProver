@@ -75,7 +75,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
     val cmds = mutableListOf<TACCmd.Simple>()
     for ((stackOffset, stackVars) in stackMap) {
         if (stackVars.isNotEmpty()) {
-            val tmpV = mkFreshIntVar()
+            val tmpV = vFac.mkFreshIntVar()
             cmds += TACCmd.Simple.AssigningCmd.AssignHavocCmd(tmpV)
             for (stackVar in stackVars) {
                 cmds += weakAssign(stackVar.tacVar, pointsToStack(base, offset, stackOffset), tmpV.asSym())
@@ -95,7 +95,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     check(l1.size == l2.size) {"Precondition of emitTACVarsEq does not hold: $l1 and $l2 have different sizes."}
     val boolVars = ArrayList<TACSymbol.Var>(l1.size)
     for ((x,y) in l1.zip(l2)) {
-        val b = mkFreshBoolVar()
+        val b = vFac.mkFreshBoolVar()
         boolVars.add(b)
         cmds.add(assign(b, TACExpr.BinRel.Eq(x.asSym(), y.asSym())))
     }
@@ -144,7 +144,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     cmds: MutableList<TACCmd.Simple>,
     maskLowBits: Boolean = true
 ): TACSymbol.Var {
-    val res = mkFreshIntVar(bitwidth = 256)
+    val res = vFac.mkFreshIntVar()
     cmds.add(mergeU128(res, low, high, maskLowBits))
     return res
 }
@@ -199,7 +199,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     e: TACSymbol.Var, low: TACSymbol.Var, high: TACSymbol.Var): List<TACCmd.Simple> {
     val c64E = exprBuilder.SIXTY_FOUR.asSym()
     val twoPowerOf128 = BigInteger.TWO.pow(128).asTACExpr()
-    val x = mkFreshIntVar()
+    val x = vFac.mkFreshIntVar()
     return listOf(
      assign(x, TACExpr.BinOp.Mod(e.asSym(), twoPowerOf128)),
      assign(low, exprBuilder.mask64(x.asSym())),
@@ -249,7 +249,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     args: U128BinaryOperands,
     cmds: MutableList<TACCmd.Simple>,
     op: (res: TACSymbol.Var, overflow: TACSymbol.Var?, x: TACSymbol.Var, y: TACSymbol.Var) -> Unit) {
-    val res = mkFreshIntVar()
+    val res = vFac.mkFreshIntVar()
     val x = mergeU128(args.xLow, args.xHigh, cmds)
     val y = mergeU128(args.yLow, args.yHigh, cmds)
     op(res, args.overflow, x, y)
@@ -261,7 +261,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     args: U128ShiftOperands,
     cmds: MutableList<TACCmd.Simple>,
     op: (res: TACSymbol.Var, x: TACSymbol.Var, shift: TACExpr.Sym) -> Unit) {
-    val res = mkFreshIntVar()
+    val res = vFac.mkFreshIntVar()
     val x = mergeU128(args.xLow, args.xHigh, cmds)
     val shift = args.shift
     op(res, x, shift)
@@ -282,7 +282,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     msg: String
 ): List<TACCmd.Simple> {
     val cmds = mutableListOf<TACCmd.Simple>()
-    val b = mkFreshBoolVar()
+    val b = vFac.mkFreshBoolVar()
     cmds += assign(b, e)
     cmds += TACCmd.Simple.AssumeCmd(b, msg)
     return cmds
@@ -339,7 +339,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
                     v.tacVar
                 }
                 is TACByteMapVariable -> {
-                    val lhs = mkFreshIntVar()
+                    val lhs = vFac.mkFreshIntVar()
                     val loc = computeTACMapIndex(exprBuilder.mkVar(arg.reg), arg.offset, cmds)
                     cmds.add(TACCmd.Simple.AssigningCmd.ByteLoad(lhs, loc, v.tacVar))
                     lhs

@@ -151,7 +151,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     val yHighE = exprBuilder.mkVar(SbfRegister.R5_ARG).asSym()
     val args = U128BinaryOperands(resLow.tacVar, resHigh.tacVar, overflow?.tacVar, xLowE, xHighE, yLowE, yHighE)
 
-    val (xMath, yMath, resMath) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())
+    val (xMath, yMath, resMath) = Triple(vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar())
     val cmds = mutableListOf(Debug.externalCall(inst))
     applyU128BinaryOperation(args, cmds) { res, _, x, y ->
         cmds.add(promoteToMathInt(x.asSym(), xMath))
@@ -183,7 +183,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     { "summarizeU128Nondet expects ${CVTU128Intrinsics.U128_NONDET.function.name}" }
 
     val (resLow, resHigh) = getResFrom128(locInst) ?: return listOf()
-    val res = mkFreshIntVar()
+    val res = vFac.mkFreshIntVar()
 
     val cmds = mutableListOf(Debug.externalCall(inst))
     cmds.addAll(inRange(res, BigInteger.ZERO,  BigInteger.TWO.pow(128)))

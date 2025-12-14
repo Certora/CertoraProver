@@ -102,10 +102,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     private val code: MutableMap<NBId, List<TACCmd.Simple>> = mutableMapOf()
     val exprBuilder: TACExprBuilder
     private val scratchRegVars: ArrayList<TACSymbol.Var> = arrayListOf()
-    // needed to build TypeScope
-    private val declaredVars: ArrayList<TACSymbol.Var> = ArrayList()
-    // Map PTA cells to TAC names
-    private val vFac = TACVariableFactory<TFlags>()
+    // Factory for TAC variables
+    val vFac = TACVariableFactory<TFlags>()
     // Symbolic memory allocators
     private val heapMemAlloc = TACBumpAllocator("TACHeapAllocator", SBF_HEAP_START.toULong(), SBF_HEAP_END.toULong())
     private val accountsAlloc = TACFixedSizeBlockAllocator("TACSolanaAccountAllocator", SBF_INPUT_START.toULong(), MAX_SOLANA_ACCOUNTS.toUShort(), SOLANA_ACCOUNT_SIZE.toULong())
@@ -115,8 +113,6 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     // The memory analysis guarantees that all pointers that might alias will be mapped to same
     // symbolic variable.
     val mem: TACMemSplitter
-    // To generate TAC identifiers for variables, basic blocks, and assert/satisfy statements
-    private var varId: Int = 0
     private var blockId: Int = 1
     private var satisfyId: Int = 0
     // Start from a large number to avoid clashes with satisfy inserted by TAC optimizations
@@ -131,9 +127,9 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     val sbfTypesFac: ISbfTypeFactory<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
     val regTypes: IRegisterTypes<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
     // To model clock syscalls
-    val clock: Clock = Clock { prefix -> mkFreshIntVar(prefix = prefix) }
+    val clock: Clock = Clock { prefix -> vFac.mkFreshIntVar(prefix = prefix) }
     // To model rent syscalls
-    val rent: Rent = Rent { prefix -> mkFreshIntVar(prefix = prefix) }
+    val rent: Rent = Rent { prefix -> vFac.mkFreshIntVar(prefix = prefix) }
 
     init {
         val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
@@ -142,16 +138,13 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
 
         val regVars: ArrayList<TACSymbol.Var> = ArrayList(NUM_OF_SBF_REGISTERS)
         for (i in 0 until NUM_OF_SBF_REGISTERS) {
-            // FIXME: the bit-width should be 8 bytes instead of 32 bytes
-            val v = TACSymbol.Var("r${i}", Tag.Bit256)
-            regVars.add(v)
-            declaredVars.add(v)
+            regVars.add(vFac.getRegisterVar(i))
         }
         exprBuilder = TACExprBuilder(regVars)
         mem = if (memoryAnalysis != null) {
             PTAMemSplitter(cfg, vFac, memoryAnalysis, globals)
         } else {
-            DummyMemSplitter(declaredVars, regTypes)
+            DummyMemSplitter(vFac, regTypes)
         }
     }
 
@@ -185,28 +178,6 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         return tacBB
     }
 
-    fun mkFreshIntVar(@Suppress("UNUSED_PARAMETER") bitwidth: Short = 256, prefix: String = "v"): TACSymbol.Var {
-        // FIXME: 256-bit integer is hardcoded regardless of `bitwidth`
-        val v = TACSymbol.Var("$prefix${varId}", Tag.Bit256)
-        varId++
-        declaredVars.add(v)
-        return v
-    }
-
-    fun mkFreshMathIntVar(prefix: String = "v"): TACSymbol.Var {
-        val v = TACSymbol.Var("$prefix${varId}", Tag.Int)
-        varId++
-        declaredVars.add(v)
-        return v
-    }
-
-    fun mkFreshBoolVar(prefix: String = "v"): TACSymbol.Var {
-        val v = TACSymbol.Var("$prefix${varId}", Tag.Bool)
-        varId++
-        declaredVars.add(v)
-        return v
-    }
-
     private fun mkFreshAssertId(): Int {
         assertId++
         return assertId
@@ -218,7 +189,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun addInitialPreconditions(): List<TACCmd.Simple> {
-        val b = mkFreshBoolVar()
+        val b = vFac.mkFreshBoolVar()
         val r10 = exprBuilder.mkVar(SbfRegister.R10_STACK_POINTER)
         // r10 points to the end of the stack frame
         return listOf(
@@ -236,7 +207,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             check(loadOrStoreInfo is TACMemSplitter.NonStackLoadOrStoreInfo) {"addGlobalInitializers expects a byte map at $locInst"}
 
             val byteMap = loadOrStoreInfo.variable
-            val locVar = mkFreshIntVar()
+            val locVar = vFac.mkFreshIntVar()
             cmds.add(assign(locVar, exprBuilder.mkConst(gv.address).asSym()))
             val offsets = List(values.size) { index -> PTAOffset((index * stride).toLong())  }
             val storedValues = values.map { exprBuilder.mkConst(it)}
@@ -250,8 +221,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         inRange(v, lb.toBigInteger(), ub.toBigInteger(), isUnsigned)
 
     fun inRange(v: TACSymbol.Var, lb: BigInteger, ub: BigInteger, isUnsigned: Boolean = true): List<TACCmd.Simple>{
-        val lbBool = mkFreshBoolVar()
-        val ubBool = mkFreshBoolVar()
+        val lbBool = vFac.mkFreshBoolVar()
+        val ubBool = vFac.mkFreshBoolVar()
         return if (isUnsigned) {
             listOf(
                 assign(lbBool, exprBuilder.mkBinRelExp(CondOp.GE, v.asSym(), lb)),
@@ -341,9 +312,9 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 // Currently, `SAFE_MATH` annotations are only used for addition/subtraction before checking for overflow.
                 // These operations must be done on MathInt.
 
-                val x = mkFreshMathIntVar()
-                val y = mkFreshMathIntVar()
-                val z = mkFreshMathIntVar()
+                val x = vFac.mkFreshMathIntVar()
+                val y = vFac.mkFreshMathIntVar()
+                val z = vFac.mkFreshMathIntVar()
 
                 listOf(
                     when (inst.v) {
@@ -417,7 +388,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun translateCond(cond: Condition, bitwidth: Short = 256): TACCmd.Simple.AssigningCmd {
-        val tacLhs = mkFreshBoolVar()
+        val tacLhs = vFac.mkFreshBoolVar()
         val leftE = exprBuilder.mkExprSym(cond.left)
         val rightE = if (cond.right is Value.Imm) {
             exprBuilder.mkConst(cond.right, useTwosComplement = true, bitwidth).asSym()
@@ -548,7 +519,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
 
     private fun translateSatisfy(inst: SbfInstruction.Call): List<TACCmd.Simple> {
         val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val condVar = mkFreshBoolVar()
+        val condVar = vFac.mkFreshBoolVar()
         val cond = TACExpr.TernaryExp.Ite(
             TACExpr.BinRel.Eq(exprBuilder.mkExprSym(r1), TACExpr.zeroExpr),
             TACSymbol.True.asSym(),
@@ -758,7 +729,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             val stackLocs = srcRange.map {
                 it.key to vFac.getByteStackVar(PTAOffset(it.value.lb + i)).tacVar.asSym()
             }.toMap()
-            val srcBV = mkFreshIntVar()
+            val srcBV = vFac.mkFreshIntVar()
             cmds += assign(srcBV, resolveStackAccess(srcReg, zeroC, stackLocs))
             // store in the destination map
             cmds += mapStores(info.byteMap, dstReg, PTAOffset(i), srcBV)
@@ -931,7 +902,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 exprBuilder.mkConst(value)
             } else {
                 // this is an over-approximation. See comment in `memsetNonStackWithMapDef` for details.
-                mkFreshIntVar()
+                vFac.mkFreshIntVar()
             }
         val cmds = mutableListOf<TACCmd.Simple>()
         for (i in 0 until len) {
@@ -1095,7 +1066,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         val offsetE = exprBuilder.mkConst(Value.Imm(offset.toULong())).asSym()
         val lhsE = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
         return if (SolanaConfig.UseTACMathInt.get()) {
-            val (x, y, z) = Triple(mkFreshMathIntVar(), mkFreshMathIntVar(), mkFreshMathIntVar())
+            val (x, y, z) = Triple(vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar(), vFac.mkFreshMathIntVar())
             listOf(
                 promoteToMathInt(baseE, x),
                 promoteToMathInt(offsetE, y),
@@ -1127,7 +1098,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                         Pair(v.tacVar, false)
                     }
                     is TACByteMapVariable -> {
-                        val lhs = mkFreshIntVar()
+                        val lhs = vFac.mkFreshIntVar()
                         val loc = computeTACMapIndex(exprBuilder.mkVar(arg.reg), arg.offset, cmds)
                         cmds.add(TACCmd.Simple.AssigningCmd.ByteLoad(lhs, loc, v.tacVar))
                         Pair(lhs, true)
@@ -1201,10 +1172,10 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         // If the call doesn't have this metadata then by assuming 0 the call won't appear in the calltrace.
         val calleeSize = inst.metaData.getVal(SbfMeta.INLINED_FUNCTION_SIZE)?: 0UL
 
-        val v6 = mkFreshIntVar(prefix = "saved_r6")
-        val v7 = mkFreshIntVar(prefix = "saved_r7")
-        val v8 = mkFreshIntVar(prefix = "saved_r8")
-        val v9 = mkFreshIntVar(prefix = "saved_r9")
+        val v6 = vFac.mkFreshIntVar(prefix = "saved_r6")
+        val v7 = vFac.mkFreshIntVar(prefix = "saved_r7")
+        val v8 = vFac.mkFreshIntVar(prefix = "saved_r8")
+        val v9 = vFac.mkFreshIntVar(prefix = "saved_r9")
         scratchRegVars.add(v6)
         scratchRegVars.add(v7)
         scratchRegVars.add(v8)
@@ -1550,7 +1521,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 // `offset` is mapped to a top constant in `stackValues`
                 ?: value?.let {
                     exactReconstruction = false
-                    mkFreshIntVar(bitwidth = 256).asSym()
+                    vFac.mkFreshIntVar().asSym()
                 }
                 // `offset` is not in `stackValues`
                 ?: tacVar.tacVar.asSym()
@@ -1789,7 +1760,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         // We also initialize unnecessarily TAC registers used to save SBF scratch registers
         val tacEntryB = getBlockIdentifier(entry)
         val initCmds = mutableListOf<TACCmd.Simple>()
-        declaredVars.addAll(vFac.getDeclaredVariables())
+        val declaredVars = vFac.getDeclaredVariables()
         for (v in declaredVars) {
             initCmds.add(TACCmd.Simple.AssigningCmd.AssignHavocCmd(v))
         }
@@ -1797,7 +1768,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         check(entryCmds != null) {"cannot find TAC code for the entry block"}
         code[tacEntryB] = initCmds + entryCmds
 
-        val symbolTable = TACSymbolTable(declaredVars.toSet())
+        val symbolTable = TACSymbolTable(declaredVars)
         val name = cfg.getName()
         val procs = mutableSetOf<Procedure>() // this is used by CEX generation
         val program = CoreTACProgram(code, blockGraph, name, symbolTable, procs,
