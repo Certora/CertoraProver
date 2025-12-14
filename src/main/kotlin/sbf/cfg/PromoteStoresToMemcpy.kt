@@ -38,7 +38,7 @@ import kotlin.math.absoluteValue
  *  The transformation is intra-block.
  */
 fun promoteStoresToMemcpy(cfg: MutableSbfCFG,
-                          globals: GlobalVariableMap,
+                          globals: GlobalVariables,
                           memSummaries: MemorySummaries) {
     val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
     promoteStoresToMemcpy(cfg, scalarAnalysis)

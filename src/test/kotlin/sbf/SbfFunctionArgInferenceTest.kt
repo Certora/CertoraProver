@@ -32,7 +32,7 @@ import sbf.testing.SbfTestDSL
 class SbfFunctionArgInferenceTest {
 
     private fun compileCFG(cfgs: List<MutableSbfCFG>, root: String): SbfCallGraph {
-        val globals = newGlobalVariableMap()
+        val globals = GlobalVariables(DefaultElfFileView)
         val outcfgs = mutableListOf(cfgs.first())
         for (cfg in cfgs) {
             cfg.verify(false, "[before postProcessCFG]")

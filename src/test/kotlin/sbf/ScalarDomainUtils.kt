@@ -90,7 +90,7 @@ class  ScalarAnalysisProver<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     cfg: SbfCFG,
     vfac: ISbfTypeFactory<TNum, TOffset>,
     memSummaries: MemorySummaries = MemorySummaries(),
-    globals: GlobalVariableMap = newGlobalVariableMap()
+    globals: GlobalVariables = GlobalVariables(DefaultElfFileView)
 ) {
     private val prover = AnalysisProver(vfac, ScalarAnalysis(cfg, globals, memSummaries, vfac))
 
@@ -102,7 +102,7 @@ class  ScalarAnalysisProver<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 class  AdaptiveScalarAnalysisProver(
     cfg: SbfCFG,
     memSummaries: MemorySummaries = MemorySummaries(),
-    globals: GlobalVariableMap = newGlobalVariableMap()
+    globals: GlobalVariables = GlobalVariables(DefaultElfFileView)
 ) {
     private val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
     private val prover = AnalysisProver(scalarAnalysis.getSbfTypesFac(), scalarAnalysis)
@@ -116,7 +116,7 @@ class  ScalarStackStridePredicateAnalysisProver(
     cfg: SbfCFG,
     vFac: ISbfTypeFactory<ConstantSet, ConstantSet>,
     memSummaries: MemorySummaries = MemorySummaries(),
-    globals: GlobalVariableMap = newGlobalVariableMap()
+    globals: GlobalVariables = GlobalVariables(DefaultElfFileView)
 ) {
     val domFac = ScalarStackStridePredicateDomainFactory<ConstantSet, ConstantSet>()
     val analysis = GenericScalarAnalysis(cfg, globals, memSummaries, vFac, domFac)

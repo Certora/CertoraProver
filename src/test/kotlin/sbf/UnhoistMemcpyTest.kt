@@ -27,6 +27,7 @@ import org.junit.jupiter.api.*
 import sbf.domains.*
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
+private val globals = GlobalVariables(DefaultElfFileView)
 
 class UnhoistMemcpyTest {
     private fun getNumOfUnhoistedMemcpy(cfg: SbfCFG): UInt {
@@ -168,7 +169,6 @@ class UnhoistMemcpyTest {
         println("$cfg")
         cfg.verify(true)
 
-        val globals = newGlobalVariableMap()
         if (hoistMemcpy) {
             unhoistMemFunctions(cfg)
             cfg.simplify(globals)
@@ -283,7 +283,6 @@ class UnhoistMemcpyTest {
         println("$cfg")
         cfg.verify(true)
         unhoistMemFunctions(cfg)
-        val globals = newGlobalVariableMap()
         cfg.simplify(globals)
         println("After unhoisting memcpy instructions: $cfg")
         Assertions.assertEquals(true, getNumOfUnhoistedMemcpy(cfg) == 6U)
@@ -392,7 +391,6 @@ class UnhoistMemcpyTest {
         println("$cfg")
         cfg.verify(true)
         unhoistMemFunctions(cfg)
-        val globals = newGlobalVariableMap()
         cfg.simplify(globals)
         println("After unhoisting memcpy instructions: $cfg")
         Assertions.assertEquals(true, getNumOfUnhoistedMemcpy(cfg) == 2U)
@@ -423,7 +421,6 @@ class UnhoistMemcpyTest {
         println( "Before $cfg" )
         cfg.verify(true)
         unhoistMemFunctions(cfg)
-        val globals = newGlobalVariableMap()
         cfg.simplify(globals)
         println("After $cfg")
         Assertions.assertEquals(true, getNumOfUnhoistedMemcpy(cfg) == 2U)
@@ -465,7 +462,6 @@ class UnhoistMemcpyTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        val globals = newGlobalVariableMap()
         val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         println("Before transformation\n$cfg")

@@ -31,20 +31,24 @@ import sbf.analysis.AnalysisRegisterTypes
 import sbf.domains.*
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
+private object MockElfFileView: IElfFileView {
+    override fun isLittleEndian() = true
+    override fun isGlobalVariable(address: ElfAddress) = (address == 976432L)
+    override fun isReadOnlyGlobalVariable(address: ElfAddress) = false
+    override fun getAsConstantString(
+        address: ElfAddress,
+        size: Long
+    ) = ""
+
+    override fun getAsConstantNum(
+        address: ElfAddress,
+        size: Long
+    ): Long? = null
+}
+private val globals = GlobalVariables(MockElfFileView)
+private val memSummaries = MemorySummaries()
 
 class GlobalInferenceAnalysisTest {
-
-    /** Mock for the tests **/
-    object MockForGlobalsSymbolTable: IGlobalsSymbolTable {
-        override fun isLittleEndian() = true
-        override fun isGlobalVariable(address: ElfAddress) = (address == 976432L)
-        override fun getAsConstantString(
-            name: String,
-            address: ElfAddress,
-            size: Long
-        ) = SbfConstantStringGlobalVariable("",0,0, "")
-    }
-
     /**
      * Run the global inference analysis and extracts the type of the dereferenced pointer at
      * [pos]-th instruction in block [label]
@@ -57,7 +61,7 @@ class GlobalInferenceAnalysisTest {
             pos:Int)
         : Pair<SbfInstruction.Mem, SbfType<TNum, TOffset>> {
         ConfigScope(SolanaConfig.AggressiveGlobalDetection, true).use {
-            val newProg = runGlobalInferenceAnalysis(prog, memSummaries, MockForGlobalsSymbolTable)
+            val newProg = runGlobalInferenceAnalysis(prog, memSummaries)
             val newCfg = newProg.getCallGraphRootSingleOrFail()
             sbfLogger.warn {"After GIA: $newCfg"}
             val scalarAnalysis = ScalarAnalysis(newCfg, newProg.getGlobals(), memSummaries, sbfTypesFac)
@@ -98,15 +102,13 @@ class GlobalInferenceAnalysisTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val prog = MutableSbfCallGraph(listOf(cfg), setOf("entrypoint"), globals)
         println("$cfg")
 
         ConfigScope(SolanaConfig.AggressiveGlobalDetection, true).use {
-            val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries, MockForGlobalsSymbolTable).getGlobals()
+            val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries).getGlobals()
             println("New global map=${newGlobals}")
-            Assertions.assertEquals(true,  newGlobals[976432] != null)
+            Assertions.assertEquals(true,  newGlobals.contains(976432))
         }
     }
 
@@ -148,14 +150,12 @@ class GlobalInferenceAnalysisTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val prog = MutableSbfCallGraph(listOf(cfg), setOf("entrypoint"), globals)
         println("$cfg")
         ConfigScope(SolanaConfig.AggressiveGlobalDetection, true).use {
-            val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries, MockForGlobalsSymbolTable).getGlobals()
+            val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries).getGlobals()
             println("New global map=${newGlobals}")
-            Assertions.assertEquals(true, newGlobals[976432] != null)
+            Assertions.assertEquals(true, newGlobals.contains(976432))
         }
     }
 
@@ -183,14 +183,12 @@ class GlobalInferenceAnalysisTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val prog = MutableSbfCallGraph(listOf(cfg), setOf("entrypoint"), globals)
         println("$cfg")
         ConfigScope(SolanaConfig.AggressiveGlobalDetection, true).use {
-            val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries, MockForGlobalsSymbolTable).getGlobals()
+            val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries).getGlobals()
             println("New global map=${newGlobals}")
-            Assertions.assertEquals(true, newGlobals[976432] != null)
+            Assertions.assertEquals(true, newGlobals.contains(976432))
         }
     }
 
@@ -262,14 +260,12 @@ class GlobalInferenceAnalysisTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val prog = MutableSbfCallGraph(listOf(cfg), setOf("entrypoint"), globals)
         println("$cfg")
         ConfigScope(SolanaConfig.AggressiveGlobalDetection, true).use {
-            val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries, MockForGlobalsSymbolTable).getGlobals()
+            val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries).getGlobals()
             println("New global map=${newGlobals}")
-            Assertions.assertEquals(true, newGlobals[976432] != null)
+            Assertions.assertEquals(true, newGlobals.contains(976432))
         }
     }
 
@@ -286,8 +282,6 @@ class GlobalInferenceAnalysisTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         CVTFunction.addSummaries(memSummaries)
         val prog = MutableSbfCallGraph(listOf(cfg), setOf("entrypoint"), globals)
         println("Before\n$cfg")
@@ -347,8 +341,6 @@ class GlobalInferenceAnalysisTest {
             }
         }
         cfg.verify(true)
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val prog = MutableSbfCallGraph(listOf(cfg), setOf("test6"), globals)
         println("$cfg")
         val (inst, type) = getTypeFromMemInst(prog, memSummaries, sbfTypesFac, Label.Address(11), 2)

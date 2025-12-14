@@ -18,7 +18,7 @@
 package sbf.analysis
 
 import sbf.cfg.SbfCFG
-import sbf.disassembler.GlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.disassembler.Label
 import sbf.domains.AbstractDomain
 import sbf.domains.MemorySummaries
@@ -36,5 +36,5 @@ interface IAnalysis<T: AbstractDomain<T>> {
 
     fun getCFG(): SbfCFG
     fun getMemorySummaries(): MemorySummaries
-    fun getGlobalVariableMap(): GlobalVariableMap
+    fun getGlobalVariableMap(): GlobalVariables
 }

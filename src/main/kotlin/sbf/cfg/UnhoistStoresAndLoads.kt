@@ -26,7 +26,7 @@ import sbf.disassembler.*
  *  This helps the pointer analysis because it can avoid the analysis loses provenance of pointers after a join.
  *  Moreover, this transformation also helps another transformation SplitWideStores.
  */
-fun unhoistStoresAndLoads(cfg: MutableSbfCFG, globals: GlobalVariableMap, maxNumOfUnhoistedInsts: Int = 10) {
+fun unhoistStoresAndLoads(cfg: MutableSbfCFG, globals: GlobalVariables, maxNumOfUnhoistedInsts: Int = 10) {
     // The first maxNumOfUnhoistedInsts instructions in basic block b can be unhoisted to each b's predecessor
     val worklist = arrayListOf<Pair<MutableSbfBasicBlock, Int>>()
     for (b in cfg.getMutableBlocks().values) {
@@ -163,7 +163,7 @@ private fun isStoreDerefOfLoads(storeInst: SbfInstruction.Mem, bb: SbfBasicBlock
 private fun isDerefToGlobalVariable(memInst: SbfInstruction.Mem,
                                     bb: SbfBasicBlock,
                                     idx: Int,
-                                    globals: GlobalVariableMap): Boolean {
+                                    globals: GlobalVariables): Boolean {
     val baseReg = memInst.access.baseReg
     val baseRegRoot = findRoot(baseReg, bb.getInstructions(), 0, idx)
     if (baseRegRoot != null) {
@@ -180,7 +180,7 @@ private fun isDerefToGlobalVariable(memInst: SbfInstruction.Mem,
                     ) {
                         val globalAddress = defInst.v.v
                         if (globalAddress <= Long.MAX_VALUE.toULong()) {
-                            globals[globalAddress.toLong()] != null
+                            globals.contains(globalAddress.toLong())
                         } else {
                             false
                         }

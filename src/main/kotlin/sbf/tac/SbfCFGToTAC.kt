@@ -72,7 +72,6 @@ class TACTranslationError(msg: String): SolanaInternalError("TAC translation err
 fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> sbfCFGsToTAC(
     program: SbfCallGraph,
     memSummaries: MemorySummaries,
-    globalsSymTable: IGlobalsSymbolTable,
     globalAnalysisResults: Map<String, MemoryAnalysis<TNum, TOffset, TFlags>>?): CoreTACProgram {
     val cfg = program.getCallGraphRootSingleOrFail()
     if (cfg.getBlocks().isEmpty()) {
@@ -85,18 +84,17 @@ fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFl
         globalAnalysisResults[cfg.getName()]
             ?: throw TACTranslationError("Not analysis results found for ${cfg.getName()}")
     }
-    val marshaller = SbfCFGToTAC(cfg, program.getGlobals(), memSummaries, globalsSymTable, analysis)
+    val marshaller = SbfCFGToTAC(cfg, program.getGlobals(), memSummaries, analysis)
     return marshaller.encode()
 }
 
 /** Translate an SBF CFG to a TAC program **/
 @Suppress("ForbiddenComment")
 internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>(
-           private val cfg: SbfCFG,
-           globals: GlobalVariableMap,
-           private val memSummaries: MemorySummaries,
-           private val globalsSymTable: IGlobalsSymbolTable,
-           val memoryAnalysis: MemoryAnalysis<TNum, TOffset, TFlags>?) {
+    private val cfg: SbfCFG,
+    private val globals: GlobalVariables,
+    private val memSummaries: MemorySummaries,
+    val memoryAnalysis: MemoryAnalysis<TNum, TOffset, TFlags>?) {
     private val blockMap: MutableMap<Label, NBId> = mutableMapOf()
     private val blockGraph = MutableBlockGraph()
     private val code: MutableMap<NBId, List<TACCmd.Simple>> = mutableMapOf()
@@ -201,7 +199,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun addGlobalInitializers(): List<TACCmd.Simple> {
-        val initializers = runGlobalInitializationAnalysis(cfg, regTypes, globalsSymTable)
+        val initializers = runGlobalInitializationAnalysis(cfg, regTypes, globals.elf)
         val cmds = mutableListOf<TACCmd.Simple>()
         for ( (gv, _, stride, locInst, values) in initializers) {
             cmds.add(Debug.startFunction("init_${gv.name}"))

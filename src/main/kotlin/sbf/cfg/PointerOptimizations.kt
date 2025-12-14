@@ -20,14 +20,14 @@ package sbf.cfg
 import sbf.SolanaConfig
 import sbf.callgraph.SbfCallGraph
 import sbf.domains.MemorySummaries
-import sbf.disassembler.GlobalVariableMap
+import sbf.disassembler.GlobalVariables
 
 /**
  * Simple (local) CFG optimizations that help the pointer analysis.
  * These optimizations do not use any semantic analysis.
  * Thus, they can be applied before inlining/slicing happens.
  */
-fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariableMap) {
+fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
     if (SolanaConfig.OptimisticNoMemmove.get()) {
         removeMemmove(cfg)
         cfg.verify(false, "after removing memmove")

@@ -17,6 +17,7 @@
 
 package sbf.domains
 
+import com.certora.collect.*
 import sbf.SolanaConfig
 import sbf.cfg.*
 import sbf.disassembler.*
@@ -79,47 +80,22 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
          *  We don't try to cast a number to a pointer if the number can be a valid address in the stack or input regions.
          *  In that case, we will return null.
          **/
-        fun castToPtr(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, globalsMap: GlobalVariableMap): PointerType<TNum, TOffset>? {
-            fun findLowerBound(key: Long): Pair<Long, SbfGlobalVariable>? {
-                // globalsMap is sorted
-                var lb: Pair<Long, SbfGlobalVariable> ? = null
-                for (kv in globalsMap) {
-                    if (kv.key <= key) {
-                        lb = Pair(kv.key, kv.value)
-                    } else {
-                        break
-                    }
-                }
-                return lb
+        fun castToPtr(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, globals: GlobalVariables): PointerType<TNum, TOffset>? {
+            val addr = value.toLongOrNull() ?: return null
+
+            // Heap pointer case
+            if (addr in SBF_HEAP_START until SBF_HEAP_END) {
+                return sbfTypeFac.toHeapPtr(addr - SBF_HEAP_START)
             }
 
-            val n = value.toLongOrNull()
-            if (n != null) {
-                if (n in SBF_HEAP_START until SBF_HEAP_END) {
-                    val offset = n - SBF_HEAP_START
-                    return sbfTypeFac.toHeapPtr(offset)
-                } else {
-                    // We check if n can be a valid address assigned to a global variable.
-                    val lb = findLowerBound(n)
-                    if (lb != null) {
-                        val globalVar = lb.second
-                        if (globalVar.size == 0L) {
-                            // The global might have been inferred by GlobalInferenceAnalysis.
-                            // We assume that offset is the start of the global
-                            return sbfTypeFac.toGlobalPtr(n, globalVar)
-                        }
-                        else if (n >= globalVar.address && (n < (globalVar.address + globalVar.size))) {
-                            // Note that in case of an array, `offset` might not be the start address of the global.
-                            // That is, it's not always true that offset == globalVar.address
-                            return sbfTypeFac.toGlobalPtr(n, globalVar)
-                        }
-                    }
-                }
+            // Global variable case
+            globals.findGlobalThatContains(addr)?.let { gv ->
+                return sbfTypeFac.toGlobalPtr(addr, gv)
             }
-            /// We are here if the number cannot be either the address of a global or a valid address
-            /// in the heap.
+
             return null
         }
+
         override fun toString() = if (value.isTop()) { "num" } else { "num($value)" }
     }
 
@@ -158,10 +134,15 @@ sealed class SbfType<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
         // global.address is the start address of the global variable.
         // offset is actually an absolute address between [global.address, global.address+size)
         data class Global<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(override val offset: TOffset, val global: SbfGlobalVariable?): PointerType<TNum, TOffset>() {
+            init {
+                check(!offset.isBottom()) {"Cannot create a PointerType with a bottom offset"}
+            }
+
             override fun toString(): String {
                 return if (global != null) {
-                    if (global is SbfConstantStringGlobalVariable) {
-                        "global($global)"
+                    val str = global.strValue
+                    if (str != null) {
+                        "global($str)"
                     } else {
                         "global(${global.name}, $offset)"
                     }

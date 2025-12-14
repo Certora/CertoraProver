@@ -959,10 +959,10 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         scalars.setStackContent(offset, width, value)
     }
 
-    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globalsMap: GlobalVariableMap) =
-        scalars.getAsScalarValueWithNumToPtrCast(reg, globalsMap)
+    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globals: GlobalVariables) =
+        scalars.getAsScalarValueWithNumToPtrCast(reg, globals)
 
-    fun analyze(locInst: LocatedSbfInstruction, globals: GlobalVariableMap, memSummaries: MemorySummaries) {
+    fun analyze(locInst: LocatedSbfInstruction, globals: GlobalVariables, memSummaries: MemorySummaries) {
         val inst = locInst.inst
         dbg { "$inst\n" }
         if (!isBottom()) {
@@ -1003,7 +1003,7 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
     }
 
     override fun analyze(b: SbfBasicBlock,
-                         globals: GlobalVariableMap,
+                         globals: GlobalVariables,
                          memSummaries: MemorySummaries,
                          listener: InstructionListener<ScalarStackStridePredicateDomain<TNum, TOffset>>
     ): ScalarStackStridePredicateDomain<TNum, TOffset> {

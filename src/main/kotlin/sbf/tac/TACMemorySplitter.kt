@@ -117,7 +117,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                       // Memory analysis
                      private val analysis: MemoryAnalysis<TNum, TOffset, TFlags>,
                       // Global state needed to reply invariants at each statement
-                     private val globals: GlobalVariableMap) : TACMemSplitter {
+                     private val globals: GlobalVariables) : TACMemSplitter {
 
     /* For memory load and store */
     private val memTACMap: MutableMap<LocatedSbfInstruction, TACMemSplitter.LoadOrStoreInfo> = mutableMapOf()
@@ -608,7 +608,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
     class MemoryPartitioningListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> (
             private val tacEncoder: (locInst: LocatedSbfInstruction, memInfo: PTAMemoryInfo<TFlags>) -> Unit,
             private val memSummaries: MemorySummaries,
-            private val globalsMap: GlobalVariableMap)
+            private val globals: GlobalVariables)
         : InstructionListener<MemoryDomain<TNum, TOffset, TFlags>> {
         override fun instructionEvent(locInst: LocatedSbfInstruction,
                                       pre: MemoryDomain<TNum, TOffset, TFlags>,
@@ -758,10 +758,10 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
 
         class MemPartitioningSummaryVisitor<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> (
             private val absVal: MemoryDomain<TNum, TOffset, TFlags>,
-            private val globalsMap: GlobalVariableMap) : SummaryVisitor {
+            private val globals: GlobalVariables) : SummaryVisitor {
             private val sumFields = ArrayList<PTACallModifiedField<TFlags>>()
             private val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-            private val stackNode = absVal.getRegCell(r10, globalsMap)?.getNode()
+            private val stackNode = absVal.getRegCell(r10, globals)?.getNode()
 
             init {
                 if (stackNode == null) {
@@ -782,7 +782,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                 val call = locInst.inst
                 check(call is SbfInstruction.Call)
                 val r = Value.Reg(reg)
-                val symC = absVal.getRegCell(r, globalsMap)
+                val symC = absVal.getRegCell(r, globals)
                     ?: throw TACTranslationError("memory partitioning failed because" +
                                                  "cannot find a cell for $r ($call)")
                 val c = symC.concretize()
@@ -798,7 +798,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
         /** Get concrete cell pointed by r10 **/
         private fun getCellFromStackPtr(locInst: LocatedSbfInstruction, absVal: MemoryDomain<TNum, TOffset, TFlags>): PTACell<TFlags> {
             val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-            val stackPtrSc = absVal.getRegCell(r10, globalsMap)
+            val stackPtrSc = absVal.getRegCell(r10, globals)
                 ?: throw TACTranslationError("memory partitioning failed at $locInst because cannot find a cell for r10")
             if (!stackPtrSc.isConcrete()) {
                 throw TACTranslationError("memory partitioning failed at $locInst because unknown offset for r10")
@@ -808,7 +808,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
 
         /** Get symbolic cell pointed by [reg] + [offset] **/
         private fun getSymCell(reg: Value.Reg, offset: Short, locInst: LocatedSbfInstruction, absVal: MemoryDomain<TNum, TOffset, TFlags>): PTASymCell<TFlags> {
-            val baseSc = absVal.getRegCell(reg, globalsMap)
+            val baseSc = absVal.getRegCell(reg, globals)
                 ?: throw TACTranslationError(
                     "memory partitioning failed because" +
                         "cannot find a cell for $reg (${locInst.inst}) in the local graph ${locInst.label}"
@@ -974,7 +974,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                                 if (memSummaries.getSummary(inst.name) == null) {
                                     null
                                 } else {
-                                    val vis = MemPartitioningSummaryVisitor(post, globalsMap)
+                                    val vis = MemPartitioningSummaryVisitor(post, globals)
                                     memSummaries.visitSummary(locInst, vis)
                                     vis.getPTAMemInfo()
                                 }

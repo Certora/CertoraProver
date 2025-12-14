@@ -24,6 +24,9 @@ import sbf.domains.*
 import org.junit.jupiter.api.*
 import sbf.testing.SbfTestDSL
 
+private val globals = GlobalVariables(DefaultElfFileView)
+private val memSummaries = MemorySummaries()
+
 class LowerSelectToAssumeTest {
     private fun getNumOfSelect(cfg: SbfCFG): UInt {
         var counter = 0U
@@ -47,8 +50,6 @@ class LowerSelectToAssumeTest {
 
         println("Before $cfg")
         cfg.verify(false)
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
         lowerSelectToAssume(cfg, npAnalysis)
         println("After $cfg")
@@ -68,8 +69,6 @@ class LowerSelectToAssumeTest {
 
         println("Before $cfg")
         cfg.verify(false)
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
         lowerSelectToAssume(cfg, npAnalysis)
         println("After $cfg")
@@ -93,8 +92,6 @@ class LowerSelectToAssumeTest {
 
         println("Before $cfg")
         cfg.verify(false)
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
         lowerSelectToAssume(cfg, npAnalysis)
         println("After $cfg")
@@ -114,8 +111,6 @@ class LowerSelectToAssumeTest {
 
         println("Before $cfg")
         cfg.verify(false)
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
         lowerSelectToAssume(cfg, npAnalysis)
         println("After $cfg")
@@ -135,8 +130,6 @@ class LowerSelectToAssumeTest {
 
         println("Before $cfg")
         cfg.verify(false)
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
         lowerSelectToAssume(cfg, npAnalysis)
         println("After $cfg")
@@ -156,8 +149,6 @@ class LowerSelectToAssumeTest {
 
         println("Before $cfg")
         cfg.verify(false)
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
         lowerSelectToAssume(cfg, npAnalysis)
         println("After $cfg")
@@ -177,8 +168,6 @@ class LowerSelectToAssumeTest {
 
         println("Before $cfg")
         cfg.verify(false)
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val npAnalysis = NPAnalysis(cfg, globals, memSummaries)
         lowerSelectToAssume(cfg, npAnalysis)
         println("After $cfg")

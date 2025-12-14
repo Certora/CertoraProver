@@ -100,7 +100,6 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
     sbfLogger.info { "Disassembling ELF program $elfFile" }
     val disassembler = ElfDisassembler(elfFile)
     val bytecode = disassembler.read(targets.mapToSet { it.ruleIdentifier.displayName.removeSuffix(devVacuitySuffix) })
-    val globalsSymbolTable = disassembler.getGlobalsSymbolTable()
 
     // 2. Read environment files
     val (memSummaries, inliningConfig) = readEnvironmentFiles()
@@ -120,7 +119,7 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
 
     val rules = (targets + sanityRules).mapNotNull { target ->
         try {
-            solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries, globalsSymbolTable, start0)
+            solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries, start0)
         } catch (e: SolanaError) {
             val alert = RuleAlertReport.Error(e)
             CompiledGenericRule.AnalysisFail(target, alert)
@@ -139,7 +138,6 @@ private fun solanaRuleToTAC(
     prog: SbfCallGraph,
     inliningConfig: InlinerConfig,
     memSummaries: MemorySummaries,
-    globalsSymbolTable: GlobalsSymbolTable,
     start0: Long
 ): CompiledGenericRule? {
 
@@ -190,7 +188,7 @@ private fun solanaRuleToTAC(
                            memSummaries, start0)
     } catch (e: NoAssertionAfterSlicerError) {
         sbfLogger.warn { "$e" }
-        vacuousProgram(target, "No assertions found after slicer")
+        vacuousProgram(target, inlinedProg.getGlobals(), "No assertions found after slicer")
     }
 
     // 3. Remove CPI calls and run analysis to infer global variables
@@ -199,11 +197,10 @@ private fun solanaRuleToTAC(
         optProg,
         inliningConfig,
         memSummaries,
-        globalsSymbolTable,
         sbfTypesFac,
         ptaFlagsFac,
         start0).let {
-        runGlobalInferenceAnalysis(it, memSummaries, globalsSymbolTable)
+        runGlobalInferenceAnalysis(it, memSummaries)
     }
 
     // Optionally, we annotate CFG with types. This is useful if the CFG will be printed.
@@ -243,7 +240,7 @@ private fun solanaRuleToTAC(
     // 5. Convert to TAC
     sbfLogger.info { "[$target] Started translation to CoreTACProgram" }
     val start2 = System.currentTimeMillis()
-    val coreTAC = sbfCFGsToTAC(analyzedProg, memSummaries, globalsSymbolTable, analysisResults)
+    val coreTAC = sbfCFGsToTAC(analyzedProg, memSummaries, analysisResults)
     val end2 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished translation to CoreTACProgram in ${(end2 - start2) / 1000}s" }
 
@@ -324,7 +321,6 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
     p1: SbfCallGraph,
     inliningConfig: InlinerConfig,
     memSummaries: MemorySummaries,
-    globals: GlobalsSymbolTable,
     sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
     ptaFlagsFac: () -> Flags,
     start: Long
@@ -336,7 +332,7 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
     val start0 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Started lowering of CPI calls" }
     // Run an analysis to infer global variables by use
-    val p2 = runGlobalInferenceAnalysis(p1, memSummaries, globals)
+    val p2 = runGlobalInferenceAnalysis(p1, memSummaries)
 
     val invokes = getInvokes(p2)
     val processor = InvokeInstructionListener<TNum, TOffset, Flags>(
@@ -494,7 +490,7 @@ fun splitAsserts(rule: CompiledGenericRule.Compiled): List<CompiledGenericRule.C
  * assert(false)
  * ```
  */
-private fun vacuousProgram(root: String, comment: String): SbfCallGraph {
+private fun vacuousProgram(root: String, globals: GlobalVariables, comment: String): SbfCallGraph {
     val cfg = MutableSbfCFG(root)
     val b = cfg.getOrInsertBlock(Label.fresh())
     cfg.setEntry(b)
@@ -507,7 +503,7 @@ private fun vacuousProgram(root: String, comment: String): SbfCallGraph {
     b.add(SbfInstruction.Assume(falseC))
     b.add(SbfInstruction.Assert(falseC, MetaData(SbfMeta.COMMENT to comment)))
     b.add(SbfInstruction.Exit())
-    return MutableSbfCallGraph(mutableListOf(cfg), setOf(cfg.getName()), newGlobalVariableMap())
+    return MutableSbfCallGraph(mutableListOf(cfg), setOf(cfg.getName()), globals)
 }
 
 /**

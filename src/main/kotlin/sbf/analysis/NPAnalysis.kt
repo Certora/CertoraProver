@@ -23,7 +23,7 @@ import sbf.cfg.*
 import sbf.disassembler.Label
 import datastructures.stdcollections.*
 import sbf.SolanaConfig
-import sbf.disassembler.GlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.domains.*
 
 /**
@@ -75,7 +75,7 @@ private typealias NPDomainStateT = NPDomainState<TNum, TOffset, TScalarDomain>
 
 class NPAnalysis(
     val cfg: MutableSbfCFG,
-    globalsMap: GlobalVariableMap,
+    globals: GlobalVariables,
     memSummaries: MemorySummaries) :
     SbfBlockDataflowAnalysis<NPDomainStateT>(
         cfg,
@@ -93,7 +93,7 @@ class NPAnalysis(
      * 2) remove unreachable blocks.
      *    Note that to make the analysis more precise, we use set-value abstraction in scalar analysis.
      **/
-    private val fwdAnalysis = ScalarAnalysis(cfg, globalsMap, memSummaries, ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong()))
+    private val fwdAnalysis = ScalarAnalysis(cfg, globals, memSummaries, ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong()))
     val registerTypes = AnalysisRegisterTypes(fwdAnalysis)
     /** Exit blocks of the cfg **/
     val exits: MutableSet<Label> = mutableSetOf()

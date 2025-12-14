@@ -969,7 +969,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
      * Remove unreachable blocks from entry, reduce the number of basic blocks.
      * It also performs some transformations that might help subsequent static analyses.
      **/
-    fun simplify(globals:  GlobalVariableMap) {
+    fun simplify(globals:  GlobalVariables) {
         removeUnreachableBlocks()
         deadCodeElimination()
         removeUnreachableBlocks() // DCE can produce many unreachable blocks

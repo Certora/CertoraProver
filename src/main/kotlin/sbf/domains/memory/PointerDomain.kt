@@ -2682,12 +2682,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      **/
     private fun reductionFromScalars(reg: Value.Reg,
                                      type: SbfType<TNum, TOffset>,
-                                     globalsMap: GlobalVariableMap,
+                                     globals: GlobalVariables,
                                      locInst: LocatedSbfInstruction?,
                                      stopIfError: Boolean) {
 
         val pointerType: SbfType.PointerType<TNum, TOffset>? = when(type) {
-            is SbfType.NumType -> type.castToPtr(sbfTypesFac, globalsMap)
+            is SbfType.NumType -> type.castToPtr(sbfTypesFac, globals)
             is SbfType.PointerType -> type
             else -> null
         }
@@ -2755,7 +2755,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     fun getRegCell(reg: Value.Reg,
                    type: SbfType<TNum, TOffset>,
-                   globalsMap: GlobalVariableMap,
+                   globals: GlobalVariables,
                    locInst: LocatedSbfInstruction?,
                    stopIfError: Boolean = true): PTASymCell<Flags>? {
 
@@ -2763,7 +2763,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         return if (sc != null) {
             sc
         } else {
-            reductionFromScalars(reg, type, globalsMap, locInst, stopIfError)
+            reductionFromScalars(reg, type, globals, locInst, stopIfError)
             getRegCell(reg)
         }
     }
@@ -2774,7 +2774,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     fun doUn(locInst: LocatedSbfInstruction,
              @Suppress("UNUSED_PARAMETER")
-             globals: GlobalVariableMap,
+             globals: GlobalVariables,
              @Suppress("UNUSED_PARAMETER")
              memSummaries: MemorySummaries) {
 
@@ -3025,7 +3025,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
               src: Value,
               dstType: SbfType<TNum, TOffset>,
               srcType: SbfType<TNum, TOffset>,
-              @Suppress("UNUSED_PARAMETER") globalsMap: GlobalVariableMap) {
+              @Suppress("UNUSED_PARAMETER") globals: GlobalVariables) {
         if (op != BinOp.MOV && (dstType is SbfType.NumType && srcType is SbfType.NumType)) {
             // op is a binary operation where the two operands are not pointer.
             forget(dst)
@@ -3058,7 +3058,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doSelect(
         locInst: LocatedSbfInstruction,
-        @Suppress("UNUSED_PARAMETER") globals: GlobalVariableMap,
+        @Suppress("UNUSED_PARAMETER") globals: GlobalVariables,
         scalars: ScalarDomain
     ) {
         val inst = locInst.inst
@@ -3307,20 +3307,20 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     fun doLoad(locInst: LocatedSbfInstruction,
                base: Value.Reg,
                baseType: SbfType<TNum, TOffset>,
-               globalsMap: GlobalVariableMap) =
-        doLoad(locInst, base, baseType, globalsMap, ScalarDomain.makeTop(sbfTypesFac))
+               globals: GlobalVariables) =
+        doLoad(locInst, base, baseType, globals, ScalarDomain.makeTop(sbfTypesFac))
 
     /** Transfer function for load instruction **/
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doLoad(locInst: LocatedSbfInstruction,
-               base: Value.Reg,
-               baseType: SbfType<TNum, TOffset>,
-               globalsMap: GlobalVariableMap,
-               scalars: ScalarDomain) {
+                                                                 base: Value.Reg,
+                                                                 baseType: SbfType<TNum, TOffset>,
+                                                                 globals: GlobalVariables,
+                                                                 scalars: ScalarDomain) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem && inst.isLoad) {"doLoad expects a Load instruction instead of $inst"}
 
         // Get symbolic cell pointed by baseReg
-        val baseSc = getRegCell(base, baseType, globalsMap, locInst)
+        val baseSc = getRegCell(base, baseType, globals, locInst)
                 ?: throw UnknownPointerDerefError(
                     DevErrorInfo(
                         locInst,
@@ -3688,12 +3688,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 value: Value,
                 baseType: SbfType<TNum, TOffset>,
                 valueType: SbfType<TNum, TOffset>,
-                globalsMap: GlobalVariableMap) {
+                globals: GlobalVariables) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem && !inst.isLoad) { "doStore expects a Store instruction instead of $inst" }
 
         // Get symbolic cell pointed by baseReg
-        val baseSc = getRegCell(base, baseType, globalsMap, locInst)
+        val baseSc = getRegCell(base, baseType, globals, locInst)
             ?: throw UnknownPointerDerefError(
                 DevErrorInfo(
                     locInst,
@@ -3878,7 +3878,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
         locInst: LocatedSbfInstruction,
         scalars: ScalarDomain,
-        globals: GlobalVariableMap) {
+        globals: GlobalVariables) {
         /**
          * Transfer function: [srcC] can be stack, but if it's not the stack then its fields are at least tracked precisely.
          **/
@@ -4242,7 +4242,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcmp(
         locInst: LocatedSbfInstruction,
         scalars: ScalarDomain,
-        globals: GlobalVariableMap
+        globals: GlobalVariables
     ) {
         fun readWords(c1: PTACell<Flags>, c2: PTACell<Flags>, len: Int) {
             val node1 = c1.getNode()
@@ -4297,7 +4297,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemset(
         locInst: LocatedSbfInstruction,
         scalars: ScalarDomain,
-        globals: GlobalVariableMap
+        globals: GlobalVariables
     ) {
 
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
@@ -4323,9 +4323,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
 
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doSolMemInst(memInst: SolanaFunction,
-                             globals: GlobalVariableMap,
-                             scalars: ScalarDomain,
-                             locInst: LocatedSbfInstruction) {
+                                                                               globals: GlobalVariables,
+                                                                               scalars: ScalarDomain,
+                                                                               locInst: LocatedSbfInstruction) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call) {"doSolMemInst expects a call instead of $inst"}
 
@@ -4462,9 +4462,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     }
 
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doCall(calleeLocInst: LocatedSbfInstruction,
-               globals: GlobalVariableMap,
-               memSummaries: MemorySummaries,
-               scalars: ScalarDomain) {
+                                                                 globals: GlobalVariables,
+                                                                 memSummaries: MemorySummaries,
+                                                                 scalars: ScalarDomain) {
 
         val callee = calleeLocInst.inst
         check(callee is SbfInstruction.Call) {"doCall expects a call instead of $callee"}
@@ -4537,7 +4537,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     // precondition: function names have been already demangled
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> summarizeCall(
         locInst: LocatedSbfInstruction,
-        globals: GlobalVariableMap,
+        globals: GlobalVariables,
         scalars: ScalarDomain,
         memSummaries: MemorySummaries
     ) {
@@ -4646,7 +4646,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      **/
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> summarizeAllocSlice(
         locInst: LocatedSbfInstruction,
-        globals: GlobalVariableMap,
+        globals: GlobalVariables,
         scalars: ScalarDomain
     ) {
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)

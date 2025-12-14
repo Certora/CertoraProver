@@ -350,5 +350,5 @@ fun bytecodeToSbfProgram(bytecode: BytecodeProgram): SbfProgram {
         throw DisassemblerError("program does not exit")
     }
     bytecode.functionMan.warnDuplicateSymbols()
-    return SbfProgram(bytecode.entriesMap, bytecode.functionMan, bytecode.globalsMap, newInsts)
+    return SbfProgram(bytecode.entriesMap, bytecode.functionMan, bytecode.globals, newInsts)
 }

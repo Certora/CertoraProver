@@ -39,7 +39,7 @@ class NumericPTAAnalysisTest {
     ): MemoryDomainT {
         val cfgs = mutableListOf(cfg)
         val entrypoints = setOf(entrypointCfgName)
-        val globals = newGlobalVariableMap()
+        val globals = GlobalVariables(DefaultElfFileView)
         val prog = MutableSbfCallGraph(cfgs, entrypoints, globals, preservedCFGs = setOf())
         val memSummaries = MemorySummaries()
         val progWithTypes = annotateWithTypes(prog, memSummaries)

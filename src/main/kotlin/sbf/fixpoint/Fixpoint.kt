@@ -21,7 +21,7 @@ import sbf.analysis.LiveRegisters
 import sbf.cfg.SbfBasicBlock
 import sbf.disassembler.Label
 import sbf.cfg.SbfCFG
-import sbf.disassembler.GlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.domains.AbstractDomain
 import sbf.domains.InstructionListener
 import sbf.domains.MemorySummaries
@@ -56,7 +56,7 @@ interface FixpointSolver<T: AbstractDomain<T>> {
  */
 open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
                                                           protected val top: T,
-                                                          private val globals: GlobalVariableMap,
+                                                          private val globals: GlobalVariables,
                                                           private val memSummaries: MemorySummaries) {
 
     /** Produce the initial abstract state for a given block **/

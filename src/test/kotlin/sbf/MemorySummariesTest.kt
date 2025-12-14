@@ -20,7 +20,7 @@ package sbf
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
-import sbf.disassembler.newGlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.domains.*
 import sbf.support.CannotParseSummaryFile
 import org.junit.jupiter.api.Test
@@ -28,6 +28,7 @@ import org.junit.jupiter.api.*
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
+private val globals = GlobalVariables(DefaultElfFileView)
 
 class MemorySummariesTest {
 
@@ -42,7 +43,7 @@ class MemorySummariesTest {
         check(baseR != lhs)
         val inst = SbfInstruction.Mem(Deref(width, baseR, offset, null), lhs, true, null)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doLoad(locInst, baseR, SbfType.top(), newGlobalVariableMap())
+        g.doLoad(locInst, baseR, SbfType.top(), globals)
         val sc = g.getRegCell(lhs)
         check(sc != null)
         return sc.getNode()
@@ -65,7 +66,7 @@ class MemorySummariesTest {
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, newGlobalVariableMap())
+        val stackC = absVal.getRegCell(r10, globals)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -93,7 +94,7 @@ class MemorySummariesTest {
         // before the call *(r1+0) == *(r2+0)
         val oldN = getNode(g, r1, 0, 8)
         Assertions.assertEquals(true,  oldN == getNode(g, r2, 0, 8))
-        g.doCall(LocatedSbfInstruction(Label.fresh(), 0, call), newGlobalVariableMap(), memSummaries, absVal.getScalars())
+        g.doCall(LocatedSbfInstruction(Label.fresh(), 0, call), globals, memSummaries, absVal.getScalars())
         println("After $call with ${memSummaries.getSummary("foo")}: $g")
 
         // after the call *(r1+0) != *(r2+0)

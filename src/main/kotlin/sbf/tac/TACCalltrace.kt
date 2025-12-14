@@ -165,8 +165,9 @@ object Calltrace {
         locInst: LocatedSbfInstruction, reg: SbfRegister
     ): String {
         return regTypes.typeAtInstruction(locInst, reg).let {
-            if (it is SbfType.PointerType.Global && it.global is SbfConstantStringGlobalVariable) {
-                it.global.value
+            val str = (it as? SbfType.PointerType.Global)?.global?.strValue
+            if (str != null) {
+                str
             } else {
                 sbfLogger.warn {
                     "Cannot identify statically the content of the string associated with ${locInst.inst}. " +

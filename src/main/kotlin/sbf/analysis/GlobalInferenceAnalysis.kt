@@ -23,6 +23,9 @@ import sbf.SolanaConfig
 import sbf.callgraph.*
 import sbf.domains.*
 import datastructures.stdcollections.*
+import log.*
+
+private val logger = Logger(LoggerTypes.SBF_GLOBAL_VAR_ANALYSIS)
 
 /**
  * Whole-program analysis that identifies global variables that were not part of the ELF symbol table.
@@ -37,19 +40,17 @@ import datastructures.stdcollections.*
  * mis-classify two addresses as two different global variables which might affect soundness.
  * This is why the analysis is not executed by default.
  *
- * Note that `runGlobalInferenceAnalysis` will run `ScalarAnalysis` from scratch, but a reasonable question is why we do not
- * infer global variables as part of `MemoryAnalysis` which runs a reduced product of scalar and pointer domains.
+ * Note that `runGlobalInferenceAnalysis` will run [ScalarAnalysis] from scratch, but a reasonable question is why we do not
+ * infer global variables as part of [MemoryAnalysis] which runs a reduced product of scalar and pointer domains.
  *
  * We do not do it because the global inference analysis has some heuristics that scan multiple basic blocks
  * searching for some specific code patterns. These heuristics are harder to implement as part of an abstract domain because
  * the current API for an abstract domain is designed to just analyze one instruction at the time.
  *
- * We do not bother at the moment to change the API of an abstract domain because running `ScalarAnalysis` is
- * currently very cheap, but we might need to revisit these design decisions if `ScalarAnalysis` becomes more expensive.
+ * We do not bother at the moment to change the API of an abstract domain because running [ScalarAnalysis] is
+ * currently very cheap, but we might need to revisit these design decisions if [ScalarAnalysis] becomes more expensive.
  *
- * @param prog is the input program
- * @param globalsSymTable is used to extract constant strings from the ELF file and answer queries about whether an
- *        address is a global variable or not.
+ * @param prog is the input program including information about globals
  * @return a new [SbfCallGraph] whose global variables consists of the
  *         original globals plus any new ones identified during the analysis.
  *         As a side effect, the CFGs may also be annotated with `SET_GLOBAL`
@@ -57,14 +58,13 @@ import datastructures.stdcollections.*
  **/
 fun runGlobalInferenceAnalysis(
     prog: SbfCallGraph,
-    memSummaries: MemorySummaries,
-    globalsSymTable: IGlobalsSymbolTable
+    memSummaries: MemorySummaries
 ) : SbfCallGraph {
     return prog.transformSingleEntryAndGlobals { entryCFG ->
         val newEntryCFG = entryCFG.clone(entryCFG.getName())
         val scalarAnalysis = AdaptiveScalarAnalysis(newEntryCFG, prog.getGlobals(), memSummaries)
-        val globalInferAnalysis = GlobalInferenceAnalysis(newEntryCFG, scalarAnalysis, globalsSymTable)
-        Pair(newEntryCFG, globalInferAnalysis.getNewGlobalMap())
+        val globalInferAnalysis = GlobalInferenceAnalysis(newEntryCFG, scalarAnalysis, prog.getGlobals().elf)
+        newEntryCFG to globalInferAnalysis.getNewGlobalMap()
     }
 }
 
@@ -77,71 +77,71 @@ fun runGlobalInferenceAnalysis(
 private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     private val cfg: MutableSbfCFG,
     private val scalar: IAnalysis<D>,
-    private val globalsSymTable: IGlobalsSymbolTable
+    private val elf: IElfFileView
     )
     where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset>  {
     private var id:UInt = 1U
     private val regTypes = AnalysisRegisterTypes(scalar)
-    private var newGlobals: GlobalVariableMap = scalar.getGlobalVariableMap()
+    private var newGlobals: GlobalVariables = scalar.getGlobalVariableMap()
 
     init {
         run()
     }
 
-    private fun isGlobalVariable(x: ULong): Boolean {
-        return if (x > Long.MAX_VALUE.toULong()) {
-            false
-        } else {
-            globalsSymTable.isGlobalVariable(x.toLong())
+    private fun isGlobalVariable(x: ULong) =
+        (x <= Long.MAX_VALUE.toULong()) && elf.isGlobalVariable(x.toLong())
+
+    private fun isNum(i: LocatedSbfInstruction, v: Value) =
+        when (v) {
+            is Value.Imm -> true
+            is Value.Reg -> regTypes.typeAtInstruction(i, v.r) is SbfType.NumType<*,*>
+        }
+
+    private fun inferAndAddGlobalVariable(i: LocatedSbfInstruction, reg: Value.Reg) {
+        inferGlobalVariable(i, reg)?.also { gv ->
+            newGlobals = newGlobals.add(gv)
         }
     }
 
-    private fun isNum(i: LocatedSbfInstruction, v: Value):Boolean {
-        return when (v) {
-            is Value.Imm -> { true }
-            is Value.Reg -> {
-                val type = regTypes.typeAtInstruction(i, v.r)
-                type is SbfType.NumType<TNum, TOffset>
+    private fun inferAndAddStringGlobalVariable(i: LocatedSbfInstruction, start: Value.Reg, len: Value.Reg) {
+        inferGlobalVariable(i, start)?.also { newGv ->
+            // newGv has just been inferred by the analysis, so its name is synthetic and the following holds:
+            check(!newGv.isSized()) { "$newGv is expected to be unsized" }
+            check(newGv.strValue == null) { "$newGv is not expected to have a string value" }
+
+            val addr = newGv.address
+            check(elf.isReadOnlyGlobalVariable(addr)) {
+                "$newGv should be interpreted as a constant string but it is located in an unexpected ELF section"
             }
+
+            val size = (regTypes.typeAtInstruction(i, len.r) as? SbfType.NumType<TNum, TOffset>)?.value?.toLongOrNull()
+            if (size == null) {
+                logger.warn {
+                    "$newGv should be interpreted as a constant string but cannot determine statically its length"
+                }
+                return
+            }
+
+            val str = elf.getAsConstantString(addr, size)
+            val oldGv = newGlobals.findGlobalThatContains(addr)
+            newGlobals = if (oldGv != null && oldGv.address == addr) {
+                newGlobals.remove(oldGv).add(oldGv.copy(size = size, strValue = str))
+            } else {
+                newGlobals.add(newGv.copy(size = size, strValue = str))
+            }
+
         }
     }
 
     /**
-      * This function is called when [reg] is being de-referenced.
-      * If the analysis believes that [reg] is a number then we try to identify if that number is the start address of a global variable.
-     **/
-    private fun inferGlobalVariable(i: LocatedSbfInstruction, reg: Value.Reg)
-        : SbfGlobalVariable? {
-        return when(val type = regTypes.typeAtInstruction(i, reg.r)) {
-            is SbfType.PointerType.Global<TNum, TOffset> -> {
-                type.global
-            }
-            is SbfType.NumType<TNum, TOffset> -> {
-                val gv = recurseInferStartOfGlobalVar(i, reg, 10) // maxChainLen can be also a CLI
-                if (gv == null) {
-                    null
-                } else {
-                    newGlobals = newGlobals.put(gv.address, gv)
-                    return gv
-                }
-            }
-            else -> {
-                null
-            }
-        }
-    }
-
-    private fun inferStringGlobalVariable(i: LocatedSbfInstruction, strReg: Value.Reg, sizeReg: Value.Reg)
-        : SbfConstantStringGlobalVariable? {
-        val gv = inferGlobalVariable(i, strReg) ?: return null
-        val sizeType = regTypes.typeAtInstruction(i, sizeReg.r)
-        return if (sizeType is SbfType.NumType<TNum, TOffset>) {
-            val size = sizeType.value.toLongOrNull() ?: return null
-            val strGv = globalsSymTable.getAsConstantString(gv.name, gv.address, size)
-            newGlobals = newGlobals.put(gv.address, strGv)
-            strGv
-        } else {
-            null
+     * Called when [reg] is being de-referenced and scalar analysis determines that [reg] is a number.
+     *
+     * Attempts to identify whether this number corresponds to the address of a global variable.
+     */
+    private fun inferGlobalVariable(i: LocatedSbfInstruction, reg: Value.Reg): SbfGlobalVariable? {
+        return when(regTypes.typeAtInstruction(i, reg.r)) {
+            is SbfType.NumType<*, *> -> recurseInferStartOfGlobalVar(i, reg, 10) // maxChainLen can be also a CLI
+            else -> null
         }
     }
 
@@ -287,19 +287,25 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Mem) {
                     val reg = inst.access.baseReg
-                    inferGlobalVariable(locInst, reg)
+                    inferAndAddGlobalVariable(locInst, reg)
                 } else if (inst is SbfInstruction.Call) {
-                    val solFunction = SolanaFunction.from(inst.name)
-                    if (solFunction == SolanaFunction.SOL_MEMCMP ||
-                        solFunction == SolanaFunction.SOL_MEMCPY ||
-                        solFunction == SolanaFunction.SOL_MEMMOVE) {
-                        inferGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG))
-                        inferGlobalVariable(locInst, Value.Reg(SbfRegister.R2_ARG))
-                    } else {
-                        val calltraceFunction = CVTCalltrace.from(inst.name)
-                        calltraceFunction?.strings?.forEach {
-                            // Even if AggressiveGlobalDetection is disabled we do identify strings used for calltrace.
-                            inferStringGlobalVariable(locInst, it.string, it.len)
+                    when (SolanaFunction.from(inst.name)) {
+                        SolanaFunction.SOL_MEMCPY,
+                        SolanaFunction.SOL_MEMMOVE,
+                        SolanaFunction.SOL_MEMCMP -> {
+                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG))
+                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R2_ARG))
+                        }
+                        SolanaFunction.SOL_MEMSET -> {
+                            inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG))
+                        }
+                        else -> {
+                            val calltraceFunction = CVTCalltrace.from(inst.name)
+                            calltraceFunction?.strings?.forEach {
+                                // Even if AggressiveGlobalDetection is disabled we do identify strings used for
+                                // calltrace purposes.
+                                inferAndAddStringGlobalVariable(locInst, it.string, it.len)
+                            }
                         }
                     }
                 }
@@ -307,5 +313,5 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
         }
     }
 
-    fun getNewGlobalMap(): GlobalVariableMap  = newGlobals
+    fun getNewGlobalMap(): GlobalVariables  = newGlobals
 }

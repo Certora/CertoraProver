@@ -56,7 +56,7 @@ data class GlobalVarInitializer(val gv: SbfGlobalVariable,
 fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> runGlobalInitializationAnalysis(
     cfg: SbfCFG,
     scalarAnalysis: IRegisterTypes<TNum, TOffset>,
-    globalsSymTable: IGlobalsSymbolTable
+    elf: IElfFileView
 ): List<GlobalVarInitializer>  {
 
     /**
@@ -115,7 +115,7 @@ fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> runGlobalInitializationAn
                     inst.access.offset % stride == 0
             })
         }
-        .map { populateValues(it, globalsSymTable) }
+        .map { populateValues(it, elf) }
 }
 
 /** Return true if [locInst]  is used in a condition **/
@@ -145,12 +145,14 @@ private fun isUsedInCondition(locInst: LocatedSbfInstruction, cfg: SbfCFG): Bool
  *  3. For each word, convert the unsigned value of each byte to a hex value and concat all the hex values
  *  4. Convert each hex word to a signed decimal
  **/
-private fun populateValues(gvInit: GlobalVarInitializer,
-                           globalsSymTable: IGlobalsSymbolTable): GlobalVarInitializer {
+private fun populateValues(
+    gvInit: GlobalVarInitializer,
+    elf: IElfFileView
+): GlobalVarInitializer {
     check(gvInit.values.isEmpty()) {"populateValues expects an empty list of values"}
 
     val gv = gvInit.gv
-    val content = globalsSymTable.getAsConstantString(gv.name, gv.address, gvInit.largestOffset.toLong()).value
+    val content = elf.getAsConstantString(gv.address, gvInit.largestOffset.toLong())
     val bytes = content.map { it.code.toUByte() }
     var j = 0
     val word = ArrayList<UByte>()
@@ -160,7 +162,7 @@ private fun populateValues(gvInit: GlobalVarInitializer,
         j++
         if (j == gvInit.stride.toInt()) {
             // Converts the unsigned value a BigInteger
-            val bigInteger = if (globalsSymTable.isLittleEndian()) {
+            val bigInteger = if (elf.isLittleEndian()) {
                 word.reversed()
             } else {
                 word

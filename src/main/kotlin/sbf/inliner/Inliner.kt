@@ -57,7 +57,7 @@ fun inline(entry: String, prog: SbfCallGraph, memSummaries: MemorySummaries, inl
  * after some inliner action.
  **/
 private class InlinerSbfCallGraph(private val prog: SbfCallGraph) {
-    fun getGlobals(): GlobalVariableMap = prog.getGlobals()
+    fun getGlobals(): GlobalVariables = prog.getGlobals()
     fun getCFG(name: String): SbfCFG? = prog.getCFG(name)
     // precondition: ensure that if a new CFG is created during inlining then
     // no existing CFG can call it.

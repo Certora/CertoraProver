@@ -23,7 +23,7 @@ import sbf.callgraph.SbfCallGraph
 import sbf.callgraph.SolanaFunction
 import sbf.cfg.*
 import sbf.disassembler.Label
-import sbf.disassembler.GlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.domains.*
 import sbf.sbfLogger
 import sbf.support.SolanaError
@@ -34,7 +34,7 @@ import sbf.support.SolanaInternalError
  ***/
 fun annotateWithTypes(
     cfg: MutableSbfCFG,
-    globals: GlobalVariableMap,
+    globals: GlobalVariables,
     memSummaries: MemorySummaries) {
     val sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
     annotateWithTypes(cfg, globals, memSummaries, sbfTypesFac)
@@ -56,10 +56,10 @@ fun annotateWithTypes(prog: SbfCallGraph, memSummaries: MemorySummaries): SbfCal
  * Only for debugging purposes. We try not to throw any exception from the scalar analysis
  **/
 private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> annotateWithTypes(
-        cfg: MutableSbfCFG,
-        globals: GlobalVariableMap,
-        memSummaries: MemorySummaries,
-        sbfTypesFac: ISbfTypeFactory<TNum, TOffset>) {
+    cfg: MutableSbfCFG,
+    globals: GlobalVariables,
+    memSummaries: MemorySummaries,
+    sbfTypesFac: ISbfTypeFactory<TNum, TOffset>) {
     try {
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
 
@@ -123,6 +123,7 @@ private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> annotateWithTypes
     }
     fun getPre(block: Label) = scalarAnalysis.getPre(block)
 
-    annotateCFGWithTypes(cfg, scalarAnalysis.globalsMap, scalarAnalysis.memSummaries, ::getPre, ::getType)
+    annotateCFGWithTypes(cfg, scalarAnalysis.globals, scalarAnalysis.memSummaries, ::getPre, ::getType)
 }
+
 
