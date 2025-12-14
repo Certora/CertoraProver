@@ -64,7 +64,6 @@ class CardContent:
 
 DOC_LINK_PREFIX = 'https://docs.certora.com/en/latest/docs/'
 GIT_ATTRIBUTES = ['origin', 'revision', 'branch', 'dirty']
-ARG_LIST_ATTRIBUTES = ['prover_args', 'java_args']
 
 
 class AttributeJobConfigData:
@@ -297,7 +296,7 @@ def collect_attribute_configs(metadata: dict) -> list[CardContent]:
         # Find or create the subsection (if it doesn't exist)
         if isinstance(attr_value, list):
             content_type = ContentType.SIMPLE
-            if attr_name in ARG_LIST_ATTRIBUTES:
+            if attr_name in Attrs.ARG_FLAG_LIST_ATTRIBUTES:
                 attr_value = split_and_sort_arg_list_value(attr_value)
 
         elif isinstance(attr_value, dict):
