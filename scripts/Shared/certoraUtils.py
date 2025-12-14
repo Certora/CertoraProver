@@ -310,6 +310,7 @@ class ExitException(Exception):
         self.exit_code = exit_code  # Store the integer data
 
 MIN_JAVA_VERSION = 19  # minimal java version to run the local type checker jar
+RECOMMENDED_JAVA_VERSION = 21  # recommended java version to run the local type checker jar
 
 
 def text_style(txt: str, style: str) -> str:
@@ -1028,17 +1029,23 @@ def is_java_installed(java_version: str) -> bool:
     if not java_version:
         typecheck_logger.warning(
             f"`java` is not installed. Installing Java version {MIN_JAVA_VERSION} or later will enable faster "
-            f"CVL specification syntax checking before uploading to the cloud.")
+            f"CVL specification syntax checking before uploading to the cloud.\n"
+            f"The recommended LTS version is {RECOMMENDED_JAVA_VERSION}.")
         return False
 
     else:
         major_java_version = java_version.split('.')[0]
         if int(major_java_version) < MIN_JAVA_VERSION:
             typecheck_logger.warning("Installed Java version is too old to check CVL specification files locally. "
-                                     f" Java version should be at least {MIN_JAVA_VERSION} to allow local java-based "
-                                     "type checking")
+                                     f"Java version should be at least {MIN_JAVA_VERSION} to allow local java-based "
+                                     "type checking\n"
+                                     f"The recommended LTS version is {RECOMMENDED_JAVA_VERSION}.")
 
             return False
+        elif int(major_java_version) < RECOMMENDED_JAVA_VERSION:
+            typecheck_logger.warning(f"Installed Java version ({int(major_java_version)}) is not an LTS release. "
+                                     f"Upgrading is recommended.\n"
+                                     f"The recommended LTS version is {RECOMMENDED_JAVA_VERSION}.")
 
     return True
 
