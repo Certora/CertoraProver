@@ -1698,6 +1698,24 @@ object Config {
         )
     ) { }
 
+    val SuperOptimisticSpillLocations = object : ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "superOptimisticSpillLocations",
+            true,
+            "Super optimistically scalarize spill locations."
+        )
+    ) {}
+
+    val EnableOptimisticReturnBufferAnalysis = object : ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "enableOptimisticReturnBufferAnalysis",
+            true,
+            "Allow the return buffer analysis to optimistically ignore writes to spilled memory"
+        )
+    ) {}
+
     val RelaxedPointsToSemantics = object : ConfigType.RelaxedSemantics(
         default = arrayOf(),
         option = Option(

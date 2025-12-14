@@ -23,6 +23,7 @@ import analysis.*
 import analysis.alloc.AllocationAnalysis.roundUp
 import analysis.numeric.*
 import com.certora.collect.*
+import config.Config
 import datastructures.stdcollections.*
 import evm.EVM_WORD_SIZE
 import kotlinx.serialization.UseSerializers
@@ -1376,7 +1377,8 @@ object ReturnBufferAnalysis {
                 OptimisticSpillRewriter.VALIDATION_READ in where.cmd.meta ||
                 (where.cmd is TACCmd.Simple.AssigningCmd.ByteLoad && where.cmd.base.let {
                     it != TACKeyword.RETURNDATA.toVar() && it != TACKeyword.MEMORY.toVar()
-                })
+                }) ||
+                (where.cmd is TACCmd.Simple.DirectMemoryAccessCmd && where.cmd.loc is TACSymbol.Const && Config.EnableOptimisticReturnBufferAnalysis.get())
             return if(!isSafeAccess) {
                 rcStep.tryRecover("Have memory access command at $where")
             } else {

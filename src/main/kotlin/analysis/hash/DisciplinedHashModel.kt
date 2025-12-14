@@ -33,6 +33,7 @@ import evm.twoToThe
 import instrumentation.calls.CalldataEncoding
 import log.Logger
 import log.LoggerTypes
+import optimizer.UNINDEXED_PARTITION
 import scene.PrecompiledContractCode
 import scene.TACMethod
 import tac.MetaMap
@@ -687,6 +688,8 @@ object DisciplinedHashModel {
                 TACSymbol.Factory.AuxVarPurpose.SUMMARY,
                 hash.cmd.op2 as TACSymbol.Var
             )
+            val p1 = hash.cmd.memBaseMap.meta.find(UNINDEXED_PARTITION)
+            val p2 = prevSlotWrite.cmd.base.meta.find(UNINDEXED_PARTITION)
 
             /**
              * Hash the prefix of the buffer, excluding the final 32 bytes. the result of this hash is used as the representative
@@ -702,7 +705,13 @@ object DisciplinedHashModel {
                 ),
                 TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
                     lhs = stringHash,
-                    memBaseMap = TACKeyword.MEMORY.toVar(),
+                    memBaseMap = TACKeyword.MEMORY.toVar().withMeta { m ->
+                        if(p1 != null && p1 == p2) {
+                            m.plus(UNINDEXED_PARTITION to p1)
+                        } else {
+                            m
+                        }
+                    },
                     op1 = hash.cmd.op1,
                     op2 = len
                 )
