@@ -1418,28 +1418,36 @@ def handle_remappings_file(context: SimpleNamespace) -> List[str]:
     """
     Tries to fetch packages from remappings.txt. This function should not be called if the packages attribute
     was set in conf file on in CLI.
-    If forge is installed we run 'forge remappings' to get the package mappings (including possible auto scan).
+    If forge is installed and foundry.toml is found we run 'forge remappings' to get the package mappings (including possible auto scan).
     If the remappings.txt exists in cwd and foundry is not installed we parse the file (legacy behavior).
     """
+
+    def parse_remappings_file() -> List[str]:
+        try:
+            with REMAPPINGS_FILE.open() as remappings_file:
+                remappings_set = set(filter(lambda x: x != "", map(lambda x: x.strip(), remappings_file.readlines())))
+            return list(remappings_set)
+        except CertoraUserInputError as e:
+            raise e from None
+        except Exception as e:
+            # create CertoraUserInputError from other exceptions
+            raise CertoraUserInputError(f"Invalid remappings file: {REMAPPINGS_FILE}", e)
+
+    check_remapping_file()
+    foundry_toml_exist = find_nearest_foundry_toml()
+    remappings_text_exist_in_cwd = REMAPPINGS_FILE.exists()
+    foundry_installed = shutil.which("forge") is not None
     remappings = []
-    check_remapping_file()  # if file exists in cwd check it is well-formed
-    if shutil.which("forge"):
+    if foundry_installed and foundry_toml_exist:
         remappings = get_mappings_from_forge_remappings()
-    else:
-        if find_nearest_foundry_toml():
-            context_logger.warning("foundry.toml was found but `forge` command not found. To add support for foundry "
-                                   "please install `foundry` following instructions at "
-                                   "https://book.getfoundry.sh/getting-started/installation")
-        if REMAPPINGS_FILE.exists():
-            try:
-                with REMAPPINGS_FILE.open() as remappings_file:
-                    remappings_set = set(filter(lambda x: x != "", map(lambda x: x.strip(), remappings_file.readlines())))
-                remappings = list(remappings_set)
-            except CertoraUserInputError as e:
-                raise e from None
-            except Exception as e:
-                # create CertoraUserInputError from other exceptions
-                raise CertoraUserInputError(f"Invalid remappings file: {REMAPPINGS_FILE}", e)
+    elif remappings_text_exist_in_cwd:
+        remappings = parse_remappings_file()
+
+    if foundry_toml_exist and not foundry_installed:
+        context_logger.warning("foundry.toml was found but `forge` command not found. To add support for foundry "
+                               "please install `foundry` following instructions at "
+                               "https://book.getfoundry.sh/getting-started/installation")
+
     return remappings
 
 

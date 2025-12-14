@@ -833,18 +833,21 @@ class TestClient(unittest.TestCase):
         assert not packages, f"expected 'packages' to be None. Got: {result.packages}"
 
         remapping = "a=lib\nb=lib"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
-        description = f"running with {Util.REMAPPINGS_FILE}"
-        result = suite.expect_checkpoint(description=description)
-        check_run(['a', 'b'])
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
+            description = f"running with {Util.REMAPPINGS_FILE}"
+            result = suite.expect_checkpoint(description=description)
+            check_run(['a', 'b'])
 
-        remapping = '{"dependencies": {"c": "^3.4.1"},"devDependencies": {"d": "^5.0.8"}}'
-        with open(Util.PACKAGE_FILE, "w") as file:
-            file.write(remapping)
-        description = f"running with {Util.REMAPPINGS_FILE} and {Util.PACKAGE_FILE}"
-        result = suite.expect_checkpoint(description=description)
-        check_run(['a', 'b', 'c', 'd'])
+            remapping = '{"dependencies": {"c": "^3.4.1"},"devDependencies": {"d": "^5.0.8"}}'
+            with open(Util.PACKAGE_FILE, "w") as file:
+                file.write(remapping)
+            description = f"running with {Util.REMAPPINGS_FILE} and {Util.PACKAGE_FILE}"
+            result = suite.expect_checkpoint(description=description)
+            check_run(['a', 'b', 'c', 'd'])
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
         description = "--packages - ignore files"
         result = suite.expect_checkpoint(description=description, run_flags=['--packages', 'd=lib'])
@@ -852,18 +855,22 @@ class TestClient(unittest.TestCase):
 
         # duplications
         remapping = "a=lib\na=lib"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
-        description = f"identical duplicates in {Util.REMAPPINGS_FILE}"
-        suite.expect_success(description=description)
-        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
+            description = f"identical duplicates in {Util.REMAPPINGS_FILE}"
+            suite.expect_success(description=description)
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
         remapping = "a=lib\na=lib2"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
-        description = f"non-identical duplicates in {Util.REMAPPINGS_FILE}"
-        suite.expect_failure(description=description, expected="Conflicting values in remappings.txt for key 'a'")
-        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
+            description = f"non-identical duplicates in {Util.REMAPPINGS_FILE}"
+            suite.expect_failure(description=description, expected="Conflicting values in remappings.txt for key 'a'")
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
         remapping = '{"dependencies": {"c": "^3.4.1"},"devDependencies": {"c": "^5.0.8"}}'
         with open(Util.PACKAGE_FILE, "w") as file:
@@ -873,24 +880,28 @@ class TestClient(unittest.TestCase):
         Path(Util.PACKAGE_FILE).unlink(missing_ok=True)
 
         remapping = "a=lib\nb=lib"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
-        remapping = '{"dependencies": {"b": "^3.4.1"},"devDependencies": {"c": "^5.0.8"}}'
-        with open(Util.PACKAGE_FILE, "w") as file:
-            file.write(remapping)
-        description = f"duplicates in {Util.REMAPPINGS_FILE} and Util.PACKAGE_FILE"
-        suite.expect_failure(description=description, expected="package.json and remappings.txt include duplicated")
-        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
-        Path(Util.PACKAGE_FILE).unlink(missing_ok=True)
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
+            remapping = '{"dependencies": {"b": "^3.4.1"},"devDependencies": {"c": "^5.0.8"}}'
+            with open(Util.PACKAGE_FILE, "w") as file:
+                file.write(remapping)
+            description = f"duplicates in {Util.REMAPPINGS_FILE} and Util.PACKAGE_FILE"
+            suite.expect_failure(description=description, expected="package.json and remappings.txt include duplicated")
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+            Path(Util.PACKAGE_FILE).unlink(missing_ok=True)
 
 
         remapping = "a=lib\nb=lib=lib2"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
 
-        description = f"remappings.txt with bad format"
-        suite.expect_failure(description=description, expected="Invalid remapping in remappings.txt")
-        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+            description = f"remappings.txt with bad format"
+            suite.expect_failure(description=description, expected="Invalid remapping in remappings.txt")
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
     def test_solc_args(self) -> None:
 
