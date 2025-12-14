@@ -3149,20 +3149,17 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     //   2) A previous write at the same offset but with a different size
                     //
                     // For debugging, we need an initial pointer expression to guide the
-                    // backward dependency analysis. If there is already a write at the same
-                    // offset but with different size, we start from that write; otherwise, we
+                    // backward dependency analysis. If there is an overlap link, then we start from that; otherwise, we
                     // fall back to the de-referenced field itself.
-                    var errExp = PtrExprErrStackDeref(field)
-                    val candidateSizes = listOf<Short>(1, 2, 4, 8)
-                    for (size in candidateSizes) {
-                        if (size != field.size) {
-                            val candidate = PTAField(field.offset, size)
-                            if (derefC.getNode().getSucc(candidate) != null) {
-                                errExp = PtrExprErrStackDeref(candidate)
-                                break
-                            }
-                        }
+
+                    // We could have more than one overlap link, but we just try the first one
+                    val overlapLink = getAllLinks(derefC, field.size.toLong()).firstOrNull()
+                    val errExp = if (overlapLink != null) {
+                        PtrExprErrStackDeref(overlapLink.field)
+                    } else {
+                        PtrExprErrStackDeref(field)
                     }
+
                     throw UnknownStackContentError(DevErrorInfo(locInst, errExp,
                         "load: reading from a stack offset ${field.offset} that points to nowhere."))
                 }
