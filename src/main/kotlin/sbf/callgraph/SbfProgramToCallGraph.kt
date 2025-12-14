@@ -179,6 +179,11 @@ private fun sbfProgramWithMocksToSbfCfgs(
     val cfgs = ArrayList<MutableSbfCFG>()
     for ((name, start) in functions) {
         check(start != null)
+
+        if (AbortFunctions.contains(name)) {
+            continue
+        }
+
         val labeledStart = labelMap[Label.Address(start)]
         check(labeledStart != null) { "cannot find address $start in the label map $labelMap" }
         val entryBlock = monoCFG.getBlock(labeledStart)
