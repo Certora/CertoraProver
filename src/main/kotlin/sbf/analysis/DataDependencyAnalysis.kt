@@ -475,11 +475,10 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                     }
                     is CVTFunction.Nondet ->
                         inState.kill(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
-                    // We ignore these for now
                     is CVTFunction.NativeInt,
                     is CVTFunction.U128Intrinsics,
                     is CVTFunction.I128Intrinsics,
-                    is CVTFunction.Calltrace -> inState
+                    is CVTFunction.Calltrace -> applyDDASummaries(inState, cmd)
                 }
             } else {
                 applyDDASummaries(inState, cmd)
