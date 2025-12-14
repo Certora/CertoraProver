@@ -103,6 +103,7 @@ class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : Me
                     is TACCmd.Move.VecPopBackCmd -> transformVecPopBackCmd(cmd)
                     is TACCmd.Move.PackVariantCmd -> transformPackVariantCmd(cmd)
                     is TACCmd.Move.UnpackVariantCmd -> transformUnpackVariantCmd(cmd)
+                    is TACCmd.Move.UnpackVariantRefCmd -> transformUnpackVariantRefCmd(cmd)
                     is TACCmd.Move.VariantIndexCmd -> transformVariantIndexCmd(cmd)
                     is TACCmd.Move.GhostArrayBorrowCmd -> transformGhostArrayBorrowCmd(cmd)
                     is TACCmd.Move.HashCmd -> transformHashCmd(cmd)
@@ -460,17 +461,44 @@ class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : Me
     }
 
     context(CommandContext)
+    private fun transformUnpackVariantRefCmd(cmd: TACCmd.Move.UnpackVariantRefCmd): SimpleCmdsWithDecls {
+        val enumType = cmd.srcRef.getTargetType<MoveType.Enum>()
+        val variant = enumType.variants[cmd.variant]
+        val fields = variant.fields!!
+        check(fields.size == cmd.dsts.size) { "Expected ${fields.size} fields, got ${cmd.dsts.size}" }
+        val dstRefLayouts = cmd.dsts.map { MemoryLayout.Reference.fromVar(it) }
+        return deref(cmd.srcRef, cmd.meta) { srcEnumLoc ->
+            mergeMany(
+                listOfNotNull(
+                    runIf(cmd.doVariantCheck) {
+                        Trap.assert("Variant tag mismatch", cmd.meta) {
+                            srcEnumLoc.enumVariant(enumType) eq cmd.variant.asTACExpr
+                        }
+                    }
+                ) + fields.mapIndexed { fieldIndex, _ ->
+                    val srcFieldLoc = srcEnumLoc.fieldLoc(variant, fieldIndex)
+                    mergeMany(
+                        assign(dstRefLayouts[fieldIndex].layoutId, cmd.meta) { srcFieldLoc.layout.id },
+                        assign(dstRefLayouts[fieldIndex].offset, cmd.meta) { srcFieldLoc.offset }
+                    )
+                }
+            )
+        }
+    }
+
+    context(CommandContext)
     private fun transformVariantIndexCmd(cmd: TACCmd.Move.VariantIndexCmd): SimpleCmdsWithDecls {
-        val enumType = cmd.loc.getType<MoveType.Enum>()
-        val enumLoc = cmd.loc.location()
+        val enumType = cmd.ref.getTargetType<MoveType.Enum>()
         val maxVariant = enumType.variants.size - 1
         check(maxVariant >= 0) { "Enum ${enumType.name} has no variants" }
-        return assign(cmd.index, cmd.meta) {
-            safeMathNarrowAssuming(
-                enumLoc.enumVariant(enumType),
-                Tag.Bit256,
-                maxVariant.toBigInteger()
-            )
+        return deref(cmd.ref, cmd.meta) { enumLoc ->
+            assign(cmd.index, cmd.meta) {
+                safeMathNarrowAssuming(
+                    enumLoc.enumVariant(enumType),
+                    Tag.Bit256,
+                    maxVariant.toBigInteger()
+                )
+            }
         }
     }
 

@@ -150,6 +150,7 @@ sealed class MoveType : AmbiSerializable {
         @KSerializable
         data class Variant(
             val name: String,
+            val index: Int,
             override val fields: List<Composite.Field>?
         ) : Composite
     }
@@ -335,7 +336,7 @@ fun MoveModule.EnumDefinition.toMoveEnum(
     return MoveType.Enum(
         name,
         typeArgs,
-        variants.map { MoveType.Enum.Variant(it.name, it.fields.toCompositeFields(typeArgs)) }
+        variants.mapIndexed { i, it -> MoveType.Enum.Variant(it.name, i, it.fields.toCompositeFields(typeArgs)) }
     )
 }
 

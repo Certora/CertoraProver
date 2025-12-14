@@ -309,8 +309,11 @@ object MoveCallTrace {
         type: MoveType.Enum,
         enumSym: TACSymbol.Var
     ): Value.Enum {
+        val refSym = TACKeyword.TMP(MoveTag.Ref(type))
+        cmds += TACCmd.Move.BorrowLocCmd(refSym, enumSym).withDecls(refSym)
+
         val variantIndexSym = TACSymbol.Var("variant_index", Tag.Bit256).toUnique("!")
-        cmds += TACCmd.Move.VariantIndexCmd(variantIndexSym, enumSym).withDecls(variantIndexSym)
+        cmds += TACCmd.Move.VariantIndexCmd(variantIndexSym, refSym).withDecls(variantIndexSym)
 
         val variants = type.variants.mapIndexed { variantIndex, variant ->
             val fields = variant.fields.orEmpty()

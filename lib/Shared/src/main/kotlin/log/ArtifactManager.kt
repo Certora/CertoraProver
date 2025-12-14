@@ -496,16 +496,11 @@ private object StandardArtifactManager : IArtifactsManager {
      */
     override fun backup(fileName: String, backupFileName: String) {
         try {
-            val reader = CertoraFileCache.getContentReader(fileName)
-            reader.use {
-                // build the directory structure, if needed.
-                val backupFileDir = File(backupFileName).parentFile
-                backupFileDir.mkdirs()
-                val writer = File(backupFileName).bufferedWriter()
-                writer.use {
-                    reader.copyTo(writer)
-                }
-            }
+            val bytes = CertoraFileCache.byteContent(fileName)
+
+            val backupFile = File(backupFileName)
+            backupFile.parentFile.mkdirs()
+            backupFile.writeBytes(bytes)
         } catch (e: Exception) {
             Logger.alwaysError("Received exception $e; Failed to backup $fileName", e)
         }

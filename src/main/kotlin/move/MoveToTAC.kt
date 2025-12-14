@@ -1173,14 +1173,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                         val fields = variant.fields ?: error("Cannot unpack native variant ${enumType.name}::${variant.name}")
 
                         mergeMany(
-                            TACCmd.Move.ReadRefCmd(
-                                ref = pop().s,
-                                dst = push(enumType),
-                                meta = meta
-                            ).withDecls(),
-                            TACCmd.Move.UnpackVariantCmd(
-                                src = pop().s,
-                                dsts = fields.map { push(it.type) },
+                            TACCmd.Move.UnpackVariantRefCmd(
+                                srcRef = pop().s,
+                                dsts = fields.map { push(MoveType.Reference(it.type)) },
                                 variant = inst.variant,
                                 meta = meta
                             ).withDecls()
@@ -1192,6 +1187,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                             ?: error("Expected reference type, got ${topType()}")
                         val enumType = variantRef.refType as? MoveType.Enum
                             ?: error("Expected enum type, got $variantRef")
+                        check(inst.branches.size == enumType.variants.size) {
+                            "Expected ${enumType.variants.size} branches, got ${inst.branches.size}"
+                        }
 
                         /*
                             Generate a switch over variant indexes 0..n, to target blocks T0..Tn
@@ -1235,13 +1233,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                         check(fallthrough == null) { "Creating successors should have cleared the fallthrough" }
 
                         mergeMany(
-                            TACCmd.Move.ReadRefCmd(
-                                ref = pop().s,
-                                dst = push(enumType),
-                                meta = meta
-                            ).withDecls(),
                             TACCmd.Move.VariantIndexCmd(
-                                loc = pop().s,
+                                ref = pop().s,
                                 index = idx,
                                 meta = meta
                             ).withDecls(idx),

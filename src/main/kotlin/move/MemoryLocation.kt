@@ -153,7 +153,7 @@ data class MemoryLocation(
             )
             is MemoryLayout.Value.Enum -> this.copy(
                 layout = layout.content,
-                path = path.push(PathComponent.Field(fieldIndex)),
+                path = path.push(PathComponent.EnumField((type as MoveType.Enum.Variant).index, fieldIndex)),
                 offset = TXF { type.fieldOffset(fieldIndex).asTACExpr }
             )
             is MemoryLayout.Value.Composed -> when (type) {
@@ -162,7 +162,7 @@ data class MemoryLocation(
                     offset = TXF { offset intAdd type.fieldOffset(fieldIndex) }
                 )
                 is MoveType.Enum.Variant -> this.copy(
-                    path = path.push(PathComponent.Field(fieldIndex)),
+                    path = path.push(PathComponent.EnumField(type.index, fieldIndex)),
                     offset = TXF { offset intAdd composedEnumContentOffset intAdd type.fieldOffset(fieldIndex) }
                 )
             }
@@ -418,6 +418,12 @@ data class MemoryLocation(
                     val structType = currentType as MoveType.Struct
                     currentLoc = currentLoc.fieldLoc(structType, comp.fieldIndex)
                     currentType = structType.fields!![comp.fieldIndex].type
+                }
+                is PathComponent.EnumField -> {
+                    val enumType = currentType as MoveType.Enum
+                    val variant = enumType.variants[comp.variantIndex]
+                    currentLoc = currentLoc.fieldLoc(variant, comp.fieldIndex)
+                    currentType = variant.fields!![comp.fieldIndex].type
                 }
                 is PathComponent.VecElem -> {
                     val vecType = currentType as MoveType.Vector

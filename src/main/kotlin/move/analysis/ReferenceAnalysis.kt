@@ -42,6 +42,7 @@ class ReferenceAnalysis private constructor(
     */
     sealed class PathComponent {
         data class Field(val fieldIndex: Int) : PathComponent()
+        data class EnumField(val variantIndex: Int, val fieldIndex: Int) : PathComponent()
         object VecElem : PathComponent()
         object GhostArrayElem : PathComponent()
     }
@@ -87,6 +88,25 @@ class ReferenceAnalysis private constructor(
                     is TACCmd.Move.BorrowFieldCmd -> inState + (c.dstRef to inState[c.srcRef]!!.borrowField(c.fieldIndex))
                     is TACCmd.Move.VecBorrowCmd -> inState + (c.dstRef to inState[c.srcRef]!!.borrowVecElem())
                     is TACCmd.Move.GhostArrayBorrowCmd -> inState + (c.dstRef to inState[c.arrayRef]!!.borrowGhostArrayElem())
+                    is TACCmd.Move.UnpackVariantRefCmd -> borrowVariantFields(inState, c)
+                }
+                is TACCmd.Simple.SummaryCmd -> when (c.summ) {
+                    // Fake a location for unmaterialized ghost mappings.
+                    is GhostMapping -> when (c.summ.resultType) {
+                        is MoveType.Reference -> inState + (
+                            c.summ.result to treapSetOf(
+                                RefTarget(
+                                    TACSymbol.Var(
+                                        "tacUnmaterializedGhostMappings!${c.summ.resultType.symNameExt()}",
+                                        MoveTag.GhostArray(c.summ.resultType.refType)
+                                    ),
+                                    persistentStackOf()
+                                )
+                            )
+                        )
+                        else -> inState
+                    }
+                    else -> inState
                 }
                 else -> inState
             }
@@ -99,6 +119,26 @@ class ReferenceAnalysis private constructor(
 
             private fun TreapSet<RefTarget>.borrowGhostArrayElem() =
                 mapToTreapSet { it.copy(path = it.path.push(PathComponent.GhostArrayElem)) }
+
+            /**
+                When unpacking an enum variant by reference, we produce a new reference to each field of the varient.
+                Each field's destination reference gets a new target for each source variant reference.
+             */
+            private fun borrowVariantFields(
+                inState: TreapMap<TACSymbol.Var, TreapSet<RefTarget>>,
+                c: TACCmd.Move.UnpackVariantRefCmd
+            ): TreapMap<TACSymbol.Var, TreapSet<ReferenceAnalysis.RefTarget>> {
+                val enumType = (c.srcRef.tag as MoveTag.Ref).refType as MoveType.Enum
+                val variant = enumType.variants[c.variant]
+                val srcTargets = inState[c.srcRef]!!
+                return variant.fields.orEmpty().foldIndexed(inState) { fieldIndex, acc, _ ->
+                    acc + (
+                        c.dsts[fieldIndex] to srcTargets.mapToTreapSet {
+                            it.copy(path = it.path.push(PathComponent.EnumField(c.variant, fieldIndex)))
+                        }
+                    )
+                }
+            }
 
             private val liveRefs = LiveReferenceAnalysis(graph)
 
