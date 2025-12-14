@@ -820,7 +820,7 @@ class TestClient(unittest.TestCase):
         def check_run(expect: List[str]) -> None:
             packages_attr = getattr(result, 'packages', None)
             assert packages_attr, f"{description}: package is None"
-            got = sorted([dep.split('=')[0] for dep in packages_attr])
+            got = sorted([dep.split('=')[0].rstrip('/') for dep in packages_attr])
             assert expect == got, f"{description}. Expected: {expect}. Got: {got}"
 
         suite = TestUtil.ProverTestSuite(conf_file_template=_p('mutation_conf_top_level.conf'),
