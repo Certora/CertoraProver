@@ -56,12 +56,12 @@ sealed class Value {
     }
 }
 
-/* Registers that _may_ be written */
+/** Registers that _may_ be written **/
 interface WriteRegister {
     val writeRegister: Set<Value.Reg>
 }
 
-/* Registers that _may_ be read */
+/** Registers that _may_ be read **/
 interface ReadRegister {
     val readRegisters: Set<Value.Reg>
 }
@@ -501,30 +501,33 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
                     CompilerRtFunction.from(name) != null)
         }
 
-        fun isPromotedMemcpy(): Boolean {
-            return SolanaFunction.from(name) == SolanaFunction.SOL_MEMCPY &&
-                   metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
-        }
+        // special case for promoted memcpy
+        private fun writeRegister(f: SolanaFunction?) =
+            if (f == SolanaFunction.SOL_MEMCPY && metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null) {
+                setOf()
+            } else {
+                f?.syscall?.writeRegister
+            }
+        private fun writeRegister(f: CVTFunction?) = f?.function?.writeRegister
+        private fun writeRegister(f: CompilerRtFunction?) = f?.function?.writeRegister
 
         override val writeRegister: Set<Value.Reg>
             get() {
-                val cvtFunction = CVTFunction.from(name)
-                val solFunction = SolanaFunction.from(name)
-                val rtFunction = CompilerRtFunction.from(name)
-                return cvtFunction?.function?.writeRegisters
-                    ?: (solFunction?.syscall?.writeRegisters
-                        ?: (rtFunction?.function?.writeRegisters
+                return writeRegister(CVTFunction.from(name))
+                    ?: (writeRegister(SolanaFunction.from(name))
+                        ?: (writeRegister(CompilerRtFunction.from(name))
                             ?: setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE))))
             }
 
+        private fun readRegisters(f: SolanaFunction?) =  f?.syscall?.readRegisters
+        private fun readRegisters(f: CVTFunction?) = f?.function?.readRegisters
+        private fun readRegisters(f: CompilerRtFunction?) = f?.function?.readRegisters
+
         override val readRegisters: Set<Value.Reg>
             get() {
-                val cvtFunction = CVTFunction.from(name)
-                val solFunction = SolanaFunction.from(name)
-                val rtFunction = CompilerRtFunction.from(name)
-                return cvtFunction?.function?.readRegisters
-                    ?: (solFunction?.syscall?.readRegisters
-                        ?: (rtFunction?.function?.readRegisters
+                return readRegisters(CVTFunction.from(name))
+                    ?: (readRegisters(SolanaFunction.from(name))
+                        ?: (readRegisters(CompilerRtFunction.from(name))
                             ?: SbfRegister.funArgRegisters.mapToSet { Value.Reg(it) }))
             }
 

@@ -563,7 +563,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         } else {
             this
         }
-        return if (!inst.isPromotedMemcpy()) {
+        return if (inst.writeRegister.contains(Value.Reg(r0))) {
             outState.havoc(RegisterVariable(Value.Reg(r0), vFac))
         } else {
             outState

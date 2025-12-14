@@ -114,7 +114,7 @@ open class SummarizeCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffset
                     FPCompilerRtFunction.LEDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeLedf2(res, arg1, arg2)
                     FPCompilerRtFunction.GTDF2 -> SummarizeFPCompilerRt<TNum, TOffset, TFlags>().summarizeGtdf2(res, arg1, arg2)
                 }
-                debugCompilerRtFunction(inst, function.value.function.readRegisters.size, cmds)
+                debugCompilerRtFunction(inst, inst.readRegisters.size, cmds)
             }
         }
     }

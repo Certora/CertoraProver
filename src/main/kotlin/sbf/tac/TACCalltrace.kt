@@ -46,13 +46,16 @@ object Calltrace {
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
     printValueOrTag(locInst: LocatedSbfInstruction, cexPrintFunction: CVTFunction): TACCmd.Simple {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+
         val tag = getString(locInst, SbfRegister.R1_ARG)
         return if (cexPrintFunction == CVTFunction.Calltrace(CVTCalltrace.PRINT_TAG)) {
             SnippetCmd.CvlrSnippetCmd.CexPrintTag(tag).toAnnotation()
         } else {
             val usedVars = mutableListOf<TACSymbol.Var>()
             var i = 0
-            val numArgs = cexPrintFunction.function.readRegisters.size - 2 /** We skip R1 and R2 **/
+            val numArgs = inst.readRegisters.size - 2 /** We skip R1 and R2 **/
             while (i < numArgs) {
                 usedVars.add(exprBuilder.mkVar(SbfRegister.getByValue((i + 3).toByte()))) // We start at R3
                 i++

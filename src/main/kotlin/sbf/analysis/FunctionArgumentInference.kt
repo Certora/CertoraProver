@@ -70,10 +70,6 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
         )
     }
 
-    private fun transformExternalCall(inState: LiveArgRegisters, call: ExternalFunction, cmd: LocatedSbfInstruction): LiveArgRegisters {
-        return genAndKill(inState, call.readRegisters, call.writeRegisters, cmd)
-    }
-
     private fun transformScratchRegisterOp(inState: LiveArgRegisters, call: SbfInstruction.Call, cmd: LocatedSbfInstruction): LiveArgRegisters {
         val callId = call.metaData.getVal(SbfMeta.CALL_ID)
         val inlinedFunction = call.metaData.getVal(SbfMeta.INLINED_FUNCTION_NAME)
@@ -92,19 +88,13 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
     }
 
     private fun transformCall(inState: LiveArgRegisters, call: SbfInstruction.Call, cmd: LocatedSbfInstruction): LiveArgRegisters {
-        val solanaCall = SolanaFunction.from(call.name)?.syscall
-        val cvtCall = CVTFunction.from(call.name)?.function
-        val rtCall = CompilerRtFunction.from(call.name)?.function
-
         return if (CVTFunction.from(call.name)  == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)  ||
                    CVTFunction.from(call.name)  == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
             transformScratchRegisterOp(inState, call, cmd)
-        } else if (solanaCall != null) {
-            transformExternalCall(inState, solanaCall, cmd)
-        } else if (cvtCall != null) {
-            transformExternalCall(inState, cvtCall, cmd)
-        } else if (rtCall != null) {
-            transformExternalCall(inState, rtCall, cmd)
+        } else if (SolanaFunction.from(call.name) != null ||
+                   CVTFunction.from(call.name) != null ||
+                   CompilerRtFunction.from(call.name) != null) {
+            genAndKill(inState, call.readRegisters, call.writeRegister, cmd)
         } else {
             // Arity is the same as the maximum argument
             val arity = call.metaData.getVal(SbfMeta.KNOWN_ARITY) ?: run {

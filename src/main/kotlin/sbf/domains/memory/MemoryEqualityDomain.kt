@@ -1102,8 +1102,8 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
-        if (!inst.isPromotedMemcpy()) {
-            val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        if (inst.writeRegister.contains(r0)) {
             forget(r0)
         }
 

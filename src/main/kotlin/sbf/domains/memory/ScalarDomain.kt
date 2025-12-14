@@ -544,7 +544,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
-        if (!stmt.isPromotedMemcpy()) {
+        if (stmt.writeRegister.contains(r0))  {
             forget(r0)
         }
 

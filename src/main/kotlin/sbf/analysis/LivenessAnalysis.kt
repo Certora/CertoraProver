@@ -76,12 +76,6 @@ class LivenessAnalysis(graph: SbfCFG) :
         return inState.copy(registers = (inState.registers - killed.toSet()) + gen)
     }
 
-    private fun transformExternalCall(inState: LiveState, call: ExternalFunction,
-                                      @Suppress("UNUSED_PARAMETER")
-                                      cmd: LocatedSbfInstruction): LiveState {
-        return genAndKill(inState, gen = call.readRegisters, killed = call.writeRegisters)
-    }
-
     private fun getFunctionId(inst: SbfInstruction.Call): ULong {
         check(CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS) ||
             CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS))
@@ -115,10 +109,6 @@ class LivenessAnalysis(graph: SbfCFG) :
     }
 
     private fun transformCall(inState: LiveState, call: SbfInstruction.Call, cmd: LocatedSbfInstruction): LiveState {
-        val solanaCall = SolanaFunction.from(call.name)?.syscall
-        val cvtCall = CVTFunction.from(call.name)?.function
-        val rtCall = CompilerRtFunction.from(call.name)?.function
-
         return if (CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS) ||
                   CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
             transformScratchRegisterOp(inState, call, cmd)
@@ -126,12 +116,10 @@ class LivenessAnalysis(graph: SbfCFG) :
             genAndKill(inState,
                 gen = setOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG)),
                 killed = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)))
-        } else if (solanaCall != null) {
-            transformExternalCall(inState, solanaCall, cmd)
-        } else if (cvtCall != null) {
-            transformExternalCall(inState, cvtCall, cmd)
-        } else if (rtCall != null) {
-            transformExternalCall(inState, rtCall, cmd)
+        } else if (SolanaFunction.from(call.name) != null ||
+                   CVTFunction.from(call.name) != null ||
+                   CompilerRtFunction.from(call.name) != null) {
+            genAndKill(inState, gen = call.readRegisters, killed = call.writeRegister)
         } else {
             // This is very conservative because the metadata KNOWN_ARITY is not available at the time
             // the liveness analysis is executed, so arity will be always 5.

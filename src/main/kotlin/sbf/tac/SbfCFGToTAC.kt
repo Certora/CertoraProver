@@ -640,10 +640,10 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     }
                 }
             }
-            if (inst.isPromotedMemcpy()) {
-                cmds
-            } else {
+            if (inst.writeRegister.contains(Value.Reg(SbfRegister.R0_RETURN_VALUE))) {
                 cmds + TACCmd.Simple.AssigningCmd.AssignHavocCmd(r0)
+            } else {
+                cmds
             }
         }
     }

@@ -46,7 +46,7 @@ fun unhoistCalltraceFunctions(cfg: MutableSbfCFG, numInstsBeforeFirstCalltraceFn
                             CVTCalltrace.PRINT_STRING -> {
                                 // IMPORTANT: if one of the read registers of the calltrace function is not defined in the current block
                                 // then we unhoist the call
-                                val readRegs = calltraceFn.function.readRegisters
+                                val readRegs = inst.readRegisters
                                 if (readRegs.any { reg ->
                                         val defLocInst = findDefinitionInterBlock(b, reg, i)
                                         defLocInst?.label != b.getLabel()

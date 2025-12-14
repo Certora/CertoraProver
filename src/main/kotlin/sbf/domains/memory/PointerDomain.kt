@@ -4128,7 +4128,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
-        if (!inst.isPromotedMemcpy()) {
+        if (inst.writeRegister.contains(r0)) {
             forget(r0)
         }
 

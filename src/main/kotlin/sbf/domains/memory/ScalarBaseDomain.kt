@@ -440,7 +440,7 @@ class ScalarBaseDomain<ScalarValue>(
         val r1 = Value.Reg(SbfRegister.R1_ARG) // destination
         val r3 = Value.Reg(SbfRegister.R3_ARG) // length
 
-        if (!stmt.isPromotedMemcpy()) {
+        if (stmt.writeRegister.contains(r0)) {
             forget(r0)
         }
 

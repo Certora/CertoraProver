@@ -59,14 +59,14 @@ enum class SignedInteger64CompilerRtFunction(val function: ExternalFunction) {
     /** Signed division for 64-bits **/
     DIVDI3(ExternalFunction(
         name = "__divdi3",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())),
 
     /** Signed modulus (remainder) for 64 bits **/
     MODDI3(ExternalFunction(
         name = "__moddi3",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet()));
 
@@ -103,37 +103,37 @@ enum class SignedInteger64CompilerRtFunction(val function: ExternalFunction) {
 enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
     MULTI3(ExternalFunction(
         name = "__multi3",
-        writeRegisters = setOf(),
+        writeRegister = setOf(),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
             SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
     MULOTI4(ExternalFunction(
         name = "__muloti4",
-        writeRegisters = setOf(),
+        writeRegister = setOf(),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
             SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
     UDIVTI3(ExternalFunction(
         name = "__udivti3",
-        writeRegisters = setOf(),
+        writeRegister = setOf(),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
             SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
     DIVTI3(ExternalFunction(
         name = "__divti3",
-        writeRegisters = setOf(),
+        writeRegister = setOf(),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
             SbfRegister.R3_ARG, SbfRegister.R4_ARG, SbfRegister.R5_ARG).map{ Value.Reg(it)}.toSet())),
     ASHLTI3(ExternalFunction(
         name = "__ashlti3",
-        writeRegisters = setOf(),
+        writeRegister = setOf(),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG,
             SbfRegister.R3_ARG, SbfRegister.R4_ARG).map{ Value.Reg(it)}.toSet())),
     ASHRTI3(ExternalFunction(
         name = "__ashrti3",
-        writeRegisters = setOf(),
+        writeRegister = setOf(),
         readRegisters = listOf(
         SbfRegister.R1_ARG, SbfRegister.R2_ARG,
         SbfRegister.R3_ARG, SbfRegister.R4_ARG).map{ Value.Reg(it)}.toSet()));
@@ -196,81 +196,81 @@ enum class IntegerU128CompilerRtFunction(val function: ExternalFunction) {
 enum class FPCompilerRtFunction(val function: ExternalFunction) {
     ADDDF3(ExternalFunction(
         name = "__adddf3",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     SUBDF3(ExternalFunction(
         name = "__subdf3",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     MULDF3(ExternalFunction(
         name = "__muldf3",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     DIVDF3(ExternalFunction(
         name = "__divdf3",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     NEGDF2(ExternalFunction(
         name = "__negdf2",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // Convert a f64 to u64
     FIXUNSDFDI(ExternalFunction(
         name = "__fixunsdfdi",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // Convert a u64 to f64
     FLOATUNDIDF(ExternalFunction(
         name = "__floatundidf",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // Return a nonzero value if either argument is NaN, otherwise 0.
     UNORDDF2(ExternalFunction(
         name = "__unorddf2",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // return zero if neither argument is NaN, and a and b are equal.
     EQDF2(ExternalFunction(
         name = "__eqdf2",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // return a nonzero value if either argument is NaN, or if a and b are unequal.
     NEDF2(ExternalFunction(
         name = "__nedf2",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // return a value greater than or equal to zero if neither argument is NaN, and a is greater than or equal to b.
     GEDF2(ExternalFunction(
         name = "__gedf2",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // return a value less than zero if neither argument is NaN, and a is strictly less than b.
     LTDF2(ExternalFunction(
         name = "__ltdf2",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // return a value less than or equal to zero if neither argument is NaN, and a is less than or equal to b.
     LEDF2(ExternalFunction(
         name = "__ledf2",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     ),
     // return a value greater than zero if neither argument is NaN, and a is strictly greater than b.
     GTDF2(ExternalFunction(
         name = "__gtdf2",
-        writeRegisters = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
+        writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(SbfRegister.R1_ARG, SbfRegister.R2_ARG).map{ Value.Reg(it)}.toSet())
     );
 

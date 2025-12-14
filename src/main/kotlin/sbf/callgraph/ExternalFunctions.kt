@@ -17,12 +17,18 @@
 
 package sbf.callgraph
 
+import sbf.cfg.ReadRegister
 import sbf.cfg.Value
+import sbf.cfg.WriteRegister
 import sbf.domains.MemorySummaries
+import datastructures.stdcollections.*
 
+/** Class used to define known builtins **/
 open class ExternalFunction(open val name: String,
-                            open val writeRegisters: Set<Value.Reg> = datastructures.stdcollections.setOf(),
-                            open val readRegisters: Set<Value.Reg> = datastructures.stdcollections.setOf())
+                            /** Only `SbfInstruction.Call` should access to [writeRegister] **/
+                            override val writeRegister: Set<Value.Reg> = setOf(),
+                            /** Only `SbfInstruction.Call` should access to [readRegisters] **/
+                            override val readRegisters: Set<Value.Reg> = setOf()): ReadRegister, WriteRegister
 
 interface ExternalLibrary<T> {
     fun from(name: String): T?
