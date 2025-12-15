@@ -23,17 +23,16 @@ import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 import sbf.analysis.MemoryAnalysis
 import sbf.analysis.cpis.ProgramId
-import sbf.disassembler.GlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.disassembler.Label
 import sbf.disassembler.SbfRegister
-import sbf.disassembler.newGlobalVariableMap
 
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 typealias MemoryAnalysisT = MemoryAnalysis<Constant, Constant, BasicPTANodeFlags>
 
 private fun getMemAnalysisResults(
     cfg: SbfCFG,
-    globals: GlobalVariableMap = newGlobalVariableMap(),
+    globals: GlobalVariables = GlobalVariables(DefaultElfFileView),
     memSummaries: MemorySummaries = MemorySummaries()
 ) : MemoryAnalysisT {
     val memDomOpts = MemoryDomainOpts(useEqualityDomain = true)
@@ -45,7 +44,7 @@ private fun checkProgramIdInvoke(results: MemoryAnalysisT, label: Label, expecte
     println("$memAbsVal")
     check(memAbsVal != null)
 
-    val programId = memAbsVal.getPubkey(Value.Reg(SbfRegister.R2_ARG), 48, results.globalsMap)
+    val programId = memAbsVal.getPubkey(Value.Reg(SbfRegister.R2_ARG), 48, results.globals)
     println("$programId")
 
     Assertions.assertEquals(true, programId != null)
@@ -62,7 +61,7 @@ private fun checkNoProgramIdInvoke(results: MemoryAnalysisT, label: Label) {
     println("$memAbsVal")
     check(memAbsVal != null)
 
-    val programId = memAbsVal.getPubkey(Value.Reg(SbfRegister.R2_ARG), 48, results.globalsMap)
+    val programId = memAbsVal.getPubkey(Value.Reg(SbfRegister.R2_ARG), 48, results.globals)
     println("$programId")
 
     Assertions.assertEquals(true, programId == null)

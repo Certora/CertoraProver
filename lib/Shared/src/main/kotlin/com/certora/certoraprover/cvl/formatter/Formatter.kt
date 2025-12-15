@@ -20,7 +20,6 @@ package com.certora.certoraprover.cvl.formatter
 import com.certora.certoraprover.cvl.Ast
 import com.certora.certoraprover.cvl.formatter.util.*
 import datastructures.stdcollections.*
-import kotlin.math.min
 
 class FormatterInput private constructor(private val batches: List<Batch>) {
     constructor(ast: Ast) : this(preprocess(ast))
@@ -72,7 +71,7 @@ class FormatterInput private constructor(private val batches: List<Batch>) {
                 }
 
                 if (whitespaceAfter) {
-                    appendWhitespace()
+                    this.appendWhitespace()
                 }
 
                 if (!token.str.trim().isEmpty()) {
@@ -80,15 +79,21 @@ class FormatterInput private constructor(private val batches: List<Batch>) {
                 }
             }
 
-            is Token.Indent -> this@FormatterInput.indentDepth += 1
+            is Token.Indent -> {
+                this@FormatterInput.indentDepth += 1
+                if (nextToken !is Token.LineBreak) {
+                    this.appendIndent()
+                }
+            }
+
             is Token.Unindent -> {
                 this@FormatterInput.indentDepth -= 1
-                deleteIndent()
+                this.deleteIndent()
             }
 
             is Token.SingleWhiteSpace -> {
                 if (!currentLine().isBlank()) {
-                    appendWhitespace()
+                    this.appendWhitespace()
                 }
             }
 
@@ -116,15 +121,17 @@ class FormatterInput private constructor(private val batches: List<Batch>) {
         repeat(linesBetweenBatches) { appendLineBreakAndIndent() }
     }
 
-    internal fun StringBuilder.appendWhitespace(count: Int = 1): StringBuilder = this.append(" ".repeat(count))
+    private fun whitespace(count: Int = 1) = " ".repeat(count)
+
+    private fun StringBuilder.appendWhitespace(count: Int = 1) = this.append(whitespace(count))
 
     private fun StringBuilder.appendLineBreakAndIndent() {
         if (this@FormatterInput.lineBreakRunningSum >= maxConsecutiveLineBreaks) {
             return
         }
 
-        val indents = this@FormatterInput.indentDepth * indentSize
-        val indentLiteral =  " ".repeat(indents)
+        val whitespaceCount = this@FormatterInput.indentDepth * indentSize
+        val indentLiteral =  this@FormatterInput.whitespace(whitespaceCount)
 
         // trim line before linebreak
         this.deleteIndent()
@@ -144,66 +151,13 @@ class FormatterInput private constructor(private val batches: List<Batch>) {
         }
     }
 
-    private fun Binding.expand(): List<Token> {
-        val comments = this@Binding.comments
-
-        val content = comments
-            .concatenate()
-            .flatMap {
-                when (it) {
-                    is Entry.NotEmitted.Comment -> Token.Terminal(str = it.content, id = null, space = Space.TT).asList()
-                    is Entry.NotEmitted.LineBreaks -> {
-                        List(it.count) { Token.LineBreak.Hard }
-                    }
-                    is Entry.NotEmitted.Whitespace -> {
-                        // we discard the user's whitespace and just use the current indent.
-                        // actually, I have no idea if this is going to work.
-                        emptyList()
-                    }
-                }
-            }
-
-        return this@Binding.separator(Association.Before) + content + this@Binding.separator(Association.After)
-    }
-
-    private fun Binding.separator(separatorAssociation: Association): List<Token> {
-        val comments = this@Binding.comments
-
-        val nonContent = when (separatorAssociation) {
-            Association.Before -> comments.before
-            Association.After -> comments.after
-        }
-        val boundaryContent = when (separatorAssociation) {
-            Association.Before -> comments.content.firstOrNull()
-            Association.After -> comments.content.lastOrNull()
-        }
-
-        ensure(
-            boundaryContent is Entry.NotEmitted.Comment,
-            "comment contents starts/ends with a comment"
-        )
-
-        val lineBreaks = nonContent.filterIsInstance<Entry.NotEmitted.LineBreaks>().sumOf { it.count }
-
-        return if (nonContent.isEmpty()) {
-            // comment is first or last element in the file, therefore no need for padding.
-            emptyList()
-        } else if (lineBreaks > 0) {
-            // then preserve line breaks, but not too many
-            val lineBreaksToKeep = min(lineBreaks, maxConsecutiveLineBreaks)
-
-            List(lineBreaksToKeep) { idx ->
-                when (idx) {
-                    lineBreaksToKeep - 1 -> Token.LineBreak.Soft // final line break
-                    else -> Token.LineBreak.Hard
-                }
-            }
-        } else {
-            Token.SingleWhiteSpace.asList()
-        }
+    private fun StringBuilder.appendIndent() {
+        this.appendWhitespace(indentSize)
     }
 }
 
 private const val indentSize = 4
 private const val linesBetweenBatches = 1
 private const val maxConsecutiveLineBreaks = 2
+
+internal fun Int.min(other: Int) = kotlin.math.min(this, other)

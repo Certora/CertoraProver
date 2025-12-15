@@ -22,6 +22,8 @@ import sbf.disassembler.*
 import sbf.domains.*
 import org.junit.jupiter.api.*
 
+private val globals = GlobalVariables(DefaultElfFileView)
+
 class SplitWideStoresTest {
     private fun checkNoWideStores(cfg: SbfCFG): Boolean {
         for (b in cfg.getBlocks().values) {
@@ -109,7 +111,7 @@ class SplitWideStoresTest {
         cfg.verify(true)
 
         val memSummaries = MemorySummaries()
-        splitWideStores(cfg, newGlobalVariableMap(), memSummaries)
+        splitWideStores(cfg, globals, memSummaries)
         println("After $cfg")
         Assertions.assertEquals(true, checkNoWideStores(cfg))
     }
@@ -199,7 +201,7 @@ class SplitWideStoresTest {
         cfg.verify(true)
 
         val memSummaries = MemorySummaries()
-        splitWideStores(cfg, newGlobalVariableMap(), memSummaries)
+        splitWideStores(cfg, globals, memSummaries)
         println("After $cfg")
         Assertions.assertEquals(true, checkNoWideStores(cfg))
     }
@@ -323,7 +325,7 @@ class SplitWideStoresTest {
         cfg.verify(true)
 
         val memSummaries = MemorySummaries()
-        splitWideStores(cfg, newGlobalVariableMap(), memSummaries)
+        splitWideStores(cfg, globals, memSummaries)
         println("After $cfg")
         Assertions.assertEquals(true, checkNoWideStores(cfg))
     }

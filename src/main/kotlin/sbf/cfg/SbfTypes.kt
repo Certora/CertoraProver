@@ -18,7 +18,6 @@
 package sbf.cfg
 
 import sbf.SolanaConfig
-import sbf.disassembler.SbfConstantStringGlobalVariable
 import sbf.disassembler.SbfGlobalVariable
 import sbf.domains.ConstantSet
 
@@ -95,8 +94,9 @@ sealed class SbfRegisterType {
         data class Global(override val offset: ConstantSet, val global: SbfGlobalVariable?) : PointerType() {
             override fun toString(): String {
                 return if (global != null) {
-                    if (global is SbfConstantStringGlobalVariable) {
-                        "global($global)"
+                    val str = global.strValue
+                    if (str != null) {
+                        "global($str)"
                     } else {
                         "global(${global.name}, $offset)"
                     }

@@ -95,6 +95,15 @@ sealed class HashFamily: Serializable, HasKSerializable {
     }
 
     @KSerializable
+    object MoveTypeId : HashFamily() {
+        override fun hashCode(): Int = hashObject(this)
+        override fun toString(): String = "mvTypeId"
+        private fun readResolve(): Any = MoveTypeId
+        override val isContractCreation: Boolean get() = false
+        override val resultSizeInBytes: Int get() = 4
+    }
+
+    @KSerializable
     abstract class CvlmHashFamily : HashFamily() {
         override val requiresLargeGaps get() = false
         override val isContractCreation get() = false

@@ -134,4 +134,59 @@ class SetOfFiniteIntervalsTest {
         Assertions.assertEquals(true, i3.contains(FiniteInterval(20,20)))
     }
 
+    @Test
+    fun `difference returns original interval if no overlap`() {
+        val a = FiniteInterval(1, 5)
+        val b = FiniteInterval(10, 15)
+        val result = a.difference(b)
+        Assertions.assertEquals(listOf(a), result)
+    }
+
+    @Test
+    fun `difference returns empty list if intervals are equal`() {
+        val a = FiniteInterval(1, 5)
+        val result = a.difference(a)
+        Assertions.assertEquals(0, result.size)
+    }
+
+    @Test
+    fun `difference returns single interval when other overlaps left side`() {
+        val a = FiniteInterval(5, 10)
+        val b = FiniteInterval(3, 7) // overlaps left
+        val expected = listOf(FiniteInterval(8, 10))
+        Assertions.assertEquals(expected, a.difference(b))
+    }
+
+    @Test
+    fun `difference returns single interval when other overlaps right side`() {
+        val a = FiniteInterval(5, 10)
+        val b = FiniteInterval(8, 12) // overlaps right
+        val expected = listOf(FiniteInterval(5, 7))
+        Assertions.assertEquals(expected, a.difference(b))
+    }
+
+    @Test
+    fun `difference returns two intervals when other is fully contained`() {
+        val a = FiniteInterval(1, 10)
+        val b = FiniteInterval(4, 7) // fully contained
+        val expected = listOf(FiniteInterval(1, 3), FiniteInterval(8, 10))
+        Assertions.assertEquals(expected, a.difference(b))
+    }
+
+    @Test
+    fun `difference handles touching intervals correctly`() {
+        val a = FiniteInterval(1, 5)
+        val b = FiniteInterval(5, 10) // touches at the end
+        val expected = listOf(FiniteInterval(1, 4))
+        Assertions.assertEquals(expected, a.difference(b))
+    }
+
+    @Test
+    fun `difference handles touching intervals on the other side`() {
+        val a = FiniteInterval(5, 10)
+        val b = FiniteInterval(1, 5) // touches at the start
+        val expected = listOf(FiniteInterval(6, 10))
+        Assertions.assertEquals(expected, a.difference(b))
+    }
+
 }

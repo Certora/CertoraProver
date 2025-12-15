@@ -43,7 +43,7 @@ private class DDAError(val msg: String): SolanaInternalError(msg)
 class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                              private val targetExp: PointerExpressionError,
                              private val cfg: SbfCFG,
-                             globalsMap: GlobalVariableMap,
+                             globals: GlobalVariables,
                              val memSummaries: MemorySummaries) :
     SbfCommandDataflowAnalysis<DataDepsState>(
         cfg,
@@ -52,7 +52,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         Direction.BACKWARD
     ) {
     private val sbfTypesFac =  ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
-    private val fwdAnalysis = ScalarAnalysis(cfg, globalsMap, memSummaries, sbfTypesFac)
+    private val fwdAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
     private val registerTypes = AnalysisRegisterTypes(fwdAnalysis)
     private val vFac = VariableFactory()
 
@@ -475,11 +475,10 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
                     }
                     is CVTFunction.Nondet ->
                         inState.kill(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
-                    // We ignore these for now
                     is CVTFunction.NativeInt,
                     is CVTFunction.U128Intrinsics,
                     is CVTFunction.I128Intrinsics,
-                    is CVTFunction.Calltrace -> inState
+                    is CVTFunction.Calltrace -> applyDDASummaries(inState, cmd)
                 }
             } else {
                 applyDDASummaries(inState, cmd)

@@ -1,0 +1,19 @@
+methods {
+    function a() external returns (address) envfree;
+    function b(address) external returns (uint256) envfree;
+    function c(address) external returns (bool) envfree;
+    function i(address) external returns (bool) envfree;
+    function E.s(address, address, address, uint256) external envfree;
+
+    function _.cS(address user) external => g1[user] expect(bool);
+    function _.cRS(address user) external => g2[user] expect(bool);
+    function _.cSA(address user) external => g3[user] expect(bool);
+    function _.cRA(address user) external => g4[user] expect(bool);
+
+    function _.a(int foo, int bar) external => s1(foo, bar) expect(uint256, uint256) ALL;
+    function _.b() external => s2() expect(uint256, uint256) ALL;
+
+    function _.x(bytes fizz) external => DISPATCHER(true);
+    function _.y(bytes buzz) external => DISPATCHER(true);
+    function _.z() external => DISPATCHER(true);
+}

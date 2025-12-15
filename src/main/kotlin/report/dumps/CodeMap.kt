@@ -875,8 +875,12 @@ data class CodeMap(
                     c.dsts.joinToString(", ", "{", "}") { getHtmlRep(it) }.let {
                         "$it = ${getHtmlRep(c.src)}".asRaw()
                     }
+                is TACCmd.Move.UnpackVariantRefCmd ->
+                    c.dsts.joinToString(", ", "{", "}") { getHtmlRep(it) }.let {
+                        "$it = ${getHtmlRep(c.srcRef)}".asRaw()
+                    }
                 is TACCmd.Move.VariantIndexCmd ->
-                    "${getHtmlRep(c.index)} = variant(${getHtmlRep(c.loc)})".asRaw()
+                    "${getHtmlRep(c.index)} = variant(${getHtmlRep(c.ref)})".asRaw()
                 is TACCmd.Move.GhostArrayBorrowCmd ->
                     "${getHtmlRep(c.dstRef)} = &${getHtmlRep(c.arrayRef)}[${c.index}]".asRaw()
                 is TACCmd.Move.HashCmd ->

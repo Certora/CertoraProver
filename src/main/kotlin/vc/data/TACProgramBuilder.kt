@@ -426,6 +426,7 @@ open class TACBuilderAuxiliaries {
     val e = bv256Var("e")
     val f = bv256Var("f")
     val g = bv256Var("g")
+    val h = bv256Var("h")
 
     val aS = a.asSym()
     val bS = b.asSym()
@@ -434,6 +435,7 @@ open class TACBuilderAuxiliaries {
     val eS = e.asSym()
     val fS = f.asSym()
     val gS = g.asSym()
+    val hS = h.asSym()
 
     val x = boolVar("x")
     val y = boolVar("y")

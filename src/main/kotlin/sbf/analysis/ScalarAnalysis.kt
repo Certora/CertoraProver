@@ -28,11 +28,11 @@ import sbf.support.UnknownStackPointerError
 
 class ScalarAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>
     (cfg: SbfCFG,
-     globalsMap: GlobalVariableMap,
+     globals: GlobalVariables,
      memSummaries: MemorySummaries,
      sbfTypeFac : ISbfTypeFactory<TNum, TOffset>,
      isEntryPoint:Boolean = true) : GenericScalarAnalysis<TNum, TOffset, ScalarDomain<TNum,TOffset>>(
-            cfg, globalsMap, memSummaries, sbfTypeFac, ScalarDomainFactory(), isEntryPoint)
+            cfg, globals, memSummaries, sbfTypeFac, ScalarDomainFactory(), isEntryPoint)
 
 
 typealias TNumAdaptiveScalarAnalysis = ConstantSet
@@ -45,7 +45,7 @@ typealias TOffsetAdaptiveScalarAnalysis = ConstantSet
  */
 class AdaptiveScalarAnalysis
     (val cfg: SbfCFG,
-     val globalsMap: GlobalVariableMap,
+     val globals: GlobalVariables,
      val memSummaries: MemorySummaries,
      isEntryPoint:Boolean = true
 ): IAnalysis<ScalarDomain<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>> {
@@ -55,14 +55,14 @@ class AdaptiveScalarAnalysis
     @Suppress("SwallowedException")
     private val scalarAnalysis = try {
         sbfTypesFac = ConstantSetSbfTypeFactory(1UL)
-        GenericScalarAnalysis(cfg, globalsMap, memSummaries, sbfTypesFac, domainFac, isEntryPoint)
+        GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domainFac, isEntryPoint)
     } catch (e: UnknownStackPointerError) {
         sbf.sbfLogger.warn {
                 "Scalar analysis was configured to track only a single value per stack offset. It cannot proceed without clearing the entire stack. " +
                 "Re-running scalar analysis configured to track up to ${SolanaConfig.ScalarMaxVals.get()} values."
         }
         sbfTypesFac = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
-        GenericScalarAnalysis(cfg, globalsMap, memSummaries, sbfTypesFac, domainFac, isEntryPoint)
+        GenericScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac, domainFac, isEntryPoint)
     }
 
     fun getSbfTypesFac() = sbfTypesFac
@@ -70,7 +70,7 @@ class AdaptiveScalarAnalysis
     override fun getPost(block: Label) = scalarAnalysis.getPost(block)
     override fun getCFG() = cfg
     override fun getMemorySummaries() = memSummaries
-    override fun getGlobalVariableMap() = globalsMap
+    override fun getGlobalVariableMap() = globals
 }
 
 interface IScalarDomainFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> {
@@ -100,7 +100,7 @@ class ScalarStackStridePredicateDomainFactory<TNum: INumValue<TNum>, TOffset: IO
 
 open class GenericScalarAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain: AbstractDomain<ScalarDomain>>
     (val cfg: SbfCFG,
-     val globalsMap: GlobalVariableMap,
+     val globals: GlobalVariables,
      val memSummaries: MemorySummaries,
      private val sbfTypeFac : ISbfTypeFactory<TNum, TOffset>,
      private val domFac: IScalarDomainFactory<TNum, TOffset, ScalarDomain>,
@@ -115,14 +115,14 @@ open class GenericScalarAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset
     override fun getPost(block:Label) = postMap[block]
     override fun getCFG() = cfg
     override fun getMemorySummaries() = memSummaries
-    override fun getGlobalVariableMap() = globalsMap
+    override fun getGlobalVariableMap() = globals
 
     private fun run() {
         val entry = cfg.getEntry()
         val bot = domFac.mkBottom(sbfTypeFac)
         val top = domFac.mkTop(sbfTypeFac)
         val solverOpts = WtoBasedFixpointOptions(2U,1U)
-        val fixpo = WtoBasedFixpointSolver(bot, top, solverOpts, globalsMap, memSummaries)
+        val fixpo = WtoBasedFixpointSolver(bot, top, solverOpts, globals, memSummaries)
         if (isEntryPoint) {
             preMap[entry.getLabel()] = domFac.init(sbfTypeFac, addPreconditions = true)
         }

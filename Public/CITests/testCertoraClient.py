@@ -230,8 +230,6 @@ class TestClient(unittest.TestCase):
                              run_flags=[f"{_p('A.sol')}:B", '--verify', f"B:{_p('spec1.spec')}"])
         suite.expect_success(description='multiple files single assert',
                              run_flags=[_p('A.sol'), _p('B.sol'), '--verify', f"A:{_p('spec1.spec')}"])
-        suite.expect_success(description='file is repeated',
-                             run_flags=[f"{_p('A.sol')}:B", f"{_p('A.sol')}:B", '--verify', f"B:{_p('spec1.spec')}"])
         suite.expect_success(description='2 contracts in a single file',
                              run_flags=[f"{_p('A.sol')}:B", _p('A.sol'), '--verify', f"B:{_p('spec1.spec')}"])
         suite.expect_success(description='--verify with spec file',
@@ -355,8 +353,6 @@ class TestClient(unittest.TestCase):
         suite.expect_success(description='valid --struct_link multiple entries',
                              run_flags=[_p('A.sol'), _p('B.sol'), '--verify', f"A:{_p('spec1.spec')}", '--struct_link',
                                         'A:1=B', 'A:2=B', 'A:1009=A'])
-        suite.expect_success(description='valid --struct_link duplicate entries',
-                             run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}", '--struct_link', 'A:0XC=A', 'A:0XC=A'])
         suite.expect_success(description='valid --build_only',
                              run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}", '--build_only'])
         suite.expect_success(description='valid --build_only duplicate entries',
@@ -548,6 +544,10 @@ class TestClient(unittest.TestCase):
                              run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}", '--compilation_steps_only',
                                         '--build_only'],
                              expected="cannot use both 'compilation_steps_only' and 'build_only'")
+        suite.expect_failure(description='valid --struct_link duplicate entries',
+                             run_flags=[_p('A.sol'), '--verify', f"A:{_p('spec1.spec')}",
+                                        '--struct_link', 'A:0XC=A', 'A:0XC=A'],
+                             expected="The value of attribute 'struct_link' contains duplicate entries")
         suite.expect_failure(description="illegal struct_link",
                              run_flags=[_p('tac_file.conf'), '--struct_link', 'tac_file:0=tac_file'],
                              expected="'struct_link' argument tac_file:0=tac_file is illegal")
@@ -585,6 +585,9 @@ class TestClient(unittest.TestCase):
         suite.expect_failure(description="other files with conf file",
                              run_flags=[_p('tac_file.conf'), _p('empty.tac')],
                              expected="No other files are allowed when using a config file")
+        suite.expect_failure(description='file is repeated',
+                             run_flags=[f"{_p('A.sol')}:B", f"{_p('A.sol')}:B", '--verify', f"B:{_p('spec1.spec')}"],
+                             expected="The value of attribute 'files' contains duplicate entries")
         suite.expect_failure(description="illegal contract in verify",
                              run_flags=[_p('empty.tac'), '--verify', f"A:{_p('spec1.spec')}"],
                              expected="'verify' argument, A, doesn't match any contract name")
@@ -817,7 +820,7 @@ class TestClient(unittest.TestCase):
         def check_run(expect: List[str]) -> None:
             packages_attr = getattr(result, 'packages', None)
             assert packages_attr, f"{description}: package is None"
-            got = sorted([dep.split('=')[0] for dep in packages_attr])
+            got = sorted([dep.split('=')[0].rstrip('/') for dep in packages_attr])
             assert expect == got, f"{description}. Expected: {expect}. Got: {got}"
 
         suite = TestUtil.ProverTestSuite(conf_file_template=_p('mutation_conf_top_level.conf'),
@@ -830,18 +833,21 @@ class TestClient(unittest.TestCase):
         assert not packages, f"expected 'packages' to be None. Got: {result.packages}"
 
         remapping = "a=lib\nb=lib"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
-        description = f"running with {Util.REMAPPINGS_FILE}"
-        result = suite.expect_checkpoint(description=description)
-        check_run(['a', 'b'])
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
+            description = f"running with {Util.REMAPPINGS_FILE}"
+            result = suite.expect_checkpoint(description=description)
+            check_run(['a', 'b'])
 
-        remapping = '{"dependencies": {"c": "^3.4.1"},"devDependencies": {"d": "^5.0.8"}}'
-        with open(Util.PACKAGE_FILE, "w") as file:
-            file.write(remapping)
-        description = f"running with {Util.REMAPPINGS_FILE} and {Util.PACKAGE_FILE}"
-        result = suite.expect_checkpoint(description=description)
-        check_run(['a', 'b', 'c', 'd'])
+            remapping = '{"dependencies": {"c": "^3.4.1"},"devDependencies": {"d": "^5.0.8"}}'
+            with open(Util.PACKAGE_FILE, "w") as file:
+                file.write(remapping)
+            description = f"running with {Util.REMAPPINGS_FILE} and {Util.PACKAGE_FILE}"
+            result = suite.expect_checkpoint(description=description)
+            check_run(['a', 'b', 'c', 'd'])
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
         description = "--packages - ignore files"
         result = suite.expect_checkpoint(description=description, run_flags=['--packages', 'd=lib'])
@@ -849,18 +855,22 @@ class TestClient(unittest.TestCase):
 
         # duplications
         remapping = "a=lib\na=lib"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
-        description = f"identical duplicates in {Util.REMAPPINGS_FILE}"
-        suite.expect_success(description=description)
-        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
+            description = f"identical duplicates in {Util.REMAPPINGS_FILE}"
+            suite.expect_success(description=description)
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
         remapping = "a=lib\na=lib2"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
-        description = f"non-identical duplicates in {Util.REMAPPINGS_FILE}"
-        suite.expect_failure(description=description, expected="Conflicting values in remappings.txt for key 'a'")
-        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
+            description = f"non-identical duplicates in {Util.REMAPPINGS_FILE}"
+            suite.expect_failure(description=description, expected="Conflicting values in remappings.txt for key 'a'")
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
         remapping = '{"dependencies": {"c": "^3.4.1"},"devDependencies": {"c": "^5.0.8"}}'
         with open(Util.PACKAGE_FILE, "w") as file:
@@ -870,24 +880,28 @@ class TestClient(unittest.TestCase):
         Path(Util.PACKAGE_FILE).unlink(missing_ok=True)
 
         remapping = "a=lib\nb=lib"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
-        remapping = '{"dependencies": {"b": "^3.4.1"},"devDependencies": {"c": "^5.0.8"}}'
-        with open(Util.PACKAGE_FILE, "w") as file:
-            file.write(remapping)
-        description = f"duplicates in {Util.REMAPPINGS_FILE} and Util.PACKAGE_FILE"
-        suite.expect_failure(description=description, expected="package.json and remappings.txt include duplicated")
-        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
-        Path(Util.PACKAGE_FILE).unlink(missing_ok=True)
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
+            remapping = '{"dependencies": {"b": "^3.4.1"},"devDependencies": {"c": "^5.0.8"}}'
+            with open(Util.PACKAGE_FILE, "w") as file:
+                file.write(remapping)
+            description = f"duplicates in {Util.REMAPPINGS_FILE} and Util.PACKAGE_FILE"
+            suite.expect_failure(description=description, expected="package.json and remappings.txt include duplicated")
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+            Path(Util.PACKAGE_FILE).unlink(missing_ok=True)
 
 
         remapping = "a=lib\nb=lib=lib2"
-        with open(Util.REMAPPINGS_FILE, "w") as file:
-            file.write(remapping)
+        try:
+            with open(Util.REMAPPINGS_FILE, "w") as file:
+                file.write(remapping)
 
-        description = f"remappings.txt with bad format"
-        suite.expect_failure(description=description, expected="Invalid remapping in remappings.txt")
-        Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
+            description = f"remappings.txt with bad format"
+            suite.expect_failure(description=description, expected="Invalid remapping in remappings.txt")
+        finally:
+            Path(Util.REMAPPINGS_FILE).unlink(missing_ok=True)
 
     def test_solc_args(self) -> None:
 

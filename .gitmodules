@@ -1,0 +1,3 @@
+[submodule "scripts/graphcore"]
+	path = scripts/graphcore
+	url = git@github.com:Certora/graphcore.git

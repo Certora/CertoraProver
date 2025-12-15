@@ -69,6 +69,7 @@ sealed class RuleAlertReport : TreeViewReportable, Comparable<RuleAlertReport> {
         constructor(msg: String, throwable: Throwable?) : this(
             msg, throwable?.let { CertoraException.fromException(throwable) }
         )
+        constructor(reason: CertoraException) : this(reason.msg, reason)
 
         override val severity: String
             get() = "error"

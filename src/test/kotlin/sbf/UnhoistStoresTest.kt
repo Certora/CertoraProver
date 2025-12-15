@@ -23,6 +23,8 @@ import sbf.domains.*
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 
+private val globals = GlobalVariables(DefaultElfFileView)
+
 class UnhoistStoresTest {
     private fun getNumOfUnhoistedStores(cfg: SbfCFG): UInt {
         var counter = 0U
@@ -146,7 +148,6 @@ class UnhoistStoresTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        val globals = newGlobalVariableMap()
         unhoistStoresAndLoads(cfg, globals)
         println("After $cfg")
         Assertions.assertEquals(true,  getNumOfUnhoistedStores(cfg) == 2U)
@@ -249,7 +250,6 @@ class UnhoistStoresTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        val globals = newGlobalVariableMap()
         unhoistStoresAndLoads(cfg, globals)
         Assertions.assertEquals(true,  getNumOfUnhoistedStores(cfg) == 2U)
         println("After $cfg")
@@ -351,7 +351,6 @@ class UnhoistStoresTest {
 
         cfg.normalize()
         println("Before $cfg")
-        val globals = newGlobalVariableMap()
         cfg.verify(true)
         unhoistStoresAndLoads(cfg, globals)
         cfg.simplify(globals)
@@ -384,7 +383,6 @@ class UnhoistStoresTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        val globals = newGlobalVariableMap()
         unhoistStoresAndLoads(cfg, globals)
         cfg.simplify(globals)
         Assertions.assertEquals(true,  getNumOfUnhoistedStores(cfg) == 2U)
@@ -417,7 +415,6 @@ class UnhoistStoresTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        val globals = newGlobalVariableMap()
         unhoistStoresAndLoads(cfg, globals)
         cfg.simplify(globals)
         Assertions.assertEquals(true,  getNumOfUnhoistedStores(cfg) == 2U)
@@ -446,8 +443,10 @@ class UnhoistStoresTest {
         cfg.normalize()
         println("Before $cfg")
         cfg.verify(true)
-        val globals = newGlobalVariableMap(567890L to SbfGlobalVariable("x", 567890L, 4),
-            568934L to SbfGlobalVariable("y", 568934L, 4))
+        val globals = GlobalVariables(DefaultElfFileView,
+                                      listOf(SbfGlobalVariable("x", 567890L, 4),
+                                             SbfGlobalVariable("y", 568934L, 4))
+        )
         unhoistStoresAndLoads(cfg, globals)
         println("After $cfg")
         //cfg.simplify(globals)

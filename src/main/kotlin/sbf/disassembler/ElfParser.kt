@@ -101,6 +101,15 @@ class ElfParser(val file: File, private val elfFile: ElfFile) {
         return backingFile.readUnsignedByte()
     }
 
+    fun readShort(): Short {
+        val ch1 = readUnsignedByte().toInt()
+        val ch2 = readUnsignedByte().toInt()
+        return if (elfFile.ei_data == ElfFile.DATA_LSB) {
+            ((ch2 and 0xff shl 8) or (ch1 and 0xff)).toShort()
+        } else {
+            ((ch1 and 0xff shl 8) or (ch2 and 0xff)).toShort()
+        }
+    }
 
     @Throws(ElfException::class)
     fun readInt(): Int {

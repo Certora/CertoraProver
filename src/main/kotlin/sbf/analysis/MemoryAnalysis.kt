@@ -137,14 +137,14 @@ class WholeProgramMemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset
 /**
  * Run the memory analysis on [cfg]
  * @param cfg is the CFG under analysis
- * @param globalsMap contains information about global variables
+ * @param globals contains information about global variables
  * @param memSummaries user-provided summaries
  * @param sbfTypesFac factory to create numbers and offsets used by SBF types
  * @param processor post-process each basic block after fixpoint has been computed
  **/
 open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
     (open val cfg: SbfCFG,
-     open val globalsMap: GlobalVariableMap,
+     open val globals: GlobalVariables,
      open val memSummaries: MemorySummaries,
      open val sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
      open val flagsFac: () -> TFlags,
@@ -170,7 +170,7 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFla
         val bot = MemoryDomain.makeBottom(nodeAllocator, sbfTypesFac, opts)
         val top = MemoryDomain.makeTop(nodeAllocator, sbfTypesFac, opts)
         val fixpoOpts = WtoBasedFixpointOptions(2U,1U)
-        val fixpo = WtoBasedFixpointSolver(bot, top, fixpoOpts, globalsMap, memSummaries)
+        val fixpo = WtoBasedFixpointSolver(bot, top, fixpoOpts, globals, memSummaries)
         if (isEntryPoint) {
             preMap[entry.getLabel()] = MemoryDomain.initPreconditions(nodeAllocator, sbfTypesFac, opts)
         }
@@ -192,7 +192,7 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFla
         for (block in cfg.getBlocks().values) {
             getPre(block.getLabel())
                 ?.takeUnless { it.isBottom() }
-                ?.analyze(block, globalsMap, memSummaries)
+                ?.analyze(block, globals, memSummaries)
         }
     }
 
@@ -217,5 +217,5 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFla
 
     override fun getCFG() = cfg
     override fun getMemorySummaries() = memSummaries
-    override fun getGlobalVariableMap() = globalsMap
+    override fun getGlobalVariableMap() = globals
 }

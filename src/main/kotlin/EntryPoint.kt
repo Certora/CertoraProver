@@ -53,6 +53,7 @@ import rules.IsFromCache
 import rules.RuleCheckResult
 import rules.VerifyTime
 import rules.sanity.TACSanityChecks
+import sbf.splitAsserts
 import scene.*
 import scene.source.*
 import smt.BackendStrategyEnum
@@ -552,7 +553,8 @@ suspend fun handleTACFlow(fileName: String) {
                 val parsedTACCode = runInterruptible {
                     CoreTACProgram.fromStream(FileInputStream(fileName), ArtifactFileUtils.getBasenameOnly(fileName))
                 }
-                handleGenericFlow(scene, reporter, treeView, listOf(rule to parsedTACCode))
+                val compiledRule = CompiledGenericRule.Compiled(rule, parsedTACCode)
+                handleGenericFlow(scene, reporter, treeView, listOf(compiledRule))
             }
         }
 
@@ -580,71 +582,90 @@ fun createSceneReporterAndTreeview(fileName: String, contractName: String): Trip
     return Triple(scene, reporterContainer, treeView)
 }
 
+sealed interface CompiledGenericRule {
+    val rule: EcosystemAgnosticRule
+
+    /** [TreeViewReporter.signalStart] and [TreeViewReporter.signalEnd] should not be called from inside this function */
+    suspend fun check(scene: IScene, treeView: TreeViewReporter): RuleCheckResult.Leaf
+
+    data class Compiled(override val rule: EcosystemAgnosticRule, val code: CoreTACProgram) : CompiledGenericRule {
+        override suspend fun check(scene: IScene, treeView: TreeViewReporter): RuleCheckResult.Leaf {
+            ArtifactManagerFactory().dumpCodeArtifacts(
+                this.code,
+                ReportTypes.GENERIC_FLOW,
+                StaticArtifactLocation.Outputs,
+                DumpTime.AGNOSTIC
+            )
+
+            val startTime = System.currentTimeMillis()
+            val vRes = TACVerifier.verify(scene, this.code, treeView.liveStatsReporter, this.rule)
+            val endTime = System.currentTimeMillis()
+
+            if (DoSanityChecksForRules.get() != SanityValues.NONE &&
+                /* For Solana there are two types of sanity checks: Sanity rules that are created earlier in the pipeline
+                   and TAC sanity checks that are performed here. We explicitly don't want to run TAC sanity on the sanity rules
+                   created earlies.
+                 */
+                this.rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
+                TACSanityChecks.analyse(scene, this.rule, this.code, vRes, treeView)
+            }
+
+            if (vRes.unsatCoreSplitsData != null) {
+                UnsatCoreAnalysis(vRes.unsatCoreSplitsData, this.code).dumpToJsonAndRenderCodemaps()
+            }
+
+            val joinedRes = Verifier.JoinedResult(vRes)
+            // Print verification results and create a html file with the cex (if applicable)
+            joinedRes.reportOutput(this.rule)
+
+            return CompiledRule.generateSingleResult(
+                scene = scene,
+                rule = this.rule,
+                vResult = joinedRes,
+                verifyTime = VerifyTime.WithInterval(startTime, endTime),
+                isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
+                isSolverResultFromCache = IsFromCache.INAPPLICABLE,
+                ruleAlerts = emptyList(),
+            )
+        }
+    }
+
+    data class AnalysisFail(override val rule: EcosystemAgnosticRule, val alert: RuleAlertReport.Error?) : CompiledGenericRule {
+        override suspend fun check(scene: IScene, treeView: TreeViewReporter): RuleCheckResult.Error {
+            return RuleCheckResult.Error(rule, listOfNotNull(alert))
+        }
+    }
+}
+
 suspend fun handleGenericFlow(
     scene: IScene,
     reporterContainer: ReporterContainer,
     treeView: TreeViewReporter,
-    rules: Iterable<Pair<EcosystemAgnosticRule, CoreTACProgram>>
-): List<RuleCheckResult.Single> {
+    rules: Iterable<CompiledGenericRule>
+): List<RuleCheckResult.Leaf> {
 
     // Copy in `inputs` directory the contents of the `.certora_sources` directory.
     val filesInSourceDir = getFilesInSourcesDir()
     CertoraConf.backupFiles(filesInSourceDir)
 
-    treeView.buildRuleTree(rules.map { it.first })
+    treeView.buildRuleTree(rules.map { it.rule })
 
-    return rules.parallelMapOrdered { _, (rule, coretac) ->
-        ArtifactManagerFactory().dumpCodeArtifacts(
-            coretac,
-            ReportTypes.GENERIC_FLOW,
-            StaticArtifactLocation.Outputs,
-            DumpTime.AGNOSTIC
-        )
+    return rules.parallelMapOrdered { _, compiled ->
+        treeView.signalStart(compiled.rule)
 
-        treeView.signalStart(rule)
+        val checkResult = compiled.check(scene, treeView)
 
-        val startTime = System.currentTimeMillis()
-        val vRes = TACVerifier.verify(scene, coretac, treeView.liveStatsReporter, rule)
-        val endTime = System.currentTimeMillis()
-
-
-        if (DoSanityChecksForRules.get() != SanityValues.NONE &&
-            /* For Solana there are two types of sanity checks: Sanity rules that are created earlier in the pipeline
-               and TAC sanity checks that are performed here. We explicitly don't want to run TAC sanity on the sanity rules
-               created earlies.
-             */
-            rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
-            TACSanityChecks.analyse(scene, rule, coretac, vRes, treeView)
-        }
-
-        if (vRes.unsatCoreSplitsData != null) {
-            UnsatCoreAnalysis(vRes.unsatCoreSplitsData, coretac).dumpToJsonAndRenderCodemaps()
-        }
-
-        val joinedRes = Verifier.JoinedResult(vRes)
-        // Print verification results and create a html file with the cex (if applicable)
-        joinedRes.reportOutput(rule)
-
-        val rcrs = CompiledRule.generateSingleResult(
-            scene = scene,
-            rule = rule,
-            vResult = joinedRes,
-            verifyTime = VerifyTime.WithInterval(startTime, endTime),
-            isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
-            isSolverResultFromCache = IsFromCache.INAPPLICABLE,
-            ruleAlerts = emptyList(),
-        )
-
-        reporterContainer.addResults(rcrs)
+        reporterContainer.addResults(checkResult)
 
         // Signal termination of the fake rule and persist result to TreeView JSON for the web UI to pick it up.
-        treeView.signalEnd(rule, rcrs)
+        treeView.signalEnd(compiled.rule, checkResult)
         reporterContainer.hotUpdate(scene)
-        rcrs
+
+        checkResult
     }
 }
 
-suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Single> {
+suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Leaf> {
     val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName, "SorobanMainProgram")
     treeView.use {
         val env = when(Config.WASMHostEnv.get()) {
@@ -658,11 +679,12 @@ suspend fun handleSorobanFlow(fileName: String): List<RuleCheckResult.Single> {
             env = env,
             optimize = true
         )
+
         val result = handleGenericFlow(
             scene,
             reporterContainer,
             treeView,
-            wasmRules.map { it.rule to it.code }
+            wasmRules
         )
         reporterContainer.toFile(scene)
         return result
@@ -684,15 +706,20 @@ suspend fun handleMoveFlow() {
     }
 }
 
-suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Single>> {
+suspend fun handleSolanaFlow(fileName: String): Pair<TreeViewReporter,List<RuleCheckResult.Leaf>> {
     val (scene, reporterContainer, treeView) = createSceneReporterAndTreeview(fileName, "SolanaMainProgram")
     treeView.use {
-        val solanaRules = sbf.solanaSbfToTAC(fileName)
+        val solanaRules = sbf.solanaSbfToTAC(fileName).flatMap {
+            when (it) {
+                is CompiledGenericRule.AnalysisFail -> listOf(it)
+                is CompiledGenericRule.Compiled -> splitAsserts(it)
+            }
+        }
         val result = handleGenericFlow(
             scene,
             reporterContainer,
             treeView,
-            solanaRules.map { it.rule to it.code }
+            solanaRules
         )
         reporterContainer.toFile(scene)
         return treeView to result

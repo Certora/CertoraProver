@@ -310,6 +310,7 @@ class ExitException(Exception):
         self.exit_code = exit_code  # Store the integer data
 
 MIN_JAVA_VERSION = 19  # minimal java version to run the local type checker jar
+RECOMMENDED_JAVA_VERSION = 21  # recommended java version to run the local type checker jar
 
 
 def text_style(txt: str, style: str) -> str:
@@ -625,20 +626,6 @@ def get_certora_root_directory() -> Path:
 
 def get_certora_envvar() -> str:
     return os.getenv(ENVVAR_CERTORA, "")
-
-
-def which(filename: str) -> Optional[str]:
-    if is_windows() and not filename.endswith(".exe"):
-        filename += ".exe"
-
-    # TODO: find a better way to iterate over all directories in $Path
-    for dirname in os.environ['PATH'].split(os.pathsep) + [os.getcwd()]:
-        candidate = os.path.join(dirname, filename)
-        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-            return filename
-
-    return None
-
 
 def read_json_file(file_name: Path) -> Dict[str, Any]:
     with file_name.open() as json_file:
@@ -1006,7 +993,7 @@ def get_java_version() -> str:
     @return installed java version on success or empty string
     """
     # Check if java exists on the machine
-    java = which("java")
+    java = shutil.which("java")
     if java is None:
         return ''
 
@@ -1028,17 +1015,23 @@ def is_java_installed(java_version: str) -> bool:
     if not java_version:
         typecheck_logger.warning(
             f"`java` is not installed. Installing Java version {MIN_JAVA_VERSION} or later will enable faster "
-            f"CVL specification syntax checking before uploading to the cloud.")
+            f"CVL specification syntax checking before uploading to the cloud.\n"
+            f"The recommended LTS version is {RECOMMENDED_JAVA_VERSION}.")
         return False
 
     else:
         major_java_version = java_version.split('.')[0]
         if int(major_java_version) < MIN_JAVA_VERSION:
             typecheck_logger.warning("Installed Java version is too old to check CVL specification files locally. "
-                                     f" Java version should be at least {MIN_JAVA_VERSION} to allow local java-based "
-                                     "type checking")
+                                     f"Java version should be at least {MIN_JAVA_VERSION} to allow local java-based "
+                                     "type checking\n"
+                                     f"The recommended LTS version is {RECOMMENDED_JAVA_VERSION}.")
 
             return False
+        elif int(major_java_version) < RECOMMENDED_JAVA_VERSION:
+            typecheck_logger.warning(f"Installed Java version ({int(major_java_version)}) is not an LTS release. "
+                                     f"Upgrading is recommended.\n"
+                                     f"The recommended LTS version is {RECOMMENDED_JAVA_VERSION}.")
 
     return True
 
@@ -1319,6 +1312,7 @@ def check_packages_arguments(context: SimpleNamespace) -> None:
             package = package_str.split("=")[0]
             path = package_str.split("=")[1]
             if package in context.package_name_to_path:
+
                 raise CertoraUserInputError(
                     f"package {package} was given two paths: {context.package_name_to_path[package]}, {path}")
             if path.endswith("/"):
@@ -1334,7 +1328,11 @@ def check_packages_arguments(context: SimpleNamespace) -> None:
         if PACKAGE_FILE.exists():
             try:
                 with PACKAGE_FILE.open() as package_json_file:
-                    package_json = json.load(package_json_file)
+                    try:
+                        package_json = json.load(package_json_file)
+                    except json.JSONDecodeError as e:
+                        raise CertoraUserInputError(f"Invalid JSON in package file: {PACKAGE_FILE}", e)
+
                     dict1 = package_json.get("dependencies", {})
                     dict2 = package_json.get("devDependencies", {})
                     dep_conflicts = {key: value for key, value in dict1.items() if key in dict2 and dict2[key] != value}
@@ -1352,7 +1350,7 @@ def check_packages_arguments(context: SimpleNamespace) -> None:
 
         packages_to_path_list += handle_remappings_file(context)
         if len(packages_to_path_list) > 0:
-            keys = [s.split('=')[0] for s in packages_to_path_list]
+            keys = [s.split('=')[0].rstrip('/') for s in packages_to_path_list]  # XXX and XXX/ are the same key
             if len(set(keys)) < len(keys):
                 raise CertoraUserInputError(f"package.json and remappings.txt include duplicated keys in: {keys}")
             context.packages = sorted(packages_to_path_list, key=str.lower)
@@ -1380,7 +1378,9 @@ def get_mappings_from_forge_remappings() -> List[str]:
         for line in remappings_output.strip().split('\n'):
             key, value = line.split('=', 1)
             if key and value:
-                remappings.append(line.strip())
+                new_remapping = line.strip()
+                if new_remapping not in remappings:
+                    remappings.append(new_remapping)
                 for suffix in ['contracts/', 'src/']:
                     if value.endswith(suffix) and not key.endswith(suffix):
                         new_remapping = f"{key}{suffix}={value}"
@@ -1415,30 +1415,38 @@ def check_remapping_file() -> None:
 
 
 def handle_remappings_file(context: SimpleNamespace) -> List[str]:
-    """"
-    Tries to reach packages from remappings.txt.
-    If the file exists in cwd and foundry.toml does not exist in cwd we return the mappings in
-    the file (legacy implementation).
-    In all other cases we add the remappings returned from running the "forge remappings" command. Forge remappings
-    takes into consideration mappings in remappings.txt but also mappings in foundry.toml and mappings from auto scan
-    :return:
     """
-    remappings = []
-    check_remapping_file()
-    if REMAPPINGS_FILE.exists() and not FOUNDRY_TOML_FILE.exists():
+    Tries to fetch packages from remappings.txt. This function should not be called if the packages attribute
+    was set in conf file on in CLI.
+    If forge is installed and foundry.toml is found we run 'forge remappings' to get the package mappings (including possible auto scan).
+    If the remappings.txt exists in cwd and foundry is not installed we parse the file (legacy behavior).
+    """
+
+    def parse_remappings_file() -> List[str]:
         try:
             with REMAPPINGS_FILE.open() as remappings_file:
                 remappings_set = set(filter(lambda x: x != "", map(lambda x: x.strip(), remappings_file.readlines())))
-            remappings = list(remappings_set)
+            return list(remappings_set)
         except CertoraUserInputError as e:
             raise e from None
         except Exception as e:
             # create CertoraUserInputError from other exceptions
             raise CertoraUserInputError(f"Invalid remappings file: {REMAPPINGS_FILE}", e)
-    elif find_nearest_foundry_toml():
-        remappings = get_mappings_from_forge_remappings()
 
-    context.forge_remappings = remappings
+    check_remapping_file()
+    foundry_toml_exist = find_nearest_foundry_toml()
+    remappings_text_exist_in_cwd = REMAPPINGS_FILE.exists()
+    foundry_installed = shutil.which("forge") is not None
+    remappings = []
+    if foundry_installed and foundry_toml_exist:
+        remappings = get_mappings_from_forge_remappings()
+    elif remappings_text_exist_in_cwd:
+        remappings = parse_remappings_file()
+
+    if foundry_toml_exist and not foundry_installed:
+        context_logger.warning("foundry.toml was found but `forge` command not found. To add support for foundry "
+                               "please install `foundry` following instructions at "
+                               "https://book.getfoundry.sh/getting-started/installation")
 
     return remappings
 

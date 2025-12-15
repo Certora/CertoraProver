@@ -90,8 +90,9 @@ class WasmTestFixtureTest : WasmTestFixture() {
 
         val wasm = watToWasm(wat);
         val program = WasmEntryPoint.wasmToTAC(wasm.toFile(), setOf("entry"), NullHost, optimize = false).single()
+        val code = program.let { it as CompiledGenericRule.Compiled }.code
 
-        assertEquals(setOf(WasmName("\$fake.fake"), WasmName("\$fake2.fake2")), program.code.findUnresolveCalls())
+        assertEquals(setOf(WasmName("\$fake.fake"), WasmName("\$fake2.fake2")), code.findUnresolveCalls())
     }
 
     @Test

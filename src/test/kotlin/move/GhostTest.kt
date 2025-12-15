@@ -64,6 +64,47 @@ class GhostTest : MoveTestFixture() {
     }
 
     @Test
+    fun `generic ghost variable nondet type equal`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(): &mut u64;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            fun test<T>() {
+                *ghost<T>() = 1;
+                cvlm_assert(*ghost<T>() == 1);
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `generic ghost variable nondet type maybe equal`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(): &mut u64;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            fun test<T>() {
+                *ghost<u8>() = 0;
+                *ghost<T>() = 1;
+                cvlm_assert(*ghost<u8>() == 0);
+            }
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
     fun `ghost mapping one numeric param`() {
         addMoveSource("""
             module 0::ghosts;
@@ -109,6 +150,120 @@ class GhostTest : MoveTestFixture() {
             }
         """.trimIndent())
         assertTrue(verify())
+    }
+
+    @Test
+    fun `generic ghost mapping one numeric param nondet type equal`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(x: u32): &mut u32;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            fun test<T>() {
+                *ghost<T>(1) = 12;
+                *ghost<T>(2) = 34;
+                cvlm_assert(*ghost<T>(1) == 12);
+                cvlm_assert(*ghost<T>(2) == 34);
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `generic ghost mapping one numeric param nondet type maybe equal`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(x: u32): &mut u32;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            fun test<T>() {
+                *ghost<u8>(1) = 12;
+                *ghost<u8>(2) = 34;
+                *ghost<T>(1) = 56;
+                *ghost<T>(2) = 78;
+                cvlm_assert(*ghost<u8>(1) == 12);
+                cvlm_assert(*ghost<u8>(2) == 34);
+            }
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
+    fun `generic ghost mapping one numeric param wrapped nondet type maybe equal`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(x: u32): &mut u32;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            public struct Wrapper<T> { value: T }
+            fun test<T>() {
+                *ghost<Wrapper<u8>>(1) = 12;
+                *ghost<Wrapper<u8>>(2) = 34;
+                *ghost<Wrapper<T>>(1) = 56;
+                *ghost<Wrapper<T>>(2) = 78;
+                cvlm_assert(*ghost<Wrapper<u8>>(1) == 12);
+                cvlm_assert(*ghost<Wrapper<u8>>(2) == 34);
+            }
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
+    fun `generic ghost mapping one numeric param nondet type maybe equal one call`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(x: u32): &mut u32;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            fun test<T>() {
+                *ghost<u8>(1) = 12;
+                *ghost<T>(1) = 56;
+                cvlm_assert(*ghost<u8>(1) == 12);
+            }
+        """.trimIndent())
+        assertFalse(verify())
+    }
+
+    @Test
+    fun `generic ghost mapping one numeric param wrapped nondet type maybe equal one call`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T>(x: u32): &mut u32;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            public struct Wrapper<T> { value: T }
+            fun test<T>() {
+                *ghost<Wrapper<u8>>(1) = 12;
+                *ghost<Wrapper<T>>(1) = 56;
+                cvlm_assert(*ghost<Wrapper<u8>>(1) == 12);
+            }
+        """.trimIndent())
+        assertFalse(verify())
     }
 
     @Test
@@ -242,6 +397,55 @@ class GhostTest : MoveTestFixture() {
                 let key = 1;
                 *ghost(&key) = 12;
                 cvlm_assert(*ghost(&key) == 12);
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `copy struct value doesn't overwrite other type`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T: copy>(x: u32, y: u32): &mut T;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            #[allow(unused_field)]
+            public struct S has drop, copy { c: vector<u8> }
+            #[allow(unused_field)]
+            public struct T has drop, copy { c: vector<u32> }
+            fun test(x: u32, y: u32, a: u32, b: u32, s: S) {
+                let t = *ghost<T>(x, y);
+                *ghost<S>(a, b) = s;
+                cvlm_assert(*ghost<T>(x, y) == t);
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
+    fun `copy struct value doesn't overwrite other value`() {
+        addMoveSource("""
+            module 0::ghosts;
+            public native fun ghost<T: copy>(x: u32, y: u32): &mut T;
+            public fun cvlm_manifest() {
+                cvlm::manifest::ghost(b"ghost");
+            }
+        """.trimIndent())
+        addMoveSource("""
+            $testModule
+            use 0::ghosts::ghost;
+            #[allow(unused_field)]
+            public struct S has drop, copy { a: u32, b: u32, c: vector<u8> }
+            fun test(x: u32, y: u32, a: u32, b: u32, s: S) {
+                cvlm_assume(x != a || y != b);
+                let t = *ghost<S>(x, y);
+                *ghost<S>(a, b) = s;
+                cvlm_assert(*ghost<S>(x, y) == t);
             }
         """.trimIndent())
         assertTrue(verify())

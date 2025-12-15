@@ -53,7 +53,8 @@ class LiveReferenceAnalysis(
                 is TACCmd.Move.VecPopBackCmd -> treapSetOf(c.ref)
                 is TACCmd.Move.PackVariantCmd -> treapSetOf()
                 is TACCmd.Move.UnpackVariantCmd -> treapSetOf()
-                is TACCmd.Move.VariantIndexCmd -> treapSetOf()
+                is TACCmd.Move.UnpackVariantRefCmd -> treapSetOf(c.srcRef)
+                is TACCmd.Move.VariantIndexCmd -> treapSetOf(c.ref)
                 is TACCmd.Move.GhostArrayBorrowCmd -> treapSetOf(c.arrayRef)
                 is TACCmd.Move.HashCmd -> treapSetOf()
                 is TACCmd.Move.EqCmd -> treapSetOf()
@@ -73,6 +74,7 @@ class LiveReferenceAnalysis(
                     is TACCmd.Move.BorrowFieldCmd -> treapSetOf(c.dstRef)
                     is TACCmd.Move.VecBorrowCmd -> treapSetOf(c.dstRef)
                     is TACCmd.Move.GhostArrayBorrowCmd -> treapSetOf(c.dstRef)
+                    is TACCmd.Move.UnpackVariantRefCmd -> c.dsts.toTreapSet()
                 }
                 else -> treapSetOf()
             }

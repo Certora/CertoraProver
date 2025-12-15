@@ -142,13 +142,20 @@ object OptimisticSpillRewriter {
             val holdsValue = TACSymbol.Var("spillScalar!$spill", initWrite.cmd.value.tag).toUnique("!").withMeta(
                 SPILL_VARIABLE
             )
-            patch.addBefore(initWrite.ptr, listOf(
-                TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                    lhs = holdsValue,
-                    rhs = initWrite.cmd.value
-                )
-            ))
+            val rewrite = TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                lhs = holdsValue,
+                rhs = initWrite.cmd.value
+            )
             patch.addVarDecl(holdsValue)
+            if (Config.SuperOptimisticSpillLocations.get()) {
+                patch.replaceCommand(initWrite.ptr, listOf(rewrite))
+            } else {
+                patch.addBefore(
+                    initWrite.ptr, listOf(
+                        rewrite
+                    )
+                )
+            }
 
             for(r in toRewrite) {
                 /**
@@ -163,6 +170,13 @@ object OptimisticSpillRewriter {
                  *
                  * NB that we have moved the definition of `v` from the read from memory to the copy of `holdsValue`.
                  */
+                if(Config.SuperOptimisticSpillLocations.get()) {
+                    patch.replaceCommand(r.ptr, listOf(TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                        lhs = r.cmd.lhs,
+                        rhs = holdsValue.asSym()
+                    )))
+                    continue
+                }
                 val tempRead = TACKeyword.TMP(Tag.Bit256, "optimisticReadValidate").toUnique("!")
                 patch.addVarDecl(tempRead)
 

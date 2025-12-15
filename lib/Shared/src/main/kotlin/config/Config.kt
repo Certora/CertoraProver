@@ -1150,9 +1150,18 @@ object Config {
         Option(
             "cvlFunctionRevert",
             true,
-            "If enabled, CVL functions are treated like solidity functions on revert, bubbling up reverts of calls inside them. This allows modelling reverts in summaries. [default: false]"
+            "If enabled, CVL functions are treated like solidity functions on revert, bubbling up reverts of calls inside them. This allows modelling reverts in summaries. [default: true]"
         )
     )  {}
+
+    val allContractsZeroedForInvariantBaseCase = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "allContractsZeroedForInvariantBaseCase",
+            true,
+            "If enabled, on verifying the base step of an invariant on a constructor, we assume the storage of all contracts in the scene is fresh and zeroed, instead of just the one of the contract under construction. [default: false]"
+        )
+    ) {}
 
     // this option adds the assumption that no code is deployed at address(0) and therefore address(0).code.length
     // returns 0.
@@ -1688,6 +1697,24 @@ object Config {
             "Optimistically try to scalarize spill locations heuristically. This scalarization is checked with runtime instrumentation"
         )
     ) { }
+
+    val SuperOptimisticSpillLocations = object : ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "superOptimisticSpillLocations",
+            true,
+            "Super optimistically scalarize spill locations."
+        )
+    ) {}
+
+    val EnableOptimisticReturnBufferAnalysis = object : ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "enableOptimisticReturnBufferAnalysis",
+            true,
+            "Allow the return buffer analysis to optimistically ignore writes to spilled memory"
+        )
+    ) {}
 
     val RelaxedPointsToSemantics = object : ConfigType.RelaxedSemantics(
         default = arrayOf(),

@@ -17,10 +17,10 @@
 
 package sbf
 
+import CompiledGenericRule
 import analysis.maybeNarrow
 import config.Config
 import config.ConfigScope
-import datastructures.stdcollections.*
 import sbf.cfg.*
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
@@ -69,12 +69,15 @@ class TACMultiAssertTest {
         println("=== Original TAC ===\n${dumpTAC(tacProg)}")
 
         ConfigScope(Config.MultiAssertCheck, true).use {
-            val rules = multiAssertChecks(listOf(CompiledSolanaRule(
-                code = tacProg,
-                rule = EcosystemAgnosticRule(
-                    ruleIdentifier = RuleIdentifier.freshIdentifier(tacProg.name),
-                    ruleType = SpecType.Single.FromUser.SpecFile
-                ))))
+            val rules = splitAsserts(
+                CompiledGenericRule.Compiled(
+                    rule = EcosystemAgnosticRule(
+                        ruleIdentifier = RuleIdentifier.freshIdentifier(tacProg.name),
+                        ruleType = SpecType.Single.FromUser.SpecFile,
+                    ),
+                    code = tacProg,
+                )
+            )
             Assertions.assertEquals(true, rules.size == 2)
             var counter = 0
             rules.forEach {

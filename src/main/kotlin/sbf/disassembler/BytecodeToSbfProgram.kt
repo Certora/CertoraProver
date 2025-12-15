@@ -52,7 +52,8 @@ private fun isMemLdX(inst: SbfBytecode): Boolean {
     }
 }
 
-private fun makeMemInst(inst: SbfBytecode): SbfInstruction {
+@TestOnly
+fun makeMemInst(inst: SbfBytecode): SbfInstruction {
     when ((inst.opcode.toInt() and SbfInstructionCodes.INST_MODE_MASK.opcode).shr(5)) {
         SbfInstructionCodes.INST_ABS.opcode -> {
             throw DisassemblerError("unsupported legacy BPF packet access (absolute)")
@@ -78,7 +79,7 @@ private fun makeMemInst(inst: SbfBytecode): SbfInstruction {
             }
             val width = getMemWidth(inst)
             val isLoad = isMemLdX(inst)
-            val isImm:Boolean = (inst.opcode.toInt() and 1).inv() == 1
+            val isImm:Boolean = (inst.opcode.toInt() and 1) == 0
             check(!(isLoad and isImm))
             val baseReg:Byte = if (isLoad) {inst.src} else {inst.dst}
             return SbfInstruction.Mem(
@@ -350,5 +351,5 @@ fun bytecodeToSbfProgram(bytecode: BytecodeProgram): SbfProgram {
         throw DisassemblerError("program does not exit")
     }
     bytecode.functionMan.warnDuplicateSymbols()
-    return SbfProgram(bytecode.entriesMap, bytecode.functionMan, bytecode.globalsMap, newInsts)
+    return SbfProgram(bytecode.entriesMap, bytecode.functionMan, bytecode.globals, newInsts)
 }

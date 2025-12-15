@@ -43,10 +43,10 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
     bot: T,
     top: T,
     val options: WtoBasedFixpointOptions,
-    val globalsMap: GlobalVariableMap,
+    val globals: GlobalVariables,
     val memSummaries: MemorySummaries):
         FixpointSolver<T>,
-        FixpointSolverOperations<T>(bot, top, globalsMap, memSummaries){
+        FixpointSolverOperations<T>(bot, top, globals, memSummaries){
 
     init {
         check(bot.isBottom()) {"bot argument is not bottom!"}
@@ -85,7 +85,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
         check(inState != null) {
             "Cannot find abstract state for $label in CFG ${wto.cfg.getName()}"
         }
-        inState.analyze(b, globalsMap, memSummaries, processor)
+        inState.analyze(b, globals, memSummaries, processor)
     }
 
     private fun extrapolate(b: SbfBasicBlock, numAscendingIterations: UInt,
@@ -221,7 +221,7 @@ class WtoBasedFixpointSolver<T: AbstractDomain<T>>(
             "Cannot find abstract state for $label in CFG ${wto.cfg.getName()}"
         }
         // process the head
-        inState.analyze(b, globalsMap, memSummaries, processor)
+        inState.analyze(b, globals, memSummaries, processor)
         // process recursively the rest of the component
         for (c in node.getComponents()) {
             if (c !is WtoVertex || c.label != b.getLabel()) { // don't process twice the head

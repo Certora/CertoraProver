@@ -67,7 +67,8 @@ class MoveDefAnalysis private constructor(
             is TACCmd.Move.VecPopBackCmd -> ref.targetVarsBefore(ptr, cmd.ref)
             is TACCmd.Move.PackVariantCmd -> listOf(cmd.dst)
             is TACCmd.Move.UnpackVariantCmd -> cmd.dsts
-            is TACCmd.Move.VariantIndexCmd -> listOf(cmd.loc)
+            is TACCmd.Move.UnpackVariantRefCmd -> cmd.dsts
+            is TACCmd.Move.VariantIndexCmd -> listOf(cmd.index)
             is TACCmd.Move.GhostArrayBorrowCmd -> listOf(cmd.dstRef)
             is TACCmd.Move.HashCmd -> listOf(cmd.dst)
             is TACCmd.Move.EqCmd -> listOf(cmd.dst)

@@ -1,0 +1,24 @@
+rule manyFilters(env e, method f, calldataarg args)
+filtered {
+    f -> f.selector == sig:aaa(address,bool).selector
+        || f.selector == sig:bbb(address).selector
+        || f.selector == sig:ccc(address).selector
+        || f.selector == sig:ddd(address).selector
+        || f.selector == sig:eee(address).selector
+        || f.selector == sig:fff(address).selector
+        || f.selector == sig:ggg(address).selector
+        || f.selector == sig:hhh(address).selector
+        || f.selector == sig:iii(bytes,uint256).selector
+        || f.selector == sig:jjj(bytes,uint256).selector
+        || f.selector == sig:kkk(uint256).selector
+        || f.selector == sig:lll(uint256).selector
+        || f.selector == sig:mmm(address).selector
+        || f.selector == sig:nnn(address).selector
+        || f.selector == sig:ooo(address,uint256).selector
+        || f.selector == sig:ppp(bytes4,uint256).selector
+        || f.selector == sig:qqq(bytes4,uint256).selector
+        || f.selector == sig:rrr(bytes4).selector
+}
+{
+    assert lastReverted;
+}

@@ -18,7 +18,7 @@
 package sbf.domains
 
 import sbf.cfg.*
-import sbf.disassembler.GlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.disassembler.Label
 
 /**
@@ -37,7 +37,7 @@ interface AbstractDomain<T> {
     fun lessOrEqual(other: T, left: Label? = null, right: Label? = null): Boolean
     fun forget(reg: Value.Reg)
     fun analyze(b: SbfBasicBlock,
-                globals: GlobalVariableMap,
+                globals: GlobalVariables,
                 memSummaries: MemorySummaries,
                 listener: InstructionListener<T> = DefaultInstructionListener()): T
     /**

@@ -17,14 +17,20 @@
 
 package analysis.opt
 
+import analysis.TACProgramPrinter
 import analysis.numeric.MAX_UINT
 import analysis.opt.PatternRewriter.PatternHandler
+import analysis.opt.intervals.IntervalsRewriter
+import instrumentation.transformers.FilteringFunctions
+import instrumentation.transformers.optimizeAssignments
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import sbf.tac.solanaPatternsList
 import tac.Tag
 import utils.ModZm.Companion.lowOnes
 import vc.data.TACBuilderAuxiliaries
+import vc.data.TACExpr
 import vc.data.TACProgramBuilder
 import vc.data.asTACExpr
 import java.math.BigInteger
@@ -168,5 +174,49 @@ class PatternRewriterTest : TACBuilderAuxiliaries() {
         }
         checkStat(prog, "redundant-narrow2", 1, PatternRewriter::solanaPatternsList)
     }
+
+    @Test
+    fun testSolanaMulByConst() {
+        val prog = TACProgramBuilder {
+            val mask = BigInteger("ffffffffffffffff", 16).asTACExpr
+            val ll = bv256Var("l")
+            val final = intVar("final")
+
+            b assign BWAnd(aS, mask)
+            c assign ShiftRightLogical(aS, 0x40.asTACExpr)
+            i assign IntMul(cS, 0x2710.asTACExpr)
+            d assign safeMathNarrow(iS, Tag.Bit256)
+            j assign IntMul(bS, 0x2710.asTACExpr)
+            e assign safeMathNarrow(jS, Tag.Bit256)
+            f assign BWAnd(eS,mask)
+            g assign ShiftRightLogical(eS, 0x40.asTACExpr)
+            k assign IntAdd(gS, dS)
+            assumeExp(LAnd(Ge(kS, 0.asTACExpr), Le(kS, mask)))
+            h assign safeMathNarrow(kS, Tag.Bit256)
+            s assign IntMul(hS, BigInteger("10000000000000000", 16).asTACExpr)
+            ll assign safeMathNarrow(sS, Tag.Bit256)
+            final assign IntAdd(ll.asSym(), fS)
+            x assign Ge(final.asSym(), 1.asTACExpr)
+            assert(x)
+        }
+        val newCode = PatternRewriter.rewrite(prog.code, PatternRewriter::solanaPatternsList, repeat = 100)
+            .let { IntervalsRewriter.rewrite(it, 2, false) }
+            .let { optimizeAssignments(it, FilteringFunctions.NoFilter) }
+        // this actually simplifies to:
+        //    0: ASSUME Le(a:bv256 0x68db8bac710cb295e9e1b089a0275)
+        //    1: tacTmp!t11!12:int := IntMul(a:bv256 0x2710)
+        //    2: final:int := Apply(safe_math_narrow_bv256:bif tacTmp!t11!12:int)
+        //    3: x:bool := Ge(final:int 0x1)
+        //    4: ASSERT x:bool
+        // but we just check that all bw-ands and shift-rights are gone.
+        for ((_, cmd) in newCode.ltacStream()) {
+            for (e in cmd.subExprs()) {
+                Assertions.assertFalse {
+                    e is TACExpr.BinOp.BWAnd || e is TACExpr.BinOp.ShiftRightLogical
+                }
+            }
+        }
+    }
+
 
 }

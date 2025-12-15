@@ -121,18 +121,19 @@ object MoveCallTrace {
         types.
      */
     @KSerializable
-    data class TypeId(val type: MoveType.Value, val id: Int) : MoveSnippetCmd() {
+    data class TypeId(
+        val type: MoveType.Value,
+        val id: TACSymbol.Var
+    ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<TypeId> {
         override val range: Range.Range? get() = null
-
-        /** Summarization context initializer to ensure we only record each type once. */
-        data class Initializer(val type: MoveType.Value, val id: Int) : SummarizationContext.Initializer() {
-            override fun initialize() = TypeId(type, id).toAnnotation().withDecls()
-        }
+        override val support: Set<TACSymbol.Var> get() = setOf(id)
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
+            id = f(id)
+        )
     }
 
-    context(SummarizationContext)
-    fun recordTypeId(type: MoveType.Value, id: Int) {
-        ensureInit(TypeId.Initializer(type, id))
+    fun recordTypeId(type: MoveType.Value, id: TACSymbol.Var): MoveCmdsWithDecls {
+        return TypeId(type, id).toAnnotation().withDecls()
     }
 
     /**
@@ -309,8 +310,11 @@ object MoveCallTrace {
         type: MoveType.Enum,
         enumSym: TACSymbol.Var
     ): Value.Enum {
+        val refSym = TACKeyword.TMP(MoveTag.Ref(type))
+        cmds += TACCmd.Move.BorrowLocCmd(refSym, enumSym).withDecls(refSym)
+
         val variantIndexSym = TACSymbol.Var("variant_index", Tag.Bit256).toUnique("!")
-        cmds += TACCmd.Move.VariantIndexCmd(variantIndexSym, enumSym).withDecls(variantIndexSym)
+        cmds += TACCmd.Move.VariantIndexCmd(variantIndexSym, refSym).withDecls(variantIndexSym)
 
         val variants = type.variants.mapIndexed { variantIndex, variant ->
             val fields = variant.fields.orEmpty()

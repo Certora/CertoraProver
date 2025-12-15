@@ -116,7 +116,7 @@ class ScalarDomainTest {
             }
         }
         println("$cfg")
-        val globals = newGlobalVariableMap()
+        val globals = GlobalVariables(DefaultElfFileView)
         val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
@@ -189,7 +189,7 @@ class ScalarDomainTest {
             }
         }
         println("$cfg")
-        val globals: GlobalVariableMap = newGlobalVariableMap(56789L to SbfGlobalVariable("myglobal", 56789, 8))
+        val globals = GlobalVariables(DefaultElfFileView, listOf(SbfGlobalVariable("myglobal", 56789, 8)))
         val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
@@ -217,7 +217,7 @@ class ScalarDomainTest {
             }
         }
         println("$cfg")
-        val globals: GlobalVariableMap = newGlobalVariableMap(56789L to SbfGlobalVariable("myglobal", 56789, 8))
+        val globals = GlobalVariables(DefaultElfFileView, listOf(SbfGlobalVariable("myglobal", 56789, 8)))
         val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)

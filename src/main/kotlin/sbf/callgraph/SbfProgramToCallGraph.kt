@@ -179,6 +179,11 @@ private fun sbfProgramWithMocksToSbfCfgs(
     val cfgs = ArrayList<MutableSbfCFG>()
     for ((name, start) in functions) {
         check(start != null)
+
+        if (AbortFunctions.contains(name)) {
+            continue
+        }
+
         val labeledStart = labelMap[Label.Address(start)]
         check(labeledStart != null) { "cannot find address $start in the label map $labelMap" }
         val entryBlock = monoCFG.getBlock(labeledStart)
@@ -188,7 +193,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
         if (SolanaConfig.PrintOriginalToStdOut.get()) {
             sbfLogger.info { "$clonedCfg" }
         }
-        postProcessCFG(clonedCfg, prog.globalsMap)
+        postProcessCFG(clonedCfg, prog.globals)
         cfgs.add(clonedCfg)
     }
     val demangler = Demangler(cfgs)
@@ -198,7 +203,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
         MutableSbfCallGraph(
             demangler.get(),
             roots,
-            prog.globalsMap,
+            prog.globals,
             preservedCFGs = cpisSubstitutionMap.mockFunctionsNames
         ),
         demangler
@@ -207,7 +212,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
     }
 }
 
-private fun postProcessCFG(cfg: MutableSbfCFG, globalsMap: GlobalVariableMap) {
+private fun postProcessCFG(cfg: MutableSbfCFG, globals: GlobalVariables) {
     cfg.verify(false, "[before postProcessCFG]")
     //do not call simplify before calling lowerBranchesIntoAssume
     cfg.lowerBranchesIntoAssume()
@@ -215,7 +220,7 @@ private fun postProcessCFG(cfg: MutableSbfCFG, globalsMap: GlobalVariableMap) {
     //do not call simplify before calling simplifyMemoryIntrinsics
     simplifyMemoryIntrinsics(cfg)
     cfg.verify(false, "[after simplifying builtin calls]")
-    cfg.simplify(globalsMap)
+    cfg.simplify(globals)
     cfg.verify(false, "[after simplify]")
     cfg.normalize()
     cfg.verify(true, "[after normalize]")

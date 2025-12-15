@@ -147,7 +147,7 @@ class MutableSbfFunctionManager(private val start: ElfAddress, private val names
 data class BytecodeProgram(val entriesMap: Map<String, ElfAddress>,
                            val functionMan: MutableSbfFunctionManager,
                            val program: List<SbfBytecode>,
-                           val globalsMap: GlobalVariableMap,
+                           val globals: GlobalVariables,
                            // each element in relocatedCalls is an index in program
                            // Strictly, we don't really need this because for all resolved
                            // calls via relocation the value of the IMM field should be -1.

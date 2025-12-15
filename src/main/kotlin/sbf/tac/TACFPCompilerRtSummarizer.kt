@@ -206,10 +206,10 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         arg2: TACSymbol
     ): List<TACCmd.Simple> {
 
-        val nanV = mkFreshIntVar()
-        val infV = mkFreshIntVar()
-        val finiteV = mkFreshIntVar()
-        val nonZeroFiniteV = mkFreshIntVar()
+        val nanV = vFac.mkFreshIntVar()
+        val infV = vFac.mkFreshIntVar()
+        val finiteV = vFac.mkFreshIntVar()
+        val nonZeroFiniteV = vFac.mkFreshIntVar()
 
         return  nondetWithAssumptions(nanV, listOf(isf64NaN(nanV))) +
                 nondetWithAssumptions(infV, listOf(isf64Inf(infV))) +
@@ -278,7 +278,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
     ): List<TACCmd.Simple> {
 
         // `defaultV` models a u64 number
-        val nonZeroV  = mkFreshIntVar()
+        val nonZeroV  = vFac.mkFreshIntVar()
         return nondetWithAssumptions(nonZeroV, listOf(txf { nonZeroV neq exprBuilder.ZERO.asSym()})) +
                assign(res,
                     switch (
@@ -312,7 +312,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
     ): List<TACCmd.Simple> {
 
         // `zeroV` and `defaultV` model f64 numbers
-        val (zeroV, defaultV) = listOf(mkFreshIntVar(), mkFreshIntVar())
+        val (zeroV, defaultV) = listOf(vFac.mkFreshIntVar(), vFac.mkFreshIntVar())
         return  nondetWithAssumptions(
                     defaultV,
                     listOf(isf64NonZero(defaultV), isNotf64NaN(defaultV), isNotf64Inf(defaultV), isf64NonSubnormal(defaultV))
@@ -336,7 +336,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         // `trueS` represents a u64 number
         val trueS = exprBuilder.ZERO.asSym()
         // `falseV` represents a u64 number
-        val falseV = mkFreshIntVar()
+        val falseV = vFac.mkFreshIntVar()
         return nondetWithAssumptions(falseV, listOf(txf { falseV.asSym() neq trueS })) +
             assign(res,
                 switch(
@@ -359,7 +359,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         arg2: TACSymbol
     ): List<TACCmd.Simple> {
         // `trueV` represents a u64 number
-        val trueV = mkFreshIntVar()
+        val trueV = vFac.mkFreshIntVar()
         // `falseS` represents a u64 number
         val falseS = exprBuilder.ZERO.asSym()
         return  nondetWithAssumptions(trueV, listOf(txf { trueV.asSym() neq falseS })) +
@@ -383,7 +383,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         arg2: TACSymbol
     ): List<TACCmd.Simple> {
         // `trueV` and `falseV` represent u64 numbers
-        val (trueV, falseV) = mkFreshIntVar() to  mkFreshIntVar()
+        val (trueV, falseV) = vFac.mkFreshIntVar() to  vFac.mkFreshIntVar()
         return  nondetWithAssumptions(trueV, listOf(txf { trueV.asSym() sLt  exprBuilder.ZERO.asSym()})) +
             nondetWithAssumptions(falseV, listOf(txf { falseV.asSym() sGe exprBuilder.ZERO.asSym()})) +
             summarizeBinRel(res, arg1, arg2,
@@ -402,7 +402,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         arg2: TACSymbol
     ): List<TACCmd.Simple> {
         // `trueV` and `falseV` represent u64 numbers
-        val (trueV, falseV) = mkFreshIntVar() to  mkFreshIntVar()
+        val (trueV, falseV) = vFac.mkFreshIntVar() to  vFac.mkFreshIntVar()
         return  nondetWithAssumptions(trueV, listOf(txf { trueV.asSym() sLe  exprBuilder.ZERO.asSym()})) +
             nondetWithAssumptions(falseV, listOf(txf { falseV.asSym() sGt exprBuilder.ZERO.asSym()})) +
             summarizeBinRel(res, arg1, arg2,
@@ -423,7 +423,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         arg2: TACSymbol
     ): List<TACCmd.Simple> {
         // `trueV` and `falseV` represent u64 numbers
-        val (trueV, falseV) = mkFreshIntVar() to  mkFreshIntVar()
+        val (trueV, falseV) = vFac.mkFreshIntVar() to  vFac.mkFreshIntVar()
         return  nondetWithAssumptions(trueV, listOf(txf { trueV.asSym() sGe  exprBuilder.ZERO.asSym()})) +
             nondetWithAssumptions(falseV, listOf(txf { falseV.asSym() sLt exprBuilder.ZERO.asSym()})) +
             summarizeBinRel(res, arg1, arg2,
@@ -444,7 +444,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
         arg2: TACSymbol
     ): List<TACCmd.Simple> {
         // `trueV` and `falseV` represent u64 numbers
-        val (trueV, falseV) = mkFreshIntVar() to  mkFreshIntVar()
+        val (trueV, falseV) = vFac.mkFreshIntVar() to  vFac.mkFreshIntVar()
         return  nondetWithAssumptions(trueV, listOf(txf { trueV.asSym() sGt  exprBuilder.ZERO.asSym()})) +
                 nondetWithAssumptions(falseV, listOf(txf { falseV.asSym() sLe  exprBuilder.ZERO.asSym()})) +
                 summarizeBinRel(res, arg1, arg2,
@@ -489,7 +489,7 @@ open class SummarizeFPCompilerRt<TNum : INumValue<TNum>, TOffset : IOffset<TOffs
     ): List<TACCmd.Simple> {
 
         // `nondetV` represents a u64 number
-        val nondetV = mkFreshIntVar()
+        val nondetV = vFac.mkFreshIntVar()
         return  nondetWithAssumptions(nondetV) +
             assign(res,
                 switch(

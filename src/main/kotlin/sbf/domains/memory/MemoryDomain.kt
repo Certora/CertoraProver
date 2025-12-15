@@ -82,7 +82,7 @@ interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>
      * However, if the scalar value is a number then it tries to cast it to a pointer
      * in cases where that number is a known pointer address.
      */
-    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globalsMap: GlobalVariableMap): ScalarValue<TNum, TOffset>
+    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globals: GlobalVariables): ScalarValue<TNum, TOffset>
 }
 
 private typealias TScalarDomain<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
@@ -311,7 +311,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     @TestOnly fun getScalars() = scalars
 
     private fun analyzeUn(locInst: LocatedSbfInstruction,
-                          globals: GlobalVariableMap,
+                          globals: GlobalVariables,
                           memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeUn on bottom in memory domain"}
         val stmt = locInst.inst
@@ -405,7 +405,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     private fun analyzeBin(b: SbfBasicBlock,
                            locInst: LocatedSbfInstruction,
-                           globals: GlobalVariableMap,
+                           globals: GlobalVariables,
                            memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeBin on bottom in memory domain"}
         val stmt = locInst.inst
@@ -432,7 +432,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     }
 
     private fun analyzeCall(locInst: LocatedSbfInstruction,
-                            globals: GlobalVariableMap,
+                            globals: GlobalVariables,
                             memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeCall on bottom in memory domain"}
         scalars.analyze(locInst, globals, memSummaries)
@@ -457,7 +457,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     }
 
     private fun analyzeAssume(locInst: LocatedSbfInstruction,
-                              globals: GlobalVariableMap,
+                              globals: GlobalVariables,
                               memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeAssume on bottom in memory domain"}
         scalars.analyze(locInst, globals, memSummaries)
@@ -467,7 +467,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     }
 
     private fun analyzeAssert(locInst: LocatedSbfInstruction,
-                              globals: GlobalVariableMap,
+                              globals: GlobalVariables,
                               memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeAssert on bottom in memory domain"}
         scalars.analyze(locInst, globals, memSummaries)
@@ -477,7 +477,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     }
 
     private fun analyzeHavoc(locInst: LocatedSbfInstruction,
-                             globals: GlobalVariableMap,
+                             globals: GlobalVariables,
                              memSummaries: MemorySummaries) {
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Havoc)
@@ -489,7 +489,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     private fun analyzeSelect(b: SbfBasicBlock,
                               locInst: LocatedSbfInstruction,
-                              globals: GlobalVariableMap,
+                              globals: GlobalVariables,
                               memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeSelect on bottom in memory domain"}
         val inst = locInst.inst
@@ -520,7 +520,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
      * all the cells have been reconstructed.
      */
     private fun analyzeMem(locInst: LocatedSbfInstruction,
-                           globals: GlobalVariableMap,
+                           globals: GlobalVariables,
                            @Suppress("UNUSED_PARAMETER") memSummaries: MemorySummaries) {
         check(!isBottom()) {"called analyzeMem on bottom in memory domain"}
         val stmt = locInst.inst
@@ -563,7 +563,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     private fun analyze(b: SbfBasicBlock,
                         locInst: LocatedSbfInstruction,
-                        globals: GlobalVariableMap,
+                        globals: GlobalVariables,
                         memSummaries: MemorySummaries) {
 
         val inst = locInst.inst
@@ -596,7 +596,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     }
 
     override fun analyze(b: SbfBasicBlock,
-                         globals: GlobalVariableMap,
+                         globals: GlobalVariables,
                          memSummaries: MemorySummaries,
                          listener: InstructionListener<MemoryDomain<TNum, TOffset, Flags>>): MemoryDomain<TNum, TOffset, Flags> {
 
@@ -640,17 +640,17 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     override fun getStackContent(offset: Long, width: Byte) = getScalars().getStackContent(offset, width)
 
     /** External API for TAC encoding **/
-    fun getRegCell(reg: Value.Reg, globalsMap: GlobalVariableMap): PTASymCell<Flags>? {
+    fun getRegCell(reg: Value.Reg, globals: GlobalVariables): PTASymCell<Flags>? {
         val scalarVal = getScalars().getAsScalarValue(reg)
-        return getPTAGraph().getRegCell(reg, scalarVal.type(), globalsMap, locInst = null)
+        return getPTAGraph().getRegCell(reg, scalarVal.type(), globals, locInst = null)
     }
 
     /**
      * Return a [Pubkey] stored at `*([reg] + [offset])`, or null if the domain cannot be sure.
      */
-    fun getPubkey(reg: Value.Reg, offset: Long, globalsMap: GlobalVariableMap): Pubkey? {
-        return getPubkeyFromMemEqDomain(reg, offset, globalsMap)
-            ?: getPubkeyFromPtrDomain(reg, offset, globalsMap)
+    fun getPubkey(reg: Value.Reg, offset: Long, globals: GlobalVariables): Pubkey? {
+        return getPubkeyFromMemEqDomain(reg, offset, globals)
+            ?: getPubkeyFromPtrDomain(reg, offset, globals)
     }
 
     /**
@@ -661,9 +661,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     private fun getPubkeyFromMemEqDomain(
         reg: Value.Reg,
         offset: Long,
-        globalsMap: GlobalVariableMap
+        globals: GlobalVariables
     ): Pubkey ? =
-        getPubkey(reg, globalsMap) { c, i ->
+        getPubkey(reg, globals) { c, i ->
             // size = 32 because that's the size of Pubkey in bytes
             // stride = 8 because the Pubkey was recovered by [MemoryEqualityDomain] from either
             // (1) load instructions of 8 bytes or through (2) `memcmp` instructions
@@ -689,9 +689,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     private fun getPubkeyFromPtrDomain(
         reg: Value.Reg,
         offset: Long,
-        globalsMap: GlobalVariableMap
+        globals: GlobalVariables
     ): Pubkey? =
-        getPubkey(reg, globalsMap) { c, i ->
+        getPubkey(reg, globals) { c, i ->
             if (!c.getNode().isExactNode()) {
                 return@getPubkey null
             }
@@ -708,10 +708,10 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     private fun getPubkey(
         reg: Value.Reg,
-        globalsMap: GlobalVariableMap,
+        globals: GlobalVariables,
         wordExtractor: (c: PTACell<Flags>, index: Int) -> ULong?
     ): Pubkey? {
-        val sc = getRegCell(reg, globalsMap) ?: return null
+        val sc = getRegCell(reg, globals) ?: return null
         if (!sc.isConcrete()) {
             return null
         }

@@ -96,6 +96,36 @@ class EnumTest : MoveTestFixture() {
     }
 
     @Test
+    fun `struct field`() {
+        addMoveSource("""
+            $testModule
+            public struct S has drop, copy {
+                val: u32,
+            }
+            public enum E has drop, copy {
+                A { x: u32, s: S },
+                B { s: S, x: u32 },
+            }
+            fun extract(e: &E): (u32, u32) {
+                match (e) {
+                    E::A { x: n, s: s } => (*n, s.val),
+                    E::B { s: s, x: n } => (*n, s.val),
+                }
+            }
+            public fun test(a: u32, b: u32, sel: u8) {
+                let e = match (sel) {
+                    0 => E::A { x: a, s: S { val: b } },
+                    _ => E::B { s: S { val: b }, x: a },
+                };
+                let (x, v) = extract(&e);
+                cvlm_assert(x == a);
+                cvlm_assert(v == b);
+            }
+        """.trimIndent())
+        assertTrue(verify())
+    }
+
+    @Test
     fun `vector field`() {
         addMoveSource("""
             $testModule

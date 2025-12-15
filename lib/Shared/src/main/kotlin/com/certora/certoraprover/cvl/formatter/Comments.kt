@@ -20,11 +20,8 @@ package com.certora.certoraprover.cvl.formatter
 import com.certora.certoraprover.cvl.formatter.util.TerminalId
 import com.certora.certoraprover.cvl.formatter.util.ensure
 import com.certora.certoraprover.cvl.formatter.util.foundOrNull
-import com.certora.certoraprover.cvl.formatter.util.invariantBroken
 import com.certora.certoraprover.cvl.sym
-import datastructures.NonEmptyList
 import datastructures.stdcollections.*
-import datastructures.toNonEmptyList
 import utils.Range
 import utils.SourcePosition
 
@@ -47,8 +44,8 @@ internal data class Comments(
     }
 
     fun bindToToken(prevEmitted: Entry.Emitted?, nextEmitted: Entry.Emitted): Binding {
-        fun beforeNext() = Binding(Association.Before, nextEmitted, this)
-        fun afterPrev() = Binding(Association.After, prevEmitted!!, this)
+        fun beforeNext() = Binding(Association.Before, prev = prevEmitted, next = nextEmitted, this)
+        fun afterPrev() = Binding(Association.After,   prev = prevEmitted, next = nextEmitted, this)
 
         return when {
             prevEmitted == null -> beforeNext()
@@ -104,37 +101,89 @@ internal fun Comments(buffer: List<Entry.NotEmitted>): Comments {
 
 internal enum class Association { Before, After }
 
-internal data class Binding(val association: Association, val token: Entry.Emitted, val comments: Comments)
+internal data class Binding(
+    val association: Association,
+    val prev: Entry.Emitted?,
+    val next: Entry.Emitted?,
+    val comments: Comments,
+) {
+    // technically, this makes storing the association redundant (can just do object comparison.)
+    val boundToken: Entry.Emitted = when (this.association) {
+        Association.Before -> this.next
+        Association.After -> this.prev
+    }.let(::requireNotNull)
 
-private class CommentRunBuffer(private val buffer: MutableList<Entry.NotEmitted>, var inProgress: Boolean) {
-    fun add(entry: Entry.NotEmitted) {
-        this.buffer.add(entry)
+    fun expand(): List<Token> {
+        val comments = this@Binding.comments
+
+        val content = comments
+            .concatenate()
+            .flatMap {
+                when (it) {
+                    is Entry.NotEmitted.Comment -> Token.Terminal(str = it.content, id = null, space = Space.TT).asList()
+                    is Entry.NotEmitted.LineBreaks -> {
+                        List(it.count) { Token.LineBreak.Hard }
+                    }
+                    is Entry.NotEmitted.Whitespace -> {
+                        // we discard the user's whitespace and just use the current indent.
+                        // actually, I have no idea if this is going to work.
+                        emptyList()
+                    }
+                }
+            }
+
+        val before = if (this.prev == null || comments.before.isEmpty()) {
+            emptyList()
+        } else {
+            when (lineDifference(prev.range, comments.range)) {
+                0 -> Token.SingleWhiteSpace.asList()
+                1 -> Token.LineBreak.Soft.asList()
+                else -> listOf(Token.LineBreak.Soft, Token.LineBreak.Hard)
+            }
+        }
+
+        val after = if (this.next == null || comments.after.isEmpty()) {
+            emptyList()
+        } else {
+            when (lineDifference(comments.range, next.range)) {
+                0 -> Token.SingleWhiteSpace.asList()
+                1 -> Token.LineBreak.Soft.asList()
+                else -> listOf(Token.LineBreak.Soft, Token.LineBreak.Hard)
+            }
+        }
+
+        return flatListOf(before, content, after)
     }
+}
 
-    fun takeBuffer(): NonEmptyList<Entry.NotEmitted>? {
-        val buffer = if (this.inProgress) {
-            this.buffer.toNonEmptyList() ?: invariantBroken("we added a comment when we transitioned to in-progress")
+internal class CommentsBuilder {
+    private var prevEmitted: Entry.Emitted? = null
+    private val bindings: MutableList<Binding> = mutableListOf()
+
+    private val buffer: MutableList<Entry.NotEmitted> = mutableListOf()
+    private var bufferValid: Boolean = false
+
+    fun takeBuffer(): List<Entry.NotEmitted>? {
+        val buffer = if (this.bufferValid) {
+            val bufferClone = this.buffer.toMutableList()
+
+            ensure(!bufferClone.isEmpty(), "we added a comment when we transitioned to in-progress")
+            this.bufferValid = false
+
+            bufferClone
         } else {
             null
         }
 
         this.buffer.clear()
-        this.inProgress = false
 
         return buffer
     }
-}
-
-internal class CommentsBuilder {
-    private val currentRun: CommentRunBuffer = CommentRunBuffer(mutableListOf(), inProgress = false)
-
-    private var prevEmitted: Entry.Emitted? = null
-    private val bindings: MutableList<Binding> = mutableListOf()
 
     fun register(entry: Entry) {
         when (entry) {
             is Entry.Emitted -> {
-                val buffer: List<Entry.NotEmitted>? = this.currentRun.takeBuffer()
+                val buffer = this.takeBuffer()
 
                 if (buffer != null) {
                     val binding = Comments(buffer).bindToToken(this.prevEmitted, nextEmitted = entry)
@@ -145,16 +194,20 @@ internal class CommentsBuilder {
             }
 
             is Entry.NotEmitted.Comment -> {
-                this.currentRun.inProgress = true
-                this.currentRun.add(entry)
+                this.bufferValid = true
+                buffer.add(entry)
             }
-            is Entry.NotEmitted.LineBreaks -> this.currentRun.add(entry)
-            is Entry.NotEmitted.Whitespace -> this.currentRun.add(entry)
+            is Entry.NotEmitted.LineBreaks -> {
+                buffer.add(entry)
+            }
+            is Entry.NotEmitted.Whitespace -> {
+                buffer.add(entry)
+            }
         }
     }
 
     fun build(lastTokenOfFile: Entry.Emitted?): List<Binding> {
-        val buffer = this.currentRun.takeBuffer()
+        val buffer = this.takeBuffer()
         if (buffer != null) {
             val token = if (lastTokenOfFile != null) {
                 lastTokenOfFile
@@ -169,7 +222,7 @@ internal class CommentsBuilder {
                 zeroSizedEntry(fileName)
             }
 
-            val trailingComments = Binding(Association.After, token, Comments(buffer))
+            val trailingComments = Binding(Association.After, prev = token, next = null, Comments(buffer))
             this.bindings.add(trailingComments)
         }
 

@@ -55,6 +55,25 @@ data class FiniteInterval(val l: Long, val u: Long) {
         return (other.l in l..u) && (other.u in l..u)
     }
 
+    /** The length of the returned list is 0, 1, or 2 **/
+    fun difference(other: FiniteInterval): List<FiniteInterval> {
+        if (!overlap(other)) {
+            return listOf(this)
+        }
+
+        if (this == other) {
+            return listOf()
+        }
+
+        return if (other.l <= this.l) {
+            listOf(FiniteInterval(other.u+1, this.u))
+        } else if (other.u >= this.u) {
+            listOf(FiniteInterval(this.l, other.l-1))
+        } else {
+            check(this.includes(other))
+            listOf(FiniteInterval(this.l, other.l-1), FiniteInterval(other.u+1, this.u))
+        }
+    }
 
     fun union(other: FiniteInterval): FiniteInterval? {
        return if (overlap(other) ||

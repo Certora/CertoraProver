@@ -36,7 +36,7 @@ sealed class TACAllocator {
         ptr: TACSymbol.Var, address: ULong, useTACAssume:Boolean
     ): List<TACCmd.Simple> {
         return if (useTACAssume) {
-            val b = mkFreshBoolVar()
+            val b = vFac.mkFreshBoolVar()
             listOf(
                 assign(b, exprBuilder.mkBinRelExp(CondOp.EQ, ptr.asSym() , address.toLong())),
                 TACCmd.Simple.AssumeCmd(b, "mkEq")

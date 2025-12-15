@@ -22,7 +22,7 @@ import sbf.analysis.ScalarAnalysis
 import sbf.analysis.NPAnalysis
 import sbf.cfg.*
 import sbf.disassembler.Label
-import sbf.disassembler.newGlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -35,6 +35,8 @@ import sbf.slicer.sliceAssertions
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val top = NPDomain.mkTrue<ScalarDomain<Constant, Constant>, Constant, Constant>()
+private val globals = GlobalVariables(DefaultElfFileView)
+private val memSummaries = MemorySummaries()
 
 class NPDomainTest {
 
@@ -57,8 +59,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
@@ -97,12 +97,9 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
+
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
-
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
-
         val vFac = VariableFactory()
         val absVal = top
         val b = cfg.getBlock(Label.Address(0))
@@ -134,8 +131,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
@@ -161,8 +156,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
@@ -188,8 +181,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
@@ -215,8 +206,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
@@ -244,8 +233,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
@@ -291,8 +278,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val np = NPAnalysis(cfg, globals, memSummaries)
         val absValAt1 = np.getPreconditionsAtEntry(Label.Address(1))
         check(absValAt1 != null){"No preconditions for label 1"}
@@ -328,8 +313,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val np = NPAnalysis(cfg, globals, memSummaries)
         val absValAt1 = np.getPreconditionsAtEntry(Label.Address(1))
         check(absValAt1 != null){"No preconditions for label 1"}
@@ -366,8 +349,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         println( "$cfg")
 
         ConfigScope(SolanaConfig.SlicerBackPropagateThroughAsserts, true).use {
@@ -412,8 +393,6 @@ class NPDomainTest {
             }
         }
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         println("$cfg")
 
         ConfigScope(SolanaConfig.SlicerBackPropagateThroughAsserts, false).use {
@@ -524,8 +503,6 @@ class NPDomainTest {
         }
         cfg.lowerBranchesIntoAssume()
         println("$cfg")
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val (_, slicedProg) = sliceAssertions(MutableSbfCallGraph(mutableListOf(cfg), setOf("test"), globals), memSummaries)
         val slicedCfg = slicedProg.getCFG("test")
         check(slicedCfg != null)
@@ -576,8 +553,6 @@ class NPDomainTest {
             }
         }
         cfg.lowerBranchesIntoAssume()
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val (_, slicedProg) = sliceAssertions(MutableSbfCallGraph(mutableListOf(cfg), setOf("test"), globals), memSummaries)
         val slicedCfg = slicedProg.getCFG("test")
         check(slicedCfg != null)
@@ -646,8 +621,6 @@ class NPDomainTest {
         b0.add(SbfInstruction.Assume(Condition(CondOp.NE, r3, Value.Imm(0UL)) ))
         b0.add(SbfInstruction.Exit())
 
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 

@@ -28,7 +28,7 @@ import sbf.domains.MemorySummaries
  *  it can be also convenient to communicate types between different analyses.
  **/
 fun <T: AbstractDomain<T>> annotateCFGWithTypes(cfg: MutableSbfCFG,
-                                                globalsMap: GlobalVariableMap,
+                                                globals: GlobalVariables,
                                                 memSummaries: MemorySummaries,
                                                 preMap: (Label) -> T?,
                                                 getType: (Value, T) -> SbfRegisterType?) {
@@ -112,7 +112,7 @@ fun <T: AbstractDomain<T>> annotateCFGWithTypes(cfg: MutableSbfCFG,
             }
             val newInsts = ArrayList<SbfInstruction>()
             val listener = AnnotateWithTypesListener(newInsts)
-            blockAbsVal.analyze(b, globalsMap, memSummaries, listener)
+            blockAbsVal.analyze(b, globals, memSummaries, listener)
             // REVISIT: in-place modification of the CFG
             b.replaceInstructions(newInsts)
         }

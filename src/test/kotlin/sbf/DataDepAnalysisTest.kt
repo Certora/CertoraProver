@@ -33,7 +33,7 @@ import sbf.domains.PTAOffset
 class DataDepAnalysisTest {
     private fun runDDAWithSingleSource(cfg: SbfCFG, targetI: LocatedSbfInstruction, targetE: PointerExpressionError): LocatedSbfInstruction {
         println("TARGET = $targetI -- $targetE")
-        val dda = DataDependencyAnalysis(targetI, targetE, cfg, newGlobalVariableMap(), MemorySummaries())
+        val dda = DataDependencyAnalysis(targetI, targetE, cfg, GlobalVariables(DefaultElfFileView), MemorySummaries())
         println("SOURCES = ${dda.sources}")
         val source = dda.sources.toList().singleOrNull()
         check(source != null) { "No sources inferred by the analysis" }

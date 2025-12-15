@@ -22,7 +22,7 @@ import sbf.analysis.ScalarAnalysis
 import sbf.analysis.WholeProgramMemoryAnalysis
 import sbf.callgraph.MutableSbfCallGraph
 import sbf.cfg.*
-import sbf.disassembler.newGlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.domains.*
 import sbf.support.PointerStackEscapingError
 import sbf.testing.SbfTestDSL
@@ -33,6 +33,8 @@ import sbf.analysis.AnalysisRegisterTypes
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 private val memDomOpts = MemoryDomainOpts(useEqualityDomain = false)
+private val globals = GlobalVariables(DefaultElfFileView)
+private val memSummaries = MemorySummaries()
 
 class MemoryStackEscapeTest {
     @Test
@@ -63,8 +65,6 @@ class MemoryStackEscapeTest {
             }
         }
         println("$cfg")
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 
@@ -139,8 +139,6 @@ class MemoryStackEscapeTest {
             }
         }
         println("$cfg")
-        val globals = newGlobalVariableMap()
-        val memSummaries = MemorySummaries()
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
 

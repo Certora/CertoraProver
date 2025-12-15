@@ -24,7 +24,6 @@ import kotlinx.coroutines.runBlocking
 import log.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.io.*
-import parallel.coroutines.*
 import report.*
 import scene.*
 import scene.source.*
@@ -85,7 +84,11 @@ abstract class WasmTestFixture {
         .extend(Config.RecursionEntryLimit, recursionLimit)
         .use {
             val wasmFile = watToWasm(wat)
-            val program = WasmEntryPoint.wasmToTAC(wasmFile.toFile(), setOf(entry), host, optimize).single().code
+            val program = WasmEntryPoint
+                .wasmToTAC(wasmFile.toFile(), setOf(entry), host, optimize)
+                .single()
+                .let { it as CompiledGenericRule.Compiled }
+                .code
 
             if (!allowUnresolvedCalls) {
                 assertEquals(setOf<WasmId>(), program.findUnresolveCalls()) {

@@ -30,6 +30,7 @@ import config.OUTPUT_NAME_DELIMITER
 import config.ReportTypes
 import datastructures.stdcollections.*
 import diagnostics.*
+import event.RuleEvent
 import instrumentation.transformers.*
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
@@ -384,11 +385,10 @@ class RuleChecker(
             } else if (compiledPerAssertSubRules.isNotEmpty() && userDefinedAssertsWithMeta.isNotEmpty()) {
                 // We are not in multiassert, but have satisfy rules
                 // Update the main rule to ignore satisfy
-                val ruleName = "Assertions"
                 val mainRule = RuleSplitter.newMultiAssertSubRuleOf(
                     compiledSubRule,
                     initPatchingProgram().toCode(tacProg),
-                    ruleName,
+                    RuleEvent.ASSERTS_NODE_TITLE,
                     SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertsOnly(compiledSubRule.rule),
                     false,
                     treeViewReporter,

@@ -22,7 +22,7 @@ import log.LoggerTypes
 import sbf.SolanaConfig
 import sbf.callgraph.*
 import sbf.cfg.*
-import sbf.disassembler.GlobalVariableMap
+import sbf.disassembler.GlobalVariables
 import sbf.disassembler.SbfRegister
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -111,7 +111,7 @@ fun getInvokes(analyzedProg: SbfCallGraph): List<LocatedInvoke> {
  * The parameter [cpisSubstitutionMap] describes how to associate program IDs to specific mocking functions.
  */
 class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>(
-    private val cpisSubstitutionMap: CpisSubstitutionMap, val invokes: Iterable<LocatedInvoke>, val globals: GlobalVariableMap
+    private val cpisSubstitutionMap: CpisSubstitutionMap, val invokes: Iterable<LocatedInvoke>, val globals: GlobalVariables
 ) : InstructionListener<MemoryDomain<TNum, TOffset, TFlags>> {
 
     private val cpiInstructions: MutableMap<LocatedInvoke, InvokeMock?> = mutableMapOf()
@@ -184,7 +184,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
  */
 private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getProgramIdBeforeInvoke(
     memoryDomain: MemoryDomain<TNum, TOffset, TFlags>,
-    globals: GlobalVariableMap
+    globals: GlobalVariables
 ): ProgramId? {
     val r2 = Value.Reg(SbfRegister.R2_ARG)
     val pubkey = memoryDomain.getPubkey(r2, OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID.toLong(), globals) ?: return null
@@ -200,7 +200,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
 private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getInstruction(
     discriminants: ProgramDiscriminants,
     memoryDomain: MemoryDomain<TNum, TOffset, TFlags>,
-    globals: GlobalVariableMap
+    globals: GlobalVariables
 ): InvokeMock? {
     val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
     if (r2 == null) {

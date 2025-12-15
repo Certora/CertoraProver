@@ -1,0 +1,16 @@
+rule long_if() {
+    int x;
+    int y;
+    int z;
+
+    if (
+        a > b
+            && c < d
+            || e >= f
+            && true
+    ) {
+        assert(false);
+    } else {
+        satisfy(true);
+    }
+}

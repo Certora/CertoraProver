@@ -200,7 +200,7 @@ private object ConeOfInfluence {
         return {b -> coi.get(getIndex(b, blockToBit))}
     }
 
-    fun transform(cfg: MutableSbfCFG, globals: GlobalVariableMap) {
+    fun transform(cfg: MutableSbfCFG, globals: GlobalVariables) {
         if (!cfg.hasExit()) {
             sbfLogger.warn { "Cannot compute cone of influence because cfg has no exit block" }
             return

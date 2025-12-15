@@ -41,7 +41,6 @@ validation_logger = logging.getLogger("validation")
 
 KEY_ENV_VAR = "CERTORAKEY"
 
-
 class CertoraContextValidator:
     def __init__(self, context: CertoraContext):
         self.context = context
@@ -143,6 +142,14 @@ class CertoraContextValidator:
                                     f'"{conf_key}": [<comma separated list of values>]{Util.NEW_LINE}{Util.NEW_LINE}'
             raise Util.CertoraUserInputError(f"The value of attribute '{conf_key}' ('{value}')' is not a "
                                              f"list {syntax_suggestion}")
+
+        # Check for duplicates, we exclude ARG_FLAG_LIST_ATTRIBUTES as those can have duplicates e.g.
+        # prover_args value of “-rule rule1 -rule rule2" is valid, although the -rule string appears more than once.
+
+        if conf_key not in Attrs.ARG_FLAG_LIST_ATTRIBUTES:
+            if len(value) != len(set(value)):
+                raise Util.CertoraUserInputError(f"The value of attribute '{conf_key}' contains duplicate entries: {value}")
+
         for v in value:
             if not isinstance(v, str):
                 raise Util.CertoraUserInputError(f"value in {conf_key} {v} in {value} is not a string")

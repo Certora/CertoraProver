@@ -17,73 +17,103 @@
 
 package sbf.tac
 
+import CompiledGenericRule
+import analysis.LTACCmdView
 import analysis.maybeNarrow
 import utils.*
 import vc.data.CoreTACProgram
 import vc.data.TACCmd
 import vc.data.TACMeta
 import datastructures.stdcollections.*
-import sbf.CompiledSolanaRule
+import event.RuleEvent
+import spec.cvlast.RuleIdentifier
 import utils.Range
-import spec.rules.EcosystemAgnosticRule
 import spec.cvlast.SpecType
+import vc.data.find
 
 object TACMultiAssert {
 
-    /** Return all user assertions from [code] **/
-    private fun getAssertions(code: CoreTACProgram): Set<Pair<Int, String>> {
-        val assertions = mutableSetOf<Pair<Int, String>>()
-        code.parallelLtacStream().forEach {
-            it.maybeNarrow<TACCmd.Simple.AssertCmd>()?.let {
-                val assertId = it.cmd.meta[TACMeta.ASSERT_ID]
-                if (assertId != null) {
-                    // We only care about asserts that were added by the user
-                    assertions.add(assertId to it.cmd.msg)
+    /**
+     * for all asserts with [TACMeta.ASSERT_ID]: a map from the id to the matching assert.
+     * assumes the ids within the same rule are unique (thus one assert per id)
+     **/
+    private fun assertIdToAssertPtr(code: CoreTACProgram): Map<Int, LTACCmdView<TACCmd.Simple.AssertCmd>> {
+        return code
+            .parallelLtacStream()
+            .mapNotNull {
+                val assertPtr = it.maybeNarrow<TACCmd.Simple.AssertCmd>()
+                val id = assertPtr?.cmd?.meta?.find(TACMeta.ASSERT_ID)
+
+                if (id != null) {
+                    Pair(id, assertPtr)
+                } else {
+                    null
                 }
             }
-        }
-        return assertions
+            .toMap()
     }
 
     /** Replace in [baseRuleTac] all assertion commands with assume commands except the one with ASSERT_ID=[assertId] **/
-    private fun replaceAssertWithAssumeExcept(baseRuleTac: CoreTACProgram, assertId: Int): CoreTACProgram {
+    private fun replaceAssertWithAssumeExcept(
+        baseRuleTac: CoreTACProgram,
+        assertId: Int,
+        idToPtr: Map<Int, LTACCmdView<TACCmd.Simple.AssertCmd>>,
+    ): CoreTACProgram {
         return baseRuleTac.patching { p ->
-            this.parallelLtacStream()
-                .mapNotNull { it.maybeNarrow<TACCmd.Simple.AssertCmd>() }
-                .filter {
-                    val curAssertId = it.cmd.meta[TACMeta.ASSERT_ID]
-                    curAssertId != null && curAssertId != assertId
-                }.forEach {
-                    p.replace(it.ptr) { cmd ->
-                        val assertCmd = cmd as? TACCmd.Simple.AssertCmd
-                        if (assertCmd != null) {
-                            listOf(TACCmd.Simple.AssumeCmd(assertCmd.o, "replaced assert: ${assertCmd.msg}", assertCmd.meta))
-                        } else {
-                            listOf()
-                        }
-                    }
-                }
+            val otherAsserts = idToPtr
+                .filterKeys { id -> assertId != id }
+                .values
+
+            for ((ptr, cmd) in otherAsserts) {
+                val assume = TACCmd.Simple.AssumeCmd(cmd.o, "replaced assert: ${cmd.msg}", cmd.meta)
+                p.update(ptr, assume)
+            }
         }
     }
 
-    fun shouldExecute(baseRule: CompiledSolanaRule) =
+    private fun RuleIdentifier.multiAssertIdentifier(assertId: Int): RuleIdentifier {
+        val suffix = "#assert_${assertId - RESERVED_NUM_OF_ASSERTS}"
+        return this.freshDerivedIdentifier(suffix)
+    }
+
+    fun canSplit(baseRule: CompiledGenericRule) =
             !baseRule.rule.isSatisfyRule &&
             baseRule.rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
 
+    fun transformSingle(compiledRule: CompiledGenericRule.Compiled): CompiledGenericRule.Compiled {
+        val singleAssert = compiledRule.rule.copy(
+            ruleIdentifier = compiledRule.rule.ruleIdentifier.freshDerivedIdentifier(RuleEvent.ASSERTS_NODE_TITLE),
+            ruleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertsOnly(compiledRule.rule),
+        )
+        return compiledRule.copy(rule = singleAssert)
+    }
+
     /**
-     * For a given rule [baseRuleTac] with N assert commands, it returns N new rules where each rule has
+     * For a given rule [compiledRule] with N assert commands, it returns N new rules where each rule has
      * exactly one assert.
      **/
-    fun transformTac(baseRule: EcosystemAgnosticRule, baseRuleTac: CoreTACProgram): List<Pair<EcosystemAgnosticRule,CoreTACProgram>> {
-        val assertions = getAssertions(baseRuleTac)
-        return assertions.map { (assertId, msg) ->
-                val suffix = "#assert_${assertId - RESERVED_NUM_OF_ASSERTS}"
-                val newBaseRuleTac = replaceAssertWithAssumeExcept(baseRuleTac, assertId)
-                val newRule = baseRule.copy(
-                    ruleIdentifier = baseRule.ruleIdentifier.freshDerivedIdentifier(suffix),
-                    ruleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertSpecFile(baseRule, assertId, msg, Range.Empty())
-                )
-                newRule to newBaseRuleTac.copy(name = newRule.ruleIdentifier.toString())
-            }
+    fun transformMulti(compiledRule: CompiledGenericRule.Compiled): List<CompiledGenericRule.Compiled> {
+        val idToPtr = assertIdToAssertPtr(compiledRule.code)
+
+        return idToPtr.map { (assertId, assertPtr) ->
+            val newRuleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertSpecFile(
+                compiledRule.rule,
+                assertId,
+                assertPtr.cmd.msg,
+                Range.Empty()
+            )
+
+            val newIdentifier = compiledRule.rule.ruleIdentifier.multiAssertIdentifier(assertId)
+
+            val newRule = compiledRule.rule.copy(ruleIdentifier = newIdentifier, ruleType = newRuleType)
+
+            val newBaseRuleTac = replaceAssertWithAssumeExcept(
+                compiledRule.code,
+                assertId,
+                idToPtr
+            ).copy(name = newIdentifier.toString())
+
+            compiledRule.copy(code = newBaseRuleTac, rule = newRule)
+        }
     }
 }

@@ -66,20 +66,24 @@ fun dumpTAC(program: CoreTACProgram): String {
     return sb.toString()
 }
 
-object EmptyGlobalsSymbolTable: IGlobalsSymbolTable {
+object DefaultElfFileView: IElfFileView {
     override fun isLittleEndian() = true
     override fun isGlobalVariable(address: ElfAddress) = false
+    override fun isReadOnlyGlobalVariable(address: ElfAddress) = false
     override fun getAsConstantString(
-        name: String,
         address: ElfAddress,
         size: Long
-    ) = SbfConstantStringGlobalVariable("",0,0, "")
+    ) = ""
+
+    override fun getAsConstantNum(
+        address: ElfAddress,
+        size: Long
+    ): Long? = null
 }
 
 fun toTAC (cfg: SbfCFG,
            summaryFileContents: List<String> = listOf(),
-           globals: GlobalVariableMap = newGlobalVariableMap(),
-           globalsSymbolTable: IGlobalsSymbolTable = EmptyGlobalsSymbolTable
+           globals: GlobalVariables = GlobalVariables(DefaultElfFileView)
 ): CoreTACProgram {
     val prog = MutableSbfCallGraph(mutableListOf(cfg), setOf(cfg.getName()), globals)
     val memSummaries = MemorySummaries.readSpecFile(summaryFileContents,"unknown")
@@ -96,7 +100,7 @@ fun toTAC (cfg: SbfCFG,
         MemoryDomainOpts(useEqualityDomain = false),
         processor = null)
     memAnalysis.inferAll()
-    return sbfCFGsToTAC(prog, memSummaries, globalsSymbolTable, memAnalysis.getResults())
+    return sbfCFGsToTAC(prog, memSummaries, memAnalysis.getResults())
 }
 
 fun verify(program: CoreTACProgram, report: Boolean = false): Boolean {

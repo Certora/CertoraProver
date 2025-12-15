@@ -17,63 +17,125 @@
 
 package sbf.disassembler
 
+import com.certora.collect.*
+import datastructures.stdcollections.*
+import net.fornwall.jelf.*
+import net.fornwall.jelf.ElfSymbol.STT_FUNC
 import sbf.callgraph.SolanaFunction
 import sbf.domains.FiniteInterval
 import sbf.support.SolanaError
 import sbf.support.safeLongToInt
-import datastructures.stdcollections.*
-import com.certora.collect.*
-import net.fornwall.jelf.*
-import net.fornwall.jelf.ElfSymbol.STT_FUNC
 import java.io.File
+
 
 class DisassemblerError(msg: String): RuntimeException("Disassembler error: $msg")
 
+/**
+ * Static variables initialized by the programmer
+ * .rodata: read-only global variables included constant strings
+ * .data.rel.ro: global variables that e.g., store the address of a function or
+ *               another variable so the final value needs relocation.
+ **/
+private val globalSectionsByExactName = listOf(".data.rel.ro", ".rodata")
+
+/**
+ * .bss:  zero-initialized global variables (they can be mutable)
+ * .data: initialized global variables (they can be mutable)
+ */
+private val globalSectionsByPrefix = listOf(".data", ".bss")
 
 /**
  * The reason for defining an interface is to allow mocking these functions without
  * requiring an ELF file during testing.
  */
-interface IGlobalsSymbolTable {
+interface IElfFileView {
     /** SBF is little-endian, but we extract that info from the ELF file in case it will change in the future **/
     fun isLittleEndian(): Boolean
     /** Return true if [address] is in the range of any ELF section known to store global variables **/
     fun isGlobalVariable(address: ElfAddress): Boolean
-    /** Interpret [address,..., address+size-1] bytes in the ELF file as a constant string **/
-    fun getAsConstantString(name: String, address: ElfAddress, size: Long): SbfConstantStringGlobalVariable
+    /** Return true if `isGlobalVariable(address)` returns true and the address belongs to a read-only ELF section **/
+    fun isReadOnlyGlobalVariable(address: ElfAddress): Boolean
+    /** Interpret `[address,..., address+size-1]` bytes in the ELF file as a constant string **/
+    fun getAsConstantString(address: ElfAddress, size: Long): String
+    /**
+     * Interpret `[address,..., address+size-1]` bytes in the ELF file as a constant number.
+     * @return null if [size] is not one of these values {1,2,4,8}.
+     **/
+    fun getAsConstantNum(address: ElfAddress, size: Long): Long?
 }
 
-class GlobalsSymbolTable(private val reader: ElfFile, private val parser: ElfParser): IGlobalsSymbolTable {
+/** Internal wrapper for ElfFile to add extra functionality **/
+private class ElfFileWrapper(private val reader: ElfFile) {
+    fun allSections(): Sequence<ElfSection> =
+        (1 until reader.e_shnum).asSequence().map { reader.getSection(it) }
+
+    companion object {
+        fun isWritable(section: ElfSection): Boolean {
+            return section.header.sh_flags.and(ElfSectionHeader.FLAG_WRITE.toLong()) != 0L
+        }
+    }
+}
+
+class ElfFileView(private val reader: ElfFile, private val parser: ElfParser): IElfFileView {
+
+    private data class GlobalFlags(val isReadOnly:Boolean)
+
     // Ranges of VMA (Virtual Memory Address) addresses of sections that usually contain global variables.
-    // We don't sort it because the size should be very small.
-    private val globalVMARanges = mutableListOf<FiniteInterval>()
+    private val globalVMARanges = mutableMapOf<FiniteInterval, GlobalFlags>()
+
     init {
-        computeVMARangesForGlobalVariables(listOf(".data.rel.ro", ".rodata", ".data"))
+        updateGlobalVMARanges(globalSectionsByExactName)
+        updateGlobalVMARangesFromPrefixes(globalSectionsByPrefix)
     }
 
-    private fun rangeOfSection(sectionName: String): Pair<Long, Long>? {
-        val section = reader.firstSectionByName(sectionName) ?: return null
-        val sectionStart = (section.header.sh_addr)
-        val sectionSize = section.header.sh_size
-        return Pair(sectionStart, sectionSize)
-    }
+    private fun rangeOfSection(section: ElfSection) =
+        FiniteInterval.mkInterval(section.header.sh_addr, section.header.sh_size)
 
-    /** Return a list of range of addresses of sections that are known to store global variables **/
-    private fun computeVMARangesForGlobalVariables(sections: List<String>) {
-        for (section in sections) {
-            val range = rangeOfSection(section)
-            if (range != null) {
-                globalVMARanges.add(FiniteInterval.mkInterval(range.first, range.second))
+    /**
+     * Find all ELF sections whose name matches one of the [prefixes] and update [globalVMARanges]
+     * with the ranges of addresses of those matched sections.
+     * We use prefixes because LLVM likes to store global variable per section.
+     * Therefore, the section name will have the prefixes .data.*, .bss.*, etc.
+     **/
+    @Suppress("ForbiddenMethodCall")
+    private fun updateGlobalVMARangesFromPrefixes(prefixes: List<String>) {
+        val sections = ElfFileWrapper(reader).allSections()
+        for (sh in sections) {
+            val name = sh.header.name
+            if  (prefixes.any { name.startsWith(it)}) {
+                val range = rangeOfSection(sh)
+                globalVMARanges[range] = GlobalFlags(!ElfFileWrapper.isWritable(sh))
             }
+        }
+    }
+
+    /**
+     * Update [globalVMARanges] with the ranges of addresses of [sections].
+     **/
+    private fun updateGlobalVMARanges(sections: List<String>) {
+        for (section in sections) {
+            val sh = reader.firstSectionByName(section) ?: continue
+            val range = rangeOfSection(sh)
+            globalVMARanges[range] = GlobalFlags(!ElfFileWrapper.isWritable(sh))
         }
     }
 
     override fun isLittleEndian() = reader.ei_data == ElfFile.DATA_LSB
 
-    override fun isGlobalVariable(address: ElfAddress) =
-        globalVMARanges.any { range -> range.l <= address && address < range.u }
+    private fun isGlobalVariable(address: ElfAddress, checkIfIsReadOnly: Boolean) =
+        globalVMARanges.any { (range, flags) ->
+            (range.l <= address && address < range.u) && (!checkIfIsReadOnly || flags.isReadOnly)
+        }
 
-    override fun getAsConstantString(name: String, address: ElfAddress, size: Long): SbfConstantStringGlobalVariable {
+    override fun isGlobalVariable(address: ElfAddress) = isGlobalVariable(address, false)
+
+    override fun isReadOnlyGlobalVariable(address: ElfAddress) = isGlobalVariable(address, true)
+
+    /**
+     * Extract [size] bytes at [address] and interpret them as a constant string.
+     * The caller must ensure that the extracted bytes correspond actually to a constant string.
+     **/
+    override fun getAsConstantString(address: ElfAddress, size: Long): String {
         parser.seek(address)
         var len = size
         val buf = ArrayList<Char>()
@@ -82,7 +144,24 @@ class GlobalsSymbolTable(private val reader: ElfFile, private val parser: ElfPar
             buf.add(byte.toInt().toChar())
             len--
         }
-        return SbfConstantStringGlobalVariable(name, address, size, String(buf.toCharArray()))
+        return String(buf.toCharArray())
+    }
+
+    /**
+     * Extract [size] bytes at [address] and interpret them as a constant number.
+     * The caller must ensure that the extracted bytes correspond actually to a constant number.
+     **/
+    override fun getAsConstantNum(address: ElfAddress, size: Long): Long? {
+        if (size != 1L && size != 2L && size != 4L && size != 8L) {
+            return null
+        }
+        parser.seek(address)
+        return when(size) {
+            1L   -> parser.readUnsignedByte().toLong()
+            2L   -> parser.readShort().toLong()
+            4L   -> parser.readInt().toLong()
+            else -> parser.readLong()
+        }
     }
 }
 
@@ -90,7 +169,7 @@ class ElfDisassembler(pathName: String) {
     private val file: File
     private val reader: ElfFile
     private val parser: ElfParser
-    private val globalsSymTable: GlobalsSymbolTable
+    private val globalsSymTable: ElfFileView
 
     init {
         this.file = File(pathName)
@@ -103,7 +182,7 @@ class ElfDisassembler(pathName: String) {
             }
         }
         this.parser = ElfParser(file, reader)
-        this.globalsSymTable = GlobalsSymbolTable(reader, parser)
+        this.globalsSymTable = ElfFileView(reader, parser)
     }
 
     /** An undefined symbol is a symbol defined in a different compilation unit (e.g., external calls) **/
@@ -122,13 +201,10 @@ class ElfDisassembler(pathName: String) {
      */
     private fun getRelocationSections(): List<ElfRelocationSection>{
         val res = ArrayList<ElfRelocationSection>()
-        var i = 1
-        while (i < reader.e_shnum) {
-            val sh: ElfSection = reader.getSection(i)
+        for (sh in ElfFileWrapper(reader).allSections()) {
             if (sh is ElfRelocationSection) {
                 res.add(sh)
             }
-            i++
         }
         return res
     }
@@ -147,97 +223,44 @@ class ElfDisassembler(pathName: String) {
         return null
     }
 
-    private fun getSectionName(sym: ElfSymbol): String? {
+    private fun getSection(sym: ElfSymbol): ElfSection? {
         // REVISIT: some symbols have negative numbers (or large unsigned numbers) as e_shnum.
         if (sym.st_shndx >= 0 && sym.st_shndx < reader.e_shnum) {
             val sh: ElfSection? = reader.getSection(sym.st_shndx.toInt())
             if (sh != null ) {
-                return sh.header.name
+                return sh
             }
         }
         return null
     }
 
-    /** Return the value of the global variable [sym] only if its size is 1, 2, or 4 **/
-    private fun getGlobalVariableValueAsNum(sym: ElfSymbol): Long? {
-        return when (sym.st_size) {
-            1L -> {
-                parser.seek(sym.st_value)
-                val bytes = toBytes(parser.readInt())
-                if (reader.ei_data == ElfFile.DATA_LSB) {
-                    bytes[0].toLong()
-                } else {
-                    bytes[3].toLong()
-                }
-            }
-            2L -> {
-                parser.seek(sym.st_value)
-                val bytes = toBytes(parser.readInt())
-                if (reader.ei_data == ElfFile.DATA_LSB) {
-                    SbfBytecode.makeShort(bytes[1], bytes[0]).toLong()
-                } else {
-                    SbfBytecode.makeShort(bytes[2], bytes[3]).toLong()
-                }
-            }
-            4L -> {
-                parser.seek(sym.st_value)
-                val bytes = toBytes(parser.readInt())
-                if (reader.ei_data == ElfFile.DATA_LSB) {
-                    SbfBytecode.makeInt(bytes[3], bytes[2], bytes[1], bytes[0]).toLong()
-                } else {
-                    SbfBytecode.makeInt(bytes[0], bytes[1], bytes[2], bytes[3]).toLong()
-                }
-
-            }
-            else -> {
-                null
-            }
-        }
-    }
-
-
     @Suppress("ForbiddenMethodCall")
-    private fun extractGlobalVariablesFromSymbolTable(): GlobalVariableMap {
-        var globals = newGlobalVariableMap()
+    /** Extract from the ELF symbol table all the known global variables **/
+    private fun populateGlobalVariables(globals: GlobalVariables): GlobalVariables {
+        var outGlobals = globals
         // I assume here that dynamic symbol table is included in the symbol table (see comment above)
         val symTable: ElfSymbolTableSection? = reader.symbolTableSection
         if (symTable != null) {
             for (sym in symTable.symbols) {
-                val sectionName = getSectionName(sym)
-                if (sectionName != null) {
-                    // REVISIT: missing any other section?
-                    if (sectionName == ".data.rel.ro" || sectionName == ".rodata") {
-                        /** Static variables initialized by the programmer
-                         * .rodata: constant strings
-                         * .data.rel.ro: global variables that e.g., store the address of a function or
-                         *               another variable so the final value needs relocation.
-                         **/
-                        val gvVal = getGlobalVariableValueAsNum(sym)
-                        globals = globals.put(sym.st_value, if (gvVal != null) {
-                            SbfConstantNumGlobalVariable(sym.name, sym.st_value, sym.st_size, gvVal)
-                        } else {
-                            SbfGlobalVariable(sym.name, sym.st_value, sym.st_size)
-                        })
-                    } else  if (sectionName.startsWith(".bss")) {
-                        /** Static variables initialized with zeros
-                        * .bss section
-                        **/
-                        globals = globals.put(sym.st_value, SbfGlobalVariable(sym.name, sym.st_value, sym.st_size))
-                    } else  if (sectionName.startsWith(".data")) {
-                        /** Global variables that can be modified can go to .data section **/
-                        globals = globals.put(sym.st_value, SbfGlobalVariable(sym.name, sym.st_value, sym.st_size))
-                    }
+                val sh = getSection(sym) ?: continue
+                val name = sym.name
+                val addr = sym.st_value
+                val size = sym.st_size
+                val sectionName = sh.header.name ?: continue
+                if (globalSectionsByExactName.contains(sectionName) || globalSectionsByPrefix.any { sectionName.startsWith(it) }) {
+                    val gvVal = SbfGlobalVariable(name, addr, size)
+                    outGlobals = outGlobals.add(gvVal)
                 }
             }
         }
-        return globals
+        return outGlobals
     }
 
     /**
      * Return true if [sym] is a function.
      * It reads the low byte of [sym]`.st_info` (i.e., [sym]`.st_info & 0x0F`)
      */
-    private fun isFunction(sym: ElfSymbol) = sym.getType() == STT_FUNC.toInt()
+    private fun isFunction(sym: ElfSymbol) = sym.type == STT_FUNC.toInt()
 
     private fun getFunctionNames(start: ElfAddress): Map<ElfAddress, String> {
         // I assume here that dynamic symbol table is included in the symbol table (see comment above)
@@ -373,9 +396,8 @@ class ElfDisassembler(pathName: String) {
             entryOffsetMap[entryPoint.name] = entryPointOffset
         }
         val relocatedCalls = resolveRelocations(sectionStart, instructions, functionMan)
-        val globals = extractGlobalVariablesFromSymbolTable()
+        val initGlobals = GlobalVariables(globalsSymTable)
+        val globals = populateGlobalVariables(initGlobals)
         return BytecodeProgram(entryOffsetMap, functionMan, instructions, globals, relocatedCalls)
     }
-
-    fun getGlobalsSymbolTable() = globalsSymTable
 }

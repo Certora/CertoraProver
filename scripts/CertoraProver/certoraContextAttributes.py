@@ -1949,6 +1949,8 @@ class SolanaProverAttributes(CommonAttributes, InternalUseAttributes, BackendAtt
 
 ATTRIBUTES_CLASS: Optional[Type[AttrUtil.Attributes]] = None
 
+ARG_FLAG_LIST_ATTRIBUTES = ['prover_args', 'java_args']
+
 
 def get_attribute_class() -> Type[AttrUtil.Attributes]:
     if not ATTRIBUTES_CLASS:

@@ -69,7 +69,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
         cmds.add(TACCmd.Simple.AssigningCmd.AssignHavocCmd(lowV))
         cmds.add(TACCmd.Simple.AssigningCmd.AssignHavocCmd(highV))
     } else {
-        val res = mkFreshIntVar()
+        val res = vFac.mkFreshIntVar()
         cmds.addAll(assume(txf {
                    ((res ge exprBuilder.ZERO.asSym()) and (res le exprBuilder.mkConst(BigInteger.TWO.pow(127) - BigInteger.ONE))) or
                     (res ge exprBuilder.mkConst(-BigInteger.TWO.pow(127)))

@@ -20,11 +20,13 @@ package report
 import cli.SanityValues
 import config.Config
 import config.ConfigScope
+import event.RuleEvent
 import org.junit.jupiter.api.Test
 import solver.SolanaFlowTest
 import org.junit.jupiter.api.BeforeAll
 import rules.sanity.TACSanityChecks
 import sbf.vacuitySuffix
+import solver.concat
 import utils.Range
 import utils.SourcePosition
 
@@ -72,8 +74,13 @@ class SolanaRuleLocationTest {
 
     @Test
     fun ruleLocationPassingRuleTacSanity() {
+        val expectedName = concat(
+            "rule_passing_with_location",
+            RuleEvent.ASSERTS_NODE_TITLE,
+            TACSanityChecks.VacuityCheck.sanityRuleName,
+        )
         assertExistsRuleWithExpectedRange(
-            "rule_passing_with_location-${TACSanityChecks.VacuityCheck.sanityRuleName}",
+            expectedName,
             getRangeForRule("src/rule_locations.rs", 4U)
         )
     }

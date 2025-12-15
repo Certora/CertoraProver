@@ -32,10 +32,10 @@ typealias CfgName = String
  * All function names have been already demangled.
  **/
 interface SbfCallGraph {
-    fun getGlobals(): GlobalVariableMap
+    fun getGlobals(): GlobalVariables
     fun getCFGs(): List<SbfCFG>
     fun transformSingleEntry(f: (SbfCFG) -> SbfCFG): SbfCallGraph
-    fun transformSingleEntryAndGlobals(f: (SbfCFG) -> Pair<SbfCFG, GlobalVariableMap>): SbfCallGraph
+    fun transformSingleEntryAndGlobals(f: (SbfCFG) -> Pair<SbfCFG, GlobalVariables>): SbfCallGraph
     fun getCallGraphRoots(): List<SbfCFG>
     fun getCallGraphRootSingleOrFail(): SbfCFG
     fun getCallGraph(): Map<CfgName, Set<CfgName>>
@@ -64,13 +64,13 @@ interface SbfCallGraph {
  *
  *  @param cfgs the set of CFGs
  *  @param rootNames are the entry points of the call graph
- *  @param globalsMap contains information about global variables
+ *  @param globals contains information about global variables
  *  @param preservedCFGs is the set of CFGs that have to be preserved over different program transformations.
  *  That is, a CFG in [preservedCFGs] will not be remove even if it cannot be reachable from [rootNames].
  **/
 class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
                           private val rootNames: Set<CfgName>,
-                          private val globalsMap: GlobalVariableMap,
+                          private val globals: GlobalVariables,
                           checkCFGHasExactlyOneExit: Boolean = true,
                           preservedCFGs: Set<CfgName> = setOf()): SbfCallGraph {
     // Roots of the call graph
@@ -113,7 +113,7 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
     constructor(
         cfgs: Collection<SbfCFG>,
         rootNames: Set<CfgName>,
-        globals: GlobalVariableMap,
+        globals: GlobalVariables,
         check: Boolean = true,
         preservedCFGs: Set<CfgName> = setOf(),
     ) : this(
@@ -275,7 +275,7 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
 
     /** public API **/
 
-    override fun getGlobals() = globalsMap
+    override fun getGlobals() = globals
 
     override fun getCFGs(): List<SbfCFG>  = cfgs
 
@@ -318,7 +318,7 @@ class MutableSbfCallGraph(private val cfgs: MutableList<MutableSbfCFG>,
         return MutableSbfCallGraph(newCFGs, setOf(newEntry.getName()), getGlobals(), check=false, preservedCFGs = preservedCFGs)
     }
 
-    override fun transformSingleEntryAndGlobals(f: (SbfCFG) -> Pair<SbfCFG, GlobalVariableMap>): SbfCallGraph {
+    override fun transformSingleEntryAndGlobals(f: (SbfCFG) -> Pair<SbfCFG, GlobalVariables>): SbfCallGraph {
         val oldEntry = getCallGraphRootSingleOrFail()
         val (newEntry, newGlobals) = f(oldEntry)
         check(oldEntry.getName() == newEntry.getName()) {"transformSingleEntryAndGlobals does not allow to change the name of the entry CFG"}

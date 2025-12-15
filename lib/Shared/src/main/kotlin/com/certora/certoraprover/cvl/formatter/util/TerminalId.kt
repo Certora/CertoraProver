@@ -20,7 +20,7 @@ package com.certora.certoraprover.cvl.formatter.util
 import com.certora.certoraprover.cvl.sym
 
 @JvmInline
-value class TerminalId(val id: Int) {
+value class TerminalId(private val id: Int) {
     init {
         ensure(id in 0.rangeUntil(sym.terminalNames.size), "id is a valid symbol")
     }

@@ -28,6 +28,8 @@ import vc.data.TACKeyword
 
 private typealias ByteMapCache<NodeFlags> = MutableMap<PTANode<NodeFlags>, TACByteMapVariable>
 private typealias ByteStackCache = MutableMap<PTAOffset, TACByteStackVariable>
+/** Represent the whole memory. Used with memory splitter is disabled **/
+private val theMem = TACByteMapVariable(TACSymbol.Var("UntypedMem", Tag.ByteMap))
 
 sealed class TACVariable(open val tacVar: TACSymbol.Var)
 
@@ -49,25 +51,54 @@ data class TACByteMapVariable(override val tacVar: TACSymbol.Var): TACVariable(t
     }
 }
 
-
-/** Assign names to points-to graph nodes and cells **/
+/** Factory for TAC variables **/
 class TACVariableFactory<Flags: IPTANodeFlags<Flags>> {
+    private var varId: Int = 0
     private val byteMapCache: ByteMapCache<Flags> = mutableMapOf()
     private val byteStackCache: ByteStackCache = mutableMapOf()
-    // State for the TAC translation
-    private val declaredVars = ArrayList<TACSymbol.Var>()
+    private val declaredVars: MutableSet<TACSymbol.Var> = mutableSetOf()
 
     private fun mkByteStackVar(offset: PTAOffset): TACByteStackVariable {
         val suffix = "${offset.v}"
         val name = "Stack_B_$suffix"
-        @Suppress("ForbiddenComment")
-        // FIXME: 256-bit integer is hardcoded.
         val scalarVar = TACSymbol.Var(name, Tag.Bit256)
         declaredVars.add(scalarVar)
         return TACByteStackVariable(scalarVar, offset)
     }
 
-    fun getDeclaredVariables(): List<TACSymbol.Var> = declaredVars
+    private fun mkFreshVar(prefix: String, tag: Tag): TACSymbol.Var {
+        val v = TACSymbol.Var(prefix, tag)
+        varId++
+        declaredVars.add(v)
+        return v
+    }
+
+    /// -- Public API
+
+    fun getDeclaredVariables(): Set<TACSymbol.Var> = declaredVars
+
+    /** Create a fresh fixed bitwidth integer TAC variable **/
+    fun mkFreshIntVar(prefix: String = "v"): TACSymbol.Var {
+        return mkFreshVar("$prefix${varId}", Tag.Bit256)
+    }
+
+    /** Create a fresh mathematical integer TAC variable **/
+    fun mkFreshMathIntVar(prefix: String = "v"): TACSymbol.Var {
+        return mkFreshVar("$prefix${varId}", Tag.Int)
+    }
+
+    /** Create a boolean TAC variable **/
+    fun mkFreshBoolVar(prefix: String = "v"): TACSymbol.Var {
+        return mkFreshVar("$prefix${varId}", Tag.Bool)
+    }
+
+    /** Create a TAC variable to represent the SBF register [i] **/
+    fun getRegisterVar(i: Int): TACSymbol.Var {
+        // Note that we use 32 bytes even if SBF registers are known to be 8 bytes
+        val v = TACSymbol.Var("r${i}", Tag.Bit256)
+        declaredVars.add(v)
+        return v
+    }
 
     /** Map physical stack memory at [offset] to a TAC scalar variable **/
     fun getByteStackVar(offset: PTAOffset): TACByteStackVariable {
@@ -90,10 +121,19 @@ class TACVariableFactory<Flags: IPTANodeFlags<Flags>> {
         }
     }
 
-    /** Return a fresh, non-cached byte map variable **/
+    /** Return a fresh, non-cached ByteMap variable **/
     fun getByteMapVar(suffix: String): TACByteMapVariable {
         val byteMapVar = TACKeyword.TMP(Tag.ByteMap, suffix)
         declaredVars.add(byteMapVar)
         return TACByteMapVariable(byteMapVar)
+    }
+
+    /**
+     * Return a ByteMap variable that represents the whole memory.
+     * Used when memory splitter is disabled
+     **/
+    fun getWholeMemoryByteMapVar(): TACByteMapVariable {
+        declaredVars.add(theMem.tacVar)
+        return theMem
     }
 }

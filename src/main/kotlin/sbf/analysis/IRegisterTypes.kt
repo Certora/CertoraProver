@@ -24,5 +24,12 @@ import sbf.domains.IOffset
 import sbf.domains.SbfType
 
 interface IRegisterTypes<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
-    fun typeAtInstruction(i: LocatedSbfInstruction, r: SbfRegister): SbfType<TNum, TOffset>
+    /**
+     * Return the type of [r] __after__ the execution of instruction [i].
+     *
+     * - If [isWritten] is `true` then [r] must be a written register by [i], otherwise error.
+     * - If [isWritten] is `false` then [r] can be any register. If [r] is both read and written by [i] the returned type
+     *   is the one from the read register.
+     **/
+    fun typeAtInstruction(i: LocatedSbfInstruction, r: SbfRegister, isWritten: Boolean = false): SbfType<TNum, TOffset>
 }

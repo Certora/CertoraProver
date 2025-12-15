@@ -35,7 +35,7 @@ import sbf.domains.*
 private const val NUM_ITERATIONS = 5
 
 fun splitWideStores(cfg: MutableSbfCFG,
-                    globals: GlobalVariableMap,
+                    globals: GlobalVariables,
                     memSummaries: MemorySummaries) {
     var change = true
     var i = 0

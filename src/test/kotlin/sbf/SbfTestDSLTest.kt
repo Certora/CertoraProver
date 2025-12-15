@@ -84,7 +84,7 @@ class SbfTestDSLTest {
                 exit()
             }
         }
-        val globals = newGlobalVariableMap()
+        val globals = GlobalVariables(DefaultElfFileView)
         val callgraph = MutableSbfCallGraph(listOf(entrypoint, foo), setOf("entrypoint"), globals)
         val memSummaries = MemorySummaries()
         val inlined = inline("entrypoint", callgraph, memSummaries, EmptyInlinerConfig)

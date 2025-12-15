@@ -539,7 +539,7 @@ class CvlmManifest(val scene: MoveScene) {
                     resultType
                 } else {
                     // Use a ghost array to store the shadowed values, indexed by the additional parameters
-                    MoveType.GhostArray(resultType)
+                    MoveType.GhostArray(setOf(resultType))
                 }
             }
         }

@@ -29,25 +29,35 @@ import org.junit.jupiter.api.Test
 
 class TACGlobalInitializerTest {
     /** Mock for the tests **/
-    private object MockedGlobalsSymbolTable: IGlobalsSymbolTable {
+    private object MockedElfFileView: IElfFileView {
         override fun isLittleEndian() = true
         override fun isGlobalVariable(address: ElfAddress) = (address == 671456L)
+        override fun isReadOnlyGlobalVariable(address: ElfAddress) = false
         override fun getAsConstantString(
-            name: String,
             address: ElfAddress,
             size: Long
-        ) = SbfConstantStringGlobalVariable("inferred_global.22",671456,0, "B\"×\u0086ªñ÷{l¦ÿ\u0087®\u009D}õ¦G\u0092é\u0081HA\u008C3á ½?×ú2")
+        ): String {
+            return when (address) {
+                671456L -> "B\"×\u0086ªñ÷{l¦ÿ\u0087®\u009D}õ¦G\u0092é\u0081HA\u008C3á ½?×ú2"
+                else -> ""
+            }
+        }
+
+        override fun getAsConstantNum(
+            address: ElfAddress,
+            size: Long
+        ): Long? = null
     }
 
-    private fun verify(cfg: SbfCFG, globalsSymbolTable: IGlobalsSymbolTable, expectedResult: Boolean) {
+    private fun verify(cfg: SbfCFG, expectedResult: Boolean) {
         println("$cfg")
-        val globals = newGlobalVariableMap()
+        val globals = GlobalVariables(MockedElfFileView)
         val memSummaries = MemorySummaries()
         val prog = MutableSbfCallGraph(listOf(cfg), setOf(cfg.getName()), globals)
         ConfigScope(SolanaConfig.AggressiveGlobalDetection, true).use {
             ConfigScope(SolanaConfig.AddMemLayoutAssumptions, false).use {
-                val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries, globalsSymbolTable).getGlobals()
-                val tacProg = toTAC(cfg, globals = newGlobals, globalsSymbolTable = globalsSymbolTable)
+                val newGlobals = runGlobalInferenceAnalysis(prog, memSummaries).getGlobals()
+                val tacProg = toTAC(cfg, globals = newGlobals)
                 println(dumpTAC(tacProg))
                 Assertions.assertEquals(expectedResult, verify(tacProg))
             }
@@ -103,12 +113,12 @@ class TACGlobalInitializerTest {
 
     @Test
     fun test1() {
-        verify(cfg1, MockedGlobalsSymbolTable, true)
+        verify(cfg1, true)
     }
 
     @Test
     fun test2() {
-        verify(cfg2, MockedGlobalsSymbolTable, true)
+        verify(cfg2, true)
     }
 
 }

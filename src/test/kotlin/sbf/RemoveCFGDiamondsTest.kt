@@ -25,6 +25,8 @@ import sbf.domains.MemorySummaries
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 
+private val globals = GlobalVariables(DefaultElfFileView)
+
 class RemoveCFGDiamondsTest {
     private fun checkSelect(inst: SbfInstruction.Select, lhs: Value.Reg, cond: Condition, trueVal: Value, falseVal: Value) =
         inst.dst == lhs && inst.cond == cond && inst.trueVal == trueVal && inst.falseVal == falseVal
@@ -113,14 +115,14 @@ class RemoveCFGDiamondsTest {
         }
 
         println("$cfg")
-        cfg.simplify(newGlobalVariableMap())
+        cfg.simplify(globals)
         ConfigScope(SolanaConfig.EnableRemovalOfCFGDiamonds, true).use {removeCFGDiamonds(cfg)}
         println("After removing diamonds: $cfg")
 
-        val np1 = NPAnalysis(cfg, newGlobalVariableMap(), MemorySummaries())
+        val np1 = NPAnalysis(cfg, globals, MemorySummaries())
         lowerSelectToAssume(cfg, np1)
         println("After lowering select instructions into assumes: $cfg")
-        val np2 = NPAnalysis(cfg, newGlobalVariableMap(), MemorySummaries())
+        val np2 = NPAnalysis(cfg, globals, MemorySummaries())
         val preconditions = np2.getPreconditionsAtEntry(Label.Address(0))
         check(preconditions != null)
         Assertions.assertEquals(false, preconditions.isBottom())
@@ -159,7 +161,7 @@ class RemoveCFGDiamondsTest {
         }
 
         println("$cfg")
-        cfg.simplify(newGlobalVariableMap())
+        cfg.simplify(globals)
         ConfigScope(SolanaConfig.EnableRemovalOfCFGDiamonds, true).use {removeCFGDiamonds(cfg) }
         println("After removing diamonds: $cfg")
         Assertions.assertEquals(true,
@@ -201,7 +203,7 @@ class RemoveCFGDiamondsTest {
         }
 
         println("$cfg")
-        cfg.simplify(newGlobalVariableMap())
+        cfg.simplify(globals)
         ConfigScope(SolanaConfig.EnableRemovalOfCFGDiamonds, true).use {removeCFGDiamonds(cfg)}
         println("After removing diamonds: $cfg")
         Assertions.assertEquals(true,
@@ -243,7 +245,7 @@ class RemoveCFGDiamondsTest {
         }
 
         println("$cfg")
-        cfg.simplify(newGlobalVariableMap())
+        cfg.simplify(globals)
         ConfigScope(SolanaConfig.EnableRemovalOfCFGDiamonds, true).use {removeCFGDiamonds(cfg)}
         println("After removing diamonds: $cfg")
         Assertions.assertEquals(true,
@@ -285,7 +287,7 @@ class RemoveCFGDiamondsTest {
         }
 
         println("$cfg")
-        cfg.simplify(newGlobalVariableMap())
+        cfg.simplify(globals)
         ConfigScope(SolanaConfig.EnableRemovalOfCFGDiamonds, true).use {removeCFGDiamonds(cfg)}
         println("After removing diamonds: $cfg")
         Assertions.assertEquals(false,

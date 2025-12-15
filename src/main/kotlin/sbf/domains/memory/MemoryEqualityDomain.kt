@@ -1042,7 +1042,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getArgsForMemIntrinsics(
         memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariableMap
+        globals: GlobalVariables
     ): MemIntrinsicsArgs<Flags>? {
         val (r1, r2, r3) = listOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG), Value.Reg(SbfRegister.R3_ARG))
         // len can be null
@@ -1096,14 +1096,14 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemTransfer(
         locInst: LocatedSbfInstruction,
         memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariableMap
+        globals: GlobalVariables
     ) {
 
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
-        if (!inst.isPromotedMemcpy()) {
-            val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        if (inst.writeRegister.contains(r0)) {
             forget(r0)
         }
 
@@ -1124,7 +1124,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         @Suppress("UNUSED_PARAMETER")
         locInst: LocatedSbfInstruction,
         memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariableMap
+        globals: GlobalVariables
     ) {
         // Note that non-op is always sound.
         val (op1, op2, len) = getArgsForMemIntrinsics(memoryAbsVal, globals) ?: return
@@ -1141,7 +1141,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         @Suppress("UNUSED_PARAMETER")
         locInst: LocatedSbfInstruction,
         memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariableMap
+        globals: GlobalVariables
     ) {
 
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
@@ -1230,7 +1230,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCall(
         locInst: LocatedSbfInstruction,
         memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariableMap,
+        globals: GlobalVariables,
         memSummaries: MemorySummaries
     ) {
         val inst = locInst.inst
@@ -1279,7 +1279,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>analyze(
         locInst: LocatedSbfInstruction,
         memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariableMap,
+        globals: GlobalVariables,
         memSummaries: MemorySummaries) {
         val s = locInst.inst
         if (!isBottom()) {
@@ -1302,7 +1302,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     override fun analyze(
         b: SbfBasicBlock,
-        globals: GlobalVariableMap,
+        globals: GlobalVariables,
         memSummaries: MemorySummaries,
         listener: InstructionListener<MemEqualityPredicateDomain<Flags>>
     ): MemEqualityPredicateDomain<Flags> {

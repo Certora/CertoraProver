@@ -26,6 +26,8 @@ import sbf.inliner.inline
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 
+private val globals = GlobalVariables(DefaultElfFileView)
+
 class InlinerTest {
 
     @Test
@@ -60,7 +62,6 @@ class InlinerTest {
         entrypoint.verify(true)
         foo.verify(true)
 
-        val globals = newGlobalVariableMap()
         val prog = MutableSbfCallGraph(mutableListOf(entrypoint, foo), setOf("entrypoint"), globals)
         val inlinerConfig = InlinerConfigFromFile(listOf(), listOf())
         val memSummaries = MemorySummaries()
@@ -91,7 +92,6 @@ class InlinerTest {
         entrypoint.verify(true)
         foo.verify(true)
 
-        val globals = newGlobalVariableMap()
         val prog = MutableSbfCallGraph(mutableListOf(entrypoint, foo), setOf("entrypoint"), globals, preservedCFGs = setOf("foo"))
         val inlinerConfig = InlinerConfigFromFile(listOf(), listOf())
         val memSummaries = MemorySummaries()
@@ -133,7 +133,6 @@ class InlinerTest {
         foo.verify(true)
         bar.verify(true)
 
-        val globals = newGlobalVariableMap()
         val prog = MutableSbfCallGraph(
             mutableListOf(entrypoint, foo, bar),
             setOf("entrypoint"),
@@ -181,7 +180,6 @@ class InlinerTest {
         foo.verify(true)
         bar.verify(true)
 
-        val globals = newGlobalVariableMap()
         val prog = MutableSbfCallGraph(
             mutableListOf(entrypoint, foo, bar),
             setOf("entrypoint"),

@@ -280,7 +280,7 @@ fun RefTarget.layout(): MemoryLayout.Value {
                 layout.fields[comp.fieldIndex]
             }
             is MemoryLayout.Value.Enum -> {
-                check(comp is PathComponent.Field) { "Cannot access component $comp of enum" }
+                check(comp is PathComponent.EnumField) { "Cannot access component $comp of enum" }
                 layout.content
             }
             is MemoryLayout.Value.Vector -> {

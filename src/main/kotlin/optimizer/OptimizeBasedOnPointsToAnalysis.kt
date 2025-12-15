@@ -900,6 +900,9 @@ object OptimizeBasedOnPointsToAnalysis {
         val scratchSlotSpace = IPointsToSet.None()
         val graph = prog.analysisCache.graph
 
+        val staticScratchRangeClosed = BigInteger.ZERO .. 0x40.toBigInteger()
+        val staticScratchRangeOpen = BigInteger.ZERO ..< 0x40.toBigInteger()
+
         fun doGrouping(it: LTACCmd) : List<Pair<CmdPointer, AccessAnnotation>> {
             fun omniOf(p: IPointsToSet?) = p?.let(::listOf)?.let(AccessAnnotation::SingletonCell)
             fun omniAt(s: TACSymbol) = pta.fieldNodesAt(it.ptr, s)?.let(::listOf)?.let(AccessAnnotation::SingletonCell)
@@ -926,6 +929,19 @@ object OptimizeBasedOnPointsToAnalysis {
                             }
 
                             is TACCmd.Simple.AssigningCmd.AssignSha3Cmd -> {
+                                val fields = (it.cmd.op1 as? TACSymbol.Var)?.let { v1 ->
+                                    pta.fieldNodesAt(it.ptr, v1)
+                                }
+                                if(fields == null) {
+                                    val staticHash = pta.query(ConstantValue(v=it.ptr, it.cmd.op1))?.let { base ->
+                                        pta.query(ConstantValue(it.ptr, it.cmd.op2))?.let { len ->
+                                            (base + len) in staticScratchRangeClosed
+                                        }
+                                    } == true
+                                    if(staticHash) {
+                                        return@result singleLongRead(scratchSlotSpace)
+                                    }
+                                }
                                 val field = pta.fieldNodesAt(it.ptr, it.cmd.op1 as? TACSymbol.Var ?: return@result null) ?: return@result null
                                 val parentObject = pta.reachableObjects(it.ptr, it.cmd.op1) as? TypedPointsToSet
                                 val objectType = parentObject?.typeDesc
@@ -965,7 +981,14 @@ object OptimizeBasedOnPointsToAnalysis {
                         if(it.ptr.block in prog.analysisCache.revertBlocks) {
                             singleAccess(revertSet)
                         } else {
-                            singleAccess(pta.fieldNodesAt(it.ptr, it.cmd.loc))
+                            val r = pta.fieldNodesAt(it.ptr, it.cmd.loc)
+                            if(r == null && pta.query(ConstantValue(it.ptr, it.cmd.loc))?.let {
+                                it in staticScratchRangeOpen
+                            } == true) {
+                                singleAccess(scratchSlotSpace)
+                            } else {
+                                singleAccess(r)
+                            }
                         }
                     }
                     is TACCmd.Simple.LongAccesses -> {
@@ -987,7 +1010,7 @@ object OptimizeBasedOnPointsToAnalysis {
                             }
                             val pts = pta.fieldNodesAt(it.ptr, longAccess.offset)?.let(::listOf)
                             it.ptr to if(pts == null) {
-                                if(longAccess.isWrite && pta.query(ConstantValue(it.ptr, longAccess.offset))?.let { offs ->
+                                if(pta.query(ConstantValue(it.ptr, longAccess.offset))?.let { offs ->
                                         pta.query(ConstantValue(it.ptr, longAccess.length))?.let { sz ->
                                             (offs + sz) in BigInteger.ZERO .. 0x40.toBigInteger()
                                         }
