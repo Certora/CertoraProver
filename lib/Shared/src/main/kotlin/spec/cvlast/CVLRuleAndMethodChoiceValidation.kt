@@ -109,9 +109,27 @@ fun validateSimpleMethodChoices(knownFunctions: Set<String>): VoidResult<CVLErro
  * them, as this is a probable user input mistake.
  */
 fun validateRuleChoices(cvlAst: CVLAst) : VoidResult<CVLError> {
-    val allRules = cvlAst.rules.map { it.declarationId }.toSet() + cvlAst.invs.map { it.id }.toSet() +
+    val allRules = cvlAst.rules.mapToSet { it.declarationId } + cvlAst.invs.mapToSet { it.id } +
         cvlAst.useDeclarations.builtInRulesInUse.map { it.id }
-    return validateRuleChoices(allRules)
+    val validationResult = validateRuleChoices(allRules)
+    if(!validationResult.isResult()){
+        return validationResult
+    }
+
+    val invariantsNotInMainSpecFile = cvlAst.invs.filterNot { it.needsVerification }.mapToSet { it.id  }
+    /**
+     * With [config.Config.getNonPatternRuleChoices] we only match against explicit includes of invariants,
+     * once that do not include the wildcard (*). I.e. if one selects an invariant via --rule my_invariant*, and the main
+     * spec file contains a my_invariant_foo and an imported spec file contains my_invariant_bar, no typechecking error will occur,
+     * but my_invariant_bar is excluded.
+      */
+    val invariantsChosenFromImportedSpecs =  invariantsNotInMainSpecFile.filter { it in Config.getNonPatternRuleChoices().orEmpty() }
+    return if(invariantsChosenFromImportedSpecs.isNotEmpty()) {
+        CVLError.General(Range.Empty(), "A rule filter is applied (${Config.getNonPatternRuleChoices()}) and matches an invariant from an imported spec that is not used in the main spec. " +
+            "To include the invariant in verification, try adding the following statement(s) to your main spec file: \n${invariantsChosenFromImportedSpecs.joinToString("\n") { "use invariant $it;" }}").asError()
+    } else {
+        ok
+    }
 }
 
 fun validateRuleChoices(allRules: Set<String>) : VoidResult<CVLError> {
