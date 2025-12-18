@@ -22,7 +22,6 @@ import com.dylibso.chicory.wasm.types.*
 import com.dylibso.chicory.wasm.WasmModule
 import datastructures.stdcollections.*
 import log.*
-import wasm.debugsymbols.WasmDebugSymbolLoader
 import wasm.ir.*
 import wasm.ir.WasmInstruction.Control
 import wasm.ir.WasmInstruction.Numeric.*
@@ -37,7 +36,6 @@ private val wasmLogger = Logger(LoggerTypes.WASM)
 class WasmLoader(wasmFile: File) {
 
     val module: WasmModule = Parser.parse(wasmFile)
-    val debugSymbols = WasmDebugSymbolLoader.generate(wasmFile, module, true)
 
     private val I32_BOUND = BigInteger.TWO.pow(32);
     private val I64_BOUND = BigInteger.TWO.pow(64);
@@ -203,8 +201,7 @@ class WasmLoader(wasmFile: File) {
                 convertTableSection(),
                 convertTypeSection(),
                 convertEmbeddedRuleSection(),
-            ).flatten(),
-            debugSymbols
+            ).flatten()
         )
     }
 

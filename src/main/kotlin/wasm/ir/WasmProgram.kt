@@ -19,7 +19,6 @@ package wasm.ir
 
 import datastructures.stdcollections.*
 import utils.*
-import wasm.debugsymbols.WasmDebugSymbols
 import wasm.tokens.DESC
 import wasm.tokens.WasmTokens.AT
 import wasm.tokens.WasmTokens.DATA
@@ -61,7 +60,7 @@ const val WASM_PAGE_SIZE: Int = 65536
  * (https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wast/src/component)
  * too but not sure what that exactly is.
  */
-data class WasmProgram(val fields: List<WasmModuleField>, val wasmDebugSymbols: WasmDebugSymbols? = null) {
+data class WasmProgram(val fields: List<WasmModuleField>) {
     override fun toString(): String {
         val fieldsToString = fields.joinToString("\n") { it.toString() }
         return "$LPAR $MODULE $fieldsToString $RPAR"
