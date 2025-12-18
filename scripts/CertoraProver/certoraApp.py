@@ -23,6 +23,8 @@ from typing import Type
 
 class CertoraApp(ABC):
     attr_class: Type[AttrUtil.Attributes] = Attrs.EvmProverAttributes
+    ecosystem: str = "EVM"
+    product: str = "PROVER"
 
 class EvmAppClass(CertoraApp):
     pass
@@ -38,15 +40,21 @@ class MoveAppClass(CertoraApp):
 
 class SolanaApp(RustAppClass):
     attr_class = Attrs.SolanaProverAttributes
+    ecosystem: str = "SOLANA"
+
 
 class SorobanApp(RustAppClass):
     attr_class = Attrs.SorobanProverAttributes
+    ecosystem: str = "SOROBAN"
 
 class RangerApp(EvmAppClass):
     attr_class = Attrs.RangerAttributes
+    product = "RANGER"
 
 class ConcordApp(EvmAppClass):
     attr_class = Attrs.ConcordAttributes
+    product = "CONCORD"
 
 class SuiApp(MoveAppClass):
     attr_class = Attrs.SuiProverAttributes
+    ecosystem: str = "SUI"

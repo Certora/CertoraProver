@@ -69,18 +69,6 @@ Response = requests.models.Response
 
 FEATURES_REPORT_FILE = Path("featuresReport.json")
 
-class EcoEnum(Util.NoValEnum):
-    EVM = Util.auto()
-    SOROBAN = Util.auto()
-    SOLANA = Util.auto()
-    SUI = Util.auto()
-
-class ProductEnum(Util.NoValEnum):
-    PROVER = Util.auto()
-    RANGER = Util.auto()
-    CONCORD = Util.auto()
-
-
 class TimeError(Exception):
     """A custom exception used to report on time elapsed errors"""
 
@@ -648,21 +636,8 @@ class CloudVerification:
 
         auth_data["useLatestFe"] = self.context.fe_version == str(Util.FeValue.LATEST)
 
-        if Attrs.is_solana_app():
-            auth_data["ecosystem"] = EcoEnum.SOLANA.name
-        elif Attrs.is_soroban_app():
-            auth_data["ecosystem"] = EcoEnum.SOROBAN.name
-        elif Attrs.is_sui_app():
-            auth_data["ecosystem"] = EcoEnum.SUI.name
-        else:
-            auth_data["ecosystem"] = EcoEnum.EVM.name
-
-        if Attrs.is_ranger_app():
-            auth_data["product"] = ProductEnum.RANGER.name
-        elif Attrs.is_concord_app():
-            auth_data["product"] = ProductEnum.CONCORD.name
-        else:
-            auth_data["product"] = ProductEnum.PROVER.name
+        auth_data["ecosystem"] = self.context.app.ecosystem
+        auth_data["product"] = self.context.app.product
 
         if Attrs.is_evm_app() and self.context.cache is not None:
             auth_data["toolSceneCacheKey"] = self.context.cache

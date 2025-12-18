@@ -74,6 +74,7 @@ class RunMetaData:
     conf_path -- the relative path form the cwd_relative to the configuration file
     group_id -- optional identifier for grouping this run
     java_version -- version of Java used during the run, if available
+    ecosystem -- the ecosystem of the current run (EVM, SOLANA, SOROBAN, SUI, etc)
     default_solc_version -- version of default solc version on current machine, if available
     python_version -- version of Python running the process
     certora_ci_client -- name of the CI client if available, derived from environment
@@ -84,7 +85,7 @@ class RunMetaData:
     """
     def __init__(self, raw_args: List[str], conf: Dict[str, Any], origin: str, revision: str,
                  branch: str, cwd_relative: Path, dirty: bool, main_spec: Optional[str],
-                 conf_path: Optional[Path], group_id: Optional[str], java_version: str):
+                 conf_path: Optional[Path], group_id: Optional[str], java_version: str, ecosystem: str):
         self.raw_args = raw_args
         self.conf = conf
         self.origin = origin
@@ -97,6 +98,7 @@ class RunMetaData:
         self.group_id = group_id
         self.python_version = ".".join(str(x) for x in sys.version_info[:3])
         self.java_version = java_version
+        self.ecosystem = ecosystem
         self.default_solc_version = get_solc_version(self.conf)
         self.certora_ci_client = Utils.get_certora_ci_name()
         self.timestamp = str(datetime.now(timezone.utc).timestamp())
@@ -119,6 +121,7 @@ class RunMetaData:
             f" group_id: {self.group_id}\n"
             f" python_version: {self.python_version}\n"
             f" java_version: {self.java_version}\n"
+            f" ecosystem: {self.ecosystem}\n"
             f" default_solc_version: {self.default_solc_version}\n"
             f" CertoraCI client: {self.certora_ci_client}\n"
             f" jar_flag_info: {self.jar_flag_info}\n"
@@ -198,7 +201,8 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            main_spec=None,
                            conf_path=None,
                            group_id=None,
-                           java_version=context.java_version)
+                           java_version=context.java_version,
+                           ecosystem=context.app.ecosystem)
 
     # collect information about current git snapshot
     cwd_abs = wd.absolute()
@@ -227,7 +231,8 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            main_spec=get_main_spec(context),
                            conf_path=conf_path,
                            group_id=context.group_id,
-                           java_version=context.java_version)
+                           java_version=context.java_version,
+                           ecosystem=context.app.ecosystem)
 
     try:
         sha_out = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=wd,
@@ -263,7 +268,8 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            main_spec=get_main_spec(context),
                            conf_path=conf_path,
                            group_id=context.group_id,
-                           java_version=context.java_version)
+                           java_version=context.java_version,
+                           ecosystem=context.app.ecosystem)
 
         metadata_logger.debug(f' collected data:\n{str(data)}')
 
@@ -282,7 +288,8 @@ def collect_run_metadata(wd: Path, raw_args: List[str], context: CertoraContext)
                            main_spec=get_main_spec(context),
                            conf_path=conf_path,
                            group_id=context.group_id,
-                           java_version=context.java_version)
+                           java_version=context.java_version,
+                           ecosystem=context.app.ecosystem)
 
 
 def get_solc_version(conf: Dict[str, Any]) -> Optional[str]:
