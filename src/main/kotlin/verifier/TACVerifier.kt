@@ -50,6 +50,7 @@ import smtlibutils.statistics.LearnedClausesFilterStatistics
 import smtlibutils.statistics.PreExecutionStatistics
 import solver.ConfigStatistics
 import solver.SMTCounterexampleModel
+import solver.SolverChoice
 import solver.SolverResult
 import spec.cvlast.CVLCmd
 import spec.cvlast.CVLExpDeclaredSymbolsCollector
@@ -184,7 +185,7 @@ class TACVerifier private constructor(
     ) {
         updateSplitStatistics(
             SplitStatistic(
-                address = address.asIntList,
+                address = address.name(),
                 vcFeatures = listOf(),
                 solvingEvent = ResplitStatistic(resplitTime),
                 timeToSolveSinceJarStart = TimeSinceStart(),
@@ -209,7 +210,7 @@ class TACVerifier private constructor(
 
         val splitStats = SplitStatistic(
             splitName = vcName,
-            address = address.asIntList,
+            address = address.name(),
             finalResult = LExpVCStatsLogger.getResultStr(checkerResult.satResult),
             timeout = timeout,
             smtSolvingWallTime = smtSolvingWallTime,
@@ -623,7 +624,7 @@ class TACVerifier private constructor(
                 vcGenStopWatch = MilliTimeElapserStopWatch(timeStatsRecorder, vcGenTimeTag),
                 solverStopWatch,
                 autoConfig,
-                localSettings
+                ((subProblem as? SplitTree.NodeWithInfo<*>)?.info as? LocalSettings) ?: localSettings
             )
             val finalResult = verifierResult.finalResult
             subProblem.setRunInfo(finalResult, verifierResult.elapsedTimeSeconds.seconds, timeout)
@@ -671,6 +672,24 @@ class TACVerifier private constructor(
                         problemQueue += subProblem.split(subProblemTAC)
                     }
                     continue
+                } else if (Config.Smt.retryOnLeafTimeout.get() && (subProblem.address !is SplitAddress.Rerun)) {
+                    val sub = LazySubProgram(
+                        splitTree,
+                        SplitAddress.Rerun(subProblem.lazySub.address)
+                    )
+                    val alreadyTried = smtFormulaCheckerResult.subResultsFlattened
+                        .mapNotNull { it.solverInstanceInfo?.solverConfig }
+                    val settings = localSettings.copy(
+                        solverProgramChoice = SolverChoice(
+                            Config.Smt.retryOnLeafTimeoutSolvers.get()
+                                .filter { it.solverInfo.getOptionForRandomSeed(1).isNotEmpty() }
+                                .flatMap { listOf(1, 2, 3).map { seed -> it.copy(randomSeed = seed) } }
+                                .filter { it !in alreadyTried }
+                                .map { it.copy(canBeSkipped = { _,_ -> false }) }
+                        )
+                    )
+                    logger.info { "Timed out on leaf ${sub.name}, rerunning with random seeds" }
+                    problemQueue.add(splitTree.NodeWithInfo(sub, subProblem.sideScore, settings))
                 } else {
                     // we dump timeouting leaves.
                     smtFormulaCheckerResult.let { last ->

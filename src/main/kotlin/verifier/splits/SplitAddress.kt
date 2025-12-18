@@ -37,15 +37,15 @@ sealed interface SplitAddress : HasKSerializable {
     val parent: SplitAddress?
     val isRoot get() = parent == null
     val depth: Int get() = (parent?.depth ?: -1) + 1
-    val asIntList : List<Int>
-    fun name() = asIntList.joinToString("_") { it.toString() }
+    val asList : List<String>
+    fun name() = asList.joinToString("_")
 
     fun fullInfo(): String
 
     @KSerializable
     data object Root : SplitAddress {
         override val parent = null
-        override val asIntList = emptyList<Int>()
+        override val asList = emptyList<String>()
         override fun fullInfo() = "ROOT"
         override fun toString() = name()
     }
@@ -59,16 +59,23 @@ sealed interface SplitAddress : HasKSerializable {
         @KSerializable
         data class MustPass(override val parent: SplitAddress, override val pivot: NBId) : Block {
             override fun sibling() = DontPass(parent, pivot)
-            override val asIntList = parent.asIntList + 0
+            override val asList = parent.asList + "0"
             override fun toString() = name()
         }
 
         @KSerializable
         data class DontPass(override val parent: SplitAddress, override val pivot: NBId) : Block {
             override fun sibling() = MustPass(parent, pivot)
-            override val asIntList = parent.asIntList + 1
+            override val asList = parent.asList + "1"
             override fun toString() = name()
         }
+    }
+
+    @KSerializable
+    data class Rerun(override val parent: SplitAddress) : SplitAddress {
+        override val asList = parent.asList + "R"
+        override fun toString() = name()
+        override fun fullInfo() = "${name()}[rerun]"
     }
 
     @KSerializable
@@ -101,7 +108,7 @@ sealed interface SplitAddress : HasKSerializable {
         }
 
         // the +2 is for not interfering with the 0 and 1 splits of `Block`.
-        override val asIntList = parent.asIntList + (numericalCode + 2)
+        override val asList = parent.asList + "A${numericalCode}"
         override fun fullInfo() = "${name()}[$assumption]"
         override fun toString() = name()
     }
@@ -118,7 +125,7 @@ sealed interface SplitAddress : HasKSerializable {
         // will be 0000, and second 1000, which are very different splits. That's good for searching (probably)
         fun compareRevLexical(a: SplitAddress, b: SplitAddress) = run {
             require(a.depth == b.depth) // leaving this decision out of here.
-            (a.asIntList zip b.asIntList)
+            (a.asList zip b.asList)
                 .map { (i1, i2) -> i1.compareTo(i2) }
                 .lastOrNull { it != 0 } ?: 0
         }

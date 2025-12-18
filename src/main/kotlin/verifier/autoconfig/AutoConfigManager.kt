@@ -75,11 +75,11 @@ class AutoConfigManager(val ruleName: String) : Closeable {
      * their parent is also UNSAT. The propagation is recursive.
      */
     private fun propagateUNSAT(address: SplitAddress): Unit = synchronized(splitStatAndSolverConfigLock) {
-        if (address.asIntList.toString() !in stats.splitStatistics) {
+        if (address.name() !in stats.splitStatistics) {
             warn("The split with the address $address should be first added to ${::stats.name} before we propagate its unsat result")
             return
         }
-        if (!stats.splitStatistics[address.asIntList.toString()]!!.isEventuallyUNSAT()) {
+        if (!stats.splitStatistics[address.name()]!!.isEventuallyUNSAT()) {
             warn("Trying to propagate an unregistered UNSAT result of the split $address")
             return
         }
@@ -90,10 +90,10 @@ class AutoConfigManager(val ruleName: String) : Closeable {
         if (address !is SplitAddress.Block) {
             return
         }
-        val siblingAddressStr = address.sibling().toString()
+        val siblingAddressStr = address.sibling().name()
         if (stats.splitStatistics[siblingAddressStr]?.isEventuallyUNSAT() == true) {
             val parentAddress = address.parent
-            val parentAddressStr = parentAddress.toString()
+            val parentAddressStr = parentAddress?.name() ?: "null"
             if (parentAddressStr !in stats.splitStatistics) {
                 warn("The parent address $parentAddressStr is not registered in ${::stats.name}")
                 return
@@ -110,12 +110,12 @@ class AutoConfigManager(val ruleName: String) : Closeable {
      * Sets the [finalResult] and [solvers] of the stats of [address] based on the stats of [matchingUnsat].
      */
     private fun markMatchingUnsat(address: SplitAddress, matchingUnsat: BasicSplitStatistics) = synchronized(splitStatAndSolverConfigLock) {
-        if(address.asIntList.toString() !in stats.splitStatistics) {
+        if(address.name() !in stats.splitStatistics) {
             warn("Trying to mark an address UNSAT that is not in ${::stats.name}: $address")
             return
         }
-        stats.splitStatistics[address.asIntList.toString()] =
-            stats.splitStatistics[address.asIntList.toString()]!!.copy(
+        stats.splitStatistics[address.name()] =
+            stats.splitStatistics[address.name()]!!.copy(
                 finalResult = matchingUnsat.finalResult,
                 solvers = matchingUnsat.solvers
             )
@@ -126,27 +126,29 @@ class AutoConfigManager(val ruleName: String) : Closeable {
      * it gets computed and stored in [stats].
      */
     private fun getDigest(address: SplitAddress, prog: CoreTACProgram): String = synchronized(splitStatAndSolverConfigLock) {
-        require(address.asIntList.toString() in stats.splitStatistics) {
-            "Trying to store a digest for a split ${address.asIntList} that is not registered yet"
+        val addressName = address.name()
+        require(addressName in stats.splitStatistics) {
+            "Trying to store a digest for a split ${addressName} that is not registered yet"
         }
-        if (stats.splitStatistics[address.asIntList.toString()]!!.tacStats.digest == null) {
+        if (stats.splitStatistics[addressName]!!.tacStats.digest == null) {
             val digest = BasicTACStatistics.computeDigest(prog)
-            stats.splitStatistics[address.asIntList.toString()] =
-                stats.splitStatistics[address.asIntList.toString()]!!.let {
+            stats.splitStatistics[addressName] =
+                stats.splitStatistics[addressName]!!.let {
                     it.copy(tacStats = it.tacStats.copy(digest = digest))
                 }
         }
-        return stats.splitStatistics[address.asIntList.toString()]!!.tacStats.digest!!
+        return stats.splitStatistics[addressName]!!.tacStats.digest!!
     }
 
     /**
      * Register the given [subProblem] in [stats] (storing just address, split name, and basic TAC statistics).
      */
     fun registerSplit(address: SplitAddress, name: String, subProblemTAC: CoreTACProgram) = synchronized(splitStatAndSolverConfigLock) {
-        if (address.asIntList.toString() !in stats.splitStatistics.keys) {
-            info("registering split ${address.asIntList}")
-            stats.splitStatistics[address.asIntList.toString()] = BasicSplitStatistics(
-                address = address.asIntList.toString(),
+        val addressName = address.name()
+        if (addressName !in stats.splitStatistics.keys) {
+            info("registering split ${address.name()}")
+            stats.splitStatistics[addressName] = BasicSplitStatistics(
+                address = addressName,
                 splitName = name,
                 tacStats = BasicTACStatistics.fromCoreTACProgram(subProblemTAC, Config.AutoconfigUseDigests.get()),
             )
@@ -164,7 +166,7 @@ class AutoConfigManager(val ruleName: String) : Closeable {
         timeoutForSubProblem: Duration,
         solvingDuration: Duration,
     ) = synchronized(splitStatAndSolverConfigLock) {
-        val address = splitAddress.asIntList.toString()
+        val address = splitAddress.name()
         info("registering ${verifierResult.finalResult} result for split $address.")
         if(address !in stats.splitStatistics) {
             warn("Trying to register results for an unregistered split $address.")
@@ -262,7 +264,7 @@ class AutoConfigManager(val ruleName: String) : Closeable {
         val loadedMatches = loadedStats?.splitStatistics?.values?.filter { tacStats.match(it.tacStats) } ?: listOf()
         //Splits we have already solved in this CVT run and which are matching the current split.
         val newMatches: List<BasicSplitStatistics> = if (learnFromCurrent) {
-            val splitAddressStr = splitAddress.asIntList.toString()
+            val splitAddressStr = splitAddress.name()
             synchronized(splitStatAndSolverConfigLock) {
                 stats.splitStatistics.values.filter { tacStats.match(it.tacStats) && it.address != splitAddressStr }
             }

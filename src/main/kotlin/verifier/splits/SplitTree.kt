@@ -67,7 +67,7 @@ class SplitTree(val origCode: CoreTACProgram, private val splittingDepth: Int,
     /**
      * [Node]s are considered equal if their [address] (given in [lazySub]) is equal.
      */
-    inner class Node(val lazySub: LazySubProgram, val sideScore: SideScore<*>) {
+    open inner class Node(val lazySub: LazySubProgram, val sideScore: SideScore<*>) {
         val address get() = lazySub.address
         val name get() = lazySub.name
 
@@ -151,6 +151,12 @@ class SplitTree(val origCode: CoreTACProgram, private val splittingDepth: Int,
         val nodeSequence : Sequence<Node> get() =
             sequenceOf(this) + children.get().orEmpty().asSequence().flatMap { it.nodeSequence }
     }
+
+    /**
+     * Extends [Node] with some arbitrary additional information [info].
+     */
+    inner class NodeWithInfo<T>(lazySub: LazySubProgram, sideScore: SideScore<*>, val info: T)
+        : Node(lazySub, sideScore)
 
     val nodeSequence get() = rootNode.nodeSequence
 
