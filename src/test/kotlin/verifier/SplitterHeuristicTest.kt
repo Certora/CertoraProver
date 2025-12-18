@@ -60,8 +60,8 @@ class SplitterHeuristicTest : WithTACSource {
                 assertTrue(a.split.sideScore >= b.split.sideScore)
             } else {
                 // prefer smaller address (reverse lexicographically)
-                val aa = a.split.address.asIntList.dropLast(1)
-                val ba = b.split.address.asIntList.dropLast(1)
+                val aa = a.split.address.asList.dropLast(1)
+                val ba = b.split.address.asList.dropLast(1)
                 val res = aa.zip(ba).map { (i1, i2) -> i1.compareTo(i2) }.lastOrNull { it != 0 } ?: 0
 
                 assertTrue(res <= 0)

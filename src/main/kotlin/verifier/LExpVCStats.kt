@@ -164,7 +164,7 @@ data class ResplitStatistic(
 @Serializable
 data class SplitStatistic(
     /** The location of the split in the split tree.  -1 indicates a failed split */
-    val address: List<Int>,
+    val address: String,
     /** splitName exactly as it is in Split<CoreTACProgram>.name. Also referred to as vcName */
     val splitName: String,
     val finalResult: String? = null,

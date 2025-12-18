@@ -3005,6 +3005,24 @@ object Config {
                 }"
         }
 
+        val retryOnLeafTimeout: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+            false,
+            Option(
+                "smt_retryOnLeafTimeout",
+                true,
+                "Reruns a timeouting leaf with a broader portfolio of solvers."
+            )
+        ), TransformationAgnosticConfig {}
+
+        val retryOnLeafTimeoutSolvers: ConfigType.SolverProgramCmdLine = object : ConfigType.SolverProgramCmdLine(
+            AllCommonAvailableSolversWithClOptions.toTypedArray(),
+            Option(
+                "smt_retryOnLeafTimeoutSolvers",
+                true,
+                "Solvers used for a rerun on timeouting leafs."
+            )
+        ), TransformationAgnosticConfig {}
+
         val NumOfUnsatCores: ConfigType.IntCmdLine = object : ConfigType.IntCmdLine(
             1,
             Option(
