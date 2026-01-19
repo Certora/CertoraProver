@@ -396,7 +396,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 is TACCmd.Simple.JumpiCmd -> treapSetOf(c.dst, c.elseDst)
                 is TACCmd.Simple.RevertCmd -> treapSetOf<NBId>()
                 is TACCmd.Simple.AssertCmd -> {
-                    check(c.o == TACSymbol.False) { "Unexpected assert at end of block $block: got $c" }
+                    check(c.o == TACSymbol.False || block == exit) {
+                        "Unexpected assert at end of block $block: got $c"
+                    }
                     treapSetOf<NBId>()
                 }
                 else -> {
