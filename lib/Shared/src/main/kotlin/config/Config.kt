@@ -3591,6 +3591,15 @@ object Config {
         pythonName = "--no_calltrace_storage_information"
     ), TransformationAgnosticConfig {}
 
+    val onlyPrimitiveCalltrace: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "onlyPrimitiveCalltrace",
+            true,
+            "Only include primitive values in CallTrace (Move-language only). (default false)"
+        )
+    ), TransformationAgnosticConfig {}
+
     val flattenBranchesInCallTrace: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         true,
         Option(

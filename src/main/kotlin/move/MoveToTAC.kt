@@ -157,7 +157,14 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PATH_OPTIMIZE2) { Pruner(it).prune() })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_MERGE_BLOCKS, BlockMerger::mergeBlocks))
             .ref
-            .also { NonlinearProfiler().profile(it, "optimized") }
+            .also {
+                if (!it.destructiveOptimizations) {
+                    NonlinearProfiler().profile(it, "optimized")
+                    TACSizeProfiler().profile(it, "optimized")
+                    BranchProfiler().profile(it, "optimized")
+                    StoreProfiler().profile(it, "optimized")
+                }
+            }
 
         private fun <T : TACProgram<*>, R : TACProgram<*>> T.transform(
             reportType: ReportTypes,

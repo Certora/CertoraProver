@@ -129,6 +129,7 @@ class CvlmApi(scene: MoveScene) {
             singleBlockSummary(call) {
                 mergeMany(
                     MoveCallTrace.annotateUserAssume(
+                        condition = call.args[0],
                         messageText = call.displaySource,
                         range = call.range
                     ),
@@ -149,6 +150,7 @@ class CvlmApi(scene: MoveScene) {
             singleBlockSummary(call) {
                 mergeMany(
                     MoveCallTrace.annotateUserAssume(
+                        condition = call.args[0],
                         messageVar = call.args[1],
                         messageText = call.displaySource,
                         range = call.range
