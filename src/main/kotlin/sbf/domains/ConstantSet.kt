@@ -228,6 +228,27 @@ data class ConstantSet private constructor(
 
     override fun lsh(other: ConstantSet) = binOp(other, Constant::lsh)
 
+    override fun zext8() =
+        if (isBottom() || isTop()) {
+            this
+        } else {
+            ConstantSet(values.map { c -> c.zext8() }.toSet(), maxNumDisjuncts)
+        }
+
+    override fun zext16() =
+        if (isBottom() || isTop()) {
+            this
+        } else {
+            ConstantSet(values.map { c -> c.zext16() }.toSet(), maxNumDisjuncts)
+        }
+
+    override fun zext32() =
+        if (isBottom() || isTop()) {
+            this
+        } else {
+            ConstantSet(values.map { c -> c.zext32() }.toSet(), maxNumDisjuncts)
+        }
+
     override fun assume(op: CondOp, other: ConstantSet): TriBoolean {
         return if (isBottom() || isTop() || other.isBottom() || other.isTop()) {
             TriBoolean.makeTop()

@@ -28,11 +28,11 @@ import sbf.callgraph.CVTFunction
 import sbf.callgraph.SolanaFunction
 
 /**
- * [MemEqualityPredicateDomain]: abstract domain that discovers equalities between sequences of bytes.
+ * MemEqualityPredicateDomain: abstract domain that discovers equalities between sequences of bytes.
  *
- * The domain keeps track of two kind of predicates [ConstantMemEqualityPredicate] and [SymbolicMemEqualityPredicate].
+ * The domain keeps track of two kind of predicates `ConstantMemEqualityPredicate` and `SymbolicMemEqualityPredicate`.
  * The former represents that a byte sequence is equal to some constant value while the latter represents equalities
- * between two byte sequences. Note that [MemEqualityPredicateDomain] is a classical example where a Galois connection
+ * between two byte sequences. Note that `MemEqualityPredicateDomain` is a classical example where a Galois connection
  * does not exist. Thus, two different predicates can refer to the same byte sequence. This is okay for soundness, but it
  * can affect precision.
  *
@@ -784,6 +784,10 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         val offset = inst.access.offset.toLong()
         val width = inst.access.width
 
+        if (width.toInt() != 8) {
+            return
+        }
+
         // update `loadedMap` to remember the loaded value
         val baseSymC = memoryAbsVal.getPTAGraph().getRegCell(baseReg)
         if (baseSymC != null && baseSymC.isConcrete()) {
@@ -1093,6 +1097,17 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         }
     }
 
+    private fun memHavoc(ptr: PTASymCell<Flags>, len: Long?) {
+        val predicates = memcmpSet
+        for (pred in predicates) {
+            val predTr = when(pred) {
+                is ConstantMemEqualityPredicate -> MemIntrinsicsTransformerForCstPred(pred)
+                is SymbolicMemEqualityPredicate -> MemIntrinsicsTransformerForSymPred(pred)
+            }
+            havocPredicate(predTr, ptr, len)
+        }
+    }
+
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemTransfer(
         locInst: LocatedSbfInstruction,
         memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
@@ -1119,7 +1134,6 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     }
 
-
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemcmp(
         @Suppress("UNUSED_PARAMETER")
         locInst: LocatedSbfInstruction,
@@ -1138,43 +1152,63 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     }
 
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemset(
-        @Suppress("UNUSED_PARAMETER")
         locInst: LocatedSbfInstruction,
         memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
         globals: GlobalVariables
     ) {
+
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
 
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
-        forget(r0)
-
-        // The [MemoryDomain] will complain if ptrSc is null
-        val ptrSc = memoryAbsVal.getRegCell(r1, globals) ?: return
-        // len can be null
-        val len = (memoryAbsVal.getScalars().getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
-        val predicates = memcmpSet
-        for (pred in predicates) {
-            val predTr = when(pred) {
-                is ConstantMemEqualityPredicate -> MemIntrinsicsTransformerForCstPred(pred)
-                is SymbolicMemEqualityPredicate -> MemIntrinsicsTransformerForSymPred(pred)
-            }
-            havocPredicate(predTr, ptrSc, len)
+        if (inst.writeRegister.contains(r0)) {
+            forget(r0)
         }
 
+        // The [MemoryDomain] will complain if dstSc is null
+        val dstSc = memoryAbsVal.getRegCell(r1, globals) ?: return
+        val len = (memoryAbsVal.getScalars().getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
+
+        memHavoc(dstSc, len)
+
         // Not adding a predicate is always sound
-        if (ptrSc.isConcrete() && len != null) {
+        if (dstSc.isConcrete() && len != null) {
             (memoryAbsVal.getScalars().getAsScalarValue(r2).type() as? SbfType.NumType)?.value?.toLongOrNull()?.let {
                 if (len == 32L && it == 0L) {
                     // Special case for pubkey::default()
                     // We could call `addAndMerge`, but we don't expect to merge this predicate with another one
-                    memcmpSet = memcmpSet.add(ConstantMemEqualityPredicate.memsetZero(ptrSc.concretize(), len, 8))
+                    memcmpSet = memcmpSet.add(ConstantMemEqualityPredicate.memsetZero(dstSc.concretize(), len, 8))
                 }
             }
         }
     }
+
+    private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemcpyZExtOrTrunc(
+        locInst: LocatedSbfInstruction,
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
+        globals: GlobalVariables
+    ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+
+
+        if (inst.writeRegister.contains(r0)) {
+            forget(r0)
+        }
+
+        // The [MemoryDomain] will complain if dstSc is null
+        val dstSc = memoryAbsVal.getRegCell(r1, globals) ?: return
+        // Note: for memcpy_trunc we should havoc only up to i (r3) bytes
+        memHavoc(dstSc, len = 8)
+    }
+
 
     /**
      *  Invariant ensured by CFG construction: r10 has been decremented already
@@ -1262,6 +1296,11 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
                 SolanaFunction.SOL_MEMCPY,
                 SolanaFunction.SOL_MEMMOVE -> {
                     analyzeMemTransfer(locInst, memoryAbsVal, globals)
+                    return
+                }
+                SolanaFunction.SOL_MEMCPY_ZEXT,
+                SolanaFunction.SOL_MEMCPY_TRUNC -> {
+                    analyzeMemcpyZExtOrTrunc(locInst, memoryAbsVal, globals)
                     return
                 }
                 SolanaFunction.SOL_MEMSET -> {

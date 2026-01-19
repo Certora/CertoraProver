@@ -446,6 +446,8 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 when (solFunction) {
                     SolanaFunction.SOL_MEMCMP,
                     SolanaFunction.SOL_MEMCPY,
+                    SolanaFunction.SOL_MEMCPY_ZEXT,
+                    SolanaFunction.SOL_MEMCPY_TRUNC,
                     SolanaFunction.SOL_MEMMOVE,
                     SolanaFunction.SOL_MEMSET ->
                         reductionFromScalarsToPtaGraph(locInst)

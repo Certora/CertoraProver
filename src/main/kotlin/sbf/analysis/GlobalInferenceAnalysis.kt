@@ -291,6 +291,8 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
                 } else if (inst is SbfInstruction.Call) {
                     when (SolanaFunction.from(inst.name)) {
                         SolanaFunction.SOL_MEMCPY,
+                        SolanaFunction.SOL_MEMCPY_ZEXT,
+                        SolanaFunction.SOL_MEMCPY_TRUNC,
                         SolanaFunction.SOL_MEMMOVE,
                         SolanaFunction.SOL_MEMCMP -> {
                             inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG))

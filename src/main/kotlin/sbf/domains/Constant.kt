@@ -175,6 +175,67 @@ data class Constant(private val value: Long?, private val isBot: Boolean = false
         return apply(other) { x: Long, y: Long -> x.shl(y.toInt()) }
     }
 
+
+    /**
+     * Zero-extend the low 8 bits of this constant to 64 bits.
+     *
+     * Semantics:
+     *   - If the constant is TOP or BOTTOM, it is returned unchanged.
+     *   - Otherwise, the value is truncated to 8 bits (mod 2^8),
+     *     interpreted as an unsigned byte, and zero-extended to Long.
+     *
+     * Examples:
+     *   -1  -> 255
+     *   291 -> 35
+     */
+    override fun zext8(): Constant{
+        return if (isTop() || isBottom()) {
+            this
+        } else {
+            Constant(value!!.toUByte().toLong())
+        }
+    }
+
+    /**
+     * Zero-extend the low 16 bits of this constant to 64 bits.
+     *
+     * Semantics:
+     *   - If the constant is TOP or BOTTOM, it is returned unchanged.
+     *   - Otherwise, the value is truncated to 16 bits (mod 2^16),
+     *     interpreted as an unsigned short, and zero-extended to Long.
+     *
+     * Examples:
+     *   -1   -> 65535
+     *   74565 -> 9029
+     */
+    override fun zext16(): Constant{
+        return if (isTop() || isBottom()) {
+            this
+        } else {
+            Constant(value!!.toUShort().toLong())
+        }
+    }
+
+    /**
+     * Zero-extend the low 32 bits of this constant to 64 bits.
+     *
+     * Semantics:
+     *   - If the constant is TOP or BOTTOM, it is returned unchanged.
+     *   - Otherwise, the value is truncated to 32 bits (mod 2^32),
+     *     interpreted as an unsigned int, and zero-extended to Long.
+     *
+     * Examples:
+     *   -1 -> 4294967295
+     *   4294967297 -> 1
+     */
+    override fun zext32(): Constant{
+        return if (isTop() || isBottom()) {
+            this
+        } else {
+            Constant(value!!.toUInt().toLong())
+        }
+    }
+
     override fun join(other: Constant): Constant {
         return if (isBottom()) {
             other

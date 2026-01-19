@@ -79,6 +79,50 @@ open class Variable(val name: String, val index: VariableIndex): Comparable<Vari
 
 typealias ExpressionVar = Variable
 
+
+private val MASK_8  = BigInteger.ONE.shiftLeft(8).subtract(BigInteger.ONE)
+private val MASK_16 = BigInteger.ONE.shiftLeft(16).subtract(BigInteger.ONE)
+private val MASK_32 = BigInteger.ONE.shiftLeft(32).subtract(BigInteger.ONE)
+
+/**
+ * Zero-extends the low 8 bits of this [BigInteger].
+ *
+ * Semantics:
+ *   - The value is truncated to 8 bits (mod 2^8)
+ *   - The resulting bit-pattern is interpreted as unsigned
+ *   - The result is represented as a non-negative [BigInteger]
+ * Examples:
+ *   -1        -> 255
+ *   0x123     -> 0x23
+ *   0xFF      -> 255
+ */
+private fun BigInteger.zext8(): BigInteger = this.and(MASK_8)
+/**
+ * Zero-extends the low 16 bits of this [BigInteger].
+ *
+ * Semantics:
+ *   - The value is truncated to 16 bits (mod 2^16)
+ *   - The resulting bit-pattern is interpreted as unsigned
+ *   - The result is represented as a non-negative [BigInteger]
+ * Examples:
+ *   -1        -> 65535
+ *   0x12345  -> 0x2345
+ */
+private fun BigInteger.zext16(): BigInteger = this.and(MASK_16)
+/**
+ * Zero-extends the low 32 bits of this [BigInteger].
+ *
+ * Semantics:
+ *   - The value is truncated to 32 bits (mod 2^32)
+ *   - The resulting bit-pattern is interpreted as unsigned
+ *   - The result is represented as a non-negative [BigInteger]
+ * Examples:
+ *   -1              -> 4294967295
+ *   0x1_0000_0001   -> 1
+ */
+private fun BigInteger.zext32(): BigInteger = this.and(MASK_32)
+
+
 data class ExpressionNum(val n: BigInteger) {
     constructor(v: Long): this(BigInteger.valueOf(v))
 
@@ -106,6 +150,15 @@ data class ExpressionNum(val n: BigInteger) {
     fun isMinusOne(): Boolean {
         return n == - BigInteger.ONE
     }
+    fun zext(n: Int): ExpressionNum =
+        when (n) {
+            1 -> ExpressionNum(this.n.zext8())
+            2 -> ExpressionNum(this.n.zext16())
+            4 -> ExpressionNum(this.n.zext32())
+            8 -> this
+            else -> error("ExpressionNum::zext(n) only supports n={1,2,4,8} but given n=$n")
+        }
+
     override fun toString(): String {
         return n.toString()
     }

@@ -419,7 +419,7 @@ class ScalarBaseDomain<ScalarValue>(
     }
 
     /**
-     * Default abstract transformer for `memcpy`/`memmove`/`memset`
+     * Default abstract transformer for `memcpy`/`memcpy_zext`/`memcpy_trunc`/`memmove`/`memset`
      **/
     fun<D, TNum, TOffset> analyzeMemIntrinsics(
         locInst: LocatedSbfInstruction,
@@ -433,12 +433,14 @@ class ScalarBaseDomain<ScalarValue>(
 
         val solanaFunction = SolanaFunction.from(stmt.name)
         check (solanaFunction == SolanaFunction.SOL_MEMCPY ||
+               solanaFunction == SolanaFunction.SOL_MEMCPY_ZEXT ||
+               solanaFunction == SolanaFunction.SOL_MEMCPY_TRUNC ||
                solanaFunction == SolanaFunction.SOL_MEMMOVE ||
                solanaFunction == SolanaFunction.SOL_MEMSET)
 
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG) // destination
-        val r3 = Value.Reg(SbfRegister.R3_ARG) // length
+        val r3 = Value.Reg(SbfRegister.R3_ARG) // len
 
         if (stmt.writeRegister.contains(r0)) {
             forget(r0)
@@ -446,13 +448,20 @@ class ScalarBaseDomain<ScalarValue>(
 
         val dstType = scalars.getAsScalarValue(r1).type()
         if (dstType is SbfType.PointerType.Stack) {
-            val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
-                ?: throw UnknownMemcpyLenError(
-                    DevErrorInfo(
-                        locInst, PtrExprErrReg(r3),
-                        "memcpy on stack without knowing exact length: ${scalars.getAsScalarValue(r3).type()}"
-                    )
-                )
+            val len = when(solanaFunction) {
+                SolanaFunction.SOL_MEMCPY_ZEXT -> 8
+                else -> {
+                    val lenType = scalars.getAsScalarValue(r3).type()
+                    (lenType as? SbfType.NumType)?.value?.toLongOrNull()
+                        ?: throw UnknownMemcpyLenError(
+                            DevErrorInfo(
+                                locInst, PtrExprErrReg(r3),
+                                "${stmt.name} on stack without knowing exact length: $lenType"
+                            )
+                        )
+                }
+            }
+
             if (dstType.offset.isTop()) {
                 throw UnknownStackPointerError(
                     DevErrorInfo(

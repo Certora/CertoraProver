@@ -35,14 +35,14 @@ interface TACMemSplitter {
     fun getTACMemory(locInst: LocatedSbfInstruction): LoadOrStoreInfo?
 
     /**
-     *  @param locInst is a call to `sol_memcpy_`, `sol_memmove_`, `sol_memcmp_`, or `sol_memset_`
+     *  @param locInst call to `sol_memcpy_`, `memcpy_zext`, `memcpy_trunc`, `sol_memmove_`, `sol_memcmp_`, or `sol_memset_`
      *  @return all TAC variables that represent the source and destination memory locations.
      *  If inst is not reachable then it returns null.
      */
-    fun getTACMemoryFromMemIntrinsic(locInst: LocatedSbfInstruction): MemInstInfo?
+    fun getTACMemoryFromMemIntrinsic(locInst: LocatedSbfInstruction): MemInstrinsicsInfo?
 
     /**
-     * @param locInst is call to an internal function.
+     * @param locInst call to an internal function.
      * @return a list of memory locations that are modified by the summary.
      * If inst is not reachable then it returns null.
      */
@@ -61,42 +61,51 @@ interface TACMemSplitter {
      *  If the constant is top then the corresponding left-hand side is havoced.
      *  @param locationsToHavoc is the scalars or byte map indexes that must be havoced by the memory operation.
      **/
-    data class StackLoadOrStoreInfo(val variables: Map<PTAOffset, TACByteStackVariable>,
-                                    val preservedValues: Map<PTAOffset, Constant>,
-                                    val locationsToHavoc: HavocMemLocations): LoadOrStoreInfo()
+    data class StackLoadOrStoreInfo(
+        val variables: Map<PTAOffset, TACByteStackVariable>,
+        val preservedValues: Map<PTAOffset, Constant>,
+        val locationsToHavoc: HavocMemLocations): LoadOrStoreInfo()
+
     /**
      *  Represent a memory load or store from/to non-stack in TAC.
      *
      *  @param variable: TAC bytemap variable that models the de-referenced memory location.
      *  @param locationsToHavoc is the scalars or byte map indexes that must be havoced by the memory operation.
      **/
-    data class NonStackLoadOrStoreInfo(val variable: TACByteMapVariable,
-                                       val locationsToHavoc: HavocMemLocations): LoadOrStoreInfo()
+    data class NonStackLoadOrStoreInfo(
+        val variable: TACByteMapVariable,
+        val locationsToHavoc: HavocMemLocations): LoadOrStoreInfo()
 
     /**
      * Represent that (*[reg]+[offset]) is mapped to [variable] and has type [type]
      */
-    data class SummaryArgInfo(val reg: SbfRegister, val offset: PTAOffset, val width: Byte, val allocatedSpace: ULong,
-                              val type: MemSummaryArgumentType, val variable: TACVariable)
+    data class SummaryArgInfo(
+        val reg: SbfRegister,
+        val offset: PTAOffset,
+        val width: Byte,
+        val allocatedSpace: ULong,
+        val type: MemSummaryArgumentType,
+        val variable: TACVariable)
+
     /**
-     * Represent `sol_memcpy_`, `sol_memmove_`, `sol_memcmp_`, or `sol_memset_` in TAC.
-     *
-     * Currently, we only model `sol_memcpy_` and `sol_memcmp_`.
+     * Represent `sol_memcpy_`, `memcpy_zext`, `memcpy_trunc`, `sol_memmove_`, `sol_memcmp_`, or `sol_memset_` in TAC.
      **/
-    sealed class MemInstInfo
-    /** class to model sol_memcpy **/
-    sealed class MemTransferInfo: MemInstInfo()
-    /** class to model sol_memcmp **/
-    sealed class MemCmpInfo: MemInstInfo()
-    /** class to model sol_memset **/
-    sealed class MemsetInfo: MemInstInfo()
-    /** class to model sol_memmove and sol_memset which are not supported at the moment **/
-    object NotImplMemInstInfo : MemInstInfo()
+    sealed class MemInstrinsicsInfo
+
+    /** class to model `sol_memcpy`  **/
+    sealed class MemTransferInfo: MemInstrinsicsInfo()
+    /** class to model `memcpy_zext`  **/
+    sealed class MemcpyZExt: MemInstrinsicsInfo()
+    /** class to model `sol_memcmp` **/
+    sealed class MemcmpInfo: MemInstrinsicsInfo()
+    /** class to model `sol_memset` **/
+    sealed class MemsetInfo: MemInstrinsicsInfo()
+    /** class to model sol_memmove which is not supported at the moment **/
+    object NotImplMemInstInfo : MemInstrinsicsInfo()
 
 
     /** class to keep track which TAC variables should be havoc **/
     sealed class HavocMemLocations
-
     /**
      *  This class contains the list of stack variables that should be havoced in case they are used later.
      *
@@ -112,9 +121,9 @@ interface TACMemSplitter {
     /**
      *  Transfer memory from stack to stack
      *
-     *  @property source is a map from stack offsets to slices copied from the stack.
-     *  @property destination is a map from stack offsets to slices being overwritten.
-     *  @property length is the number of bytes being copied.
+     *  @param source is a map from stack offsets to slices copied from the stack.
+     *  @param destination is a map from stack offsets to slices being overwritten.
+     *  @param length is the number of bytes being copied.
      **/
     class StackMemTransferInfo(
         val source: Map<PTAOffset, StackSlice>,
@@ -144,27 +153,37 @@ interface TACMemSplitter {
     ): MemTransferInfo() {
         init {
             if (isDestStack) {
-                check(locationsToHavoc is HavocScalars) {"precondition of MixedRegionsMemTransferInfo failed (1)"}
+                check(locationsToHavoc is HavocScalars) {
+                    "precondition of MixedRegionsMemTransferInfo failed (1)"
+                }
             } else {
-                check(locationsToHavoc is HavocMapBytes) {"precondition of MixedRegionsMemTransferInfo failed (2)"}
+                check(locationsToHavoc is HavocMapBytes) {
+                    "precondition of MixedRegionsMemTransferInfo failed (2)"
+                }
             }
         }
     }
 
-    /** Class to represent sol_memcpy instructions that cannot be translated to TAC **/
+    /** Class to represent `sol_memcpy` instructions that cannot be translated to TAC **/
     object UnsupportedMemTransferInfo: MemTransferInfo()
 
+
+    /** Class to model `memcpy_zext` **/
+    data class SupportedMemcpyZExtInfo(val memcpy: MemTransferInfo, val memset: MemsetInfo): MemcpyZExt()
+
+    /** Class to represent `memcpy_zext` instructions that cannot be translated to TAC **/
+    object UnsupportedMemcpyZExtInfo: MemcpyZExt()
 
     /**
      * This is a wrapper that conveniently groups together `sol_memcmp_` operands as TAC variables.
      * Both memcmp operands point to the stack.
      *
-     *  @property op1 is a list of destination TAC variables.
-     *  @property op2 is a list of source TAC variables.
-     *  @property op1Range is a pair of lowest and highest offsets being compared on the stack.
-     *  @property op2Range is a pair of lowest and highest offsets being compared on the stack.
-     *  @property length is the number of bytes to be compared.
-     *  @property wordSize is the size of a word in bytes.
+     *  @param op1 is a list of destination TAC variables.
+     *  @param op2 is a list of source TAC variables.
+     *  @param op1Range is a pair of lowest and highest offsets being compared on the stack.
+     *  @param op2Range is a pair of lowest and highest offsets being compared on the stack.
+     *  @param length is the number of bytes to be compared.
+     *  @param wordSize is the size of a word in bytes.
      *
      *  The number of words is [length]/[wordSize].
      */
@@ -175,7 +194,7 @@ interface TACMemSplitter {
         val op2Range: StackSlice,  // for generating TAC metadata
         val length: Long,
         val wordSize: Byte
-    ): MemCmpInfo()  {
+    ): MemcmpInfo()  {
         init {
             // source and destination must have the same number of variables
             if (op1.size != op2.size) {
@@ -188,8 +207,8 @@ interface TACMemSplitter {
      * This is a wrapper that conveniently groups together `sol_memcmp_` operands as TAC variables.
      * Both memcmp operands point to non-stack memory.
      *
-     *  @property length is the number of bytes to be compared.
-     *  @property wordSize is the size of a word in bytes.
+     *  @param length is the number of bytes to be compared.
+     *  @param wordSize is the size of a word in bytes.
      *
      *  The number of words is [length]/[wordSize].
      */
@@ -198,7 +217,7 @@ interface TACMemSplitter {
         val op2: TACByteMapVariable,
         val length: Long,
         val wordSize: Byte
-    ): MemCmpInfo()
+    ): MemcmpInfo()
 
     /**
      *  One memcmp operand is on the stack but the other is not.
@@ -214,7 +233,7 @@ interface TACMemSplitter {
         val stackOpRange: StackSlice?,  // for generating TAC metadata
         val length: Long,
         val wordSize: Byte
-    ): MemCmpInfo()  {
+    ): MemcmpInfo()  {
         init {
             if (scalarsReg == byteMapReg) {
                 throw TACTranslationError("creating an invalid MixedRegionsTACMemCmpInfo object (1)")
@@ -229,7 +248,7 @@ interface TACMemSplitter {
     }
 
     /** Class to represent sol_memcmp instructions that cannot be translated to TAC **/
-    object UnsupportedMemCmpInfo: MemCmpInfo()
+    object UnsupportedMemCmpInfo: MemcmpInfo()
 
     /** Class to represent a memset on the stack **/
     class StackZeroMemsetInfo(val stackOpRange: StackSlice, val length: Long): MemsetInfo()

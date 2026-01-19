@@ -543,9 +543,15 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             }
         }
 
+        private fun isPromotedMemcpy(f: SolanaFunction) =
+            f == SolanaFunction.SOL_MEMCPY && metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
+
+        private fun isPromotedMemset(f: SolanaFunction) =
+            f == SolanaFunction.SOL_MEMSET && metaData.getVal(SbfMeta.MEMSET_PROMOTION) != null
+
         // special case for promoted memcpy
         private fun writeRegister(f: SolanaFunction?) =
-            if (f == SolanaFunction.SOL_MEMCPY && metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null) {
+            if (f != null && (isPromotedMemset(f) || isPromotedMemcpy(f))) {
                 setOf()
             } else {
                 f?.syscall?.writeRegister

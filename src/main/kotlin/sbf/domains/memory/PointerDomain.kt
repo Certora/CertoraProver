@@ -3456,7 +3456,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             }
         }
 
-
         val derefNode= deref.getNode()
 
         if (derefNode.getSucc(PTAField(deref.getOffset(), width)) != null) {
@@ -3891,6 +3890,18 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
+    private enum class MemcpyKind {
+        /** `memcpy_trunc`: load of 8 bytes and store < 8 bytes **/
+        Narrowing,
+        /** `memcpy_zext`: load of < 8 bytes and store of 8 bytes **/
+        Widening,
+        /**
+         * `sol_memcpy_`/`memcpy` or `memcpy` promoted from pairs of
+         * load + store accessing each pair the same number of bytes
+         **/
+        SameWidth;
+    }
+
     /**
      *  Transfer function for `memcpy`
      *
@@ -3946,7 +3957,52 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
         locInst: LocatedSbfInstruction,
         scalars: ScalarDomain,
-        globals: GlobalVariables) {
+        globals: GlobalVariables
+    ) {
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value ?: sbfTypesFac.anyNum().value
+        // For instance, RawVec can call memcpy with length == 0 and destination being a small number
+        // (alignment of the data type being transferred)
+        // https://github.com/anza-xyz/rust/blob/solana-1.79.0/library/alloc/src/raw_vec.rs#L148
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst, stopIfError = len.toLongOrNull() != 0L)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r1),
+                    "memcpy: r1 does not point to a graph node in $this"
+                )
+            )
+        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst, stopIfError = true)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r2),
+                    "memcpy: r2 does not point to a graph node in $this"
+                )
+            )
+
+
+        doMemcpy<ScalarDomain>(locInst, srcSc, dstSc, len, MemcpyKind.SameWidth)
+
+        if (locInst.inst.writeRegister.contains(r0)) {
+            forget(r0)
+        }
+    }
+
+    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
+        locInst: LocatedSbfInstruction,
+        srcSc: PTASymCell<Flags>,
+        dstSc: PTASymCell<Flags>,
+        len: TNum,
+        kind: MemcpyKind
+    ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+
         /**
          * Transfer function: [srcC] can be stack, but if it's not the stack then its fields are at least tracked precisely.
          **/
@@ -3970,13 +4026,67 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             // Remove any overlapping or fully subsumed field on the destination.
             removeLinks(dstC, len)
 
-            // Select the source's links to be transferred.
-            // We only transfer those links from source that are strictly in the range
-            // [srcC.offset, srcC.offset+length-1]. Note that transferring fewer links is sound.
-            val srcLinks = srcNode.getLinksInRange(srcOffset, len)
+            when (kind) {
+                MemcpyKind.Narrowing -> {
+                    /**
+                     *   ```
+                     *   r1 := *(u64 *) (r10-24)
+                     *   *(u16 *) (r10-524) := r1  // narrowing store
+                     *   ```
+                     *   has been promoted to:
+                     *   ```
+                     *   memcpy_trunc(r10-524, r10-24, 2)
+                     *   ```
+                     * If `*(u64 *) (r10-24)` has a link then we want to transfer it directly to `*(u16 *) (r10-524)`.
+                     * Note that there is an implicit truncation to `16` bits but the pointer analysis treat it as a non-op since
+                     * the pointer analysis does not reason precisely about non-pointers.
+                     *
+                     * We could do something like this
+                     * ```
+                     *  srcNode.getLinksInRange(srcOffset, len, isStrict= len>=8)
+                     * ```
+                     * and then rely on cell reconstruction. The pointer analysis would be happy but TAC encoding would
+                     * generate havoc cells, so we might have spurious cex.
+                     **/
+                    check(len < 8)
+                    srcNode.getSucc(PTAField(srcOffset, 8))?.let { c ->
+                        // Conversion from field of 8 to len bytes
+                        val dstField = PTAField(dstOffset, len.toShort())
+                        // The actual transfer of the link
+                        dstNode.addSucc(dstField, c)
+                    }
+                }
+                MemcpyKind.Widening -> {
+                    /**
+                     * ```
+                     *  r1 = *(u8 *) (r10-300)
+                     * (u64 *) (r10-1504):sp(2592) := r1 // widening store
+                     * ```
+                     *  has been promoted to:
+                     *  ```
+                     *  memcpy_zext(r10-1504, r10-300, 1)
+                     *  ```
+                     */
+                    check(len < 8)
+                    srcNode.getSucc(PTAField(srcOffset, len.toShort()))?.let { c ->
+                        // Conversion from field of len to 8 bytes
+                        val dstField = PTAField(dstOffset, 8)
+                        // The actual transfer of the link
+                        dstNode.addSucc(dstField, c)
+                    }
+                }
+                MemcpyKind.SameWidth -> {
+                    // Select the source's links to be transferred.
+                    //
+                    // We only transfer those links from source that are
+                    // strictly in the range `[srcC.offset, srcC.offset+length-1]`.
+                    // Note that transferring fewer links is always sound.
+                    val srcLinks = srcNode.getLinksInRange(srcOffset, len)
+                    // The actual transfer of links
+                    copyLinks(srcC, dstC, srcLinks, adjustedOffset, locInst)
+                }
+            }
 
-            // The actual transfer of links
-            copyLinks(srcC, dstC, srcLinks, adjustedOffset, locInst)
 
             if (srcNode == getStack()) {
                 val srcRange = FiniteInterval.mkInterval(srcOffset.v, len)
@@ -4190,62 +4300,76 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             }
         }
 
-        val inst = locInst.inst
-        check(inst is SbfInstruction.Call)
-
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
-
-        if (inst.writeRegister.contains(r0)) {
-            forget(r0)
-        }
-
-        val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
-        // For instance, RawVec can call memcpy with length == 0 and destination being a small number
-        // (alignment of the data type being transferred)
-        // https://github.com/anza-xyz/rust/blob/solana-1.79.0/library/alloc/src/raw_vec.rs#L148
-        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst, stopIfError = len != 0L)
-            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "memcpy: r1 does not point to a graph node in $this"))
-        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst, stopIfError = true)
-            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2),"memcpy: r2 does not point to a graph node in $this"))
 
         srcSc.getNode().setRead()
         dstSc.getNode().setWrite()
 
         val isSrcStack = srcSc.getNode() == getStack()
         val isDstStack = dstSc.getNode() == getStack()
+        val lenC = len.toLongOrNull()
 
         when {
             isSrcStack && isDstStack  -> {
-                if (len == null) {
-                    throw UnknownMemcpyLenError(DevErrorInfo(locInst, PtrExprErrReg(r3), "memcpy: r3 is not statically known in $this"))
+                if (lenC == null) {
+                    throw UnknownMemcpyLenError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r3),
+                            "${inst.name}: r3 is not statically known in $this"
+                        )
+                    )
                 }
                 val dstOffsets = dstSc.getOffset().toLongList()
                 if (dstOffsets.isEmpty()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "memcpy: r1 points to unknown stack offset in $this"))
+                    throw UnknownPointerDerefError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r1),
+                            "${inst.name}: r1 points to unknown stack offset in $this"
+                        )
+                    )
                 }
                 val srcOffsets = srcSc.getOffset().toLongList()
                 if (srcOffsets.isEmpty()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2), "memcpy: r2 points to unknown stack offset $this"))
+                    throw UnknownPointerDerefError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r2),
+                            "${inst.name}: r2 points to unknown stack offset $this"
+                        )
+                    )
                 }
 
                 memcpyLifter(srcOffsets, dstOffsets,
                     transformerWithStrongSem = { srcOffset, dstOffset ->
-                        memcpyExactToStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset))
+                        memcpyExactToStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset))
                                                },
                     transformerWithWeakSem = {  srcOffset, dstOffset ->
-                        memcpyExactToWeakStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset))
+                        memcpyExactToWeakStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset))
                     })
             }
             isSrcStack -> {
-                if (len == null) {
-                    throw UnknownMemcpyLenError(DevErrorInfo(locInst, PtrExprErrReg(r3), "memcpy: r3 is not statically known in $this"))
+                if (lenC == null) {
+                    throw UnknownMemcpyLenError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r3),
+                            "${inst.name}: r3 is not statically known in $this"
+                        )
+                    )
                 }
                 val srcOffsets = srcSc.getOffset().toLongList()
                 if (srcOffsets.isEmpty()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2), "memcpy: r2 points to unknown stack offset $this"))
+                    throw UnknownPointerDerefError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r2),
+                            "${inst.name}: r2 points to unknown stack offset $this"
+                        )
+                    )
                 }
 
                 /**
@@ -4255,40 +4379,51 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 val dstC = dstSc.concretize() // it might collapse the node but no runtime error because no stack
                 if (dstC.getNode().isExactNode()) {
                     srcOffsets.forEach { srcOffset ->
-                        memcpyExactToExact(srcSc.getNode().createCell(srcOffset), len, dstC)
+                        memcpyExactToExact(srcSc.getNode().createCell(srcOffset), lenC, dstC)
                     }
                 } else {
                     srcOffsets.forEach { srcOffset ->
-                        memcpyExactToSumm(srcSc.getNode().createCell(srcOffset), len, dstC)
+                        memcpyExactToSumm(srcSc.getNode().createCell(srcOffset), lenC, dstC)
                     }
                 }
             }
             isDstStack -> {
-                if (len == null) {
-                    throw UnknownMemcpyLenError(DevErrorInfo(locInst, PtrExprErrReg(r3), "memcpy: r3 is not statically known in $this"))
+                if (lenC == null) {
+                    throw UnknownMemcpyLenError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r3),
+                            "${inst.name}: r3 is not statically known in $this"
+                        )
+                    )
                 }
                 val dstOffsets = dstSc.getOffset().toLongList()
                 if (dstOffsets.isEmpty()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "memcpy: r1 points to unknown stack offset in $this"))
+                    throw UnknownPointerDerefError(
+                        DevErrorInfo(locInst,
+                            PtrExprErrReg(r1),
+                            "${inst.name}: r1 points to unknown stack offset in $this"
+                        )
+                    )
                 }
 
                 val srcC = srcSc.concretize()  // it might collapse the node but no runtime error because no stack
                 if (srcC.getNode().isExactNode()) {
                     memcpyLifter(listOf(srcC.getOffset().v), dstOffsets,
                         transformerWithStrongSem = { srcOffset, dstOffset ->
-                            memcpyExactToStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset))
+                            memcpyExactToStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset))
                         },
                         transformerWithWeakSem = {  srcOffset, dstOffset ->
-                            memcpyExactToWeakStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset))
+                            memcpyExactToWeakStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset))
                         })
 
                 } else {
                     memcpyLifter(listOf(srcC.getOffset().v), dstOffsets,
                         transformerWithStrongSem = { srcOffset, dstOffset ->
-                            memcpySummToStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset), isWeak = false)
+                            memcpySummToStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset), isWeak = false)
                         },
                         transformerWithWeakSem = {  srcOffset, dstOffset ->
-                            memcpySummToStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset), isWeak = true)
+                            memcpySummToStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset), isWeak = true)
                         })
                 }
             }
@@ -4369,51 +4504,86 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         scalars: ScalarDomain,
         globals: GlobalVariables
     ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
 
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
-        forget(r0)
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r1),
+                    "memset: r1 does not point to a graph node in $this"
+                )
+            )
 
-        val sc1 = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst)
-            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1),"memset: r1 does not point to a graph node in $this"))
         val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
         if (len != null) {
-            val c1 = concretizeCell(sc1, "concretization of r1 in memset", locInst)
-            if (c1.getNode() == getStack()) {
-                removeLinks(c1, len)
+            val dstC = concretizeCell(dstSc, "concretization of r1 in memset", locInst)
+            if (dstC.getNode() == getStack()) {
+                removeLinks(dstC, len)
             } else {
-                warn {"The pointer domain skipped ${locInst.inst} because it is not on the stack"}
+                warn {"The pointer domain skipped ${inst.name} because it is not on the stack"}
             }
         } else {
-            warn {"The pointer domain skipped ${locInst.inst} because length is not statically known"}
+            warn {"The pointer domain skipped ${inst.name} because length is not statically known"}
+        }
+
+        if (locInst.inst.writeRegister.contains(r0)) {
+            forget(r0)
         }
     }
 
 
-    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doSolMemInst(memInst: SolanaFunction,
-                                                                               globals: GlobalVariables,
-                                                                               scalars: ScalarDomain,
-                                                                               locInst: LocatedSbfInstruction) {
-        val inst = locInst.inst
-        check(inst is SbfInstruction.Call) {"doSolMemInst expects a call instead of $inst"}
+    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpyZExtOrTrunc(
+        locInst: LocatedSbfInstruction,
+        scalars: ScalarDomain,
+        globals: GlobalVariables,
+        kind:  MemcpyKind
+    ) {
+        check(kind == MemcpyKind.Widening || kind == MemcpyKind.Narrowing)
 
-        when (memInst) {
-            SolanaFunction.SOL_MEMCPY -> {
-                doMemcpy(locInst, scalars, globals)
-            }
-            SolanaFunction.SOL_MEMCMP -> {
-                doMemcmp(locInst, scalars, globals)
-            }
-            SolanaFunction.SOL_MEMMOVE -> {
-                warn {"The pointer domain skipped $memInst because it is unsupported"}
-            }
-            SolanaFunction.SOL_MEMSET -> {
-                doMemset(locInst, scalars, globals)
-            }
-            else -> { }
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        val i = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value
+            ?: sbfTypesFac.anyNum().value
+
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst, stopIfError = i.toLongOrNull() != 0L)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r1),
+                    "${inst.name}: r1 does not point to a graph node in $this"
+                )
+            )
+        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst, stopIfError = true)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r2),
+                    "${inst.name}: r2 does not point to a graph node in $this"
+                )
+            )
+
+        doMemcpy<ScalarDomain>(locInst, srcSc, dstSc, i, kind)
+
+        // Note that if `memcpy_zext` then we don't call `memset(dst.offset + i, len -i)` after calling `doMemcpy`.
+        // Otherwise, it would remove the new link added by `doMemcpy`
+        // See test `widening store with memcpy promotion` in TACMemcpyPromotionTest.kt
+
+        if (inst.writeRegister.contains(r0)) {
+            forget(r0)
         }
+
     }
 
     /** Transfer function for `__CVT_save_scratch_registers` **/
@@ -4527,26 +4697,40 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doCall(calleeLocInst: LocatedSbfInstruction,
-                                                                 globals: GlobalVariables,
-                                                                 memSummaries: MemorySummaries,
-                                                                 scalars: ScalarDomain) {
+    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doCall(
+        locInst: LocatedSbfInstruction,
+        globals: GlobalVariables,
+        memSummaries: MemorySummaries,
+        scalars: ScalarDomain
+    ) {
 
-        val callee = calleeLocInst.inst
+        val callee = locInst.inst
         check(callee is SbfInstruction.Call) {"doCall expects a call instead of $callee"}
         val name = callee.name
         val solFunction = SolanaFunction.from(name)
         if (solFunction != null) {
             /** Solana syscall **/
             when (solFunction) {
-                SolanaFunction.SOL_LOG, SolanaFunction.SOL_LOG_64 -> {
+                SolanaFunction.SOL_LOG,
+                SolanaFunction.SOL_LOG_64 ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
-                }
-                SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE, SolanaFunction.SOL_MEMSET, SolanaFunction.SOL_MEMCMP ->
-                    doSolMemInst(solFunction, globals, scalars, calleeLocInst)
-                SolanaFunction.SOL_ALLOC_FREE -> throw PointerDomainError("TODO(4): support sol_alloc_free")
+                SolanaFunction.SOL_MEMCPY ->
+                    doMemcpy(locInst, scalars, globals)
+                SolanaFunction.SOL_MEMCPY_ZEXT ->
+                    doMemcpyZExtOrTrunc(locInst, scalars, globals, MemcpyKind.Widening)
+                SolanaFunction.SOL_MEMCPY_TRUNC ->
+                    doMemcpyZExtOrTrunc(locInst, scalars, globals, MemcpyKind.Narrowing)
+                SolanaFunction.SOL_MEMSET ->
+                    doMemset(locInst, scalars, globals)
+                SolanaFunction.SOL_MEMCMP ->
+                    doMemcmp(locInst, scalars, globals)
+                SolanaFunction.SOL_MEMMOVE ->
+                    throw PointerDomainError("TODO(4): support memmove")
+                SolanaFunction.SOL_ALLOC_FREE ->
+                    throw PointerDomainError("TODO(5): support sol_alloc_free")
                 SolanaFunction.SOL_GET_CLOCK_SYSVAR,
-                SolanaFunction.SOL_GET_RENT_SYSVAR -> summarizeCall(calleeLocInst, globals, scalars, memSummaries)
+                SolanaFunction.SOL_GET_RENT_SYSVAR ->
+                    summarizeCall(locInst, globals, scalars, memSummaries)
                 SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
                 else -> {
@@ -4563,38 +4747,34 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         when (cvtFunction.value) {
                             CVTCore.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
                             CVTCore.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
-                            CVTCore.ASSERT, CVTCore.ASSUME -> {
+                            CVTCore.ASSERT,
+                            CVTCore.ASSUME ->
                                 throw PointerDomainError("unsupported call to $name. " +
                                     "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
-                            }
                             CVTCore.SATISFY, CVTCore.SANITY -> {}
-                            CVTCore.NONDET_ACCOUNT_INFO, CVTCore.MASK_64 -> {
-                                summarizeCall(calleeLocInst, globals, scalars, memSummaries)
-                            }
-                            CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
-                                summarizeSolanaAccountSpace(calleeLocInst)
-                            }
-                            CVTCore.ALLOC_SLICE -> {
-                                summarizeAllocSlice(calleeLocInst, globals, scalars)
-                            }
+                            CVTCore.NONDET_ACCOUNT_INFO, CVTCore.MASK_64 ->
+                                summarizeCall(locInst, globals, scalars, memSummaries)
+                            CVTCore.NONDET_SOLANA_ACCOUNT_SPACE ->
+                                summarizeSolanaAccountSpace(locInst)
+                            CVTCore.ALLOC_SLICE ->
+                                summarizeAllocSlice(locInst, globals, scalars)
                         }
                     }
                     is CVTFunction.Calltrace -> {}
                     is CVTFunction.Nondet,
                     is CVTFunction.U128Intrinsics,
                     is CVTFunction.I128Intrinsics,
-                    is CVTFunction.NativeInt  ->  {
-                        summarizeCall(calleeLocInst, globals, scalars, memSummaries)
-                    }
+                    is CVTFunction.NativeInt  ->
+                        summarizeCall(locInst, globals, scalars, memSummaries)
                 }
             } else {
                 /** SBF to SBF call */
                 if (callee.isAllocFn()) {
-                    setRegCell(Value.Reg(SbfRegister.R0_RETURN_VALUE), heapAlloc.highLevelAlloc(calleeLocInst))
+                    setRegCell(Value.Reg(SbfRegister.R0_RETURN_VALUE), heapAlloc.highLevelAlloc(locInst))
                 } else if (callee.isDeallocFn()) {
                     doDealloc()
                 } else {
-                    summarizeCall(calleeLocInst, globals, scalars, memSummaries)
+                    summarizeCall(locInst, globals, scalars, memSummaries)
                 }
             }
         }

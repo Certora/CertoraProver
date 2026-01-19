@@ -75,7 +75,10 @@ object SbfMeta {
 
     // These keys have empty strings as values. The values are irrelevant
     val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<String>("hint_optimized_wide_store")
-    val MEMCPY_PROMOTION = MetaKey<String>("promoted_stores_to_memcpy")
+    val MEMCPY_PROMOTION = MetaKey<String>("promoted_memcpy")
+    val MEMCPY_ZEXT_PROMOTION = MetaKey<String>("promoted_memcpy_zext")
+    val MEMCPY_TRUNC_PROMOTION = MetaKey<String>("promoted_memcpy_trunc")
+    val MEMSET_PROMOTION = MetaKey<String>("promoted_memset")
     val UNHOISTED_STORE = MetaKey<String>("unhoisted_store")
     val UNHOISTED_LOAD = MetaKey<String>("unhoisted_load")
     val UNHOISTED_MEMCPY = MetaKey<String>("unhoisted_memcpy")
@@ -102,7 +105,11 @@ fun toString(metaData: MetaData): String {
     }
     for ((k, v) in metaData.entries) {
         when (k) {
-            SbfMeta.HINT_OPTIMIZED_WIDE_STORE, SbfMeta.MEMCPY_PROMOTION,
+            SbfMeta.HINT_OPTIMIZED_WIDE_STORE,
+            SbfMeta.MEMCPY_PROMOTION,
+            SbfMeta.MEMCPY_ZEXT_PROMOTION,
+            SbfMeta.MEMCPY_TRUNC_PROMOTION,
+            SbfMeta.MEMSET_PROMOTION,
             SbfMeta.UNHOISTED_STORE, SbfMeta.UNHOISTED_LOAD,
             SbfMeta.UNHOISTED_MEMCPY, SbfMeta.UNHOISTED_MEMCMP, SbfMeta.UNHOISTED_STACK_POP,
             SbfMeta.LOWERED_SELECT, SbfMeta.LOWERED_OR, SbfMeta.LOADED_AS_NUM_FOR_PTA, SbfMeta.REMOVED_MEMMOVE,

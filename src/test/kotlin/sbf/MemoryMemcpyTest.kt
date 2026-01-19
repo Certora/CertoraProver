@@ -32,7 +32,10 @@ private val globals = GlobalVariables(DefaultElfFileView)
 
 class MemoryMemcpyTest {
 
-    // Return cell pointed by *([baseR] + [offset])
+    /**
+     * Return cell pointed by *([base] + [offset]).
+     * Use `r7` as intermediate register.
+     */
     private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags : IPTANodeFlags<Flags>> load(
         g: PTAGraph<TNum, TOffset, Flags>,
         base: Value.Reg,
@@ -47,6 +50,35 @@ class MemoryMemcpyTest {
         return g.getRegCell(lhs)
     }
 
+    /**
+     * Store [value] in *([base] + [offset]).
+     * Use `r7` as intermediate register.
+     */
+    private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags : IPTANodeFlags<Flags>>  store(
+        g: PTAGraph<TNum, TOffset, Flags>,
+        base: Value.Reg,
+        offset: Short,
+        width: Short,
+        value: Value = Value.Reg(SbfRegister.R7)
+    ) {
+        val inst = SbfInstruction.Mem(Deref(width, base, offset, null), value, false, null)
+        val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
+        g.doStore(locInst, base, value, baseType = SbfType.top(), valueType = SbfType.top(), globals)
+    }
+
+    /**
+     * [base] = [base] + [offset]
+     */
+    private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags : IPTANodeFlags<Flags>>  gep(
+        g: PTAGraph<TNum, TOffset, Flags>,
+        base: Value.Reg,
+        offset: Long
+    ) {
+        val inst = SbfInstruction.Bin(BinOp.ADD, base, Value.Imm(offset.toULong()), true)
+        val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
+        g.doBin(locInst, BinOp.ADD, base, Value.Imm(offset.toULong()), SbfType.top(), SbfType.top(), globals)
+    }
+
     // Check that *([baseR] + [offset]) points to [node]
     private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> checkPointsToNode(g: PTAGraph<TNum, TOffset, Flags>,
                                   base: Value.Reg, offset: Short, width: Short,
@@ -55,7 +87,7 @@ class MemoryMemcpyTest {
     }
 
     private fun createMemcpy() = LocatedSbfInstruction(Label.fresh(),0, SbfInstruction.Call(SolanaFunction.SOL_MEMCPY.syscall.name))
-
+    //private fun createMemset() = LocatedSbfInstruction(Label.fresh(),0, SbfInstruction.Call(SolanaFunction.SOL_MEMSET.syscall.name))
     private fun createMemoryDomain() =
         MemoryDomain(nodeAllocator, sbfTypesFac, MemoryDomainOpts(false),true)
 
@@ -943,4 +975,270 @@ class MemoryMemcpyTest {
         checkPointsToNode(g, r1, 16, 8, n3)
     }
 
+    /** Tests to show differences between load+store and memcpy **/
+
+    @Test
+    fun `load fails because it does not match store`() {
+        println("====== TEST 16: used to compare with TEST 17  =======")
+
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10, globals)
+        check(stackC != null) { "memory domain cannot find the stack node" }
+        stackC.getNode().setWrite()
+        val g = absVal.getPTAGraph()
+        val n1 = g.mkNode()
+        n1.setWrite()
+        val n2 = g.mkNode()
+        n2.setWrite()
+        val n3 = g.mkNode()
+        n3.setWrite()
+        val n4 = g.mkNode()
+        n4.setWrite()
+        val n5 = g.mkNode()
+        n5.setWrite()
+
+        stackC.getNode().mkLink(3040, 8, n4.createCell(0))
+        stackC.getNode().mkLink(3048, 8, n5.createCell(0))
+        stackC.getNode().mkLink(4040, 8, n1.createCell(0))
+
+        g.setRegCell(r2, stackC.getNode().createSymCell(4040))
+        g.setRegCell(r1, stackC.getNode().createSymCell(3040))
+
+        println("Initially: $g")
+
+        load(g, r2, 0, 8)
+        store(g, r1, 4, 8)
+        println("After *(u64*)(r1+4) = *(u64*)(r2): $g")
+        checkPointsToNode(g, r1, 4, 8, n1)
+
+        expectException<UnknownStackContentError> {
+            // after the store we cannot read at r1+4 different from 8 bytes
+            load(g, r1, 4, 1)
+        }
+    }
+
+    @Test
+    fun `load from memcpy should not fail (1)`() {
+        println("====== TEST 17:  similar to TEST 16 but using memcpy instead of load+store =======")
+        /**
+         * load+store of 8 bytes is almost equivalent to memcpy of 8 bytes but not really the same
+         * They transfer the same memory.
+         * However, load+store is more restrictive about future accesses while memcpy is not.
+         */
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10, globals)
+        check(stackC != null) { "memory domain cannot find the stack node" }
+        stackC.getNode().setWrite()
+        val g = absVal.getPTAGraph()
+        val n1 = g.mkNode()
+        n1.setWrite()
+        val n2 = g.mkNode()
+        n2.setWrite()
+        val n3 = g.mkNode()
+        n3.setWrite()
+        val n4 = g.mkNode()
+        n4.setWrite()
+        val n5 = g.mkNode()
+        n5.setWrite()
+
+        stackC.getNode().mkLink(3040, 8, n4.createCell(0))
+        stackC.getNode().mkLink(3048, 8, n5.createCell(0))
+        stackC.getNode().mkLink(4040, 8, n1.createCell(0))
+
+        g.setRegCell(r2, stackC.getNode().createSymCell(4040))
+        g.setRegCell(r1, stackC.getNode().createSymCell(3040))
+
+        val scalars = ScalarDomain(sbfTypesFac)
+
+        println("Initially: $g")
+        gep(g, r1, 4)
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
+        g.doMemcpy(createMemcpy(), scalars, globals)
+        println("After memcpy(r1+4, r2, 8): $g")
+        checkPointsToNode(g, r1, 0, 8, n1)
+
+        // after memcpy we can read at r1 different from 8 bytes
+        // this won't produce a PTA error
+        load(g, r1, 0, 1)
+    }
+
+    @Test
+    fun `load 1 byte from uninitialized memory and store it as 8 bytes (type widening in register spilling)`() {
+        println("====== TEST 18 (used to compare with TEST 19) =======")
+
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10, globals)
+        check(stackC != null) { "memory domain cannot find the stack node" }
+        stackC.getNode().setWrite()
+        val g = absVal.getPTAGraph()
+        val n1 = g.mkNode()
+        n1.setWrite()
+        val n2 = g.mkNode()
+        n2.setWrite()
+        val n3 = g.mkNode()
+        n3.setWrite()
+        val n4 = g.mkNode()
+        n4.setWrite()
+        val n5 = g.mkNode()
+        n5.setWrite()
+
+        g.setRegCell(r2, stackC.getNode().createSymCell(4040))
+        g.setRegCell(r1, stackC.getNode().createSymCell(3040))
+
+        println("Initially: $g")
+
+        // type widening: read 1 byte from stack and load it to a 64-bit register (r7) and write r7 (8 bytes) to stack again
+        load(g, r2, 0, 1)
+        store(g, r1, 0, 8)
+        println("After *(u64*)(r1) = *(u8*)(r2): $g")
+
+        Assertions.assertEquals(true,stackC.getNode().getSucc(PTAField(PTAOffset(3040), 8)) != null)
+    }
+
+    @Test
+    fun `memcpy 8 bytes from uninitialized memory`() {
+        println("====== TEST 19 similar to TEST 18 but using memcpy instead of load+store =======")
+        /*
+        *  In test18, the load reads from uninitialized memory. Therefore, it will create a fresh cell at the load and then store it.
+        *  In test19, memcpy is a non-op since there is no memory to transfer at the source.
+        */
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10, globals)
+        check(stackC != null) { "memory domain cannot find the stack node" }
+        stackC.getNode().setWrite()
+        val g = absVal.getPTAGraph()
+        val n1 = g.mkNode()
+        n1.setWrite()
+        val n2 = g.mkNode()
+        n2.setWrite()
+        val n3 = g.mkNode()
+        n3.setWrite()
+        val n4 = g.mkNode()
+        n4.setWrite()
+        val n5 = g.mkNode()
+        n5.setWrite()
+
+        g.setRegCell(r2, stackC.getNode().createSymCell(4040))
+        g.setRegCell(r1, stackC.getNode().createSymCell(3040))
+
+        val scalars = ScalarDomain(sbfTypesFac)
+
+        println("Initially: $g")
+
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
+        g.doMemcpy(createMemcpy(), scalars, globals)
+        println("After memcpy(r1, r2, 8): $g")
+
+        Assertions.assertEquals(true,stackC.getNode().getSucc(PTAField(PTAOffset(3040), 8)) == null)
+    }
+
+    @Test
+    fun `load 2 bytes from initialized memory and store it as 8 bytes (type widening in register spilling)`() {
+        println("====== TEST 20 (used to compare with TEST 21) =======")
+
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10, globals)
+        check(stackC != null) { "memory domain cannot find the stack node" }
+        stackC.getNode().setWrite()
+        val g = absVal.getPTAGraph()
+        val n1 = g.mkNode()
+        n1.setWrite()
+        val n2 = g.mkNode()
+        n2.setWrite()
+        val n3 = g.mkNode()
+        n3.setWrite()
+        val n4 = g.mkNode()
+        n4.setWrite()
+        val n5 = g.mkNode()
+        n5.setWrite()
+
+        stackC.getNode().mkLink(3042, 2, n4.createCell(0))
+        stackC.getNode().mkLink(4040, 2, n1.createCell(0))
+        stackC.getNode().mkLink(4042, 2, n5.createCell(0))
+        stackC.getNode().mkLink(4044, 2, n5.createCell(0))
+        stackC.getNode().mkLink(4046, 2, n5.createCell(0))
+
+        g.setRegCell(r2, stackC.getNode().createSymCell(4040))
+        g.setRegCell(r1, stackC.getNode().createSymCell(3040))
+
+        println("Initially: $g")
+
+        // type widening: read 2 byte from stack and load it to a 64-bit register (r7) and write r7 (8 bytes) to stack again
+        load(g, r2, 0, 2)
+        store(g, r1, 0, 8)
+        println("After *(u64*)(r1) = *(u16*)(r2): $g")
+        Assertions.assertEquals(true,stackC.getNode().getSucc(PTAField(PTAOffset(3040), 8)) != null)
+    }
+
+
+    @Test
+    fun `memcpy from initialized memory`() {
+        println("====== TEST 21 similar to TEST 20 but using memcpy instead of load+store =======")
+        /*
+        *  In test18, the load reads from uninitialized memory. Therefore, it will create a fresh cell at the load and then store it.
+        *  In test19, memcpy is a non-op since there is no memory to transfer at the source.
+        */
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        val absVal = createMemoryDomain()
+        val stackC = absVal.getRegCell(r10, globals)
+        check(stackC != null) { "memory domain cannot find the stack node" }
+        stackC.getNode().setWrite()
+        val g = absVal.getPTAGraph()
+        val n1 = g.mkNode()
+        n1.setWrite()
+        val n2 = g.mkNode()
+        n2.setWrite()
+        val n3 = g.mkNode()
+        n3.setWrite()
+        val n4 = g.mkNode()
+        n4.setWrite()
+        val n5 = g.mkNode()
+        n5.setWrite()
+
+        stackC.getNode().mkLink(3042, 2, n4.createCell(0))
+
+        stackC.getNode().mkLink(4040, 2, n1.createCell(0))
+        stackC.getNode().mkLink(4042, 2, n5.createCell(0))
+        stackC.getNode().mkLink(4044, 2, n5.createCell(0))
+        stackC.getNode().mkLink(4046, 2, n5.createCell(0))
+
+        g.setRegCell(r2, stackC.getNode().createSymCell(4040))
+        g.setRegCell(r1, stackC.getNode().createSymCell(3040))
+
+        val scalars = ScalarDomain(sbfTypesFac)
+
+        println("Initially: $g")
+
+        scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
+        g.doMemcpy(createMemcpy(), scalars, globals)
+        println("After memcpy(r1, r2, 8): $g")
+
+        Assertions.assertEquals(true,stackC.getNode().getSucc(PTAField(PTAOffset(3040), 2)) != null)
+    }
 }

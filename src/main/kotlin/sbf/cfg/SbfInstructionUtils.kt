@@ -23,6 +23,7 @@ import sbf.callgraph.CVTCore
 import sbf.callgraph.SolanaFunction
 import sbf.disassembler.SbfRegister
 import sbf.domains.*
+import datastructures.stdcollections.*
 
 enum class MemAccessRegion { STACK, NON_STACK, ANY }
 
@@ -141,154 +142,231 @@ private fun <D, TNum, TOffset> normalizedMemAccess(
 
 /**
  * Emit the SBF code to call `memcpy` where
- * - `r1` points to `srcReg+srcStart`,
- * - `r2` points to `dstReg+dstStart, and
- * - `r3` contains size
+ *
+ * - `r1` points to [srcReg]+[srcOffset],
+ * - `r2` points to [dstReg]+[dstOffset], and
+ * - `r3` contains [len]
+ *
+ * @return list of instructions if enough scratch registers, otherwise null
  **/
 fun emitMemcpy(
     srcReg: SbfRegister,
-    srcStart: Long,
+    srcOffset: Long,
     dstReg: SbfRegister,
-    dstStart: Long,
-    size: ULong,
+    dstOffset: Long,
+    len: ULong,
     metadata: MetaData
 ) =
     emitMemIntrinsics(
         SolanaFunction.SOL_MEMCPY,
-        Value.Reg(dstReg),
-        dstStart,
-        Value.Reg(srcReg),
-        srcStart,
-        size,
+        actualParams = listOf(
+            PtrParam(Value.Reg(dstReg), dstOffset),
+            PtrParam(Value.Reg(srcReg), srcOffset),
+            ValParam(Value.Imm(len))
+        ),
+        formalRegs = listOf(
+            Value.Reg(SbfRegister.R1_ARG),
+            Value.Reg(SbfRegister.R2_ARG),
+            Value.Reg(SbfRegister.R3_ARG)
+        ),
         metadata,
-        SbfMeta.MEMCPY_PROMOTION
+        intrinsicsMetadata = SbfMeta.MEMCPY_PROMOTION to ""
     )
 
 /**
- * Memory intrinsics (memcpy/memmove/memcmp/memset) expect inputs in registers r1,r2,r3.
- * Before we modify these registers we need to save them.
+ * Emit the SBF code to call `memcpy_zext` where
+ *
+ * - `r1` points to [srcReg]+[srcOffset],
+ * - `r2` points to [dstReg]+[dstOffset], and
+ * - `r3` contains [i]
+ *
+ * @return list of instructions if enough scratch registers, otherwise null
+ **/
+fun emitMemcpyZExt(
+    srcReg: SbfRegister,
+    srcOffset: Long,
+    dstReg: SbfRegister,
+    dstOffset: Long,
+    i: ULong,
+    metadata: MetaData
+) =
+    emitMemIntrinsics(
+        SolanaFunction.SOL_MEMCPY_ZEXT,
+        actualParams = listOf(
+            PtrParam(Value.Reg(dstReg), dstOffset),
+            PtrParam(Value.Reg(srcReg), srcOffset),
+            ValParam(Value.Imm(i))
+        ),
+        formalRegs = listOf(
+            Value.Reg(SbfRegister.R1_ARG),
+            Value.Reg(SbfRegister.R2_ARG),
+            Value.Reg(SbfRegister.R3_ARG)
+        ),
+        metadata,
+        intrinsicsMetadata = SbfMeta.MEMCPY_ZEXT_PROMOTION to ""
+    )
+
+/**
+ * Emit the SBF code to call `memcpy_trunc` where
+ *
+ * - `r1` points to [srcReg]+[srcOffset],
+ * - `r2` points to [dstReg]+[dstOffset], and
+ * - `r3` contains [i]
+ *
+ * @return list of instructions if enough scratch registers, otherwise null
+ **/
+fun emitMemcpyTrunc(
+    srcReg: SbfRegister,
+    srcOffset: Long,
+    dstReg: SbfRegister,
+    dstOffset: Long,
+    i: ULong,
+    metadata: MetaData
+) =
+    emitMemIntrinsics(
+        SolanaFunction.SOL_MEMCPY_TRUNC,
+        actualParams = listOf(
+            PtrParam(Value.Reg(dstReg), dstOffset),
+            PtrParam(Value.Reg(srcReg), srcOffset),
+            ValParam(Value.Imm(i))
+        ),
+        formalRegs = listOf(
+            Value.Reg(SbfRegister.R1_ARG),
+            Value.Reg(SbfRegister.R2_ARG),
+            Value.Reg(SbfRegister.R3_ARG)
+        ),
+        metadata,
+        intrinsicsMetadata = SbfMeta.MEMCPY_TRUNC_PROMOTION to ""
+    )
+
+
+/**
+ * Emit the SBF code to call `memset` where
+ * - `r1` points to [ptr]+[offset]
+ * - `r2` is [value]
+ * - `r3` is [len]
+ *
+ * @return list of instructions if enough scratch registers, otherwise null
+ **/
+@Suppress("unused")
+fun emitMemset(
+    ptr: SbfRegister,
+    offset: Long,
+    value: Value,
+    len: ULong,
+    metadata: MetaData
+) = emitMemIntrinsics(
+        SolanaFunction.SOL_MEMSET,
+        actualParams = listOf(
+            PtrParam(Value.Reg(ptr), offset),
+            ValParam(value),
+            ValParam(Value.Imm(len))
+        ),
+        formalRegs = listOf(
+            Value.Reg(SbfRegister.R1_ARG),
+            Value.Reg(SbfRegister.R2_ARG),
+            Value.Reg(SbfRegister.R3_ARG)
+        ),
+        metadata,
+        intrinsicsMetadata = SbfMeta.MEMSET_PROMOTION to ""
+    )
+
+private sealed class MemIntrParam
+private data class PtrParam(val base: Value.Reg, val offset: Long): MemIntrParam()
+private data class ValParam(val value: Value): MemIntrParam()
+
+
+/**
+ * Memory intrinsics (`memcpy`/`memcpy_zext`/`memcpy_trunc`/`memmove`/`memcmp`/`memset`)
+ * expect inputs in registers r1,r2,r3,r4. Before we modify these registers we need to save them.
  * The only mechanism we have to save registers without overwritten registers used later by the program is
  * to call special function `CVT_save_scratch_registers` so that scratch registers can be saved, and then
- * they can be used to save r1,r2, and r3.
+ * they can be used to save r1,r2,r3,r4.
  * We emit code that allows us to do that:
  * ```
  *   CVT_save_scratch_registers
  *   r6 := r1
  *   r7 := r2
  *   r8 := r3
- *   r1 := [op1]
- *   r1 := r1 + [op1Start]
- *   r2 := [op2]
- *   r2 := r2 + [op2Start] (optional if srcStart != null)
- *   r3 := [size]
+ *   r1 := op1
+ *   r1 := r1 + offset1
+ *   r2 := op2
+ *   r2 := r2 + offset2 (optional if offset2 != null)
+ *   r3 := len
  *   call to intrinsics
  *   r1 := r6
  *   r2 := r7
  *   r3 := r8
  *   CVT_restore_scratch_registers
  * ```
+ * @return list of instructions if enough scrath registers, otherwise null
  **/
-private fun emitMemIntrinsics(
+private fun<T> emitMemIntrinsics(
     intrinsics: SolanaFunction,
-    op1: Value.Reg,
-    op1Start: Long,
-    op2: Value,
-    // if null then intrinsics is MEMSET
-    op2Start: Long?,
-    size: ULong,
+    actualParams: List<MemIntrParam>,
+    formalRegs: List<Value.Reg>,
     metadata: MetaData,
-    metakey: MetaKey<String>
-): List<SbfInstruction> {
+    intrinsicsMetadata: Pair<MetaKey<T>, T>
+): List<SbfInstruction>? {
+    check(actualParams.size == formalRegs.size)
+    check(actualParams.size in 3..4)
 
-    val isMemset = intrinsics == SolanaFunction.SOL_MEMSET
-    check(
-            intrinsics == SolanaFunction.SOL_MEMCPY ||
-            intrinsics == SolanaFunction.SOL_MEMCMP ||
-            intrinsics == SolanaFunction.SOL_MEMMOVE ||
-            isMemset
+    val scratchRegs = mutableListOf(
+        Value.Reg(SbfRegister.R6),
+        Value.Reg(SbfRegister.R7),
+        Value.Reg(SbfRegister.R8),
+        Value.Reg(SbfRegister.R9)
     )
-    check(op2Start != null || isMemset) {
-        "emitMemIntrinsics expects op2Start to be null because the intrinsics is memset"
-    }
-    check(isMemset || op2 is Value.Reg) {
-        "emitMemIntrinsics expects $op2 to be a register because the intrinsics is not a memset"
-    }
-    check(isMemset || (op1.r == SbfRegister.R10_STACK_POINTER || (op2 as Value.Reg).r == SbfRegister.R10_STACK_POINTER)) {
-        "emitMemIntrinsics expects $op1 or $op2 to be r10"
-    }
-    check(!isMemset || op1.r == SbfRegister.R10_STACK_POINTER) {
-        "emitMemIntrinsics expects $op1 to be r10"
+
+    // Remove available scratch registers if any of the actual parameters is a scratch register
+    for (param in actualParams.filterIsInstance<PtrParam>()) {
+        scratchRegs.remove(param.base)
     }
 
-    val emittedInsts = mutableListOf<SbfInstruction>()
 
-    val r1 = Value.Reg(SbfRegister.R1_ARG)
-    val r2 = Value.Reg(SbfRegister.R2_ARG)
-    val r3 = Value.Reg(SbfRegister.R3_ARG)
-    val r6 = Value.Reg(SbfRegister.R6)
-    val r7 = Value.Reg(SbfRegister.R7)
-    val r8 = Value.Reg(SbfRegister.R8)
-    val r9 = Value.Reg(SbfRegister.R9)
-
-    val scratchRegs = arrayListOf(r6,r7,r8,r9)
-    if (op2 is Value.Reg && op2.r !=  SbfRegister.R10_STACK_POINTER) {
-        scratchRegs.remove(op2)
-    }
-    if (op1.r !=  SbfRegister.R10_STACK_POINTER) {
-        scratchRegs.remove(op1)
+    if (scratchRegs.size < actualParams.size) {
+        //sbf.sbfLogger.warn{ "Not enough scratch registers. Needed ${actualParams.size}, but got ${scratchRegs.size}"}
+        return null
     }
 
-    check(scratchRegs.size >= 3) {
-        "emitMemIntrinsics needs three scratch registers but it only has $scratchRegs"
-    }
-
-    val temp1 = scratchRegs[0]
-    val temp2 = scratchRegs[1]
-    val temp3 = scratchRegs[2]
+    val tempRegs = scratchRegs.take(actualParams.size)
 
     val callId = Allocator.getFreshId(Allocator.Id.INTERNAL_FUNC)
     check(callId >= 0) {"expected non-negative call id"}
+    val callIdMetadata = SbfMeta.CALL_ID to callId.toULong()
+    val saveAndRestoreMetadata = metadata.plus(callIdMetadata).plus(intrinsicsMetadata)
 
-    val newMetadata = metadata.plus(SbfMeta.CALL_ID to callId.toULong()).plus(metakey to "")
-
-    emittedInsts.add(SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = newMetadata))
-    emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, temp1, r1, true))
-    emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, temp2, r2, true))
-    emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, temp3, r3, true))
-
-    val rename = fun(reg: Value.Reg): Value.Reg {
-        return when (reg) {
-            r1 -> temp1
-            r2 -> temp2
-            r3 -> temp3
-            else -> reg
-        }
+    val renamingFn = fun(reg: Value.Reg): Value.Reg {
+        val index = formalRegs.indexOf(reg)
+        return if (index != -1) { tempRegs[index] } else { reg }
     }
 
-    if (r1 != op1) {
-        emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r1, rename(op1), true))
-    }
-    emittedInsts.add(SbfInstruction.Bin(BinOp.ADD, r1, Value.Imm(op1Start.toULong()), true, metaData = MetaData(metakey to "")))
+    val emittedInsts = mutableListOf<SbfInstruction>()
+    emittedInsts.add(SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = saveAndRestoreMetadata))
 
-    when(op2) {
-        is Value.Reg -> {
-            if (r2 != op2) {
-                emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r2, rename(op2), true))
+    for (i in formalRegs.indices) {
+        emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, tempRegs[i], formalRegs[i], true))
+    }
+
+    for ((param, argRegs) in actualParams.zip(formalRegs)) {
+        when(param) {
+            is PtrParam -> {
+                if (param.base != argRegs) {
+                    emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, argRegs, renamingFn(param.base), true))
+                }
+                emittedInsts.add(SbfInstruction.Bin(BinOp.ADD, argRegs, Value.Imm(param.offset.toULong()), true, metaData = MetaData(intrinsicsMetadata)))
+            }
+            is ValParam -> {
+                emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, argRegs, param.value, true))
             }
         }
-        is Value.Imm -> {
-            emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r2, op2, true))
-        }
     }
 
-    if (op2Start != null) {
-        emittedInsts.add(SbfInstruction.Bin(BinOp.ADD, r2, Value.Imm(op2Start.toULong()), true, metaData = MetaData(metakey to "")))
+    emittedInsts.add(SolanaFunction.toCallInst(intrinsics, metadata.plus(intrinsicsMetadata)))
+    for (i in formalRegs.indices) {
+        emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, formalRegs[i], tempRegs[i], true))
     }
-    emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r3, Value.Imm(size), true))
-    emittedInsts.add(SolanaFunction.toCallInst(intrinsics, metadata.plus(metakey to "")))
-    emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r1, temp1, true))
-    emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r2, temp2, true))
-    emittedInsts.add(SbfInstruction.Bin(BinOp.MOV, r3, temp3, true))
-    emittedInsts.add(SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name, metaData = newMetadata))
+
+    emittedInsts.add(SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name, metaData = saveAndRestoreMetadata))
     return emittedInsts
 }

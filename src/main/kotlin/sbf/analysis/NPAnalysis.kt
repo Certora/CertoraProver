@@ -40,9 +40,10 @@ data class NPDomainState<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Scala
     where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> {
 
     companion object {
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> mkBottom()
-            where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
-            NPDomainState<TNum, TOffset, ScalarDomain>(NPDomain.mkBottom())
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> mkBottom(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
+        ) where ScalarDomain: AbstractDomain<ScalarDomain>, ScalarDomain: ScalarValueProvider<TNum, TOffset> =
+            NPDomainState<TNum, TOffset, ScalarDomain>(NPDomain.mkBottom(sbfTypeFac))
 
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain> join(
             x: NPDomainState<TNum, TOffset, ScalarDomain>, y: NPDomainState<TNum, TOffset, ScalarDomain>
@@ -76,11 +77,13 @@ private typealias NPDomainStateT = NPDomainState<TNum, TOffset, TScalarDomain>
 class NPAnalysis(
     val cfg: MutableSbfCFG,
     globals: GlobalVariables,
-    memSummaries: MemorySummaries) :
+    memSummaries: MemorySummaries,
+    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset> = ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong())
+) :
     SbfBlockDataflowAnalysis<NPDomainStateT>(
         cfg,
         lattice(),
-        NPDomainState.mkBottom(),
+        NPDomainState.mkBottom(sbfTypeFac),
         Direction.BACKWARD
     )  {
 
@@ -93,7 +96,7 @@ class NPAnalysis(
      * 2) remove unreachable blocks.
      *    Note that to make the analysis more precise, we use set-value abstraction in scalar analysis.
      **/
-    private val fwdAnalysis = ScalarAnalysis(cfg, globals, memSummaries, ConstantSetSbfTypeFactory(SolanaConfig.ScalarMaxVals.get().toULong()))
+    private val fwdAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypeFac)
     val registerTypes = AnalysisRegisterTypes(fwdAnalysis)
     /** Exit blocks of the cfg **/
     val exits: MutableSet<Label> = mutableSetOf()
@@ -132,9 +135,9 @@ class NPAnalysis(
         val block = cfg.getBlock(label)
         return if (block != null) {
             var outVal = if (block.getInstructions().any{ it is SbfInstruction.Exit}) {
-                NPDomain.mkTrue<TScalarDomain, TNum, TOffset>()
+                NPDomain.mkTrue<TScalarDomain, TNum, TOffset>(sbfTypeFac)
             } else {
-                NPDomain.mkBottom()
+                NPDomain.mkBottom<TScalarDomain, TNum, TOffset>(sbfTypeFac)
             }
             for (succ in block.getSuccs()) {
                 val succVal = getPreconditionsAtEntry(succ.getLabel())
@@ -150,7 +153,7 @@ class NPAnalysis(
 
     override fun transform(inState: NPDomainStateT, block: SbfBasicBlock): NPDomainStateT {
         val inNPVal = if (exits.contains(block.getLabel())) {
-            NPDomain.mkTrue()
+            NPDomain.mkTrue<TScalarDomain, TNum, TOffset>(sbfTypeFac)
         } else {
             inState.state
         }

@@ -97,6 +97,50 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
         writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
         readRegisters = listOf(
             SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
+    /**
+     * This is not an actual solana syscall, but it is convenient to pretend that it is.
+     * ```
+     *     void memcpy_zext(void *dst, const void *src, size_t i);
+     * ```
+     * Copies the first (low bits assuming little-endian) i bytes from src to dst, and sets to zero the remaining
+     * bytes in the destination up to 8 bytes.
+     *
+     * - r1 is dst
+     * - r2 is src
+     * - r3 is i
+     *
+     * Semantics:
+     * ```
+     * - For 0 <= k < min(i, 8):   dst[k] = src[k]
+     * - For i <= k < 8:           dst[k] = 0
+     * ```
+     */
+    SOL_MEMCPY_ZEXT(ExternalFunction(
+        name = "sol_memcpy_zext",
+        writeRegister = setOf(),
+        readRegisters = listOf(
+            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
+    /**
+     * This is not an actual solana syscall, but it is convenient to pretend that it is.
+     * ```
+     *     void memcpy_trunc(void *dst, const void *src, size_t i);
+     * ```
+     * Copies the first (low bits assuming little-endian) i bytes from src to dst.
+     *
+     * - r1 is dst
+     * - r2 is src
+     * - r3 is i
+     *
+     * Semantics:
+     * ```
+     * - For 0 <= k < min(i, 8):   dst[k] = src[k]
+     * ```
+     */
+    SOL_MEMCPY_TRUNC(ExternalFunction(
+        name = "sol_memcpy_trunc",
+        writeRegister = setOf(),
+        readRegisters = listOf(
+            SbfRegister.R1_ARG, SbfRegister.R2_ARG, SbfRegister.R3_ARG).map{ Value.Reg(it)}.toSet())),
     SOL_MEMMOVE(ExternalFunction(
         name = "sol_memmove_",
         writeRegister = setOf(Value.Reg(SbfRegister.R0_RETURN_VALUE)),
@@ -170,7 +214,12 @@ enum class SolanaFunction(val syscall: ExternalFunction) {
                 when (f) {
                     // These are already natively understood by the prover
                     ABORT, SOL_PANIC -> {}
-                    SOL_MEMCMP, SOL_MEMCPY, SOL_MEMMOVE, SOL_MEMSET -> {}
+                    SOL_MEMCMP,
+                    SOL_MEMCPY,
+                    SOL_MEMCPY_ZEXT,
+                    SOL_MEMCPY_TRUNC,
+                    SOL_MEMMOVE,
+                    SOL_MEMSET -> {}
                     // No summaries
                     SOL_LOG, SOL_LOG_64, SOL_LOG_COMPUTE_UNITS -> {}
                     // These syscalls doesn't need to be summarized because either they are always called by wrappers that are

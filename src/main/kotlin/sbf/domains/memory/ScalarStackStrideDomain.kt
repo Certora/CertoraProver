@@ -669,6 +669,8 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         val solFunction = SolanaFunction.from(inst.name) ?: return false
         when (solFunction) {
             SolanaFunction.SOL_MEMCPY,
+            SolanaFunction.SOL_MEMCPY_ZEXT,
+            SolanaFunction.SOL_MEMCPY_TRUNC,
             SolanaFunction.SOL_MEMMOVE,
             SolanaFunction.SOL_MEMSET -> base.analyzeMemIntrinsics(locInst, scalars)
             else -> base.analyzeExternalCall(locInst, scalars, memSummaries)
@@ -760,8 +762,11 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         check(inst is SbfInstruction.Mem)
         check(inst.isLoad)
 
-        val baseType = scalars.getAsScalarValue(inst.access.baseReg).type()
-        if (baseType is SbfType.PointerType.Stack) {
+        if (inst.access.width.toInt() != 8) {
+            forget(inst.value as Value.Reg)
+        }
+
+        (scalars.getAsScalarValue(inst.access.baseReg).type() as? SbfType.PointerType.Stack)?.let { baseType ->
             val stackTOffsets = baseType.offset.add(inst.access.offset.toLong())
             check(!stackTOffsets.isBottom())
 
