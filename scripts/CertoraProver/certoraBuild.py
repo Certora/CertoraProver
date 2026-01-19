@@ -1953,7 +1953,7 @@ class CertoraBuildGenerator:
         data = \
             smart_contract_lang.collect_storage_layout_info(file_abs_path, compilation_path, compiler_ver_to_run,
                                                             compiler_collector.compiler_version,
-                                                            data, self.asts[build_arg_contract_file],
+                                                            data, self.asts.get(build_arg_contract_file, {}),
                                                             build_arg_contract_file)  # Note we collected for just ONE file
 
         contracts_with_libraries = {}
