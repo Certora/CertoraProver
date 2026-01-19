@@ -81,19 +81,31 @@ abstract class TACProfiler {
 
                 selfSize += count(lcmd.cmd)
 
-                (lcmd.cmd as? TACCmd.Simple.AnnotationCmd)?.annot?.let { (_, v) ->
-                    if (v is MoveCallTrace.FuncStart) {
-                        val (callee, returns) = call(v.name.toString(), v.typeArgs, v.callId, graph.succ(lcmd).single())
-                        edges += Edge.Property("call", callee)
-                        work += returns
-                        return@consume
-                    } else if (v is MoveCallTrace.FuncEnd) {
-                        check(v.callId == callId) {
-                            "Function enter/exit mismatch at $lcmd: expected to exit $callId ($name)"
+                when (val c = lcmd.cmd) {
+                    is TACCmd.Simple.AnnotationCmd -> c.annot.let { (_, v) ->
+                        when (v) {
+                            is MoveCallTrace.FuncStart -> {
+                                val (callee, returns) = call(v.name.toString(), v.typeArgs, v.callId, graph.succ(lcmd).single())
+                                edges += Edge.Property("call", callee)
+                                work += returns
+                                return@consume
+                            }
+                            is MoveCallTrace.FuncEnd -> {
+                                check(v.callId == callId) {
+                                    "Function enter/exit mismatch at $lcmd: expected to exit $callId ($name)"
+                                }
+                                exits += graph.succ(lcmd)
+                                return@consume
+                            }
+                            else -> {}
                         }
-                        exits += graph.succ(lcmd)
-                        return@consume
                     }
+                    is TACCmd.Simple.AssertCmd -> {
+                        if (c.o == TACSymbol.False) {
+                            return@consume
+                        }
+                    }
+                    else -> {}
                 }
 
                 work += graph.succ(lcmd)
