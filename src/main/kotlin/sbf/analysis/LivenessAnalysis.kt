@@ -22,10 +22,10 @@ import com.certora.collect.*
 import analysis.*
 import sbf.cfg.*
 import sbf.disassembler.*
-import sbf.sbfLogger
 import sbf.fixpoint.Wto
 import org.jetbrains.annotations.TestOnly
 import sbf.callgraph.*
+import sbf.support.timeIt
 
 
 typealias LiveRegisters = Set<Value.Reg>
@@ -65,11 +65,9 @@ class LivenessAnalysis(graph: SbfCFG) :
     private val wto = Wto(graph)
 
     init {
-        sbfLogger.info {"Started Liveness Analysis"}
-        val start = System.currentTimeMillis()
-        runAnalysis()
-        val end = System.currentTimeMillis()
-        sbfLogger.info {"Finished Liveness Analysis in ${(end -start) / 1000}s"}
+        timeIt("Liveness analysis") {
+            runAnalysis()
+        }
     }
 
     private fun genAndKill(inState: LiveState, gen: Set<Value.Reg>, killed: Collection<Value.Reg>): LiveState {

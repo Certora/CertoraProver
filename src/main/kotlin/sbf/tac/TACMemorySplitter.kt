@@ -25,6 +25,7 @@ import sbf.domains.*
 import sbf.analysis.MemoryAnalysis
 import sbf.callgraph.SolanaFunction
 import datastructures.stdcollections.*
+import sbf.support.timeIt
 
 /**
  *  Dummy class in case no memory splitting is done.
@@ -299,22 +300,20 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
      * encoding is delayed after a whole pass has been completed over the whole program. This is needed because bla blab
      **/
     private fun populateTACMaps() {
-        val start = System.currentTimeMillis()
-        sbfLogger.info { "Re-running memory analysis to generate info at each statement" }
-        val listener = MemoryPartitioningListener<TNum, TOffset, TFlags>(
-            ::encodePTAtoTAC,
-            analysis.memSummaries,
-            globals
-        )
-        for (block in cfg.getBlocks().values) {
-            val absVal = analysis.getPre(block.getLabel())
-            if (absVal == null || absVal.isBottom())  {
-                continue
+        timeIt("re-running memory analysis to replay invariants") {
+            val listener = MemoryPartitioningListener<TNum, TOffset, TFlags>(
+                ::encodePTAtoTAC,
+                analysis.memSummaries,
+                globals
+            )
+            for (block in cfg.getBlocks().values) {
+                val absVal = analysis.getPre(block.getLabel())
+                if (absVal == null || absVal.isBottom())  {
+                    continue
+                }
+                absVal.analyze(block, globals, analysis.memSummaries, listener)
             }
-            absVal.analyze(block, globals, analysis.memSummaries, listener)
         }
-        val end = System.currentTimeMillis()
-        sbfLogger.info { "Finished re-running memory analysis in ${(end - start) / 1000}s" }
     }
 
     /**

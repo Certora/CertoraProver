@@ -50,8 +50,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     analysis: WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>,
     target: String,
     cpiCalls: Map<LocatedInvoke, InvokeMock?>,
-    inliningConfig: InlinerConfig,
-    startTime: Long
+    inliningConfig: InlinerConfig
 ): SbfCallGraph {
     val p0 = analysis.program
     if (cpiLog.isEnabled && SolanaConfig.PrintAnalyzedToDot.get()) {
@@ -63,7 +62,7 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<T
     // We need to inline the code of the mocks for the CPI calls
     val p2 = inline(target, target, p1, analysis.memSummaries, inliningConfig)
     // Since we injected new code, this might create new unreachable blocks
-    val p3 = sliceAndPTAOptLoop(target, p2, analysis.memSummaries, startTime)
+    val p3 = sliceAndPTAOptLoop(target, p2, analysis.memSummaries)
     if (cpiLog.isEnabled && SolanaConfig.PrintAnalyzedToDot.get()) {
         annotateWithTypes(p3, analysis.memSummaries).also {
            it.toDot(ArtifactManagerFactory().outputDir, onlyEntryPoint = true, ".after.cpi.sbf.dot")

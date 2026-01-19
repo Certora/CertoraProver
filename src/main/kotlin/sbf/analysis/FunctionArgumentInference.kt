@@ -23,7 +23,7 @@ import analysis.*
 import sbf.callgraph.*
 import sbf.cfg.*
 import sbf.disassembler.*
-import sbf.sbfLogger
+import sbf.support.timeIt
 import utils.foldFirstOrNull
 import utils.pointwiseMerge
 import utils.updateInPlace
@@ -45,11 +45,9 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
     private val visitedInlinedFunctions: MutableMap<String, Set<LocatedSbfInstruction>> = mutableMapOf()
 
     init {
-        sbfLogger.info {"Started Function Argument Analysis"}
-        val start = System.currentTimeMillis()
-        runAnalysis()
-        val end = System.currentTimeMillis()
-        sbfLogger.info {"Finished Function Argument Analysis in ${(end -start) / 1000}s"}
+        timeIt("Function Argument Analysis") {
+            runAnalysis()
+        }
     }
 
     override fun inferredArgs(fn: String): Map<Value.Reg, Set<LocatedSbfInstruction>>? {
