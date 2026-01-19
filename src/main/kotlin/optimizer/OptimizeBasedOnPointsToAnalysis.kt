@@ -37,7 +37,7 @@ import instrumentation.transformers.InternalFunctionRerouter
 import log.*
 import log.regression
 import optimizer.OptimizeBasedOnPointsToAnalysis.AccessAnnotation.*
-import scene.ITACMethod
+import scene.IBoundTACMethod
 import utils.Range
 import statistics.ANALYSIS_POINTSTO_SUBKEY
 import statistics.ElapsedTimeStats
@@ -238,7 +238,7 @@ object OptimizeBasedOnPointsToAnalysis {
         }
     }
 
-    fun doWork(m: ITACMethod): CoreTACProgram {
+    fun doWork(m: IBoundTACMethod): CoreTACProgram {
         return try {
             val optimizeWithPTA = Config.EnabledInitializationAnalysis.get() && Config.EnablePTABasedOptimizations.get()
 
@@ -257,7 +257,7 @@ object OptimizeBasedOnPointsToAnalysis {
                 val timeElapser = ElapsedTimeStats().startMeasuringTimeOf(tag)
                 CodeAnalysis(
                     ANALYSIS_POINTSTO_SUBKEY,
-                    { method: ITACMethod -> PointerAnalysis.runAnalysis(method, PTARunPurpose.OPTIMIZATION) },
+                    { method: IBoundTACMethod -> PointerAnalysis.runAnalysis(method, PTARunPurpose.OPTIMIZATION) },
                     { it.isCompleteSuccess }
                 ).runAnalysis(pruned).also {
                     timeElapser.endMeasuringTimeOf(tag)
@@ -269,7 +269,7 @@ object OptimizeBasedOnPointsToAnalysis {
             }?.to(true) ?: (TrivialPointsToInformation to false)
 
             // use PTA in optimizations
-            val optList: MutableList<MethodToCoreTACTransformer<ITACMethod>> = mutableListOf()
+            val optList: MutableList<MethodToCoreTACTransformer<IBoundTACMethod>> = mutableListOf()
             if (optimizeWithPTA) {
                 optList.add(
                     CoreToCoreTransformer(ReportTypes.REMOVE_UNREACHABLE_POST_PTA) {
@@ -577,7 +577,7 @@ object OptimizeBasedOnPointsToAnalysis {
     }
 
     private fun annotateABI(
-        it: ITACMethod,
+        it: IBoundTACMethod,
         staged: ABIAnnotations?
     ) : CoreTACProgram {
         val code = it.code as CoreTACProgram
@@ -877,7 +877,7 @@ object OptimizeBasedOnPointsToAnalysis {
     }
 
     private fun groupMemoryAccess(
-        method: ITACMethod,
+        method: IBoundTACMethod,
         prog: CoreTACProgram,
         pta: IPointsToInformation,
         abiInfo: ABIAnnotationInformation?
@@ -1669,7 +1669,7 @@ object OptimizeBasedOnPointsToAnalysis {
         return patching.toCode(p)
     }
 
-    fun validateLengthUpdates(m: ITACMethod): CoreTACProgram {
+    fun validateLengthUpdates(m: IBoundTACMethod): CoreTACProgram {
         val prog = m.code as CoreTACProgram
         val graph = prog.analysisCache.graph
         val ai = AllocationAnalysis.runAnalysis(graph) ?: return prog

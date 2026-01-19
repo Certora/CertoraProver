@@ -21,6 +21,7 @@ import config.Config
 import config.ReportTypes
 import diagnostics.*
 import log.*
+import scene.IBoundTACMethod
 import scene.ITACMethod
 import scene.NamedCode
 import statistics.ANALYSIS_SUCCESS_STATS_KEY
@@ -92,9 +93,9 @@ open class CodeAnalysis<T: NamedCode<ReportTypes>, R>(
 }
 
 /**
- * A transformer from a [ITACMethod] (which is [CoreTACProgram] + meta info) to [CoreTACProgram]
+ * A transformer from a [IBoundTACMethod] (which is [CoreTACProgram] + meta info) to [CoreTACProgram]
  */
-class MethodToCoreTACTransformer<T: ITACMethod>(reportType: ReportTypes, transformer: (T) -> CoreTACProgram) :
+class MethodToCoreTACTransformer<T : IBoundTACMethod>(reportType: ReportTypes, transformer: (T) -> CoreTACProgram) :
     CodeTransformer<T, CoreTACProgram>(reportType, transformer)
 
 /**
@@ -102,14 +103,14 @@ class MethodToCoreTACTransformer<T: ITACMethod>(reportType: ReportTypes, transfo
  */
 class CoreToCoreTransformer(reportType: ReportTypes, transformer: (CoreTACProgram) -> CoreTACProgram) :
     CodeTransformer<CoreTACProgram, CoreTACProgram>(reportType, transformer) {
-    private fun <T: ITACMethod> lift(f: (T) -> CoreTACProgram) =
+    private fun <T : IBoundTACMethod> lift(f: (T) -> CoreTACProgram) =
         MethodToCoreTACTransformer(
                 reportType
         ) { x: T ->
             transformer(f(x))
         }
 
-    fun <T: ITACMethod> lift() = lift<T> { it.code as CoreTACProgram }
+    fun <T : IBoundTACMethod> lift() = lift<T> { it.code as CoreTACProgram }
 }
 
 /**
@@ -119,7 +120,7 @@ abstract class ChainedCodeTransformers<T: CodeTransformer<*, *>>(val l: List<T>)
     fun getReports() = l.map { it.reportType }
 }
 
-class ChainedMethodTransformers<T: ITACMethod>(l: List<MethodToCoreTACTransformer<T>>):
+class ChainedMethodTransformers<T : IBoundTACMethod>(l: List<MethodToCoreTACTransformer<T>>):
     ChainedCodeTransformers<MethodToCoreTACTransformer<T>>(l)
 
 // TODO: fold this into transformMethod too because there's duplication

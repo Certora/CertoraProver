@@ -253,7 +253,7 @@ object ContractUtils {
         return simplifiedTACCode
     }
 
-    fun <T : ITACMethod> transformMethodInPlace(method: T, transformers: ChainedCoreTransformers) {
+    fun <T : IBoundTACMethod> transformMethodInPlace(method: T, transformers: ChainedCoreTransformers) {
         transformMethod_(
             method,
             ChainedMethodTransformers(transformers.l.map { ts: CoreToCoreTransformer -> ts.lift<T>() }),
@@ -261,7 +261,7 @@ object ContractUtils {
         )
     }
 
-    fun <T : ITACMethod> transformMethodInPlace(method: T, transformers: ChainedMethodTransformers<T>) {
+    fun <T : IBoundTACMethod> transformMethodInPlace(method: T, transformers: ChainedMethodTransformers<T>) {
         transformMethod_(
             method,
             transformers,
@@ -269,14 +269,14 @@ object ContractUtils {
         )
     }
 
-    fun <T : ITACMethod> transformMethod(method: T, transformers: ChainedCoreTransformers): T =
+    fun <T : IBoundTACMethod> transformMethod(method: T, transformers: ChainedCoreTransformers): T =
         transformMethod_(
             method,
             ChainedMethodTransformers(transformers.l.map { ts: CoreToCoreTransformer -> ts.lift<T>() }),
             false
         )
 
-    fun <T : ITACMethod> transformMethod(method: T, transformers: ChainedMethodTransformers<T>): T =
+    fun <T : IBoundTACMethod> transformMethod(method: T, transformers: ChainedMethodTransformers<T>): T =
         transformMethod_(
             method,
             transformers,
@@ -286,7 +286,7 @@ object ContractUtils {
     /**
      * The most general transformMethod variant
      */
-    private fun <T : ITACMethod> transformMethod_(
+    private fun <T : IBoundTACMethod> transformMethod_(
         method: T,
         transformers: ChainedMethodTransformers<T>,
         inPlace: Boolean

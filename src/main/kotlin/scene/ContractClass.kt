@@ -43,8 +43,10 @@ import decompiler.Decompiler
 import diagnostics.*
 import disassembler.DisassembledEVMBytecode
 import evm.EVM_WORD_SIZE
+import evm.SighashInt
 import instrumentation.ImmutableInstrumenter
 import instrumentation.StoragePackedLengthSummarizer
+import instrumentation.calls.CalldataEncoding
 import instrumentation.constructor.ConstructorInstrumentation
 import instrumentation.createEmptyProgram
 import instrumentation.transformers.*
@@ -95,18 +97,19 @@ class ContractClass(
 ), IContractWithSource {
 
     // constructor whole-contract flow
-    override val constructorMethod = perContract.load(ContractLoad.Component.Constructor) {
-        Decompiler.decompileEVMConstructor(
+    override val constructorMethod = run {
+        val evmConstructor = Decompiler.decompileEVMConstructor(
             constructorBytecode,
             constructorCodeName,
             src.address,
             SourceContext(src.srclist, src.sourceDir)
-        ).let { evmConstructor ->
+        )
+        val prog = perContract.load(ContractLoad.Component.Constructor) {
             // as with the runtime bytecode, we first simplify and normalize
             inCode(evmConstructor) {
                 val simplified = ContractUtils.simplify(evmConstructor, constructorBytecode, src, isConstructor = true)
                 ArtifactManagerFactory().dumpCodeArtifacts(simplified, ReportTypes.CFG, StaticArtifactLocation.Outputs, DumpTime.AGNOSTIC)
-                val withInternalFunctions = CoreTACProgram.Linear(simplified)
+                CoreTACProgram.Linear(simplified)
                     // as usual, apply DSA first
                     .map(CoreToCoreTransformer(ReportTypes.DSA) {
                         TACDSA.simplify(it, isErasable = FilteringFunctions.default(it, keepRevertManagment = true)::isErasable)
@@ -124,21 +127,21 @@ class ContractClass(
                     .map(CoreToCoreTransformer(ReportTypes.CONSTRUCTOR_INSTRUMENTATION) {
                         ConstructorInstrumentation.markConstructorCodeData(it, src.address)
                     }).ref
-                val constructorMethodDef = src.getConstructor()
-                TACMethod(
-                    if (withInternalFunctions.code.containsKey(StartBlock)) {
-                        withInternalFunctions
-                    } else {
-                        // gracefully handle old solidity versions
-                        createEmptyProgram(constructorCodeName)
-                    },
-                    this,
-                    MetaMap(),
-                    MethodAttribute.Unique.Constructor,
-                    EVMExternalMethodInfo.fromMethodAndContract(constructorMethodDef, src)
-                )
             }
         }
+        val constructorMethodDef = src.getConstructor()
+        TACMethod(
+            if (prog.code.containsKey(StartBlock)) {
+                prog
+            } else {
+                // gracefully handle old solidity versions
+                createEmptyProgram(constructorCodeName)
+            },
+            this,
+            MetaMap(),
+            MethodAttribute.Unique.Constructor,
+            EVMExternalMethodInfo.fromMethodAndContract(constructorMethodDef, src)
+        )
     }
 
     override fun getConstructor(): ITACMethod = constructorMethod
@@ -189,30 +192,114 @@ class ContractClass(
             it.split(",").contains(s)
         } == true
 
+        /**
+            Info about a TAC method that is usable during [ContractClass] construction (i.e., before the [ContractClass]
+            is fully initialized).  This allows us to run method transformations during contract construction.
+        */
+        private class UnderConstructionTACMethod(
+            private val contractName: String,
+            private val contractInstanceId: BigInteger,
+            private var _code: CoreTACProgram,
+            override val attribute: MethodAttribute,
+            override val evmExternalMethodInfo: EVMExternalMethodInfo
+        ) : IBoundTACMethod {
+
+            override var code: ICoreTACProgram
+                get() = _code
+                set(value) { _code = value as CoreTACProgram }
+
+            override fun getContainingContract() = object : ICVLContractClass {
+                override val name get() = contractName
+                override val instanceId get() = contractInstanceId
+            }
+
+            override val meta get() = MetaMap()
+
+            override val sigHash = evmExternalMethodInfo.sigHash?.let { SighashInt(it) }
+            override val name get() = evmExternalMethodInfo.name
+            override val soliditySignature = evmExternalMethodInfo.getPrettyName()
+
+            override val calldataEncoding = if (attribute !is MethodAttribute.Unique.Fallback) {
+                CalldataEncoding.calldataOf(_code, evmExternalMethodInfo)
+            } else {
+                CalldataEncoding.empty()
+            }
+
+            override fun fork() = UnderConstructionTACMethod(
+                contractName = contractName,
+                contractInstanceId = contractInstanceId,
+                _code = _code.copy(
+                    code = _code.code.toMap(),
+                    blockgraph = _code.blockgraph
+                ),
+                attribute = attribute,
+                evmExternalMethodInfo = evmExternalMethodInfo,
+            )
+
+            override fun toString(): String = soliditySignature
+
+            override fun dump(dumpType: ReportTypes, where: String, time: DumpTime) {
+                _code.dump(dumpType, where, time)
+            }
+
+            override fun dumpBinary(where: String, label: String): TACFile {
+                return _code.dumpBinary(where, label)
+            }
+
+            override val defaultType get() = _code.defaultType
+
+            fun toTACMethod(containingContract: IContractClass): TACMethod {
+                check(
+                    contractName == containingContract.name &&
+                    contractInstanceId == containingContract.instanceId
+                ) {
+                    "Cannot convert UnderConstructionTACMethod to TACMethod for a different contract"
+                }
+                return TACMethod(
+                    _code.copy(
+                        procedures = setOf(
+                            Procedure(0, containingContract, name, evmExternalMethodInfo.sourceSegment?.range)
+                        )
+                    ),
+                    containingContract,
+                    meta,
+                    attribute,
+                    evmExternalMethodInfo,
+                    sigHash,
+                    name,
+                    soliditySignature,
+                    calldataEncoding
+                )
+            }
+        }
+
         // these transforms are applied on the decomposed methods
-        private fun standardProverMethodTransforms(cvl: CVL?, src: ContractInstanceInSDC) = run {
+        private fun standardProverMethodTransforms(
+            cvl: CVL?,
+            src: ContractInstanceInSDC
+        ): (BigInteger?) -> ChainedMethodTransformers<UnderConstructionTACMethod> {
             val nm = src.name
             val useLiteLoader = isLiteClass(nm) || (cvl?.external?.any { (ext, _) ->
                 ext is CVL.ExternalAnyInContract && ext.hostContract.name == nm
             } == true && src.isLibrary)
-            val transforms = mutableListOf<MethodToCoreTACTransformer<TACMethod>>()
+            val transforms = mutableListOf<MethodToCoreTACTransformer<UnderConstructionTACMethod>>()
 
             // utility functions
-            fun MutableList<MethodToCoreTACTransformer<TACMethod>>.add(ty: ReportTypes, f: (CoreTACProgram) -> CoreTACProgram) {
+            fun MutableList<MethodToCoreTACTransformer<UnderConstructionTACMethod>>.add(ty: ReportTypes, f: (CoreTACProgram) -> CoreTACProgram) {
                 this.add(CoreToCoreTransformer(ty, f).lift())
             }
-            fun MutableList<MethodToCoreTACTransformer<TACMethod>>.add(ty: ReportTypes, f: (ITACMethod) -> CoreTACProgram) {
+            fun MutableList<MethodToCoreTACTransformer<UnderConstructionTACMethod>>.add(ty: ReportTypes, f: (UnderConstructionTACMethod) -> CoreTACProgram) {
                 this.add(MethodToCoreTACTransformer(ty, f))
             }
 
-            fun MutableList<MethodToCoreTACTransformer<TACMethod>>.addExpensive(ty: ReportTypes, f: (ITACMethod) -> CoreTACProgram) {
+            fun MutableList<MethodToCoreTACTransformer<UnderConstructionTACMethod>>.addExpensive(ty: ReportTypes, f: (UnderConstructionTACMethod) -> CoreTACProgram) {
                 if(useLiteLoader) {
                     return
                 }
                 this.add(ty, f)
             }
 
-            fun MutableList<MethodToCoreTACTransformer<TACMethod>>.addExpensive(ty: ReportTypes, f: (CoreTACProgram) -> CoreTACProgram) {
+            fun MutableList<MethodToCoreTACTransformer<UnderConstructionTACMethod>>.addExpensive(ty: ReportTypes, f: (CoreTACProgram) -> CoreTACProgram) {
                 if(useLiteLoader) {
                     return
                 }
@@ -402,18 +489,18 @@ class ContractClass(
             transforms.add(ReportTypes.OPAQUE_IDENTITY_REMOVAL, AnnotationRemover::removeOpaqueIdentities);
 
             if(Config.AllowArrayLengthUpdates.get()) {
-                transforms.addExpensive(ReportTypes.ARRAY_LENGTH_UPDATE_INSTRUMENTATION) { m: ITACMethod ->
+                transforms.addExpensive(ReportTypes.ARRAY_LENGTH_UPDATE_INSTRUMENTATION) { m: UnderConstructionTACMethod ->
                     OptimizeBasedOnPointsToAnalysis.validateLengthUpdates(m)
                 }
             }
 
             if(!Config.EquivalenceCheck.get()) {
-                transforms.addExpensive(ReportTypes.MEMORY_SPLITTER_AND_BRANCH_PRUNER) { m: ITACMethod ->
+                transforms.addExpensive(ReportTypes.MEMORY_SPLITTER_AND_BRANCH_PRUNER) { m: UnderConstructionTACMethod ->
                     OptimizeBasedOnPointsToAnalysis.doWork(m)
                 };
             }
 
-            cb@{ sighash: BigInteger? ->
+            return cb@{ sighash: BigInteger? ->
                 if(cvl != null) {
                     val summarizedBy = Summarizer.getExplicitSummariesForInvocation(
                         onExactSummaryMiss = { _ -> },
@@ -446,7 +533,7 @@ class ContractClass(
                                             " the function ${c.name} was never supposed to be called from spec, but it was.")
                                     ))
                                 )
-                            }.lift<TACMethod>()
+                            }.lift<UnderConstructionTACMethod>()
                         ))
                     }
                 }
@@ -466,51 +553,52 @@ class ContractClass(
                     }
                 }
         }
-        val _methods = codes.entries.forkEvery { entry ->
+
+        val methods = codes.entries.forkEvery { (info, prog) ->
             compute {
-                Pair(
-                    entry.key.sigHash,
-                    inCode(entry.value) {
-                        perContract.load(ContractLoad.Component.MethodLoad(entry.key.name, entry.key.sigHash)) {
-                            val contract = this@ContractClass
-                            TACMethod(
-                                entry.value.copy(procedures = setOf(Procedure(0, contract, entry.key.name, entry.key.sourceSegment?.range))),
-                                contract,
-                                MetaMap(),
-                                if (entry.key.isFallback) {
-                                    MethodAttribute.Unique.Fallback
-                                } else {
-                                    MethodAttribute.Common
-                                },
-                                entry.key
-                            ).let {
-                                transformMethod(it, transformers(entry.key.sigHash))
-                            }
+                info to inCode(prog) {
+                    perContract.load(ContractLoad.Component.MethodLoad(info.name, info.sigHash)) {
+                        // Construct a temporary TAC method for purposes of this transform.  We can't use the full
+                        // [TACMethod] here because it would give transforms access to the whole [ContractClass], which
+                        // is not yet fully constructed!
+                        UnderConstructionTACMethod(
+                            name,
+                            instanceId,
+                            prog,
+                            if (info.isFallback) {
+                                MethodAttribute.Unique.Fallback
+                            } else {
+                                MethodAttribute.Common
+                            },
+                            info
+                        ).let {
+                            transformMethod(it, transformers(info.sigHash))
                         }
                     }
-                )
+                }
             }
         }.pcompute().runInherit()
 
-        val ret = _methods.toMap()
-
-        check(checkSighash(ret)) { "Sighash mapping is invalid" }
-        ret
-
+        // Convert to full TACMethods, now that we're done running transforms.
+        methods.associate { (info, method) ->
+            info.sigHash to method.toTACMethod(this)
+        }.also {
+            check(checkSighash(it)) { "Sighash mapping is invalid" }
+        }
     }
 
     override val wholeContractMethod: TACMethod? = decompiledResult.wholeProgram?.let { wholeProgram ->
-        inCode(wholeProgram) {
-            perContract.load(ContractLoad.Component.WholeMethod) {
-                TACMethod(
-                    name,
-                    transformCommon(wholeProgram),
-                    this,
-                    MetaMap(),
-                    MethodAttribute.Unique.Whole
-                )
-            }
-        }
+        TACMethod(
+            name,
+            inCode(wholeProgram) {
+                perContract.load(ContractLoad.Component.WholeMethod) {
+                    transformCommon(wholeProgram)
+                }
+            },
+            this,
+            MetaMap(),
+            MethodAttribute.Unique.Whole
+        )
     }
 
 

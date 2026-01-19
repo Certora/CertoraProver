@@ -70,20 +70,34 @@ interface PatchableProgram {
     fun toCode(base: ICoreTACProgram): ICoreTACProgram
 }
 
-interface ITACMethod : IFreeTACMethod, NamedCode<ReportTypes> {
+/**
+   A TAC method with the context of its containing contract, plus support for transformations.
+ */
+interface IBoundTACMethod : IFreeTACMethod, NamedCode<ReportTypes> {
     override var code: ICoreTACProgram
-    fun getContainingContract(): IContractClass
-
-    fun updateCode(p :PatchableProgram)
+    fun getContainingContract(): ICVLContractClass
 
     @Deprecated("All transformations should use a mutable or patching TAC program. This is temporary")
     fun updateCode(p: ICoreTACProgram) {
         code = p
     }
 
-    fun fork(): ITACMethod // Deep-copies the code only
-    fun shallowForkWithCodeAndCalldataEncoding(newCode: ICoreTACProgram, cdEncoding: ICalldataEncoding): ITACMethod //Shallow-copies with the given code
-    fun shallowForkWithCalldataEncoding(cdEncoding: ICalldataEncoding): ITACMethod
+    fun fork(): IBoundTACMethod // Deep-copies the code only
+
     override fun toString(): String // force implementation
     override fun myName(): String = code.name
+}
+
+/**
+   A TAC method with fully-constructed containing contract info, plus support for transformations.
+ */
+interface ITACMethod : IBoundTACMethod {
+    override fun getContainingContract(): IContractClass
+
+    fun updateCode(p: PatchableProgram)
+
+    override fun fork(): ITACMethod // Deep-copies the code only
+
+    fun shallowForkWithCodeAndCalldataEncoding(newCode: ICoreTACProgram, cdEncoding: ICalldataEncoding): ITACMethod //Shallow-copies with the given code
+    fun shallowForkWithCalldataEncoding(cdEncoding: ICalldataEncoding): ITACMethod
 }

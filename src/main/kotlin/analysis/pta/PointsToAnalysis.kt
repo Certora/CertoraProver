@@ -38,7 +38,7 @@ import config.Config
 import datastructures.stdcollections.*
 import evm.EVM_WORD_SIZE
 import log.*
-import scene.ITACMethod
+import scene.IBoundTACMethod
 import spec.cvlast.typedescriptors.EVMLocationSpecifier
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
@@ -169,7 +169,7 @@ sealed class ConversionHints {
 
 class PointsToAnalysis(
     private val graph: TACCommandGraph,
-    method: ITACMethod?,
+    method: IBoundTACMethod?,
     val allocSites: Map<CmdPointer, AllocationAnalysis.AbstractLocation>,
     val scratchSite: Map<CmdPointer, Optional<BigInteger>>,
     val initialFreePointerValue: BigInteger?,
