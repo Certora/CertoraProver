@@ -1,0 +1,22 @@
+{
+	"rules": {
+		"arrayComparisonReflexive": "SUCCESS",
+		"arrayComparisonSymmetric": "SUCCESS",
+		"compareFunctionReturnArray": "SUCCESS",
+		"compareFunctionReturnStructWithArray": "SUCCESS",
+		"compareIntArrays": "SUCCESS",
+		"comparePrimitiveArrays": "SUCCESS",
+		"compareStructWithNestedAndArray": "SUCCESS",
+		"compareStructsWithArrays": "SUCCESS",
+		"differentLengthsNotEqual": "SUCCESS",
+		"emptyArraysEqual": "SUCCESS",
+		"envfreeFuncsStaticCheck": {
+			"SUCCESS": [
+				"createIntArray(uint256,uint256,uint256)",
+				"createSimpleStruct(uint256,int128)",
+				"createStructWithArray(uint256,uint256,uint256)"
+			]
+		},
+		"structWithArrayReflexive": "SUCCESS"
+	}
+}
