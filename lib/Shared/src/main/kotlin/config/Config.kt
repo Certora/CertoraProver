@@ -1174,6 +1174,15 @@ object Config {
         )
     ) {}
 
+    val assumeTimestampWithinUint40Range = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "assumeTimestampWithinUint40Range",
+            true,
+            "If enabled, assumes that block.timestamp will always fit in a uint40"
+        )
+    ) {}
+
     // enabling this may incur somewhat more expensive SMT formulas combining BV and NIA,
     // disabling this is less precise in case of setting strings copied from memory to storage
     val EnableCleanCVLStrings = object : ConfigType.BooleanCmdLine(
