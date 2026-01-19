@@ -1,5 +1,6 @@
 {
 	"rules": {
-		"hello::hello::hello_world": "SUCCESS"
+		"hello::hello::hello_world": "SUCCESS",
+		"hello::hello::hello_world2": "FAIL"
 	}
 }

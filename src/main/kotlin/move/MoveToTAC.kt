@@ -178,6 +178,42 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         }
 
         /**
+            Fills in the assert/satisfy IDs for a fully-expanded [MoveTACProgram].
+         */
+        context(SummarizationContext)
+        private fun assignAssertIds(c: MoveTACProgram): MoveTACProgram {
+            val patch = c.toPatchingProgram()
+
+            var nextAssert = 0
+            var nextSatisfy = 0
+
+            // Visit every block in program order (ignoring backwards jumps).
+            val visited = mutableSetOf<NBId>()
+            val work = arrayDequeOf<NBId>(c.entryBlock)
+            val graph = c.graph
+            work.consume { block ->
+                if (visited.add(block)) {
+                    work += graph.succ(block)
+
+                    // Add IDs to any assertions that need them
+                    graph.elab(block).commands.forEach { (ptr, cmd) ->
+                        if (TACMeta.ASSERT_ID in cmd.meta) {
+                            check(cmd.meta[TACMeta.ASSERT_ID] == ASSERT_ID_PLACEHOLDER)
+                            check(cmd is TACCmd.Simple.AssertCmd)
+                            patch.update(ptr, cmd.withMeta(cmd.meta + (TACMeta.ASSERT_ID to nextAssert++)))
+                        } else if (TACMeta.SATISFY_ID in cmd.meta) {
+                            check(cmd.meta[TACMeta.SATISFY_ID] == SATISFY_ID_PLACEHOLDER)
+                            check(cmd is TACCmd.Simple.AssertCmd)
+                            patch.update(ptr, cmd.withMeta(cmd.meta + (TACMeta.SATISFY_ID to nextSatisfy++)))
+                        }
+                    }
+                }
+            }
+
+            return patch.toCode(c)
+        }
+
+        /**
             Produces TAC code to pack a string value into a std::vector<u8>.
          */
         context(SummarizationContext)
@@ -291,7 +327,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                     TACCmd.Simple.AssertCmd(
                                         TACSymbol.True,
                                         REACHED_END_OF_FUNCTION,
-                                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
+                                            (TACMeta.ASSERT_ID to ASSERT_ID_PLACEHOLDER)
                                     ).withDecls()
                                 )
                             }
@@ -306,7 +343,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                                         TACSymbol.False,
                                         REACHED_END_OF_FUNCTION,
                                         MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
-                                            (TACMeta.SATISFY_ID to allocSatisfyId())
+                                            (TACMeta.SATISFY_ID to SATISFY_ID_PLACEHOLDER)
                                     ).withDecls()
                                 )
                             }
@@ -320,6 +357,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             return allCode.toProgram(name, StartBlock, exit)
                 .transform(ReportTypes.INLINE_PARAMETRIC_CALLS) { InvokerCall.materialize(it) }
                 .transform(ReportTypes.MATERIALIZE_GHOST_MAPPINGS) { GhostMapping.materialize(it) }
+                .transform(ReportTypes.ASSIGN_ASSERT_IDS) { assignAssertIds(it) }
                 .let {
                     it.mergeBlocks { a, b ->
                         // For now, only allow merging of blocks that are part of the same function body.  This
