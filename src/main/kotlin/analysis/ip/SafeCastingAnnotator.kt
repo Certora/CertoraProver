@@ -17,24 +17,22 @@
 
 package analysis.ip
 
-import analysis.CmdPointer
 import analysis.MustBeConstantAnalysis
+import analysis.ip.SafeCastingAnnotator.safeCastingUpperBits
 import config.Config
-import datastructures.stdcollections.*
 import tac.MetaKey
 import utils.*
 import vc.data.*
-import vc.data.tacexprutil.asVarOrNull
 import java.math.BigInteger
 import java.util.stream.Collectors
-
-val safeCastingUpperBits = BigInteger("ffffff6e4604afefe123321beef1b03fffffffffffffffffffff", 16)
-
+import datastructures.stdcollections.*
 /**
  * Looks for specific `mload` commands, added in our python instrumentation, which encode a casting operation. This
  * mload is removed and an annotation with the decoded information is added.
  */
 object SafeCastingAnnotator {
+
+    private val safeCastingUpperBits = BigInteger("ffffff6e4604afefe123321beef1b03fffffffffffffff", 16)
 
     @KSerializable
     data class CastType(val isSigned: Boolean, val width: Int) : AmbiSerializable {
@@ -49,11 +47,11 @@ object SafeCastingAnnotator {
         val from: CastType,
         val to: CastType,
         val value: TACSymbol,
-        val range : Range.Range?
-    ) : AmbiSerializable, TransformableSymEntityWithRlxSupport<SafeCastInfo> {
+        val range: Range.Range?
+    ) : AmbiSerializable, TransformableSymEntity<SafeCastInfo>, WithSupport {
         override fun transformSymbols(f: (TACSymbol) -> TACSymbol) = copy(value = f(value))
+        override val support = setOfNotNull(value as? TACSymbol.Var)
     }
-
 
     val CastingKey = MetaKey<SafeCastInfo>("tac.typecast.key")
 
@@ -68,36 +66,6 @@ object SafeCastingAnnotator {
         }
         val g = code.analysisCache.graph
         val constantAnalysis = MustBeConstantAnalysis(g)
-
-        /**
-         * This looks for the range where the cast is called in the original solidity file. It follows the simple
-         * assignment chain for [v], and takes the second range it finds. The first range is skipped because it points
-         * to the instrumentation that was added on the python side
-         */
-        fun findRange(ptr: CmdPointer, v: TACSymbol.Var): Range.Range? {
-            var current = v
-            var foundOne = false
-            generateSequenceAfter(ptr) { g.pred(it).singleOrNull() }
-                .forEach { p ->
-                    val cmd = g.toCommand(p)
-                    if (current in cmd.freeVars()) {
-                        cmd.sourceRange()?.let {
-                            if (foundOne) {
-                                return it
-                            } else {
-                                foundOne = true
-                            }
-                        }
-                    }
-                    if (g.getLhs(p) == current) {
-                        ((cmd as? TACCmd.Simple.AssigningCmd.AssignExpCmd)?.rhs as? TACExpr.Sym.Var)
-                            ?.let { current = it.s }
-                            ?: return null
-                    }
-                }
-            return null
-        }
-
         val patcher = code.toPatchingProgram()
         val casts = code.parallelLtacStream().mapNotNull { (ptr, cmd) ->
             if (cmd is TACCmd.Simple.AssigningCmd.ByteStore && cmd.base == TACKeyword.MEMORY.toVar()) {
@@ -107,13 +75,13 @@ object SafeCastingAnnotator {
                          * The encoding has its top bits equal to [safeCastingUpperBits], 16 bits for a unique counter,
                          * 16 encoding the type being casted, and 16 encoding the resulting type.
                          */
-                        val (mask, _, from, to) = const.parseToParts(256 - 48, 16, 16, 16)
+                        val (mask, line, column, from, to) = const.parseToParts(256 - 72, 20, 20, 16, 16)
                         runIf(mask == safeCastingUpperBits) {
                             ptr to SafeCastInfo(
                                 from = CastType(from),
                                 to = CastType(to),
                                 value = cmd.value,
-                                range = cmd.value.asVarOrNull?.let { findRange(ptr, it) }
+                                range = g.toCommand(ptr).sourceRange()?.makeNewRange(line, column)
                             )
                         }
                     }

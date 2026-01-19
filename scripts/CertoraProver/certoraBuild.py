@@ -36,8 +36,10 @@ from CertoraProver.certoraBuildDataClasses import CONTRACTS, ImmutableReference,
     Instrumentation, InsertBefore, InsertAfter, UnspecializedSourceFinder, instrumentation_logger
 from CertoraProver.certoraCompilerParameters import SolcParameters
 from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes, VyperMetadata
+from CertoraProver.certoraOffsetConverter import generate_offset_converters
 from CertoraProver.certoraSourceFinders import add_source_finders
 from CertoraProver.certoraVerifyGenerator import CertoraVerifyGenerator
+from CertoraProver.uncheckedOverflowInstrumenter import generate_overflow_instrumentation, add_instrumentation
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
@@ -3382,14 +3384,35 @@ class CertoraBuildGenerator:
         else:
             added_source_finders = {}
 
+        offset_converters = generate_offset_converters(sdc_pre_finder)
+
         if self.context.safe_casting_builtin:
             try:
-                casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder)
+                casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder, offset_converters)
             except Exception as e:
-                instrumentation_logger.warning(
-                    f"Computing casting instrumentation failed for {build_arg_contract_file}: {e}", exc_info=True)
                 casting_instrumentations, casting_types = {}, {}
-            instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, casting_instrumentations)
+                instrumentation_logger.warning(f"Computing casting instrumentation failed for {build_arg_contract_file}: {e}", exc_info=True)
+        else:
+            casting_instrumentations, casting_types = {}, {}
+
+        if self.context.unchecked_overflow_builtin:
+            try:
+                overflow_instrumentations, op_funcs = generate_overflow_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder, offset_converters)
+            except Exception as e:
+                overflow_instrumentations, op_funcs = {}, {}
+                instrumentation_logger.warning(
+                    f"Computing overflow instrumenstation failed for {build_arg_contract_file}: {e}", exc_info=True)
+        else:
+            overflow_instrumentations, op_funcs = {}, {}
+
+        for file_name, inst_dict in casting_instrumentations.items():
+            if file_name not in overflow_instrumentations:
+                overflow_instrumentations[file_name] = dict()
+            d = overflow_instrumentations[file_name]
+            for offset, inst in inst_dict.items():
+                add_instrumentation(d, offset, inst)
+
+        instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, overflow_instrumentations)
 
         abs_build_arg_contract_file = Util.abs_posix_path(build_arg_contract_file)
         if abs_build_arg_contract_file not in instr:
@@ -3452,6 +3475,13 @@ class CertoraBuildGenerator:
                                 output.write(bytes(f, "utf8"))
                             output.write(bytes("}\n", "utf8"))
 
+                    library_name, funcs = op_funcs.get(contract_file, ("", list()))
+                    if len(funcs) > 0:
+                        output.write(bytes(f"\nlibrary {library_name}" + "{\n", "utf8"))
+                        for f in funcs:
+                            output.write(bytes(f, "utf8"))
+                        output.write(bytes("}\n", "utf8"))
+
         new_file = self.to_autofinder_file(build_arg_contract_file)
         self.context.file_to_contract[new_file] = self.context.file_to_contract[
             build_arg_contract_file]
@@ -3472,6 +3502,7 @@ class CertoraBuildGenerator:
                     f"Compiling {orig_file_name} to expose internal function information and local variables...")
             else:
                 Util.print_progress_message(f"Compiling {orig_file_name} to expose internal function information...")
+
             # record what aliases we have created (for the purposes of type canonicalization, the generated autofinder
             # is an alias of the original file)
             for k, v in autofinder_remappings.items():

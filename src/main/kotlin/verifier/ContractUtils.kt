@@ -137,6 +137,8 @@ object ContractUtils {
                     ) { c: CoreTACProgram -> SourceFinderAnnotator.annotate(c, source) },
                     // instrument the safeCasting builtin rule
                     CoreToCoreTransformer(ReportTypes.SAFE_CASTING_ANNOTATOR, SafeCastingAnnotator::annotate),
+                    // instrument the uncheckedOverflow builtin rule
+                    CoreToCoreTransformer(ReportTypes.UNCHECKED_OVERFLOW_ANNOTATOR, UncheckedOverflowAnnotator::annotate),
                     // Basic instrumentation
                     CoreToCoreTransformer(
                         ReportTypes.ENV_START_BLOCK

@@ -2293,6 +2293,16 @@ object Config {
         )
     ) {}
 
+    val printFinalTac = ConfigType.IntCmdLine(
+        default = 0,
+        option = Option(
+            "printFinalTac",
+            true,
+            "Prints the final TACs to stdout, used only for debugging. " +
+                "prints: 0:nothing, 1:without annotations 2:including annotations [default = 0]"
+        )
+    )
+
 
     val patternRewriter = object : ConfigType.IntCmdLine(
         default = 10,
@@ -2535,10 +2545,21 @@ object Config {
     val SafeCastingBuiltin: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         false,
         Option(
-            "safeCastingBuiltin", true,
+            "safeCastingBuiltin",
+            true,
             "Used to signal that the python side instrumented the safeCasting builtin rule [default: false]"
         ),
         pythonName = "--safe_casting_builtin"
+    ) {}
+
+    val UncheckedOverflowBuiltin: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "uncheckedOverflowBuiltin",
+            true,
+            "Used to signal that the python side instrumented the uncheckedOverflow builtin rule [default: false]"
+        ),
+        pythonName = "--unchecked_overflow_builtin"
     ) {}
 
     val CallTraceHardFail = object : ConfigType.HardFailCmdLine(

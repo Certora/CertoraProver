@@ -24,6 +24,7 @@ import kotlinx.serialization.Serializable
 import report.TreeViewLocation
 import java.io.File
 import java.nio.file.Paths
+import java.math.BigInteger
 
 /**
  * Start and end of syntactic element's location in the document, used for the LSP.
@@ -101,6 +102,16 @@ sealed class Range : AmbiSerializable, Comparable<Range> {
             } catch (_: StringIndexOutOfBoundsException) {
                 return null
             }
+        }
+
+        /**
+         * makes a new [Range.Range], keeping the same [specFile], but starting at [line] and [column],
+         * and ending at [column]+1.
+         */
+        fun makeNewRange(line: BigInteger, column: BigInteger): Range {
+            val newStart = start.copy(line = line.toUIntOrNull()!!, charByteOffset = column.toUIntOrNull()!!)
+            val newEnd = newStart.copy(charByteOffset = newStart.charByteOffset.inc())
+            return copy(start = newStart, end = newEnd)
         }
 
 

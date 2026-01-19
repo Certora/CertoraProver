@@ -18,6 +18,7 @@
 package instrumentation.transformers
 
 import analysis.ip.SafeCastingAnnotator.CastingKey
+import analysis.ip.UncheckedOverflowAnnotator.UncheckedOverflowKey
 import analysis.maybeAnnotation
 import datastructures.stdcollections.*
 import vc.data.CoreTACProgram
@@ -34,6 +35,7 @@ object SnippetRemover {
             ctp.ltacStream()
                 .filter {
                     it.maybeAnnotation(CastingKey) != null ||
+                        it.maybeAnnotation(UncheckedOverflowKey) != null ||
                         (ctp.destructiveOptimizations && it.maybeAnnotation(TACMeta.SNIPPET) != null)
                 }
                 .forEach { patcher.replaceCommand(it.ptr, listOf()) }

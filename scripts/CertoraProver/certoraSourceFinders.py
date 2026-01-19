@@ -291,17 +291,17 @@ def is_unsupported_type(type_string: str) -> bool:
     return type_string not in PrimitiveType.allowed_primitive_type_names
 
 
-def find_semicolon(filepath: str, offset: int) -> Optional[int]:
+def find_char(filepath: str, offset: int, c : str) -> Optional[int]:
     """
-    From given offset, skip whitespace until finding a semicolon.
-    Returns None if any non-whitespace character other than ';' is encountered.
+    given offset, skip whitespace until finding the input character `c`.
+    Returns None if any non-whitespace character other than `c` is encountered.
 
     Args:
         filepath: Path to the file
-        offset: Byte offset where we expect to find ';' or whitespace
+        offset: Byte offset where we expect to find 'c' or whitespace
 
     Returns:
-        Offset of the semicolon if found after only whitespace
+        Offset of 'c' if found after only whitespace
         None if any other non-whitespace character is encountered
     """
     try:
@@ -312,7 +312,7 @@ def find_semicolon(filepath: str, offset: int) -> Optional[int]:
                 if not char:  # EOF
                     return None
 
-                if char == ';':
+                if char == c:
                     return f.tell() - 1
 
                 if char not in ' \t\n\r':  # not whitespace
@@ -366,7 +366,7 @@ def add_source_finders(asts: Dict[str, Dict[str, Dict[int, Any]]], contract_file
             # no need to -1 as the source mapping does not include the ';', and we want to find it...
             # i.e., the end_offset should point at ';'
             end_offset = int(start_offset) + int(src_len)  # this is the original end offset
-            end_offset_with_semicolon = find_semicolon(solfile, end_offset)
+            end_offset_with_semicolon = find_char(solfile, end_offset, ";")
             if end_offset_with_semicolon is None:
                 # we are dealing with Solidity code with unexpected format, let's skip this assignment
                 continue

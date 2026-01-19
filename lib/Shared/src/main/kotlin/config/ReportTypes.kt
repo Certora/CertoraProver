@@ -72,6 +72,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     DEDUPLICATED(LoggerTypes.OPTIMIZE),
     SOURCE_FINDER_ANNOTATOR(LoggerTypes.FUNCTION_BUILDER),
     SAFE_CASTING_ANNOTATOR(LoggerTypes.FUNCTION_BUILDER),
+    UNCHECKED_OVERFLOW_ANNOTATOR(LoggerTypes.FUNCTION_BUILDER),
     INLINED(LoggerTypes.INLINER),
     CALLEE_ANALYSIS(LoggerTypes.INLINER),
     REVERT_MATERIALIZATION(LoggerTypes.INLINER),

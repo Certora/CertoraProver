@@ -1233,8 +1233,21 @@ class EvmAttributes(AttrUtil.Attributes):
     SAFE_CASTING_BUILTIN = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.BOOLEAN,
         help_msg="This needs to be set to true for the safeCasting builtin to work",
-        default_desc="This needs to be set to true for the safeCasting builtin to work",
+        default_desc="safeCasting builtin will not run",
         jar_flag='-safeCastingBuiltin',
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE,
+            'default': False
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+    )
+
+    UNCHECKED_OVERFLOW_BUILTIN = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="This needs to be set to true for the uncheckedOverflow builtin to work",
+        default_desc="uncheckedOverflow builtin will not run",
+        jar_flag='-uncheckedOverflowBuiltin',
         argparse_args={
             'action': AttrUtil.STORE_TRUE,
             'default': False
