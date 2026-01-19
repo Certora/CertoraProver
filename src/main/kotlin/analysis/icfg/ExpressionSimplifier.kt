@@ -31,10 +31,8 @@ import tac.Tag
 import tac.Tag.Bit256
 import tac.commonSuperTag
 import utils.*
-import utils.SignUtilities.maxUnsignedValueOfBitwidth
-import utils.SignUtilities.minSignedValueOfBitwidth
-import utils.monadicMap
 import vc.data.*
+import vc.data.tacexprutil.asConstOrNull
 import vc.data.tacexprutil.rebuild
 import java.math.BigInteger
 
@@ -70,7 +68,7 @@ open class ExpressionSimplifier(
 
     val standardNontrivialDef = NonTrivialDefAnalysis(g, customDefAnalysis)
 
-    private fun TACExpr.defaultEvalAsExpr(args: List<BigInteger>) =
+    private fun TACExpr.defaultEvalAsExpr(args: List<BigInteger>): TACExpr.Sym.Const? =
         letIf(defaultTo256Bits) {
             fun opsTag() = commonSuperTag(getOperands().map { it.tag ?: Bit256 }) as Tag.Bits
             when (this) {
@@ -102,7 +100,7 @@ open class ExpressionSimplifier(
                         this
                     }
             }
-        }.eval(args)!!.asTACExpr(tag ?: defaultTag)
+        }.eval(args)?.asTACExpr(tag ?: defaultTag)
 
     private fun TACExpr.defaultEvalAsExpr(vararg args : BigInteger) =
         defaultEvalAsExpr(args.toList())
@@ -135,7 +133,7 @@ open class ExpressionSimplifier(
         val (o1c, o2c) = o1.getAsConst() to o2.getAsConst()
 
         return if (o1c != null && o2c != null) {
-            (e as TACExpr).defaultEvalAsExpr(o1c, o2c)
+            (e as TACExpr).defaultEvalAsExpr(o1c, o2c)!!
         } else {
             (e as TACExpr).rebuild(o1, o2)
         }
@@ -156,7 +154,7 @@ open class ExpressionSimplifier(
                 logger.warn { "Invalid power $powAsConst in $e in $ptr, from $base and $pow" }
                 e.rebuild(base, pow)
             } else {
-                e.defaultEvalAsExpr(baseAsConst, powAsConst)
+                e.defaultEvalAsExpr(baseAsConst, powAsConst)!!
             }
         } else {
             e.rebuild(base, pow)
@@ -177,7 +175,7 @@ open class ExpressionSimplifier(
         val simplifiedO1AsConst = inPrestate { simplify(sub.o1, ptr).getAsConst() }
         val simplifiedO2AsConst = inPrestate { simplify(sub.o2, ptr).getAsConst() }
         if (simplifiedO1AsConst != null && simplifiedO2AsConst != null) {
-            return sub.defaultEvalAsExpr(simplifiedO1AsConst, simplifiedO2AsConst)
+            return sub.defaultEvalAsExpr(simplifiedO1AsConst, simplifiedO2AsConst)!!
         }
 
         // o1 will be c1 + (c2 + ... (cn + V)) and V will be m0x40. o2 will be m0x40. let's detect that...
@@ -351,38 +349,9 @@ open class ExpressionSimplifier(
         ptr: CmdPointer,
     ): TACExpr {
         val simplifiedOps = e.ops.map { simplify(it, ptr) }
-        val simplifiedOp = simplifiedOps.singleOrNull()
-        val simplifiedApply = e.copy(ops = simplifiedOps)
-        val f = e.f
-        return if (f is TACExpr.TACFunctionSym.BuiltIn && simplifiedOp is TACExpr.Sym.Const) {
-            when (f.bif) {
-                is TACBuiltInFunction.SafeMathNarrow -> {
-                    check(
-                        simplifiedOp.s.value <= maxUnsignedValueOfBitwidth(Config.VMConfig.registerBitwidth)
-                            || simplifiedOp.s.value >= minSignedValueOfBitwidth(Config.VMConfig.registerBitwidth)
-                    ) {
-                        "Oops, narrowing $simplifiedOp isn't safe!"
-                    }
-                    simplifiedOp.s.value.asTACExpr(f.bif.returnSort)
-                }
-
-                is TACBuiltInFunction.SafeMathPromotion -> {
-                    simplifiedOp
-                }
-
-                is TACBuiltInFunction.TwosComplement.Wrap -> {
-                    e.defaultEvalAsExpr(simplifiedOp.s.value)
-                }
-
-                is TACBuiltInFunction.TwosComplement.Unwrap -> {
-                    e.defaultEvalAsExpr(simplifiedOp.s.value)
-                }
-
-                else -> simplifiedApply
-            }
-        } else {
-            simplifiedApply
-        }
+        return simplifiedOps.monadicMap { it.asConstOrNull }
+            ?.let { e.defaultEvalAsExpr(it) }
+            ?: e.rebuild(simplifiedOps)
     }
 
     context(SimplificationContext)
