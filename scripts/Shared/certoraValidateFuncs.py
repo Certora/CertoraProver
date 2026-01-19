@@ -92,6 +92,7 @@ class RunSources(Util.NoValEnum):
     BENCHMARK = auto()
     LIGHT_TEST = auto()
     REPORT = auto()
+    TIMEOUTER = auto()
 
 
 class WaitForResultOptions(Util.NoValEnum):
