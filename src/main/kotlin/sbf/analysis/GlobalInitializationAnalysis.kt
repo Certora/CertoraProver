@@ -81,7 +81,7 @@ fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> runGlobalInitializationAn
             if (inst is SbfInstruction.Mem && inst.isLoad) {
                 val (width, base, offset) = inst.access
                 // 2. check that the load accesses a global variable
-                val gv = getGlobalVariable(locInst, base, scalarAnalysis) ?: continue
+                val gv = getGlobalVariable(locInst, base.reg, scalarAnalysis) ?: continue
                 val curOffset = (offset + width).toShort()
                 val maxOffset = globalInit.getOrPut(gv) { GlobalVarInitializer(gv, curOffset, 0, locInst, listOf()) }.largestOffset
                 // 3. update maximum accessed offset so far and stride for the global variable

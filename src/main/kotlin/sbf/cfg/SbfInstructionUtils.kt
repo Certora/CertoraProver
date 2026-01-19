@@ -58,7 +58,7 @@ fun <D, TNum, TOffset> normalizeLoadOrStore(
 
     return normalizedMemAccess(
         locInst,
-        inst.access.baseReg,
+        inst.access.base,
         inst.access.offset.toLong(),
         inst.access.width,
         types
@@ -170,7 +170,7 @@ fun emitMemcpy(
             Value.Reg(SbfRegister.R3_ARG)
         ),
         metadata,
-        intrinsicsMetadata = SbfMeta.MEMCPY_PROMOTION to ""
+        intrinsicsMetadata = SbfMeta.MEMCPY_PROMOTION()
     )
 
 /**
@@ -203,7 +203,7 @@ fun emitMemcpyZExt(
             Value.Reg(SbfRegister.R3_ARG)
         ),
         metadata,
-        intrinsicsMetadata = SbfMeta.MEMCPY_ZEXT_PROMOTION to ""
+        intrinsicsMetadata = SbfMeta.MEMCPY_ZEXT_PROMOTION()
     )
 
 /**
@@ -236,7 +236,7 @@ fun emitMemcpyTrunc(
             Value.Reg(SbfRegister.R3_ARG)
         ),
         metadata,
-        intrinsicsMetadata = SbfMeta.MEMCPY_TRUNC_PROMOTION to ""
+        intrinsicsMetadata = SbfMeta.MEMCPY_TRUNC_PROMOTION()
     )
 
 
@@ -268,7 +268,7 @@ fun emitMemset(
             Value.Reg(SbfRegister.R3_ARG)
         ),
         metadata,
-        intrinsicsMetadata = SbfMeta.MEMSET_PROMOTION to ""
+        intrinsicsMetadata = SbfMeta.MEMSET_PROMOTION()
     )
 
 private sealed class MemIntrParam

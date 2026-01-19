@@ -300,7 +300,7 @@ private fun isEqualZeroCondition(cond: Condition, x: Value.Reg):Boolean {
 private fun addSafeMathAnnot(bb: MutableSbfBasicBlock, locInst: LocatedSbfInstruction) {
     val inst = locInst.inst
     if (inst is SbfInstruction.Bin && (inst.op == BinOp.ADD || inst.op == BinOp.SUB)) {
-        val newMetaData = inst.metaData.plus(Pair(SbfMeta.SAFE_MATH, ""))
+        val newMetaData = inst.metaData.plus(SbfMeta.SAFE_MATH())
         bb.replaceInstruction(locInst.pos, inst.copy(metaData = newMetaData))
     }
 }

@@ -37,7 +37,7 @@ class MemoryMemsetTest {
     ): PTANode<Flags>? {
         val lhs = Value.Reg(SbfRegister.R7)
         check(base != lhs)
-        val inst = SbfInstruction.Mem(Deref(width, base, offset, null), lhs, true, null)
+        val inst = SbfInstruction.Mem(Deref(width, base, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
         g.doLoad(locInst, base, SbfType.top(), globals)
         val sc = g.getRegCell(lhs)

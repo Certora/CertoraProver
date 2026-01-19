@@ -18,6 +18,7 @@
 package sbf.analysis
 
 import sbf.cfg.LocatedSbfInstruction
+import sbf.cfg.Value
 import sbf.disassembler.SbfRegister
 import sbf.domains.INumValue
 import sbf.domains.IOffset
@@ -31,5 +32,8 @@ interface IRegisterTypes<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> {
      * - If [isWritten] is `false` then [r] can be any register. If [r] is both read and written by [i] the returned type
      *   is the one from the read register.
      **/
-    fun typeAtInstruction(i: LocatedSbfInstruction, r: SbfRegister, isWritten: Boolean = false): SbfType<TNum, TOffset>
+    fun typeAtInstruction(i: LocatedSbfInstruction, r: Value.Reg, isWritten: Boolean = false): SbfType<TNum, TOffset>
+
+    fun typeAtInstruction(i: LocatedSbfInstruction, r: SbfRegister, isWritten: Boolean = false): SbfType<TNum, TOffset> =
+        typeAtInstruction(i, Value.Reg(r), isWritten)
 }

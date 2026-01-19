@@ -32,7 +32,7 @@ import datastructures.stdcollections.*
  **/
 class DummyMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> (
         vFac: TACVariableFactory<TFlags>,
-        private val regTypes: IRegisterTypes<TNum, TOffset>
+        private val types: IRegisterTypes<TNum, TOffset>
     ): TACMemSplitter {
     private val mem: TACVariable = vFac.getWholeMemoryByteMapVar()
 
@@ -49,7 +49,7 @@ class DummyMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlag
                                                         TACMemSplitter.HavocMapBytes(listOf()))
             }
             SolanaFunction.SOL_MEMCMP -> {
-                val lenType = regTypes.typeAtInstruction(locInst, SbfRegister.R3_ARG)
+                val lenType = types.typeAtInstruction(locInst, SbfRegister.R3_ARG)
                 if (lenType is SbfType.NumType) {
                     val len = lenType.value.toLongOrNull()
                     if (len != null) {
@@ -796,7 +796,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             }
 
             val g = absVal.getPTAGraph()
-            val baseReg = inst.access.baseReg
+            val baseReg = inst.access.base
             val offset = inst.access.offset
             val width = inst.access.width
             val baseSc = g.getRegCell(baseReg)
@@ -990,7 +990,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                         val stackPtrC = getCellFromStackPtr(locInst, pre)
 
                         // process de-referenced register
-                        val baseReg = inst.access.baseReg
+                        val baseReg = inst.access.base
                         val offset = inst.access.offset
                         val derefSc = getSymCell(baseReg, offset, locInst, pre)
 

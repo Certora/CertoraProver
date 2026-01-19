@@ -41,7 +41,7 @@ class MemorySummariesTest {
     ): PTANode<Flags> {
         val lhs = Value.Reg(SbfRegister.R7)
         check(baseR != lhs)
-        val inst = SbfInstruction.Mem(Deref(width, baseR, offset, null), lhs, true, null)
+        val inst = SbfInstruction.Mem(Deref(width, baseR, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
         g.doLoad(locInst, baseR, SbfType.top(), globals)
         val sc = g.getRegCell(lhs)

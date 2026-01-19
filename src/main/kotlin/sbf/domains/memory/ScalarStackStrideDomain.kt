@@ -381,7 +381,8 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         scalars: ScalarDomain<TNum, TOffset>,
         inst: SbfInstruction.Bin,
      ): SetOfStackStridePredicate {
-        val k = (scalars.getValue(inst.v).type() as? SbfType.NumType)?.value?.toLongOrNull()
+        val rhs = inst.v
+        val k = (scalars.getValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
             ?: // the implementation only supports for now constant offsets
             return SetOfStackStridePredicate()
 
@@ -556,16 +557,18 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         }
 
         val lhs = inst.dst
+        val rhs = inst.v
+
         when (inst.op) {
             BinOp.MOV -> {
-                if (inst.v is Value.Reg) {
-                    base.setRegister(lhs, base.getRegister(inst.v))
+                if (rhs is Value.Reg) {
+                    base.setRegister(lhs, base.getRegister(rhs))
                 } else {
                     forget(lhs)
                 }
             }
             BinOp.ADD, BinOp.SUB -> {
-                val k = (scalars.getValue(inst.v).type() as? SbfType.NumType)?.value?.toLongOrNull()
+                val k = (scalars.getValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
                 when (scalars.getValue(lhs).type()) {
                     is SbfType.PointerType.Stack -> {
                         if (k != null) {
@@ -703,7 +706,8 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         check(inst is SbfInstruction.Mem)
         check(!inst.isLoad)
 
-        val baseType = scalars.getAsScalarValue(inst.access.baseReg).type()
+        val baseReg = inst.access.base
+        val baseType = scalars.getAsScalarValue(baseReg).type()
         if (baseType is SbfType.PointerType.Stack) {
             val stackTOffsets = baseType.offset.add(inst.access.offset.toLong())
             check(!stackTOffsets.isBottom())
@@ -742,9 +746,9 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
             // Do the actual store in the stack at the determined location
             if (stackOffset != null) {
                 val slice = ByteRange(stackOffset, inst.access.width.toByte())
-                val x = when (inst.value) {
+                val x = when (val rhs = inst.value) {
                     is Value.Imm -> SetOfStackStridePredicate.mkTop()
-                    is Value.Reg -> base.getRegister(inst.value)
+                    is Value.Reg -> base.getRegister(rhs)
                 }
                 // onlyPartial=false means that any overlapping entry is killed
                 base.removeStackSliceIf(slice.offset, slice.width.toLong(), onlyPartial = false)
@@ -762,11 +766,13 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         check(inst is SbfInstruction.Mem)
         check(inst.isLoad)
 
+        val lhs = inst.value as Value.Reg
         if (inst.access.width.toInt() != 8) {
-            forget(inst.value as Value.Reg)
+            forget(lhs)
         }
 
-        (scalars.getAsScalarValue(inst.access.baseReg).type() as? SbfType.PointerType.Stack)?.let { baseType ->
+        val baseReg = inst.access.base
+        (scalars.getAsScalarValue(baseReg).type() as? SbfType.PointerType.Stack)?.let { baseType ->
             val stackTOffsets = baseType.offset.add(inst.access.offset.toLong())
             check(!stackTOffsets.isBottom())
 
@@ -788,16 +794,16 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
                 val slice = ByteRange(stackOffset, inst.access.width.toByte())
                 val x = base.getStackSingletonOrNull(slice)
                 if (x == null) {
-                    forget(inst.value as Value.Reg)
+                    forget(lhs)
                 } else {
-                    base.setRegister(inst.value as Value.Reg, x)
+                    base.setRegister(lhs, x)
                 }
                 return
             }
         }
 
         // default: havoc lhs
-        forget(inst.value as Value.Reg)
+        forget(lhs)
     }
 
     fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyze(
@@ -976,12 +982,14 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
                 if (inst is SbfInstruction.Bin) {
                     when (inst.op) {
                         BinOp.ADD, BinOp.SUB -> {
-                            val k = (scalars.getValue(inst.v).type() as? SbfType.NumType)?.value?.toLongOrNull()
+                            val rhs = inst.v
+                            val lhs = inst.dst
+                            val k = (scalars.getValue(rhs).type() as? SbfType.NumType)?.value?.toLongOrNull()
                             if (k != 0L) {
                                 // REDUCTION: if pointer arithmetic over the stack: infer new predicate
-                                predicates.inferPredicate(inst.dst, scalars, inst).let { preds ->
+                                predicates.inferPredicate(lhs, scalars, inst).let { preds ->
                                     if (!preds.isTop()) {
-                                        predicates.setRegister(inst.dst, preds)
+                                        predicates.setRegister(lhs, preds)
                                     }
                                 }
                             }

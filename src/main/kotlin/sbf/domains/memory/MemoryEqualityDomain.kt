@@ -780,7 +780,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     ) {
         check(inst.isLoad)
 
-        val baseReg = inst.access.baseReg
+        val baseReg = inst.access.base
         val offset = inst.access.offset.toLong()
         val width = inst.access.width
 
@@ -792,7 +792,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         val baseSymC = memoryAbsVal.getPTAGraph().getRegCell(baseReg)
         if (baseSymC != null && baseSymC.isConcrete()) {
             val baseC = baseSymC.concretize()
-            val lhs = inst.value as Value.Reg
+            val lhs = inst.value  as Value.Reg
             val loadedTerm = Load(baseC, offset, width)
             instMap = instMap.put(lhs, loadedTerm)
         }
@@ -804,7 +804,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     ) {
         check(!inst.isLoad)
 
-        val baseReg = inst.access.baseReg
+        val baseReg = inst.access.base
         val offset = inst.access.offset.toLong()
         val width = inst.access.width
         val storedVal = inst.value

@@ -92,9 +92,15 @@ private typealias InsPtr = Pair<Label, Int>
  * See [mutateInterCfg] and [mutateInterCfg].
  */
 
-private const val ALIGNMENT = 8;
+private const val ALIGNMENT = 8
+private val STACKREG = Value.Reg(SbfRegister.R10_STACK_POINTER)
 
-class DWARFEdgeLabelAnnotator(private val debugInformation: DebugSymbols, private val debugNodeOfSubProgram: Subprogram, private val input: MutableSbfCFG, val entryAddr: ULong) {
+class DWARFEdgeLabelAnnotator(
+    private val debugInformation: DebugSymbols,
+    private val debugNodeOfSubProgram: Subprogram,
+    private val input: MutableSbfCFG,
+    private val entryAddr: ULong
+) {
     private val scopes: MutableMap<ULong, MutableSet<DwarfMethod>> = mutableMapOf()
     private val insToAddr: MutableMap<SbfInstruction, ULong> = mutableMapOf()
     private val callStackCache = mutableMapOf<ULong, CallStack>()
@@ -112,7 +118,7 @@ class DWARFEdgeLabelAnnotator(private val debugInformation: DebugSymbols, privat
                 .flatMap {
                     it.value.getInstructions().filterIsInstance<SbfInstruction.Mem>()
                         .mapNotNull {
-                            if (it.access.baseReg.r == SbfRegister.R10_STACK_POINTER) {
+                            if (it.access.base == STACKREG) {
                                 it.access.offset.toInt()
                             } else {
                                 null
@@ -190,7 +196,7 @@ class DWARFEdgeLabelAnnotator(private val debugInformation: DebugSymbols, privat
             val currBB = currEntry.value
             val lastCurrIns = currBB.getInstructions().last()
             val labelToAnnotations = currBB.getSuccs().map { succBB ->
-                val firstInsSucc = succBB.getInstruction(0);
+                val firstInsSucc = succBB.getInstruction(0)
                 succBB.getLabel() to getEdges(lastCurrIns, firstInsSucc)
             }
             currBB.getLabel() to labelToAnnotations
@@ -221,7 +227,7 @@ class DWARFEdgeLabelAnnotator(private val debugInformation: DebugSymbols, privat
                         }
 
                         is SbfInstruction.Jump.UnconditionalJump -> SbfInstruction.Jump.UnconditionalJump(newBlock.getLabel(), lastCurrIns.metaData)
-                        else -> error("The structure of the CFG is broken, expecting a successor only when we have a conditional jump or an unconditional jump. Found ${lastCurrIns}")
+                        else -> error("The structure of the CFG is broken, expecting a successor only when we have a conditional jump or an unconditional jump. Found $lastCurrIns")
                     }
                     val targetBlock = input.getMutableBlock(target)!!
                     currBB.removeSucc(targetBlock)
@@ -278,15 +284,15 @@ class DWARFEdgeLabelAnnotator(private val debugInformation: DebugSymbols, privat
         val currAddr = insToAddr[current]!!
         val succAddr = insToAddr[successor]!!
         return if (succAddr == currAddr) {
-            getEdgeAnnotationsAddressRemainsUnchanged(current, currAddr);
+            getEdgeAnnotationsAddressRemainsUnchanged(current, currAddr)
         } else {
-            getEdgeAnnotationsWhenAddressChanges(current, currAddr, succAddr);
-        }.also { check(it.toSet().size == it.size){ "There is duplicated information in the labels ${it}"} }
+            getEdgeAnnotationsWhenAddressChanges(current, currAddr, succAddr)
+        }.also { check(it.toSet().size == it.size){ "There is duplicated information in the labels $it"} }
     }
 
     private fun annotateCFGBlocks() {
         input.getMutableBlocks().forEachEntry { entry ->
-            val bb = entry.value;
+            val bb = entry.value
             val instructions = bb.getLocatedInstructions()
             check(instructions.dropLast(1).all { (it.inst !is SbfInstruction.Jump.ConditionalJump && it.inst !is SbfInstruction.Jump.UnconditionalJump) }) { "Expecting to see a jump instruction only as last statement of the block " }
             val toInsert = instructions.drop(1).fold(listOf<Pair<LocatedSbfInstruction, List<DWARFCfgEdgeLabel>>>(instructions[0] to emptyList())) { acc, curr ->
@@ -304,7 +310,7 @@ class DWARFEdgeLabelAnnotator(private val debugInformation: DebugSymbols, privat
      * Fills the [insToAddr] map so that every instruction has a unique address from the preceeding commands.
      */
     private fun computeAddressesPerInstruction() {
-        val entryBlock = input.getMutableEntry();
+        val entryBlock = input.getMutableEntry()
         val entryIns = (entryBlock.getLabel() to 0)
         insToAddr[entryIns.getInstruction()] = entryAddr
         val seeds = entryIns.getSuccessorInstructions().map { succ -> WorklistElement(entryIns, entryAddr, succ) }
@@ -410,7 +416,7 @@ class DWARFEdgeLabelAnnotator(private val debugInformation: DebugSymbols, privat
          * keeps track of the lowest index at which variable changes occurred, so that
          * we can push the popped stack elements back onto the stack.
          */
-        var lastSeenIdx = 0;
+        var lastSeenIdx = 0
         /**
          * Iterates over the common shared stack in reversed order (from top of the stack to bottom).
          * For every element except the top stack, check if the statements introduces variable information.
@@ -614,7 +620,7 @@ data class CallStackLevel private constructor(val scopes: Set<DwarfMethod>, val 
         if (Config.CallTraceDebugAdapterProtocol.get() != DebugAdapterProtocolMode.VARIABLES) {
             return emptySet()
         }
-        val res: MutableSet<DWARFCfgEdgeLabel> = mutableSetOf();
+        val res: MutableSet<DWARFCfgEdgeLabel> = mutableSetOf()
         variables.forEach { el ->
             if (!el.inRange(currAddr) && el.inRange(succAddr)) {
                 res.add(DWARFCfgEdgeLabel.VariableBecomingLive(this, el))
@@ -644,16 +650,16 @@ data class CallStackLevel private constructor(val scopes: Set<DwarfMethod>, val 
          * Note that there are different cases to consider, if the variable is access is on r10 or on another register.
          * For r10, extra logic must be taken care of to factor in the frame base pointer.
          */
-        if (currIns.access.baseReg.r == SbfRegister.R10_STACK_POINTER) {
+        if (currIns.access.base == STACKREG) {
             if (frameBasePointer == null) {
                 return emptySet()
             }
             return liveVariables.flatMapToSet { sourceVariable ->
                 val dereferencedVar = sourceVariable.variableType!!.asNonReferenceType()
                 sourceVariable.operations.splitToOffsets(dereferencedVar).mapNotNull { (offset, ops) ->
-                    val registerAccess = ops.getRegisterAccess(currIns.access.baseReg.r)
+                    val registerAccess = ops.getRegisterAccess(currIns.access.base.r)
                     if (registerAccess != null) {
-                        val registerOffset = registerAccess.offset();
+                        val registerOffset = registerAccess.offset()
                         val offsetIntoStruct = currIns.access.offset - (frameBasePointer.toLong() + registerOffset)
                         if (offset == Offset(offsetIntoStruct.toULong())) {
                             DWARFCfgEdgeLabel.DirectMemoryAccess(this, sourceVariable, offset, ops, currIns, currIns.value)
@@ -670,9 +676,9 @@ data class CallStackLevel private constructor(val scopes: Set<DwarfMethod>, val 
             return liveVariables.flatMapToSet { sourceVariable ->
                 val dereferencedVar = sourceVariable.variableType!!.asNonReferenceType()
                 sourceVariable.operations.splitToOffsets(dereferencedVar).mapNotNull { (offset, ops) ->
-                    val registerAccess = ops.getRegisterAccess(currIns.access.baseReg.r)
+                    val registerAccess = ops.getRegisterAccess(currIns.access.base.r)
                     if (registerAccess != null) {
-                        val registerOffset = registerAccess.offset();
+                        val registerOffset = registerAccess.offset()
                         val offsetIntoStruct = currIns.access.offset - registerOffset
                         if (offset == Offset(offsetIntoStruct.toULong())) {
                             DWARFCfgEdgeLabel.DirectMemoryAccess(this, sourceVariable, offset, ops, currIns, currIns.value)
@@ -725,7 +731,7 @@ data class SourceVariableDebugInformation(val variableName: String, val variable
     }
 
     override fun toString(): String {
-        return "Variable information: $variableName valid in ${range} and constructed via $operations"
+        return "Variable information: $variableName valid in $range and constructed via $operations"
     }
 }
 
@@ -784,7 +790,7 @@ fun List<DWARFOperation>.splitToOffsets(variableType: RustType?): Map<Offset, Li
     }
     val offsetToOperations = this.splitOperationsInPieces(variableType)
     val flattenedType = variableType.flattenToOffsets()
-    val res = mutableMapOf<Offset, List<DWARFOperation>>();
+    val res = mutableMapOf<Offset, List<DWARFOperation>>()
 
     offsetToOperations.forEachEntry { e ->
         val (operationsOffset, operationsWidth) = e.key

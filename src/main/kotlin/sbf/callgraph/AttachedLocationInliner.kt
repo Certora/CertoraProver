@@ -40,15 +40,15 @@ fun inlineAttachedLocations(
         prog.getGlobals(),
         memSummaries
     )
-    val regTypes = AnalysisRegisterTypes(scalarAnalysis)
+    val types = AnalysisRegisterTypes(scalarAnalysis)
     return prog.transformSingleEntry { cfg ->
         val cfgMut = cfg.clone(cfg.getName())
-        AttachedLocationInliner(regTypes).run(cfgMut)
+        AttachedLocationInliner(types).run(cfgMut)
     }
 }
 
 private class AttachedLocationInliner<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>(
-    val regTypes: IRegisterTypes<TNum, TOffset>,
+    val types: IRegisterTypes<TNum, TOffset>,
 ) {
 
     fun run(cfgMut: MutableSbfCFG): SbfCFG {
@@ -119,7 +119,7 @@ private class AttachedLocationInliner<TNum : INumValue<TNum>, TOffset : IOffset<
      * validated to be [CVTCalltrace.ATTACH_LOCATION]
      */
     private fun toRangeUnchecked(locInst: LocatedSbfInstruction): Range.Range {
-        val (filepath, oneBasedLineNumber) = regTypes.getFilepathAndLineNumber(locInst)
+        val (filepath, oneBasedLineNumber) = types.getFilepathAndLineNumber(locInst)
 
         val lineNumber = oneBasedLineNumber.checkedMinus(1U) ?: 0U
 

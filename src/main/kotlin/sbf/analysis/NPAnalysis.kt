@@ -32,7 +32,7 @@ import sbf.domains.*
  * The [NPDomain] computes all the necessary preconditions (NP) at the entry of the CFG to reach every assertion in the CFG.
  * These NPs can be used to refine the forward invariants, by excluding abstract states that cannot reach any assertion.
  *
- * For the fixpoint engine we use the existing [BlockDataFlowAnalysis].
+ * For the fixpoint engine we use the existing `BlockDataFlowAnalysis`.
  * Alternatively, we could have also used the WTO-based fixpoint and reverse the CFG.
  */
 data class NPDomainState<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, ScalarDomain>(

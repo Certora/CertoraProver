@@ -91,15 +91,15 @@ private fun getRegFromUnaryConditionOrNull(cond: Condition): Value.Reg? {
 
 private fun <D, TNum, TOffset> resolveStackAccessOrNull(
     locatedInst: LocatedSbfInstruction,
-    regTypes: AnalysisRegisterTypes<D, TNum, TOffset>): StackContentMeta?
+    types: AnalysisRegisterTypes<D, TNum, TOffset>): StackContentMeta?
 where TNum: INumValue<TNum>,
       TOffset: IOffset<TOffset>,
       D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
     val inst = locatedInst.inst
     check(inst is SbfInstruction.Mem) { "normalizeLoad expects a memory instruction instead of $inst" }
-    val base = inst.access.baseReg
+    val base = inst.access.base
     val width = inst.access.width
-    val regType = regTypes.typeAtInstruction(locatedInst, base.r)
+    val regType = types.typeAtInstruction(locatedInst, base)
     return if (regType is SbfType.PointerType.Stack) {
         val offset = regType.offset.toLongOrNull()
         if (offset != null) {

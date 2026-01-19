@@ -22,6 +22,7 @@ import sbf.disassembler.Label
 import sbf.callgraph.CVTFunction
 import datastructures.stdcollections.*
 import sbf.callgraph.CVTCore
+import sbf.callgraph.SolanaFunction
 
 /**
  *  Unhoist memcpy and memcmp instructions so that the pointer analysis does not lose too much precision
@@ -82,23 +83,26 @@ fun unhoistMemFunctions(cfg: MutableSbfCFG) {
                     // If both are written in the same block, then unhoisting the memcpy will not help
                     break
                 }
-                if (inst is SbfInstruction.Call &&
-                    (CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)  ||
-                        CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS))) {
-                    // We don't want to unhoist these instructions, we bail out here.
-                    break
-                }
 
-                if (inst is SbfInstruction.Call && (inst.name == "sol_memcpy_" || inst.name == "sol_memcmp_")) {
-                    // Added metadata to the instruction
-                    val newMetaData = if (inst.name == "sol_memcpy_") {
-                        inst.metaData.plus(Pair(SbfMeta.UNHOISTED_MEMCPY, ""))
-                    } else {
-                        inst.metaData.plus(Pair(SbfMeta.UNHOISTED_MEMCMP, ""))
+                if (inst is SbfInstruction.Call) {
+                    val cvtFunction = CVTFunction.from(inst.name)
+                    if (cvtFunction == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)  ||
+                        cvtFunction == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
+                        // We don't want to unhoist these instructions, we bail out here.
+                        break
                     }
-                    val newMemcpyInst = inst.copy(metaData = newMetaData)
-                    b.replaceInstruction(locInst, newMemcpyInst)
-                    worklist.add(Pair(b, locInst.pos))
+
+                    val metadata = when (inst.name) {
+                        SolanaFunction.SOL_MEMCPY.syscall.name -> SbfMeta.UNHOISTED_MEMCPY()
+                        SolanaFunction.SOL_MEMCMP.syscall.name -> SbfMeta.UNHOISTED_MEMCMP()
+                        else -> null
+                    }
+
+                    metadata?.let {
+                        val updatedInst = inst.copy(metaData = inst.metaData + it)
+                        b.replaceInstruction(locInst, updatedInst)
+                        worklist.add(b to locInst.pos)
+                    }
                 }
             }
         }
@@ -132,7 +136,7 @@ fun unhoistPromotedMemcpy(cfg: MutableSbfCFG) {
                 } else if (isEndPromotedMemcpy(inst)) {
                     isPromotedMemcpy = false
                     // Added metadata to the CVT_restore_scratch_registers instruction
-                    val newMetaData = inst.metaData.plus(Pair(SbfMeta.UNHOISTED_MEMCPY, ""))
+                    val newMetaData = inst.metaData.plus(SbfMeta.UNHOISTED_MEMCPY())
                     check(inst is SbfInstruction.Call)
                     val newInst = inst.copy(metaData = newMetaData)
                     b.replaceInstruction(i, newInst)

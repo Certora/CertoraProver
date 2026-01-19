@@ -72,28 +72,32 @@ object SbfMeta {
     val SET_GLOBAL = MetaKey<String>("set_global")
     // If a call to a function is mocking a call to another function, this is the original function
     val MOCK_FOR = MetaKey<String>("mock_for")
+    // for source line information
+    val RANGE = MetaKey<Range.Range>("range")
 
     // These keys have empty strings as values. The values are irrelevant
-    val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<String>("hint_optimized_wide_store")
-    val MEMCPY_PROMOTION = MetaKey<String>("promoted_memcpy")
-    val MEMCPY_ZEXT_PROMOTION = MetaKey<String>("promoted_memcpy_zext")
-    val MEMCPY_TRUNC_PROMOTION = MetaKey<String>("promoted_memcpy_trunc")
-    val MEMSET_PROMOTION = MetaKey<String>("promoted_memset")
-    val UNHOISTED_STORE = MetaKey<String>("unhoisted_store")
-    val UNHOISTED_LOAD = MetaKey<String>("unhoisted_load")
-    val UNHOISTED_MEMCPY = MetaKey<String>("unhoisted_memcpy")
-    val UNHOISTED_MEMCMP = MetaKey<String>("unhoisted_memcmp")
-    val UNHOISTED_STACK_POP = MetaKey<String>("unhoisted_stack_pop")
-    val LOWERED_SELECT = MetaKey<String>("lowered_select")
-    val REMOVED_MEMMOVE = MetaKey<String>("sol_memmove_")
-    val LOWERED_ASSUME = MetaKey<String>("lowered_assume")
-    val LOWERED_OR = MetaKey<String>("lowered_or")
-    val UNREACHABLE_FROM_COI = MetaKey<String>("unreachable_from_coi")
-    val SAFE_MATH = MetaKey<String>("safe_math")
-    val RANGE = MetaKey<Range.Range>("range")
+    val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<Unit>("hint_optimized_wide_store")
+    val MEMCPY_PROMOTION = MetaKey<Unit>("promoted_memcpy")
+    val MEMCPY_ZEXT_PROMOTION = MetaKey<Unit>("promoted_memcpy_zext")
+    val MEMCPY_TRUNC_PROMOTION = MetaKey<Unit>("promoted_memcpy_trunc")
+    val MEMSET_PROMOTION = MetaKey<Unit>("promoted_memset")
+    val UNHOISTED_STORE = MetaKey<Unit>("unhoisted_store")
+    val UNHOISTED_LOAD = MetaKey<Unit>("unhoisted_load")
+    val UNHOISTED_MEMCPY = MetaKey<Unit>("unhoisted_memcpy")
+    val UNHOISTED_MEMCMP = MetaKey<Unit>("unhoisted_memcmp")
+    val UNHOISTED_STACK_POP = MetaKey<Unit>("unhoisted_stack_pop")
+    val LOWERED_SELECT = MetaKey<Unit>("lowered_select")
+    val REMOVED_MEMMOVE = MetaKey<Unit>("sol_memmove_")
+    val LOWERED_ASSUME = MetaKey<Unit>("lowered_assume")
+    val LOWERED_OR = MetaKey<Unit>("lowered_or")
+    val UNREACHABLE_FROM_COI = MetaKey<Unit>("unreachable_from_coi")
+    val SAFE_MATH = MetaKey<Unit>("safe_math")
+
 }
 
 data class MetaKey<T>(val name: String)
+
+operator fun MetaKey<Unit>.invoke() = this to Unit
 
 data class StackContentMeta(val offset: Long, val width: Short)
 

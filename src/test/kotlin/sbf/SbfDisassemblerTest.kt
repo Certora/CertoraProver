@@ -141,7 +141,7 @@ class SbfDisassemblerTest {
         Assertions.assertEquals(true,
             inst is SbfInstruction.Mem &&
                    !inst.isLoad &&
-                   inst.access.baseReg.r == SbfRegister.R9 &&
+                   inst.access.base.r == SbfRegister.R9 &&
                    inst.value == Value.Imm((-1).toULong()))
     }
 
@@ -168,7 +168,7 @@ class SbfDisassemblerTest {
         Assertions.assertEquals(true,
             inst is SbfInstruction.Mem &&
                 !inst.isLoad &&
-                inst.access.baseReg.r == SbfRegister.R10_STACK_POINTER &&
+                inst.access.base.r == SbfRegister.R10_STACK_POINTER &&
                 inst.access.offset.toInt() == -72 &&
                 inst.value == Value.Reg(SbfRegister.R1_ARG))
     }

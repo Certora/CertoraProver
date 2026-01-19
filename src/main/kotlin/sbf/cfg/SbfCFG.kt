@@ -515,7 +515,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
             // we know already there is a CFG edge from src to dst
             return if (dst.getPreds().size == 1) {
                 // no need to add an extra basic block to model the control-flow edge
-                dst.add(0, SbfInstruction.Assume(cond, metaData = MetaData(SbfMeta.LOWERED_ASSUME to "")))
+                dst.add(0, SbfInstruction.Assume(cond, metaData = MetaData(SbfMeta.LOWERED_ASSUME())))
                 null
             } else {
                 // we need to add an extra basic block to model the control-flow edge
@@ -564,7 +564,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
             val newLabel = src.refresh()
             val newBlock = getOrInsertBlock(newLabel)
             // add terminator in newBlock to jump to dst
-            newBlock.add(SbfInstruction.Assume(cond, metaData = MetaData(SbfMeta.LOWERED_ASSUME to "")))
+            newBlock.add(SbfInstruction.Assume(cond, metaData = MetaData(SbfMeta.LOWERED_ASSUME())))
             newBlock.add(SbfInstruction.Jump.UnconditionalJump(dst))
             // fix the terminator in src to jump to newBlock instead of dst
             val terminatorSrc = srcB.removeAt(srcB.numOfInstructions()-1) as SbfInstruction.Jump.ConditionalJump

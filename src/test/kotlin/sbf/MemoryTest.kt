@@ -46,7 +46,7 @@ class MemoryTest {
         width: Short,
         lhs: Value.Reg
     ): PTASymCell<Flags>? {
-        val inst = SbfInstruction.Mem(Deref(width, base, offset, null), lhs, true, null)
+        val inst = SbfInstruction.Mem(Deref(width, base, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
         g.doLoad(locInst, base, SbfType.top(), globals)
         return g.getRegCell(lhs)
@@ -59,7 +59,7 @@ class MemoryTest {
         width: Short,
         value: Value.Reg
     ) {
-        val inst = SbfInstruction.Mem(Deref(width, base, offset, null), value, false, null)
+        val inst = SbfInstruction.Mem(Deref(width, base, offset), value, false)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
         g.doStore(locInst, base, value, SbfType.top(), SbfType.top(), globals)
     }

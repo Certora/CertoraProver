@@ -92,8 +92,9 @@ private fun allUsesAreNumForPTA(loadInst: LocatedSbfInstruction,
                 // We can switch from the right-hand side to the left-hand side only if we know the right-hand side is not
                 // used anymore. Otherwise, the right-hand side could be de-referenced without us noticing it.
                 // This is a strong condition. We could separately check the uses of the right-hand side.
-                if (nextUseInst.v is Value.Reg && nextUseInst.v != nextUseInst.dst) {
-                    if (!isDead(nextUseLocInst, setOf(nextUseInst.v), liveness, false)) {
+                val v = nextUseInst.v
+                if (v is Value.Reg && v != nextUseInst.dst) {
+                    if (!isDead(nextUseLocInst, setOf(v), liveness, false)) {
                         return null
                     }
                 }

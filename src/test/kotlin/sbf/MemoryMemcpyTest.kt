@@ -44,7 +44,7 @@ class MemoryMemcpyTest {
     ): PTASymCell<Flags>? {
         val lhs = Value.Reg(SbfRegister.R7)
         check(base != lhs)
-        val inst = SbfInstruction.Mem(Deref(width, base, offset, null), lhs, true, null)
+        val inst = SbfInstruction.Mem(Deref(width, base, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
         g.doLoad(locInst, base, SbfType.top(), globals)
         return g.getRegCell(lhs)
@@ -61,7 +61,7 @@ class MemoryMemcpyTest {
         width: Short,
         value: Value = Value.Reg(SbfRegister.R7)
     ) {
-        val inst = SbfInstruction.Mem(Deref(width, base, offset, null), value, false, null)
+        val inst = SbfInstruction.Mem(Deref(width, base, offset), value, false)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
         g.doStore(locInst, base, value, baseType = SbfType.top(), valueType = SbfType.top(), globals)
     }

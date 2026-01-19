@@ -56,15 +56,14 @@ where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
         }
     }
 
-    override fun typeAtInstruction(i: LocatedSbfInstruction, r: SbfRegister, isWritten: Boolean): SbfType<TNum, TOffset> {
+    override fun typeAtInstruction(i: LocatedSbfInstruction, r: Value.Reg, isWritten: Boolean): SbfType<TNum, TOffset> {
         val inst = i.inst
-        val v = Value.Reg(r)
-        check(!isWritten || v in inst.writeRegister) { "Register $v not written by $inst" }
+        check(!isWritten || r in inst.writeRegister) { "Register $r not written by $inst" }
 
         collectTypesAtInstruction(i)
 
         val types = if (!isWritten) { types } else { typesWriteRegs }
-        return types[i]?.get(r) ?: SbfType.top()
+        return types[i]?.get(r.r) ?: SbfType.top()
     }
 
     /**

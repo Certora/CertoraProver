@@ -253,4 +253,4 @@ private object SemanticConeOfInfluence{
 
 private fun mkUnreachable(comment: String): SbfInstruction =
     SolanaFunction.toCallInst(SolanaFunction.ABORT,
-        MetaData(Pair(SbfMeta.COMMENT, comment)).plus(Pair(SbfMeta.UNREACHABLE_FROM_COI, "")))
+        MetaData(Pair(SbfMeta.COMMENT, comment)).plus(SbfMeta.UNREACHABLE_FROM_COI()))

@@ -1093,7 +1093,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Mem) {"analyzeMem expect a memory instruction instead of $stmt"}
 
-        val baseReg = stmt.access.baseReg
+        val baseReg = stmt.access.base
         val offset = stmt.access.offset
         val width = stmt.access.width
         val value = stmt.value

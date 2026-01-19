@@ -72,7 +72,7 @@ class GlobalInferenceAnalysisTest {
             val locInst = bb.getLocatedInstructions()[pos]
             val inst = locInst.inst
             check(inst is SbfInstruction.Mem) { "$inst is not a memory instruction" }
-            val type = regTypes.typeAtInstruction(locInst, inst.access.baseReg.r)
+            val type = regTypes.typeAtInstruction(locInst, inst.access.base)
             return inst to type
         }
     }

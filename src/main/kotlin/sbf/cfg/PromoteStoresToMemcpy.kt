@@ -232,7 +232,7 @@ private fun <D, TNum, TOffset> processLoadStorePair(
     bb: SbfBasicBlock,
     storeLocInst: LocatedSbfInstruction,
     loadLocInst: LocatedSbfInstruction,
-    regTypes: AnalysisRegisterTypes<D, TNum, TOffset>,
+    types: AnalysisRegisterTypes<D, TNum, TOffset>,
     memcpy: MemcpyPattern
 ): Boolean
 where TNum: INumValue<TNum>,
@@ -248,15 +248,15 @@ where TNum: INumValue<TNum>,
     if (width != storeInst.access.width) {
         return false
     }
-    val loadedMemAccess = normalizeLoadOrStore(loadLocInst, regTypes)
-    val storedMemAccess = normalizeLoadOrStore(storeLocInst, regTypes)
+    val loadedMemAccess = normalizeLoadOrStore(loadLocInst, types)
+    val storedMemAccess = normalizeLoadOrStore(storeLocInst, types)
 
     // This restriction is needed when we emit the code because if both base registers in [load] and [store]
     // are scratch registers then we cannot perform the transformation because we run out of registers
     // where we can save values.
     return when {
         loadedMemAccess.region != MemAccessRegion.STACK && storedMemAccess.region != MemAccessRegion.STACK -> false
-        !isSafeToCommuteStore(bb, loadedMemAccess, loadLocInst, storedMemAccess, storeLocInst, regTypes) -> false
+        !isSafeToCommuteStore(bb, loadedMemAccess, loadLocInst, storedMemAccess, storeLocInst, types) -> false
         else -> memcpy.add(loadedMemAccess, loadLocInst, storedMemAccess, storeLocInst)
     }
 }
@@ -637,7 +637,7 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
 private fun addMemcpyPromotionAnnotation(bb: MutableSbfBasicBlock, locInst: LocatedSbfInstruction) {
     val inst = locInst.inst
     if (inst is SbfInstruction.Mem) {
-        val newMetaData = inst.metaData.plus(SbfMeta.MEMCPY_PROMOTION to "")
+        val newMetaData = inst.metaData.plus(SbfMeta.MEMCPY_PROMOTION())
         val newInst = inst.copy(metaData = newMetaData)
         bb.replaceInstruction(locInst.pos, newInst)
     }
@@ -659,7 +659,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
     loadLocInst: LocatedSbfInstruction,
     store: MemAccess,
     storeLocInst: LocatedSbfInstruction,
-    regTypes: AnalysisRegisterTypes<D, TNum, TOffset>): Boolean
+    types: AnalysisRegisterTypes<D, TNum, TOffset>): Boolean
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
@@ -689,7 +689,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
         }
     }
 
-    val storeBaseReg = storeInst.access.baseReg
+    val storeBaseReg = storeInst.access.base
 
     logger.debug{ "$name: $storeInst up to $loadInst?" }
     // aliases keeps track of other register that might be assigned to the loaded register
@@ -735,7 +735,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
             for (locInst in bb.getLocatedInstructions().subList(loadLocInst.pos+1, storeLocInst.pos)) {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Mem) {
-                    val normMemInst = normalizeLoadOrStore(locInst, regTypes)
+                    val normMemInst = normalizeLoadOrStore(locInst, types)
                     val canCommuteStore = when (getMemAccessRegion(normMemInst.region)) {
                         MemAccessRegion.STACK -> {
                             val noOverlap = !normMemInst.overlap(storeRange)
@@ -760,7 +760,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
                     }
                 } else if (inst is SbfInstruction.Call && SolanaFunction.from(inst.name) == SolanaFunction.SOL_MEMCPY) {
 
-                    val memAccesses = normalizeMemcpy(locInst, regTypes)
+                    val memAccesses = normalizeMemcpy(locInst, types)
                     if (memAccesses == null) {
                         logger.debug {"\t$name FAIL: cannot statically determine length in $inst"}
                         return false
@@ -804,7 +804,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
             val canCommuteStore = bb.getLocatedInstructions().subList(loadLocInst.pos+1, storeLocInst.pos).all { locInst ->
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Mem) {
-                    val normMemInst = normalizeLoadOrStore(locInst, regTypes)
+                    val normMemInst = normalizeLoadOrStore(locInst, types)
                     when (getMemAccessRegion(normMemInst.region)) {
                         MemAccessRegion.STACK -> {
                             logger.debug {"\t$name OK: $inst is stack and $storeInst is non-stack"}

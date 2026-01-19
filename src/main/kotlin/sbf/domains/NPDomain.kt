@@ -492,18 +492,20 @@ data class NPDomain<D, TNum, TOffset>(
             }
         }
 
+        val left = cond.left
         var linCons = getLinCons(cond, vFac)
-        val leftN = getNum(registerTypes.typeAtInstruction(inst, cond.left.r))
+        val leftN = getNum(registerTypes.typeAtInstruction(inst, left))
         if (leftN != null) {
-            linCons =  linCons.eval(RegisterVariable(cond.left, vFac), ExpressionNum(BigInteger.valueOf(leftN)))
+            linCons =  linCons.eval(RegisterVariable(left, vFac), ExpressionNum(BigInteger.valueOf(leftN)))
         }
         return if (linCons.isContradiction()) {
             mkBottom(sbfTypeFac)
         } else {
-            if (cond.right is Value.Reg) {
-                val rightN = getNum(registerTypes.typeAtInstruction(inst, cond.right.r))
+            val right = cond.right
+            if (right is Value.Reg) {
+                val rightN = getNum(registerTypes.typeAtInstruction(inst, right))
                 if (rightN != null) {
-                    linCons = linCons.eval(RegisterVariable(cond.right, vFac),
+                    linCons = linCons.eval(RegisterVariable(right, vFac),
                         ExpressionNum(BigInteger.valueOf(rightN)))
                 }
             }
@@ -964,7 +966,7 @@ data class NPDomain<D, TNum, TOffset>(
         check(inst is SbfInstruction.Mem)
         check(!isBottom())
 
-        val baseTy = registerTypes.typeAtInstruction(locatedInst, inst.access.baseReg.r)
+        val baseTy = registerTypes.typeAtInstruction(locatedInst, inst.access.base)
         if (baseTy is SbfType.PointerType.Stack) {
             // For now, we are only precise if `offset` is a singleton.
             val offset = baseTy.offset.toLongOrNull()
@@ -996,10 +998,11 @@ data class NPDomain<D, TNum, TOffset>(
                     // remove any stack location that overlap with baseV
                     val noOverlaps = removeStrictOverlaps(baseV.toFiniteInterval())
 
-                    val rhsValues: List<Long>? = when (inst.value) {
-                        is Value.Imm -> listOf(inst.value.v.toLong())
+                    val rhs = inst.value
+                    val rhsValues: List<Long>? = when (rhs) {
+                        is Value.Imm -> listOf(rhs.v.toLong())
                         is Value.Reg -> {
-                            (registerTypes.typeAtInstruction(locatedInst, inst.value.r) as? SbfType.NumType)?.value?.toLongList()?.let {
+                            (registerTypes.typeAtInstruction(locatedInst, rhs) as? SbfType.NumType)?.value?.toLongList()?.let {
                                 it.ifEmpty { null }
                             }
                         }
@@ -1012,8 +1015,8 @@ data class NPDomain<D, TNum, TOffset>(
                             acc.join(noOverlaps.eval(baseV, ExpressionNum(rhsValue)))
                         }
                     } else {
-                        check(inst.value is Value.Reg) { "NPDomain in memory store expects the value to be a register" }
-                        val regV = RegisterVariable(inst.value, vFac)
+                        check(rhs is Value.Reg) { "NPDomain in memory store expects the value to be a register" }
+                        val regV = RegisterVariable(rhs, vFac)
                         noOverlaps.substitute(baseV, regV)
                     }
                 }

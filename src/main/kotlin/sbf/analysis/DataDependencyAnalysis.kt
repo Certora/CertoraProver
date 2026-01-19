@@ -196,7 +196,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             throw DDAError(msg = "$inst is not a memory instruction")
         }
 
-        val baseTy = registerTypes.typeAtInstruction(cmd, inst.access.baseReg.r)
+        val baseTy = registerTypes.typeAtInstruction(cmd, inst.access.base)
         return if (baseTy is SbfType.PointerType.Stack) {
             val bases = baseTy.offset.toLongList()
             if (bases.isEmpty()) {
@@ -235,13 +235,14 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             throw DDAError(msg = "$inst is not a binary instruction")
         }
 
+        val rhs = inst.v
         return when (inst.op) {
             BinOp.MOV -> {
-                applyAssign(inst.dst, inst.v)
+                applyAssign(inst.dst, rhs)
             } else -> {
-                when (inst.v) {
+                when (rhs) {
                     is Value.Imm -> applyBinWithImm(inst.dst)
-                    is Value.Reg -> applyBinWithReg(inst.dst, inst.v)
+                    is Value.Reg -> applyBinWithReg(inst.dst, rhs)
                 }
             }
         }
