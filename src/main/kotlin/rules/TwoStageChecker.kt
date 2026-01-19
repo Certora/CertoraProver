@@ -251,6 +251,7 @@ suspend fun twoStageDestructiveOptimizationsCheck(
             firstResult.result.getOrNull()?.result?.examplesInfo?.head?.model
                 ?: throw ViolationWithoutModelException()
         val checkResult = (doSecondCheck(tac, model, "rerun-allvars", check) { _, _ -> true }).addToVerifyTime()
+            ?: (doSecondCheck(tac, model, "rerun-numvars", check) { v, _ -> v.tag != Tag.Bool }).addToVerifyTime()
             ?: (doSecondCheck(tac, model, "rerun-boolvars", check) { v, _ -> v.tag == Tag.Bool }).addToVerifyTime()
             ?: run {
                 val msg = "The violation for $ruleDescription could not be confirmed without destructive optimizations. It is probably spurious and the call trace generation likely fails. Please run again with `-destructiveOptimizations disable`."
