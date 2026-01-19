@@ -42,6 +42,7 @@ import spec.rules.CVLSingleRule
 import spec.rules.ICVLRule
 import spec.rules.IRule
 import spec.rules.SingleRule
+import tac.MetaMap
 import utils.*
 import vc.data.*
 import vc.data.TACMeta.CONTRACT_ADDR_KEY
@@ -143,12 +144,11 @@ sealed class RuleCheckResult(open val rule: IRule) {
          * @property message The assert message (may be an empty string)
          * @property range The location of the corresponding assert statement in the cvl spec
          * @property identifier An identifier that also contains the rule name
+         * @property meta the TAC meta associated to the violated asserts
          * (not null if there exists such a statement)
          */
-        data class ViolatedAssert(val identifier: AssertIdentifier, override val message: String, val range: Range) :
-            RuleFailureMeta() {
-            constructor(identifier: AssertIdentifier, _message: String) : this(identifier, _message, Range.Empty())
-        }
+        data class ViolatedAssert(val identifier: AssertIdentifier, override val message: String, val range: Range, val meta: MetaMap) :
+            RuleFailureMeta()
     }
 
 

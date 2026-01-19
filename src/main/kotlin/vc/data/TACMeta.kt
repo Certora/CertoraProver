@@ -380,6 +380,7 @@ object TACMeta {
      */
     @GeneratedBy(Allocator.Id.LOOP)
     val SYNTHETIC_LOOP_END : MetaKey<Int> = MetaKey<Int>("loop.synthetic.end")
+    val UNWINDING_CONDITION_CMD = MetaKey.Nothing("tac.unwinding.condition.cmd")
 
     /** Attached to store commands that went through [StorageTypeBounder]'s optimizations successfully */
     val SIGN_EXTENDED_STORE = MetaKey.Nothing("tac.sign.extended.store")

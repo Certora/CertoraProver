@@ -40,9 +40,11 @@ import solver.SolverResult
 import spec.cvlast.*
 import spec.rules.*
 import statistics.data.LiveStatsProgressInfo
+import tac.MetaMap
 import tac.TACStorageLayout
 import tac.TACStorageType
 import utils.*
+import vc.data.TACMeta
 import verifier.RuleAndSplitIdentifier
 import java.io.Closeable
 import java.io.IOException
@@ -62,9 +64,13 @@ private val HOT_UPDATE_TIME_RATE: Duration
     get() = TreeViewReportUpdateInterval.get().seconds
 
 object SolverResultStatusToTreeViewStatusMapper {
-    private fun getStatusForSatisfyRule(result: SolverResult): TreeViewReporter.TreeViewStatusEnum {
+    private fun getStatusForSatisfyRule(result: SolverResult, assertMeta: MetaMap): TreeViewReporter.TreeViewStatusEnum {
         return when (result) {
-            SolverResult.SAT -> TreeViewReporter.TreeViewStatusEnum.VERIFIED
+            SolverResult.SAT -> if(TACMeta.UNWINDING_CONDITION_CMD in assertMeta){
+                TreeViewReporter.TreeViewStatusEnum.SANITY_FAILED
+            } else {
+                TreeViewReporter.TreeViewStatusEnum.VERIFIED
+            }
             SolverResult.UNSAT -> TreeViewReporter.TreeViewStatusEnum.VIOLATED
             SolverResult.UNKNOWN -> TreeViewReporter.TreeViewStatusEnum.UNKNOWN
             SolverResult.TIMEOUT -> TreeViewReporter.TreeViewStatusEnum.TIMEOUT
@@ -72,9 +78,13 @@ object SolverResultStatusToTreeViewStatusMapper {
         }
     }
 
-    private fun getStatusForSanityRule(result: SolverResult): TreeViewReporter.TreeViewStatusEnum {
+    private fun getStatusForSanityRule(result: SolverResult, assertMeta: MetaMap): TreeViewReporter.TreeViewStatusEnum {
         return when (result) {
-            SolverResult.SAT -> TreeViewReporter.TreeViewStatusEnum.VERIFIED
+            SolverResult.SAT -> if(TACMeta.UNWINDING_CONDITION_CMD in assertMeta){
+                TreeViewReporter.TreeViewStatusEnum.SANITY_FAILED
+            } else {
+                TreeViewReporter.TreeViewStatusEnum.VERIFIED
+            }
             SolverResult.UNSAT -> TreeViewReporter.TreeViewStatusEnum.SANITY_FAILED
             SolverResult.UNKNOWN -> TreeViewReporter.TreeViewStatusEnum.UNKNOWN
             SolverResult.TIMEOUT -> TreeViewReporter.TreeViewStatusEnum.TIMEOUT
@@ -82,7 +92,7 @@ object SolverResultStatusToTreeViewStatusMapper {
         }
     }
 
-    private fun getStatusForRegularRule(result: SolverResult): TreeViewReporter.TreeViewStatusEnum {
+    private fun getStatusForRegularRule(result: SolverResult, @Suppress("unused_parameter")assertMeta: MetaMap): TreeViewReporter.TreeViewStatusEnum {
         return when (result) {
             SolverResult.SAT -> TreeViewReporter.TreeViewStatusEnum.VIOLATED
             SolverResult.UNSAT -> TreeViewReporter.TreeViewStatusEnum.VERIFIED
@@ -92,23 +102,23 @@ object SolverResultStatusToTreeViewStatusMapper {
         }
     }
 
-    fun computeFinalStatus(solverResult: SolverResult, rule: IRule): TreeViewReporter.TreeViewStatusEnum {
+    fun computeFinalStatus(solverResult: SolverResult, rule: IRule, assertMeta: MetaMap): TreeViewReporter.TreeViewStatusEnum {
         return when (rule) {
             is CVLSingleRule ->
                 if (rule.isSanityCheck()) { //What if we have a sanity check and a satisfy rule?
-                    getStatusForSanityRule(solverResult)
+                    getStatusForSanityRule(solverResult, assertMeta)
                 } else if (rule.isSatisfyRule) {
-                    getStatusForSatisfyRule(solverResult)
+                    getStatusForSatisfyRule(solverResult, assertMeta)
                 } else {
-                    getStatusForRegularRule(solverResult)
+                    getStatusForRegularRule(solverResult, assertMeta)
                 }
 
             is EquivalenceRule,
             is StaticRule,
             is AssertRule -> if (rule.isSatisfyRule) {
-                getStatusForSatisfyRule(solverResult)
+                getStatusForSatisfyRule(solverResult, assertMeta)
             } else {
-                getStatusForRegularRule(solverResult)
+                getStatusForRegularRule(solverResult, assertMeta)
             }
 
             is DynamicGroupRule,
@@ -117,11 +127,11 @@ object SolverResultStatusToTreeViewStatusMapper {
             is BMCRule,
             is EcosystemAgnosticRule ->
                 if (rule.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
-                    getStatusForSanityRule(solverResult)
+                    getStatusForSanityRule(solverResult, assertMeta)
                 } else if (rule.isSatisfyRule) {
-                    getStatusForSatisfyRule(solverResult)
+                    getStatusForSatisfyRule(solverResult, assertMeta)
                 } else {
-                    getStatusForRegularRule(solverResult)
+                    getStatusForRegularRule(solverResult, assertMeta)
                 }
         }
     }
@@ -522,7 +532,7 @@ class TreeViewReporter(
                 when (solverResult) {
                     is RuleCheckResult.Single ->
                         treeViewNodeResult.copy(
-                            status = computeFinalStatus(solverResult.result, solverResult.rule),
+                            status = computeFinalStatus(solverResult.result, solverResult.rule, MetaMap()),
                             verifyTime = solverResult.verifyTime,
                             ruleAlerts = solverResult.ruleAlerts,
                             outputFiles = ruleOutput
@@ -752,7 +762,16 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                      * So if either the curr node has no children, or all children are of type [NodeType.VIOLATED_ASSERT], we want to update the
                      * is running flag using the result at [di] itself.
                      */
-                    updateStatus(di) { res -> res.copy(isRunning = res.status.isRunning(), highestNotificationLevel = highestNotificationLevel) }
+                    updateStatus(di) { res ->
+                        res.copy(isRunning = res.status.isRunning(),
+                            highestNotificationLevel = highestNotificationLevel,
+                            status = if (children.isEmpty()) {
+                                res.status
+                            } else {
+                                childrenTreeViewResults.maxOf { it.status }
+                            }
+                        )
+                    }
                 } else if (childrenTreeViewResults.any { it.nodeType == NodeType.SANITY } && childrenTreeViewResults.none { it.nodeType == NodeType.ASSERT_SUBRULE_AUTO_GEN }){
                     /**
                      * If the node has any sanity children _and_ none of the children is a TAC program from multi_assert mode or a satisfy rule, then the tree looks as follows
@@ -791,7 +810,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                      * - node for assert_2 (TAC_program_2)
                      * - node for satisfy... (TAC_program_3)
                      */
-                    val newStatus = childrenTreeViewResults.maxBy { it.status }.status
+                    val newStatus = childrenTreeViewResults.maxOf { it.status }
                     val newIsRunning = childrenTreeViewResults.any { it.isRunning } || currTreeViewResult.childrenNumbers?.let { it.finished < it.total } == true
                     val newVerifyTime =
                         childrenTreeViewResults.map { it.verifyTime }.reduce { acc, y -> acc.join(y) }
@@ -1091,7 +1110,7 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                                         it.copy(
                                             nodeType = NodeType.VIOLATED_ASSERT,
                                             rule = null,
-                                            status = computeFinalStatus(results.result, results.rule),
+                                            status = computeFinalStatus(results.result, results.rule, assertMeta.meta),
                                             outputFiles = listOf(outputFileName),
                                             location = assertMeta.range as? TreeViewLocation,
                                             verifyTime = results.verifyTime,
