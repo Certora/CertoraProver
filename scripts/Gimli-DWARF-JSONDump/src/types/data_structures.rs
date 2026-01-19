@@ -187,9 +187,9 @@ pub struct DWARFDebugInformation<'a> {
 }
 
 /// Extract all var_type_id values from a vector of CompilationUnits
-pub fn extract_all_var_type_ids(
-    compilation_units: &[CompilationUnit],
-) -> impl Iterator<Item = RustTypeId> {
+pub fn extract_all_var_type_ids<'a>(
+    compilation_units: &'a [CompilationUnit],
+) -> impl Iterator<Item = RustTypeId> + 'a {
     compilation_units.into_iter().flat_map(|cu| {
         cu.subprograms.iter().flat_map(|subprogram| {
             subprogram
