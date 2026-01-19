@@ -18,7 +18,6 @@
 package sbf
 
 import config.ConfigScope
-import sbf.SolanaConfig.OptimisticPTAOverlaps
 import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
@@ -27,6 +26,8 @@ import sbf.domains.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import sbf.SolanaConfig.OptimisticPTAJoin
+import sbf.SolanaConfig.OptimisticPTAOverlaps
+import sbf.SolanaConfig.DefactoSemantics
 import sbf.analysis.MemoryAnalysis
 import sbf.callgraph.SolanaFunction
 import sbf.testing.SbfTestDSL
@@ -633,7 +634,7 @@ class MemoryTest {
 
     // Check isWordCompatible function from PTACell
     @Test
-    fun test12() {
+    fun `test isWordCompatible function from PTACell`() {
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
         val absVal = createMemoryDomain()
         val stackC = absVal.getRegCell(r10, globals)
@@ -653,37 +654,38 @@ class MemoryTest {
         val n6 = g.mkNode()
         n6.setWrite()
 
+        ConfigScope(DefactoSemantics, false).use {
+            stackC.getNode().mkLink(3040, 8, n4.createCell(0))
+            stackC.getNode().mkLink(3048, 8, n5.createCell(0))
+            stackC.getNode().mkLink(3056, 8, n6.createCell(0))
+            Assertions.assertEquals(true, stackC.getNode().createCell(3040).isWordCompatible(24, 8))
+            Assertions.assertEquals(false, stackC.getNode().createCell(3040).isWordCompatible(24, 4))
 
-        stackC.getNode().mkLink(3040, 8, n4.createCell(0))
-        stackC.getNode().mkLink(3048, 8, n5.createCell(0))
-        stackC.getNode().mkLink(3056, 8, n6.createCell(0))
-        Assertions.assertEquals(true, stackC.getNode().createCell(3040).isWordCompatible(24, 8))
-        Assertions.assertEquals(false, stackC.getNode().createCell(3040).isWordCompatible(24, 4))
-
-        stackC.getNode().mkLink(4040, 8, n4.createCell(0))
-        stackC.getNode().mkLink(4048, 4, n5.createCell(0))
-        stackC.getNode().mkLink(4056, 8, n6.createCell(0))
-        Assertions.assertEquals(false, stackC.getNode().createCell(4040).isWordCompatible(24, 8))
-
-        ConfigScope(OptimisticPTAOverlaps, false).use {
             stackC.getNode().mkLink(4040, 8, n4.createCell(0))
             stackC.getNode().mkLink(4048, 4, n5.createCell(0))
-            stackC.getNode().mkLink(4048, 8, n5.createCell(0))
             stackC.getNode().mkLink(4056, 8, n6.createCell(0))
             Assertions.assertEquals(false, stackC.getNode().createCell(4040).isWordCompatible(24, 8))
-        }
 
-        ConfigScope(OptimisticPTAOverlaps, true).use {
-            stackC.getNode().mkLink(4040, 8, n4.createCell(0))
-            stackC.getNode().mkLink(4048, 4, n5.createCell(0))
-            stackC.getNode().mkLink(4048, 8, n5.createCell(0))
-            stackC.getNode().mkLink(4056, 8, n6.createCell(0))
-            Assertions.assertEquals(true, stackC.getNode().createCell(4040).isWordCompatible(24, 8))
+            ConfigScope(OptimisticPTAOverlaps, false).use {
+                stackC.getNode().mkLink(4040, 8, n4.createCell(0))
+                stackC.getNode().mkLink(4048, 4, n5.createCell(0))
+                stackC.getNode().mkLink(4048, 8, n5.createCell(0))
+                stackC.getNode().mkLink(4056, 8, n6.createCell(0))
+                Assertions.assertEquals(false, stackC.getNode().createCell(4040).isWordCompatible(24, 8))
+            }
+
+            ConfigScope(OptimisticPTAOverlaps, true).use {
+                stackC.getNode().mkLink(4040, 8, n4.createCell(0))
+                stackC.getNode().mkLink(4048, 4, n5.createCell(0))
+                stackC.getNode().mkLink(4048, 8, n5.createCell(0))
+                stackC.getNode().mkLink(4056, 8, n6.createCell(0))
+                Assertions.assertEquals(true, stackC.getNode().createCell(4040).isWordCompatible(24, 8))
+            }
         }
     }
 
     @Test
-    fun test13() {
+    fun `non-optimistic join of a pointer and a number`() {
         println("====== TEST 13 (JOIN) =======")
         /**
          * If OptimisticPTAJoin is disabled then join(X,Y) = top if X is a pointer but Y is a number
@@ -709,16 +711,18 @@ class MemoryTest {
         absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
-        ConfigScope(OptimisticPTAJoin, false).use {
-            val absVal3 = absVal1.join(absVal2)
-            sbfLogger.warn{"absVal3 := join(absVal1, absVal2) --> \n$absVal3"}
-            // We should lose track of R1
-            Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) == null)
+        ConfigScope(DefactoSemantics, false).use {
+            ConfigScope(OptimisticPTAJoin, false).use {
+                val absVal3 = absVal1.join(absVal2)
+                sbfLogger.warn { "absVal3 := join(absVal1, absVal2) --> \n$absVal3" }
+                // We should lose track of R1
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) == null)
+            }
         }
     }
 
     @Test
-    fun test14() {
+    fun `optimistic join of a pointer and dangling pointer`() {
         println("====== TEST 14 (JOIN) =======")
         /**
          *  If OptimisticPTAJoin is enabled then join(X,Y) = X if X is a pointer and Y looks a dangling pointer.
@@ -744,18 +748,20 @@ class MemoryTest {
         absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
-        ConfigScope(OptimisticPTAJoin, true).use {
-            val absVal3 = absVal1.join(absVal2)
-            sbfLogger.warn{"absVal3 := join(absVal1, absVal2) --> \n$absVal3"}
-            val absVal4 = absVal2.join(absVal1)
-            sbfLogger.warn{"absVal4 := join(absVal2, absVal1) --> \n$absVal4"}
-            Assertions.assertEquals(true, absVal3.lessOrEqual(absVal4) && absVal4.lessOrEqual(absVal3))
-            Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) != null)
+        ConfigScope(DefactoSemantics, false).use {
+            ConfigScope(OptimisticPTAJoin, true).use {
+                val absVal3 = absVal1.join(absVal2)
+                sbfLogger.warn { "absVal3 := join(absVal1, absVal2) --> \n$absVal3" }
+                val absVal4 = absVal2.join(absVal1)
+                sbfLogger.warn { "absVal4 := join(absVal2, absVal1) --> \n$absVal4" }
+                Assertions.assertEquals(true, absVal3.lessOrEqual(absVal4) && absVal4.lessOrEqual(absVal3))
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) != null)
+            }
         }
     }
 
     @Test
-    fun test15() {
+    fun `optimistic join of a pointer and a number`() {
         println("====== TEST 15 (JOIN) =======")
         /**
          *  If OptimisticPTAJoin is enabled then join(X,Y) = X if X is a pointer and Y is a number.
@@ -785,13 +791,15 @@ class MemoryTest {
         absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
-        ConfigScope(OptimisticPTAJoin, true).use {
-            val absVal3 = absVal1.join(absVal2)
-            sbfLogger.warn{"absVal3 := join(absVal1, absVal2) --> \n$absVal3"}
-            val absVal4 = absVal2.join(absVal1)
-            sbfLogger.warn{"absVal4 := join(absVal2, absVal1) --> \n$absVal4"}
-            Assertions.assertEquals(true, absVal3.lessOrEqual(absVal4) && absVal4.lessOrEqual(absVal3))
-            Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) != null)
+        ConfigScope(DefactoSemantics, false).use {
+            ConfigScope(OptimisticPTAJoin, true).use {
+                val absVal3 = absVal1.join(absVal2)
+                sbfLogger.warn { "absVal3 := join(absVal1, absVal2) --> \n$absVal3" }
+                val absVal4 = absVal2.join(absVal1)
+                sbfLogger.warn { "absVal4 := join(absVal2, absVal1) --> \n$absVal4" }
+                Assertions.assertEquals(true, absVal3.lessOrEqual(absVal4) && absVal4.lessOrEqual(absVal3))
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) != null)
+            }
         }
     }
 
@@ -903,9 +911,13 @@ class MemoryTest {
         g.setRegCell(r1, n1.createSymCell(0))
         g.setRegCell(r2, n2.createSymCell(0))
         println("\nBefore select(r1, *, r1, r2):\n$g")
-        g.doSelect(LocatedSbfInstruction(Label.fresh(), 0, SbfInstruction.Select(r1, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3_ARG), Value.Imm(0UL)), r1, r2)),
-                                         globals,
-                                         ScalarDomain.makeTop(sbfTypesFac))
+        g.doSelect(
+            LocatedSbfInstruction(Label.fresh(),
+            0,
+            SbfInstruction.Select(r1, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3_ARG), Value.Imm(0UL)), r1, r2)),
+            globals,
+            ScalarDomain.makeTop(sbfTypesFac)
+        )
         println("\nAfter:\n$g")
 
         run {
@@ -1277,16 +1289,18 @@ class MemoryTest {
         println("$cfg")
 
         expectException<sbf.support.UnknownStackContentError> {
-            ConfigScope(OptimisticPTAOverlaps, true).use {
-                MemoryAnalysis(
-                    cfg,
-                    globals,
-                    MemorySummaries(),
-                    ConstantSbfTypeFactory(),
-                    nodeAllocator.flagsFactory,
-                    memDomainOpts,
-                    processor = null
-                ).getPost(Label.Address(0))
+            ConfigScope(DefactoSemantics, false). use {
+                ConfigScope(OptimisticPTAOverlaps, true).use {
+                    MemoryAnalysis(
+                        cfg,
+                        globals,
+                        MemorySummaries(),
+                        ConstantSbfTypeFactory(),
+                        nodeAllocator.flagsFactory,
+                        memDomainOpts,
+                        processor = null
+                    ).getPost(Label.Address(0))
+                }
             }
         }
     }
@@ -1310,18 +1324,23 @@ class MemoryTest {
         }
         println("$cfg")
 
-        val results = MemoryAnalysis(cfg,
-            globals,
-            MemorySummaries(),
-            ConstantSbfTypeFactory(),
-            nodeAllocator.flagsFactory,
-            memDomainOpts,
-            processor = null).getPost(Label.Address(0)
-        )
-        println("$results")
-        check(results != null)
-        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
-        Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayExternal)
+        ConfigScope(DefactoSemantics, false). use {
+            val results = MemoryAnalysis(
+                cfg,
+                globals,
+                MemorySummaries(),
+                ConstantSbfTypeFactory(),
+                nodeAllocator.flagsFactory,
+                memDomainOpts,
+                processor = null
+            ).getPost(
+                Label.Address(0)
+            )
+            println("$results")
+            check(results != null)
+            val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+            Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayExternal)
+        }
     }
 
     @Test
@@ -1353,18 +1372,21 @@ class MemoryTest {
         }
         println("$cfg")
 
-
-        val results = MemoryAnalysis(cfg,
-            globals,
-            MemorySummaries(),
-            ConstantSbfTypeFactory(),
-            nodeAllocator.flagsFactory,
-            memDomainOpts,
-            processor = null).getPost((Label.Address(3)))
-        println("$results")
-        check(results != null)
-        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
-        Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+        ConfigScope(DefactoSemantics, false). use {
+            val results = MemoryAnalysis(
+                cfg,
+                globals,
+                MemorySummaries(),
+                ConstantSbfTypeFactory(),
+                nodeAllocator.flagsFactory,
+                memDomainOpts,
+                processor = null
+            ).getPost((Label.Address(3)))
+            println("$results")
+            check(results != null)
+            val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+            Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+        }
     }
 
     @Test
@@ -1395,16 +1417,18 @@ class MemoryTest {
         }
         println("$cfg")
 
-        expectException<sbf.support.UnknownStackContentError> {
-            MemoryAnalysis(
-                cfg,
-                globals,
-                MemorySummaries(),
-                ConstantSbfTypeFactory(),
-                nodeAllocator.flagsFactory,
-                memDomainOpts,
-                processor = null
-            )
+        ConfigScope(DefactoSemantics, false). use {
+            expectException<sbf.support.UnknownStackContentError> {
+                MemoryAnalysis(
+                    cfg,
+                    globals,
+                    MemorySummaries(),
+                    ConstantSbfTypeFactory(),
+                    nodeAllocator.flagsFactory,
+                    memDomainOpts,
+                    processor = null
+                )
+            }
         }
     }
 
@@ -1435,18 +1459,20 @@ class MemoryTest {
             }
         }
         println("$cfg")
-        ConfigScope(OptimisticPTAOverlaps, true).use {
-            ConfigScope(OptimisticPTAJoin, true).use {
-                val results = MemoryAnalysis(
-                    cfg,
-                    globals,
-                    MemorySummaries(),
-                    ConstantSbfTypeFactory(),
-                    nodeAllocator.flagsFactory,
-                    memDomainOpts,
-                    processor = null
-                ).getPost(Label.Address(3))
-                println("$results")
+        ConfigScope(DefactoSemantics, false). use {
+            ConfigScope(OptimisticPTAOverlaps, true).use {
+                ConfigScope(OptimisticPTAJoin, true).use {
+                    val results = MemoryAnalysis(
+                        cfg,
+                        globals,
+                        MemorySummaries(),
+                        ConstantSbfTypeFactory(),
+                        nodeAllocator.flagsFactory,
+                        memDomainOpts,
+                        processor = null
+                    ).getPost(Label.Address(3))
+                    println("$results")
+                }
             }
         }
     }
@@ -1485,25 +1511,27 @@ class MemoryTest {
             }
         }
         println("$cfg")
-        ConfigScope(OptimisticPTAOverlaps, false).use {
-            ConfigScope(OptimisticPTAJoin, false).use {
-                val results = MemoryAnalysis(
-                    cfg,
-                    globals,
-                    MemorySummaries(),
-                    ConstantSbfTypeFactory(),
-                    nodeAllocator.flagsFactory,
-                    memDomainOpts,
-                    processor = null
-                ).getPost((Label.Address(3)))
-                println("$results")
-                check(results != null)
-                results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG)).let { sc ->
-                    Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
-                }
+        ConfigScope(DefactoSemantics, false). use {
+            ConfigScope(OptimisticPTAOverlaps, false).use {
+                ConfigScope(OptimisticPTAJoin, false).use {
+                    val results = MemoryAnalysis(
+                        cfg,
+                        globals,
+                        MemorySummaries(),
+                        ConstantSbfTypeFactory(),
+                        nodeAllocator.flagsFactory,
+                        memDomainOpts,
+                        processor = null
+                    ).getPost((Label.Address(3)))
+                    println("$results")
+                    check(results != null)
+                    results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG)).let { sc ->
+                        Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+                    }
 
-                results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R5_ARG)).let { sc ->
-                    Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+                    results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R5_ARG)).let { sc ->
+                        Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+                    }
                 }
             }
         }
@@ -1540,17 +1568,19 @@ class MemoryTest {
         }
         println("$cfg")
         expectException<sbf.support.UnknownStackContentError> {
-            ConfigScope(OptimisticPTAOverlaps, false).use {
-                ConfigScope(OptimisticPTAJoin, true).use {
-                    MemoryAnalysis(
-                        cfg,
-                        globals,
-                        MemorySummaries(),
-                        ConstantSbfTypeFactory(),
-                        nodeAllocator.flagsFactory,
-                        memDomainOpts,
-                        processor = null
-                    )
+            ConfigScope(DefactoSemantics, false).use {
+                ConfigScope(OptimisticPTAOverlaps, false).use {
+                    ConfigScope(OptimisticPTAJoin, true).use {
+                        MemoryAnalysis(
+                            cfg,
+                            globals,
+                            MemorySummaries(),
+                            ConstantSbfTypeFactory(),
+                            nodeAllocator.flagsFactory,
+                            memDomainOpts,
+                            processor = null
+                        )
+                    }
                 }
             }
         }
@@ -1586,21 +1616,23 @@ class MemoryTest {
             }
         }
         println("$cfg")
-        ConfigScope(OptimisticPTAOverlaps, true).use {
-            ConfigScope(OptimisticPTAJoin, true).use {
-                val results = MemoryAnalysis(
-                    cfg,
-                    globals,
-                    MemorySummaries(),
-                    ConstantSbfTypeFactory(),
-                    nodeAllocator.flagsFactory,
-                    memDomainOpts,
-                    processor = null
-                ).getPost((Label.Address(3)))
-                println("$results")
-                check(results != null)
-                val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
-                Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+        ConfigScope(DefactoSemantics, false). use {
+            ConfigScope(OptimisticPTAOverlaps, true).use {
+                ConfigScope(OptimisticPTAJoin, true).use {
+                    val results = MemoryAnalysis(
+                        cfg,
+                        globals,
+                        MemorySummaries(),
+                        ConstantSbfTypeFactory(),
+                        nodeAllocator.flagsFactory,
+                        memDomainOpts,
+                        processor = null
+                    ).getPost((Label.Address(3)))
+                    println("$results")
+                    check(results != null)
+                    val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+                    Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+                }
             }
         }
     }
@@ -1634,18 +1666,20 @@ class MemoryTest {
         println("$cfg")
 
         expectException<sbf.support.UnknownStackContentError> {
-            // Even with optimistic flags shouldn't be allowed
-            ConfigScope(OptimisticPTAOverlaps, true).use {
-                ConfigScope(OptimisticPTAJoin, true).use {
-                    MemoryAnalysis(
-                        cfg,
-                        globals,
-                        MemorySummaries(),
-                        ConstantSbfTypeFactory(),
-                        nodeAllocator.flagsFactory,
-                        memDomainOpts,
-                        processor = null
-                    )
+            ConfigScope(DefactoSemantics, false). use {
+                // Even with optimistic flags shouldn't be allowed
+                ConfigScope(OptimisticPTAOverlaps, true).use {
+                    ConfigScope(OptimisticPTAJoin, true).use {
+                        MemoryAnalysis(
+                            cfg,
+                            globals,
+                            MemorySummaries(),
+                            ConstantSbfTypeFactory(),
+                            nodeAllocator.flagsFactory,
+                            memDomainOpts,
+                            processor = null
+                        )
+                    }
                 }
             }
         }

@@ -622,7 +622,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
 
         // Sanity check
         private fun checkNoOverlaps(n: PTANode<TFlags>, locInst: LocatedSbfInstruction) {
-            if (SolanaConfig.OptimisticPTAOverlaps.get()) {
+            if (SolanaConfig.optimisticOverlaps()) {
                 return
             }
 
@@ -704,7 +704,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                 }
             }
 
-            if (!SolanaConfig.OptimisticPTAOverlaps.get()) {
+            if (!SolanaConfig.optimisticOverlaps()) {
                 throw TACTranslationError("cannot determine if $inst should havoc some overlap locations")
             } else {
                 return null
@@ -750,7 +750,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                 }
             }
 
-            if (!SolanaConfig.OptimisticPTAOverlaps.get()) {
+            if (!SolanaConfig.optimisticOverlaps()) {
                 throw TACTranslationError("cannot determine if memcpy should havoc some overlap locations")
             }
             return null

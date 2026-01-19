@@ -1177,9 +1177,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 is SbfInstruction.Call -> analyzeCall(locInst, globals, memSummaries)
                 is SbfInstruction.CallReg -> {
                     if (!SolanaConfig.SkipCallRegInst.get()) {
-                        throw SolanaError("$s is not supported. " +
-                            "Often this instruction is used for calling pretty-printing functions. " +
-                            "If this is the case, then you can use option \"-${SolanaConfig.SkipCallRegInst.name} true\" to skip it.")
+                        throw UnsupportedCallX(locInst)
                     }
                 }
                 is SbfInstruction.Select -> analyzeSelect(s)

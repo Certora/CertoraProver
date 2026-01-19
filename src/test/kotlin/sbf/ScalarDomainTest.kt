@@ -24,6 +24,8 @@ import sbf.domains.*
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 import sbf.analysis.AnalysisRegisterTypes
+import sbf.support.UnknownMemcpyLenError
+import sbf.support.UnsupportedCallX
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val env = StackEnvironment<ScalarValue<Constant, Constant>>()
@@ -364,6 +366,21 @@ class ScalarDomainTest {
         val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
         for (check in prover.getChecks()) {
             Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    @Test
+    fun `callx is not supported`() {
+
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val cfg = MutableSbfCFG("test")
+        val b0 = cfg.getOrInsertBlock(Label.Address(0))
+        cfg.setEntry(b0)
+        b0.add(SbfInstruction.CallReg(r1))
+        b0.add(SbfInstruction.Exit())
+
+        expectException<UnsupportedCallX> {
+            ScalarAnalysisProver(cfg, sbfTypesFac)
         }
     }
 }

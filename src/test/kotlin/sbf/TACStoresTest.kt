@@ -224,7 +224,9 @@ class TACStoresTest {
         cfg.verify(true)
 
         expectException<TACTranslationError> {
-            toTAC(cfg)
+            ConfigScope(SolanaConfig.DefactoSemantics, false).use {
+                toTAC(cfg)
+            }
         }
     }
 

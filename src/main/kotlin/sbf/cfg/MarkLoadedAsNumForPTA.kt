@@ -76,7 +76,7 @@ private fun allUsesAreNumForPTA(loadInst: LocatedSbfInstruction,
         curB = nextUseBB
         when (val nextUseInst = nextUseLocInst.inst) {
             is SbfInstruction.Call -> {
-                if (nextUseInst.isDeallocFn() && !SolanaConfig.OptimisticDealloc.get()) {
+                if (nextUseInst.isDeallocFn() && !SolanaConfig.optimisticDealloc()) {
                     if (isDead(nextUseLocInst, loadedRegisters, liveness, false)) {
                         return Pair(SbfMeta.LOADED_AS_NUM_FOR_PTA, false)
                     }

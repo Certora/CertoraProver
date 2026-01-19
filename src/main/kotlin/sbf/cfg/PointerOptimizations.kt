@@ -28,7 +28,7 @@ import sbf.disassembler.GlobalVariables
  * Thus, they can be applied before inlining/slicing happens.
  */
 fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
-    if (SolanaConfig.OptimisticNoMemmove.get()) {
+    if (SolanaConfig.optimisticNoMemmove()) {
         removeMemmove(cfg)
         cfg.verify(false, "after removing memmove")
     }

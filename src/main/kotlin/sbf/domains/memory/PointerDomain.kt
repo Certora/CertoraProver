@@ -317,11 +317,11 @@ sealed class PTACell<Flags: IPTANodeFlags<Flags>>(
         } else if (length <= 0 || length.mod(wordSize.toInt()) != 0) {
             return false
         } else {
-            if (SolanaConfig.OptimisticMemcmp.get()) {
+            if (SolanaConfig.optimisticMemcmp()) {
                 return true
             }
             val links = _node.getLinksInRange(_offset, length).filter {
-                if (SolanaConfig.OptimisticPTAOverlaps.get()) {
+                if (SolanaConfig.optimisticOverlaps()) {
                     // due to optimisticOverlaps we can have multiple fields at the same offset
                     // with different bit widths. isWordCompatible will not return false if one
                     // of those fields is word-compatible.
@@ -1864,7 +1864,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     companion object {
         private fun newUntrackedStackFields(): SetDomain<PTAField> =
-            if (SolanaConfig.OptimisticPTAJoin.get()) {
+            if (SolanaConfig.optimisticJoin()) {
                 // Under optimistic join semantics, a field is considered inaccessible (untracked) at a join
                 // only when it is inaccessible in all incoming abstract values. Equivalently, if
                 // any incoming value allows access to the field, the field remains accessible after the join.
@@ -2158,7 +2158,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
                         val offset = (scalarVal.type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset
                         if (offset == null || offset.isTop()) {
-                            if (SolanaConfig.OptimisticPTAJoin.get() && SolanaConfig.OptimisticPTAJoinWithStackPtr.get()) {
+                            if (SolanaConfig.optimisticJoin() && SolanaConfig.optimisticJoinWithStackPtr()) {
                                 // The analysis does not know statically if after the join the stack offset `field` points
                                 // to another stack offset or some non-stack memory (eg., heap)
                                 //
@@ -2259,7 +2259,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         throw PointerDomainError("Join is losing track of r10")
                     }
 
-                    if (SolanaConfig.OptimisticPTAJoin.get()) {
+                    if (SolanaConfig.optimisticJoin()) {
                         // See below comments about optimistic joins.
                         // Note that we don't try to distinguish whether the non-pointer argument is
                         // a dangling pointer or a regular number.
@@ -2287,7 +2287,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 }
             }
         } else {
-            if (SolanaConfig.OptimisticPTAJoin.get()) {
+            if (SolanaConfig.optimisticJoin()) {
                 // join(X,Y) = X if X is a pointer and Y looks a dangling pointer, a regular number or non-dereferenced global.
                 //
                 // Note that being a dangling pointer is something that our analysis cannot know for sure.
@@ -2541,7 +2541,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
          **/
         val overlaps = leftStack.findOverlaps(rightStack)
         for ((fieldL, fieldR) in overlaps) {
-            if (SolanaConfig.OptimisticPTAOverlaps.get()) {
+            if (SolanaConfig.optimisticOverlaps()) {
                warn { "The pointer domain performed optimistic join: " +
                           "keeping stack overlaps $fieldL and $fieldR" }
             } else {
@@ -2578,7 +2578,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
         checkStackInvariant(outG,"after join")
 
-        if (SolanaConfig.SanityChecks.get() && !SolanaConfig.OptimisticPTAJoin.get()) {
+        if (SolanaConfig.SanityChecks.get() && !SolanaConfig.optimisticJoin()) {
             for (field in outG.untrackedStackFields) {
                 if (outG.getStack().getSuccs()[field] != null) {
                     throw PointerDomainError("Stack has a top field $field but the field has successors (1)")
@@ -4480,7 +4480,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      */
     private fun doDealloc() {
         fun isSingletonHeaplet(n: PTANode<Flags>): Boolean {
-            if (!SolanaConfig.OptimisticDealloc.get()) {
+            if (!SolanaConfig.optimisticDealloc()) {
                 /**
                  * Enable optimisticDealloc is potentially unsound.
                  * We need to prove that node is a singleton, i.e., it represents exactly one concrete memory object.

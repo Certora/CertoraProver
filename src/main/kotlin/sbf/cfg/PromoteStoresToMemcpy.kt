@@ -18,13 +18,13 @@
 package sbf.cfg
 
 import sbf.domains.FiniteInterval
-import sbf.SolanaConfig
 import sbf.callgraph.SolanaFunction
 import sbf.disassembler.*
 import sbf.domains.*
 import datastructures.stdcollections.*
 import log.*
 import org.jetbrains.annotations.TestOnly
+import sbf.SolanaConfig
 import sbf.analysis.AdaptiveScalarAnalysis
 import sbf.analysis.AnalysisRegisterTypes
 import sbf.analysis.IAnalysis
@@ -350,7 +350,7 @@ private class MemcpyPattern {
             } else if (srcRegion != dstRegion && srcRegion != MemAccessRegion.ANY && dstRegion != MemAccessRegion.ANY) {
                 return true
             } else {
-                return if (SolanaConfig.OptimisticMemcpyPromotion.get()) {
+                return if (SolanaConfig.optimisticMemcpyPromotion()) {
                     dbg {
                         "$name: we cannot prove that no overlaps between $loadLocInsts and $storeLocInsts"
                     }
@@ -539,7 +539,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
 
 
     fun getMemAccessRegion(reg: MemAccessRegion): MemAccessRegion {
-        return if (SolanaConfig.OptimisticMemcpyPromotion.get()) {
+        return if (SolanaConfig.optimisticMemcpyPromotion()) {
             // If optimistic flag then we will assume that "any" can be any memory region except the stack
             when(reg) {
                 MemAccessRegion.STACK, MemAccessRegion.NON_STACK -> reg
