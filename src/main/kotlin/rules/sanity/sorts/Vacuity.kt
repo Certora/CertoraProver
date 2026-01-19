@@ -55,15 +55,24 @@ data object Vacuity : SanityCheckSort.FunctionDependent<RuleCheckResult.Single, 
         if (predResult.key.type !in preds) {
             throw IllegalArgumentException("vacuity check does not depend on ${predResult.key.type}")
         }
-        /* conclude this vacuity check as passing (SAT) (effectively don't perform this check) if
-        the base rule is not verified (UNSAT) */
-        val shouldConclude = when (val ruleCheckResult = predResult.value.result) {
-            is RuleCheckResult.Single -> ruleCheckResult.result != SolverResult.UNSAT
-            is RuleCheckResult.Multi -> ruleCheckResult.computeFinalResult() != SolverResult.UNSAT
+        /**
+         * Conclude this vacuity check as passing (SAT) (effectively don't perform this check) if
+         * the base rule is not verified (UNSAT).
+         */
+        fun shouldConclude(result: RuleCheckResult): Boolean = when (result) {
+            is RuleCheckResult.Single -> result.result != SolverResult.UNSAT
+            is RuleCheckResult.Multi ->
+                /**
+                 * Note that we can't use [RuleCheckResult.Multi.computeFinalResult] here because if there's a satisfy
+                 * subrule then even if it's violated (UNSAT), since the top-level rule isn't marked as a sanity rule
+                 * that function will return SAT.
+                 */
+                result.results.all { shouldConclude(it) }
             is RuleCheckResult.Error -> true
             is RuleCheckResult.Skipped -> true
         }
-        return if (shouldConclude) {
+
+        return if (shouldConclude(predResult.value.result)) {
             SolverResult.SAT
         } else {
             null
