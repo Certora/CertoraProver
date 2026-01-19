@@ -590,6 +590,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 is SbfInstruction.Mem -> analyzeMem(locInst, globals, memSummaries)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
+                is SbfInstruction.Debug -> {}
             }
         }
         dbg {"$this\n"}

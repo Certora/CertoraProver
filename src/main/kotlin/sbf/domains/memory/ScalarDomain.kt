@@ -1190,6 +1190,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 is SbfInstruction.Mem -> analyzeMem(locInst, globals)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
+                is SbfInstruction.Debug -> {}
             }
         }
         dbg { "$this\n" }

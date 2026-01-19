@@ -604,6 +604,17 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             return "exit ${metadataToString()}"
         }
     }
+
+    data class Debug(val readRegister: Set<Value.Reg>, override val metaData: MetaData = MetaData()): SbfInstruction() {
+        override val writeRegister: Set<Value.Reg>
+            get() = setOf()
+        override val readRegisters: Set<Value.Reg>
+            get() = readRegister
+        override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
+        override fun toString(): String {
+            return metadataToString()
+        }
+    }
 }
 
 /**

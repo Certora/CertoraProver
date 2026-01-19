@@ -24,7 +24,6 @@ import sbf.SolanaConfig
 import datastructures.stdcollections.*
 import log.*
 import sbf.analysis.AnalysisRegisterTypes
-import utils.*
 import java.math.BigInteger
 
 class NPDomainError(msg: String): RuntimeException("NPDomain error:$msg")
@@ -865,6 +864,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             is SbfInstruction.Jump -> return curVal
             is SbfInstruction.Un -> return curVal.havoc(RegisterVariable(inst.dst, vFac))
             is SbfInstruction.Exit -> return curVal
+            is SbfInstruction.Debug -> return curVal
         }
     }
 

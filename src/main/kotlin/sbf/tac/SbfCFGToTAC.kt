@@ -27,7 +27,9 @@ import sbf.support.SolanaInternalError
 import vc.data.*
 import com.certora.collect.*
 import datastructures.stdcollections.*
+import sbf.cfg.SbfMeta.SBF_DWARF_DEBUG_ANNOTATIONS
 import sbf.domains.*
+import sbf.dwarf.DWARFEdgeLabelAnnotator
 import tac.BlockIdentifier
 import tac.NBId
 import tac.StartBlock
@@ -94,7 +96,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     private val cfg: SbfCFG,
     private val globals: GlobalVariables,
     private val memSummaries: MemorySummaries,
-    val memoryAnalysis: MemoryAnalysis<TNum, TOffset, TFlags>?) {
+    val memoryAnalysis: MemoryAnalysis<TNum, TOffset, TFlags>?): TACDebugView {
     private val blockMap: MutableMap<Label, NBId> = mutableMapOf()
     private val blockGraph = MutableBlockGraph()
     private val code: MutableMap<NBId, List<TACCmd.Simple>> = mutableMapOf()
@@ -1103,6 +1105,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             is SbfInstruction.Assume -> translateAssume(locInst)
             is SbfInstruction.Call -> translateCall(locInst)
             is SbfInstruction.Exit -> translateExit()
+            is SbfInstruction.Debug -> translateDebug(locInst)
             is SbfInstruction.CallReg -> {
                 if (!SolanaConfig.SkipCallRegInst.get()) {
                     throw TACTranslationError("unsupported $inst")
@@ -1113,6 +1116,11 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         }
 
         return mapSbfMetaToTACMeta(cmds, locInst)
+    }
+    private fun translateDebug(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
+        return locInst.inst.metaData.getVal(SBF_DWARF_DEBUG_ANNOTATIONS)?.flatMap { edgeAnnot->
+            edgeAnnot.toAnnotations(locInst, this)
+        }.orEmpty()
     }
 
     private fun translate(bb: SbfBasicBlock): List<TACCmd.Simple> {
@@ -1223,6 +1231,22 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         if (SolanaConfig.PrintTACToStdOut.get()) {
             sbfLogger.info {"------- TAC program --------\n" + dumpTAC(program)}
         }
+
+        DWARFEdgeLabelAnnotator.printDebugAnnotatorStats(program, "After encoding to TAC")
+
         return program
+    }
+
+    override fun getStackTACVariable(
+        locInst: LocatedSbfInstruction,
+        reg: Value.Reg,
+        offset: PTAOffset
+    ): TACSymbol.Var? {
+        val base = (regTypes.typeAtInstruction(locInst, reg.r) as? SbfType.PointerType.Stack)?.offset?.toLongOrNull() ?: return null
+        return vFac.getByteStackVar(PTAOffset(base) + offset).tacVar
+    }
+
+    override fun getRegisterTACVariable(reg: Value.Reg): TACSymbol.Var {
+        return vFac.getRegisterVar(reg.r.ordinal)
     }
 }

@@ -26,6 +26,7 @@ import analysis.icfg.SummaryStack
 import analysis.ip.*
 import analysis.narrow
 import config.Config
+import config.DebugAdapterProtocolMode
 import config.HardFailMode
 import datastructures.stdcollections.*
 import log.*
@@ -441,7 +442,7 @@ internal sealed class CallTraceGenerator(
         }
 
     val debugAdapter =
-        if (Config.CallTraceDebugAdapterProtocol.get()) {
+        if (Config.CallTraceDebugAdapterProtocol.get() != DebugAdapterProtocolMode.DISABLED) {
             DebugAdapterProtocolStackMachine(rule, scene, model, formatter)
         } else {
             null

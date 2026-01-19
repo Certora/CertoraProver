@@ -26,6 +26,7 @@ import solver.SolanaFlowTest
 import org.junit.jupiter.api.BeforeAll
 import rules.sanity.TACSanityChecks
 import sbf.vacuitySuffix
+import solver.SolanaCallTraceTest
 import solver.concat
 import utils.Range
 import utils.SourcePosition
@@ -51,7 +52,7 @@ class SolanaRuleLocationTest {
         @BeforeAll
         fun precomputeResults(): Unit {
             ConfigScope(Config.DoSanityChecksForRules, SanityValues.ADVANCED).use {
-                treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rules).first
+                treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(SolanaCallTraceTest.confPath, SolanaCallTraceTest.elfFilePath, rules).first
             }
         }
     }

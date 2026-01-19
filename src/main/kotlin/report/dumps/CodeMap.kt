@@ -38,6 +38,7 @@ import move.MoveCallTrace
 import report.BigIntPretty.bigIntPretty
 import report.TreeViewLocation
 import report.dumps.AddInternalFunctions.addInternalFunctionIdxsDontThrow
+import sbf.SolanaConfig
 import sbf.tac.*
 import scene.NamedCode
 import smtlibutils.data.ProcessDifficultiesResult
@@ -378,6 +379,8 @@ data class CodeMap(
                     is SnippetCmd.LoopSnippet.StartIter -> colorText("$rarrow$rarrow Iteration ${metaValue.iteration}", Color.DARKBLUE)
                     is SnippetCmd.LoopSnippet.EndIter -> colorText("$larrow$larrow Iteration ${metaValue.iteration}", Color.DARKBLUE)
                     is SnippetCmd.SolanaSnippetCmd.ExternalCall -> colorText("SbfExt ${metaValue.symbols.joinToString(", ") { getHtmlRep(it) }} = ${metaValue.displayMessage.shortRustForHTML()} ", Color.DARKBLUE).withTitle(metaValue.toString())
+                    is SnippetCmd.SolanaSnippetCmd.VariableBecomingLive -> colorText("Source variable named `${metaValue.variableName}` composed of: ${metaValue.expressions}", Color.DARKBLUE)
+                    is SnippetCmd.SolanaSnippetCmd.DirectMemoryAccess -> colorText("Direct memory access on source variable `${metaValue.variableName}` at ${metaValue.offsetIntoStruct} (expression: ${metaValue.expression})", Color.DARKBLUE)
                     is SnippetCmd.CvlrSnippetCmd.CexPrintTag -> colorText("log(${metaValue.displayMessage.sanitize()})", Color.GREEN)
                     is SnippetCmd.CvlrSnippetCmd.CexAttachLocation -> colorText("${metaValue.filepath.sanitize()}:${metaValue.lineNumber}", Color.DARKGREY)
                     is SnippetCmd.CvlrSnippetCmd.CexPrintLocation -> colorText("${metaValue.filepath.sanitize()}:${metaValue.lineNumber}", Color.DARKGREY)
@@ -1091,6 +1094,10 @@ data class CodeMap(
                 is TACCmd.Simple.AnnotationCmd -> when (it.cmd.annot.v) {
                     is SbfInlinedFuncNopAnnotation -> false
                     is SnippetCmd.SolanaSnippetCmd.Assert -> false
+                    is SnippetCmd.ExplicitDebugStep,
+                    is SnippetCmd.SolanaSnippetCmd.VariableBecomingLive,
+                    is SnippetCmd.SolanaSnippetCmd.ExplicitDebugPopAction,
+                    is SnippetCmd.SolanaSnippetCmd.ExplicitDebugPushAction -> SolanaConfig.DumpDwarfDebugInfoInReports.get()
                     else -> true
                 }
                 else -> true

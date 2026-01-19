@@ -463,4 +463,12 @@ object SolanaConfig {
                        "The block names must match those shown by ${PrintAnalyzedToDot.name}."
         ),
     ) {}
+
+    val DumpDwarfDebugInfoInReports: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option("dumpDwarfDebugInfoInReports",
+            false,
+            "Dump all dwarf info that was added after CFG construction to the .dot files and dumps added annotation in TAC dumps."
+        ),
+    ) {}
 }

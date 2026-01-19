@@ -69,7 +69,6 @@ internal class CounterExampleExplainer(
     private val vcProgram get() = checkResult.vcProgram
 
     private val callTraceValueFormatter = CallTraceValueFormatter(
-        scene = scene,
         model = checkResult.theModel,
         addrToContract = mapOf()
     )
@@ -238,7 +237,6 @@ internal class CounterExampleExplainer(
         )
         val ctf = CallTraceValueFormatter(
             model = model,
-            scene = scene,
             addrToContract = mapOf()
         )
         val methodACallId = checkResult.programA.inlinedCallId

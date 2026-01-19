@@ -37,6 +37,7 @@ import rules.RuleCheckResult
 import utils.Range
 import utils.*
 import java.math.BigInteger
+import java.nio.file.Path
 import kotlin.io.path.Path
 
 /**
@@ -45,20 +46,13 @@ import kotlin.io.path.Path
  */
 object SolanaFlowTest {
 
-    /* Path to configuration file of the projects. */
-    private val confPath = Path("./src/test/resources/solana/project_for_tests/run.conf")
-
-    /* Path tot the pre-compiled ELF files. */
-    private val elfFilePath =
-        Path("./src/test/resources/solana/project_for_tests/project_for_tests.so")
-
     /**
      * Runs the Solana flow on the project defined in src/test/resources/solana/project_for_tests
      * in a blocking environment and returns the results and the TreeViewReporter containing the
      * results of the execution.
      * */
     fun runSolanaFlowOnProjectForTests(
-        rules: HashSet<String>
+        confPath: Path, elfFilePath: Path, rules: HashSet<String>
     ): Pair<TreeViewReporter, List<RuleCheckResult.Leaf>> {
         return CertoraBuild.inTempDir(CertoraBuildKind.SolanaBuild(rules), confPath)
             .useWithBuildDir { _ ->
@@ -82,6 +76,12 @@ class SolanaCallTraceTest {
         /* Results of running the Solana flow on the projects. */
         private var results: List<RuleCheckResult.Leaf> = listOf()
 
+        /* Path to configuration file of the projects. */
+        val confPath = Path("./src/test/resources/solana/project_for_tests/run.conf")
+
+        /* Path tot the pre-compiled ELF files. */
+        val elfFilePath =
+            Path("./src/test/resources/solana/project_for_tests/project_for_tests.so")
         /* All the rules that appear in the projects. */
         private val rules =
             hashSetOf(
@@ -137,7 +137,7 @@ class SolanaCallTraceTest {
         @JvmStatic
         @BeforeAll
         fun precomputeResults() {
-            results = SolanaFlowTest.runSolanaFlowOnProjectForTests(rules).second
+            results = SolanaFlowTest.runSolanaFlowOnProjectForTests(confPath, elfFilePath, rules).second
         }
     }
 

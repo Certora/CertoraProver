@@ -40,6 +40,7 @@ import sbf.analysis.cpis.getInvokes
 import sbf.analysis.cpis.cpisSubstitutionMap
 import sbf.cfg.*
 import sbf.domains.*
+import sbf.dwarf.DWARFEdgeLabelAnnotator
 import utils.Range
 import spec.cvlast.RuleIdentifier
 import spec.rules.EcosystemAgnosticRule
@@ -111,7 +112,10 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
     val sbfProgram = bytecodeToSbfProgram(bytecode)
     // 4. Convert to a set of CFGs (one per function)
     sbfLogger.info { "Generating a CFG for each function" }
+    val start1 = System.currentTimeMillis()
     val cfgs = sbfProgramToSbfCfgs(sbfProgram, inliningConfig, memSummaries)
+    val end1 = System.currentTimeMillis()
+    sbfLogger.info { "Finished generation of CFG ${(end1 - start1) / 1000}s" }
 
     if (SolanaConfig.PrintAnalyzedToDot.get()) {
         cfgs.callGraphStructureToDot(ArtifactManagerFactory().outputDir)
@@ -258,6 +262,8 @@ private fun solanaRuleToTAC(
     }
     val end0 = System.currentTimeMillis()
     sbfLogger.info { "[$target] Finished TAC optimizations in ${(end0 - start3) / 1000}s" }
+
+    DWARFEdgeLabelAnnotator.printDebugAnnotatorStats(optCoreTAC, "After TAC optimizations")
 
     return attachRangeToRule(rule, optCoreTAC, isSatisfiedRule)
 }

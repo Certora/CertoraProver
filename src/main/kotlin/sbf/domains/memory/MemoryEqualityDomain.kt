@@ -1296,6 +1296,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
                 is SbfInstruction.Mem -> analyzeMem(locInst, memoryAbsVal)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
+                is SbfInstruction.Debug -> {}
             }
         }
     }

@@ -29,15 +29,21 @@ import analysis.ip.INTERNAL_FUNC_START
 import analysis.storage.DisplayPath
 import analysis.storage.InstantiatedDisplayPath
 import aws.smithy.kotlin.runtime.util.push
+import cli.Ecosystem
 import com.certora.collect.*
+import config.Config
+import config.DebugAdapterProtocolMode
 import datastructures.persistentStackOf
 import datastructures.stdcollections.*
+import dwarf.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import log.*
 import org.jetbrains.annotations.TestOnly
 import report.calltrace.formatter.CallTraceValueFormatter
+import report.calltrace.formatter.SolanaCallTraceValueFormatter
+import report.calltrace.sarif.Sarif
 import report.checkWarn
 import rules.ContractInfo
 import scene.ISceneIdentifiers
@@ -63,7 +69,7 @@ import vc.data.TACMeta.SNIPPET
 import vc.data.TACSymbol
 import vc.data.state.TACValue
 import java.io.IOException
-
+import java.math.BigInteger
 
 private val logger = Logger(LoggerTypes.CALLTRACE)
 
@@ -72,7 +78,13 @@ private val logger = Logger(LoggerTypes.CALLTRACE)
  * Note, that pop operation is mutually exclusive with [DebugAdapterStep] and [DebugAdapterPushAction].
  * A statement can only be any of the three.
  */
-interface DebugAdapterPopAction : DebugAdapterAction
+interface DebugAdapterPopAction : DebugAdapterAction {
+    /**
+     * When false, the action won't be persisted to JSON.
+     */
+    val persist: Boolean
+        get() = true
+}
 
 
 /**
@@ -82,6 +94,12 @@ interface DebugAdapterPopAction : DebugAdapterAction
  */
 interface DebugAdapterPushAction : DebugAdapterAction {
     val stackElement: StackEntry
+
+    /**
+     * When false, the action won't be persisted to JSON.
+     */
+    val persist: Boolean
+        get() = true
 }
 
 
@@ -151,7 +169,11 @@ sealed class StackEntry(val name: String, val scopeRange: Range.Range?) : AmbiSe
         private val _scopeRange: Range.Range?
     ) : StackEntry(_name, _scopeRange) {
         constructor(rule: IRule) : this(
-            _name = if(rule.ruleType is SpecType.Single.InvariantCheck) {"invariant "} else {"rule "} + rule.ruleIdentifier.toString(),
+            _name = if (rule.ruleType is SpecType.Single.InvariantCheck) {
+                "invariant "
+            } else {
+                "rule "
+            } + rule.ruleIdentifier.toString(),
             _scopeRange = rule.range.nonEmpty()
         )
     }
@@ -159,6 +181,14 @@ sealed class StackEntry(val name: String, val scopeRange: Range.Range?) : AmbiSe
     @Treapable
     @Serializable
     data class SolidityFunction(
+        private val _name: String,
+        private val _scopeRange: Range.Range?
+    ) : StackEntry(_name, _scopeRange)
+
+
+    @Treapable
+    @Serializable
+    data class SolanaFunction(
         private val _name: String,
         private val _scopeRange: Range.Range?
     ) : StackEntry(_name, _scopeRange)
@@ -238,7 +268,12 @@ class DebugAdapterProtocolStackMachine(
 
     data class VariableIdentifier(val type: VariableType, val displayPath: InstantiatedDisplayPath)
 
-    private val globalVariables: MutableMap<VariableIdentifier, TACValue> = mutableMapOf()
+    private val globalVariables: MutableMap<VariableIdentifier, DebuggerValue> = mutableMapOf()
+
+    /**
+     * Flag indicating that after [visit] was called, the frame should be persisted.
+     */
+    private var persistFrames: Boolean = false
 
     /**
      * This information is the completed and persisted, information that will
@@ -267,11 +302,11 @@ class DebugAdapterProtocolStackMachine(
      * This function translates the variables to the representation in the VSCode extension variable view.
      * The groupBy defines the header of the container that will be visible in VSCode extension variable's view (see [VariableHeader])
      */
-    private fun Map<VariableIdentifier, TACValue>.toVariableMapping(frames: List<StackFrame>): List<VariableContainer> = this.toList()
+    private fun Map<VariableIdentifier, DebuggerValue>.toVariableMapping(frames: List<StackFrame>): List<VariableContainer> = this.toList()
         .groupBy {
             it.first.type.header
         }.map {
-            VariableContainer(it.key.displayName, it.value.filter { it.second.isNonInitialValue() }.buildVariableTree(if (it.key == VariableHeader.LOCALS) {
+            VariableContainer(it.key.displayName, it.value.buildVariableTree(if (it.key == VariableHeader.LOCALS) {
                 frames.joinToString { it.el.name }.hashCode().toString()
             } else {
                 VariableHeader.GLOBAL.name
@@ -295,7 +330,7 @@ class DebugAdapterProtocolStackMachine(
      * [variableIdentifier] is used to internally reference to the variable for data breakpoints
      * [children] is a map of children this node can have, this allows a hierarchical structure in the variables view.
      */
-    inner class MutableVariableNode(val name: String, var value: TACValue? = null, val children: MutableMap<String, MutableVariableNode> = mutableMapOf(), val variableIdentifier: String) {
+    inner class MutableVariableNode(val name: String, var value: DebuggerValue? = null, val children: MutableMap<String, MutableVariableNode> = mutableMapOf(), val variableIdentifier: String) {
         fun toImmutable(): VariableNode {
             return VariableNode(name = name, value = value?.toString().orEmpty(), children = children.values.map { it.toImmutable() }, variableIdentifier = variableIdentifier)
         }
@@ -320,8 +355,8 @@ class DebugAdapterProtocolStackMachine(
      *
      * (If it's a global variable, it is prefixed by [VariableHeader.GLOBAL.name])
      */
-    private fun List<Pair<VariableIdentifier, TACValue>>.buildVariableTree(variablePrefix: String): List<VariableNode> {
-        fun traverse(lastNode: MutableVariableNode, curr: InstantiatedDisplayPath, value: TACValue): MutableVariableNode {
+    private fun List<Pair<VariableIdentifier, DebuggerValue>>.buildVariableTree(variablePrefix: String): List<VariableNode> {
+        fun traverse(lastNode: MutableVariableNode, curr: InstantiatedDisplayPath, value: DebuggerValue): MutableVariableNode {
             val withoutNext = curr.toAccessor()
             val newNode = lastNode.children.getOrPut(withoutNext) {
                 MutableVariableNode(withoutNext, variableIdentifier = lastNode.variableIdentifier + withoutNext)
@@ -329,7 +364,7 @@ class DebugAdapterProtocolStackMachine(
             return if (curr.next != null) {
                 traverse(newNode, curr.next!!, value)
             } else {
-                check(newNode.value == null || value == newNode.value || newNode.value == TACValue.Uninitialized) { "Expecting either newNode.value (${newNode.value}) to be null be or to be equal to value ${value}." }
+                check(newNode.value == null || value == newNode.value) { "Expecting either newNode.value (${newNode.value}) to be null be or to be equal to value ${value}." }
                 newNode.value = value
                 newNode
             }
@@ -337,7 +372,7 @@ class DebugAdapterProtocolStackMachine(
 
         val rootNode = MutableVariableNode(name = "ROOT", value = null, variableIdentifier = variablePrefix)
         this.forEach {
-            check(it.first.type.header == VariableHeader.LOCALS || variablePrefix == VariableHeader.GLOBAL.name){"Found a none-local variable whose stack identifier is not GLOBAL"}
+            check(it.first.type.header == VariableHeader.LOCALS || variablePrefix == VariableHeader.GLOBAL.name) { "Found a none-local variable whose stack identifier is not GLOBAL" }
             traverse(rootNode, it.first.displayPath, it.second)
         }
         return rootNode.children.values.map { it.toImmutable() }
@@ -354,10 +389,56 @@ class DebugAdapterProtocolStackMachine(
      * Note: This class is mutable on purpose.
      */
     class StackFrame(val el: StackEntry, var cmd: TACCmd, var range: Range.Range?) {
-        val variables: MutableMap<VariableIdentifier, TACValue> = mutableMapOf()
+        val variables: MutableMap<VariableIdentifier, DebuggerValue> = mutableMapOf()
+
+        // Output that is printed to the debug console in VSCode while stepping throught the code.
+        var consoleOutput: String = ""
         fun stepTo(cmd: TACCmd, range: Range.Range?) {
             this.cmd = cmd
             this.range = range
+        }
+    }
+
+    sealed class DebuggerValue {
+        abstract override fun toString(): String
+
+        class TACValue private constructor(val tacValue: vc.data.state.TACValue) : DebuggerValue() {
+            init {
+                require(tacValue != vc.data.state.TACValue.Uninitialized) {
+                    "Expecting a concrete TACValue, got Uninitialized"
+                }
+            }
+
+            fun asBigInteger(): BigInteger =
+                requireNotNull(tacValue.asBigIntOrNull()) {
+                    "TACValue cannot be converted to BigInteger"
+                }
+
+            override fun toString(): String = tacValue.toString()
+
+            companion object {
+                internal fun create(tacValue: vc.data.state.TACValue) = TACValue(tacValue)
+            }
+        }
+
+        class StringValue private constructor(val reason: String) : DebuggerValue() {
+            override fun toString(): String = reason
+
+            companion object {
+                internal fun create(reason: String) = StringValue(reason)
+            }
+        }
+
+        companion object {
+            operator fun invoke(tacValue: vc.data.state.TACValue): DebuggerValue =
+                if (tacValue == vc.data.state.TACValue.Uninitialized) {
+                    StringValue.create("No model value given for TAC symbol")
+                } else {
+                    TACValue.create(tacValue)
+                }
+
+            operator fun invoke(reason: String): DebuggerValue =
+                StringValue.create(reason)
         }
     }
 
@@ -441,7 +522,15 @@ class DebugAdapterProtocolStackMachine(
                 is SnippetCmd.CvlrSnippetCmd,
                 is SnippetCmd.SolanaSnippetCmd -> null
             }
-        } ?: cmd.metaSrcInfo?.getSourceDetails()?.range ?: cmd.meta[CVL_RANGE])?.nonEmpty()
+        }
+            ?: cmd.metaSrcInfo?.getSourceDetails()?.range
+            ?: if (Config.ActiveEcosystem.get() == Ecosystem.EVM) {
+                // only in the case of EVM do we want to take the actual range.
+                // For Solana, the CVL_RANGE might not be precise.
+                cmd.meta[CVL_RANGE]
+            } else {
+                null
+            })?.nonEmpty()
     }
 
     fun visit(ltacCmd: LTACCmd) {
@@ -451,45 +540,36 @@ class DebugAdapterProtocolStackMachine(
 
         val range = tryGetRange(cmd)
 
-        var persist = false
+        persistFrames = false
         if (debugActionCmd is DebugAdapterPopAction) {
             check(frames.size > 0) { "The call stack can never be empty - there have been too many pop operations" }
             frames = frames.pop()
-            persist = true
+            persistFrames = debugActionCmd.persist
         } else if (debugActionCmd is DebugAdapterPushAction) {
             checkWarn(debugActionCmd.stackElement.scopeRange != null) { "Got an empty range for the stack element ${debugActionCmd.stackElement}" }
             val newRange = debugActionCmd.stackElement.scopeRange ?: rule.range.nonEmpty()
 
             frames = frames.push(StackFrame(debugActionCmd.stackElement, cmd, newRange))
-            persist = true
+            persistFrames = debugActionCmd.persist
         } else if (range != null) {
             val currTop = frames.top
 
             if (addDebugStepAtRange(currTop, range)) {
                 currTop.stepTo(cmd, range)
-                persist = true
-            }
-            val currScopeRange = currTop.el.scopeRange
-            //Only add a step when the range changes so that we don't add too many steps
-            if (currTop.range != range) {
-                //When the top stack elements doesn't have any range information, we always add a step,
-                // otherwise ensure that the step is always within the range of the top element on the stack.
-                if (currScopeRange == null || range in currScopeRange) {
-                    frames.top.stepTo(cmd, range)
-                    persist = true
-                } else {
-                    if (range !in currScopeRange) {
-                        logger.debug { "Range of command $cmd is out of $currScopeRange" }
-                    }
-                }
+                persistFrames = true
             }
         }
 
-        updateLocalVariables(cmd)
-        if (persist) {
+        handleSolanaPrintStmt(cmd)
+
+        if (Config.CallTraceDebugAdapterProtocol.get() == DebugAdapterProtocolMode.VARIABLES) {
+            updateLocalVariables(cmd)
+        }
+        if (persistFrames) {
             persist()
         }
     }
+
 
     private fun addDebugStepAtRange(currStackFrame: StackFrame, range: Range.Range): Boolean {
         if (currStackFrame.range == range) {
@@ -499,7 +579,8 @@ class DebugAdapterProtocolStackMachine(
              */
             return false
         }
-        if (range.slicedString()?.isFullContractSrcMap() == true) {
+        if (Config.ActiveEcosystem.get() == Ecosystem.EVM && range.slicedString()?.isFullContractSrcMap() == true) {
+
             /**
              * Do not add a step if the range just highlights the entire contract.
              * As it's not clear what line number this then refers to and halting the
@@ -514,13 +595,24 @@ class DebugAdapterProtocolStackMachine(
              */
             return true;
         }
-        return range in currStackFrame.el.scopeRange
+        /**
+         * Only in the case of EVM do we have the full source range of a scope, i.e. we know where
+         * a function implementation starts and ends in terms of its line numbers.
+         * In that case we ensure that the step is also within this range.
+         * This ensures that the debugger always steps within the line numbers
+         * of the function body and cannot jump to anywhere else.
+         */
+        return Config.ActiveEcosystem.get() != Ecosystem.EVM || range in currStackFrame.el.scopeRange
     }
 
     private fun persist() {
-        callTrace.push(Statement(frames.top.cmd.toString(), frames.map { frame ->
+        val potentialNewEl = Statement(frames.top.cmd.toString(), frames.top.consoleOutput, frames.map { frame ->
             ImmutableStackFrame(stackEntry = frame.el, function = frame.el.name, range = frame.range, variableContainers = frame.variables.toVariableMapping(frames.toList()))
-        }, globalVariableContainers = globalVariables.toVariableMapping(frames.toList())))
+        }, globalVariableContainers = globalVariables.toVariableMapping(frames.toList()))
+
+        //The consoleOutput has been persisted, reset it to the empty string.
+        frames.top.consoleOutput = ""
+        callTrace.push(potentialNewEl)
     }
 
     private fun updateVariables(displayPath: DisplayPath, symbol: TACSymbol, type: VariableType) {
@@ -531,15 +623,19 @@ class DebugAdapterProtocolStackMachine(
         checkWarn(model.tacAssignments[symbol] != null) { "No value found for symbol ${symbol}" }
 
         val storedValue = model.tacAssignments[symbol] ?: TACValue.Uninitialized
-        updateVariables(displayPath, storedValue, type)
+        updateVariables(displayPath, DebuggerValue(storedValue), type)
     }
 
-    fun updateVariables(displayPath: InstantiatedDisplayPath, storedValue: TACValue, type: VariableType) {
+    private fun updateVariables(displayPath: InstantiatedDisplayPath, storedValue: DebuggerValue, type: VariableType) {
         if (type.header != VariableHeader.LOCALS || ONLY_GLOBAL_VARIABLES) {
             globalVariables[VariableIdentifier(type, displayPath)] = storedValue
         } else {
             frames.top.variables[VariableIdentifier(type, displayPath)] = storedValue
         }
+    }
+
+    fun updateVariables(displayPath: InstantiatedDisplayPath, storedValue: TACValue, type: VariableType) {
+        updateVariables(displayPath, DebuggerValue(storedValue), type)
     }
 
     /**
@@ -552,14 +648,19 @@ class DebugAdapterProtocolStackMachine(
         updateCVLLocalVariables(cmd)
         updateFunctionLocalVariables(cmd)
         updateHookVariables(cmd)
+        updateSolanaLocalVariables(cmd)
     }
 
+
+    /***
+     * CVL specific code below
+     */
     private fun updateHookVariables(cmd: TACCmd.Simple) {
         cmd.maybeAnnotation(SNIPPET).let { snippet ->
             if (snippet is SnippetCmd.CVLSnippetCmd.InlinedHook) {
                 snippet.substitutions.forEachEntry {
                     val value = model.instantiate(it.value) ?: TACValue.Uninitialized
-                    updateVariables(InstantiatedDisplayPath.Root(it.key.name), value, VariableType.LOCAL)
+                    updateVariables(InstantiatedDisplayPath.Root(it.key.name), DebuggerValue(value), VariableType.LOCAL)
                 }
             }
         }
@@ -615,7 +716,75 @@ class DebugAdapterProtocolStackMachine(
         }
     }
 
+
+    /***
+     * Solana specific code below
+     */
+    private fun updateSolanaLocalVariables(cmd: TACCmd.Simple) {
+        cmd.maybeAnnotation(SNIPPET).let { snippet ->
+            if (snippet is SnippetCmd.SolanaSnippetCmd.VariableBecomingLive) {
+                val pieces = snippet.expressions.mapValues { (_, v) -> v.evaluate(model) }
+                SolanaCallTraceValueFormatter(
+                    snippet.variableName,
+                    snippet.baseVariableType
+                ).formatValue(pieces, false)
+                    .map { (idp, debugValue) ->
+                        updateVariables(idp, debugValue, VariableType.LOCAL)
+                    }
+
+                persistFrames = snippet.persist
+            }
+            if (snippet is SnippetCmd.SolanaSnippetCmd.DirectMemoryAccess) {
+                val pieces = snippet.expression.evaluate(model)
+                SolanaCallTraceValueFormatter(
+                    snippet.variableName,
+                    snippet.baseVariableType.asNonReferenceType()
+                ).formatValue(mapOf(snippet.offsetIntoStruct to pieces), true)
+                    .map { (idp, debugValue) ->
+                        updateVariables(idp, debugValue, VariableType.LOCAL)
+                    }
+
+                persistFrames = snippet.persist
+            }
+        }
+    }
+
+
+    private fun handleSolanaPrintStmt(cmd: TACCmd.Simple) {
+        cmd.maybeAnnotation(SNIPPET).let { snippet ->
+            val sarif = when (snippet) {
+                is SnippetCmd.CvlrSnippetCmd.CexPrintTag -> {
+                    Sarif.fromPlainStringUnchecked(snippet.displayMessage)
+                }
+
+                is SnippetCmd.CvlrSnippetCmd.CexPrintValues -> {
+                    snippet.toSarif(model)
+                }
+
+                is SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue -> {
+                    snippet.tryToSarif(model)
+                }
+
+                is SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixedOrDecimal -> {
+                    snippet.tryToSarif(model)
+                }
+
+                else -> null
+            }
+            if (sarif != null) {
+                val output = sarif.prettyPrint() + "\n";
+                frames.top.consoleOutput += output
+            }
+        }
+    }
+
+
     fun writeToFile(): String? {
+        if (!persistFrames) {
+            // If the last statement we saw did not already persist the information,
+            // before writing the call trace, explicitly persist the information.
+            persist()
+        }
         val manager = ArtifactManagerFactory.enabledOrNull() ?: return null
         val key = RuleOutputArtifactsKey(rule.ruleIdentifier)
         val artifacts = manager
@@ -633,7 +802,8 @@ class DebugAdapterProtocolStackMachine(
                 fileWriter.append(Json.encodeToString(Trace(JSON_SCHEMA_VERSION, Rule(rule.ruleIdentifier.toString(), rule.isSatisfyRule ||
                     rule.getAllSingleRules().all {
                         it.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
-                    }, rule.range), callTrace))) }
+                    }, rule.range), callTrace.reduce())))
+            }
             fileName
         } catch (e: IOException) {
             logger.error("Write of rule ${key.ruleIdentifier} failed: $e")
@@ -643,10 +813,36 @@ class DebugAdapterProtocolStackMachine(
 
     @TestOnly
     fun getCallTrace(): List<Statement> {
-        return callTrace.toList()
+        return callTrace.reduce().toList()
     }
 }
 
+
+/**
+ * Traverses the generated call trace / debugger step backwards and if the last
+ * element is equal to the next element modulo the variables, we do not add the next
+ * element to the list - it does not convey additional information.
+ *
+ * The variables are only ever added to the debugger steps, and so the set of variables
+ * of last must be larger than the set of variables at next.
+ */
+fun MutableList<Statement>.reduce(): List<Statement> {
+    return this.reversed().fold<Statement, List<Statement>>(listOf()) { acc, curr ->
+        val defaultRes = acc + curr;
+        if (acc.isEmpty()) {
+            return@fold defaultRes
+        }
+        val lastFrames = acc.last().frames
+        if (lastFrames.size != curr.frames.size || lastFrames.isEmpty()) {
+            return@fold defaultRes
+        }
+        if (lastFrames.zip(curr.frames).all { it.first.equalsExceptVariables(it.second) }) {
+            acc
+        } else {
+            defaultRes
+        }
+    }.reversed()
+}
 
 /**
  * Classes for serialization follow below
@@ -662,14 +858,18 @@ data class VariableContainer(val header: String, val variables: List<VariableNod
 data class Rule(val fullyQualifiedRuleIdentifier: String, val isSatisfyRule: Boolean, val range: Range)
 
 @Serializable
-data class ImmutableStackFrame(val stackEntry: StackEntry, val function: String, val range: Range.Range?, val variableContainers: List<VariableContainer> = listOf()){
+data class ImmutableStackFrame(val stackEntry: StackEntry, val function: String, val range: Range.Range?, val variableContainers: List<VariableContainer> = listOf()) {
     override fun toString(): String {
         return function + "@" + range?.lineNumber
+    }
+
+    fun equalsExceptVariables(other: ImmutableStackFrame): Boolean {
+        return other.stackEntry == stackEntry && other.function == function && other.range == range
     }
 }
 
 @Serializable
-data class Statement(val statement: String, val frames: List<ImmutableStackFrame>, val globalVariableContainers: List<VariableContainer> = listOf())
+data class Statement(val statement: String, val consoleOutput: String, val frames: List<ImmutableStackFrame>, val globalVariableContainers: List<VariableContainer> = listOf())
 
 @Serializable
 data class Trace(val CertoraDAPVersion: String, val rule: Rule, val trace: List<Statement>)

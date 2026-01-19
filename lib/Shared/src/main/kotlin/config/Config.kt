@@ -2564,12 +2564,22 @@ object Config {
         )
     ) {}
 
-    val CallTraceDebugAdapterProtocol = object : ConfigType.BooleanCmdLine(
-        false,
+    val CallTraceDebugAdapterProtocol = object : ConfigType.DebugAdapterCmdLine(
+        DebugAdapterProtocolMode.DISABLED,
         Option(
             "callTraceDebugAdapterProtocol",
             true,
-            "Dumps a JSON file that can be read by our Certora Debug Extension (VSCode extension)" +
+            "Controls the level of debug information dumped for the Certora Debug Extension (VSCode extension). " +
+                "Available options: :\n ${DebugAdapterProtocolMode.paramDescriptions()}. [default: disabled]"
+        )
+    ) {}
+
+    val CallTraceDebugAdapterProtocolOnlyInSources = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "callTraceDebugAdapterProtocolOnlyInSources",
+            true,
+            "Only adds steps to debug statement that are contained in the .certora_sources folder" +
                 "[default: true]"
         )
     ) {}

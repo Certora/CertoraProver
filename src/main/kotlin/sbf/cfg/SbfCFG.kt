@@ -20,6 +20,9 @@ package sbf.cfg
 import sbf.SolanaConfig
 import sbf.disassembler.*
 import datastructures.stdcollections.*
+import dwarf.DebugSymbols
+import sbf.dwarf.DWARFEdgeLabelAnnotator
+import kotlin.collections.removeLast
 
 /**
  * Control Flow Graph representation of an SBF function
@@ -520,7 +523,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
             }
         }
 
-        val newBlocks: MutableSet<CFGEdge> = mutableSetOf()
+        val newBlocks: MutableSet<Pair<CFGEdge, MetaData>> = mutableSetOf()
         for ((_,curBlock) in blocks) {
             val terminatorInst = curBlock.getInstruction(curBlock.numOfInstructions()-1)
             if (terminatorInst is SbfInstruction.Jump.ConditionalJump) {
@@ -532,7 +535,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
                     val trueCond = terminatorInst.cond
                     val edge = processBranch(curBlock, trueSucBlock, trueCond)
                     if (edge != null) {
-                        newBlocks.add(edge)
+                        newBlocks.add(edge to terminatorInst.metaData)
                     }
                 }
 
@@ -541,13 +544,14 @@ class MutableSbfCFG(private val name: String): SbfCFG {
                     val negCond = cond.copy(op = cond.op.negate())
                     val edge = processBranch(curBlock, falseSucBlock, negCond)
                     if (edge != null) {
-                        newBlocks.add(edge)
+                        newBlocks.add(edge to terminatorInst.metaData)
                     }
                 }
             }
         }
         // Add extra blocks to model CFG edges
-        for (edge in newBlocks) {
+        for (edgeAndMeta in newBlocks) {
+            val edge = edgeAndMeta.first
             val src = edge.src
             val dst = edge.dst
             val cond = edge.cond
@@ -567,10 +571,10 @@ class MutableSbfCFG(private val name: String): SbfCFG {
             check(terminatorSrc.target == dst || terminatorSrc.falseTarget == dst)
             if (terminatorSrc.target == dst) {
                 srcB.add(SbfInstruction.Jump.ConditionalJump(
-                        terminatorSrc.cond, newBlock.getLabel(), terminatorSrc.falseTarget))
+                        terminatorSrc.cond, newBlock.getLabel(), terminatorSrc.falseTarget, edgeAndMeta.second))
             } else {
                 srcB.add(SbfInstruction.Jump.ConditionalJump(
-                        terminatorSrc.cond, terminatorSrc.target, newBlock.getLabel()))
+                        terminatorSrc.cond, terminatorSrc.target, newBlock.getLabel(), edgeAndMeta.second))
             }
             srcB.removeSucc(dstB)
             srcB.addSucc(newBlock)
@@ -1149,27 +1153,33 @@ class MutableSbfCFG(private val name: String): SbfCFG {
                 }
 
                 fun instToDot(locInst: LocatedSbfInstruction, sb:StringBuilder) {
-                    val color = colorMap[locInst]
-                    if (color != null) {
-                        sb.append("<TR><TD ALIGN=\"LEFT\" BGCOLOR=\"$color\">")
-                    } else {
-                        sb.append("<TR><TD ALIGN=\"LEFT\">")
+                    val color = colorMap[locInst] ?: (locInst.inst as? SbfInstruction.Debug)?.let { "Cyan" }
+
+                    @Suppress("ForbiddenMethodCall")
+                    locInst.inst.toString().split("\n").forEach {instLine ->
+                        if (color != null) {
+                            sb.append("<TR><TD ALIGN=\"LEFT\" BGCOLOR=\"$color\">")
+                        } else {
+                            sb.append("<TR><TD ALIGN=\"LEFT\">")
+                        }
+                        sb.append(instLine
+                            .replace("&", "&amp;")
+                            .replace("<", "&lt;")
+                            .replace(">", "&gt;")
+                            .replace("{", "&#123;")
+                            .replace("}", "&#125;")
+                        )
+                        sb.append("</TD></TR>")
                     }
-                    sb.append(locInst.inst.toString()
-                        .replace("&", "&amp;")
-                        .replace("<", "&lt;")
-                        .replace(">", "&gt;")
-                        .replace("{", "&#123;")
-                        .replace("}", "&#125;")
-                    )
-                    sb.append("</TD></TR>")
                 }
 
                 fun blockToDot(b: SbfBasicBlock, sb:StringBuilder) {
                     val label = b.getLabel()
                     sb.append("<<TABLE BORDER=\"0\" ALIGN=\"LEFT\" CELLBORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\">")
                     sb.append("<TR><TD ALIGN=\"LEFT\">$label:</TD></TR>")
-                    for (locInst in b.getLocatedInstructions()) {
+                    // Filter out Debug instructions (unless option is enabled) - Debug instruction carry meta debug information.
+                    val instToPrint = b.getLocatedInstructions().filter { SolanaConfig.DumpDwarfDebugInfoInReports.get() || it.inst !is SbfInstruction.Debug }
+                    for (locInst in instToPrint) {
                         instToDot(locInst, sb)
                     }
                     sb.append("</TABLE>>")
@@ -1240,6 +1250,15 @@ class MutableSbfCFG(private val name: String): SbfCFG {
         }
         return  CFGStats(blocks.size, numOfInsts,
                         InstructionsStats(numOfSyscalls, numOfInternalCalls, numOfMemInsts))
+    }
+
+    fun addDebugInformation(debugInformation: DebugSymbols) {
+        this.getEntry().getInstruction(0).metaData.getVal(SbfMeta.SBF_ADDRESS)?.let {addr ->
+            val debugInfoForMethod = debugInformation.getMethodByNameAndAddress(this.name, addr)
+            if(debugInfoForMethod != null) {
+                DWARFEdgeLabelAnnotator(debugInformation, debugInfoForMethod, this, addr).addDebugInformation();
+            }
+        }
     }
 }
 

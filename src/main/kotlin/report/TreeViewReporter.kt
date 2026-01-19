@@ -1099,11 +1099,11 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
                                         breadcrumbs,
                                         example
                                     )
+
+                                    val debugAdapterCallTrace = example.callTrace?.debugAdapterCallTrace?.writeToFile()
                                     val outputFileName = ruleOutputReportView
                                         .writeToFile()
                                         ?: return@mapNotNull null
-
-                                    val debugAdapterCallTrace = example.callTrace?.debugAdapterCallTrace?.writeToFile()
 
                                     tree.addChildNode(assertMeta.identifier, node, nodeType = NodeType.VIOLATED_ASSERT, rule = null)
                                     tree.updateStatus(assertMeta.identifier) {

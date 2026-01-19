@@ -19,6 +19,7 @@ package sbf.cfg
 
 import utils.*
 import datastructures.stdcollections.*
+import sbf.dwarf.DWARFCfgEdgeLabel
 
 class MetaData private constructor(private val meta: Map<MetaKey<*>, Any>) {
     constructor(): this(mutableMapOf())
@@ -61,6 +62,8 @@ object SbfMeta {
     val REG_TYPE =  MetaKey<Pair<Value.Reg, SbfRegisterType>>("reg_type")
     // Address of the instruction
     val SBF_ADDRESS = MetaKey<ULong>("sbf_bytecode_address")
+
+    val SBF_DWARF_DEBUG_ANNOTATIONS = MetaKey<List<DWARFCfgEdgeLabel>>("sbf_debug_edge_annotation")
     // The value is true if the loaded register affects the control flow of the program
     val LOADED_AS_NUM_FOR_PTA = MetaKey<Boolean>("loaded_as_number_for_pta")
     //  Promoted overflow check condition
@@ -124,6 +127,11 @@ fun toString(metaData: MetaData): String {
             SbfMeta.REG_TYPE -> {
                 val (reg, type) = v.uncheckedAs<Pair<Value.Reg, SbfRegisterType>>()
                 strB.append(" /* type($reg)=$type */")
+            }
+            SbfMeta.SBF_DWARF_DEBUG_ANNOTATIONS -> {
+                metaData.getVal(SbfMeta.SBF_DWARF_DEBUG_ANNOTATIONS)?.let { scopeEnds ->
+                    strB.append(scopeEnds.joinToString("\n"))
+                }
             }
             SbfMeta.MANGLED_NAME -> {}
             SbfMeta.RANGE -> {}

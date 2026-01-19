@@ -64,6 +64,11 @@ internal class SolanaCallTraceGenerator(
                                     )
 
                                     is SnippetCmd.SolanaSnippetCmd.Assert -> handleSolanaUserAssert(snippetCmd, cmd)
+                                    is SnippetCmd.SolanaSnippetCmd.VariableBecomingLive,
+                                    is SnippetCmd.SolanaSnippetCmd.DirectMemoryAccess,
+                                    is SnippetCmd.SolanaSnippetCmd.ExplicitDebugPopAction,
+                                    is SnippetCmd.SolanaSnippetCmd.ExplicitDebugPushAction,
+                                    -> HandleCmdResult.Continue
                                 }
                             }
                             else -> super.handleCmd(cmd, cmdIdx, currBlock, blockIdx)

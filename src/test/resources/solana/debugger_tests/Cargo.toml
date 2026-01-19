@@ -1,0 +1,28 @@
+[package]
+name = "debugger_tests"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+certora = []
+
+[package.metadata.certora]
+sources = [
+    "Cargo.toml",
+    "src/**/*.rs"
+]
+solana_inlining = ["../../certora/summaries/cvlr_inlining_core.txt"]
+solana_summaries = ["../../certora/summaries/cvlr_summaries_core.txt"]
+
+[dependencies]
+cvlr = "0.4.0"
+cvlr-solana = "0.4.3"
+solana-program = "1.18"
+spl-token = { version = "4", features = ["no-entrypoint"] }
+spl-token-2022 = { version = "3", features = ["no-entrypoint"] }
+bytemuck = "1.7.2"
+spl-pod = "0.2.5"
+cvlr-vectors = "0.4.0"

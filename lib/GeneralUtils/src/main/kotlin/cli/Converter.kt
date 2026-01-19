@@ -18,6 +18,7 @@
 package cli
 
 import cli.SanityValues.*
+import config.DebugAdapterProtocolMode
 import config.HardFailMode
 import datastructures.stdcollections.*
 import smt.*
@@ -166,6 +167,19 @@ val WasmHostConverter = Converter {
         "soroban" -> WasmHost.SOROBAN
         "near" -> WasmHost.NEAR
         else -> throw ConversionException(it, WasmHost::class.java)
+    }
+}
+
+val DebugAdapterConverter = Converter {
+    when (it.lowercase()) {
+        "disabled",
+        "false",
+        "none" -> DebugAdapterProtocolMode.DISABLED
+        "callstack" -> DebugAdapterProtocolMode.CALLSTACK
+        "enabled",
+        "true",
+        "variables" -> DebugAdapterProtocolMode.VARIABLES
+        else -> throw ConversionException(it, DebugAdapterProtocolMode::class.java)
     }
 }
 

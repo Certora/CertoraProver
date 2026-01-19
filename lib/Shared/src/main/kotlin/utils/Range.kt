@@ -18,9 +18,12 @@
 package utils
 
 import com.certora.collect.Treapable
+import config.Config
 import java_cup.runtime.ComplexSymbolFactory
 import kotlinx.serialization.Serializable
 import report.TreeViewLocation
+import java.io.File
+import java.nio.file.Paths
 
 /**
  * Start and end of syntactic element's location in the document, used for the LSP.
@@ -44,7 +47,7 @@ sealed class Range : AmbiSerializable, Comparable<Range> {
         TreeViewLocation {
 
         init {
-            require(start <= end) { "end position cannot come before the start position"}
+            require(start <= end) { "end position cannot come before the start position (start: $start, end $end)"}
         }
         constructor(start: ComplexSymbolFactory.Location, end: ComplexSymbolFactory.Location) : this(
             start.unit,
@@ -98,6 +101,15 @@ sealed class Range : AmbiSerializable, Comparable<Range> {
             } catch (_: StringIndexOutOfBoundsException) {
                 return null
             }
+        }
+
+
+        /** Checks if the file referenced by the given [range] exists in the local sources directory. */
+        fun fileExistsInSourcesDir(): Boolean {
+            val file = File(Config.prependSourcesDir(file))
+            // If the range is absolute, we ignore it: we cannot resolve files in the local sources directory if the path is absolute.
+            val pathIsRelative = !Paths.get(this.file).isAbsolute
+            return pathIsRelative && file.exists()
         }
     }
 

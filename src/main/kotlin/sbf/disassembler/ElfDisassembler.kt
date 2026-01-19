@@ -17,8 +17,12 @@
 
 package sbf.disassembler
 
-import com.certora.collect.*
+import config.Config
+import config.DebugAdapterProtocolMode
 import datastructures.stdcollections.*
+import dwarf.DWARFDebugInformation
+import dwarf.DebugSymbolLoader
+import dwarf.DebugSymbols
 import net.fornwall.jelf.*
 import net.fornwall.jelf.ElfSymbol.STT_FUNC
 import sbf.callgraph.SolanaFunction
@@ -170,6 +174,7 @@ class ElfDisassembler(pathName: String) {
     private val reader: ElfFile
     private val parser: ElfParser
     private val globalsSymTable: ElfFileView
+    private val debugSymbols: DebugSymbols
 
     init {
         this.file = File(pathName)
@@ -183,6 +188,11 @@ class ElfDisassembler(pathName: String) {
         }
         this.parser = ElfParser(file, reader)
         this.globalsSymTable = ElfFileView(reader, parser)
+        this.debugSymbols = if (Config.CallTraceDebugAdapterProtocol.get() != DebugAdapterProtocolMode.DISABLED) {
+            DebugSymbolLoader.generate(file, false) ?: /*Falling back to empty symbols here*/ DebugSymbols(DWARFDebugInformation())
+        } else {
+            DebugSymbols(DWARFDebugInformation())
+        }
     }
 
     /** An undefined symbol is a symbol defined in a different compilation unit (e.g., external calls) **/
@@ -398,6 +408,6 @@ class ElfDisassembler(pathName: String) {
         val relocatedCalls = resolveRelocations(sectionStart, instructions, functionMan)
         val initGlobals = GlobalVariables(globalsSymTable)
         val globals = populateGlobalVariables(initGlobals)
-        return BytecodeProgram(entryOffsetMap, functionMan, instructions, globals, relocatedCalls)
+        return BytecodeProgram(entryOffsetMap, functionMan, instructions, globals, relocatedCalls, this.debugSymbols)
     }
 }

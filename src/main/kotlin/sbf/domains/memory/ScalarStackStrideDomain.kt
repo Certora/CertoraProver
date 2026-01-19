@@ -820,6 +820,7 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
                 is SbfInstruction.Mem -> if (s.isLoad) { analyzeLoad(locInst, scalars) } else { analyzeStore(locInst, scalars)}
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
+                is SbfInstruction.Debug -> {}
             }
         }
     }

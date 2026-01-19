@@ -313,6 +313,14 @@ sealed class ConfigType<T : Serializable>(
         HashingSchemeConverter, option, aliases
     )
 
+    open class DebugAdapterCmdLine(
+        default: DebugAdapterProtocolMode?,
+        option: Option,
+        aliases: List<Option> = listOf()
+    ) : CmdLine<DebugAdapterProtocolMode>(
+        default,
+        DebugAdapterConverter, option, aliases
+    )
     open class HardFailCmdLine(
         default: HardFailMode,
         option: Option,

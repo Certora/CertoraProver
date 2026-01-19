@@ -18,6 +18,7 @@
 package sbf.callgraph
 
 import datastructures.stdcollections.*
+import dwarf.DebugSymbols
 import sbf.SolanaConfig
 import sbf.analysis.cpis.cpisSubstitutionMap
 import sbf.cfg.*
@@ -144,7 +145,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
                         throw CFGBuilderError("out-of-bounds jump instruction")
                     }
                     val nextPC = prog.program[i + 1].first
-                    val jumpCondInst = SbfInstruction.Jump.ConditionalJump(inst.cond, inst.target, nextPC)
+                    val jumpCondInst = SbfInstruction.Jump.ConditionalJump(inst.cond, inst.target, nextPC, inst.metaData)
                     val trueSuccBlock = monoCFG.getOrInsertBlock(inst.target)
                     val falseSuccBlock = monoCFG.getOrInsertBlock(nextPC)
 
@@ -153,7 +154,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
                         //      934:	2d 67 00 00 00 00 00 00	if r7 > r6 goto +0 <LBB2_94>
                         //0000000000001d38 LBB2_94:
                         //      935:	...
-                        it.add(SbfInstruction.Jump.UnconditionalJump(inst.target))
+                        it.add(SbfInstruction.Jump.UnconditionalJump(inst.target, inst.metaData))
                         it.addSucc(trueSuccBlock)
                     } else {
                         it.add(jumpCondInst)
@@ -193,7 +194,7 @@ private fun sbfProgramWithMocksToSbfCfgs(
         if (SolanaConfig.PrintOriginalToStdOut.get()) {
             sbfLogger.info { "$clonedCfg" }
         }
-        postProcessCFG(clonedCfg, prog.globals)
+        postProcessCFG(clonedCfg, prog.debugSymbols, prog.globals)
         cfgs.add(clonedCfg)
     }
     val demangler = Demangler(cfgs)
@@ -212,7 +213,8 @@ private fun sbfProgramWithMocksToSbfCfgs(
     }
 }
 
-private fun postProcessCFG(cfg: MutableSbfCFG, globals: GlobalVariables) {
+private fun postProcessCFG(cfg: MutableSbfCFG, debugSymbols: DebugSymbols, globals: GlobalVariables) {
+    cfg.addDebugInformation(debugSymbols)
     cfg.verify(false, "[before postProcessCFG]")
     //do not call simplify before calling lowerBranchesIntoAssume
     cfg.lowerBranchesIntoAssume()

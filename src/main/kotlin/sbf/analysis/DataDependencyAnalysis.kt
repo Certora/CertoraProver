@@ -502,6 +502,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             is SbfInstruction.Jump.UnconditionalJump,
             is SbfInstruction.Exit,
             is SbfInstruction.CallReg,
+            is SbfInstruction.Debug,
             is SbfInstruction.Un -> inState
             is SbfInstruction.Havoc -> inState.kill(RegisterVariable(inst.dst, vFac))
             is SbfInstruction.Bin -> analyzeBin(inState, cmd)

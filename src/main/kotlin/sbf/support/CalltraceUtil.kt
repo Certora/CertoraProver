@@ -29,25 +29,25 @@ object SolanaCalltraceUtil {
     fun sbfAddressToRangeWithHeuristic(
         sbfAddress: ULong,
     ): Range.Range? {
-            val windowSize = 80U
-            // Consider address, address - 8, address - 16, ..., address - (windowSize + 8)
-            val addresses: MutableList<ULong> = mutableListOf()
-            var nextAddress = sbfAddress
-            // The first condition is to check the absence of underflows.
-            while (sbfAddress <= nextAddress && sbfAddress - nextAddress <= windowSize) {
-                addresses.add(nextAddress)
-                nextAddress -= 8U
-            }
-            val rangesMap = DebugInfoReader.getInlinedFramesInSourcesDir(addresses)
-            // Iterate over the addresses: address, address - 8, address - 16, ...
-            // The first address that is associated with non-null range information will be the returned address.
-            for (addr in addresses) {
-                rangesMap[addr]?.let { ranges ->
-                    ranges.firstOrNull { range ->
-                        return range
-                    }
+        val windowSize = 80U
+        // Consider address, address - 8, address - 16, ..., address - (windowSize + 8)
+        val addresses: MutableList<ULong> = mutableListOf()
+        var nextAddress = sbfAddress
+        // The first condition is to check the absence of underflows.
+        while (sbfAddress <= nextAddress && sbfAddress - nextAddress <= windowSize) {
+            addresses.add(nextAddress)
+            nextAddress -= 8U
+        }
+        val rangesMap = DebugInfoReader.getInlinedFrames(addresses)
+        // Iterate over the addresses: address, address - 8, address - 16, ...
+        // The first address that is associated with non-null range information will be the returned address.
+        for (addr in addresses) {
+            rangesMap[addr]?.let { ranges ->
+                ranges.firstOrNull { range ->
+                    return range
                 }
             }
-            return null
         }
+        return null
+    }
 }
