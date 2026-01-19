@@ -857,10 +857,12 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                         )
                     }
                     is MoveInstruction.Mul -> mathOp { t, a, b ->
-                        mergeMany(
-                            Trap.assert("u${t.size} overflow in multiplication", meta) { (a intMul b) le MASK_SIZE(t.size).asTACExpr },
-                            push(t) { a mul b }
-                        )
+                        TXF { a intMul b }.letVar(Tag.Int) { result ->
+                            mergeMany(
+                                Trap.assert("u${t.size} overflow in multiplication", meta) { result le MASK_SIZE(t.size).asTACExpr },
+                                push(t) { safeMathNarrowAssuming(result, Tag.Bit256, MASK_SIZE(t.size)) }
+                            )
+                        }
                     }
                     is MoveInstruction.Div -> mathOp { t, a, b ->
                         mergeMany(
