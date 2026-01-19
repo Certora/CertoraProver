@@ -26,6 +26,7 @@ import sbf.disassembler.GlobalVariables
 import sbf.domains.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import sbf.SolanaConfig.OptimisticPTAJoin
 import sbf.analysis.MemoryAnalysis
 import sbf.callgraph.SolanaFunction
 import sbf.testing.SbfTestDSL
@@ -708,7 +709,7 @@ class MemoryTest {
         absVal2.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), stack2.getNode().createSymCell(4040))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
-        ConfigScope(SolanaConfig.OptimisticPTAJoin, false).use {
+        ConfigScope(OptimisticPTAJoin, false).use {
             val absVal3 = absVal1.join(absVal2)
             sbfLogger.warn{"absVal3 := join(absVal1, absVal2) --> \n$absVal3"}
             // We should lose track of R1
@@ -743,7 +744,7 @@ class MemoryTest {
         absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
-        ConfigScope(SolanaConfig.OptimisticPTAJoin, true).use {
+        ConfigScope(OptimisticPTAJoin, true).use {
             val absVal3 = absVal1.join(absVal2)
             sbfLogger.warn{"absVal3 := join(absVal1, absVal2) --> \n$absVal3"}
             val absVal4 = absVal2.join(absVal1)
@@ -784,7 +785,7 @@ class MemoryTest {
         absVal2.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(SbfType.PointerType.Stack(Constant(4040))))
 
         sbfLogger.warn{"\nAbsVal1=$absVal1\nAbsVal2=$absVal2"}
-        ConfigScope(SolanaConfig.OptimisticPTAJoin, true).use {
+        ConfigScope(OptimisticPTAJoin, true).use {
             val absVal3 = absVal1.join(absVal2)
             sbfLogger.warn{"absVal3 := join(absVal1, absVal2) --> \n$absVal3"}
             val absVal4 = absVal2.join(absVal1)
@@ -796,7 +797,7 @@ class MemoryTest {
 
 
     @Test
-    fun test16() {
+    fun `pseudo-canonicalize (1)`() {
         println("====== TEST 16 pseudo-canonicalize =======")
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
 
@@ -841,7 +842,7 @@ class MemoryTest {
     }
 
     @Test
-    fun test17() {
+    fun `pseudo-canonicalize (2)`() {
         println("====== TEST 17 pseudo-canonicalize=======")
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
 
@@ -882,7 +883,7 @@ class MemoryTest {
     }
 
     @Test
-    fun test18() {
+    fun `select example`() {
         println("====== TEST 18 (SELECT) =======")
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r2 = Value.Reg(SbfRegister.R2_ARG)
@@ -925,7 +926,7 @@ class MemoryTest {
     }
 
     @Test
-    fun test19() {
+    fun `reconstruction from integer cells`() {
         println("====== TEST 19: reconstructFromIntegerCells =======")
 
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
@@ -983,7 +984,7 @@ class MemoryTest {
     }
 
     @Test
-    fun test20() {
+    fun `simple pointer arithmetic (1)`() {
         // trivial test for pointer arithmetic
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
@@ -1012,7 +1013,7 @@ class MemoryTest {
     }
 
     @Test
-    fun test21() {
+    fun `simple pointer arithmetic (2)`() {
         // trivial test for pointer arithmetic
         val cfg = SbfTestDSL.makeCFG("entrypoint") {
             bb(0) {
@@ -1141,7 +1142,7 @@ class MemoryTest {
     }
 
     @Test
-    fun test24() {
+    fun `materialization of stack`() {
         println("====== TEST 24: materialize stack (memcpy) =======")
 
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
@@ -1197,7 +1198,7 @@ class MemoryTest {
     }
 
     @Test
-    fun test25() {
+    fun `materialization of stack with memcpy followed by store`() {
         println("====== TEST 25: materialize stack (memcpy+store) =======")
 
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
@@ -1258,5 +1259,395 @@ class MemoryTest {
         println("After stack materialization: $g")
         Assertions.assertEquals(true, c5 != null && c5.getNode() == sumN && c5 != c6 && c5 == c7 && c7 == c8 )
         Assertions.assertEquals(true, c6?.getNode() == intN)
+    }
+
+    @Test
+    fun `read partially written stack is never allowed`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                r3 = r10
+                BinOp.SUB(r3, 12)
+                r4 = r3[0]
+                exit()
+            }
+        }
+        println("$cfg")
+
+        expectException<sbf.support.UnknownStackContentError> {
+            ConfigScope(OptimisticPTAOverlaps, true).use {
+                MemoryAnalysis(
+                    cfg,
+                    globals,
+                    MemorySummaries(),
+                    ConstantSbfTypeFactory(),
+                    nodeAllocator.flagsFactory,
+                    memDomainOpts,
+                    processor = null
+                ).getPost(Label.Address(0))
+            }
+        }
+    }
+
+    @Test
+    fun `read from uninitialized stack is allowed`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                r3 = r10
+                BinOp.SUB(r3, 16)
+                r4 = r3[0]
+                goto(1)
+            }
+            bb(1) {
+                r10[-200] = r4 // to keep r4 alive
+                exit()
+            }
+        }
+        println("$cfg")
+
+        val results = MemoryAnalysis(cfg,
+            globals,
+            MemorySummaries(),
+            ConstantSbfTypeFactory(),
+            nodeAllocator.flagsFactory,
+            memDomainOpts,
+            processor = null).getPost(Label.Address(0)
+        )
+        println("$results")
+        check(results != null)
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+        Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayExternal)
+    }
+
+    @Test
+    fun `maybe-uninitialized read - join of store at x and no store and read at x should be allowed`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                br(CondOp.EQ(r1, 0), 1, 2)
+            }
+
+            bb(1) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(2) {
+                goto(3)
+            }
+            bb(3) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r4 = r2[0]
+                goto (4)
+            }
+            bb(4) {
+                r10[-200] = r4 // to keep r4 alive
+                exit()
+            }
+        }
+        println("$cfg")
+
+
+        val results = MemoryAnalysis(cfg,
+            globals,
+            MemorySummaries(),
+            ConstantSbfTypeFactory(),
+            nodeAllocator.flagsFactory,
+            memDomainOpts,
+            processor = null).getPost((Label.Address(3)))
+        println("$results")
+        check(results != null)
+        val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+        Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+    }
+
+    @Test
+    fun `maybe-uninitialized read - join of store at x and no store and read at x-2 should not be allowed`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                br(CondOp.EQ(r1, 0), 1, 2)
+            }
+            bb(1) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(2) {
+                goto(3)
+            }
+            bb(3) {
+                r2 = r10
+                BinOp.SUB(r2, 10)
+                r4 = r2[0]
+                goto(4)
+            }
+            bb(4) {
+                r10[-200] = r4 // to keep r4 alive
+                exit()
+            }
+        }
+        println("$cfg")
+
+        expectException<sbf.support.UnknownStackContentError> {
+            MemoryAnalysis(
+                cfg,
+                globals,
+                MemorySummaries(),
+                ConstantSbfTypeFactory(),
+                nodeAllocator.flagsFactory,
+                memDomainOpts,
+                processor = null
+            )
+        }
+    }
+
+    @Test
+    fun `maybe-uninitialized read - join of store at x and no store and read at x-2 should be allowed with optimistic flags`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                br(CondOp.EQ(r1, 0), 1, 2)
+            }
+            bb(1) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(2) {
+                goto(3)
+            }
+            bb(3) {
+                r2 = r10
+                BinOp.SUB(r2, 10)
+                r4 = r2[0]
+                goto(4)
+            }
+            bb(4) {
+                r10[-200] = r4 // to keep r4 alive
+                exit()
+            }
+        }
+        println("$cfg")
+        ConfigScope(OptimisticPTAOverlaps, true).use {
+            ConfigScope(OptimisticPTAJoin, true).use {
+                val results = MemoryAnalysis(
+                    cfg,
+                    globals,
+                    MemorySummaries(),
+                    ConstantSbfTypeFactory(),
+                    nodeAllocator.flagsFactory,
+                    memDomainOpts,
+                    processor = null
+                ).getPost(Label.Address(3))
+                println("$results")
+            }
+        }
+    }
+
+    @Test
+    fun `join of overlapping stores x and y totally disjoint and read at x or y should be always allowed`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                br(CondOp.EQ(r1, 0), 1, 2)
+            }
+            bb(1) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(2) {
+                r2 = r10
+                BinOp.SUB(r2, 28)
+                r2[0] = 10
+                goto(3)
+            }
+            bb(3) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r4 = r2[0]
+                r2 = r10
+                BinOp.SUB(r2, 28)
+                r5 = r2[0]
+                goto(4)
+            }
+            bb(4) {
+                r10[-200] = r4 // to keep r4 alive
+                r10[-300] = r5 // to keep r5 alive
+                exit()
+            }
+        }
+        println("$cfg")
+        ConfigScope(OptimisticPTAOverlaps, false).use {
+            ConfigScope(OptimisticPTAJoin, false).use {
+                val results = MemoryAnalysis(
+                    cfg,
+                    globals,
+                    MemorySummaries(),
+                    ConstantSbfTypeFactory(),
+                    nodeAllocator.flagsFactory,
+                    memDomainOpts,
+                    processor = null
+                ).getPost((Label.Address(3)))
+                println("$results")
+                check(results != null)
+                results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG)).let { sc ->
+                    Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+                }
+
+                results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R5_ARG)).let { sc ->
+                    Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `join of overlapping stores x and x-4 and read at x should not be allowed without optimistic flag`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                br(CondOp.EQ(r1, 0), 1, 2)
+            }
+            bb(1) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(2) {
+                r2 = r10
+                BinOp.SUB(r2, 12)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(3) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r4 = r2[0]
+                goto(4)
+            }
+            bb(4) {
+                r10[-200] = r4 // to keep r4 alive
+                exit()
+            }
+        }
+        println("$cfg")
+        expectException<sbf.support.UnknownStackContentError> {
+            ConfigScope(OptimisticPTAOverlaps, false).use {
+                ConfigScope(OptimisticPTAJoin, true).use {
+                    MemoryAnalysis(
+                        cfg,
+                        globals,
+                        MemorySummaries(),
+                        ConstantSbfTypeFactory(),
+                        nodeAllocator.flagsFactory,
+                        memDomainOpts,
+                        processor = null
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `join of overlapping stores x and x-4 and read at x should be allowed with optimistic flag`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                br(CondOp.EQ(r1, 0), 1, 2)
+            }
+            bb(1) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(2) {
+                r2 = r10
+                BinOp.SUB(r2, 12)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(3) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r4 = r2[0]
+                goto(4)
+            }
+            bb(4) {
+                r10[-200] = r4 // to keep r4 alive
+                exit()
+            }
+        }
+        println("$cfg")
+        ConfigScope(OptimisticPTAOverlaps, true).use {
+            ConfigScope(OptimisticPTAJoin, true).use {
+                val results = MemoryAnalysis(
+                    cfg,
+                    globals,
+                    MemorySummaries(),
+                    ConstantSbfTypeFactory(),
+                    nodeAllocator.flagsFactory,
+                    memDomainOpts,
+                    processor = null
+                ).getPost((Label.Address(3)))
+                println("$results")
+                check(results != null)
+                val sc = results.getPTAGraph().getRegCell(Value.Reg(SbfRegister.R4_ARG))
+                Assertions.assertEquals(true, sc != null && sc.getNode().flags.isMayInteger())
+            }
+        }
+    }
+
+    @Test
+    fun `join of overlapping stores at x and x-4 and read at x-2 should never be allowed`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                br(CondOp.EQ(r1, 0), 1, 2)
+            }
+
+            bb(1) {
+                r2 = r10
+                BinOp.SUB(r2, 8)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(2) {
+                r2 = r10
+                BinOp.SUB(r2, 12)
+                r2[0] = 5
+                goto(3)
+            }
+            bb(3) {
+                r2 = r10
+                BinOp.SUB(r2, 10)
+                r4 = r2[0]
+                exit()
+            }
+        }
+        println("$cfg")
+
+        expectException<sbf.support.UnknownStackContentError> {
+            // Even with optimistic flags shouldn't be allowed
+            ConfigScope(OptimisticPTAOverlaps, true).use {
+                ConfigScope(OptimisticPTAJoin, true).use {
+                    MemoryAnalysis(
+                        cfg,
+                        globals,
+                        MemorySummaries(),
+                        ConstantSbfTypeFactory(),
+                        nodeAllocator.flagsFactory,
+                        memDomainOpts,
+                        processor = null
+                    )
+                }
+            }
+        }
     }
 }

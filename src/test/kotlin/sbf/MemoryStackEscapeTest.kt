@@ -91,14 +91,11 @@ class MemoryStackEscapeTest {
             nodeAllocator.flagsFactory,
             memDomOpts,
             processor = null)
-        var exception = false
-        try {
+
+        expectException<PointerStackEscapingError> {
             memAnalysis.inferAll()
-        } catch (e: PointerStackEscapingError) {
-            // The pointer analysis should throw an exception because stack is escaping
-            exception = true
         }
-        Assertions.assertEquals(true, exception)
+
     }
 
     @Test
@@ -165,13 +162,9 @@ class MemoryStackEscapeTest {
             nodeAllocator.flagsFactory,
             memDomOpts,
             processor = null)
-        var exception = false
-        try {
+
+        expectException<PointerStackEscapingError> {
             memAnalysis.inferAll()
-        } catch (e: PointerStackEscapingError) {
-            // The pointer analysis should throw an exception because stack is escaping
-            exception = true
         }
-        Assertions.assertEquals(true, exception)
     }
 }

@@ -102,21 +102,14 @@ class ScalarDomainConstantSetTest {
         println("$cfg")
 
         // With non-disjunctive offsets, the scalar analysis throw an exception
-        run {
-            var exception = false
-            try {
-                ScalarAnalysisProver(cfg, ConstantSbfTypeFactory())
-            } catch (e: UnknownStackPointerError) {
-                exception = true
-            }
-            Assertions.assertEquals(true, exception)
+        expectException<UnknownStackPointerError> {
+            ScalarAnalysisProver(cfg, ConstantSbfTypeFactory())
         }
 
         // With disjunctive offsets, the scalar analysis should NOT throw an exception
         // and prove the assertion
-        run {
-            checkWithScalarAnalysis(cfg, true)
-        }
+        checkWithScalarAnalysis(cfg, true)
+
     }
 
     // Example where AdaptiveScalarAnalysis is needed
@@ -584,13 +577,9 @@ class ScalarDomainConstantSetTest {
         cfg.lowerBranchesIntoAssume()
         println("$cfg")
 
-        var exception = false
-        try {
+        expectException<UnknownStackPointerError> {
             checkWithScalarAnalysis(cfg, true, 20UL)
-        } catch (e: UnknownStackPointerError) {
-            exception = true
         }
-        Assertions.assertEquals(true, exception)
     }
 
     @Test
@@ -627,13 +616,8 @@ class ScalarDomainConstantSetTest {
         cfg.lowerBranchesIntoAssume()
         println("$cfg")
 
-        var exception = false
-        try {
-            checkWithScalarAnalysis(cfg, true, 20UL)
-        } catch (e: UnknownStackPointerError) {
-            exception = true
-        }
-        Assertions.assertEquals(false, exception)
+       // shouldn't raise an exception
+        checkWithScalarAnalysis(cfg, true, 20UL)
     }
 
 }

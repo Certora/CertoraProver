@@ -27,6 +27,7 @@ import sbf.callgraph.CVTFunction
 import sbf.callgraph.CompilerRtFunction
 import sbf.callgraph.SolanaFunction
 import sbf.support.UnknownStackPointerError
+import vc.data.exp
 
 class ScalarPredicateDomainTest {
 
@@ -535,14 +536,8 @@ class ScalarPredicateDomainTest {
         cfg.lowerBranchesIntoAssume()
         println("$cfg")
 
-        run {
-            var exception = false
-            try {
-                checkWithScalarPredicateAnalysis(cfg, true, 20UL)
-            } catch (e: UnknownStackPointerError) {
-                exception = true
-            }
-            Assertions.assertEquals(true, exception)
+        expectException<UnknownStackPointerError> {
+            checkWithScalarPredicateAnalysis(cfg, true, 20UL)
         }
     }
 
@@ -589,13 +584,9 @@ class ScalarPredicateDomainTest {
         cfg.lowerBranchesIntoAssume()
         println("$cfg")
 
-        var exception = false
-        try {
+        expectException<UnknownStackPointerError> {
             checkWithScalarPredicateAnalysis(cfg, true, 20UL)
-        } catch (e: UnknownStackPointerError) {
-             exception = true
         }
-        Assertions.assertEquals(true, exception)
     }
 
 }

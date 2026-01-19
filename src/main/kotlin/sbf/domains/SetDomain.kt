@@ -41,6 +41,7 @@ abstract class SetDomain<E: Comparable<E>>: Iterable<E> {
 
     abstract fun size(): Int
     abstract fun add(e: E): SetDomain<E>
+    abstract fun addAll(elements: Collection<E>): SetDomain<E>
     abstract fun remove(e: E): SetDomain<E>
     abstract fun removeAll(predicate: (E) -> Boolean): SetDomain<E>
     abstract fun isTop(): Boolean
@@ -72,6 +73,11 @@ class SetUnionDomain<E: Comparable<E>>(override val set: TreapSet<E>, val isTopS
     override fun add(e: E): SetDomain<E> {
         check(!isTop()) {"cannot call add method on top"}
         return SetUnionDomain(set.add(e), isTopSym = false)
+    }
+
+    override fun addAll(elements: Collection<E>): SetDomain<E> {
+        check(!isTop()) {"cannot call addAll method on top"}
+        return SetUnionDomain(set.addAll(elements), isTopSym = false)
     }
 
     override fun remove(e: E): SetDomain<E> {
@@ -140,6 +146,10 @@ class SetIntersectionDomain<E: Comparable<E>>(override val set: TreapSet<E>)
 
     override fun add(e: E): SetDomain<E> {
         return SetIntersectionDomain(set.add(e))
+    }
+
+    override fun addAll(elements: Collection<E>): SetDomain<E> {
+        return SetIntersectionDomain(set.addAll(elements))
     }
 
     override fun remove(e: E): SetDomain<E> {

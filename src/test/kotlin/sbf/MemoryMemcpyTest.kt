@@ -444,18 +444,12 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
         val scalars = ScalarDomain(sbfTypesFac)
-        var exception = false
-        try {
+
+        expectException<UnknownMemcpyLenError> {
             // memcpy(r1, r2, r3)
             println("Before memcpy(r1,r2,r3) with r3=top -> $g")
             g.doMemcpy(createMemcpy(), scalars, globals)
-            println("After memcpy(r1,r2,r3) with r3=top -> $g")
         }
-        catch (e: UnknownMemcpyLenError) {
-            println("Test failed as expected because $e")
-            exception = true
-        }
-        Assertions.assertEquals(true, exception)
     }
 
     @Test
@@ -734,14 +728,10 @@ class MemoryMemcpyTest {
         checkPointsToNode(g, r1, 16, 8, n3)
 
         // Check that we kill *all* overlapping cells at the destination
-        var exception1 = false
-        try {
+        expectException<UnknownStackContentError> {
             // (3036,8) was marked as top so the pointer domain should complain
             load(g, r1, (-4L).toShort(), 8)
-        } catch (e: UnknownStackContentError) {
-            exception1 = true
         }
-        Assertions.assertEquals(true, exception1)
 
         // Check that there is fresh memory at (3052,8)
         val x = load(g, r1, 12, 8)
