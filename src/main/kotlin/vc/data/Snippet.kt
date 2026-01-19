@@ -1427,7 +1427,9 @@ sealed class SnippetCmd: AmbiSerializable {
             val cvlPattern: CVLHookPattern,
             val substitutions: Map<VMParam.Named, HookValue>,
             val displayPath: DisplayPath?, // only (sometimes?) available for storage hooks
-        ) : CVLSnippetCmd(), TransformableSymEntityWithRlxSupport<InlinedHook> {
+            val applySiteRange: Range.Range?, // the range in source code where the hook got applied (i.e. the solidity location).
+            @GeneratedBy(Allocator.Id.CVL_EVENT, source = true) override val id: Int,
+        ) : CVLSnippetCmd(), EventID, TransformableSymEntityWithRlxSupport<InlinedHook>, UniqueIdEntity<InlinedHook> {
             override val support: Set<TACSymbol.Var>
                 get() = substitutions.values.flatMapToSet(HookValue::support) + displayPath?.support.orEmpty()
 
@@ -1445,6 +1447,12 @@ sealed class SnippetCmd: AmbiSerializable {
                 is CVLHookPattern.StoragePattern.Load -> this.substitutions[this.cvlPattern.value]
                 is CVLHookPattern.StoragePattern.Store -> this.substitutions[this.cvlPattern.previousValue]
                 else -> null
+            }
+
+            override fun mapId(f: (Any, Int, () -> Int) -> Int): InlinedHook {
+                return this.copy(
+                    id = remapEventId(this.id, f),
+                )
             }
         }
     }

@@ -45,7 +45,7 @@ class CertoraBuildException(message: String) : Exception(message)
 sealed interface CertoraBuildKind {
 
     /** Build for verifying EVM-based smart contracts. */
-    class EVMBuild() : CertoraBuildKind
+    class EVMBuild(val buildOptions: List<String> = emptyList()) : CertoraBuildKind
 
     /** Build for verifying Solana-based smart contracts. Also specifies the entrypoint for the verification task. */
     class SolanaBuild(val solanaEntrypoint: HashSet<String>) : CertoraBuildKind
@@ -55,6 +55,14 @@ sealed interface CertoraBuildKind {
         return when (this) {
             is EVMBuild -> Path("certoraRun.py")
             is SolanaBuild -> Path("certoraSolanaProver.py")
+        }
+    }
+
+    /** Addtional build options to pass to the certora build command. */
+    fun buildOptions(): List<String> {
+        return when (this) {
+            is EVMBuild -> this.buildOptions
+            is SolanaBuild -> listOf()
         }
     }
 }
@@ -301,10 +309,10 @@ sealed class CertoraBuildSource {
         val command = listOf(
             buildKind.certoraProverScript().toString(),
             this.conf.name,
-            "--build_only",
             "--build_dir",
-            this.buildDir.toString()
-        )
+            this.buildDir.toString(),
+            "--build_only"
+        ) + buildKind.buildOptions()
 
         val processBuilder = ProcessBuilder(command)
             .directory(this.conf.parent.toFile())

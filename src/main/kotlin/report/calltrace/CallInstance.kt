@@ -433,7 +433,7 @@ abstract class CallInstance : TreeViewReportable {
          * a [CVL_LABEL_START]/[CVL_LABEL_END] and some aren't.
          * doing this would also allow us make [id] non-null, making [CVLSnippetCmd.EventID] more robust.
          */
-        constructor(message: String, labelId: Int? = null): this(CVLReportLabel.Message(message, Range.Empty()), labelId)
+        constructor(message: String, range: Range.Range? = null, labelId: Int? = null): this(CVLReportLabel.Message(message, range ?: Range.Empty()), labelId)
 
         override val name: String get() = label.toString()
         override val range: Range.Range? get() = label.range.nonEmpty()

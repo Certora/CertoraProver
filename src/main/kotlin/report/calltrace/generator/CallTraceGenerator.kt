@@ -50,9 +50,7 @@ import scene.MethodAttribute
 import solver.CounterexampleModel
 import solver.SMTCounterexampleModel
 import spec.CVLReservedVariables
-import spec.cvlast.CVLHookPattern
 import spec.cvlast.CVLType
-import spec.cvlast.PatternWithValue
 import spec.rules.IRule
 import tac.NBId
 import utils.*
@@ -380,20 +378,6 @@ internal sealed class CallTraceGenerator(
         return HandleCmdResult.Continue
     }
 
-    private fun handleCvlLabelStart(value: CVLReportLabel, labelId: Int): HandleCmdResult {
-        val instance = CallInstance.LabelInstance(value, labelId)
-        callTracePush(instance)
-        return HandleCmdResult.Continue
-    }
-
-    private fun handleCvlLabelEnd(id: Int): HandleCmdResult {
-        return ensureStackState(
-            requirement = { (it as? SnippetCmd.CVLSnippetCmd.EventID)?.id == id },
-            eventDescription = "event with ID $id",
-            callback = { }
-        )
-    }
-
     private fun handleInternalFuncStart(internalFuncStartAnnot: InternalFuncStartAnnotation): HandleCmdResult {
         val funcName = internalFuncStartAnnot.methodSignature.qualifiedMethodName.toString()
 
@@ -606,27 +590,6 @@ internal sealed class CallTraceGenerator(
         )
     }
 
-    private fun handleInlinedHook(cmd: SnippetCmd.CVLSnippetCmd.InlinedHook, labelId: Int): HandleCmdResult {
-        val hookHeader = cmd.cvlPattern.toHookApplicationHeader(labelId)
-
-        val substitutions = cmd.substitutions.entries.sortedBy { it.key.name }
-
-        if (substitutions.isNotEmpty()) {
-            val paramExplanationsHeader = CallInstance.LabelInstance("With parameters:")
-            hookHeader.addChild(paramExplanationsHeader)
-
-            for ((subbedParam, hook) in substitutions) {
-                val subName = subbedParam.name
-                val hookValue = model.instantiate(hook)?.value
-                val hookDescription = hookValue?.let { "0x" + it.toString(16) } ?: "?"
-                val labelInstance = CallInstance.LabelInstance("$subName = $hookDescription")
-                paramExplanationsHeader.addChild(labelInstance)
-            }
-        }
-
-        callTracePush(hookHeader)
-        return HandleCmdResult.Continue
-    }
 
     private fun handleStartLoopSnippet(snippetCmd: SnippetCmd.LoopSnippet.StartLoopSnippet): HandleCmdResult {
         val snippetCallInstance = CallInstance.LoopInstance.Start(
@@ -744,21 +707,6 @@ internal sealed class CallTraceGenerator(
         }
     }
 
-    /**
-     * this function checks this section for a [SnippetCmd.CVLSnippetCmd.InlinedHook] annotation,
-     * because we merge these with the start label of the section.
-     *
-     * we define a "section" as the commands between a [CVL_LABEL_START] and a [CVL_LABEL_END].
-     * we expect this section to be entirely contained within a single block.
-     */
-    private fun findInlinedHookInSection(ptr: CmdPointer): SnippetCmd.CVLSnippetCmd.InlinedHook? {
-        return graph
-            .iterateBlock(ptr, excludeStart = true)
-            .mapNotNull { it.cmd as? TACCmd.Simple.AnnotationCmd }
-            .takeWhile { it.annot.k != TACMeta.CVL_LABEL_START && it.annot.k != TACMeta.CVL_LABEL_END }
-            .firstMapped { it.annot.v as? SnippetCmd.CVLSnippetCmd.InlinedHook }
-    }
-
 
     /** generates the call trace by iterating over the reachable commands of [program] in topological order. */
     fun generate(): CallTrace {
@@ -825,27 +773,6 @@ internal sealed class CallTraceGenerator(
             is TACCmd.Simple.AnnotationCmd -> {
                 val (meta, value) = cmd.annot
                 when (meta) {
-                    TACMeta.CVL_LABEL_START -> {
-                        val label = value as CVLReportLabel
-                        val labelId = cmd.meta[TACMeta.CVL_LABEL_START_ID]
-                            ?: return HandleCmdResult.GeneratedCallTrace(callTraceFailure { "missing label id for start label: `$label`" })
-                        val ptr = CmdPointer(currBlock, cmdIdx)
-                        val inlinedHook = findInlinedHookInSection(ptr)
-
-                        if (inlinedHook != null) {
-                            // we handle this here _instead_ of the start label.
-                            // then later on, when we reach this inlined hook annotation,
-                            // we skip it.
-                            handleInlinedHook(inlinedHook, labelId)
-                        } else {
-                            handleCvlLabelStart(label, labelId)
-                        }
-                    }
-
-                    TACMeta.CVL_LABEL_END -> {
-                        handleCvlLabelEnd(value as Int)
-                    }
-
                     TACMeta.SNIPPET -> {
                         when (val snippetCmd = value as SnippetCmd) {
                             is SnippetCmd.LoopSnippet.StartLoopSnippet -> handleStartLoopSnippet(snippetCmd)
@@ -962,29 +889,4 @@ private fun formatCallee(callee: MethodRef, scene: ISceneIdentifiers): String? {
     return "$caller.${methodUIName}"
 }
 
-private fun CVLHookPattern.toHookApplicationHeader(labelId: Int): CallInstance.LabelInstance {
-    val patternDescription = when (this) {
-        is CVLHookPattern.Create -> "create"
-
-        is CVLHookPattern.StoragePattern.Load -> "load ${value.id} := $slot"
-
-        is CVLHookPattern.StoragePattern.Store -> when (val previousValue = previousValue) {
-            null -> "store $slot := ${value.id}"
-            else -> "store $slot := ${value.id} (old: ${previousValue.id})"
-        }
-
-        is CVLHookPattern.Opcode -> when {
-            this is PatternWithValue && params.isNotEmpty() -> {
-                val joinedParams = params.joinToString(separator = ", ") { param -> param.id }
-                "$name($joinedParams) returns ${value.id}"
-            }
-
-            this is PatternWithValue -> "$name returns ${value.id}"
-
-            else -> "$name($params)"
-        }
-    }
-
-    return CallInstance.LabelInstance("Apply hook $patternDescription", labelId = labelId)
-}
 

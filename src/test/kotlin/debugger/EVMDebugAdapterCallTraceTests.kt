@@ -362,8 +362,8 @@ class EVMDebugAdapterCallTraceTests {
                 },
                 hookExample_setSomeField to CallStackMatcher(
                     Hook(5U),
-                    SolFunc(7U),
-                    /*duplicated*/ SolFunc(7U),
+                    SolFunc(8U),
+                    /*duplicated due to parametric method call in CVL*/ SolFunc(7U),
                     Rule(19U))
                 { matchedCallStack ->
                     matchedCallStack.assertContainsVariable("hook_store_oldValue")

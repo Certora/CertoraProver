@@ -34,10 +34,8 @@ import report.calltrace.sarif.sarifForStorageLocation
 import report.globalstate.toInstantiatedDisplayPath
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
+import spec.cvlast.*
 import utils.Range
-import spec.cvlast.CVLType
-import spec.cvlast.SpecCallSummary
-import spec.cvlast.StorageBasis
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
 import spec.rules.IRule
@@ -68,6 +66,16 @@ internal class EVMCallTraceGenerator(
             is TACCmd.Simple.AnnotationCmd -> {
                 val (meta, value) = cmd.annot
                 when (meta) {
+                    TACMeta.CVL_LABEL_START -> {
+                        val label = value as CVLReportLabel
+                        val labelId = cmd.meta[TACMeta.CVL_LABEL_START_ID]
+                            ?: return HandleCmdResult.GeneratedCallTrace(callTraceFailure { "missing label id for start label: `$label`" })
+                        handleCvlLabelStart(label, labelId)
+                    }
+
+                    TACMeta.CVL_LABEL_END -> {
+                        handleCvlLabelEnd(value as Int)
+                    }
                     TACMeta.SNIPPET -> {
                         when (val snippetCmd = value as SnippetCmd) {
                             is SnippetCmd.EVMSnippetCmd -> {
@@ -110,16 +118,11 @@ internal class EVMCallTraceGenerator(
                                     is SnippetCmd.CVLSnippetCmd.AssertCast -> handleAssertSnippet(snippetCmd, cmd, currBlock, cmdIdx)
                                     is SnippetCmd.CVLSnippetCmd.DivZero -> handleAssertSnippet(snippetCmd, cmd, currBlock, cmdIdx)
                                     is SnippetCmd.CVLSnippetCmd.ViewReentrancyAssert -> handleAssertSnippet(snippetCmd, cmd, currBlock, cmdIdx)
-                                    is SnippetCmd.CVLSnippetCmd.InlinedHook -> {
-                                        /**
-                                         * we _do not_ handle this here. we handle this in the [CallTraceGenerator.handleCmd] method.
-                                         *
-                                         * yes, that's kinda weird. see [findInlinedHookInSection].
-                                         */
-                                        HandleCmdResult.Continue
-                                    }
+                                    is SnippetCmd.CVLSnippetCmd.InlinedHook -> handleInlinedHook(snippetCmd)
                                     is SnippetCmd.CVLSnippetCmd.Start, is SnippetCmd.CVLSnippetCmd.End -> {
-                                        //These snippets are handled by DebugAdapterProtocol
+                                        /**
+                                         * These snippets are handled by [report.calltrace.printer.DebugAdapterProtocolStackMachine]
+                                         */
                                         HandleCmdResult.Continue
                                     }
                                 }
@@ -154,6 +157,41 @@ internal class EVMCallTraceGenerator(
                 }
             }
         }
+    }
+
+    private fun handleInlinedHook(cmd: SnippetCmd.CVLSnippetCmd.InlinedHook): HandleCmdResult {
+        val hookHeader = cmd.cvlPattern.toHookApplicationHeader(cmd)
+
+        val substitutions = cmd.substitutions.entries.sortedBy { it.key.name }
+
+        if (substitutions.isNotEmpty()) {
+            val paramExplanationsHeader = CallInstance.LabelInstance("With parameters:")
+            hookHeader.addChild(paramExplanationsHeader)
+
+            for ((subbedParam, hook) in substitutions) {
+                val subName = subbedParam.name
+                val hookValue = model.instantiate(hook)?.value
+                val hookDescription = hookValue?.let { "0x" + it.toString(16) } ?: "?"
+                val labelInstance = CallInstance.LabelInstance("$subName = $hookDescription")
+                paramExplanationsHeader.addChild(labelInstance)
+            }
+        }
+
+        callTracePush(hookHeader)
+        return HandleCmdResult.Continue
+    }
+    private fun handleCvlLabelStart(value: CVLReportLabel, labelId: Int): HandleCmdResult {
+        val instance = CallInstance.LabelInstance(value, labelId)
+        callTracePush(instance)
+        return HandleCmdResult.Continue
+    }
+
+    private fun handleCvlLabelEnd(id: Int): HandleCmdResult {
+        return ensureStackState(
+            requirement = { (it as? SnippetCmd.CVLSnippetCmd.EventID)?.id == id },
+            eventDescription = "event with ID $id",
+            callback = { }
+        )
     }
 
     private fun handleRawStorageSnippet(snippetCmd: SnippetCmd.EVMSnippetCmd.RawStorageAccess): HandleCmdResult {
@@ -880,4 +918,30 @@ internal class EVMCallTraceGenerator(
 private fun Logger.warnAndNull(f: () -> String): Nothing? {
     this.warn(f)
     return null
+}
+
+private fun CVLHookPattern.toHookApplicationHeader(snippet: SnippetCmd.CVLSnippetCmd.InlinedHook): CallInstance.LabelInstance {
+    val patternDescription = when (this) {
+        is CVLHookPattern.Create -> "create"
+
+        is CVLHookPattern.StoragePattern.Load -> "load ${value.id} := $slot"
+
+        is CVLHookPattern.StoragePattern.Store -> when (val previousValue = previousValue) {
+            null -> "store $slot := ${value.id}"
+            else -> "store $slot := ${value.id} (old: ${previousValue.id})"
+        }
+
+        is CVLHookPattern.Opcode -> when {
+            this is PatternWithValue && params.isNotEmpty() -> {
+                val joinedParams = params.joinToString(separator = ", ") { param -> param.id }
+                "$name($joinedParams) returns ${value.id}"
+            }
+
+            this is PatternWithValue -> "$name returns ${value.id}"
+
+            else -> "$name($params)"
+        }
+    }
+
+    return CallInstance.LabelInstance("Apply hook $patternDescription", range = snippet.applySiteRange, labelId = snippet.id)
 }
