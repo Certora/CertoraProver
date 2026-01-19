@@ -40,6 +40,7 @@ class CounterExampleImprecisionDetector(private val cex: CounterExampleContext) 
             val lhsVal: BigInteger,
         ) : Imprecision {
             override val msg: String get() = "mismatch: $rhsStr = $rhsVal, but is $lhsVal"
+            override fun toString() = msg
         }
 
         class AssumeExp(
@@ -47,6 +48,15 @@ class CounterExampleImprecisionDetector(private val cex: CounterExampleContext) 
             override val cmd: TACCmd.Simple,
         ) : Imprecision {
             override val msg: String get() = "condition of require statement should be true but is false"
+            override fun toString() = msg
+        }
+
+        class OutOfBounds(
+            override val ptr: CmdPointer,
+            override val cmd: TACCmd.Simple,
+            override val msg: String
+        ) : Imprecision {
+            override fun toString() = msg
         }
 
     }
@@ -59,20 +69,38 @@ class CounterExampleImprecisionDetector(private val cex: CounterExampleContext) 
             ptr `to?` checkCmd(ptr, cmd)
         }
 
+    private fun TACExpr.toAlertString(): String {
+        fun baseName(e: TACExpr) =
+            when (e) {
+                is TACExpr.Vec.Add -> "Add"
+                is TACExpr.Vec.IntAdd -> "IntAdd"
+                is TACExpr.Vec.IntMul -> "IntMul"
+                is TACExpr.Vec.Mul -> "Mul"
+                is TACExpr.Apply -> e.f.name
+                else -> e.javaClass.simpleName
+            }
+
+        return postFold { e, operandStrs ->
+            when (e) {
+                is TACExpr.Sym.Const -> e.s.value.toString()
+                is TACExpr.Sym.Var -> cex(e).toString()
+                else -> "${baseName(e)}(${operandStrs.joinToString(", ") { it }})"
+            }
+        }
+    }
+
     private fun checkCmd(ptr: CmdPointer, cmd: TACCmd.Simple): Imprecision? {
         when (cmd) {
             is TACCmd.Simple.AssigningCmd.AssignExpCmd -> {
                 val lhsVal = cex(cmd.lhs)
-                val rhsVal = cex(cmd.rhs)
+                val rhsVal = try {
+                    cex(cmd.rhs, throwOnProblem = true)
+                } catch (e: ModZm.OutOfBoundsException) {
+                    return Imprecision.OutOfBounds(ptr, cmd, e.message ?: "Assumption on bounds is violated")
+                }
                 if (lhsVal != null && rhsVal != null) {
                     if (lhsVal != rhsVal) {
-                        val rhsStr = cmd.rhs.postFold { e, operandStrs ->
-                            when (e) {
-                                is TACExpr.Sym.Const -> e.s.value.toString()
-                                is TACExpr.Sym.Var -> cex(e).toString()
-                                else -> "${e.javaClass.simpleName}(${operandStrs.joinToString(", ") { it }})"
-                            }
-                        }
+                        val rhsStr = cmd.rhs.toAlertString()
                         return Imprecision.Assignment(ptr, cmd, rhsStr, rhsVal, lhsVal)
                     }
                 }
@@ -83,10 +111,14 @@ class CounterExampleImprecisionDetector(private val cex: CounterExampleContext) 
             }
 
             is TACCmd.Simple.Assume ->
-                cex(cmd.condExpr)?.let { condVal ->
-                    if (condVal != BigInteger.ONE) {
-                        return Imprecision.AssumeExp(ptr, cmd)
+                try {
+                    cex(cmd.condExpr)?.let { condVal ->
+                        if (condVal != BigInteger.ONE) {
+                            return Imprecision.AssumeExp(ptr, cmd)
+                        }
                     }
+                } catch (e: ModZm.OutOfBoundsException) {
+                    return Imprecision.OutOfBounds(ptr, cmd, e.message ?: "Assumption on bounds is violated")
                 }
 
             is TACCmd.Simple.JumpiCmd -> {

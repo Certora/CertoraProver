@@ -17,15 +17,14 @@
 
 package report.cexanalysis
 
+import log.*
 import solver.SMTCounterexampleModel
 import utils.*
-import vc.data.CoreTACProgram
-import vc.data.TACCmd
-import vc.data.TACExpr
-import vc.data.TACSymbol
+import vc.data.*
 import vc.data.tacexprutil.postFold
 import java.math.BigInteger
 
+private val logger = Logger(LoggerTypes.CEX_ANALYSER)
 
 /**
  * Some utilities for working with a give counter example.
@@ -46,13 +45,32 @@ class CounterExampleContext(
             }
         }
 
+
     /** evaluates the value of [exp] in [cex], but only if [exp] is made up of primitive values */
-    operator fun invoke(exp: TACExpr): BigInteger? =
+    operator fun invoke(exp: TACExpr, throwOnProblem: Boolean = false): BigInteger? =
         exp.postFold { e, opValues ->
             runIf(e.tag?.isPrimitive() == true && null !in opValues) {
-                when (e) {
-                    is TACExpr.Sym -> invoke(e.s)
-                    else -> e.safeEval(opValues.map { it!! })
+                if (e is TACExpr.Sym) {
+                    invoke(e.s)
+                } else {
+                    val opValuesNoNull = opValues.map { it!! }
+                    try {
+                        when (((e as? TACExpr.Apply)?.f as? TACExpr.TACFunctionSym.BuiltIn)?.bif) {
+                            is TACBuiltInFunction.SafeMathNarrow,
+                            is TACBuiltInFunction.TwosComplement.Unwrap,
+                            is TACBuiltInFunction.TwosComplement.Wrap -> e.eval(opValuesNoNull)
+                                ?: if (throwOnProblem) {
+                                    throw ModZm.OutOfBoundsException("out of bounds imprecision")
+                                } else {
+                                    null
+                                }
+
+                            else -> e.eval(opValuesNoNull)
+                        }
+                    } catch (e: ArithmeticException) {
+                        logger.warn { "While analysing counter example, got $e" }
+                        null
+                    }
                 }
             }
         }

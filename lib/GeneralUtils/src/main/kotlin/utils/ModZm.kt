@@ -21,6 +21,8 @@ import java.math.BigInteger
 
 
 interface ModZm {
+    class OutOfBoundsException(msg: String): Exception(msg)
+
     val bitwidth: Int
 
     /** 2^[bitwidth] */
@@ -63,7 +65,7 @@ interface ModZm {
 
     fun BigInteger.to2s() =
         when {
-            !inSignedBounds -> error("$this is cannot be converted to a 2s complement bit-vector of width $bitwidth")
+            !inSignedBounds -> throw OutOfBoundsException("$this is cannot be converted to a 2s complement bit-vector of width $bitwidth")
             this >= BigInteger.ZERO -> this
             else -> this + modulus
         }
@@ -266,7 +268,7 @@ interface ModZm {
         fun evmSignExtend(a: BigInteger, b: BigInteger): BigInteger =
             a.toIntOrNull()?.takeIf { it in 0..31 }
                 ?.let { signExtendFromBit(b, (it + 1) * 8) }
-                ?: error("in evaluating signExtend($a, $b), $a is out of range")
+                ?: throw OutOfBoundsException("in evaluating signExtend($a, $b), $a is out of range")
 
     }
 }
