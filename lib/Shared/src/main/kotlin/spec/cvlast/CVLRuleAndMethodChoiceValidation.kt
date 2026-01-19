@@ -82,12 +82,26 @@ fun validateSimpleMethodChoices(knownFunctions: Set<String>): VoidResult<CVLErro
     val choices = Config.MethodChoices
     val excludeChoices = Config.ExcludeMethodChoices
 
+    // Helper to check if a choice matches any known function (exact match or by name)
+    fun matchesAnyFunction(choice: String): Boolean {
+        // If choice is a full signature (contains '('), require exact match
+        @Suppress("ForbiddenMethodCall")
+        if ("(" in choice) {
+            return choice in knownFunctions
+        }
+        // Otherwise, choice is just a name, so match by name
+        return knownFunctions.any { knownFunc ->
+            val knownFuncName = knownFunc.substringBefore("(")
+            knownFuncName == choice
+        }
+    }
+
     fun validateSet(s: Set<String>?): VoidResult<CVLError> {
         if (s == null) {
             return ok
         }
         return s.map { methodChoice ->
-            if (methodChoice in knownFunctions) {
+            if (matchesAnyFunction(methodChoice)) {
                 ok
             } else {
                 val suggestions = getClosestStrings(

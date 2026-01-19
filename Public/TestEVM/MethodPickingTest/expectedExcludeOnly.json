@@ -1,26 +1,23 @@
 {
-	"assertMessages": {},
 	"rules": {
+		"i": {
+			"Induction base: After the constructor": "SANITY_FAIL",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"SANITY_FAIL": [
+						"C.bar((uint256,bool[3][2]))",
+						"C.foo()",
+						"E.foo((uint256,bool[3][2]))"
+					]
+				}
+			}
+		},
 		"r": {
-			"FAIL": [],
-			"SANITY_FAIL": [],
 			"SUCCESS": [
 				"C.bar((uint256,bool[3][2]))",
+				"C.foo()",
 				"E.foo((uint256,bool[3][2]))"
-			],
-			"TIMEOUT": [],
-			"UNKNOWN": []
-		},
-    "i": {
-      "Induction base: After the constructor": "SANITY_FAIL",
-      "Induction step: after external (non-view) methods": {
-        "Using general requirements": {
-          "SANITY_FAIL": [
-            "C.bar((uint256,bool[3][2]))",
-            "E.foo((uint256,bool[3][2]))"
-          ]
-        }
-      }
-    }
-  }
+			]
+		}
+	}
 }

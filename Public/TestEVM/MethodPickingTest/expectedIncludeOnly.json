@@ -1,29 +1,28 @@
 {
-	"assertMessages": {},
 	"rules": {
+		"i": {
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"SANITY_FAIL": [
+						"C.foo((uint256,bool[3][2]))",
+						"C.qux((uint256,bool[3][2]))",
+						"C.qux()",
+						"D.bar((uint256,bool[3][2]))",
+						"D.baz((uint256,bool[3][2]))",
+						"E.baz((uint256,bool[3][2]))"
+					]
+				}
+			}
+		},
 		"r": {
-			"FAIL": [],
-			"SANITY_FAIL": [],
 			"SUCCESS": [
 				"C.foo((uint256,bool[3][2]))",
+				"C.qux((uint256,bool[3][2]))",
+				"C.qux()",
 				"D.bar((uint256,bool[3][2]))",
 				"D.baz((uint256,bool[3][2]))",
 				"E.baz((uint256,bool[3][2]))"
-			],
-			"TIMEOUT": [],
-			"UNKNOWN": []
-		},
-    "i": {
-      "Induction step: after external (non-view) methods": {
-        "Using general requirements": {
-          "SANITY_FAIL": [
-            "C.foo((uint256,bool[3][2]))",
-            "D.bar((uint256,bool[3][2]))",
-            "D.baz((uint256,bool[3][2]))",
-            "E.baz((uint256,bool[3][2]))"
-          ]
-        }
-      }
-    }
+			]
+		}
 	}
 }
