@@ -100,12 +100,16 @@ object TACMultiAssert {
                 compiledRule.rule,
                 assertId,
                 assertPtr.cmd.msg,
-                Range.Empty()
+                assertPtr.cmd.meta[TACMeta.CVL_RANGE] ?: Range.Empty(),
             )
 
             val newIdentifier = compiledRule.rule.ruleIdentifier.multiAssertIdentifier(assertId)
 
-            val newRule = compiledRule.rule.copy(ruleIdentifier = newIdentifier, ruleType = newRuleType)
+            val newRule = compiledRule.rule.copy(
+                ruleIdentifier = newIdentifier,
+                ruleType = newRuleType,
+                range = newRuleType.cvlCmdLoc,
+            )
 
             val newBaseRuleTac = replaceAssertWithAssumeExcept(
                 compiledRule.code,

@@ -39,7 +39,6 @@ interface SbfBasicBlock {
     fun getTerminator(): SbfInstruction
 }
 
-
 class MutableSbfBasicBlock(private val label: Label): SbfBasicBlock {
     private val insts = ArrayList<SbfInstruction>()
     /**
@@ -139,20 +138,27 @@ class MutableSbfBasicBlock(private val label: Label): SbfBasicBlock {
     fun replaceInstruction(oldInst: LocatedSbfInstruction, newInst: SbfInstruction) =
         replaceInstruction(oldInst.pos, newInst)
 
-    /** Replace each located instruction in `remap` with a sequence of consecutive instructions **/
+    /**
+     * Replace each located instruction in `remap` with a sequence of consecutive instructions.
+     * Remapping to an empty list deletes the instruction.
+     **/
     fun replaceInstructions(remap: Map<LocatedSbfInstruction, List<SbfInstruction>>) {
-        var numAddedInsts = 0
-        for ((old, newInsts) in remap) {
-            if (newInsts.isEmpty()) {
-                continue
-            }
-            val adjustedOldLocInst = old.copy(pos = old.pos + numAddedInsts)
-            replaceInstruction(adjustedOldLocInst, newInsts[0])
-            for ((i, newInst) in newInsts.drop(1).withIndex()) {
-                add(adjustedOldLocInst.pos  + 1 + i, newInst)
-                numAddedInsts += 1
-            }
+        val posToChanges = remap.mapKeys { (locInst, _) ->
+            require(locInst.label == this.label) { "remapper contained instructions from a different block" }
+            locInst.pos
         }
+        require(posToChanges.size == remap.size) { "remapper contained different located instructions with same pos" }
+
+        val size = this.insts.size
+        for (pos in posToChanges.keys) {
+            check(pos in 0..<size) { "pos $pos is out of bounds for block (size = $size)" }
+        }
+
+        // we could also check more things here, but that's enough for now
+
+        val newInsts = this.insts.flatMapIndexed { pos, originalInst -> posToChanges[pos] ?: listOf(originalInst) }
+        this.insts.clear()
+        this.insts.addAll(newInsts)
     }
 
     fun replaceInstructions(newInsts: List<SbfInstruction>) {
@@ -272,7 +278,6 @@ interface SbfCFG {
               colorMap: Map<LocatedSbfInstruction, DotColor> = mapOf()): String
     fun getStats(): CFGStats
 }
-
 
 class MutableSbfCFG(private val name: String): SbfCFG {
     /**

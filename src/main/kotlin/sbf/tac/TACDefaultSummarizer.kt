@@ -28,7 +28,7 @@ import vc.data.TACCmd
 
 /** Default summary for an external call **/
 context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeCall(
+internal fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> summarizeCall(
     locInst: LocatedSbfInstruction
 ): List<TACCmd.Simple> {
     val inst = locInst.inst

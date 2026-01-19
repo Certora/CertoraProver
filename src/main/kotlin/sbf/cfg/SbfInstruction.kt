@@ -250,6 +250,13 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
     open fun isDeallocFn() = false
     open fun isExternalFn() = false
 
+
+    // these can and probably should be replaced with polymorphism
+    open fun isCore(value: CVTCore): Boolean = false
+    open fun isCalltrace(value: CVTCalltrace): Boolean = false
+    open fun isNondet(): Boolean = false
+    open fun isPrint(): Boolean = false
+
     open fun metadataToString() = toString(metaData)
 
     data class Bin(val op: BinOp,
@@ -484,9 +491,9 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         override fun isAbort() =
                 SolanaFunction.from(name) == SolanaFunction.ABORT || name in AbortFunctions
         override fun isTerminator() = isAbort()
-        override fun isAssert() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.ASSERT)
-        override fun isSatisfy() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.SATISFY)
-        override fun isSanity() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.SANITY)
+        override fun isAssert() = isCore(CVTCore.ASSERT)
+        override fun isSatisfy() = isCore(CVTCore.SATISFY)
+        override fun isSanity() = isCore(CVTCore.SANITY)
         override fun isAllocFn(): Boolean {
                 return ((name == "__rust_alloc" || name == "__rust_alloc_zeroed") || /* Rust alloc*/
                         (name == "malloc" || name == "calloc" ))                     /* C alloc */
@@ -499,6 +506,41 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             return (SolanaFunction.from(name) != null ||
                     CVTFunction.from(name) != null ||
                     CompilerRtFunction.from(name) != null)
+        }
+
+        override fun isCore(value: CVTCore): Boolean {
+            val function = CVTFunction.from(name) as? CVTFunction.Core ?: return false
+            return function.value == value
+        }
+        override fun isCalltrace(value: CVTCalltrace): Boolean {
+            val function = CVTFunction.from(name) as? CVTFunction.Calltrace ?: return false
+            return function.value == value
+        }
+        override fun isNondet() = CVTFunction.from(name) is CVTFunction.Nondet
+        override fun isPrint(): Boolean {
+            val function = CVTFunction.from(name) as? CVTFunction.Calltrace
+            return when (function?.value) {
+                CVTCalltrace.PRINT_U64_1,
+                CVTCalltrace.PRINT_U64_2,
+                CVTCalltrace.PRINT_U64_3,
+                CVTCalltrace.PRINT_U128,
+                CVTCalltrace.PRINT_I64_1,
+                CVTCalltrace.PRINT_I64_2,
+                CVTCalltrace.PRINT_I64_3,
+                CVTCalltrace.PRINT_I128,
+                CVTCalltrace.PRINT_U64_AS_FIXED,
+                CVTCalltrace.PRINT_U64_AS_DECIMAL,
+                CVTCalltrace.PRINT_TAG,
+                CVTCalltrace.PRINT_STRING -> true
+
+                CVTCalltrace.PRINT_LOCATION,
+                CVTCalltrace.ATTACH_LOCATION,
+                CVTCalltrace.SCOPE_START,
+                CVTCalltrace.SCOPE_END,
+                CVTCalltrace.RULE_LOCATION -> false
+
+                null -> false
+            }
         }
 
         // special case for promoted memcpy
@@ -566,6 +608,7 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
 
 /**
  * Useful for when we want a pointer back to the containing block for an instruction
+ * Only valid for the block from which it originated
  * @param label the label of the block containing [inst]
  * @param pos is the index of [inst] in block [label]
  **/

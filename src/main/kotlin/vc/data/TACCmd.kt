@@ -3114,6 +3114,7 @@ inline fun <reified T: TACCmd.Spec> T.mapMeta(f: (MetaMap) -> MetaMap) : T = wit
 inline fun <reified T: TACCmd.Spec, reified K: Serializable> T.plusMeta(key: MetaKey<K>, v: K) =
     mapMeta { it + (key to v) }
 inline fun <reified T: TACCmd.Spec> T.plusMeta(key: MetaKey<Nothing>) = mapMeta { it + key }
+inline fun <reified T: TACCmd.Spec> T.plusMetaMap(metaMap: MetaMap) = mapMeta { it + metaMap }
 
 fun isNonTrivialAssert(cmd: TACCmd) =
     cmd is TACCmd.Simple.AssertCmd && cmd.o != TACSymbol.True

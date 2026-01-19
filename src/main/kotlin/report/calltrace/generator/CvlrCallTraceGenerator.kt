@@ -23,7 +23,6 @@ import report.calltrace.CallInstance
 import report.calltrace.formatter.CallTraceValue
 import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.sarif.FmtArg
-import sbf.support.SolanaCalltraceUtil
 import scene.ISceneIdentifiers
 import solver.CounterexampleModel
 import utils.Range
@@ -51,15 +50,6 @@ internal open class CvlrCallTraceGenerator(
     scene: ISceneIdentifiers,
     ruleCallString: String,
 ) : CallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString) {
-
-    /**
-     * [SnippetCmd.CvlrSnippetCmd.CexAttachLocation] can set the range for the next element in the calltrace that will
-     * be processed to have reliable range information for Solana/Soroban executables. Locations are pushed onto the stack when
-     * [SnippetCmd.CvlrSnippetCmd.CexAttachLocation] is found, and consumed by the following calltrace entry that
-     * needs range information.
-     */
-    private val rangesFromAttachLocation: MutableList<Range.Range> = mutableListOf()
-
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {
             is TACCmd.Simple.AnnotationCmd -> {
@@ -107,9 +97,9 @@ internal open class CvlrCallTraceGenerator(
     }
 
     private fun handleCvlrScopeStart(snippetCmd: SnippetCmd.CvlrSnippetCmd.ScopeStart,
-                                     stmt: TACCmd.Simple.AnnotationCmd? = null
+                                     stmt: TACCmd.Simple.AnnotationCmd,
     ): HandleCmdResult {
-        val range = stmt?.let { consumeAttachedRangeOrResolve(it) }
+        val range = resolveAttachedLocation(stmt)
         val newInstance = CallInstance.InvokingInstance.CVLRScope(
             name = snippetCmd.scopeName,
             range = range
@@ -124,24 +114,16 @@ internal open class CvlrCallTraceGenerator(
             eventDescription = "end of cvlr scope"
         )
     }
-    /**
-     * If [rangesFromAttachLocation] has at least one entry, pops the range and returns it.
-     * If [rangesFromAttachLocation] is empty, reads the range from the debug information from the executable.
-     */
-    fun consumeAttachedRangeOrResolve(stmt: TACCmd.Simple.AnnotationCmd): Range.Range? {
-        return if (rangesFromAttachLocation.isNotEmpty()) {
-            rangesFromAttachLocation.removeLast()
-        } else {
-            SolanaCalltraceUtil.sbfAddressToRangeWithHeuristic(stmt)
-        }
-    }
 
+    open fun resolveAttachedLocation(stmt: TACCmd.Simple.AnnotationCmd): Range.Range? {
+        return null
+    }
 
     private fun handleCvlrCexPrintTag(
         snippetCmd: SnippetCmd.CvlrSnippetCmd.CexPrintTag,
-        stmt: TACCmd.Simple.AnnotationCmd? = null
+        stmt: TACCmd.Simple.AnnotationCmd,
     ): HandleCmdResult {
-        val range = stmt?.let { consumeAttachedRangeOrResolve(it) }
+        val range = resolveAttachedLocation(stmt)
         val instance = CallInstance.CvlrCexPrintTag(
             name = snippetCmd.displayMessage,
             range = range
@@ -152,9 +134,9 @@ internal open class CvlrCallTraceGenerator(
 
     private fun handleCvlrCexPrintValues(
         snippetCmd: SnippetCmd.CvlrSnippetCmd.CexPrintValues,
-        stmt: TACCmd.Simple.AnnotationCmd? = null
+        stmt: TACCmd.Simple.AnnotationCmd,
     ): HandleCmdResult {
-        val range = stmt?.let { consumeAttachedRangeOrResolve(it) }
+        val range = resolveAttachedLocation(stmt)
         val formattedList = snippetCmd.symbols.map { sym ->
             CallTraceValue.cvlCtfValueOrUnknown(
                 model.valueAsTACValue(sym),
@@ -185,7 +167,7 @@ internal open class CvlrCallTraceGenerator(
         stmt: TACCmd.Simple.AnnotationCmd,
         asFixed: Boolean
     ): HandleCmdResult {
-        val range = consumeAttachedRangeOrResolve(stmt)
+        val range = resolveAttachedLocation(stmt)
         val numTACValue = model.valueAsTACValue(snippetCmd.unscaledVal)
         val unscaledVal: BigInteger? = numTACValue?.asBigIntOrNull()
         val scale: Int? = model.valueAsTACValue(snippetCmd.scale)?.asBigIntOrNull()?.toIntOrNull()
@@ -207,9 +189,9 @@ internal open class CvlrCallTraceGenerator(
 
     private fun handleCvlrCexPrint128BitsValue(
         snippetCmd: SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue,
-        stmt: TACCmd.Simple.AnnotationCmd? = null
+        stmt: TACCmd.Simple.AnnotationCmd,
     ): HandleCmdResult {
-        val range = stmt?.let { consumeAttachedRangeOrResolve(it) }
+        val range = resolveAttachedLocation(stmt)
         val low = get64BitsNumber(snippetCmd.low)
         val high = get64BitsNumber(snippetCmd.high)
         if (low != null && high != null) {
@@ -250,18 +232,12 @@ internal open class CvlrCallTraceGenerator(
         return HandleCmdResult.Continue
     }
 
-    private fun handleCvlrCexAttachLocation(snippetCmd: SnippetCmd.CvlrSnippetCmd.CexAttachLocation): HandleCmdResult {
-        filepathAndLineNumberToRange(snippetCmd.filepath, snippetCmd.lineNumber)?.let {
-            rangesFromAttachLocation.add(it)
-            if (rangesFromAttachLocation.size > 1) {
-                cvlrLogger.warn { "CVT_attach_location has been called two or more times in a row without a call trace entry to consume the locations" }
-            }
-        }
+    open fun handleCvlrCexAttachLocation(snippetCmd: SnippetCmd.CvlrSnippetCmd.CexAttachLocation): HandleCmdResult {
         return HandleCmdResult.Continue
     }
 
     /** Converts a filepath and a line number to a range. If the file is not in the sources dir, returns `null`. */
-    private fun filepathAndLineNumberToRange(filepath: String, lineNumber: UInt): Range.Range? {
+    internal fun filepathAndLineNumberToRange(filepath: String, lineNumber: UInt): Range.Range? {
         val fileInSourcesDir = File(Config.prependSourcesDir(filepath))
         return if (fileInSourcesDir.exists()) {
             val rangeLineNumber = lineNumber - 1U

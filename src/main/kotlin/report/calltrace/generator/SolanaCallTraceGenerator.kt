@@ -28,6 +28,7 @@ import solver.CounterexampleModel
 import spec.cvlast.CVLType
 import spec.rules.IRule
 import tac.NBId
+import utils.Range
 import vc.data.CoreTACProgram
 import vc.data.SnippetCmd
 import vc.data.TACCmd
@@ -109,7 +110,7 @@ internal class SolanaCallTraceGenerator(
         snippetCmd: SnippetCmd.SolanaSnippetCmd.ExternalCall,
         stmt: TACCmd.Simple.AnnotationCmd
     ): HandleCmdResult {
-        val range = consumeAttachedRangeOrResolve(stmt)
+        val range = resolveAttachedLocation(stmt)
         val formattedList = snippetCmd.symbols.map { sym ->
             CallTraceValue.cvlCtfValueOrUnknown(
                 model.valueAsTACValue(sym),
@@ -136,7 +137,7 @@ internal class SolanaCallTraceGenerator(
         snippetCmd: SnippetCmd.SolanaSnippetCmd.Assert,
         stmt: TACCmd.Simple.AnnotationCmd
     ): HandleCmdResult {
-        val range = consumeAttachedRangeOrResolve(stmt)
+        val range = resolveAttachedLocation(stmt)
         val msgResult = { assertVerified: Boolean ->
             val isSuccess = if (snippetCmd.fromSatisfy) {
                 // If the assertion is generated from satisfy, we want to flip the message: satisfy is OK when there is
@@ -163,5 +164,12 @@ internal class SolanaCallTraceGenerator(
         }
         callTraceAppend(CallInstance.CvlrUserAssert(msg, range))
         return HandleCmdResult.Continue
+    }
+
+    /**
+     * ranges were already attached at SBF -> TAC translation
+     */
+    override fun resolveAttachedLocation(stmt: TACCmd.Simple.AnnotationCmd): Range.Range? {
+        return stmt.meta[TACMeta.CVL_RANGE]?.nonEmpty()
     }
 }

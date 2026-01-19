@@ -25,8 +25,7 @@ class MetaData private constructor(private val meta: Map<MetaKey<*>, Any>) {
 
     fun<T> getVal(key: MetaKey<T>): T? = meta[key]?.uncheckedAs()
 
-    val keys: Collection<MetaKey<*>>
-        get() = meta.keys
+    internal val entries get() = meta.entries
 
     operator fun<T> plus(entry: Pair<MetaKey<T>, T>): MetaData {
         return MetaData(meta.plus(entry.uncheckedAs<Pair<MetaKey<*>, Any>>()))
@@ -85,6 +84,7 @@ object SbfMeta {
     val LOWERED_OR = MetaKey<String>("lowered_or")
     val UNREACHABLE_FROM_COI = MetaKey<String>("unreachable_from_coi")
     val SAFE_MATH = MetaKey<String>("safe_math")
+    val RANGE = MetaKey<Range.Range>("range")
 }
 
 data class MetaKey<T>(val name: String)
@@ -97,7 +97,7 @@ fun toString(metaData: MetaData): String {
     metaData.getVal(SbfMeta.COMMENT)?.let {
         strB.append(" /*$it*/")
     }
-    for (k in metaData.keys) {
+    for ((k, v) in metaData.entries) {
         when (k) {
             SbfMeta.HINT_OPTIMIZED_WIDE_STORE, SbfMeta.MEMCPY_PROMOTION,
             SbfMeta.UNHOISTED_STORE, SbfMeta.UNHOISTED_LOAD,
@@ -107,33 +107,26 @@ fun toString(metaData: MetaData): String {
                 strB.append(" /*${k.name}*/")
             }
             SbfMeta.CALL_ID, SbfMeta.INLINED_FUNCTION_NAME, SbfMeta.INLINED_FUNCTION_SIZE -> {
-                metaData.getVal(k)?.let {
-                    strB.append(" /*${k.name}=$it*/")
-                }
+                strB.append(" /*${k.name}=${v}*/")
             }
-            SbfMeta.SBF_ADDRESS-> {
-                metaData.getVal(k)?.let {
-                    val address: ULong = it.uncheckedAs()
-                    strB.append(" /* 0x${address.toString(16)} */")
-                }
+            SbfMeta.SBF_ADDRESS -> {
+                val address: ULong = v.uncheckedAs()
+                strB.append(" /* 0x${address.toString(16)} */")
             }
             SbfMeta.LOWERED_ASSUME -> {}
             SbfMeta.KNOWN_ARITY, SbfMeta.EQUALITY_REG_AND_STACK -> {}
             SbfMeta.UNREACHABLE_FROM_COI -> {}
             SbfMeta.COMMENT -> {}
-            SbfMeta.PROMOTED_OVERFLOW_CHECK-> {
-                metaData.getVal(k)?.let {
-                    val cond: Condition = it.uncheckedAs()
-                    strB.append(" /*${k.name}: $cond*/")
-                }
+            SbfMeta.PROMOTED_OVERFLOW_CHECK -> {
+                val cond: Condition = v.uncheckedAs()
+                strB.append(" /*${k.name}: $cond*/")
             }
             SbfMeta.REG_TYPE -> {
-                metaData.getVal(k)?.let {
-                    val (reg, type) = it.uncheckedAs<Pair<Value.Reg, SbfRegisterType>>()
-                    strB.append(" /* type($reg)=$type */")
-                }
+                val (reg, type) = v.uncheckedAs<Pair<Value.Reg, SbfRegisterType>>()
+                strB.append(" /* type($reg)=$type */")
             }
             SbfMeta.MANGLED_NAME -> {}
+            SbfMeta.RANGE -> {}
         }
     }
     return strB.toString()

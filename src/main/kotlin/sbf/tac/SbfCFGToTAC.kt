@@ -24,15 +24,15 @@ import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.inliner.SBF_CALL_MAX_DEPTH
 import sbf.support.SolanaInternalError
-import tac.*
 import vc.data.*
 import com.certora.collect.*
 import datastructures.stdcollections.*
 import sbf.domains.*
+import tac.BlockIdentifier
+import tac.NBId
+import tac.StartBlock
+import tac.Tag
 import java.math.BigInteger
-
-// TAC annotations for TAC debugging
-val SBF_ADDRESS  = tac.MetaKey<Long>("sbf.bytecode.address")
 
 // This number should be bigger than the number of Assert commands inserted by any TAC optimization (e.g., loop unroller),
 // by all rules executed in the same run.
@@ -514,7 +514,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         return listOf(
             cmd,
             Calltrace.assert(inst, cmd.lhs),
-            TACCmd.Simple.AssertCmd(cmd.lhs, inst.metaData.getVal(SbfMeta.COMMENT) ?: "assertion failed", MetaMap(TACMeta.ASSERT_ID to mkFreshAssertId()))
+            TACCmd.Simple.AssertCmd(cmd.lhs, inst.metaData.getVal(SbfMeta.COMMENT) ?: "assertion failed", tac.MetaMap(TACMeta.ASSERT_ID to mkFreshAssertId()))
         )
     }
 
@@ -530,7 +530,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             Debug.satisfy(inst),
             TACCmd.Simple.AssigningCmd.AssignExpCmd(condVar, cond),
             Calltrace.satisfy(condVar),
-            TACCmd.Simple.AssertCmd(condVar, inst.metaData.getVal(SbfMeta.COMMENT) ?: "satisfy reached", MetaMap(TACMeta.SATISFY_ID to mkFreshSatisfyId()))
+            TACCmd.Simple.AssertCmd(condVar, inst.metaData.getVal(SbfMeta.COMMENT) ?: "satisfy reached", tac.MetaMap(TACMeta.SATISFY_ID to mkFreshSatisfyId()))
         )
     }
 
@@ -901,7 +901,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                                 listOf(Calltrace.printLocation(locInst))
                             }
                             CVTCalltrace.ATTACH_LOCATION -> {
-                                listOf(Calltrace.attachLocation(locInst))
+                                // used earlier in the pipeline
+                                listOf()
                             }
                             CVTCalltrace.PRINT_STRING -> {
                                 listOf(Calltrace.printString(locInst))
@@ -1063,17 +1064,29 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         }
     }
 
-    private fun addSbfAddressAsMeta(stmts: List<TACCmd.Simple>, locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
-        val address = locInst.inst.metaData.getVal(SbfMeta.SBF_ADDRESS)
-        return if (address != null){
-            check(address <= Long.MAX_VALUE.toULong()) {"Address $address is too big SVM"}
-            stmts.map {
-                val newMeta = it.meta.add(Pair(SBF_ADDRESS, address.toLong()))
-                it.withMeta(newMeta)
+    private fun mapSbfMetaToTACMeta(cmds: List<TACCmd.Simple>, locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
+        var pairs = tac.MetaMap()
+        val metaData = locInst.inst.metaData
+
+        // if this function starts needing more pairs,
+        // split it into individual functions for each meta pair
+
+        val address = metaData
+            .getVal(SbfMeta.SBF_ADDRESS)
+            ?.let { address ->
+                check(address <= Long.MAX_VALUE.toULong()) {"Address $address is too big SVM"}
+                address.toLong()
             }
-        } else {
-            stmts
+        if (address != null) {
+            pairs += Pair(TACMeta.SBF_ADDRESS, address)
         }
+
+        val range = metaData.getVal(SbfMeta.RANGE)
+        if (range != null) {
+            pairs += Pair(TACMeta.CVL_RANGE, range)
+        }
+
+        return cmds.map { it.plusMetaMap(pairs) }
     }
 
     private fun translate(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
@@ -1098,7 +1111,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 }
             }
         }
-        return addSbfAddressAsMeta(cmds, locInst)
+
+        return mapSbfMetaToTACMeta(cmds, locInst)
     }
 
     private fun translate(bb: SbfBasicBlock): List<TACCmd.Simple> {
