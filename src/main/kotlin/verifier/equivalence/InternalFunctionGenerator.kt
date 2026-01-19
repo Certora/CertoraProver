@@ -19,23 +19,21 @@ package verifier.equivalence
 
 import analysis.CommandWithRequiredDecls
 import analysis.MutableCommandWithRequiredDecls
-import analysis.ip.InternalArgSort
 import tac.CallId
 import tac.MetaMap
 import tac.NBId
 import tac.Tag
 import vc.data.*
+import verifier.equivalence.data.CallableProgram
 import verifier.equivalence.data.EquivalenceQueryContext
 import verifier.equivalence.data.MethodMarker
 import verifier.equivalence.data.ProgramContext
-import verifier.equivalence.data.CallableProgram
+import verifier.equivalence.summarization.PureFunctionExtraction
 import datastructures.stdcollections.*
-import verifier.equivalence.summarization.UnifiedCallingConvention
 
-class UnifiedInternalFunctionGenerator(
+class InternalFunctionGenerator<R: PureFunctionExtraction.CallingConvention<R, *, *>>(
     queryContext: EquivalenceQueryContext
-) : AbstractRuleGeneration<UnifiedCallingConvention>(queryContext) {
-
+) : AbstractRuleGeneration<R>(queryContext) {
     override fun setupCode(): CommandWithRequiredDecls<TACCmd.Simple> {
         return CommandWithRequiredDecls(listOf(TACCmd.Simple.NopCmd))
     }
@@ -49,7 +47,7 @@ class UnifiedInternalFunctionGenerator(
 
     override fun <T : MethodMarker> annotateInOut(
         inlined: CoreTACProgram,
-        callingConv: UnifiedCallingConvention,
+        callingConv: R,
         context: ProgramContext<T>,
         callId: CallId
     ): CoreTACProgram {
@@ -57,7 +55,7 @@ class UnifiedInternalFunctionGenerator(
     }
 
     override fun <T : MethodMarker> generateInput(
-        p: CallableProgram<T, UnifiedCallingConvention>,
+        p: CallableProgram<T, R>,
         context: ProgramContext<T>,
         callId: CallId
     ): CommandWithRequiredDecls<TACCmd.Simple> {
@@ -72,28 +70,7 @@ class UnifiedInternalFunctionGenerator(
             )
         ))
         binding.extend(calleeMemory)
-        var argCounter = 0
-        for(a in p.callingInfo.args) {
-            when(a.sort) {
-                InternalArgSort.SCALAR -> {
-                    if(a.s !is TACSymbol.Var) {
-                        continue
-                    }
-                    val input = argumentVar(argCounter++)
-                    binding.extend(
-                        TACCmd.Simple.AssigningCmd.AssignExpCmd(
-                            lhs = a.s.at(callId),
-                            rhs = input
-                        )
-                    )
-                    binding.extend(a.s.at(callId), input)
-                }
-
-                InternalArgSort.CALLDATA_ARRAY_ELEMS,
-                InternalArgSort.CALLDATA_ARRAY_LENGTH,
-                InternalArgSort.CALLDATA_POINTER -> throw UnsupportedOperationException("Should not be trying to do this")
-            }
-        }
+        binding.extend(p.callingInfo.bindSymbolicArgs(callId, ::argumentVar))
         return binding.toCommandWithRequiredDecls()
     }
 }

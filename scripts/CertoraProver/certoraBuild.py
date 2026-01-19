@@ -2311,15 +2311,10 @@ class CertoraBuildGenerator:
                 vyper_metadata.venom_via_stack = metadata_func_info['venom_via_stack']
             if metadata_func_info.get('venom_return_via_stack'):
                 vyper_metadata.venom_return_via_stack = metadata_func_info['venom_return_via_stack']
-            pattern_in_symbol_map = re.compile(fr"{func_name}\(.*\)_runtime$")
-            matches = [k for k in symbol_map if pattern_in_symbol_map.search(k)]
-            if len(matches) == 0:
-                build_logger.warning(f"Could not find symbol map entry for {func_name} probably was inlined")
+            symbol_map_name = metadata_func_info["_ir_identifier"] + "_runtime"
+            if symbol_map_name not in symbol_map:
                 continue
-            elif len(matches) > 1:
-                raise RuntimeError(f"Found multiple matches for {func_name} in symbol map: {matches}")
-            else:
-                vyper_metadata.runtime_start_pc = symbol_map[matches[0]]
+            vyper_metadata.runtime_start_pc = symbol_map[symbol_map_name]
             internal_func.vyper_metadata = vyper_metadata
 
     def get_contract_in_sdc(self,

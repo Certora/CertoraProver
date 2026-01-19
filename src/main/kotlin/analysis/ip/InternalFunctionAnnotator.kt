@@ -21,6 +21,7 @@ package analysis.ip
 import allocator.Allocator
 import allocator.GenerateRemapper
 import allocator.GeneratedBy
+import analysis.icfg.GenericInternalSummarizer
 import analysis.icfg.Summarization
 import analysis.opt.DiamondSimplifier.registerDestructivelyMergeableAnnot
 import analysis.opt.DiamondSimplifier.registerMergeableAnnot
@@ -123,21 +124,100 @@ data class InternalFunctionHint(val id: Int, val flag: Int, val sym: TACSymbol)
     }
 }
 
-interface InternalFunctionStartInfo {
-    val methodSignature : QualifiedMethodSignature
-    val args: List<InternalFuncArg>
+typealias InternalFunctionStartInfo = GenericInternalSummarizer.GenericInternalFunctionStartInfo<List<InternalFuncArg>>
 
-    /**
-     * The source range of the call site that calls the function
-     */
-    val callSiteSrc: TACMetaInfo?
+@KSerializable
+sealed interface VyperArgument : TransformableVarEntityWithSupport<VyperArgument>, AmbiSerializable {
+    @KSerializable
+    data class StackArgument(val s: TACSymbol, val logicalPosition: Int) : VyperArgument {
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): VyperArgument {
+            return StackArgument(
+                (s as? TACSymbol.Var)?.let(f) ?: s, logicalPosition
+            )
+        }
 
-    /**
-     * The source range pointing to the implementation of the function that
-     * is being called at the call site.
-     */
-    val calleeSrc: TACMetaInfo?
+        override val support: Set<TACSymbol.Var>
+            get() = setOfNotNull(s as? TACSymbol.Var)
+    }
+
+    @KSerializable
+    data class MemoryArgument(val where: BigInteger, val logicalPosition: Int, val size: BigInteger) : VyperArgument {
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): VyperArgument {
+            return this
+        }
+
+        override val support: Set<TACSymbol.Var>
+            get() = setOf()
+    }
 }
+
+@GenerateRemapper
+@KSerializable
+data class VyperInternalFuncStartAnnotation(
+    @GeneratedBy(Allocator.Id.INTERNAL_FUNC, source = true) override val id: Int,
+    override val which: QualifiedMethodSignature,
+    val args: List<VyperArgument>
+) : InternalFunctionStartAnnot, TransformableVarEntityWithSupport<VyperInternalFuncStartAnnotation>, RemapperEntity<VyperInternalFuncStartAnnotation>, AmbiSerializable {
+    override val callSiteSrc: TACMetaInfo? get() = null
+    override val calleeSrc: TACMetaInfo? get() = null
+    companion object {
+        val META_KEY = MetaKey<VyperInternalFuncStartAnnotation>("vyper.tac.start-annot")
+    }
+
+    override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): VyperInternalFuncStartAnnotation {
+        return VyperInternalFuncStartAnnotation(
+            id, which, args.map { it.transformSymbols(f) }
+        )
+    }
+
+    override val support: Set<TACSymbol.Var>
+        get() = args.flatMapToSet { it.support }
+}
+
+@KSerializable
+sealed interface VyperReturnValue : TransformableVarEntityWithSupport<VyperReturnValue>, AmbiSerializable {
+    @KSerializable
+    data class StackVariable(val s: TACSymbol.Var) : VyperReturnValue {
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): VyperReturnValue {
+            return StackVariable(f(s))
+        }
+
+        override val support: Set<TACSymbol.Var>
+            get() = setOf(s)
+    }
+
+    @KSerializable
+    data class MemoryReturnValue(val s: TACSymbol.Var, val size: BigInteger) : VyperReturnValue {
+        override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): VyperReturnValue {
+            return MemoryReturnValue(f(s), size)
+        }
+
+        override val support: Set<TACSymbol.Var>
+            get() = setOf(s)
+    }
+}
+
+@GenerateRemapper
+@KSerializable
+data class VyperInternalFuncEndAnnotation(
+    @GeneratedBy(Allocator.Id.INTERNAL_FUNC) override val id: Int,
+    val returnValue: VyperReturnValue?
+) : InternalFunctionExitAnnot, RemapperEntity<VyperInternalFuncEndAnnotation>, TransformableVarEntityWithSupport<VyperInternalFuncEndAnnotation>, AmbiSerializable {
+    companion object {
+        val META_KEY = MetaKey<VyperInternalFuncEndAnnotation>("vyper.tac.end-annot")
+    }
+
+    override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): VyperInternalFuncEndAnnotation {
+        return VyperInternalFuncEndAnnotation(
+            id, returnValue?.transformSymbols(f)
+        )
+    }
+
+    override val support: Set<TACSymbol.Var>
+        get() = returnValue?.support.orEmpty()
+
+}
+
 
 /**
  * [callSiteSrc] is call-site from the source of the underlined function call

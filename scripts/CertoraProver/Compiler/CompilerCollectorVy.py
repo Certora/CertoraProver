@@ -819,10 +819,15 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
                     result_types.append(CompilerLangVy.extract_type_from_struct_def(ast_node, named_constants))
                 # Not sure if `Import` is an actual ast type. It was already there, so I am not removing it.
                 # I only fixed the implementation of this case to what I think it should be.
-                elif ast_node['ast_type'] == 'Import':
-                    result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
-                elif ast_node['ast_type'] == 'ImportFrom':
-                    result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
+                elif ast_node['ast_type'] in ['Import', 'ImportFrom']:
+                    if "name" in ast_node:
+                        result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
+                    elif "names" in ast_node:
+                        n_list = ast_node["names"]
+                        for t in n_list:
+                            result_types.append(CompilerLangVy.VyperTypeContract(t["name"]))
+                    else:
+                        raise Exception("Unrecognized import node")
                 elif ast_node['ast_type'] == 'InterfaceDef':
                     result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
             resolved_result_types.extend(CompilerLangVy.resolve_extracted_types(result_types))
@@ -1342,7 +1347,16 @@ class Collector:
         # TODO: this is probably wrong, since you can probably import constants and things too...
         #   although in practice it appears that people only import constants
         elif type_decl_node['ast_type'] in ('InterfaceDef', 'Import', 'ImportFrom'):
-            vy_type = CompilerLangVy.VyperTypeContract(type_decl_node['name'])
+            if "names" in type_decl_node:
+                n_list = type_decl_node["names"]
+                for t in n_list:
+                    ty = CompilerLangVy.VyperTypeContract(t["name"])
+                    self.types[t["name"]] = ty
+                return
+            elif "name" in type_decl_node:
+                vy_type = CompilerLangVy.VyperTypeContract(type_decl_node['name'])
+            else:
+                raise AssertionError("Unexpected type definition")
         else:
             raise AssertionError("Unexpected type definition")
         self.types[type_decl_node['name']] = vy_type

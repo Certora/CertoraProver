@@ -28,6 +28,7 @@ import analysis.split.SplitContext.Companion.storageLoc
 import analysis.type.TypeRewriter
 import bridge.ContractInstanceInSDC
 import bridge.EVMExternalMethodInfo
+import bridge.SourceLanguage
 import cache.ContractLoad
 import com.certora.collect.*
 import config.ReportTypes
@@ -114,7 +115,14 @@ object ContractUtils {
                     // Annotate internal functions
                     CoreToCoreTransformer(
                         ReportTypes.INTERNAL_FUNCTION_ANNOTATED
-                    ) { c: CoreTACProgram -> FunctionFlowAnnotator.doAnalysis(c, source) },
+                    ) { c: CoreTACProgram ->
+                        when (source.lang) {
+                            SourceLanguage.Solidity,
+                            SourceLanguage.Yul,
+                            SourceLanguage.Unknown -> FunctionFlowAnnotator.doAnalysis(c, source)
+                            SourceLanguage.Vyper -> VyperInternalFunctionAnnotator(c, source).annotate()
+                        }
+                    },
                     // validate internal functions
                     CoreToCoreTransformer(
                         ReportTypes.INTERNAL_FUNCTION_VALIDATED

@@ -18,9 +18,12 @@
 package analysis.ip
 
 import spec.cvlast.QualifiedMethodSignature
+import vc.data.TACMetaInfo
 import java.io.Serializable
 
 interface InternalFunctionStartAnnot : Serializable {
     val id: Int
     val which: QualifiedMethodSignature
+    val callSiteSrc: TACMetaInfo?
+    val calleeSrc: TACMetaInfo?
 }

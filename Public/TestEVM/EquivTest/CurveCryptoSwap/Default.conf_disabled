@@ -1,0 +1,18 @@
+{
+    "equivalence_contracts": "CurveCryptoSwap2=CurveCryptoSwap2Opt",
+    "files": [
+        "./CurveCryptoSwap2.vy",
+        "./CurveCryptoSwap2Opt.vy"
+    ],
+    "method": [
+        "get_dy(uint256,uint256,uint256)"
+    ],
+    "prover_args": [
+        " -equivalenceCheck true -maxHeuristicFoldingDepth 5",
+    ],
+    "vyper": "vyper0.4.4",
+    "vyper_venom_map": {
+        "CurveCryptoSwap2": false,
+        "CurveCryptoSwap2Opt": true
+    }
+}

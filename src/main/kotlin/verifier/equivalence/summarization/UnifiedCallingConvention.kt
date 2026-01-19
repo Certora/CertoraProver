@@ -18,39 +18,51 @@
 package verifier.equivalence.summarization
 
 import analysis.CommandWithRequiredDecls
-import analysis.ip.InternalFuncArg
-import analysis.ip.InternalFuncRet
+import analysis.MutableCommandWithRequiredDecls
+import tac.CallId
 import vc.data.TACCmd
 import vc.data.TACSymbol
 
 /**
- * Calling convention used for both Solidity and Vyper (although the Vyper support is currently missing).
+ * Calling convention used for both Solidity.
  * [args] is the list of symbols which hold the arguments to the functions and [rets] are the symbols
- * that hold the return values. these may, or may not be canonicalized; a non-canonical calling convention
- * is transformed via [withArgsAndReturns] to canonicalize it.
+ * that hold the return values.
  */
 data class UnifiedCallingConvention(
-    val args: List<InternalFuncArg>,
-    val rets: List<InternalFuncRet>
-) : PureFunctionExtraction.CallingConvention<UnifiedCallingConvention> {
-    override val argSymbols: List<TACSymbol>
-        get() = args.map { it.s }
-    override val exitVars: List<TACSymbol.Var>
-        get() = rets.map { it.s }
+    val args: List<TACSymbol>,
+    val rets: List<TACSymbol.Var>
+) : PureFunctionExtraction.CallingConvention<UnifiedCallingConvention, Int, Int> {
+    override fun decomposeArgs(): Pair<List<TACSymbol>, Int> {
+        return args to args.size
+    }
 
-    override fun withArgsAndReturns(args: List<TACSymbol>, rets: List<TACSymbol.Var>): UnifiedCallingConvention {
-        require(this.args.size == args.size && this.rets.size == rets.size)
-        return UnifiedCallingConvention(
-            this.args.zip(args) { a, sym ->
-                a.copy(s = sym)
-            },
-            this.rets.zip(rets) { r, sym ->
-                r.copy(s = sym)
-            }
-        )
+    override fun decomposeRet(): Pair<List<TACSymbol.Var>, Int> {
+        return rets to rets.size
     }
 
     override fun bindOutputs(): Pair<List<TACSymbol.Var>, CommandWithRequiredDecls<TACCmd.Simple>> {
-        return rets.map { it.s } to CommandWithRequiredDecls()
+        return rets to CommandWithRequiredDecls()
+    }
+
+    override fun bindSymbolicArgs(
+        callId: CallId,
+        argumentVar: (Int) -> TACSymbol.Var
+    ): CommandWithRequiredDecls<TACCmd.Simple> {
+        val binding = MutableCommandWithRequiredDecls<TACCmd.Simple>()
+        var argCounter = 0
+        for(a in args) {
+            if(a !is TACSymbol.Var) {
+                continue
+            }
+            val input = argumentVar(argCounter++)
+            binding.extend(
+                TACCmd.Simple.AssigningCmd.AssignExpCmd(
+                    lhs = a.at(callId),
+                    rhs = input
+                )
+            )
+            binding.extend(a.at(callId), input)
+        }
+        return binding.toCommandWithRequiredDecls()
     }
 }

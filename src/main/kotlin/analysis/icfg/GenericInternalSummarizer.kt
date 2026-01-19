@@ -26,9 +26,9 @@ import analysis.worklist.StepResult
 import analysis.worklist.VisitingWorklistIteration
 import com.certora.collect.*
 import datastructures.stdcollections.*
-import datastructures.stdcollections.orEmpty
 import log.*
 import spec.cvlast.QualifiedMethodSignature
+import tac.MetaKey
 import tac.NBId
 import tac.Tag
 import utils.*
@@ -43,35 +43,46 @@ private val logger = Logger(LoggerTypes.SUMMARIZATION)
 typealias SummaryApplicator = (SimplePatchingProgram) -> Unit
 
 /**
- * Abstract class for replacing internal function bodies with summaries.
+ * Generic version of InternalSummarizer that is parameterized over the type of internal function
+ * start/end annotations and their argument/return value representations.
  *
  * [K] is the type of "summary selection", that is, a key which identifies which
  * summary to apply, [S] is the type of the selected summary.
+ * [START] is the internal function start annotation type
+ * [END] is the internal function end annotation type
+ * [ARG_DATA] is the concrete representation of function arguments
+ * [RET_SHAPE] describes the shape/structure of return values
+ * [RET_DATA] is the concrete representation of return values
+ *
+ * See [InternalFunctionAbstraction] for a description of the roles of the ARG/RET type variables.
  */
-abstract class InternalSummarizer<K, S> {
-
+abstract class GenericInternalSummarizer<K, S,
+    START : InternalFunctionStartAnnot,
+    END : InternalFunctionExitAnnot,
+    ARG_DATA,
+    RET_SHAPE,
+    RET_DATA> : InternalFunctionAbstraction<START, END, ARG_DATA, RET_SHAPE, RET_DATA> {
 
     data class InternalFunction(val start: LTACCmdView<TACCmd.Simple.AnnotationCmd>,
                                         val exits: Set<LTACCmdView<TACCmd.Simple.AnnotationCmd>>)
 
     companion object {
-        fun getFunction(
-            exitFinder: InternalFunctionExitFinder,
-            start: LTACCmdView<TACCmd.Simple.AnnotationCmd>
+        fun <START : InternalFunctionStartAnnot> getFunction(
+            exitFinder: Summarization.ExitFinder,
+            start: LTACCmdView<TACCmd.Simple.AnnotationCmd>,
+            startMeta: MetaKey<START>
         ): InternalFunction {
-            val funcId = (start.cmd.annot.v as InternalFuncStartAnnotation).id
-            return InternalFunction(start, exitFinder.getExits(funcId, start.ptr))
+            val annotation = start.cmd.maybeAnnotation(startMeta)!!
+            return InternalFunction(start, exitFinder.getExits(annotation.id, start.ptr))
         }
-
-        fun LTACCmd.toFuncStart() = this.maybeAnnotation(INTERNAL_FUNC_START)
-        fun LTACCmdView<TACCmd.Simple.AnnotationCmd>.toFuncStart() = this.cmd.annot.v as? InternalFuncStartAnnotation
     }
 
+    private fun LTACCmd.toFuncStart() = this.maybeAnnotation(startMeta)
+    private fun LTACCmdView<TACCmd.Simple.AnnotationCmd>.toFuncStart() = this.cmd.maybeAnnotation(startMeta)
 
     /**
      * Here begins infrastructure for determining which summaries should be applied.
      */
-
 
     /**
      * We apply summaries in two situations: when we have a materialized, inlined call to a function,
@@ -131,7 +142,7 @@ abstract class InternalSummarizer<K, S> {
     /**
      * A node corresponding to an inlined callee, which can have direct [callees] and explicit summaries that appear
      * within its body [explicitSummaries]. The [id] is same that is used for
-     * [NodeType.InlinedCall], and is the value of the [InternalFuncStartAnnotation.id]
+     * [NodeType.InlinedCall], and is the value of the [InternalFunctionStartAnnot.id]
      * field that generated this.
      */
     private data class FunctionNode<K, S>(
@@ -200,7 +211,7 @@ abstract class InternalSummarizer<K, S> {
          * Map from command pointers, to the [SummaryPayload] that should be applied. Note that the synthetic element
          * that occurs at the command pointer in question depends on the [SummaryPayload.summaryType];
          * if it is an [NodeType.ExplicitSummary] then it will be an instance of [vc.data.TACCmd.Simple.SummaryCmd],
-         * if it is an [NodeType.InlinedCall] then it will be an instance of the [InternalFuncStartAnnotation].
+         * if it is an [NodeType.InlinedCall] then it will be an instance of the internal function start annotation.
          *
          * NB that the pointer here is duplicated in the [SummaryPayload.summaryType] field if the summary type is an [NodeType.ExplicitSummary].
          * This was apparently unavoidable.
@@ -213,7 +224,16 @@ abstract class InternalSummarizer<K, S> {
          */
         val subsumedByOuterSummary = mutableSetOf<NodeType>()
 
-        val exitFinder = InternalFunctionExitFinder(code)
+        val exitFinder = object : Summarization.ExitFinder(code) {
+            override fun calleeStarted(cmd: TACCmd.Simple.AnnotationCmd): Int? {
+                return cmd.maybeAnnotation(startMeta)?.id
+            }
+
+            override fun calleeExited(cmd: TACCmd.Simple.AnnotationCmd): Int? {
+                return cmd.maybeAnnotation(endMeta)?.id
+            }
+
+        }
 
         /**
          * Find all function starts and explicit internal call summaries.
@@ -225,7 +245,7 @@ abstract class InternalSummarizer<K, S> {
              * Get the signature, and use this to find a matching summarization.
              */
             val currentMethodSig = if(it.toFuncStart() != null) {
-                it.toFuncStart()!!.methodSignature
+                it.toFuncStart()!!.which
             } else {
                 it.snarrowOrNull<InternalCallSummary>()!!.methodSignature
             }
@@ -248,12 +268,12 @@ abstract class InternalSummarizer<K, S> {
              * and the immediately appearing explicit summaries.
              */
             val currentCallIdx = it.ptr.block.calleeIdx
-            val currStart = it.maybeAnnotation(INTERNAL_FUNC_START)!!
+            val currStart = it.maybeAnnotation(startMeta)!!
             val (immediateCallees, inlinedSummaries) = object : VisitingWorklistIteration<CmdPointer, NodeType, Pair<Set<Int>, Set<NodeType.ExplicitSummary>>>() {
                 override fun process(it: CmdPointer): StepResult<CmdPointer, NodeType, Pair<Set<Int>, Set<NodeType.ExplicitSummary>>> {
                     val lc = code.analysisCache.graph.elab(it)
-                    val start = lc.maybeAnnotation(INTERNAL_FUNC_START)
-                    val end = lc.maybeAnnotation(INTERNAL_FUNC_EXIT)
+                    val start = lc.maybeAnnotation(startMeta)
+                    val end = lc.maybeAnnotation(endMeta)
                     if(lc.cmd is TACCmd.Simple.SummaryCmd && lc.cmd.summ is ReturnSummary && lc.cmd.summ.ret is TACCmd.Simple.RevertCmd) {
                         return this.cont(listOf())
                     }
@@ -314,7 +334,7 @@ abstract class InternalSummarizer<K, S> {
              * Return a node that captures the summary information, immediate callees, and the explicit summaries.
              */
             FunctionNode(
-                id = it.toFuncStart()!!.id,
+                id = currStart.id,
                 callees = immediateCallees,
                 explicitSummaries = inlinedSummaries,
                 specCallSummToInternalSummSig = specCallSummToInternalSummSig,
@@ -351,7 +371,7 @@ abstract class InternalSummarizer<K, S> {
         /**
          * Go over all summaries we found...
          */
-        toSummarize.forEach { (_, ent) ->
+        toSummarize.forEachEntry { (_, ent) ->
             /**
              * And for each summary which was applied to a function...
              */
@@ -401,7 +421,7 @@ abstract class InternalSummarizer<K, S> {
                     )
                 }
                 is NodeType.InlinedCall -> {
-                    val func = getFunction(exitFinder, code.analysisCache.graph.elab(where).narrow())
+                    val func = getFunction(exitFinder, code.analysisCache.graph.elab(where).narrow(), startMeta)
                     handleInlinedSummaryApplication(
                         function = func,
                         selectedSummary = payload.specCallSummToInternalSummSig,
@@ -427,16 +447,14 @@ abstract class InternalSummarizer<K, S> {
         gvn: IGlobalValueNumbering,
     ): (SimplePatchingProgram) -> Unit {
         val callSite = function.start.toFuncStart()!!
-        val functionId = callSite.methodSignature
+        val functionId = callSite.which
 
         val (exitsite, suffix, rets) = this.handleFunctionExits(function, intermediateCode, gvn).leftOrElse { msg ->
             Logger.alwaysError(msg)
             throw IllegalStateException(msg)
         }
 
-        val args = callSite.args.sortedBy { fArg ->
-            fArg.logicalPosition
-        }
+        val argData = projectArgs(callSite)
 
         return { patching: SimplePatchingProgram ->
             val remove = patching.splitBlockAfter(function.start.ptr)
@@ -448,6 +466,7 @@ abstract class InternalSummarizer<K, S> {
                  */
                 is ExitPointType.SimpleCommand -> patching.splitBlockAfter(exitsite.ptr)
             }
+
             val summaryCmds =
                 generateSummary(
                     /**
@@ -460,15 +479,15 @@ abstract class InternalSummarizer<K, S> {
                      *
                      * This is more explicit, and better)
                      */
-                    object : InternalFunctionStartInfo {
+                    object : GenericInternalFunctionStartInfo<ARG_DATA> {
                         override val methodSignature: QualifiedMethodSignature
                             get() = functionId
                         override val callSiteSrc: TACMetaInfo?
                             get() = callSite.callSiteSrc
                         override val calleeSrc: TACMetaInfo?
                             get() = callSite.calleeSrc
-                        override val args: List<InternalFuncArg>
-                            get() = args
+                        override val args: ARG_DATA
+                            get() = argData
 
                     },
                     selectedSummary,
@@ -507,13 +526,13 @@ abstract class InternalSummarizer<K, S> {
         data class ConfluenceBlock(val block: NBId) : ExitPointType
     }
 
-    private data class InternalFunctionExitData(
+    private data class InternalFunctionExitData<FUNC_RET>(
         // what kind of exit point is this?
         val exitPointType: ExitPointType,
         // suffix code that does remapping required by confluence DSA
         val suffixCode: CommandWithRequiredDecls<TACCmd.Simple>,
         // the information about the function retun symbols
-        val exitInfo: FunctionReturnInformation
+        val exitInfo: FUNC_RET
     )
 
     /**
@@ -525,9 +544,9 @@ abstract class InternalSummarizer<K, S> {
         function: InternalFunction,
         intermediateCode: CoreTACProgram,
         gvn: IGlobalValueNumbering
-    ) : Either<InternalFunctionExitData, String> {
+    ) : Either<InternalFunctionExitData<RET_DATA>, String> {
         val callSite = function.start.toFuncStart()!!
-        val functionId = callSite.methodSignature
+        val functionId = callSite.which
 
         val g = intermediateCode.analysisCache.graph
 
@@ -564,7 +583,7 @@ abstract class InternalSummarizer<K, S> {
          * value it holds (null/unmapped indicates a variable does not hold a return value). In the process function we merge these maps to infer
          * the principle variable that holds the return value of the function.
          */
-        return object : VisitingWorklistIteration<CmdPointer, Either<TACSymbol.Var, Map<TACSymbol.Var, Int>>, Either<InternalFunctionExitData, String>>() {
+        return object : VisitingWorklistIteration<CmdPointer, Either<TACSymbol.Var, Map<TACSymbol.Var, Int>>, Either<InternalFunctionExitData<RET_DATA>, String>>() {
             private fun haltWithError(msg: String) = this.halt(msg.toRight())
 
             private val exitRevertBlockCache = mutableMapOf<NBId, Boolean>()
@@ -576,7 +595,7 @@ abstract class InternalSummarizer<K, S> {
                 g.cache.reachability.get(b)?.containsAny(exitBlocks) == true
             }
 
-            override fun process(it: CmdPointer): StepResult<CmdPointer, Either<TACSymbol.Var, Map<TACSymbol.Var, Int>>, Either<InternalFunctionExitData, String>> {
+            override fun process(it: CmdPointer): StepResult<CmdPointer, Either<TACSymbol.Var, Map<TACSymbol.Var, Int>>, Either<InternalFunctionExitData<RET_DATA>, String>> {
                 if(it.block in g.cache.revertBlocks && !isExitRevertBlock(it.block)) {
                     return this.cont(listOf())
                 }
@@ -585,18 +604,19 @@ abstract class InternalSummarizer<K, S> {
                 if(lc.cmd is TACCmd.Simple.AssigningCmd && lc.cmd.lhs.tag != Tag.ByteMap) {
                     commandResults += lc.cmd.lhs.toLeft()
                 }
-                val exit = lc.maybeAnnotation(INTERNAL_FUNC_EXIT)?.takeIf {
+                val exit = lc.maybeAnnotation(endMeta)?.takeIf {
                     it.id == callSite.id
                 } ?: return StepResult.Ok(
                     next = g.succ(it),
                     result = commandResults
                 )
                 val accum = treapMapBuilderOf<TACSymbol.Var, Int>()
-                for((i, v) in exit.rets.withIndex()) {
-                    val sym = if(!g.cache.lva.isLiveAfter(it, v.s) && !isSingletonExit) {
-                        generateFakeReturnName(i, v.s)
+                val (exitVars, _) = decomposeReturnInfo(exit)
+                for((i, v) in exitVars.withIndex()) {
+                    val sym = if(!g.cache.lva.isLiveAfter(it, v) && !isSingletonExit) {
+                        generateFakeReturnName(i, v)
                     } else {
-                        v.s
+                        v
                     }
                     accum[sym] = i
                 }
@@ -612,7 +632,7 @@ abstract class InternalSummarizer<K, S> {
                 var iter = g.succ(it).singleOrNull() ?: return this.haltWithError("At exit $it from $functionId do not have straightline code?")
                 while(iter.block != exitBlock) {
                     val lcIter = g.elab(iter)
-                    if(lcIter.maybeAnnotation(INTERNAL_FUNC_START) != null || lcIter.maybeAnnotation(INTERNAL_FUNC_EXIT) != null) {
+                    if(lcIter.maybeAnnotation(startMeta) != null || lcIter.maybeAnnotation(endMeta) != null) {
                         return this.haltWithError("At $lcIter reached from exit $it from $functionId have another function stack operation")
                     }
                     if(lcIter.cmd is TACCmd.Simple.AssigningCmd) {
@@ -630,7 +650,7 @@ abstract class InternalSummarizer<K, S> {
                 return this.result(commandResults + accum.toRight())
             }
 
-            override fun reduce(results: List<Either<TACSymbol.Var, Map<TACSymbol.Var, Int>>>): Either<InternalFunctionExitData, String> {
+            override fun reduce(results: List<Either<TACSymbol.Var, Map<TACSymbol.Var, Int>>>): Either<InternalFunctionExitData<RET_DATA>, String> {
                 val (writtenVars, exitStates) = results.partitionMap { it }
                 // alias source is the location from which we should find aliases for written variables that are not exit vars
                 val (livenessCheck, aliasSource) = when(exitPoint) {
@@ -645,8 +665,9 @@ abstract class InternalSummarizer<K, S> {
                         } to CmdPointer(exitPoint.block, 0)
                     }
                 }
-                val exitRepresentative = function.exits.first().wrapped.maybeAnnotation(INTERNAL_FUNC_EXIT)!!
-                val exitSize = exitRepresentative.rets.size
+                val exitRepresentative = function.exits.first().wrapped.maybeAnnotation(endMeta)!!
+                val (exitRepVars, exitRepShape) = decomposeReturnInfo(exitRepresentative)
+                val exitSize = exitRepVars.size
                 val exits = mutableListOf<TACSymbol.Var>()
                 for(ind in 0 until exitSize) {
                     val members = exitStates.map { m ->
@@ -703,16 +724,22 @@ abstract class InternalSummarizer<K, S> {
                 }
                 val completePayload = InternalFunctionExitData(
                     exitPointType = exitPoint,
-                    exitInfo = ConfluenceSummary(exitRepresentative.rets.mapIndexed { idx, internalFuncRet ->
-                        internalFuncRet.copy(
-                            s = exits[idx]
-                        )
-                    }),
+                    exitInfo = recomposeReturnInfo(exits, exitRepShape),
                     suffixCode = suffix.toCommandWithRequiredDecls()
                 )
                 return completePayload.toLeft()
             }
         }.submit(listOf(function.start.ptr))
+    }
+
+    /**
+     * Generic interface for internal function start information that doesn't hardcode argument types.
+     */
+    interface GenericInternalFunctionStartInfo<ARG_DATA> {
+        val methodSignature: QualifiedMethodSignature
+        val args: ARG_DATA
+        val callSiteSrc: TACMetaInfo?
+        val calleeSrc: TACMetaInfo?
     }
 
     /**
@@ -737,10 +764,10 @@ abstract class InternalSummarizer<K, S> {
      * at the point of the summary during summary application.
      */
     abstract protected fun generateSummary(
-        internalFunctionStartInfo: InternalFunctionStartInfo,
+        internalFunctionStartInfo: GenericInternalFunctionStartInfo<ARG_DATA>,
         selectedSummary: SummarySelection<K, S>,
         functionStart: CmdPointer,
-        rets: FunctionReturnInformation,
+        rets: RET_DATA,
         intermediateCode: CoreTACProgram
     ): CoreTACProgram
 
@@ -751,27 +778,6 @@ abstract class InternalSummarizer<K, S> {
     abstract protected fun selectSummary(
         sig: QualifiedMethodSignature
     ) : SummarySelection<K, S>?
-
-    /**
-     * Provides information about the return variables for a summary. These can have three sources:
-     * 1. A single external exit annotation
-     * 2. The return field of an [InternalCallSummary]
-     * 3. A confluence of different exit annotations that we compute below.
-     *
-     * Q: Why not just pass a list around?
-     * A: Great question. Earlier versions of this interface had more information than just the list. The wrapper classes
-     * are probably overkill at this point.
-     */
-    interface FunctionReturnInformation {
-        val rets: List<InternalFuncRet>
-
-        fun syms() = rets.map { it.s }
-    }
-
-    /**
-     * Despite the name this is selected for functions with only a single exit point.
-     */
-    private data class ConfluenceSummary(override val rets: List<InternalFuncRet>) : FunctionReturnInformation
 
     /**
      * A hook used to indicate that a summary selection should be skipped for handling.

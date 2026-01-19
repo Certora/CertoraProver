@@ -52,7 +52,7 @@ class VyperMetadata:
         frame_size: Optional[int] = None,
         frame_start: Optional[int] = None,
         venom_via_stack: Optional[List[str]] = None,
-        venom_return_via_stack: bool = False,
+        venom_return_via_stack: Optional[bool] = None,
         runtime_start_pc: Optional[int] = None,
     ):
         self.frame_size = frame_size

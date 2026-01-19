@@ -1294,3 +1294,19 @@ fun BigInteger.parseToParts(vararg lengths: Int): List<BigInteger> {
         }
     }.reversed()
 }
+
+fun OpenEndRange<BigInteger>.stepBy(step: BigInteger) = sequence<BigInteger> {
+    var it = this@stepBy.start
+    while(it < this@stepBy.endExclusive) {
+        yield(it)
+        it += step
+    }
+}
+
+fun ClosedRange<BigInteger>.stepBy(step: BigInteger) = sequence<BigInteger> {
+    var it = this@stepBy.start
+    while(it <= this@stepBy.endInclusive) {
+        yield(it)
+        it += step
+    }
+}
