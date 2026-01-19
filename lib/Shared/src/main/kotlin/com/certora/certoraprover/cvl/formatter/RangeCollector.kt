@@ -235,7 +235,6 @@ internal class RangeCollector(topLevels: List<TopLevel<*>>) {
             visit(ctx)
         }
 
-        visit(ctx)
         ctx.dispatcherList.forEach(::patternSig)
         ctx.default?.run(::havocSummary)
     }
