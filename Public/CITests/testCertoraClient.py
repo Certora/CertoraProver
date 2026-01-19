@@ -787,6 +787,10 @@ class TestClient(unittest.TestCase):
                 self.fail(f"test_jar_flag: failed for {args} - {e}")
 
     def test_validation_funcs(self) -> None:
+        VYPER_FILE = _p("V.vy")
+        with open(VYPER_FILE, "w") as file:
+                file.write("")
+
         attrs_with_validation: List[AttrUtil.AttributeDefinition] = []  # type: ignore
         for attr in Attrs.EvmProverAttributes.attribute_list():
             if attr.attr_validation_func != AttrUtil.default_validation:
@@ -815,6 +819,10 @@ class TestClient(unittest.TestCase):
                 TestUtil.validate_valid_values(attr, tested_object[TestUtil.VALID_KEY])
             if TestUtil.INVALID_KEY in tested_object:
                 TestUtil.validate_invalid_values(attr, tested_object[TestUtil.INVALID_KEY])
+
+
+        Path(VYPER_FILE).unlink(missing_ok=True)
+
 
     def test_package_file(self) -> None:
         def check_run(expect: List[str]) -> None:

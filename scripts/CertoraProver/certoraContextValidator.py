@@ -750,7 +750,14 @@ def check_map_attributes(context: CertoraContext) -> None:
 
         none_keys = [k for k, v in file_list.items() if v is False]
         if none_keys:
-            raise Util.CertoraUserInputError(f"The following files are not matched in {map_attr_name}: {none_keys}")
+            if map_attr_name == Attrs.EvmAttributes.VYPER_CUSTOM_STD_JSON_IN_MAP.name.lower():
+                # this new attribute requires special handling in case we combine solidity files with vyper0.4 files
+                vy_files_unmatched = [k for k in none_keys if Util.is_vyper_file(k)]
+                if vy_files_unmatched:
+                    raise Util.CertoraUserInputError(
+                        f"The following vyper files are not matched in {map_attr_name}: {none_keys}")
+            else:
+                raise Util.CertoraUserInputError(f"The following files are not matched in {map_attr_name}: {none_keys}")
 
 
 def check_parametric_contracts(context: CertoraContext) -> None:

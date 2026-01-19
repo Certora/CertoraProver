@@ -752,6 +752,36 @@ def validate_compiler_map(args: Dict[str, str]) -> None:
                                   "solc/vyper attribute can be used instead")
 
 
+def validate_vyper_custom_std_json_in_map(args: Dict[str, str]) -> None:
+    """
+    Checks that the argument is a dictionary of the form
+    <vy_file_1>=<stdjson_in_file_1>,<vy_file_2>=<stdjson_in_file_2>,...
+    and that all vyper files are valid: they were found
+
+    :param args: argument of --vyper_custom_std_json_in
+    :raises CertoraUserInputError if the format is wrong
+    """
+    if not isinstance(args, dict):
+        raise Util.CertoraUserInputError(f"vyper custom std json in should be stored as a map (type was {type(args).__name__})")
+
+    for source_file, json_file in args.items():
+        if not Util.is_vyper_file(source_file):
+            raise Util.CertoraUserInputError(f"{source_file} does not end with {Util.VY_EXT}")
+        source_file_path = Path(source_file)
+        if not source_file_path.exists():
+            raise Util.CertoraUserInputError(f"Source vyper file {source_file} does not exist")
+
+        if not Path(json_file).exists():
+            raise Util.CertoraUserInputError(f"Custom standard-json input file {json_file} does not exist")
+
+    values = args.values()
+    first = list(values)[0]
+
+    if all(x == first for x in values):
+        validation_logger.warning("All vyper files will be compiled with the same standard-json in. "
+                                  "Usually different standard-json in files are needed")
+
+
 def validate_git_hash(git_hash: str) -> str:
     """
     Validates that correct input was inserted as a git commit hash. It must be between 1 and 40 hexadecimal digits.
