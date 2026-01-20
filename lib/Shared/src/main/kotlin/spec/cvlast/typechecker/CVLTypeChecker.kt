@@ -163,16 +163,37 @@ class CVLAstTypeChecker(
     private fun List<CVLCmd>.endsWithReturn(sub: CVLFunction): VoidResult<CVLError> = this.lastOrNull()?.endsWithReturn(sub) ?: DoesNotEndWithReturn(sub).asError()
 
 
+    /** Finds the halting reason for a command that always halts. Returns null if the command doesn't always halt. */
+    private fun CVLCmd.haltingReason(): CVLCmd? = when (this) {
+        is CVLCmd.Simple.HaltingCVLCmd -> this
+        is CVLCmd.Composite.If -> if (thenCmd.haltingReason() != null && elseCmd.haltingReason() != null) {
+            this
+        } else {
+            null
+        }
+        is CVLCmd.Composite.Block -> block.lastOrNull()?.haltingReason()
+        else -> null
+    }
+
+    private fun unreachableStatementError(unreachableCmd: CVLCmd, reason: CVLCmd): VoidResult<CVLError> = when (reason) {
+        is CVLCmd.Simple.HaltingCVLCmd -> UnreachableStatement(unreachableCmd, reason).asError()
+        is CVLCmd.Composite.If -> UnreachableStatement(unreachableCmd, reason).asError()
+        else -> `impossible!` // shouldn't happen if haltingReason() is correct
+    }
+
     private fun List<CVLCmd>.unreachableStatement(): VoidResult<CVLError> {
         return this.mapIndexed { index, cmd ->
-            when(cmd) {
-                is CVLCmd.Simple.HaltingCVLCmd -> {
-                    if (index < this.lastIndex) {
-                        UnreachableStatement(this[index+1], cmd).asError()
-                    } else {
-                        ok
-                    }
-                }
+            // Check for unreachable code after any command that halts
+            val afterResult = if (index < this.lastIndex) {
+                cmd.haltingReason()?.let { reason ->
+                    unreachableStatementError(this[index+1], reason)
+                } ?: ok
+            } else {
+                ok
+            }
+
+            // Recurse into composite commands
+            val insideResult = when (cmd) {
                 is CVLCmd.Composite.Block -> cmd.block.unreachableStatement()
                 is CVLCmd.Composite.If -> {
                     val thenResult = (cmd.thenCmd as? CVLCmd.Composite.Block)?.block?.unreachableStatement() ?: ok
@@ -181,6 +202,8 @@ class CVLAstTypeChecker(
                 }
                 else -> ok
             }
+
+            afterResult.bind(insideResult)
         }.flattenToVoid()
     }
 

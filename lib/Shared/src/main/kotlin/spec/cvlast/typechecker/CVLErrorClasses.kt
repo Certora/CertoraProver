@@ -2555,7 +2555,7 @@ class DoesNotEndWithReturn private constructor(override val location: Range, ove
 )
 @CVLErrorExample(
     exampleCVLWithRange =
-    """
+        """
             function cvlFun(bool b) returns bool {
                 {
                     revert();
@@ -2566,9 +2566,29 @@ class DoesNotEndWithReturn private constructor(override val location: Range, ove
         """,
     exampleMessage = "Unreachable statement after `revert`: `assert true`"
 )
+@CVLErrorExample(
+    exampleCVLWithRange =
+        """
+            function cvlFun(bool b) returns bool {
+                {
+                    if (b) {
+                        revert();
+                    } else {
+                        return true;
+                    }
+                }
+                #return false;#
+            }
+        """,
+    exampleMessage = "Unreachable statement after `if` where all branches halt: `return false`"
+)
 class UnreachableStatement private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(cmd: CVLCmd, reason: CVLCmd.Simple.HaltingCVLCmd) : this(
         cmd.range, "Unreachable statement after `${reason.cmdName}`: `${cmd.toPrintString()}`"
+    )
+    @Suppress("UNUSED_PARAMETER")
+    constructor(cmd: CVLCmd, reason: CVLCmd.Composite.If) : this(
+        cmd.range, "Unreachable statement after `if` where all branches halt: `${cmd.toPrintString()}`"
     )
 }
 
