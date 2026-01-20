@@ -393,7 +393,7 @@ object WasmEntryPoint {
     fun rewriteAsserts(code: CoreTACProgram): CoreTACProgram {
         val asserts = code.parallelLtacStream().mapNotNull {
             it.maybeNarrow<TACCmd.Simple.AssertCmd>()
-        }.filter { TACMeta.UNWINDING_CONDITION_CMD !in it.cmd.meta }.collect(Collectors.toList())
+        }.collect(Collectors.toList())
 
         check (asserts.all {
             TACMeta.CVL_USER_DEFINED_ASSERT !in it.cmd.meta || TACMeta.SATISFY_ID in it.cmd.meta

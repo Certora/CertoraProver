@@ -267,7 +267,6 @@ sealed class CounterexampleModel: AmbiSerializable {
                         rule.ruleIdentifier.derivedAssertIdentifier(msg, assertId),
                         msg,
                         range,
-                        ltac.cmd.meta
                     )
                 }
         }

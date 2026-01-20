@@ -659,20 +659,20 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
      * that this is only non-null when sym is False.
      */
     private fun unwindCondCheck(sym: TACSymbol, tagLoopTerminus: Int? = null): List<TACCmd.Simple> {
-        val unwindMeta : (MetaMap) -> MetaMap = {
+        val terminusTag : (MetaMap) -> MetaMap = {
             if(tagLoopTerminus != null) {
                 it + (TACMeta.SYNTHETIC_LOOP_END to tagLoopTerminus)
             } else {
                 it
-            } + TACMeta.UNWINDING_CONDITION_CMD
+            }
         }
         return if (IsAssumeUnwindCondForLoops.get()) {
-            listOf(TACCmd.Simple.AssumeCmd(sym, "unwindCondCheck").mapMeta(unwindMeta))
+            listOf(TACCmd.Simple.AssumeCmd(sym, "unwindCondCheck").mapMeta(terminusTag))
         } else {
             listOf(
-                SnippetCmd.LoopSnippet.AssertUnwindCond(sym, unwindingCondMsg())
+                SnippetCmd.LoopSnippet.AssertUnwindCond(sym ,unwindingCondMsg())
                     .toAnnotation(code.destructiveOptimizations),
-                TACCmd.Simple.AssertCmd(sym, unwindingCondMsg()).mapMeta(unwindMeta),
+                TACCmd.Simple.AssertCmd(sym, unwindingCondMsg()).mapMeta(terminusTag),
                 TACCmd.Simple.AnnotationCmd(TACMeta.SCOPE_SNIPPET_END)
             )
         }
