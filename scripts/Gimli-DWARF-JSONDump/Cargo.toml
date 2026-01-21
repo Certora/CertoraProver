@@ -11,3 +11,4 @@ object = { version = "0.36.7", features = ["wasm", "write"] }
 getopts = "0.2"
 memmap2 = "0.9.4"
 rustc-demangle = "0.1"
+fallible-iterator = "0.3.0"

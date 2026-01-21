@@ -19,6 +19,7 @@ package sbf.disassembler
 
 import sbf.cfg.SbfInstruction
 import com.certora.collect.*
+import dwarf.DebugSymbols
 import log.*
 
 sealed class Label {
@@ -162,6 +163,7 @@ data class GlobalVariables(
  **/
 data class SbfProgram(val entriesMap: Map<String, ElfAddress>, val funcMan: SbfFunctionManager,
                       val globals: GlobalVariables,
+                      val debugSymbols: DebugSymbols,
                       val program: List<SbfLabeledInstruction>) {
     override fun toString(): String {
         val strBuilder = StringBuilder()

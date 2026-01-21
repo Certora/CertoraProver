@@ -17,6 +17,7 @@
 
 package instrumentation.transformers
 
+import allocator.Allocator
 import datastructures.stdcollections.*
 import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.withDecls
@@ -30,7 +31,6 @@ import evm.EVM_WORD_SIZE
 import evm.MASK_SIZE
 import log.Logger
 import log.LoggerTypes
-import report.calltrace.CVLReportLabel
 import report.calltrace.printer.StackEntry
 import scene.IScene
 import spec.*
@@ -633,31 +633,55 @@ class HookInliner(val scene: IScene, private val cvlCompiler: CVLCompiler) : Cod
 
                 // a map from the variable as written in the hook, to the expression which should replace that variable
                 val (substitutions, assignments) = applySubstitutions(lcmd, hookInliningInfo.match, hookInliningInfo.cvlHook, hookInliningInfo.ext)
+                val applySiteRange = lcmd.cmd.metaSrcInfo?.getSourceDetails()?.range
 
                 val inlinedHook = SnippetCmd.CVLSnippetCmd.InlinedHook(
                     hookInliningInfo.cvlHook.pattern,
                     substitutions,
                     (hookInliningInfo.match as? HookMatch.StorageMatch)?.displayPath,
+                    applySiteRange?.nonEmpty(),
+                    Allocator.getFreshId(Allocator.Id.CVL_EVENT)
                 )
-
-                /** XXX: I think this [CVLReportLabel.ApplyHook] is never read, because we skip it in the call trace. */
-                val reportLabel = CVLReportLabel.ApplyHook(hookInliningInfo.pattern.toString(), hookInliningInfo.cvlHook.range)
-
-                val inlinedHookProg = hookInliningInfo
-                    .preCommands
+                val solidityCodeWithPreAndPost = hookInliningInfo.preCommands
                     .merge(
                         listOf(
-                            inlinedHook.toAnnotation(),
-                            lcmd.cmd
+                            lcmd.cmd,
                         ).withDecls(
                             inlinedHook.support + lcmd.cmd.getFreeVarsOfRhs() + setOfNotNull(lcmd.cmd.getLhs())
                         )
                     ).merge(
                         hookInliningInfo.postCommands
                     )
+                val callTraceStartScopeCommands = CommandWithRequiredDecls(listOf(
+                    /**
+                     * For the [report.calltrace.printer.DebugAdapterProtocolStackMachine]
+                     * but we want an additional step so that the debugger halts the hook at the solidity
+                     * command before jumping into the definition of the hook in CVL.
+                     * [SnippetCmd.CVLSnippetCmd.Start] then starts the scope, and the debugger adds
+                     * the hook on the top of the stack. The pop is added above.
+                     */
+                    SnippetCmd.CVLSnippetCmd.Start(StackEntry.CVLHook(hookInliningInfo.cvlHook)).toAnnotation(),
 
-                val prog = hookInliningInfo.program.prependToBlock0(inlinedHookProg).wrapWithCVLLabelCmds(reportLabel)
-                    .wrapWithStackEntry(StackEntry.CVLHook(hookInliningInfo.cvlHook))
+                    /**
+                     * Start the scope for the [report.calltrace.generator.EVMCallTraceGenerator]
+                     */
+                    inlinedHook.toAnnotation(),
+                ))
+                val callTraceEndScopeCommands = CommandWithRequiredDecls(listOf(
+                    /**
+                     * Terminate both scopes opened from above in reverse order.
+                     * Note, that [vc.data.SnippetCmd.CVLSnippetCmd.InlinedHook] is of type EventId
+                     * that starts the event (rather a scope) with id [inlinedHook.id]
+                     */
+                    TACCmd.Simple.AnnotationCmd(TACMeta.CVL_LABEL_END, inlinedHook.id),
+                    SnippetCmd.CVLSnippetCmd.End.toAnnotation()
+                ))
+                val prog = hookInliningInfo.program
+                    // First _prepend!_ the solidity commands followed by the scope starts commands
+                    .prependToBlock0(solidityCodeWithPreAndPost.merge(callTraceStartScopeCommands))
+                    // Now _append!_ all scope ending commands.
+                    .appendToSinks(callTraceEndScopeCommands)
+
 
                 val replacingProg = transformHookToCoreTACProgram(prog, assignments)
 

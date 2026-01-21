@@ -699,7 +699,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
                             val addrToContract =
                                 modelAddressToContractInfo(model, allSymbolsInProgram(origProgWithAssertIdMeta))
 
-                            val formatter = CallTraceValueFormatter(addrToContract, scene, model)
+                            val formatter = CallTraceValueFormatter(model, addrToContract)
 
                             val localAssignments = LocalAssignments(model, origProgWithAssertIdMeta, addrToContract, formatter, scene)
                             localAssignments.logForTests()

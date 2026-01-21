@@ -1,0 +1,23 @@
+{
+	"rules": {
+		"uncheckedOverflows": {
+			"FAIL": [
+				"basicMul(uint256,uint256)",
+				"byConst(uint256)",
+				"minus_fail(uint256,uint256)"
+			],
+			"SUCCESS": [
+				"minus_pass(uint256,uint256)",
+				"shouldPass(uint256,uint256)"
+			],
+			"mixed(uint256,uint256)": [
+				"FAIL",
+				"FAIL"
+			],
+			"twoMuls(uint256,uint256)": [
+				"FAIL",
+				"FAIL"
+			]
+		}
+	}
+}

@@ -67,13 +67,6 @@ class CompilerLang(metaclass=AbstractAndSingleton):
         return func_hash
 
     @staticmethod
-    def normalize_file_compiler_path_name(file_abs_path: str) -> str:
-        """
-        Normalizes the absolute path name [file_abs_path] of a file, given to the compiler.
-        """
-        return file_abs_path
-
-    @staticmethod
     def normalize_deployed_bytecode(deployed_bytecode: str) -> str:
         """
         Normalizes the deployed bytecode [deployed_bytecode].
@@ -114,7 +107,9 @@ class CompilerLang(metaclass=AbstractAndSingleton):
                                     config_path: Path,
                                     compiler_cmd: str,
                                     compiler_version: Optional[CompilerVersion],
-                                    data: Dict[str, Any]) -> Dict[str, Any]:
+                                    data: Dict[str, Any],
+                                    asts :  Dict[str, Dict[int, Any]],
+                                    ast_key: str) -> Dict[str, Any]:
         """
         Returns the data dictionary of the contract with storage layout information if needed
         """
@@ -194,6 +189,12 @@ class CompilerCollector(ABC):
     @abstractmethod
     def compiler_version(self) -> CompilerVersion:
         pass
+
+    def normalize_file_compiler_path_name(self, file_abs_path: str) -> str:
+        """
+        Normalizes the absolute path name [file_abs_path] of a file, given to the compiler.
+        """
+        return file_abs_path
 
     def __str__(self) -> str:
         return f"{self.compiler_name} {self.compiler_version}"

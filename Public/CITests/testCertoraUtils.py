@@ -293,6 +293,16 @@ TEST_VALUES: Dict[Callable, Dict[str, Any]] = {
         ]
     },
 
+    Vf.validate_vyper_custom_std_json_in_map: {
+        'valid': [
+            {path_test_file('V.vy'): path_test_file('erc20.json')}
+        ],
+        'invalid': [
+            {path_test_file('V.vy'): path_test_file('not_exist.json')},
+            {'notexist.vy': path_test_file('erc20.json')}
+        ]
+    },
+
     Vf.validate_solc_optimize_map: {
         'valid': [
             {'A': '15', 'B': '15', 'C.sol': '0'}

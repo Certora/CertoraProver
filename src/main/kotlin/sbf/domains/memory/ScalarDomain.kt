@@ -58,6 +58,38 @@ private class ValueFactory<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     override fun mkTop() = ScalarValue(sbfTypeFac.mkTop())
 }
 
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>
+    SbfType<TNum, TOffset>.mapNum(
+    f: (TNum) -> TNum
+): SbfType<TNum, TOffset> =
+    when (this) {
+        is SbfType.Top,
+        is SbfType.Bottom -> this
+        // Zero-extension is undefined for pointers. We conservatively keep the value unchanged.
+        is SbfType.PointerType -> this
+        is SbfType.NumType -> copy(value = f(value))
+    }
+
+
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>
+    SbfType<TNum, TOffset>.zext8(): SbfType<TNum, TOffset> = mapNum { it.zext8() }
+
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>
+    SbfType<TNum, TOffset>.zext16(): SbfType<TNum, TOffset> = mapNum { it.zext16() }
+
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>
+    SbfType<TNum, TOffset>.zext32(): SbfType<TNum, TOffset> = mapNum { it.zext32() }
+
+fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>
+    ScalarValue<TNum, TOffset>.zext(n: Long) =
+    when(n) {
+        1L -> ScalarValue(this.type().zext8())
+        2L -> ScalarValue(this.type().zext16())
+        4L -> ScalarValue(this.type().zext32())
+        8L -> this
+        else -> error("unsupported bit-width $n in zext operation")
+    }
+
 class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     private val base: ScalarBaseDomain<ScalarValue<TNum, TOffset>>,
     val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
@@ -138,11 +170,15 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val inst = locInst.inst
         check(inst is SbfInstruction.Bin)
 
-        if (locInst.inst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null) {
-            // When we do `memcpy` promotion we create stack pointer arithmetic instructions whose offsets can be
-            // greater than the stack frame's size. This is because the promotion "normalizes" the stack pointer with
-            // respect to `r10` so the offset in the pointer arithmetic instruction can be far bigger than stack
-            // frame's size if the pointer points to some caller's stack.
+        val isMemcpyPromotion = listOf(
+            SbfMeta.MEMCPY_PROMOTION,
+            SbfMeta.MEMCPY_ZEXT_PROMOTION,
+            SbfMeta.MEMCPY_TRUNC_PROMOTION
+        ).any { locInst.inst.metaData.getVal(it) != null }
+
+        // Skip validation for memcpy promotions, as they normalize stack pointers relative to r10,
+        // which can result in offsets exceeding the current frame size when accessing caller stacks
+        if (isMemcpyPromotion) {
             return
         }
 
@@ -483,24 +519,22 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     }
 
     /** Extracts known constant length from a register, or throws a detailed error. */
-    private fun extractKnownLength(locInst: LocatedSbfInstruction, reg: Value.Reg): Long {
-        // For now, we use `toLongOrNull` which means that the length must be exactly known.
-        // This is something that we can improve if needed.
-        return (getRegister(reg).type() as? SbfType.NumType)?.value?.toLongOrNull()
+    private fun extractKnownLength(locInst: LocatedSbfInstruction, lenReg: Value.Reg) =
+        (getRegister(lenReg).type() as? SbfType.NumType)?.value?.toLongOrNull()
             ?: throw UnknownMemcpyLenError(
                 DevErrorInfo(
                     locInst,
-                    PtrExprErrReg(reg),
-                    "Statically unknown length in $reg"
+                    PtrExprErrReg(lenReg),
+                    "Statically unknown length in $lenReg"
                 )
             )
-    }
+
 
     /** Ensures a stack pointer offset is not top, otherwise throws an exception */
     private fun ensureKnownStackOffset(
         locInst: LocatedSbfInstruction,
-        offset: TOffset,
-        reg: Value.Reg
+        reg: Value.Reg,
+        offset: TOffset
     ) {
         if (offset.isTop()) {
             throw UnknownStackPointerError(
@@ -524,123 +558,177 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     }
 
     /**
-     * Analyze `memcpy(dst, src, len)` and `memmove(dst, src, len)`
+     * Analyze `memcpy(dst, src, len)`
      *
-     * - If `memcpy` then
-     *   1. Remove all the environment entries that might overlap with `[dstOffset, dstOffset+len)`
-     *   2. Copy environment entries from `[srcOffset, srcOffset+len)` to `[dstOffset, dstOffset+len)`
-     * - If `memmove` then
-     *   1. Remove all the environment entries that might overlap with `[dstOffset, dstOffset+len)`
-     *
-     * Thus, the analysis of `memcpy` is precise but the analysis of `memmove` is a rough over-approximation.
-     * **/
-    private fun analyzeMemTransfer(locInst: LocatedSbfInstruction) {
-        val stmt = locInst.inst
-        check(stmt is SbfInstruction.Call)
-        val solanaFunction = SolanaFunction.from(stmt.name)
-        check(solanaFunction == SolanaFunction.SOL_MEMCPY || solanaFunction == SolanaFunction.SOL_MEMMOVE)
+     * 1. Remove all the environment entries that might overlap with `[dstOffset, dstOffset+len)`
+     * 2. Copy environment entries from `[srcOffset, srcOffset+len)` to `[dstOffset, dstOffset+len)`
+     **/
+    private fun analyzeMemcpy(locInst: LocatedSbfInstruction)  {
 
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val dstReg = Value.Reg(SbfRegister.R1_ARG) // dst
+        val srcReg = Value.Reg(SbfRegister.R2_ARG) // src
+        val lenReg = Value.Reg(SbfRegister.R3_ARG) // len
 
-        if (stmt.writeRegister.contains(r0))  {
+        if (locInst.inst.writeRegister.contains(r0)) {
             forget(r0)
         }
 
-        val dstType = getRegister(r1).type()
-        if (dstType is SbfType.PointerType.Stack) {
-            val len = extractKnownLength(locInst, r3)
-            ensureKnownStackOffset(locInst, dstType.offset, r1)
-            val dstOffsets = dstType.offset.toLongList()
-            check(dstOffsets.isNotEmpty()) {"Scalar domain expects non-empty list"}
+        val dstType = getRegister(dstReg).type() as? SbfType.PointerType.Stack ?: return
+        val len = extractKnownLength(locInst, lenReg)
+        ensureKnownStackOffset(locInst, dstReg, dstType.offset)
+        val dstOffsets = dstType.offset.toLongList()
+        check(dstOffsets.isNotEmpty())
 
-            when (solanaFunction) {
-                SolanaFunction.SOL_MEMMOVE -> removeDstSlices(dstOffsets, len, onlyPartial = false)
-                SolanaFunction.SOL_MEMCPY -> {
-                    val r2 = Value.Reg(SbfRegister.R2_ARG)
-                    when (val srcType = getRegister(r2).type()) {
-                        is SbfType.PointerType.Stack -> {
-                            if (srcType.offset.isTop()) {
-                                removeDstSlices(dstOffsets, len, onlyPartial = false)
-                            } else {
-                                val srcOffsets = srcType.offset.toLongList()
-                                check(srcOffsets.isNotEmpty()) { "Scalar domain expects non-empty list because it is not top" }
+        when (val srcType = getRegister(srcReg).type()) {
+            is SbfType.PointerType.Stack -> {
+                if (srcType.offset.isTop()) {
+                    removeDstSlices(dstOffsets, len, onlyPartial = false)
+                } else {
+                    val srcOffsets = srcType.offset.toLongList()
+                    check(srcOffsets.isNotEmpty()) { "Scalar domain expects non-empty list because it is not top" }
 
-                                // Remove all the environment entries that might **partially** overlap with `[dstOffset, dstOffset+len)`
-                                // By partially, we mean any slice that overlaps with `[dstOffset, dstOffset+len)`,
-                                // but it is not included in `[dstOffset, dstOffset+len)`.
-                                //
-                                // We cannot remove directly all destination entries (i.e., `onlyPartial=false`) because we might need to do weak updates,
-                                // so we need to remember old values.
-                                removeDstSlices(dstOffsets, len, onlyPartial = true)
+                    // Remove all the environment entries that might **partially** overlap with `[dstOffset, dstOffset+len)`
+                    // By partially, we mean any slice that overlaps with `[dstOffset, dstOffset+len)`,
+                    // but it is not included in `[dstOffset, dstOffset+len)`.
+                    //
+                    // We cannot remove directly all destination entries (i.e., `onlyPartial=false`) because we might need to do weak updates,
+                    // so we need to remember old values.
+                    removeDstSlices(dstOffsets, len, onlyPartial = true)
 
-                                val dstFootprint = mutableSetOf<ByteRange>()
-                                if (dstOffsets.size == 1) {
-                                    val dstOffset = dstOffsets.single()
-                                    // strong update
-                                    base.copyStack(srcOffsets.first(), dstOffset, len, isWeak = false, dstFootprint)
-                                    // followed by weak updates
-                                    srcOffsets.drop(1).forEach { srcOffset ->
-                                        base.copyStack(srcOffset, dstOffset, len, isWeak = true, dstFootprint)
-                                    }
-                                } else {
-                                    // weak updates
-                                    srcOffsets.forEach { srcOffset ->
-                                        dstOffsets.forEach { dstOffset ->
-                                            base.copyStack(srcOffset, dstOffset, len, isWeak = true, dstFootprint)
-                                        }
-                                    }
-                                }
-                                // Important for soundness
-                                // If a destination byte hasn't been overwritten by a source then we must "kill" it.
-                                // This is possible because the analysis might know nothing about the source so `memTransfer` can be a non-op.
-                                removeDstSlices(dstOffsets, len, onlyPartial = false) { !dstFootprint.contains(it) }
+                    val dstFootprint = mutableSetOf<ByteRange>()
+                    if (dstOffsets.size == 1) {
+                        val dstOffset = dstOffsets.single()
+                        // strong update
+                        base.copyStack(srcOffsets.first(), dstOffset, len, isWeak = false, dstFootprint)
+                        // followed by weak updates
+                        srcOffsets.drop(1).forEach { srcOffset ->
+                            base.copyStack(srcOffset, dstOffset, len, isWeak = true, dstFootprint)
+                        }
+                    } else {
+                        // weak updates
+                        srcOffsets.forEach { srcOffset ->
+                            dstOffsets.forEach { dstOffset ->
+                                base.copyStack(srcOffset, dstOffset, len, isWeak = true, dstFootprint)
                             }
                         }
-                        else -> {
-                            // We are conservative and remove any overlapping entry at the destination
-                            removeDstSlices(dstOffsets, len, onlyPartial = false)
-                        }
                     }
+                    // Important for soundness
+                    // If a destination byte hasn't been overwritten by a source then we must "kill" it.
+                    // This is possible because the analysis might know nothing about the source so `memTransfer` can be a non-op.
+                    removeDstSlices(dstOffsets, len, onlyPartial = false) { !dstFootprint.contains(it) }
                 }
-                else -> check(false) {"unreachable"}
+            }
+            else -> {
+                // We are conservative and remove any overlapping entry at the destination
+                removeDstSlices(dstOffsets, len, onlyPartial = false)
             }
         }
     }
 
-    /** Transfer function for `memset(ptr, val, len)` **/
-    private fun analyzeMemset(locInst: LocatedSbfInstruction) {
-        val stmt = locInst.inst
-        check(stmt is SbfInstruction.Call)
-        val solanaFunction = SolanaFunction.from(stmt.name)
-        check(solanaFunction == SolanaFunction.SOL_MEMSET)
+    /**
+     * Transfer function for `memset(ptr, val, len)` and `memmove(dst, src, len)`
+     *
+     * Remove all the environment entries that might overlap with `[x, x+len)` where `x`
+     * is the offset of `ptr` or `dst` if they are stack pointers.
+     *
+     * Note that the analysis of `memmove` is a rough over-approximation.
+     **/
+    private fun analyzeMemsetOrMemmove(locInst: LocatedSbfInstruction) {
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val dstReg = Value.Reg(SbfRegister.R1_ARG) // dst
+        val lenReg = Value.Reg(SbfRegister.R3_ARG) // len
+
+        if (locInst.inst.writeRegister.contains(r0)) {
+            forget(r0)
+        }
+
+        val dstType = getRegister(dstReg).type() as? SbfType.PointerType.Stack ?: return
+        val len = extractKnownLength(locInst, lenReg)
+        val dstOffset = dstType.offset
+        ensureKnownStackOffset(locInst, dstReg, dstOffset)
+        val offsets = dstOffset.toLongList()
+        check(offsets.isNotEmpty())
+
+        // We are conservative and remove any overlapping entry at the destination
+        removeDstSlices(offsets, len, onlyPartial = false)
+    }
+
+    /**
+     * Analyze `memcpy_zext(dst, src, i)`
+     **/
+    private fun analyzeMemcpyZext(locInst: LocatedSbfInstruction) {
+        analyzeMemcpyZExtOrTrunc(
+            locInst = locInst,
+            srcSize = { i -> i.toByte() },
+            dstSize = { 8 },
+            transformValue = { srcVal, i -> srcVal.zext(i) }
+        )
+    }
+
+    /**
+     * Analyze `memcpy_trunc(dst, src, i)`
+     **/
+    private fun analyzeMemcpyTrunc(locInst: LocatedSbfInstruction)  {
+        analyzeMemcpyZExtOrTrunc(
+            locInst = locInst,
+            srcSize = { 8 },
+            dstSize = { i -> i.toByte() },
+            transformValue = { srcVal, _ -> srcVal }
+        )
+    }
+
+    private fun analyzeMemcpyZExtOrTrunc(
+        locInst: LocatedSbfInstruction,
+        srcSize: (Long) -> Byte,
+        dstSize: (Long) -> Byte,
+        transformValue: (ScalarValue<TNum, TOffset>, Long) -> ScalarValue<TNum, TOffset>
+    ) {
 
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
-        val r1 = Value.Reg(SbfRegister.R1_ARG)
-        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val dstReg = Value.Reg(SbfRegister.R1_ARG) // dst
+        val srcReg = Value.Reg(SbfRegister.R2_ARG) // src
+        val iReg = Value.Reg(SbfRegister.R3_ARG)   // i
 
-        forget(r0)
-
-        val ptrType = getRegister(r1).type()
-        if (ptrType is SbfType.PointerType.Stack) {
-            val len = extractKnownLength(locInst, r3)
-            ensureKnownStackOffset(locInst, ptrType.offset, r1)
-            val offsets = ptrType.offset.toLongList()
-            check(offsets.isNotEmpty()) { "Scalar domain expects non-empty list" }
-            // We are conservative and remove any overlapping entry at the destination
-            removeDstSlices(offsets, len, onlyPartial = false)
+        if (locInst.inst.writeRegister.contains(r0)) {
+            forget(r0)
         }
 
+        val dstType = getRegister(dstReg).type() as? SbfType.PointerType.Stack ?: return
+        ensureKnownStackOffset(locInst, dstReg, dstType.offset)
+        val dstOffsets = dstType.offset.toLongList()
+        check(dstOffsets.isNotEmpty())
+        val dstOffset = dstOffsets.singleOrNull()
+
+        val srcOffset = (getRegister(srcReg).type() as? SbfType.PointerType.Stack)
+            ?.offset
+            ?.toLongOrNull()
+
+        val i = extractKnownLength(locInst, iReg)
+
+        when {
+            srcOffset == null || dstOffset == null -> {
+                dstOffsets.forEach { o ->
+                    val dst = ByteRange(o, dstSize(i))
+                    base.updateStack(dst, ScalarValue(sbfTypeFac.mkTop()), isWeak = false)
+                }
+            }
+            else -> {
+                check (i < 8)
+                val src = ByteRange(srcOffset, srcSize(i))
+                val dst = ByteRange(dstOffset, dstSize(i))
+                val srcVal = base.getStackSingletonOrNull(src) ?: ScalarValue(sbfTypeFac.mkTop())
+                base.updateStack(dst, transformValue(srcVal,i), isWeak = false)
+            }
+        }
     }
 
+
     private fun castNumToString(reg: Value.Reg, globals: GlobalVariables) {
-        val oldType = getRegister(reg).type()
-        if (oldType is SbfType.NumType) {
-            val newType = oldType.castToPtr(sbfTypeFac, globals)
-            if (newType is SbfType.PointerType.Global && newType.global?.strValue != null) {
-                setRegister(reg, ScalarValue(newType))
-            }
+        val oldType = getRegister(reg).type() as? SbfType.NumType ?: return
+        val newType = oldType.castToPtr(sbfTypeFac, globals)
+        if (newType is SbfType.PointerType.Global && newType.global?.strValue != null) {
+            setRegister(reg, ScalarValue(newType))
         }
     }
 
@@ -657,24 +745,18 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 SolanaFunction.SOL_PANIC, SolanaFunction.ABORT  -> setToBottom()
                 SolanaFunction.SOL_MEMCMP, SolanaFunction.SOL_INVOKE_SIGNED_C, SolanaFunction.SOL_INVOKE_SIGNED_RUST,
                 SolanaFunction.SOL_CURVE_GROUP_OP, SolanaFunction.SOL_CURVE_VALIDATE_POINT,
-                SolanaFunction.SOL_GET_STACK_HEIGHT -> {
+                SolanaFunction.SOL_GET_STACK_HEIGHT ->
                     setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(sbfTypeFac.anyNum()))
-                }
-                SolanaFunction.SOL_GET_CLOCK_SYSVAR, SolanaFunction.SOL_GET_RENT_SYSVAR -> {
+                SolanaFunction.SOL_GET_CLOCK_SYSVAR, SolanaFunction.SOL_GET_RENT_SYSVAR ->
                     summarizeCall(locInst, memSummaries)
-                }
-                SolanaFunction.SOL_SET_CLOCK_SYSVAR -> {
+                SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
-                }
-                SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE -> {
-                    analyzeMemTransfer(locInst)
-                }
-                SolanaFunction.SOL_MEMSET -> {
-                    analyzeMemset(locInst)
-                }
-                else -> {
-                    forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
-                }
+                SolanaFunction.SOL_MEMCPY -> analyzeMemcpy(locInst)
+                SolanaFunction.SOL_MEMCPY_ZEXT -> analyzeMemcpyZext(locInst)
+                SolanaFunction.SOL_MEMCPY_TRUNC -> analyzeMemcpyTrunc(locInst)
+                SolanaFunction.SOL_MEMMOVE,
+                SolanaFunction.SOL_MEMSET -> analyzeMemsetOrMemmove(locInst)
+                else -> forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
             }
         } else {
             if (stmt.isAllocFn() && memSummaries.getSummary(stmt.name) == null) {
@@ -1011,7 +1093,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Mem) {"analyzeMem expect a memory instruction instead of $stmt"}
 
-        val baseReg = stmt.access.baseReg
+        val baseReg = stmt.access.base
         val offset = stmt.access.offset
         val width = stmt.access.width
         val value = stmt.value
@@ -1077,7 +1159,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                     stackOffsets.fold(ScalarValue(sbfTypeFac.mkBottom())) { acc, stackOffset ->
                                         val loadedAbsVal = base.getStackSingletonOrNull(ByteRange(stackOffset, width.toByte()))
                                         when {
-                                            loadedAbsVal != null -> acc.join(loadedAbsVal)
+                                            loadedAbsVal != null -> acc.join(loadedAbsVal.zext(width.toLong()))
                                             loadedAsNumForPTA -> acc.join(ScalarValue(sbfTypeFac.anyNum()))
                                             else -> ScalarValue(sbfTypeFac.mkTop())
                                         }
@@ -1177,9 +1259,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 is SbfInstruction.Call -> analyzeCall(locInst, globals, memSummaries)
                 is SbfInstruction.CallReg -> {
                     if (!SolanaConfig.SkipCallRegInst.get()) {
-                        throw SolanaError("$s is not supported. " +
-                            "Often this instruction is used for calling pretty-printing functions. " +
-                            "If this is the case, then you can use option \"-${SolanaConfig.SkipCallRegInst.name} true\" to skip it.")
+                        throw UnsupportedCallX(locInst)
                     }
                 }
                 is SbfInstruction.Select -> analyzeSelect(s)
@@ -1190,6 +1270,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 is SbfInstruction.Mem -> analyzeMem(locInst, globals)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
+                is SbfInstruction.Debug -> {}
             }
         }
         dbg { "$this\n" }

@@ -31,7 +31,7 @@ data class SbfLinearConstraint(val op: CondOp, val e1: LinearExpression, val e2:
 
     constructor(op: CondOp, v: ExpressionVar, n: ExpressionNum): this(op, LinearExpression(v), LinearExpression(n))
 
-    override fun toString() = "$e1 ${sbf.cfg.toString(op)} $e2"
+    override fun toString() = "$e1 $op $e2"
 
     override fun compareTo(other: SbfLinearConstraint): Int {
         return if (op < other.op) {

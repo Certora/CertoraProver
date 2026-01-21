@@ -24,7 +24,6 @@ import sbf.SolanaConfig
 import datastructures.stdcollections.*
 import log.*
 import sbf.analysis.AnalysisRegisterTypes
-import utils.*
 import java.math.BigInteger
 
 class NPDomainError(msg: String): RuntimeException("NPDomain error:$msg")
@@ -83,23 +82,31 @@ data class ScratchRegisterVariable(val callId: ULong, val reg: Value.Reg, privat
  *  - "false" is represented as any set of constraints that contains a contradiction
  *  - If csts is false then the whole abstract state is normalized to bottom.
  */
-data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConstraint>, private val isBot: Boolean)
+data class NPDomain<D, TNum, TOffset>(
+    private val csts: SetDomain<SbfLinearConstraint>,
+    private val isBot: Boolean,
+    private val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
+    )
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
 
-    override fun toString() = csts.toString()
+    override fun toString() = if (isBot) { "bot" } else { csts.toString() }
 
     companion object {
-        fun <D, TNum, TOffset> mkTrue() where TNum: INumValue<TNum>,
-                                              TOffset: IOffset<TOffset>,
-                                              D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> =
-            NPDomain<D, TNum, TOffset>(SetIntersectionDomain(), isBot = false)
+        fun <D, TNum, TOffset> mkTrue(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
+        ) where TNum: INumValue<TNum>,
+                TOffset: IOffset<TOffset>,
+                D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> =
+            NPDomain<D, TNum, TOffset>(SetIntersectionDomain(), isBot = false, sbfTypeFac)
 
-        fun <D, TNum, TOffset>  mkBottom() where TNum: INumValue<TNum>,
-                                                 TOffset: IOffset<TOffset>,
-                                                 D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> =
-            NPDomain<D, TNum, TOffset>(SetIntersectionDomain(), isBot = true)
+        fun <D, TNum, TOffset>  mkBottom(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
+        ) where TNum: INumValue<TNum>,
+                TOffset: IOffset<TOffset>,
+                D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> =
+            NPDomain<D, TNum, TOffset>(SetIntersectionDomain(), isBot = true, sbfTypeFac)
 
         fun getLinCons(cond: Condition, vFac: VariableFactory): SbfLinearConstraint {
             val left = cond.left
@@ -227,6 +234,35 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             }
             return out
         }
+
+        /**
+         * Represents a constraint on a variable extracted from a linear constraint.
+         *
+         * @param n The number the variable is compared against
+         * @param isEquality If true, represents an equality constraint `(variable == constant)`.
+         *                   If false, represents a disequality constraint `(variable != constant)`.
+         */
+        data class ConstraintNum(
+            val n: ExpressionNum,
+            val isEquality: Boolean
+        )
+
+        fun extractEqAndDiseq(csts: SetDomain<SbfLinearConstraint>): Map<ExpressionVar, ConstraintNum> =
+            buildMap {
+                csts.forEach { c ->
+                    if (c.op != CondOp.EQ && c.op != CondOp.NE) {
+                        return@forEach
+                    }
+
+                    val v = c.e1.getVariable() ?: c.e2.getVariable()
+                    val n = c.e1.getConstant() ?: c.e2.getConstant()
+
+                    if (v != null && n != null) {
+                        put (v, ConstraintNum(n, isEquality = (c.op == CondOp.EQ)))
+                    }
+                }
+            }
+
     }
 
     fun isBottom() = isBot
@@ -239,29 +275,45 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         }
     }
 
-
-    // Helper to deal with overlaps
-    private fun remove(slice: FiniteInterval): NPDomain<D, TNum, TOffset> {
+    /**
+     * Remove any constraint that contains a variable that represents a byte sequence that strict overlaps with [slice].
+     */
+    private fun removeStrictOverlaps(slice: FiniteInterval): NPDomain<D, TNum, TOffset> {
         if (isBottom()) {
             return this
         }
 
-        var newCsts = csts
-        for (cst in csts) {
-            val hasOverlap = cst.getVariables().any { variable ->
-                (variable as? StackSlotVariable)?.let { other ->
+        val newCsts = csts.removeAll { cst ->
+            cst.getVariables()
+                .filterIsInstance<StackSlotVariable>()
+                .any { other ->
                     val otherSlice = other.toFiniteInterval()
                     slice != otherSlice && slice.overlap(otherSlice)
-                } ?: false
-            }
-            if (hasOverlap) {
-                newCsts = newCsts.remove(cst)
-            }
+                }
         }
-        return NPDomain(newCsts, isBot = false)
+
+        return NPDomain(newCsts, isBot = false, sbfTypeFac)
     }
 
+    /**
+     *  Remove any constraint that contains a variable that might represent any byte
+     *  overlapping with any interval in [xs].
+     */
+    private fun removeOverlaps(xs: List<FiniteInterval>): NPDomain<D, TNum, TOffset> {
+        if (isBottom()) {
+            return this
+        }
 
+        fun overlap(x: FiniteInterval, ys: List<FiniteInterval>) = ys.any { y -> x.overlap(y) }
+
+        val newCsts = csts.removeAll { cst ->
+            cst.getVariables()
+                .filterIsInstance<StackSlotVariable>()
+                .any { v -> overlap(v.toFiniteInterval(), xs) }
+        }
+
+        return NPDomain(newCsts, isBot = false, sbfTypeFac)
+    }
 
     /**
      *  Return null if `csts` is unsatisfiable. Note that it is not an "if and only if".
@@ -285,13 +337,13 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
 
     fun normalize(): NPDomain<D, TNum, TOffset> {
         return if (isFalse(csts)) {
-            mkBottom()
+            mkBottom(sbfTypeFac)
         } else {
             val outCsts = propagate()
             if (outCsts == null || isFalse(outCsts)) {
-                mkBottom()
+                mkBottom(sbfTypeFac)
             } else {
-                NPDomain(outCsts, isBot = false)
+                NPDomain(outCsts, isBot = false, sbfTypeFac)
             }
         }
     }
@@ -312,7 +364,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         } else if (other.isBottom()) {
             this
         } else {
-            NPDomain(csts.join(other.csts), isBot = false)
+            NPDomain(csts.join(other.csts), isBot = false, sbfTypeFac)
         }
     }
 
@@ -323,7 +375,9 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             NPDomain(
                 csts.removeAll {
                     it.contains(v)
-                }, isBot = false
+                },
+                isBot = false,
+                sbfTypeFac
             )
         }
     }
@@ -346,7 +400,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             val outCst = c.substitute(oldV, newE)
             outCsts = outCsts.add(outCst) as SetIntersectionDomain<SbfLinearConstraint>
         }
-        return NPDomain<D, TNum, TOffset>(outCsts, isBot = false).normalize()
+        return NPDomain<D, TNum, TOffset>(outCsts, isBot = false, sbfTypeFac).normalize()
     }
 
     private fun eval(v: ExpressionVar, n: ExpressionNum): NPDomain<D, TNum, TOffset> {
@@ -355,7 +409,8 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         } else {
             NPDomain<D, TNum, TOffset>(
                 eval(csts as SetIntersectionDomain<SbfLinearConstraint>, v, n),
-                isBot = false
+                isBot = false,
+                sbfTypeFac
             ).normalize()
         }
     }
@@ -412,7 +467,7 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             val linCons = SbfLinearConstraint (CondOp.EQ,
                 LinearExpression(RegisterVariable(reg, vFac)),
                 LinearExpression(StackSlotVariable(stackContent.offset, stackContent.width, vFac)))
-            val res = NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false).normalize()
+            val res = NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false, sbfTypeFac).normalize()
             res
         } else {
             this
@@ -425,189 +480,289 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                       vFac: VariableFactory,
                       registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>?): NPDomain<D, TNum, TOffset> {
         if (isBottom()) {
-            return mkBottom()
+            return mkBottom(sbfTypeFac)
         }
 
         if (registerTypes == null) {
             val linCons = getLinCons(cond, vFac)
             return if (linCons.isContradiction()) {
-                mkBottom()
+                mkBottom(sbfTypeFac)
             } else {
-                NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false).normalize()
+                NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false, sbfTypeFac).normalize()
             }
         }
 
+        val left = cond.left
         var linCons = getLinCons(cond, vFac)
-        val leftN = getNum(registerTypes.typeAtInstruction(inst, cond.left.r))
+        val leftN = getNum(registerTypes.typeAtInstruction(inst, left))
         if (leftN != null) {
-            linCons =  linCons.eval(RegisterVariable(cond.left, vFac), ExpressionNum(BigInteger.valueOf(leftN)))
+            linCons =  linCons.eval(RegisterVariable(left, vFac), ExpressionNum(BigInteger.valueOf(leftN)))
         }
         return if (linCons.isContradiction()) {
-            mkBottom()
+            mkBottom(sbfTypeFac)
         } else {
-            if (cond.right is Value.Reg) {
-                val rightN = getNum(registerTypes.typeAtInstruction(inst, cond.right.r))
+            val right = cond.right
+            if (right is Value.Reg) {
+                val rightN = getNum(registerTypes.typeAtInstruction(inst, right))
                 if (rightN != null) {
-                    linCons = linCons.eval(RegisterVariable(cond.right, vFac),
+                    linCons = linCons.eval(RegisterVariable(right, vFac),
                         ExpressionNum(BigInteger.valueOf(rightN)))
                 }
             }
             if (linCons.isContradiction()) {
-                mkBottom()
+                mkBottom(sbfTypeFac)
             } else {
-                NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false).normalize()
+                NPDomain<D, TNum, TOffset>(csts.add(linCons), isBot = false, sbfTypeFac).normalize()
             }
-        }
-    }
-
-    /** Extracts known constant length from a register, or throws a detailed error. */
-    private fun extractKnownLength(
-        locInst: LocatedSbfInstruction,
-        reg: SbfRegister,
-        registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): Long {
-        return (registerTypes.typeAtInstruction(locInst, reg) as? SbfType.NumType)?.value?.toLongOrNull()
-            ?: throw NPDomainError("Statically unknown length in ${locInst.inst}")
-    }
-
-    /** Ensures a stack pointer offset is not top, otherwise throws an exception */
-    private fun ensureKnownStackOffset(
-        locInst: LocatedSbfInstruction,
-        offset: TOffset,
-        reg: SbfRegister
-    ) {
-        if (offset.isTop()) {
-            throw NPDomainError("Statically unknown stack offset $reg in ${locInst.inst}")
-        }
-    }
-
-    private fun anyStackVariableInRange(cst: SbfLinearConstraint, interval: FiniteInterval): Boolean {
-        return cst.getVariables().any { v ->
-            v is StackSlotVariable && interval.overlap(v.toFiniteInterval())
         }
     }
 
     /**
-     *  Analyze `memcpy(dst, src, len)` and `memmove(dst, src, len)`.
-     *
-     *  Recall that [NPDomain] only reasons about stack memory (i.e., heap is completely ignored). Thus, we only care
-     *  when we transfer to the stack.
+     *  Transfer functions for:
+     *  - `memcpy(dst, src, len)`
+     *  - `memcpy_zext(dst, src, i)`
+     *  - `memcpy_trunc(dst, src, i)`
+     *  - `memset(ptr, val, len)`
+     *  - `memmove(dst, src, len)`
      **/
-    private fun analyzeMemTransfer(locatedInst: LocatedSbfInstruction,
-                                   @Suppress("UNUSED_PARAMETER")
-                                   vFac: VariableFactory,
-                                   registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
+    private fun analyzeMemIntrinsics(
+        locInst: LocatedSbfInstruction,
+        vFac: VariableFactory,
+        types: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
         if (isBottom()) {
             return this
         }
 
-        val inst = locatedInst.inst
+        val inst = locInst.inst
         check(inst is SbfInstruction.Call)
-        val solanaFunction = SolanaFunction.from(inst.name)
-        check(solanaFunction == SolanaFunction.SOL_MEMCPY || solanaFunction == SolanaFunction.SOL_MEMMOVE)
 
-        val r0 = SbfRegister.R0_RETURN_VALUE
-        val r1 = SbfRegister.R1_ARG
-        val r2 = SbfRegister.R2_ARG
-        val r3 = SbfRegister.R3_ARG
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val inState = if (inst.writeRegister.contains(r0)) {
+            havoc(RegisterVariable(r0, vFac))
+        } else {
+            this
+        }
 
-        val dstTy = registerTypes.typeAtInstruction(locatedInst, r1)
-        val outState = if (dstTy is SbfType.PointerType.Stack) {
-            val len = extractKnownLength(locatedInst, r3, registerTypes)
-            ensureKnownStackOffset(locatedInst, dstTy.offset, r1)
+        return when (val f = SolanaFunction.from(inst.name)) {
+            SolanaFunction.SOL_MEMCPY ->
+                inState.analyzeMemcpy(locInst, vFac, types)
+            SolanaFunction.SOL_MEMCPY_ZEXT ->
+                inState.analyzeMemcpyZExtOrTrunc(locInst, vFac, types, size = { 8 })
+            SolanaFunction.SOL_MEMCPY_TRUNC ->
+                inState.analyzeMemcpyZExtOrTrunc(locInst, vFac, types, size = { n -> n })
+            SolanaFunction.SOL_MEMMOVE,
+            SolanaFunction.SOL_MEMSET ->
+                inState.analyzeMemsetOrMemmove(locInst, vFac, types)
+            else -> error("unreachable $f")
+        }
+    }
 
-            // We don't need to be precise on `srcStart` for soundness. This is why we don't throw an exception.
-            val srcTy = registerTypes.typeAtInstruction(locatedInst, r2)
-            val srcStart = if (srcTy is SbfType.PointerType.Stack) {
-                srcTy.offset.toLongOrNull()
-            } else {
-                null
-            }
+    /**
+     * Helper for memory intrinsics
+     *
+     * If [dstReg] points to the stack then it removes any constraint that refers to any stack location
+     * between `[x, x+len)` where `x` is the stack offset pointed by [dstReg] and `len` is the length stored in [lenReg]
+     **/
+    private fun havocStack(
+        locInst: LocatedSbfInstruction,
+        dstReg: SbfRegister,
+        lenReg: SbfRegister,
+        types: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
+        val dstTy = types.typeAtInstruction(locInst, dstReg)
+        if (dstTy !is SbfType.PointerType.Stack)  {
+            return this
+        }
 
-            // We know that dstOffsets are sorted
-            val dstOffsets = dstTy.offset.toLongList()
-            check(dstOffsets.isNotEmpty()) {"destination offsets cannot be empty in analyzeMemTransfer"}
-            val dstInterval = FiniteInterval(dstOffsets.first(), dstOffsets.last() + len - 1)
-            // We don't need to be precise on `dstStart` for soundness
-            val dstStart = dstTy.offset.toLongOrNull()
+        val inst = locInst.inst
 
-            var newCsts = csts
+        val dstOffset = dstTy.offset
+        if (dstOffset.isTop()) {
+            throw NPDomainError("Statically unknown stack offset $dstReg in $inst")
+        }
+
+        val len = (types.typeAtInstruction(locInst, lenReg) as? SbfType.NumType)?.value?.toLongOrNull()
+            ?: throw NPDomainError("Statically unknown length in $inst")
+
+        val dstSlices = dstOffset.toLongList().map { FiniteInterval.mkInterval(it, len) }
+        return removeOverlaps(dstSlices)
+    }
+
+    private data class StackTransferInfo(
+        val dstOffsets: List<Long>,
+        val srcOffset: Long?,
+        val len: Long
+    ) { init { check(dstOffsets.isNotEmpty()) } }
+
+    /**
+     * Helper for memory intrinsics that transfer memory over the stack
+     */
+    private fun analyzeStackTransfer(
+        locInst: LocatedSbfInstruction,
+        dstReg: SbfRegister,
+        srcReg: SbfRegister,
+        lenReg: SbfRegister,
+        types: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): StackTransferInfo? {
+
+        val dstTy = types.typeAtInstruction(locInst, dstReg)
+        if (dstTy !is SbfType.PointerType.Stack)  {
+            return null
+        }
+
+        val inst = locInst.inst
+
+        val dstOffset = dstTy.offset
+        if (dstOffset.isTop()) {
+            throw NPDomainError("Statically unknown stack offset $dstReg in $inst")
+        }
+
+        val srcTy = types.typeAtInstruction(locInst, srcReg)
+        val srcOffset = (srcTy as? SbfType.PointerType.Stack)
+            ?.offset
+            ?.toLongOrNull()
+
+        val len = (types.typeAtInstruction(locInst, lenReg) as? SbfType.NumType)?.value?.toLongOrNull()
+            ?: throw NPDomainError("Statically unknown length in $inst")
+
+        return StackTransferInfo(
+            dstOffsets = dstOffset.toLongList(),
+            srcOffset = srcOffset,
+            len = len
+        )
+    }
+
+
+    /**
+     *  Transfer function for `memcpy(dst, src, len)`.
+     *
+     *  Recall that [NPDomain] only reasons about stack memory (i.e., heap is completely ignored).
+     *  Thus, we only care when we transfer to the stack. `r0` is havoced in the caller.
+     *
+     *  @param locInst the memory transfer instruction
+     *  @param vFac factory for internal variables
+     *  @param types to extract info from the scalar analysis
+     **/
+    private fun analyzeMemcpy(
+        locInst: LocatedSbfInstruction,
+        vFac: VariableFactory,
+        types: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
+
+        check(!isBottom())
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+        val solanaFn = SolanaFunction.from(inst.name)
+        check(solanaFn == SolanaFunction.SOL_MEMCPY)
+
+        val r1 = SbfRegister.R1_ARG // dest
+        val r2 = SbfRegister.R2_ARG // src
+        val r3 = SbfRegister.R3_ARG // len
+
+        val (dstOffsets, srcOffset, len) = analyzeStackTransfer(locInst, r1, r2, r3, types)
+            ?: return this
+        val dstOffset = dstOffsets.singleOrNull()
+
+        return if (dstOffset == null || srcOffset == null) {
+            removeOverlaps(dstOffsets.map { FiniteInterval.mkInterval(it, len) })
+        } else {
+            val adjOffset = dstOffset - srcOffset
+            val dstInterval = FiniteInterval(dstOffset, dstOffset + len - 1)
+
             // Do the transfer from source to destination
             // Note that the transfer function goes in the other direction
-            for (cst in csts) {
-                // If there is a constraint C over destination variables then
-                //   1. add new C' by substituting destination variables with source variables
-                //   2. remove C
-                if (solanaFunction == SolanaFunction.SOL_MEMCPY && srcStart != null && dstStart != null) {
-                    var newCst: SbfLinearConstraint? = null
-                    for (dstV in cst.getVariables()) {
-                        if (dstV is StackSlotVariable) {
-                            val dstVInterval = FiniteInterval.mkInterval(dstV.offset, dstV.getWidth().toLong())
-                            val adjOffset = dstStart - srcStart
-                            if (dstInterval.includes(dstVInterval)) {
-                                val srcV = StackSlotVariable(offset=dstV.offset - adjOffset, width= dstV.getWidth(), vFac)
-                                newCst = newCst?.substitute(dstV, LinearExpression(srcV)) ?: cst.substitute(dstV, LinearExpression(srcV))
-                            }
-                        }
-                    }
-                    if (newCst != null) {
-                        newCsts = newCsts.add(newCst)
-                    }
-                }
-
-                // Remove constraint `cst` if it uses a variable that refers to the destination slice
-                if (anyStackVariableInRange(cst, dstInterval)) {
-                    newCsts = newCsts.remove(cst)
-                }
-            }
-            NPDomain(newCsts, isBot = false)
-        } else {
-            this
-        }
-        return if (inst.writeRegister.contains(Value.Reg(r0))) {
-            outState.havoc(RegisterVariable(Value.Reg(r0), vFac))
-        } else {
-            outState
-        }
-    }
-
-    /** Transfer function for `memset(ptr, val, len)` **/
-    private fun analyzeMemset(locatedInst: LocatedSbfInstruction,
-                              @Suppress("UNUSED_PARAMETER")
-                              vFac: VariableFactory,
-                              registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
-        val inst = locatedInst.inst
-        check(inst is SbfInstruction.Call)
-        val solanaFunction = SolanaFunction.from(inst.name)
-        check(solanaFunction == SolanaFunction.SOL_MEMSET)
-
-        val r0 = SbfRegister.R0_RETURN_VALUE
-        val r1 = SbfRegister.R1_ARG
-        val r3 = SbfRegister.R3_ARG
-
-        val ptrTy = registerTypes.typeAtInstruction(locatedInst, r1)
-        return if (ptrTy is SbfType.PointerType.Stack) {
-            val len = extractKnownLength(locatedInst, r3, registerTypes)
-            ensureKnownStackOffset(locatedInst, ptrTy.offset, r1)
-
-            // We know that dstOffsets are sorted
-            val dstOffsets = ptrTy.offset.toLongList()
-            check(dstOffsets.isNotEmpty()) {"destination offsets cannot be empty in analyzeMemset"}
-            val dstInterval = FiniteInterval(dstOffsets.first(), dstOffsets.last() + len - 1)
-
-            // Remove any constraint `cst` if it uses a variable that refers to the destination slice
             var newCsts = csts
             for (cst in csts) {
-                if (anyStackVariableInRange(cst, dstInterval)) {
-                    newCsts = newCsts.remove(cst)
+                // 1. if there is a constraint C over destination variables then
+                //    add new C' by substituting destination variables with source variables
+                var newCst: SbfLinearConstraint? = null
+                for (dstV in cst.getVariables().filterIsInstance<StackSlotVariable>()) {
+                    val dstVInterval = FiniteInterval.mkInterval(dstV.offset, dstV.getWidth().toLong())
+                    if (dstInterval.includes(dstVInterval)) {
+                        val srcV = StackSlotVariable(offset=dstV.offset - adjOffset, width= dstV.getWidth(), vFac)
+                        newCst = newCst?.substitute(dstV, LinearExpression(srcV))
+                            ?: cst.substitute(dstV, LinearExpression(srcV))
+                    }
+                }
+                if (newCst != null) {
+                    newCsts = newCsts.add(newCst)
                 }
             }
-            NPDomain(newCsts, isBot = false)
-        } else {
-            this
-        }.havoc(RegisterVariable(Value.Reg(r0), vFac))
+            NPDomain<D, TNum, TOffset>(newCsts, isBot = false, sbfTypeFac)
+                // 2. Remove any constraint that uses a variable that refers to the destination slice
+                .removeOverlaps(listOf(dstInterval))
+        }
     }
 
-    private fun analyzeSaveScratchRegisters(curVal: NPDomain<D, TNum, TOffset>, inst: SbfInstruction.Call, vFac: VariableFactory): NPDomain<D, TNum, TOffset> {
+    /**
+     *  Transfer function for `memset(ptr, val, len)` and `memmove(dst, src, len)`
+     *
+     *  Recall that [NPDomain] only reasons about stack memory (i.e., heap is completely ignored).
+     *  Thus, we only care when we write to the stack. `r0` is havoced in the caller.
+     *
+     *  @param locInst the memset instruction
+     *  @param vFac factory for internal variables
+     *  @param types to extract info from the scalar analysis
+     **/
+    private fun analyzeMemsetOrMemmove(
+        locInst: LocatedSbfInstruction,
+        @Suppress("UNUSED_PARAMETER")
+        vFac: VariableFactory,
+        types: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
+
+        check(!isBottom())
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+        val solanaFn = SolanaFunction.from(inst.name)
+        check(solanaFn == SolanaFunction.SOL_MEMSET || solanaFn == SolanaFunction.SOL_MEMMOVE)
+
+        val r1 = SbfRegister.R1_ARG  // ptr or dst
+        val r3 = SbfRegister.R3_ARG  // len
+
+        return havocStack(locInst, r1, r3, types)
+    }
+
+    /**
+     *  Transfer function for `memcpy_zext(dst, src, i)` or `memcpy_trunc(dst, src, i)`
+     *
+     *  Recall that [NPDomain] only reasons about stack memory (i.e., heap is completely ignored).
+     *  Thus, we only care when we transfer to the stack. `r0` is havoced in the caller.
+     *
+     *  @param locInst the instruction
+     *  @param vFac factory for internal variables
+     *  @param types to extract info from the scalar analysis
+     **/
+    private fun analyzeMemcpyZExtOrTrunc(
+        locInst: LocatedSbfInstruction,
+        @Suppress("UNUSED_PARAMETER")
+        vFac: VariableFactory,
+        types: AnalysisRegisterTypes<D, TNum, TOffset>,
+        size: (Long) -> Long
+    ): NPDomain<D, TNum, TOffset> {
+
+        check(!isBottom())
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+        val solanaFunction = SolanaFunction.from(inst.name)
+        check(solanaFunction == SolanaFunction.SOL_MEMCPY_ZEXT || solanaFunction == SolanaFunction.SOL_MEMCPY_TRUNC)
+
+        val r1 = SbfRegister.R1_ARG // dest
+        val r2 = SbfRegister.R2_ARG // src
+        val r3 = SbfRegister.R3_ARG // i
+
+        val (dstOffsets, _, i) = analyzeStackTransfer(locInst, r1, r2, r3, types)
+            ?: return this
+
+        // Very conservative transfer function
+        return removeOverlaps(dstOffsets.map { FiniteInterval.mkInterval(it, size(i))})
+    }
+
+    private fun analyzeSaveScratchRegisters(
+        inst: SbfInstruction.Call,
+        vFac: VariableFactory
+    ): NPDomain<D, TNum, TOffset> {
         if (isBottom()) {
             return this
         }
@@ -626,17 +781,22 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             val rhs8 = RegisterVariable(r8, vFac)
             val lhs9 = ScratchRegisterVariable(id, r9, vFac)
             val rhs9 = RegisterVariable(r9, vFac)
-            curVal.substitute(lhs6, rhs6).substitute(lhs7, rhs7).substitute(lhs8, rhs8)
-                .substitute(lhs9, rhs9)
+            substitute(lhs6, rhs6).
+            substitute(lhs7, rhs7).
+            substitute(lhs8, rhs8).
+            substitute(lhs9, rhs9)
         } else {
-            curVal.havoc(RegisterVariable(r6, vFac))
-                .havoc(RegisterVariable(r7, vFac))
-                .havoc(RegisterVariable(r8, vFac))
-                .havoc(RegisterVariable(r9, vFac))
+            havoc(RegisterVariable(r6, vFac)).
+            havoc(RegisterVariable(r7, vFac)).
+            havoc(RegisterVariable(r8, vFac)).
+            havoc(RegisterVariable(r9, vFac))
         }
     }
 
-    private fun analyzeRestoreScratchRegisters(curVal: NPDomain<D, TNum, TOffset>, inst: SbfInstruction.Call, vFac: VariableFactory): NPDomain<D, TNum, TOffset> {
+    private fun analyzeRestoreScratchRegisters(
+        inst: SbfInstruction.Call,
+        vFac: VariableFactory
+    ): NPDomain<D, TNum, TOffset> {
         if (isBottom()) {
             return this
         }
@@ -655,15 +815,248 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             val rhs8 = ScratchRegisterVariable(id, r8, vFac)
             val lhs9 = RegisterVariable(r9, vFac)
             val rhs9 = ScratchRegisterVariable(id, r9, vFac)
-            curVal.substitute(lhs6, rhs6).substitute(lhs7, rhs7).substitute(lhs8, rhs8)
-                .substitute(lhs9, rhs9)
+            substitute(lhs6, rhs6).
+            substitute(lhs7, rhs7).
+            substitute(lhs8, rhs8).
+            substitute(lhs9, rhs9)
         } else {
-            curVal.havoc(RegisterVariable(r6, vFac))
-                .havoc(RegisterVariable(r7, vFac))
-                .havoc(RegisterVariable(r8, vFac))
-                .havoc(RegisterVariable(r9, vFac))
+            havoc(RegisterVariable(r6, vFac)).
+            havoc(RegisterVariable(r7, vFac)).
+            havoc(RegisterVariable(r8, vFac)).
+            havoc(RegisterVariable(r9, vFac))
         }
     }
+
+    private fun analyzeBin(
+        locatedInst: LocatedSbfInstruction,
+        vFac: VariableFactory,
+        registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
+        val inst = locatedInst.inst
+        check(inst is SbfInstruction.Bin)
+        check(!isBottom())
+
+        val lhs = inst.dst
+        val lhsV = RegisterVariable(lhs, vFac)
+        return when (inst.op) {
+            BinOp.MOV -> {
+                assign(lhsV, inst.v, locatedInst, registerTypes, vFac)
+            }
+            BinOp.ADD, BinOp.SUB -> {
+                val rhs = inst.v
+                val rhsE = if (rhs is Value.Imm) {
+                    LinearExpression(ExpressionNum(rhs.v.toLong()))
+                } else {
+                    LinearExpression(RegisterVariable(rhs as Value.Reg, vFac))
+                }
+                substitute(
+                    lhsV, if (inst.op == BinOp.ADD) {
+                        LinearExpression(lhsV) add rhsE
+                    } else {
+                        LinearExpression(lhsV) sub rhsE
+                    }
+                )
+            }
+            else -> {
+                // havoc for now but we could handle multiplication/division by scalar
+                havoc(lhsV)
+            }
+        }
+    }
+
+    private fun analyzeCall(
+        locatedInst: LocatedSbfInstruction,
+        vFac: VariableFactory,
+        registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
+        val inst = locatedInst.inst
+        check(inst is SbfInstruction.Call)
+        check(!isBottom())
+
+        val solFunction = SolanaFunction.from(inst.name)
+        if (solFunction != null) {
+            return when (solFunction) {
+                SolanaFunction.ABORT -> {
+                    mkBottom(sbfTypeFac)
+                }
+                SolanaFunction.SOL_MEMCPY,
+                SolanaFunction.SOL_MEMSET,
+                SolanaFunction.SOL_MEMCPY_ZEXT,
+                SolanaFunction.SOL_MEMCPY_TRUNC,
+                SolanaFunction.SOL_MEMMOVE -> {
+                    analyzeMemIntrinsics(locatedInst, vFac, registerTypes)
+                }
+                else -> {
+                    havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
+                }
+            }
+        }
+
+        val cvtFunction = CVTFunction.from(inst.name)
+        if (cvtFunction != null) {
+            return when (cvtFunction) {
+                is CVTFunction.Core -> {
+                    when (cvtFunction.value) {
+                        CVTCore.ASSUME, CVTCore.ASSERT -> {
+                            throw NPDomainError(
+                                "unsupported call to ${inst.name}. " +
+                                    "SimplifyBuiltinCalls::renameCVTCall was probably not called."
+                            )
+                        }
+                        CVTCore.SAVE_SCRATCH_REGISTERS -> {
+                            analyzeSaveScratchRegisters(inst, vFac)
+                        }
+                        CVTCore.RESTORE_SCRATCH_REGISTERS -> {
+                            analyzeRestoreScratchRegisters(inst, vFac)
+                        }
+                        CVTCore.SATISFY, CVTCore.SANITY -> {
+                            this
+                        }
+                        CVTCore.NONDET_SOLANA_ACCOUNT_SPACE,
+                        CVTCore.ALLOC_SLICE,
+                        CVTCore.NONDET_ACCOUNT_INFO,
+                        CVTCore.MASK_64 -> {
+                            summarizeCall(
+                                locatedInst,
+                                vFac,
+                                registerTypes.analysis.getMemorySummaries(),
+                                registerTypes
+                            )
+                        }
+                    }
+                }
+                is CVTFunction.Calltrace -> this
+                is CVTFunction.Nondet,
+                is CVTFunction.U128Intrinsics,
+                is CVTFunction.I128Intrinsics,
+                is CVTFunction.NativeInt -> {
+                    summarizeCall(
+                        locatedInst,
+                        vFac,
+                        registerTypes.analysis.getMemorySummaries(),
+                        registerTypes
+                    )
+                }
+            }
+        }
+
+        return summarizeCall(
+            locatedInst,
+            vFac,
+            registerTypes.analysis.getMemorySummaries(),
+            registerTypes
+        )
+    }
+
+    private fun addCst(cst: SbfLinearConstraint): NPDomain<D, TNum, TOffset> =
+        NPDomain<D, TNum, TOffset>(csts.add(cst), isBot = false, sbfTypeFac).normalize()
+
+    private fun addEq(v: ExpressionVar, n: ExpressionNum): NPDomain<D, TNum, TOffset> =
+        addCst(SbfLinearConstraint(CondOp.EQ, v, n))
+
+    private fun addDiseq(v: ExpressionVar, n: ExpressionNum): NPDomain<D, TNum, TOffset> =
+        addCst(SbfLinearConstraint(CondOp.NE, v, n))
+
+    private fun analyzeMem(
+        locatedInst: LocatedSbfInstruction,
+        vFac: VariableFactory,
+        registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
+        val inst = locatedInst.inst
+        check(inst is SbfInstruction.Mem)
+        check(!isBottom())
+
+        val baseTy = registerTypes.typeAtInstruction(locatedInst, inst.access.base)
+        if (baseTy is SbfType.PointerType.Stack) {
+            // For now, we are only precise if `offset` is a singleton.
+            val offset = baseTy.offset.toLongOrNull()
+            if (offset != null) {
+                val width = inst.access.width
+                val baseV = StackSlotVariable(offset + inst.access.offset.toLong(), width, vFac)
+                return if (inst.isLoad) {
+                    val regV = RegisterVariable(inst.value as Value.Reg, vFac)
+                    val widthI = width.toInt()
+                    if (widthI == 8) {
+                        substitute(regV, baseV)
+                    } else {
+                        // load n bytes into an 8-byte register where n={1,2,4}
+                        // We take the n low bytes and do zero extension.
+                        extractEqAndDiseq(csts)[regV]
+                            ?.let { cst ->
+                                havoc(regV).run {
+                                    val zextNum = cst.n.zext(widthI)
+                                    if (cst.isEquality) {
+                                        this.addEq(baseV, zextNum)
+                                    } else {
+                                        this.addDiseq(baseV, zextNum)
+                                    }
+                                }
+                            }
+                            ?: havoc(regV)
+                    }
+                } else {
+                    // remove any stack location that overlap with baseV
+                    val noOverlaps = removeStrictOverlaps(baseV.toFiniteInterval())
+
+                    val rhs = inst.value
+                    val rhsValues: List<Long>? = when (rhs) {
+                        is Value.Imm -> listOf(rhs.v.toLong())
+                        is Value.Reg -> {
+                            (registerTypes.typeAtInstruction(locatedInst, rhs) as? SbfType.NumType)?.value?.toLongList()?.let {
+                                it.ifEmpty { null }
+                            }
+                        }
+                    }
+                    if (rhsValues != null) {
+                        // Use of the forward analysis to refine backward analysis.
+                        // See above discussion applies here.
+                        check(rhsValues.isNotEmpty())
+                        rhsValues.fold(mkBottom(sbfTypeFac)) { acc, rhsValue ->
+                            acc.join(noOverlaps.eval(baseV, ExpressionNum(rhsValue)))
+                        }
+                    } else {
+                        check(rhs is Value.Reg) { "NPDomain in memory store expects the value to be a register" }
+                        val regV = RegisterVariable(rhs, vFac)
+                        noOverlaps.substitute(baseV, regV)
+                    }
+                }
+            }
+        }
+
+        // here if memory access is not on the stack
+        return if (inst.isLoad) {
+            val regV = RegisterVariable(inst.value as Value.Reg, vFac)
+            havoc(regV)
+        } else {
+            this
+        }
+    }
+
+    private fun analyzeSelect(
+        locatedInst: LocatedSbfInstruction,
+        vFac: VariableFactory,
+        registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>
+    ): NPDomain<D, TNum, TOffset> {
+        val inst = locatedInst.inst
+        check(inst is SbfInstruction.Select)
+        check(!isBottom())
+
+        val lhsV = RegisterVariable(inst.dst, vFac)
+        val trueVal = inst.trueVal
+        val falseVal = inst.falseVal
+        return if (trueVal == falseVal) {
+            // Equivalent to an assignment
+            assign(lhsV, trueVal, locatedInst, registerTypes, vFac)
+        } else {
+            val leftVal = assign(lhsV, trueVal, locatedInst, registerTypes, vFac)
+                .analyzeAssume(inst.cond, locatedInst, vFac, registerTypes)
+            val rightVal = assign(lhsV, falseVal, locatedInst, registerTypes, vFac)
+                .analyzeAssume(inst.cond.negate(), locatedInst, vFac, registerTypes)
+
+            leftVal.join(rightVal)
+        }
+    }
+
 
     private fun analyze(locatedInst: LocatedSbfInstruction, vFac: VariableFactory,
                         registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>): NPDomain<D, TNum, TOffset> {
@@ -671,14 +1064,13 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
             return this
         }
 
-        val curVal = this
-        when (val inst = locatedInst.inst) {
+        return when (val inst = locatedInst.inst) {
             is SbfInstruction.Assume -> {
-                return curVal.analyzeAssume(inst.cond, locatedInst, vFac, registerTypes)
+                analyzeAssume(inst.cond, locatedInst, vFac, registerTypes)
                     .analyzeAssumeMetadata(locatedInst, vFac)
             }
             is SbfInstruction.Assert -> {
-                return if (SolanaConfig.SlicerBackPropagateThroughAsserts.get()) {
+                if (SolanaConfig.SlicerBackPropagateThroughAsserts.get()) {
                     // Recall that whenever the NPDomain detects false, we add an "abort" instruction at the
                     // **beginning** of the block to mark the block as unreachable.
                     //
@@ -691,187 +1083,46 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                     // Otherwise, a trivial program like
                     //      "assert(false)" will be replaced with "abort"
                     // which is not what we want.
-                    curVal
+                    this
                 } else {
-                    mkTrue()
+                    mkTrue(sbfTypeFac)
                 }
             }
             is SbfInstruction.Select -> {
-                val lhsV = RegisterVariable(inst.dst, vFac)
-                val trueVal = inst.trueVal
-                val falseVal = inst.falseVal
-                return if (trueVal == falseVal) {
-                    // Equivalent to an assignment
-                    curVal.assign(lhsV, trueVal, locatedInst, registerTypes, vFac)
-                } else {
-                    val leftVal = curVal.assign(lhsV, trueVal, locatedInst, registerTypes, vFac)
-                        .analyzeAssume(inst.cond, locatedInst, vFac, registerTypes)
-                    val rightVal = curVal.assign(lhsV, falseVal, locatedInst, registerTypes, vFac)
-                        .analyzeAssume(inst.cond.negate(), locatedInst, vFac, registerTypes)
-                    leftVal.join(rightVal)
-                }
+                analyzeSelect(locatedInst, vFac, registerTypes)
             }
             is SbfInstruction.Bin -> {
-                val lhs = inst.dst
-                val lhsV = RegisterVariable(lhs, vFac)
-                return when (inst.op) {
-                    BinOp.MOV -> {
-                        curVal.assign(lhsV, inst.v, locatedInst, registerTypes, vFac)
-                    }
-                    BinOp.ADD, BinOp.SUB -> {
-                        val rhs = inst.v
-                        val rhsE = if (rhs is Value.Imm) {
-                            LinearExpression(ExpressionNum(rhs.v.toLong()))
-                        } else {
-                            LinearExpression(RegisterVariable(rhs as Value.Reg, vFac))
-                        }
-                        curVal.substitute(
-                            lhsV, if (inst.op == BinOp.ADD) {
-                                LinearExpression(lhsV) add rhsE
-                            } else {
-                                LinearExpression(lhsV) sub rhsE
-                            }
-                        )
-                    }
-                    else -> {
-                        // havoc for now but we could handle multiplication/division by scalar
-                        curVal.havoc(lhsV)
-                    }
-                }
-            }
-            is SbfInstruction.Call -> {
-                val solFunction = SolanaFunction.from(inst.name)
-                if (solFunction != null) {
-                    return when (solFunction) {
-                        SolanaFunction.ABORT -> {
-                            mkBottom()
-                        }
-                        SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE -> {
-                            analyzeMemTransfer(locatedInst, vFac, registerTypes)
-                        }
-                        SolanaFunction.SOL_MEMSET -> {
-                            analyzeMemset(locatedInst, vFac, registerTypes)
-                        }
-                        else -> {
-                            curVal.havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
-                        }
-                    }
-                }
-
-                val cvtFunction = CVTFunction.from(inst.name)
-                if (cvtFunction != null) {
-                    return when (cvtFunction) {
-                        is CVTFunction.Core -> {
-                            when (cvtFunction.value) {
-                                CVTCore.ASSUME, CVTCore.ASSERT -> {
-                                    throw NPDomainError(
-                                        "unsupported call to ${inst.name}. " +
-                                            "SimplifyBuiltinCalls::renameCVTCall was probably not called."
-                                    )
-                                }
-                                CVTCore.SAVE_SCRATCH_REGISTERS -> {
-                                    analyzeSaveScratchRegisters(curVal, inst, vFac)
-                                }
-                                CVTCore.RESTORE_SCRATCH_REGISTERS -> {
-                                    analyzeRestoreScratchRegisters(curVal, inst, vFac)
-                                }
-                                CVTCore.SATISFY, CVTCore.SANITY -> {
-                                    curVal
-                                }
-                                CVTCore.NONDET_SOLANA_ACCOUNT_SPACE, CVTCore.ALLOC_SLICE, CVTCore.NONDET_ACCOUNT_INFO,
-                                CVTCore.MASK_64 -> {
-                                    curVal.summarizeCall(
-                                        locatedInst,
-                                        vFac,
-                                        registerTypes.analysis.getMemorySummaries(),
-                                        registerTypes
-                                    )
-                                }
-                            }
-                        }
-                        is CVTFunction.Calltrace -> curVal
-                        is CVTFunction.Nondet,
-                        is CVTFunction.U128Intrinsics,
-                        is CVTFunction.I128Intrinsics,
-                        is CVTFunction.NativeInt -> {
-                            curVal.summarizeCall(
-                                locatedInst,
-                                vFac,
-                                registerTypes.analysis.getMemorySummaries(),
-                                registerTypes
-                            )
-                        }
-                    }
-                }
-
-                return curVal.summarizeCall(
-                    locatedInst,
-                    vFac,
-                    registerTypes.analysis.getMemorySummaries(),
-                    registerTypes
-                )
-            }
-            is SbfInstruction.CallReg -> {
-                return curVal.havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
-            }
-            is SbfInstruction.Havoc -> {
-                return curVal.havoc(RegisterVariable(inst.dst, vFac))
+                analyzeBin(locatedInst, vFac, registerTypes)
             }
             is SbfInstruction.Mem -> {
-                val baseTy = registerTypes.typeAtInstruction(locatedInst, inst.access.baseReg.r)
-                if (baseTy is SbfType.PointerType.Stack) {
-                    // For now, we are only precise if `offset` is a singleton.
-                    val offset = baseTy.offset.toLongOrNull()
-                    if (offset != null) {
-                        val width = inst.access.width
-                        val baseV = StackSlotVariable(offset + inst.access.offset.toLong(), width, vFac)
-                        return if (inst.isLoad) {
-                            val regV = RegisterVariable(inst.value as Value.Reg, vFac)
-                            curVal.substitute(regV, baseV)
-                        } else {
-                            // remove any stack location that overlap with baseV
-                            val curValNoOverlaps = curVal.remove(baseV.toFiniteInterval())
-
-                            val rhsValues: List<Long>? = when (inst.value) {
-                                is Value.Imm -> listOf(inst.value.v.toLong())
-                                is Value.Reg -> {
-                                    (registerTypes.typeAtInstruction(locatedInst, inst.value.r) as? SbfType.NumType)?.value?.toLongList()?.let {
-                                        it.ifEmpty { null }
-                                    }
-                                }
-                            }
-                            if (rhsValues != null) {
-                                // Use of the forward analysis to refine backward analysis.
-                                // See above discussion applies here.
-                                check(rhsValues.isNotEmpty())
-                                rhsValues.fold(mkBottom()) { acc, rhsValue ->
-                                    acc.join(curValNoOverlaps.eval(baseV, ExpressionNum(rhsValue)))
-                                }
-                            } else {
-                                check(inst.value is Value.Reg) { "NPDomain in memory store expects the value to be a register" }
-                                val regV = RegisterVariable(inst.value, vFac)
-                                curValNoOverlaps.substitute(baseV, regV)
-                            }
-                        }
-                    }
-                }
-                return if (inst.isLoad) {
-                    val regV = RegisterVariable(inst.value as Value.Reg, vFac)
-                    curVal.havoc(regV)
-                } else {
-                    curVal
-                }
+                analyzeMem(locatedInst, vFac, registerTypes)
             }
-            is SbfInstruction.Jump -> return curVal
-            is SbfInstruction.Un -> return curVal.havoc(RegisterVariable(inst.dst, vFac))
-            is SbfInstruction.Exit -> return curVal
+            is SbfInstruction.Call -> {
+                analyzeCall(locatedInst, vFac, registerTypes)
+            }
+            is SbfInstruction.CallReg -> {
+                havoc(RegisterVariable(Value.Reg(SbfRegister.R0_RETURN_VALUE), vFac))
+            }
+            is SbfInstruction.Havoc -> {
+                havoc(RegisterVariable(inst.dst, vFac))
+            }
+            is SbfInstruction.Un -> {
+                havoc(RegisterVariable(inst.dst, vFac))
+            }
+            is SbfInstruction.Debug,
+            is SbfInstruction.Jump,
+            is SbfInstruction.Exit -> {
+                this
+            }
         }
     }
 
-    // Transfer function for the whole block b.
-    //
-    // If propagateOnlyFromAsserts is true then backward propagation from exit blocks is only triggered after
-    // the first (in reversed order) assertion is found.
+    /**
+     * Transfer function for the whole block [b].
+     *
+     * If propagateOnlyFromAsserts is true then backward propagation from exit blocks is only triggered after
+     * the first (in reversed order) assertion is found.
+     **/
     fun analyze(b: SbfBasicBlock,
                 vFac: VariableFactory,
                 registerTypes: AnalysisRegisterTypes<D, TNum, TOffset>,
@@ -894,6 +1145,8 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         val isSink = b.getSuccs().isEmpty()
         var analyzedLastAssert = false
 
+        dbg { "POST=$curVal" }
+
         // If the block has no successors then we start the backward analysis from the last assertion in the block. This
         // avoids pitfalls like propagating "false" to the entry of this block if we start the analysis from abort.
         //        exit:
@@ -903,10 +1156,10 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
         // (Note that if the block has no successors can be only visited by the backward analysis if it has an assertion)
         for (locInst in b.getLocatedInstructions().reversed()) {
 
-            dbg { "Backward scalar analysis of ${b.getLabel()}::${locInst.inst}: $curVal" }
+            dbg { "Backward scalar analysis of ${b.getLabel()}::${locInst.inst}"}
 
             if (curVal.isBottom()) {
-                return Pair(curVal, outInst)
+                return curVal to outInst
             }
 
             analyzedLastAssert = analyzedLastAssert.or(locInst.inst.isAssertOrSatisfy())
@@ -920,10 +1173,10 @@ data class NPDomain<D, TNum, TOffset>(private val csts: SetDomain<SbfLinearConst
                 curVal.analyze(locInst, vFac, registerTypes)
             }
 
-            dbg { "res=${curVal}" }
+            dbg { "PRE=${curVal}" }
 
         }
-        return Pair(curVal, outInst)
+        return curVal to outInst
     }
 
     /**

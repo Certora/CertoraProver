@@ -17,17 +17,19 @@
 
 package sbf.cfg
 
+import sbf.callgraph.SolanaFunction
+
 /**
- *  Replace memmove with memcpy instructions
+ *  Replace `memmove` with `memcpy` instructions
  **/
 fun removeMemmove(cfg: MutableSbfCFG) {
     for (b in cfg.getMutableBlocks().values) {
         for (locInst in b.getLocatedInstructions()) {
             val inst = locInst.inst
-            if (inst is SbfInstruction.Call && inst.name == "sol_memmove_") {
+            if (inst is SbfInstruction.Call && inst.name == SolanaFunction.SOL_MEMMOVE.syscall.name) {
                 // Replace in-place the instruction with memcpy
-                val newMetaData = inst.metaData.plus(Pair(SbfMeta.REMOVED_MEMMOVE, ""))
-                val newMemcpyInst = inst.copy(name="sol_memcpy_", metaData = newMetaData)
+                val newMetaData = inst.metaData.plus(SbfMeta.REMOVED_MEMMOVE())
+                val newMemcpyInst =  SolanaFunction.toCallInst(SolanaFunction.SOL_MEMCPY, newMetaData)
                 b.replaceInstruction(locInst, newMemcpyInst)
             }
         }

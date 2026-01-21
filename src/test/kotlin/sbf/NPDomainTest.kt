@@ -34,7 +34,7 @@ import sbf.domains.*
 import sbf.slicer.sliceAssertions
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
-private val top = NPDomain.mkTrue<ScalarDomain<Constant, Constant>, Constant, Constant>()
+private val top = NPDomain.mkTrue<ScalarDomain<Constant, Constant>, Constant, Constant>(sbfTypesFac)
 private val globals = GlobalVariables(DefaultElfFileView)
 private val memSummaries = MemorySummaries()
 
@@ -65,7 +65,7 @@ class NPDomainTest {
         val vFac = VariableFactory()
         val absVal = top
         val b = cfg.getBlock(Label.Address(0))
-        check(b!=null)
+        check(b != null)
         val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
         println("absVal=$absVal\n$b\n newAbsVal=$newAbsVal")
         Assertions.assertEquals(true, newAbsVal.isBottom())
@@ -103,7 +103,7 @@ class NPDomainTest {
         val vFac = VariableFactory()
         val absVal = top
         val b = cfg.getBlock(Label.Address(0))
-        check(b!=null)
+        check(b != null)
         val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
         println("absVal=$absVal\n$b\n newAbsVal=$newAbsVal")
         Assertions.assertEquals(true, newAbsVal.isBottom())
@@ -137,7 +137,7 @@ class NPDomainTest {
         val vFac = VariableFactory()
         val absVal = top
         val b = cfg.getBlock(Label.Address(0))
-        check(b!=null)
+        check(b != null)
         val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
         println("absVal=$absVal\n$b\nnewAbsVal=$newAbsVal")
         Assertions.assertEquals(true, newAbsVal.isBottom())
@@ -162,7 +162,7 @@ class NPDomainTest {
         val vFac = VariableFactory()
         val absVal = top
         val b = cfg.getBlock(Label.Address(0))
-        check(b!=null)
+        check(b != null)
         val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
         println("absVal=$absVal\n$b\nnewAbsVal=$newAbsVal")
         Assertions.assertEquals(true, newAbsVal.isBottom())
@@ -187,7 +187,7 @@ class NPDomainTest {
         val vFac = VariableFactory()
         val absVal = top
         val b = cfg.getBlock(Label.Address(0))
-        check(b!=null)
+        check(b != null)
         val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
         println("absVal=$absVal\n$b\nnewAbsVal=$newAbsVal")
         Assertions.assertEquals(true, newAbsVal.isBottom())
@@ -212,7 +212,7 @@ class NPDomainTest {
         val vFac = VariableFactory()
         val absVal = top
         val b = cfg.getBlock(Label.Address(0))
-        check(b!=null)
+        check(b != null)
         val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
         println("absVal=$absVal\n$b\nnewAbsVal=$newAbsVal")
         Assertions.assertEquals(true, newAbsVal.isBottom())
@@ -239,7 +239,7 @@ class NPDomainTest {
         val vFac = VariableFactory()
         val absVal = top
         val b = cfg.getBlock(Label.Address(0))
-        check(b!=null)
+        check(b != null)
         val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
         println("absVal=$absVal\n$b\nnewAbsVal=$newAbsVal")
         Assertions.assertEquals(true, newAbsVal.isBottom())
@@ -280,9 +280,9 @@ class NPDomainTest {
 
         val np = NPAnalysis(cfg, globals, memSummaries)
         val absValAt1 = np.getPreconditionsAtEntry(Label.Address(1))
-        check(absValAt1 != null){"No preconditions for label 1"}
+        check(absValAt1 != null) { "No preconditions for label 1" }
         val absValAt2 = np.getPreconditionsAtEntry(Label.Address(2))
-        check(absValAt2 != null){"No preconditions for label 2"}
+        check(absValAt2 != null) { "No preconditions for label 2" }
 
 
         println("absVal at 1=$absValAt1\nAbsVal at 2=$absValAt2")
@@ -315,7 +315,7 @@ class NPDomainTest {
 
         val np = NPAnalysis(cfg, globals, memSummaries)
         val absValAt1 = np.getPreconditionsAtEntry(Label.Address(1))
-        check(absValAt1 != null){"No preconditions for label 1"}
+        check(absValAt1 != null) { "No preconditions for label 1" }
         println("$cfg")
         println("Preconditions at entry of 1=$absValAt1\n")
 
@@ -349,19 +349,19 @@ class NPDomainTest {
             }
         }
 
-        println( "$cfg")
+        println("$cfg")
 
         ConfigScope(SolanaConfig.SlicerBackPropagateThroughAsserts, true).use {
             val np = NPAnalysis(cfg, globals, memSummaries)
             val absValAt1 = np.getPreconditionsAtEntry(Label.Address(1))
             check(absValAt1 != null) { "No preconditions for label 1" }
-            println( "Preconditions at entry of 1=$absValAt1")
+            println("Preconditions at entry of 1=$absValAt1")
             val absValAt2 = np.getPreconditionsAtEntry(Label.Address(2))
             check(absValAt2 != null) { "No preconditions for label 2" }
-            println( "Preconditions at entry of 2=$absValAt2")
+            println("Preconditions at entry of 2=$absValAt2")
             val absValAt3 = np.getPreconditionsAtEntry(Label.Address(3))
             check(absValAt3 != null) { "No preconditions for label 3" }
-            println( "Preconditions at entry of 3=$absValAt3")
+            println("Preconditions at entry of 3=$absValAt3")
             Assertions.assertEquals(true, absValAt2.isBottom())
         }
     }
@@ -399,13 +399,13 @@ class NPDomainTest {
             val np = NPAnalysis(cfg, globals, memSummaries)
             val absValAt1 = np.getPreconditionsAtEntry(Label.Address(1))
             check(absValAt1 != null) { "No preconditions for label 1" }
-            println( "Preconditions at entry of 1=$absValAt1")
+            println("Preconditions at entry of 1=$absValAt1")
             val absValAt2 = np.getPreconditionsAtEntry(Label.Address(2))
             check(absValAt2 != null) { "No preconditions for label 2" }
-            println( "Preconditions at entry of 2=$absValAt2")
+            println("Preconditions at entry of 2=$absValAt2")
             val absValAt3 = np.getPreconditionsAtEntry(Label.Address(3))
             check(absValAt3 != null) { "No preconditions for label 3" }
-            println( "Preconditions at entry of 3=$absValAt3")
+            println("Preconditions at entry of 3=$absValAt3")
             Assertions.assertEquals(false, absValAt2.isBottom())
         }
     }
@@ -430,8 +430,8 @@ class NPDomainTest {
         check(solMap != null)
         for ((v, i) in solMap) {
             when (v) {
-                x -> Assertions.assertEquals(true, i == UnsignedInterval(6U,10U))
-                y -> Assertions.assertEquals(true, i == UnsignedInterval(0U,999U))
+                x -> Assertions.assertEquals(true, i == UnsignedInterval(6U, 10U))
+                y -> Assertions.assertEquals(true, i == UnsignedInterval(0U, 999U))
             }
         }
     }
@@ -503,7 +503,10 @@ class NPDomainTest {
         }
         cfg.lowerBranchesIntoAssume()
         println("$cfg")
-        val (_, slicedProg) = sliceAssertions(MutableSbfCallGraph(mutableListOf(cfg), setOf("test"), globals), memSummaries)
+        val (_, slicedProg) = sliceAssertions(
+            MutableSbfCallGraph(mutableListOf(cfg), setOf("test"), globals),
+            memSummaries
+        )
         val slicedCfg = slicedProg.getCFG("test")
         check(slicedCfg != null)
         println("$slicedCfg")
@@ -553,7 +556,10 @@ class NPDomainTest {
             }
         }
         cfg.lowerBranchesIntoAssume()
-        val (_, slicedProg) = sliceAssertions(MutableSbfCallGraph(mutableListOf(cfg), setOf("test"), globals), memSummaries)
+        val (_, slicedProg) = sliceAssertions(
+            MutableSbfCallGraph(mutableListOf(cfg), setOf("test"), globals),
+            memSummaries
+        )
         val slicedCfg = slicedProg.getCFG("test")
         check(slicedCfg != null)
         println("$slicedCfg")
@@ -618,8 +624,47 @@ class NPDomainTest {
         b0.add(SbfInstruction.Mem(Deref(8, r2, 0), Value.Imm(0UL), false))
         b0.add(SbfInstruction.Mem(Deref(4, r2, 4), Value.Imm(1UL), false))
         b0.add(SbfInstruction.Mem(Deref(8, r2, 0), r3, true))
-        b0.add(SbfInstruction.Assume(Condition(CondOp.NE, r3, Value.Imm(0UL)) ))
+        b0.add(SbfInstruction.Assume(Condition(CondOp.NE, r3, Value.Imm(0UL))))
         b0.add(SbfInstruction.Exit())
+
+        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val regTypes = AnalysisRegisterTypes(scalarAnalysis)
+
+        val vFac = VariableFactory()
+        val absVal = top
+        val b = cfg.getBlock(Label.Address(1))
+        check(b != null)
+        val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
+        println("absVal=$absVal\n$b\nnewAbsVal=$newAbsVal")
+        Assertions.assertEquals(false, newAbsVal.isBottom())
+    }
+
+    /**
+     * The preconditions of this snippet is bottom because there is an inconsistency at the `assume` between
+     * the forward analysis propagates `r1==251` and the backward analysis propagates back `r1 == -5`.
+     *
+     * ```
+     *  *(u8 *) (r10-183):sp(3913) = -5
+     *  r1 = *(u8 *) (r10-183):sp(3913)
+     *  assume(r1 == -5)
+     * ```
+     */
+    @Test
+    fun `store of negative number and load of 1 byte`() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+        // *(u8 *) (r10-183):sp(3913) := -5
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm((-5).toULong()), false))
+        // r1 = *(u8 *) (r10-183):sp(3913)
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), r1, true))
+        // assume(r1 == -5)
+        b1.add(SbfInstruction.Assume(Condition(CondOp.EQ, r1, Value.Imm((-5).toULong()))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
 
         val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
@@ -629,10 +674,116 @@ class NPDomainTest {
         val b = cfg.getBlock(Label.Address(1))
         check(b!=null)
         val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
-        println("absVal=$absVal\n$b\nnewAbsVal=$newAbsVal")
-        Assertions.assertEquals(false, newAbsVal.isBottom())
+        println("Postcondition=$absVal\n$b\nPrecondition=$newAbsVal")
+        Assertions.assertEquals(true, newAbsVal.isBottom())
     }
 
+    /**
+     * The preconditions at bb2 and bb3 are bottom. The backward analysis propagates that `*(u8 *) (r10-183) == 251`
+     *
+     * ```
+     * bb1: if (*) goto bb2 else goto bb3
+     * bb2: *(u8 *) (r10-183):sp(3913) = -5
+     *      goto bb4
+     * bb3:
+     *      *(u8 *) (r10-183):sp(3913) = -6
+     *      goto bb4
+     * bb4:
+     *      r1 = *(u8 *) (r10-183):sp(3913)
+     *      assume(r1 == -5)
+     * ```
+     */
+    @Test
+    fun `store of negative number with branches and load of 1 byte`() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        val b2 = cfg.getOrInsertBlock(Label.Address(2))
+        val b3 = cfg.getOrInsertBlock(Label.Address(3))
+        val b4 = cfg.getOrInsertBlock(Label.Address(4))
+
+        cfg.setEntry(b1)
+        cfg.setExit(b4)
+        b1.addSucc(b2)
+        b1.addSucc(b3)
+        b2.addSucc(b4)
+        b3.addSucc(b4)
+
+        b1.add(SbfInstruction.Jump.ConditionalJump(Condition(CondOp.EQ, r2, Value.Imm(0UL)), Label.Address(2), Label.Address(3)))
+        // *(u8 *) (r10-183):sp(3913) := -5
+        b2.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm((-5).toULong()), false))
+        b2.add(SbfInstruction.Jump.UnconditionalJump(Label.Address(4)))
+        // *(u8 *) (r10-183):sp(3913) := -6
+        b3.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm((-6).toULong()), false))
+        b3.add(SbfInstruction.Jump.UnconditionalJump(Label.Address(4)))
+        // r1 = *(u8 *) (r10-183):sp(3913)
+        b4.add(SbfInstruction.Mem(Deref(1, r10, -183), r1, true))
+        // assume(r1 == -5)
+        b4.add(SbfInstruction.Assume(Condition(CondOp.EQ, r1, Value.Imm((-5).toULong()))))
+
+        b4.add(SbfInstruction.Assert(Condition(CondOp.EQ, r3, Value.Imm(0UL))))
+        b4.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        println("$cfg")
+
+        ConfigScope(SolanaConfig.SlicerBackPropagateThroughAsserts, false).use {
+            ConfigScope(SolanaConfig.ScalarMaxVals, 1). use {
+                val np = NPAnalysis(cfg, globals, memSummaries)
+                for (i in 1..4) {
+                    val absVal = np.getPreconditionsAtEntry(Label.Address(i.toLong()))
+                    check(absVal != null) { "No preconditions for label $i" }
+                    println("Preconditions at entry of $i=$absVal")
+                    if (i==4) {
+                        Assertions.assertEquals(false, absVal.isBottom())
+                    } else {
+                        Assertions.assertEquals(true, absVal.isBottom())
+                    }
+                }
+            }
+        }
+    }
+
+
+    /**
+     * ```
+     *  *(u8 *) (r10-183):sp(3913) = 5
+     *  r1 = *(u8 *) (r10-183):sp(3913)
+     *  assume(r1 == 5)
+     * ```
+     */
+    @Test
+    fun `store of positive number and load of 1 byte`() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+        // *(u8 *) (r10-183):sp(3913) := 5
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm(5UL), false))
+        // r1 = *(u8 *) (r10-183):sp(3913)
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), r1, true))
+        // assume(r1 == 5)
+        b1.add(SbfInstruction.Assume(Condition(CondOp.EQ, r1, Value.Imm(5UL))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        val regTypes = AnalysisRegisterTypes(scalarAnalysis)
+
+        val vFac = VariableFactory()
+        val absVal = top
+        val b = cfg.getBlock(Label.Address(1))
+        check(b!=null)
+        val newAbsVal = absVal.analyze(b, vFac, regTypes, false)
+        println("Postcondition=$absVal\n$b\nPrecondition=$newAbsVal")
+        Assertions.assertEquals(false, newAbsVal.isBottom())
+    }
 }
 
 

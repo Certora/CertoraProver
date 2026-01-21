@@ -81,7 +81,7 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
     )
     where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset>  {
     private var id:UInt = 1U
-    private val regTypes = AnalysisRegisterTypes(scalar)
+    private val types = AnalysisRegisterTypes(scalar)
     private var newGlobals: GlobalVariables = scalar.getGlobalVariableMap()
 
     init {
@@ -94,7 +94,7 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
     private fun isNum(i: LocatedSbfInstruction, v: Value) =
         when (v) {
             is Value.Imm -> true
-            is Value.Reg -> regTypes.typeAtInstruction(i, v.r) is SbfType.NumType<*,*>
+            is Value.Reg -> types.typeAtInstruction(i, v.r) is SbfType.NumType<*,*>
         }
 
     private fun inferAndAddGlobalVariable(i: LocatedSbfInstruction, reg: Value.Reg) {
@@ -114,7 +114,7 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
                 "$newGv should be interpreted as a constant string but it is located in an unexpected ELF section"
             }
 
-            val size = (regTypes.typeAtInstruction(i, len.r) as? SbfType.NumType<TNum, TOffset>)?.value?.toLongOrNull()
+            val size = (types.typeAtInstruction(i, len.r) as? SbfType.NumType<TNum, TOffset>)?.value?.toLongOrNull()
             if (size == null) {
                 logger.warn {
                     "$newGv should be interpreted as a constant string but cannot determine statically its length"
@@ -139,7 +139,7 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
      * Attempts to identify whether this number corresponds to the address of a global variable.
      */
     private fun inferGlobalVariable(i: LocatedSbfInstruction, reg: Value.Reg): SbfGlobalVariable? {
-        return when(regTypes.typeAtInstruction(i, reg.r)) {
+        return when(types.typeAtInstruction(i, reg.r)) {
             is SbfType.NumType<*, *> -> recurseInferStartOfGlobalVar(i, reg, 10) // maxChainLen can be also a CLI
             else -> null
         }
@@ -197,7 +197,7 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
                             // Our solution is to ask the scalar analysis for the value of operand. The only problem with this solution
                             // is that we won't know where the value is originated from an assignment or from some addition/subtraction
                             // with a constant offset and therefore, we might fail at detecting the start of the global variable.
-                            val address = (regTypes.typeAtInstruction(i, operand.r) as? SbfType.NumType<TNum, TOffset>)?.value?.toLongOrNull()
+                            val address = (types.typeAtInstruction(i, operand.r) as? SbfType.NumType<TNum, TOffset>)?.value?.toLongOrNull()
                             if (address != null && isGlobalVariable(address.toULong())) {
                                 SbfGlobalVariable("inferred_global.${id++}", address, 0)
                             } else {
@@ -286,11 +286,13 @@ private class GlobalInferenceAnalysis<D, TNum: INumValue<TNum>, TOffset: IOffset
             for (locInst in bb.getLocatedInstructions()) {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Mem) {
-                    val reg = inst.access.baseReg
+                    val reg = inst.access.base
                     inferAndAddGlobalVariable(locInst, reg)
                 } else if (inst is SbfInstruction.Call) {
                     when (SolanaFunction.from(inst.name)) {
                         SolanaFunction.SOL_MEMCPY,
+                        SolanaFunction.SOL_MEMCPY_ZEXT,
+                        SolanaFunction.SOL_MEMCPY_TRUNC,
                         SolanaFunction.SOL_MEMMOVE,
                         SolanaFunction.SOL_MEMCMP -> {
                             inferAndAddGlobalVariable(locInst, Value.Reg(SbfRegister.R1_ARG))

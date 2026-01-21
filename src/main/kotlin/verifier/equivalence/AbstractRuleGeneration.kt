@@ -28,10 +28,7 @@ import datastructures.stdcollections.*
 import evm.MASK_SIZE
 import rules.CompiledRule
 import solver.CounterexampleModel
-import tac.CallId
-import tac.MetaKey
-import tac.StartBlock
-import tac.Tag
+import tac.*
 import utils.*
 import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach

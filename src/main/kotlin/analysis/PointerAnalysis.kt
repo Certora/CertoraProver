@@ -26,7 +26,7 @@ import log.LoggerTypes
 import report.CVTAlertSeverity
 import report.CVTAlertType
 import report.CVTAlertReporter
-import scene.ITACMethod
+import scene.IBoundTACMethod
 import scene.MethodAttribute
 import utils.CertoraException
 import vc.data.CoreTACProgram
@@ -48,7 +48,7 @@ enum class PTARunPurpose {
 }
 
 object PointerAnalysis {
-    fun runAnalysis(p: ITACMethod, purpose: PTARunPurpose) : IPointsToInformation {
+    fun runAnalysis(p: IBoundTACMethod, purpose: PTARunPurpose) : IPointsToInformation {
         if(p.attribute == MethodAttribute.Unique.Constructor) {
             return TrivialPointsToInformation
         }
@@ -118,7 +118,7 @@ object PointerAnalysis {
         }
     }
 
-    private fun getPotentialTips(p: ITACMethod): List<String> {
+    private fun getPotentialTips(p: IBoundTACMethod): List<String> {
         val c = p.code as CoreTACProgram
         fun msizeTip(): String? =
             // check if option is diabled but would likely do something in this code if were enabled:

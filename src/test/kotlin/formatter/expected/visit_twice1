@@ -1,0 +1,5 @@
+methods {
+    function _.foo() external => DISPATCH(optimistic=true) [
+        Fizz.buzz()
+    ];
+}

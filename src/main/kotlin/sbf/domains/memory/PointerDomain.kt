@@ -45,12 +45,12 @@ import kotlin.collections.removeLast
  *  1) reassigning a register
  *  2) reassigning a stack slot (i.e., local variable)
  *
- *  Recall that a SBF program has access to a set of Registers and 4 (disjoint) memory regions:
- *  Stack, Input, Heap, and Globals. When a SBF program is called all memory regions have been already
+ *  Recall that an SBF program has access to a set of Registers and 4 (disjoint) memory regions:
+ *  Stack, Input, Heap, and Globals. When an SBF program is called all memory regions have been already
  *  allocated so there is no explicit allocation sites (*) for these memory areas.
  *
  *  (*) This is true if the Heap area is accessed directly via absolute addresses in the range
- *      [0x300000000, 0x300001000), but Heap memory can be also accessed via malloc-like calls in which case
+ *      `[0x300000000, 0x300001000)`, but Heap memory can be also accessed via malloc-like calls in which case
  *      there are allocation sites.
  *
  * *  How a graph node is created?
@@ -68,7 +68,7 @@ import kotlin.collections.removeLast
  *  - Stack is represented by a special [PTANode].
  *  - The rest of nodes are **shared**, and they belong to one of these regions:
  *    - Input is the memory area that represents the inputs to the program.
- *    - Heap represents the range of addresses [0x300000000, 0x300001000).
+ *    - Heap represents the range of addresses `[0x300000000, 0x300001000)`.
  *      It can be accessed via two incompatible methods:
  *      (1) de-referencing absolute address in that range (no explicit allocation sites) or
  *      (2) via system calls such as `calloc` or `sol_alloc_free`.
@@ -107,6 +107,8 @@ import kotlin.collections.removeLast
  *  3) Each allocation from External region assumes no-aliasing with previous external allocations,
  *     and external memory is non-deterministically initialized.
  *
+ *  4) Optionally, we make few more assumptions about how compiler generates SBF code in reality.
+ *     These assumptions are guarded by CLI flags.
  **/
 
 // Need more testing: disabled for now.
@@ -315,11 +317,11 @@ sealed class PTACell<Flags: IPTANodeFlags<Flags>>(
         } else if (length <= 0 || length.mod(wordSize.toInt()) != 0) {
             return false
         } else {
-            if (SolanaConfig.OptimisticMemcmp.get()) {
+            if (SolanaConfig.optimisticMemcmp()) {
                 return true
             }
             val links = _node.getLinksInRange(_offset, length).filter {
-                if (SolanaConfig.OptimisticPTAOverlaps.get()) {
+                if (SolanaConfig.optimisticOverlaps()) {
                     // due to optimisticOverlaps we can have multiple fields at the same offset
                     // with different bit widths. isWordCompatible will not return false if one
                     // of those fields is word-compatible.
@@ -360,7 +362,7 @@ sealed class PTACell<Flags: IPTANodeFlags<Flags>>(
     }
 
     override fun hashCode(): Int {
-        // We shoudn't use PTACell as a key in hash table or similar
+        // We shouldn't use PTACell as a key in hash table or similar
         error("PTACell does not implement hashCode")
     }
 
@@ -501,7 +503,7 @@ sealed class PTASymCell<Flags: IPTANodeFlags<Flags>>(
     }
 
     override fun hashCode(): Int {
-        // We shoudn't use PTASymCell as a key in hash table or similar
+        // We shouldn't use PTASymCell as a key in hash table or similar
         error("PTASymCell does not implement hashCode")
     }
 
@@ -1277,7 +1279,12 @@ open class PTANode<Flags: IPTANodeFlags<Flags>> constructor(
      * - `onlyPartial=false`: `{[10,29]}`
      *
      */
-    fun getLinksInRange(start: PTAOffset, size: Long, isStrict: Boolean = true, onlyPartial: Boolean = false): List<PTALink<Flags>>   {
+    fun getLinksInRange(
+        start: PTAOffset,
+        size: Long,
+        isStrict: Boolean = true,
+        onlyPartial: Boolean = false
+    ): List<PTALink<Flags>>   {
         checkNotForward("getLinksInRange", this)
         check(isExactNode()) {"failed precondition of getLinksInRange"}
         // pre-condition: getSuccs() returns the successors in a sorted manner
@@ -1314,8 +1321,9 @@ open class PTANode<Flags: IPTANodeFlags<Flags>> constructor(
      * @param other
      * @return a list of pairs where the first element is a field `this_field` from `this` and the second is a cover from [other].
      * A cover for `this_field` is a list of pairs `(f, size)` where each pair should be interpreted as the interval `[f, f+size]`
-     * such that (1) each pair is disjoint from each other and (2) the list of pairs fully cover the interval represented by
-     * this_field.
+     * such that
+     * - (1) each pair is disjoint from each other and
+     * - (2) the list of pairs fully cover the interval represented by this_field.
     */
     private fun findCovers(other: PTANode<Flags>): List<Pair<PTAField, List<Pair<PTAField,ULong>>>> {
         fun isCover(l: List<Pair<PTAField, ULong>>, start: Long, end: Long): Boolean {
@@ -1772,6 +1780,7 @@ class IntegerAllocation<Flags: IPTANodeFlags<Flags>>(private val allocator: PTAN
     }
 }
 
+/** SBF programs only access to memory using these sizes (in bytes) **/
 private val usedMemoryBitwidths = listOf(1, 2, 4, 8)
 
 /**
@@ -1810,14 +1819,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     private val externAlloc: ExternalAllocation<Flags> = ExternalAllocation(nodeAllocator),
     /** Node allocation for integers **/
     private val integerAlloc: IntegerAllocation<Flags> = IntegerAllocation(nodeAllocator),
-
     /**
      *  A field `f` in this set means that the **stack** field `f` might point to anywhere (top).
      *  This will allow us to be sound without merging stack fields too eagerly.
      *
     *   Invariant: if `f` in `untrackedStackFields` then `getStack().getSucc(f) == null`
     **/
-    private var untrackedStackFields: SetDomain<PTAField> = SetUnionDomain(),
+    private var untrackedStackFields: SetDomain<PTAField> = newUntrackedStackFields(),
     /**
      * When there is a `memcpy` from a summarized node `N` to the **stack** we cannot tell which stack fields
      * should point to `N`. We could make each byte point to `N` but it would probably cause a PTA
@@ -1854,6 +1862,19 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
+    companion object {
+        private fun newUntrackedStackFields(): SetDomain<PTAField> =
+            if (SolanaConfig.optimisticJoin()) {
+                // Under optimistic join semantics, a field is considered inaccessible (untracked) at a join
+                // only when it is inaccessible in all incoming abstract values. Equivalently, if
+                // any incoming value allows access to the field, the field remains accessible after the join.
+                // (i.e., union semantics).
+                SetIntersectionDomain()
+            } else {
+                SetUnionDomain()
+            }
+    }
+
     private fun getIndex(reg: Value.Reg): Int {
         val idx = reg.r.value.toInt()
         if (idx !in (0 until NUM_OF_SBF_REGISTERS)) {
@@ -1886,11 +1907,21 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         return sc
     }
 
-    fun getStack(): PTANode<Flags> {
+    /** Return the special node that represents the program stack **/
+    fun getStack(msg: String = "getStack failed because stack node is not exact"): PTANode<Flags> {
         val stackC = getRegCell(Value.Reg(SbfRegister.R10_STACK_POINTER))
-        check(stackC != null) {"getStack() expects to find the stack node in $this"}
-        return stackC.getNode()
+            ?: throw PointerDomainError("getStack failed because r10 does not point to a cell")
+        val stackN = stackC.getNode()
+        if (!stackN.isExactNode()) {
+            throw PointerDomainError(msg)
+        }
+        return stackN
     }
+
+    /** Return the top of the stack **/
+    private fun getStackTop() =
+        getRegCell(Value.Reg(SbfRegister.R10_STACK_POINTER))?.getOffset()?.toLongOrNull()
+            ?: throw PointerDomainError("getStackTop() should not fail")
 
     private fun concretizeCell(sc: PTASymCell<Flags>, devMsg: String, locInst: LocatedSbfInstruction?): PTACell<Flags> {
         if (!sc.isConcrete() && sc.getNode() == getStack()) {
@@ -1925,20 +1956,18 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      * Return a copy of this but all nodes reachable from this's stack and registers are
      * shared.
      **/
-    fun copy(): PTAGraph<TNum, TOffset, Flags> {
-        return copy(registers, scratchRegisters, null)
-    }
+    fun copy() = copy(registers, scratchRegisters, null)
 
-    // Add a new node into this with same markers and successors than stack
-    private fun importStack(stack: PTANode<Flags>, sliceFields: Set<PTAField>?): PTANode<Flags> {
-        val newNode = when (stack) {
+    /** Add a new node into `this` with same flags and fields than [oldNode] **/
+    private fun importStack(oldNode: PTANode<Flags>, sliceFields: Set<PTAField>?): PTANode<Flags> {
+        val newNode = when (oldNode) {
             is PTASummarizedNode<Flags> -> mkSummarizedNode()
-            is PTASummarizedWithStrideNode<Flags> -> mkSummarizedWithStrideNode(stack.getStride())
+            is PTASummarizedWithStrideNode<Flags> -> mkSummarizedWithStrideNode(oldNode.getStride())
             else -> mkNode()
         }
-        stack.copyFlags(newNode)
-        stack.copyLinksTo(newNode, sliceFields) { c ->
-            if (c.getNode() == stack) {
+        oldNode.copyFlags(newNode)
+        oldNode.copyLinksTo(newNode, sliceFields) { c ->
+            if (c.getNode() == oldNode) {
                 newNode.createCell(c.getOffset())
             } else {
                 c
@@ -1948,9 +1977,15 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         return newNode
     }
 
-    private fun copy(sliceNormalRegisters: ArrayList<PTASymCell<Flags>?>,
-                     sliceScratchRegisters: ArrayList<PTASymCell<Flags>?>,
-                     sliceStackFields: Set<PTAField>?): PTAGraph<TNum, TOffset, Flags> {
+    /**
+     *  Helper to make a "partial" copy of `this` by copying only selected registers [sliceNormalRegisters],
+     *  scratch registers [sliceScratchRegisters], and stack fields [sliceStackFields].
+     */
+    private fun copy(
+        sliceNormalRegisters: ArrayList<PTASymCell<Flags>?>,
+        sliceScratchRegisters: ArrayList<PTASymCell<Flags>?>,
+        sliceStackFields: Set<PTAField>?
+    ): PTAGraph<TNum, TOffset, Flags> {
 
         check(sliceNormalRegisters.size == registers.size)
         { "sliceNormalRegisters should have same size than registers" }
@@ -1989,9 +2024,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     fun mkSummarizedNode() = nodeAllocator.mkSummarizedNode()
 
-    private fun mkSummarizedWithStrideNode(stride: UInt): PTANode<Flags> {
-        return nodeAllocator.mkSummarizedWithStrideNode(stride)
-    }
+    private fun mkSummarizedWithStrideNode(stride: UInt) = nodeAllocator.mkSummarizedWithStrideNode(stride)
 
     fun reset() {
         for (i in 0 until registers.size) {
@@ -2000,7 +2033,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         while (scratchRegisters.isNotEmpty()) {
             popScratchReg()
         }
-        untrackedStackFields = SetUnionDomain()
+        untrackedStackFields = newUntrackedStackFields()
         unmaterializedStack = IntervalMap()
     }
 
@@ -2029,71 +2062,74 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             for (field in g.untrackedStackFields) {
                 val succC = stackN.getSucc(field)
                 if (succC != null) {
-                    throw PointerDomainError("PTA invariant broken $msg: field $field is marked as inaccessible, but stack node $stackN has non-null successor $succC")
+                    throw PointerDomainError(
+                        "PTA invariant broken $msg: field $field is marked as inaccessible," +
+                            " but stack node $stackN has non-null successor $succC"
+                    )
                 }
             }
 
             for (field in stackN.getSuccs().keys) {
                 if (g.unmaterializedStack.get(field.offset.v) != null) {
-                    throw PointerDomainError("PTA invariant broken $msg: field $field points to unmaterialized stack, but there is a link")
+                    throw PointerDomainError(
+                        "PTA invariant broken $msg: field $field points to unmaterialized stack," +
+                            " but there is a link"
+                    )
                 }
             }
         }
     }
 
     /**
+     * - [onlyLeft] fields defined only on the left operand.
+     * - [onlyRight] fields define only on the right operand
+     * - [unifications] pending unifications
+     * - [topFields] fields on which operands disagree and will become top
+     * - [nonTopFields] fields on which operands agree because either their cells are the same or they can be unified
+     */
+    private data class JoinStackEffects<Flags: IPTANodeFlags<Flags>>(
+        val onlyLeft: List<Pair<PTAField, PTACell<Flags>>>,
+        val onlyRight: List<Pair<PTAField, PTACell<Flags>>>,
+        val unifications: List<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>,
+        val topFields: Set<PTAField>,
+        val nonTopFields: Set<PTAField>)
+
+    /**
      * Join leftStack with rightStack.
      *
-     * The effects of joining the two stacks are stored in onlyLeft, onlyRight, unificationList,
-     * and the returned values.
-     *
-     * ## The join of two stacks has **union semantics** ##
+     * - The join of two stacks has **union semantics**
      *
      * This means that if a stack field is defined on leftStack but not in rightStack (or vice-versa) then
      * the joined stack will keep the stack field from leftStack (or rightStack). This is sound under the assumption
      * of memory safety. If memory is properly initialized then it must be the case that the branch on which
      * the field is not defined is infeasible.
      *
-     * ## Non-accessed stack field (undefined) vs a stack field pointing to "top" ##
+     * - Non-accessed stack field (i.e., uninitialized memory) vs a stack field pointing to "top"
      *
-     * If a stack field is not defined (i.e., does not point to a cell) then it means that the stack has not been
-     * yet accessed which doesn't mean "top".
-     *
+     * If a stack field has never been accessed then it represents uninitialized memory, which is different from being "top".
      * So when does a stack field become "top"?
      *
      * If leftStack and rightStack has the same field F pointing to their stacks (but different fields) then
-     * the cells pointed by F should be stored in unificationList to be unified.
+     * the cells pointed by F should unified.
      * However, that would cause the resulting joined stack to be smashed which would not allow to perform
      * the TAC translation. Instead, we mark the field in the joined stack as pointing to "top".
-     * As a result, any future access to that field will throw an exception. In many cases, that field is never
-     * accessed so the analysis can go on.
+     * As a result, any future access to that field will throw an exception, unless it is overwritten.
      *
-     * @param leftStack: the PTA node that represents the left stack
-     * @param rightStack: the PTA node that represents the right stack
-     * @param scalars: Scalar state after the join
-     * @param onlyLeft: stack fields defined (accessed) only on leftStack
-     * @param onlyRight: stack fields defined (accessed) only on rightStack
-     * @param unificationList: stack fields defined in both leftStack and rightStack but pointing to different cells.
-     * @return a pair of untracked and tracked stack fields
+     * @param leftStack the PTA node that represents the left stack
+     * @param rightStack the PTA node that represents the right stack
+     * @param scalars Scalar state after the join
      */
-    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinStacks(/** input parameters **/
-                           leftStack: PTANode<Flags>,
-                           rightStack: PTANode<Flags>,
-                           scalars: ScalarDomain,
-                           /** input/output parameters **/
-                           onlyLeft: MutableList<Pair<PTAField, PTACell<Flags>>>,
-                           onlyRight: MutableList<Pair<PTAField, PTACell<Flags>>>,
-                           unificationList: MutableList<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>):
-        Pair<SetDomain<PTAField>, Set<PTAField>> {
+    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinStacks(
+        leftStack: PTANode<Flags>,
+        rightStack: PTANode<Flags>,
+        scalars: ScalarDomain
+    ): JoinStackEffects<Flags>{
 
-        if (!leftStack.isExactNode() || !rightStack.isExactNode()) {
-            throw PointerDomainError("Stacks should be tracked exact." +
-                                     "\nLeft=${leftStack}\nRight=${rightStack}")
-        }
-        /** keep track of stack fields that might point to anywhere (i.e., top) after the join **/
-        var outUntrackedStackFields:SetDomain<PTAField> = SetUnionDomain()
-        /** keep track of fields that should be kept after the join **/
-        val outTrackedStackFields = mutableSetOf<PTAField>()
+        val onlyLeft = mutableListOf<Pair<PTAField, PTACell<Flags>>>()
+        val onlyRight = mutableListOf<Pair<PTAField, PTACell<Flags>>>()
+        val unifications =  mutableListOf<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>()
+        val topFields = mutableSetOf<PTAField>()
+        val nonTopFields = mutableSetOf<PTAField>()
 
         for ((field, leftSuccC) in leftStack.getSuccs()) {
             val rightSuccC = rightStack.getSucc(field)
@@ -2108,7 +2144,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 val renamedLeftSuccC = leftSuccC.renameNode(leftStack, rightStack)
                 if (renamedLeftSuccC == rightSuccC) {
                     /** leftSuccC and rightSuccC are equal modulo renaming **/
-                    outTrackedStackFields.add(field)
+                    nonTopFields.add(field)
                 } else {
                     val isLeftStack = leftSuccC.getNode() == leftStack
                     val isRightStack = rightSuccC.getNode() == rightStack
@@ -2122,7 +2158,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         val scalarVal = scalars.getStackContent(field.offset.v, field.size.toByte())
                         val offset = (scalarVal.type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset
                         if (offset == null || offset.isTop()) {
-                            if (SolanaConfig.OptimisticPTAJoin.get() && SolanaConfig.OptimisticPTAJoinWithStackPtr.get()) {
+                            if (SolanaConfig.optimisticJoin() && SolanaConfig.optimisticJoinWithStackPtr()) {
                                 // The analysis does not know statically if after the join the stack offset `field` points
                                 // to another stack offset or some non-stack memory (eg., heap)
                                 //
@@ -2138,11 +2174,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                                     }
                                     else -> {
                                         // both points to stack but different offsets
-                                        outUntrackedStackFields = outUntrackedStackFields.add(field)
+                                        topFields.add(field)
                                     }
                                 }
                             } else {
-                                outUntrackedStackFields = outUntrackedStackFields.add(field)
+                                topFields.add(field)
                             }
                         }
                     } else {
@@ -2151,8 +2187,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                          *  different (but they don't point back to their stacks):
                          *  put in the unification worklist for later processing
                          **/
-                        outTrackedStackFields.add(field)
-                        unificationList.add(leftSuccC.createSymCell() to rightSuccC.createSymCell())
+                        nonTopFields.add(field)
+                        unifications.add(leftSuccC.createSymCell() to rightSuccC.createSymCell())
                         dbgJoin { "## JOIN: stack cells at field $field: $leftSuccC and $rightSuccC to the unification list" }
                     }
                 }
@@ -2167,24 +2203,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 onlyRight.add(field to succC)
             }
         }
-        return outUntrackedStackFields to outTrackedStackFields
+        return JoinStackEffects(onlyLeft, onlyRight, unifications, topFields, nonTopFields)
     }
 
-    private fun getType(scalar: ScalarValue<TNum, TOffset>): SbfType<TNum, TOffset>? {
-        return if (scalar.isTop() || scalar.isBottom()) {
-            null
-        } else {
-            scalar.type()
-        }
-    }
+    private fun getType(scalar: ScalarValue<TNum, TOffset>): SbfType<TNum, TOffset>? =
+        if (scalar.isTop() || scalar.isBottom()) { null } else { scalar.type() }
 
-    private fun getNumber(scalar: SbfType<TNum, TOffset>): Long? {
-        return if (scalar !is SbfType.NumType) {
-            null
-        } else {
-            scalar.value.toLongOrNull()
-        }
-    }
+    private fun getNumber(scalar: SbfType<TNum, TOffset>) = (scalar as? SbfType.NumType)?.value?.toLongOrNull()
 
     /** This is just a heuristic to identify dangling pointers **/
     private fun isNullOrDanglingPtr(scalar: SbfType<TNum, TOffset>): Boolean {
@@ -2197,7 +2222,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
-
     /**
      * If a register points to a cell but the same register in the other operand is null
      * (i.e., top) then the joined result discards the cell (i.e., top).
@@ -2207,14 +2231,16 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      * POST: the return list of cells must reference only nodes that are reachable from the left operand.
      *       This means that it cannot contain any reference to [rightStack].
      */
-     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinRegister(reg: SbfRegister,
-                              leftStack: PTANode<Flags>,
-                              rightStack: PTANode<Flags>,
-                              leftC: PTASymCell<Flags>?,
-                              rightC: PTASymCell<Flags>?,
-                              leftScalars: ScalarDomain,
-                              rightScalars: ScalarDomain,
-                              unificationList: MutableList<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>): PTASymCell<Flags>? {
+     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinRegister(
+        reg: SbfRegister,
+        leftStack: PTANode<Flags>,
+        rightStack: PTANode<Flags>,
+        leftC: PTASymCell<Flags>?,
+        rightC: PTASymCell<Flags>?,
+        leftScalars: ScalarDomain,
+        rightScalars: ScalarDomain,
+        unifications: MutableList<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>
+    ): PTASymCell<Flags>? {
 
         if (leftC != null && rightC != null) {
             val renamedLeftC = leftC.renameNode(leftStack, rightStack)
@@ -2233,7 +2259,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         throw PointerDomainError("Join is losing track of r10")
                     }
 
-                    if (SolanaConfig.OptimisticPTAJoin.get()) {
+                    if (SolanaConfig.optimisticJoin()) {
                         // See below comments about optimistic joins.
                         // Note that we don't try to distinguish whether the non-pointer argument is
                         // a dangling pointer or a regular number.
@@ -2256,12 +2282,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     return null
                 } else {
                     dbgJoin { "## JOIN: register $reg cells $leftC and $rightC to the unification list" }
-                    unificationList.add(Pair(leftC, rightC))
+                    unifications.add(Pair(leftC, rightC))
                     return leftC
                 }
             }
         } else {
-            if (SolanaConfig.OptimisticPTAJoin.get()) {
+            if (SolanaConfig.optimisticJoin()) {
                 // join(X,Y) = X if X is a pointer and Y looks a dangling pointer, a regular number or non-dereferenced global.
                 //
                 // Note that being a dangling pointer is something that our analysis cannot know for sure.
@@ -2316,40 +2342,50 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         return null
      }
 
-    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinRegisters(leftStack: PTANode<Flags>,
-                              rightStack: PTANode<Flags>,
-                              // null means that the register is "top"
-                              leftRegisters: List<PTASymCell<Flags>?>,
-                              // null means that the register is "top"
-                              rightRegisters: List<PTASymCell<Flags>?>,
-                              leftScalars: ScalarDomain,
-                              rightScalars: ScalarDomain,
-                              unificationList: MutableList<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>): ArrayList<PTASymCell<Flags>?> {
+    private data class JoinRegistersEffects<Flags: IPTANodeFlags<Flags>>(
+        val registers: ArrayList<PTASymCell<Flags>?>,
+        val unifications: List<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>
+    )
 
-        val commonRegisters = ArrayList<PTASymCell<Flags>?>(registers.size)
+    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> joinRegisters(
+        leftStack: PTANode<Flags>,
+        rightStack: PTANode<Flags>,
+        // null means that the register is "top"
+        leftRegisters: List<PTASymCell<Flags>?>,
+        // null means that the register is "top"
+        rightRegisters: List<PTASymCell<Flags>?>,
+        leftScalars: ScalarDomain,
+        rightScalars: ScalarDomain
+    ): JoinRegistersEffects<Flags> {
+
+        val unifications = mutableListOf<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>()
+        val outRegisters = ArrayList<PTASymCell<Flags>?>(registers.size)
         leftRegisters.forEachIndexed { i, leftC ->
             val rightC = rightRegisters[i]
-            commonRegisters.add(joinRegister(SbfRegister.getByValue(i.toByte()),
+            outRegisters.add(joinRegister(SbfRegister.getByValue(i.toByte()),
                                               leftStack, rightStack,
                                               leftC, rightC,
                                               leftScalars, rightScalars,
-                                              unificationList))
+                                              unifications)
+            )
         }
-        check(leftRegisters.size == commonRegisters.size) {"join sanity check 1" }
-        return commonRegisters
+        check(leftRegisters.size == outRegisters.size) {"join sanity check 1" }
+        return JoinRegistersEffects(outRegisters, unifications)
     }
 
     /**
      * Same logic than in joinRegisters but we don't need to unify cells because it shouldn't be the case
      * that the same register is pointing to different cells at a joint point.
      */
-    private fun joinScratchRegisters(leftStack: PTANode<Flags>,
-                                     rightStack: PTANode<Flags>,
-                                     leftScratchRegisters: List<PTASymCell<Flags>?>,
-                                     rightScratchRegisters: List<PTASymCell<Flags>?>): ArrayList<PTASymCell<Flags>?> {
-        val commonScratchRegisters = ArrayList<PTASymCell<Flags>?>(scratchRegisters.size)
+    private fun joinScratchRegisters(
+        leftStack: PTANode<Flags>,
+        rightStack: PTANode<Flags>,
+        leftScratchRegisters: List<PTASymCell<Flags>?>,
+        rightScratchRegisters: List<PTASymCell<Flags>?>
+    ): ArrayList<PTASymCell<Flags>?> {
+        val outScratchRegisters = ArrayList<PTASymCell<Flags>?>(scratchRegisters.size)
         leftScratchRegisters.forEachIndexed {i, leftC ->
-            commonScratchRegisters.add(null)
+            outScratchRegisters.add(null)
             val rightC = rightScratchRegisters[i]
             if ((leftC == null && rightC != null) || (leftC != null && rightC == null)) {
                 throw PointerDomainError(
@@ -2360,7 +2396,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 val renamedLeftC = leftC.renameNode(leftStack, rightStack)
                 if (renamedLeftC == rightC) {
                     /** cells are equal modulo renaming */
-                    commonScratchRegisters[i] = leftC
+                    outScratchRegisters[i] = leftC
                 } else {
                     /**
                      *  The scratch registers are expected to be equal (modulo stacks renaming) at any join point since
@@ -2373,20 +2409,28 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 }
             }
         }
-        check(leftScratchRegisters.size == commonScratchRegisters.size) {"join sanity check 2"}
-        return commonScratchRegisters
+        check(leftScratchRegisters.size == outScratchRegisters.size) {"join sanity check 2"}
+        return outScratchRegisters
     }
 
-    /// Helper for join
-    private fun removeFieldFromStack(stack: PTANode<Flags>, field: PTAField, g: PTAGraph<TNum, TOffset, Flags>,
-                                     @Suppress("UNUSED_PARAMETER")
-                                     msg: String) {
-
+    private fun removeStackField(stack: PTANode<Flags>,
+                                 field: PTAField,
+                                 g: PTAGraph<TNum, TOffset, Flags>,
+                                 @Suppress("UNUSED_PARAMETER")
+                                 msg: String) {
         val succC = stack.getSuccs()[field]
         if (succC != null) {
             stack.removeSucc(field, succC)
         }
         g.untrackedStackFields = g.untrackedStackFields.add(field)
+    }
+
+    private fun addStackField(stack: PTANode<Flags>,
+                              field: PTAField,
+                              c: PTACell<Flags>,
+                              g: PTAGraph<TNum, TOffset, Flags>) {
+        stack.addSucc(field, c)
+        g.untrackedStackFields = g.untrackedStackFields.remove(field)
     }
 
     /**
@@ -2406,11 +2450,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      * @param left: basic block for the left operand (for debugging)
      * @param right: basic block for the right operand (for debugging)
      */
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> join(other: PTAGraph<TNum, TOffset, Flags>,
-             leftScalars: ScalarDomain,
-             rightScalars: ScalarDomain,
-             outScalars: ScalarDomain,
-             left: Label?, right: Label?): PTAGraph<TNum, TOffset, Flags> {
+    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> join(
+        other: PTAGraph<TNum, TOffset, Flags>,
+        leftScalars: ScalarDomain,
+        rightScalars: ScalarDomain,
+        outScalars: ScalarDomain,
+        left: Label?, right: Label?
+    ): PTAGraph<TNum, TOffset, Flags> {
         if (scratchRegisters.size != other.scratchRegisters.size) {
             val msg = if (left != null && right != null ){
                 "join between $left and $right"
@@ -2434,64 +2480,48 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         dbgJoin {
                 "### Starting JOIN ####\n" +
                 "Left block=$left right block=$right\n" +
-                "Left=$this\nRight=$other\n"
+                "Left=$leftG\nRight=$rightG\n"
         }
 
-        checkStackInvariant(this,"before joinStacks LEFT")
-        checkStackInvariant(other,"before joinStacks RIGHT")
+        checkStackInvariant(leftG,"before joinStacks LEFT")
+        checkStackInvariant(rightG,"before joinStacks RIGHT")
 
-
-        /** To perform stack additions to preserve union semantics **/
-        val onlyLeft = mutableListOf<Pair<PTAField, PTACell<Flags>>>()
-        val onlyRight = mutableListOf<Pair<PTAField, PTACell<Flags>>>()
-        /** To perform unifications **/
-        val unificationList = mutableListOf<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>()
-
-        val (outUntrackedStackFields, outTrackedStackFields) =
-            joinStacks(leftStack, rightStack,
-                       outScalars,
-                       onlyLeft,
-                       onlyRight,
-                       unificationList)
-        val commonRegisters =
-            joinRegisters(leftStack, rightStack,
-                          leftG.registers, rightG.registers,
-                          leftScalars, rightScalars,
-                          unificationList)
-        val commonScratchRegisters =
-            joinScratchRegisters(leftStack, rightStack,
-                                leftG.scratchRegisters, rightG.scratchRegisters)
-
-        /** Creating the resulting graph as a partial copy of the left graph **/
-        val outG = leftG.copy(commonRegisters, commonScratchRegisters, outTrackedStackFields)
-        val leftOutStack = outG.getStack()
-        val rightOutStack = outG.importStack(rightStack, null)
-        dbgJoin {
-                "Result graph (after selective copy of left with \n" +
-                "registers=${commonRegisters}\nscratch=${commonScratchRegisters}\n" +
-                    "stack fields=${outTrackedStackFields}):\n$outG\n" +
-                "Left stack renamed to $leftOutStack and right stack renamed to $rightOutStack"
-        }
+        val (onlyLeft, onlyRight, unificationsFromStack, topFields, nonTopFields) =
+            joinStacks(leftStack, rightStack, outScalars)
+        val (outRegisters, unificationsFromRegisters) =
+            joinRegisters(leftStack, rightStack, leftG.registers, rightG.registers, leftScalars, rightScalars)
+        val outScratchRegisters =
+            joinScratchRegisters(leftStack, rightStack, leftG.scratchRegisters, rightG.scratchRegisters)
 
         /**
-         *  Add fields that were only either on the left or on the right stacks.
+         * Creating the resulting graph as a partial copy of the left graph
+         * The call to copy will copy `untrackedStackFields` and `unmaterializedStack` from leftG.
+         * After the call, we update them to the joins.
+         **/
+        val outG = leftG.copy(outRegisters, outScratchRegisters, nonTopFields)
+        outG.untrackedStackFields = leftG.untrackedStackFields.join(rightG.untrackedStackFields)
+        outG.unmaterializedStack = leftG.unmaterializedStack.join(rightG.unmaterializedStack)
+
+        val outStack = outG.getStack()
+        /** We add make a copy `rightStack` in `outG` since we will unify cells pointed by `rightStack` **/
+        val outRightStack = outG.importStack(rightStack, null)
+
+        /**
+         *  Add fields that were only either on the left or on the right stacks (see comments about union semantics).
          *
          *  It's possible to add a field that will be removed later if overlaps with other fields,
          *  but we do it like this for simplicity.
          **/
         for ((field, c) in onlyLeft) {
-            if (!other.untrackedStackFields.contains(field)) {
-                val renamedC = c.renameNode(leftStack, leftOutStack)
-                leftOutStack.addSucc(field, renamedC)
-                dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
-            }
+            val renamedC = c.renameNode(leftStack, outStack)
+            addStackField(outStack, field, renamedC, outG)
+            dbgJoin { "JOIN added stack field ($outStack,$field)" }
+
         }
         for ((field, c) in onlyRight) {
-            if (!untrackedStackFields.contains(field)) {
-                val renamedC = c.renameNode(rightStack, leftOutStack)
-                leftOutStack.addSucc(field, renamedC)
-                dbgJoin { "JOIN added stack field ($leftOutStack,$field)" }
-            }
+            val renamedC = c.renameNode(rightStack, outStack)
+            addStackField(outStack, field, renamedC, outG)
+            dbgJoin { "JOIN added stack field ($outStack,$field)" }
         }
 
         /**
@@ -2511,16 +2541,16 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
          **/
         val overlaps = leftStack.findOverlaps(rightStack)
         for ((fieldL, fieldR) in overlaps) {
-            if (SolanaConfig.OptimisticPTAOverlaps.get()) {
+            if (SolanaConfig.optimisticOverlaps()) {
                warn { "The pointer domain performed optimistic join: " +
                           "keeping stack overlaps $fieldL and $fieldR" }
             } else {
-                removeFieldFromStack(
-                    leftOutStack, fieldL, outG,
+                removeStackField(
+                    outStack, fieldL, outG,
                     "Removed link at $fieldL from the joined stack because overlapping"
                 )
-                removeFieldFromStack(
-                    leftOutStack, fieldR, outG,
+                removeStackField(
+                    outStack, fieldR, outG,
                     "Removed link at $fieldR from the joined stack because overlapping"
                 )
             }
@@ -2529,28 +2559,26 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         /**
          * Remove fields that are marked as top
          **/
-        for (field in outUntrackedStackFields) {
-            removeFieldFromStack(leftOutStack, field, outG,
-                "Removed link at $field from the joined stack because marked as inaccessible")
+        for (field in topFields) {
+            removeStackField(outStack, field, outG,
+                "Removed link at $field from the joined stack because marked as inaccessible"
+            )
         }
 
         /** And finally, perform unifications **/
-        unificationList.forEach { (leftSC, rightSC) ->
-            val renamedLeftC = concretizeCell(leftSC.renameNode(leftStack, leftOutStack), "join", null)
-            val renamedRightC = concretizeCell(rightSC.renameNode(rightStack, rightOutStack), "join", null)
+        (unificationsFromStack + unificationsFromRegisters).forEach { (leftSC, rightSC) ->
+            val renamedLeftC = concretizeCell(leftSC.renameNode(leftStack, outStack), "join", null)
+            val renamedRightC = concretizeCell(rightSC.renameNode(rightStack, outRightStack), "join", null)
             renamedLeftC.unify(renamedRightC)
         }
-
-        outG.unmaterializedStack = unmaterializedStack.join(other.unmaterializedStack)
 
         if (enableDot) {
             dotDebugger.addResultAndPrint(outG, left, right)
         }
 
-
         checkStackInvariant(outG,"after join")
 
-        if (SolanaConfig.SanityChecks.get() && !SolanaConfig.OptimisticPTAJoin.get()) {
+        if (SolanaConfig.SanityChecks.get() && !SolanaConfig.optimisticJoin()) {
             for (field in outG.untrackedStackFields) {
                 if (outG.getStack().getSuccs()[field] != null) {
                     throw PointerDomainError("Stack has a top field $field but the field has successors (1)")
@@ -2576,11 +2604,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         return outG
     }
 
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> widen(other: PTAGraph<TNum, TOffset, Flags>,
-              leftScalars: ScalarDomain,
-              rightScalars: ScalarDomain,
-              outScalars: ScalarDomain,
-              left: Label?, right: Label?): PTAGraph<TNum, TOffset, Flags> =
+    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> widen(
+        other: PTAGraph<TNum, TOffset, Flags>,
+        leftScalars: ScalarDomain,
+        rightScalars: ScalarDomain,
+        outScalars: ScalarDomain,
+        left: Label?, right: Label?
+    ): PTAGraph<TNum, TOffset, Flags> =
         join(other, leftScalars, rightScalars, outScalars, left, right)
 
     /**
@@ -2632,12 +2662,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             return false
         }
 
-        // special case if the left stack has been already summarized but the right stack hasn't.
-        /*if (!leftStack.isExactNode() && rightStack.isExactNode()) {
-            dbgLeq {"Left stack is not summarized but right stack is" }
-            return false
-        }*/
-
         if (!unmaterializedStack.lessOrEqual(other.unmaterializedStack)) {
             return false
         }
@@ -2653,12 +2677,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
             val renamedLeftSuccC = leftSuccC.renameNode(leftStack, rightStack)
             if (!renamedLeftSuccC.lessOrEqual(rightSuccC)) {
-                if (rightSuccC.getNode() == rightStack && !rightStack.isExactNode()) {
-                    // rightStack is fully summarized and its successor link points to itself:
-                    // this is the most general stack so anything is less or equal than that.
-                    continue
-                }
-
                 dbgLeq {
                         "Stack at field $field has different cells for left and right operands: " +
                         "$renamedLeftSuccC and $rightSuccC\nLeft=$this\nRight=$other"
@@ -3308,11 +3326,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         doLoad(locInst, base, baseType, globals, ScalarDomain.makeTop(sbfTypesFac))
 
     /** Transfer function for load instruction **/
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doLoad(locInst: LocatedSbfInstruction,
-                                                                 base: Value.Reg,
-                                                                 baseType: SbfType<TNum, TOffset>,
-                                                                 globals: GlobalVariables,
-                                                                 scalars: ScalarDomain) {
+    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doLoad(
+        locInst: LocatedSbfInstruction,
+        base: Value.Reg,
+        baseType: SbfType<TNum, TOffset>,
+        globals: GlobalVariables,
+        scalars: ScalarDomain
+    ) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem && inst.isLoad) {"doLoad expects a Load instruction instead of $inst"}
 
@@ -3327,7 +3347,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 )
         // sanity check
         val isStack = baseSc.getNode() == getStack()
-        check(!isStack || (baseType.isTop() || baseType is SbfType.PointerType.Stack)){ "Scalar and pointer domain disagree on the stack in $inst" }
+        check(!isStack || (baseType.isTop() || baseType is SbfType.PointerType.Stack)){
+            "Scalar and pointer domain disagree on the stack in $inst"
+        }
 
         // Get symbolic de-referenced cell
         val newOffset = updateOffset(BinOp.ADD, baseSc.getNode(), baseSc.getOffset(), inst.access.offset.toLong())
@@ -3342,7 +3364,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     /**
      * A reconstructed cell is created either by merging multiple existing cells or
      * by splitting a single cell into parts.
-     * Reconstructed cells are only created when the last read bytes in the **stack** does not match the last written bytes.
+     * Reconstructed cells are only created when the last read bytes in the **stack** does not match
+     * the last written bytes.
      *
      * **Important**: The TAC encoding must be aware of reconstructed cells to ensure soundness.
      *
@@ -3427,12 +3450,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 true
             } else {
                 // If the scalar domain is not precise enough, we use flow-insensitive information.
-                // This might cause a PTA error during invariants replay phase which was did not happen during analysis phase.
-                // But if not PTA error then it is sound to do so.
+                // This might cause a PTA error during invariants replay phase which was did not happen
+                // during analysis phase. But if not PTA error then it is sound to do so.
                 c.getNode().mustBeInteger()
             }
         }
-
 
         val derefNode= deref.getNode()
 
@@ -3492,10 +3514,17 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      *  We check that it is not an edge from non-stack memory to stack.
      *  This is sufficient to check that whether a stack address escapes.
      */
-    private fun checkStackDoesNotEscape(locInst: LocatedSbfInstruction?, src: PTACell<Flags>, dst: PTACell<Flags>, width: Short) {
+    private fun checkStackDoesNotEscape(
+        locInst: LocatedSbfInstruction?,
+        src: PTACell<Flags>,
+        dst: PTACell<Flags>,
+        width: Short
+    ) {
         if (src.getNode() != getStack() && dst.getNode() == getStack()) {
             val dstPtrExpr = PtrExprErrStackDeref(PTAField(dst.getOffset(), width))
-            throw PointerStackEscapingError(DevErrorInfo(locInst, dstPtrExpr,"stack is escaping: $dst is being stored into $src"))
+            throw PointerStackEscapingError(
+                DevErrorInfo(locInst, dstPtrExpr,"stack is escaping: $dst is being stored into $src")
+            )
         }
     }
 
@@ -3510,7 +3539,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     }
 
     /**
-     *  Return all links in range `[c.offset, c.offset + len]`, included partial overlaps, unless the link fully occupies that range.
+     *  Return all links in range `[c.offset, c.offset + len]`, included partial overlaps, unless the link
+     *  fully occupies that range.
      *
      *  Precondition: [c].node is the stack
      */
@@ -3520,7 +3550,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     }
 
     /**
-     *  Return all links that overlap with the range `[c.offset, c.offset + len]`, but are not fully subsumed in that range.
+     *  Return all links that overlap with the range `[c.offset, c.offset + len]`, but are not fully subsumed
+     *  in that range.
      *
      *  Precondition: [c].node is the stack
      */
@@ -3532,37 +3563,77 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     }
 
     /**
+     * Return all fields that strictly overlap with [field].
+     *
+     * For instance, `overlappingFields(PTAField(10,2))` returns
+     *
+     * ```
+     * [  (10, 1), (11, 1),
+     *    (9, 2), (11, 2),
+     *    (7, 4), (8, 4), (9, 4), (10, 4), (11, 4),
+     *    (3, 8), (4, 8), (5, 8), (6, 8), (7, 8), (8, 8), (9, 8), (10, 8), (11, 8)]
+     * ```
+     */
+    private fun overlappingFields(field: PTAField): Set<PTAField> {
+        val stackTop = getStackTop()
+        val (offset, size) = field.offset to field.size
+        val result = mutableSetOf<PTAField>()
+        for (b in usedMemoryBitwidths) {
+            val start = (offset.v - b + 1).coerceAtLeast(0)
+            val end = offset.v + size - 1
+            val s = b.toShort()
+            for (o in start..end) {
+                if (o + s <= stackTop &&  (o != offset.v || s != size)) {
+                    result.add(PTAField(PTAOffset(o),s))
+                }
+            }
+        }
+        return result
+    }
+
+    /**
      *  Create a link between [src] and [dst].
      *  It also updates `untrackedStackFields` if [src] points to the stack.
      *  `updateLink` is called from both memory load and stores.
      *
      *  - The flag [isStore] indicates that `updateLink` has been called from the store's transfer function.
-     *  - The flag [isStrongUpdate] indicates whether `mkLink` on [src]`.node` should overwrite existing links or unify with them.
+     *  - The flag [isStrongUpdate] indicates whether `mkLink` on [src]`.node` should overwrite existing links or
+     *    unify with them.
      *
      *  **Important note**: partial overlapping fields over the stack are always removed even if in some cases
      *  ([isStrongUpdate]=`false`) it might not be needed. This is always sound, but it might cause some PTA error.
      */
-    private fun updateLink(locInst: LocatedSbfInstruction, src: PTACell<Flags>, width: Short, dst: PTACell<Flags>, isStore: Boolean, isStrongUpdate: Boolean) {
+    private fun updateLink(
+        locInst: LocatedSbfInstruction,
+        src: PTACell<Flags>,
+        width: Short,
+        dst: PTACell<Flags>,
+        isStore: Boolean,
+        isStrongUpdate: Boolean
+    ) {
         checkStackDoesNotEscape(locInst, src, dst, width)
         val srcNode = src.getNode()
         val isStack = srcNode == getStack()
 
         if (isStack) {
+
             // Remove any overlapping field from `srcNode` and update `untrackedStackFields` accordingly.
             val links = getAllLinksExceptIfFullRange(src, width.toLong())
             srcNode.removeLinks(links) { f ->
                 untrackedStackFields = untrackedStackFields.add(f)
             }
-            // LIMITATION: if `updateLink` is called as part of a memory store then it's not enough to kill an overlapping
-            // field if it already exists. We need to make inaccessible any possible **overlapping** field even if it hasn't been accessed yet.
+
+            val field = PTAField(src.getOffset(), width)
+            // If `updateLink` is called as part of a memory store then it's not enough to kill an overlapping
+            // field if it already exists.
+            // We need to make inaccessible any possible **overlapping** field even if it hasn't been accessed yet.
             if (isStore) {
-                for (size in usedMemoryBitwidths) {
-                    untrackedStackFields = untrackedStackFields.add(PTAField(src.getOffset(), size.toShort()))
-                }
+                val overlappingFields = overlappingFields(field)
+                untrackedStackFields = untrackedStackFields.addAll(overlappingFields)
             }
             // If this field was untracked then from now on, it will be tracked because
             // it has been overwritten.
-            untrackedStackFields = untrackedStackFields.remove(PTAField(src.getOffset(), width))
+            untrackedStackFields = untrackedStackFields.remove(field)
         }
 
         srcNode.mkLink(src.getOffset(), width, dst, isStrongUpdate)
@@ -3813,11 +3884,22 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             val curDstC = n.getSucc(curField)
             check(curDstC != null) { "unexpected null in unifyLinks (2)" }
             prevDstC.unify(curDstC)
-            if (!getStack().isExactNode()) {
-                throw PointerDomainError("stack should not be summarized after unifyLinks")
-            }
+            // check stack is not summarized
+            getStack("stack should not be summarized after unifyLinks")
             prevField = curField
         }
+    }
+
+    private enum class MemcpyKind {
+        /** `memcpy_trunc`: load of 8 bytes and store < 8 bytes **/
+        Narrowing,
+        /** `memcpy_zext`: load of < 8 bytes and store of 8 bytes **/
+        Widening,
+        /**
+         * `sol_memcpy_`/`memcpy` or `memcpy` promoted from pairs of
+         * load + store accessing each pair the same number of bytes
+         **/
+        SameWidth;
     }
 
     /**
@@ -3875,7 +3957,52 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
         locInst: LocatedSbfInstruction,
         scalars: ScalarDomain,
-        globals: GlobalVariables) {
+        globals: GlobalVariables
+    ) {
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value ?: sbfTypesFac.anyNum().value
+        // For instance, RawVec can call memcpy with length == 0 and destination being a small number
+        // (alignment of the data type being transferred)
+        // https://github.com/anza-xyz/rust/blob/solana-1.79.0/library/alloc/src/raw_vec.rs#L148
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst, stopIfError = len.toLongOrNull() != 0L)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r1),
+                    "memcpy: r1 does not point to a graph node in $this"
+                )
+            )
+        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst, stopIfError = true)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r2),
+                    "memcpy: r2 does not point to a graph node in $this"
+                )
+            )
+
+
+        doMemcpy<ScalarDomain>(locInst, srcSc, dstSc, len, MemcpyKind.SameWidth)
+
+        if (locInst.inst.writeRegister.contains(r0)) {
+            forget(r0)
+        }
+    }
+
+    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
+        locInst: LocatedSbfInstruction,
+        srcSc: PTASymCell<Flags>,
+        dstSc: PTASymCell<Flags>,
+        len: TNum,
+        kind: MemcpyKind
+    ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+
         /**
          * Transfer function: [srcC] can be stack, but if it's not the stack then its fields are at least tracked precisely.
          **/
@@ -3899,13 +4026,67 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             // Remove any overlapping or fully subsumed field on the destination.
             removeLinks(dstC, len)
 
-            // Select the source's links to be transferred.
-            // We only transfer those links from source that are strictly in the range
-            // [srcC.offset, srcC.offset+length-1]. Note that transferring fewer links is sound.
-            val srcLinks = srcNode.getLinksInRange(srcOffset, len)
+            when (kind) {
+                MemcpyKind.Narrowing -> {
+                    /**
+                     *   ```
+                     *   r1 := *(u64 *) (r10-24)
+                     *   *(u16 *) (r10-524) := r1  // narrowing store
+                     *   ```
+                     *   has been promoted to:
+                     *   ```
+                     *   memcpy_trunc(r10-524, r10-24, 2)
+                     *   ```
+                     * If `*(u64 *) (r10-24)` has a link then we want to transfer it directly to `*(u16 *) (r10-524)`.
+                     * Note that there is an implicit truncation to `16` bits but the pointer analysis treat it as a non-op since
+                     * the pointer analysis does not reason precisely about non-pointers.
+                     *
+                     * We could do something like this
+                     * ```
+                     *  srcNode.getLinksInRange(srcOffset, len, isStrict= len>=8)
+                     * ```
+                     * and then rely on cell reconstruction. The pointer analysis would be happy but TAC encoding would
+                     * generate havoc cells, so we might have spurious cex.
+                     **/
+                    check(len < 8)
+                    srcNode.getSucc(PTAField(srcOffset, 8))?.let { c ->
+                        // Conversion from field of 8 to len bytes
+                        val dstField = PTAField(dstOffset, len.toShort())
+                        // The actual transfer of the link
+                        dstNode.addSucc(dstField, c)
+                    }
+                }
+                MemcpyKind.Widening -> {
+                    /**
+                     * ```
+                     *  r1 = *(u8 *) (r10-300)
+                     * (u64 *) (r10-1504):sp(2592) := r1 // widening store
+                     * ```
+                     *  has been promoted to:
+                     *  ```
+                     *  memcpy_zext(r10-1504, r10-300, 1)
+                     *  ```
+                     */
+                    check(len < 8)
+                    srcNode.getSucc(PTAField(srcOffset, len.toShort()))?.let { c ->
+                        // Conversion from field of len to 8 bytes
+                        val dstField = PTAField(dstOffset, 8)
+                        // The actual transfer of the link
+                        dstNode.addSucc(dstField, c)
+                    }
+                }
+                MemcpyKind.SameWidth -> {
+                    // Select the source's links to be transferred.
+                    //
+                    // We only transfer those links from source that are
+                    // strictly in the range `[srcC.offset, srcC.offset+length-1]`.
+                    // Note that transferring fewer links is always sound.
+                    val srcLinks = srcNode.getLinksInRange(srcOffset, len)
+                    // The actual transfer of links
+                    copyLinks(srcC, dstC, srcLinks, adjustedOffset, locInst)
+                }
+            }
 
-            // The actual transfer of links
-            copyLinks(srcC, dstC, srcLinks, adjustedOffset, locInst)
 
             if (srcNode == getStack()) {
                 val srcRange = FiniteInterval.mkInterval(srcOffset.v, len)
@@ -3915,7 +4096,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 for (f in untrackedFields) {
                     if (f.toInterval().overlap(srcRange)) {
                         val dstField = f.copy(offset = f.offset + adjustedOffset)
-                        untrackedStackFields = untrackedStackFields.add(dstField)
+                        if (dstField.offset >= 0) {
+                            // it's possible that the offset of some untracked field on the source becomes negative on
+                            // the destination which is not possible
+                            untrackedStackFields = untrackedStackFields.add(dstField)
+                        }
                     }
                 }
 
@@ -4018,9 +4203,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     val dstSuccC = dstNode.getSucc(dstField)
                     if (dstSuccC != null) {
                         srcSuccC.unify(dstSuccC)
-                        if (!getStack().isExactNode()) {
-                            throw PointerDomainError("stack unexpectedly summarized in memcpyExactToSumm")
-                        }
+                        // check stack is not summarized
+                        getStack("stack unexpectedly summarized in memcpyExactToSumm")
                     }
                 }
             }
@@ -4089,9 +4273,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             check(dstC.getNode() != getStack()) { "Precondition of memcpyNonStackToNonStack (2)" }
 
             dstC.unify(srcC)
-            if (!getStack().isExactNode()) {
-                throw PointerDomainError("stack cannot be summarized after memcpy (1)")
-            }
+            // check stack is not summarized
+            getStack("stack cannot be summarized after memcpy (1)")
         }
 
         /** Lift a memcpy transformer from a single source and destination to multiple sources and destinations. **/
@@ -4117,62 +4300,76 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             }
         }
 
-        val inst = locInst.inst
-        check(inst is SbfInstruction.Call)
-
-        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
-
-        if (inst.writeRegister.contains(r0)) {
-            forget(r0)
-        }
-
-        val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
-        // For instance, RawVec can call memcpy with length == 0 and destination being a small number
-        // (alignment of the data type being transferred)
-        // https://github.com/anza-xyz/rust/blob/solana-1.79.0/library/alloc/src/raw_vec.rs#L148
-        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst, stopIfError = len != 0L)
-            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "memcpy: r1 does not point to a graph node in $this"))
-        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst, stopIfError = true)
-            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2),"memcpy: r2 does not point to a graph node in $this"))
 
         srcSc.getNode().setRead()
         dstSc.getNode().setWrite()
 
         val isSrcStack = srcSc.getNode() == getStack()
         val isDstStack = dstSc.getNode() == getStack()
+        val lenC = len.toLongOrNull()
 
         when {
             isSrcStack && isDstStack  -> {
-                if (len == null) {
-                    throw UnknownMemcpyLenError(DevErrorInfo(locInst, PtrExprErrReg(r3), "memcpy: r3 is not statically known in $this"))
+                if (lenC == null) {
+                    throw UnknownMemcpyLenError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r3),
+                            "${inst.name}: r3 is not statically known in $this"
+                        )
+                    )
                 }
                 val dstOffsets = dstSc.getOffset().toLongList()
                 if (dstOffsets.isEmpty()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "memcpy: r1 points to unknown stack offset in $this"))
+                    throw UnknownPointerDerefError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r1),
+                            "${inst.name}: r1 points to unknown stack offset in $this"
+                        )
+                    )
                 }
                 val srcOffsets = srcSc.getOffset().toLongList()
                 if (srcOffsets.isEmpty()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2), "memcpy: r2 points to unknown stack offset $this"))
+                    throw UnknownPointerDerefError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r2),
+                            "${inst.name}: r2 points to unknown stack offset $this"
+                        )
+                    )
                 }
 
                 memcpyLifter(srcOffsets, dstOffsets,
                     transformerWithStrongSem = { srcOffset, dstOffset ->
-                        memcpyExactToStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset))
+                        memcpyExactToStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset))
                                                },
                     transformerWithWeakSem = {  srcOffset, dstOffset ->
-                        memcpyExactToWeakStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset))
+                        memcpyExactToWeakStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset))
                     })
             }
             isSrcStack -> {
-                if (len == null) {
-                    throw UnknownMemcpyLenError(DevErrorInfo(locInst, PtrExprErrReg(r3), "memcpy: r3 is not statically known in $this"))
+                if (lenC == null) {
+                    throw UnknownMemcpyLenError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r3),
+                            "${inst.name}: r3 is not statically known in $this"
+                        )
+                    )
                 }
                 val srcOffsets = srcSc.getOffset().toLongList()
                 if (srcOffsets.isEmpty()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2), "memcpy: r2 points to unknown stack offset $this"))
+                    throw UnknownPointerDerefError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r2),
+                            "${inst.name}: r2 points to unknown stack offset $this"
+                        )
+                    )
                 }
 
                 /**
@@ -4182,40 +4379,51 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 val dstC = dstSc.concretize() // it might collapse the node but no runtime error because no stack
                 if (dstC.getNode().isExactNode()) {
                     srcOffsets.forEach { srcOffset ->
-                        memcpyExactToExact(srcSc.getNode().createCell(srcOffset), len, dstC)
+                        memcpyExactToExact(srcSc.getNode().createCell(srcOffset), lenC, dstC)
                     }
                 } else {
                     srcOffsets.forEach { srcOffset ->
-                        memcpyExactToSumm(srcSc.getNode().createCell(srcOffset), len, dstC)
+                        memcpyExactToSumm(srcSc.getNode().createCell(srcOffset), lenC, dstC)
                     }
                 }
             }
             isDstStack -> {
-                if (len == null) {
-                    throw UnknownMemcpyLenError(DevErrorInfo(locInst, PtrExprErrReg(r3), "memcpy: r3 is not statically known in $this"))
+                if (lenC == null) {
+                    throw UnknownMemcpyLenError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(r3),
+                            "${inst.name}: r3 is not statically known in $this"
+                        )
+                    )
                 }
                 val dstOffsets = dstSc.getOffset().toLongList()
                 if (dstOffsets.isEmpty()) {
-                    throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "memcpy: r1 points to unknown stack offset in $this"))
+                    throw UnknownPointerDerefError(
+                        DevErrorInfo(locInst,
+                            PtrExprErrReg(r1),
+                            "${inst.name}: r1 points to unknown stack offset in $this"
+                        )
+                    )
                 }
 
                 val srcC = srcSc.concretize()  // it might collapse the node but no runtime error because no stack
                 if (srcC.getNode().isExactNode()) {
                     memcpyLifter(listOf(srcC.getOffset().v), dstOffsets,
                         transformerWithStrongSem = { srcOffset, dstOffset ->
-                            memcpyExactToStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset))
+                            memcpyExactToStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset))
                         },
                         transformerWithWeakSem = {  srcOffset, dstOffset ->
-                            memcpyExactToWeakStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset))
+                            memcpyExactToWeakStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset))
                         })
 
                 } else {
                     memcpyLifter(listOf(srcC.getOffset().v), dstOffsets,
                         transformerWithStrongSem = { srcOffset, dstOffset ->
-                            memcpySummToStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset), isWeak = false)
+                            memcpySummToStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset), isWeak = false)
                         },
                         transformerWithWeakSem = {  srcOffset, dstOffset ->
-                            memcpySummToStack(srcSc.getNode().createCell(srcOffset), len, dstSc.getNode().createCell(dstOffset), isWeak = true)
+                            memcpySummToStack(srcSc.getNode().createCell(srcOffset), lenC, dstSc.getNode().createCell(dstOffset), isWeak = true)
                         })
                 }
             }
@@ -4296,51 +4504,86 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         scalars: ScalarDomain,
         globals: GlobalVariables
     ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
 
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
-        forget(r0)
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r1),
+                    "memset: r1 does not point to a graph node in $this"
+                )
+            )
 
-        val sc1 = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst)
-            ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1),"memset: r1 does not point to a graph node in $this"))
         val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
         if (len != null) {
-            val c1 = concretizeCell(sc1, "concretization of r1 in memset", locInst)
-            if (c1.getNode() == getStack()) {
-                removeLinks(c1, len)
+            val dstC = concretizeCell(dstSc, "concretization of r1 in memset", locInst)
+            if (dstC.getNode() == getStack()) {
+                removeLinks(dstC, len)
             } else {
-                warn {"The pointer domain skipped ${locInst.inst} because it is not on the stack"}
+                warn {"The pointer domain skipped ${inst.name} because it is not on the stack"}
             }
         } else {
-            warn {"The pointer domain skipped ${locInst.inst} because length is not statically known"}
+            warn {"The pointer domain skipped ${inst.name} because length is not statically known"}
+        }
+
+        if (locInst.inst.writeRegister.contains(r0)) {
+            forget(r0)
         }
     }
 
 
-    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doSolMemInst(memInst: SolanaFunction,
-                                                                               globals: GlobalVariables,
-                                                                               scalars: ScalarDomain,
-                                                                               locInst: LocatedSbfInstruction) {
-        val inst = locInst.inst
-        check(inst is SbfInstruction.Call) {"doSolMemInst expects a call instead of $inst"}
+    private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpyZExtOrTrunc(
+        locInst: LocatedSbfInstruction,
+        scalars: ScalarDomain,
+        globals: GlobalVariables,
+        kind:  MemcpyKind
+    ) {
+        check(kind == MemcpyKind.Widening || kind == MemcpyKind.Narrowing)
 
-        when (memInst) {
-            SolanaFunction.SOL_MEMCPY -> {
-                doMemcpy(locInst, scalars, globals)
-            }
-            SolanaFunction.SOL_MEMCMP -> {
-                doMemcmp(locInst, scalars, globals)
-            }
-            SolanaFunction.SOL_MEMMOVE -> {
-                warn {"The pointer domain skipped $memInst because it is unsupported"}
-            }
-            SolanaFunction.SOL_MEMSET -> {
-                doMemset(locInst, scalars, globals)
-            }
-            else -> { }
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Call)
+
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+
+        val i = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value
+            ?: sbfTypesFac.anyNum().value
+
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst, stopIfError = i.toLongOrNull() != 0L)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r1),
+                    "${inst.name}: r1 does not point to a graph node in $this"
+                )
+            )
+        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst, stopIfError = true)
+            ?: throw UnknownPointerDerefError(
+                DevErrorInfo(
+                    locInst,
+                    PtrExprErrReg(r2),
+                    "${inst.name}: r2 does not point to a graph node in $this"
+                )
+            )
+
+        doMemcpy<ScalarDomain>(locInst, srcSc, dstSc, i, kind)
+
+        // Note that if `memcpy_zext` then we don't call `memset(dst.offset + i, len -i)` after calling `doMemcpy`.
+        // Otherwise, it would remove the new link added by `doMemcpy`
+        // See test `widening store with memcpy promotion` in TACMemcpyPromotionTest.kt
+
+        if (inst.writeRegister.contains(r0)) {
+            forget(r0)
         }
+
     }
 
     /** Transfer function for `__CVT_save_scratch_registers` **/
@@ -4351,18 +4594,14 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         pushScratchReg(registers[9])
     }
 
+
     /**
      *  Any field that has an offset greater than the top of the stack is dead because
      *  a caller can never access to a callee stack.
      */
     private fun removeDeadStackFields() {
         val stack = getStack()
-        if (!stack.isExactNode()) {
-            return
-        }
-        val c = getRegCell(Value.Reg(SbfRegister.R10_STACK_POINTER))
-        check(c != null) {"r10 should point always to a cell"}
-        val topStack = c.getOffset().toLongOrNull() ?: return
+        val topStack = getStackTop()
 
         // 1. Remove all dead links
         val deadLinks = mutableListOf<PTALink<Flags>>()
@@ -4411,7 +4650,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      */
     private fun doDealloc() {
         fun isSingletonHeaplet(n: PTANode<Flags>): Boolean {
-            if (!SolanaConfig.OptimisticDealloc.get()) {
+            if (!SolanaConfig.optimisticDealloc()) {
                 /**
                  * Enable optimisticDealloc is potentially unsound.
                  * We need to prove that node is a singleton, i.e., it represents exactly one concrete memory object.
@@ -4458,26 +4697,40 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doCall(calleeLocInst: LocatedSbfInstruction,
-                                                                 globals: GlobalVariables,
-                                                                 memSummaries: MemorySummaries,
-                                                                 scalars: ScalarDomain) {
+    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doCall(
+        locInst: LocatedSbfInstruction,
+        globals: GlobalVariables,
+        memSummaries: MemorySummaries,
+        scalars: ScalarDomain
+    ) {
 
-        val callee = calleeLocInst.inst
+        val callee = locInst.inst
         check(callee is SbfInstruction.Call) {"doCall expects a call instead of $callee"}
         val name = callee.name
         val solFunction = SolanaFunction.from(name)
         if (solFunction != null) {
             /** Solana syscall **/
             when (solFunction) {
-                SolanaFunction.SOL_LOG, SolanaFunction.SOL_LOG_64 -> {
+                SolanaFunction.SOL_LOG,
+                SolanaFunction.SOL_LOG_64 ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
-                }
-                SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE, SolanaFunction.SOL_MEMSET, SolanaFunction.SOL_MEMCMP ->
-                    doSolMemInst(solFunction, globals, scalars, calleeLocInst)
-                SolanaFunction.SOL_ALLOC_FREE -> throw PointerDomainError("TODO(4): support sol_alloc_free")
+                SolanaFunction.SOL_MEMCPY ->
+                    doMemcpy(locInst, scalars, globals)
+                SolanaFunction.SOL_MEMCPY_ZEXT ->
+                    doMemcpyZExtOrTrunc(locInst, scalars, globals, MemcpyKind.Widening)
+                SolanaFunction.SOL_MEMCPY_TRUNC ->
+                    doMemcpyZExtOrTrunc(locInst, scalars, globals, MemcpyKind.Narrowing)
+                SolanaFunction.SOL_MEMSET ->
+                    doMemset(locInst, scalars, globals)
+                SolanaFunction.SOL_MEMCMP ->
+                    doMemcmp(locInst, scalars, globals)
+                SolanaFunction.SOL_MEMMOVE ->
+                    throw PointerDomainError("TODO(4): support memmove")
+                SolanaFunction.SOL_ALLOC_FREE ->
+                    throw PointerDomainError("TODO(5): support sol_alloc_free")
                 SolanaFunction.SOL_GET_CLOCK_SYSVAR,
-                SolanaFunction.SOL_GET_RENT_SYSVAR -> summarizeCall(calleeLocInst, globals, scalars, memSummaries)
+                SolanaFunction.SOL_GET_RENT_SYSVAR ->
+                    summarizeCall(locInst, globals, scalars, memSummaries)
                 SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
                 else -> {
@@ -4494,38 +4747,34 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                         when (cvtFunction.value) {
                             CVTCore.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
                             CVTCore.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
-                            CVTCore.ASSERT, CVTCore.ASSUME -> {
+                            CVTCore.ASSERT,
+                            CVTCore.ASSUME ->
                                 throw PointerDomainError("unsupported call to $name. " +
                                     "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
-                            }
                             CVTCore.SATISFY, CVTCore.SANITY -> {}
-                            CVTCore.NONDET_ACCOUNT_INFO, CVTCore.MASK_64 -> {
-                                summarizeCall(calleeLocInst, globals, scalars, memSummaries)
-                            }
-                            CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
-                                summarizeSolanaAccountSpace(calleeLocInst)
-                            }
-                            CVTCore.ALLOC_SLICE -> {
-                                summarizeAllocSlice(calleeLocInst, globals, scalars)
-                            }
+                            CVTCore.NONDET_ACCOUNT_INFO, CVTCore.MASK_64 ->
+                                summarizeCall(locInst, globals, scalars, memSummaries)
+                            CVTCore.NONDET_SOLANA_ACCOUNT_SPACE ->
+                                summarizeSolanaAccountSpace(locInst)
+                            CVTCore.ALLOC_SLICE ->
+                                summarizeAllocSlice(locInst, globals, scalars)
                         }
                     }
                     is CVTFunction.Calltrace -> {}
                     is CVTFunction.Nondet,
                     is CVTFunction.U128Intrinsics,
                     is CVTFunction.I128Intrinsics,
-                    is CVTFunction.NativeInt  ->  {
-                        summarizeCall(calleeLocInst, globals, scalars, memSummaries)
-                    }
+                    is CVTFunction.NativeInt  ->
+                        summarizeCall(locInst, globals, scalars, memSummaries)
                 }
             } else {
                 /** SBF to SBF call */
                 if (callee.isAllocFn()) {
-                    setRegCell(Value.Reg(SbfRegister.R0_RETURN_VALUE), heapAlloc.highLevelAlloc(calleeLocInst))
+                    setRegCell(Value.Reg(SbfRegister.R0_RETURN_VALUE), heapAlloc.highLevelAlloc(locInst))
                 } else if (callee.isDeallocFn()) {
                     doDealloc()
                 } else {
-                    summarizeCall(calleeLocInst, globals, scalars, memSummaries)
+                    summarizeCall(locInst, globals, scalars, memSummaries)
                 }
             }
         }

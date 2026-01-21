@@ -94,7 +94,7 @@ where TNum: INumValue<TNum>,
             if (immVal != null && magicNumbers.contains(immVal)) {
                 if (getStackAccess(locInst, scalarsAtInst) != null) {
                     // We replace in-place the instruction to add new metadata
-                    val newMetaData = inst.metaData.plus(Pair(SbfMeta.HINT_OPTIMIZED_WIDE_STORE, ""))
+                    val newMetaData = inst.metaData.plus(SbfMeta.HINT_OPTIMIZED_WIDE_STORE())
                     val newInst = inst.copy(metaData = newMetaData)
                     block.replaceInstruction(pos, newInst)
                     worklist.add(Triple(pos, newInst, immVal))
@@ -134,7 +134,7 @@ private fun <D, TNum, TOffset> findSplitWideStoresOf64(
                                 (x != null && x is SbfType.NumType<TNum, TOffset>)
                             }) {
                             // We replace in-place the instruction to add new metadata
-                            val newMetaData = inst.metaData.plus(Pair(SbfMeta.HINT_OPTIMIZED_WIDE_STORE, ""))
+                            val newMetaData = inst.metaData.plus(SbfMeta.HINT_OPTIMIZED_WIDE_STORE())
                             val newInst = inst.copy(metaData = newMetaData)
                             block.replaceInstruction(pos, newInst)
                             worklist.add(Triple(pos, newInst, immVal))
@@ -158,11 +158,11 @@ fun splitWideStore(block: MutableSbfBasicBlock, i: Int, inst: SbfInstruction.Mem
         Pair(immVal.toByte().toInt(), immVal.ushr(8).toInt())
     }
 
-    val baseR = inst.access.baseReg
+    val baseR = inst.access.base
     val offset = inst.access.offset
     val metadata = inst.metaData
-    val firstStore = SbfInstruction.Mem(Deref(newWidth, baseR, offset), Value.Imm(low.toULong()), false, null, metadata)
-    val secondStore = SbfInstruction.Mem(Deref(newWidth, baseR, (offset + newWidth).toShort()), Value.Imm(high.toULong()), false, null, metadata)
+    val firstStore = SbfInstruction.Mem(Deref(newWidth, baseR, offset), Value.Imm(low.toULong()), false, metadata)
+    val secondStore = SbfInstruction.Mem(Deref(newWidth, baseR, (offset + newWidth).toShort()), Value.Imm(high.toULong()), false,  metadata)
     block.replaceInstruction(i, firstStore)
     block.add(i+1, secondStore)
 }
@@ -203,7 +203,7 @@ private fun <D, TNum, TOffset> getStackAccess(
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
     val inst = locInst.inst
     check(inst is SbfInstruction.Mem) {"getStackAccess expects a memory instruction"}
-    val typeDerefReg = scalarsAtInst.typeAtInstruction(locInst, inst.access.baseReg.r)
+    val typeDerefReg = scalarsAtInst.typeAtInstruction(locInst, inst.access.base)
     if (typeDerefReg is SbfType.PointerType.Stack) {
         val offset = typeDerefReg.offset.add(inst.access.offset.toLong()).toLongOrNull()
         if (offset != null) {

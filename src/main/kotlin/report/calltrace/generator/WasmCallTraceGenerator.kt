@@ -40,6 +40,13 @@ internal class WasmCallTraceGenerator(
     scene: ISceneIdentifiers,
     ruleCallString: String,
 ) : CvlrCallTraceGenerator(rule, cexId, model, program, formatter, scene, ruleCallString) {
+    /**
+     * [SnippetCmd.CvlrSnippetCmd.CexAttachLocation] can set the range for the next element in the calltrace that will
+     * be processed to have reliable range information for Solana/Soroban executables. Locations are pushed onto the stack when
+     * [SnippetCmd.CvlrSnippetCmd.CexAttachLocation] is found, and consumed by the following calltrace entry that
+     * needs range information.
+     */
+    private val rangesFromAttachLocation: MutableList<Range.Range> = mutableListOf()
 
     override fun handleCmd(cmd: TACCmd.Simple, cmdIdx: Int, currBlock: NBId, blockIdx: Int): HandleCmdResult {
         return when (cmd) {
@@ -84,4 +91,17 @@ internal class WasmCallTraceGenerator(
         return HandleCmdResult.Continue
     }
 
+    override fun handleCvlrCexAttachLocation(snippetCmd: SnippetCmd.CvlrSnippetCmd.CexAttachLocation): HandleCmdResult {
+        filepathAndLineNumberToRange(snippetCmd.filepath, snippetCmd.lineNumber)?.let {
+            rangesFromAttachLocation.add(it)
+            if (rangesFromAttachLocation.size > 1) {
+                cvlrLogger.warn { "previous attach_location intrinsic was not consumed" }
+            }
+        }
+        return HandleCmdResult.Continue
+    }
+
+    override fun resolveAttachedLocation(stmt: TACCmd.Simple.AnnotationCmd): Range.Range? {
+        return rangesFromAttachLocation.removeLastOrNull()
+    }
 }

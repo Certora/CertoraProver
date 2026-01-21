@@ -260,7 +260,7 @@ class SmashedStack(locInst: LocatedSbfInstruction?, extraSpace: Int) : SolanaErr
     FormattedErrorMessage(
         locInst = locInst,
         userInfo = UserErrorInfo(
-            msg  = "Current stack size is ${SolanaConfig.StackFrameSize.get()} and stack offset exceeded max offset by $extraSpace.",
+            msg  = "Current stack size is ${SolanaConfig.StackFrameSize.get()} and stack offset exceeded max offset by $extraSpace",
             note = "",
             help = "Please increase the stack size with option \"-${SolanaConfig.StackFrameSize.name} ${nearestPowerOfTwo(SolanaConfig.StackFrameSize.get() + extraSpace)}\".",
             code = 6000
@@ -278,6 +278,24 @@ class UnsupportedCall(locInst: LocatedSbfInstruction, msg: String, function: Str
         ),
         devMsg = "").toString())
 
+class UnsupportedCallX(locInst: LocatedSbfInstruction) : SolanaError(
+    FormattedErrorMessage(
+        locInst = locInst,
+        userInfo = UserErrorInfo(
+            msg  = "Unsupported indirect function call instruction (callx)",
+            note = "Common causes:\n" +
+                "\t(1) dynamic dispatch via trait objects (&dyn Trait, Box<dyn Trait>)\n" +
+                "\t(2) function pointers\n" +
+                "\t(3) formatting functions (format!, println!, msg!, etc)",
+            help = "To resolve this error consider one of the following:\n" +
+                "\t- For (1) and (2) please consider changing the code to use static dispatching instead.\n" +
+                "\t- If the indirect call does not affect the property being verified (e.g., formatting functions)\n" +
+                "\t  then use \"-${SolanaConfig.SkipCallRegInst.name} true\" to continue the analysis while ignoring this instruction.\n" +
+                "\t  This is only sound when the called function's behavior is irrelevant to your property.",
+            code = 7001
+        ),
+        devMsg = "${locInst.inst}").toString()
+)
 
 /**
  * To create formatted user messages

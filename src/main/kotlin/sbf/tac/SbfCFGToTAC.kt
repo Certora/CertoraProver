@@ -24,15 +24,17 @@ import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.inliner.SBF_CALL_MAX_DEPTH
 import sbf.support.SolanaInternalError
-import tac.*
 import vc.data.*
 import com.certora.collect.*
 import datastructures.stdcollections.*
+import sbf.cfg.SbfMeta.SBF_DWARF_DEBUG_ANNOTATIONS
 import sbf.domains.*
+import sbf.dwarf.DWARFEdgeLabelAnnotator
+import tac.BlockIdentifier
+import tac.NBId
+import tac.StartBlock
+import tac.Tag
 import java.math.BigInteger
-
-// TAC annotations for TAC debugging
-val SBF_ADDRESS  = tac.MetaKey<Long>("sbf.bytecode.address")
 
 // This number should be bigger than the number of Assert commands inserted by any TAC optimization (e.g., loop unroller),
 // by all rules executed in the same run.
@@ -94,7 +96,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     private val cfg: SbfCFG,
     private val globals: GlobalVariables,
     private val memSummaries: MemorySummaries,
-    val memoryAnalysis: MemoryAnalysis<TNum, TOffset, TFlags>?) {
+    val memoryAnalysis: MemoryAnalysis<TNum, TOffset, TFlags>?): TACDebugView {
     private val blockMap: MutableMap<Label, NBId> = mutableMapOf()
     private val blockGraph = MutableBlockGraph()
     private val code: MutableMap<NBId, List<TACCmd.Simple>> = mutableMapOf()
@@ -124,7 +126,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     // It's much cheaper to analyze the whole cfg from scratch with a ScalarAnalysis and rebuild invariants at the
     // instruction level than rebuilding invariants at the instruction level with [memoryAnalysis]
     val sbfTypesFac: ISbfTypeFactory<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
-    val regTypes: IRegisterTypes<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
+    val types: IRegisterTypes<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>
     // Stack of scratch registers
     val scratchRegVars: ArrayList<TACSymbol.Var> = arrayListOf()
     // To model clock syscalls
@@ -135,7 +137,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     init {
         val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
         sbfTypesFac = scalarAnalysis.getSbfTypesFac()
-        regTypes = AnalysisRegisterTypes(scalarAnalysis)
+        types = AnalysisRegisterTypes(scalarAnalysis)
 
         val regVars: ArrayList<TACSymbol.Var> = ArrayList(NUM_OF_SBF_REGISTERS)
         for (i in 0 until NUM_OF_SBF_REGISTERS) {
@@ -145,7 +147,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         mem = if (memoryAnalysis != null) {
             PTAMemSplitter(cfg, vFac, memoryAnalysis, globals)
         } else {
-            DummyMemSplitter(vFac, regTypes)
+            DummyMemSplitter(vFac, types)
         }
     }
 
@@ -199,7 +201,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun addGlobalInitializers(): List<TACCmd.Simple> {
-        val initializers = runGlobalInitializationAnalysis(cfg, regTypes, globals.elf)
+        val initializers = runGlobalInitializationAnalysis(cfg, types, globals.elf)
         val cmds = mutableListOf<TACCmd.Simple>()
         for ( (gv, _, stride, locInst, values) in initializers) {
             cmds.add(Debug.startFunction("init_${gv.name}"))
@@ -301,8 +303,10 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun translateBin(inst: SbfInstruction.Bin, useMathInt: Boolean = false): List<TACCmd.Simple> {
+        val lhs = inst.dst
+        val rhs = inst.v
         return if (inst.op == BinOp.MOV) {
-            listOf(assign(exprBuilder.mkVar(inst.dst), exprBuilder.mkExprSym(inst.v)))
+            listOf(assign(exprBuilder.mkVar(lhs), exprBuilder.mkExprSym(rhs)))
         } else {
             if (!inst.is64) {
                 throw TACTranslationError("TAC encoding of 32-bit $inst not supported")
@@ -318,14 +322,14 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 val z = vFac.mkFreshMathIntVar()
 
                 listOf(
-                    when (inst.v) {
+                    when (rhs) {
                         is Value.Reg -> {
-                            promoteToMathInt(exprBuilder.mkVar(inst.v).asSym(), y)
+                            promoteToMathInt(exprBuilder.mkVar(rhs).asSym(), y)
                         }
                         is Value.Imm -> {
                             // We cannot use `mkConst` because if the immediate value is a negative one it will sign extended to 256 bits,
                             // and this is incorrect using MathInt.
-                            assign(y, TACSymbol.Const(inst.v.v.toLong().toBigInteger(), Tag.Int).asSym())
+                            assign(y, TACSymbol.Const(rhs.v.toLong().toBigInteger(), Tag.Int).asSym())
                         }
                     },
                     promoteToMathInt(op1.asSym(), x),
@@ -333,7 +337,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                     narrowFromMathInt(z.asSym(), op1)
                 )
             } else {
-                val op2 = exprBuilder.mkExprSym(inst.v, useTwosComplement = true)
+                val op2 = exprBuilder.mkExprSym(rhs, useTwosComplement = true)
                 listOf(assign(op1, exprBuilder.mkBinExpr(inst.op, op1.asSym(), op2, useMathInt = false)))
             }
         }
@@ -389,12 +393,15 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     }
 
     private fun translateCond(cond: Condition, bitwidth: Short = 256): TACCmd.Simple.AssigningCmd {
+        val left = cond.left
+        val right = cond.right
+
         val tacLhs = vFac.mkFreshBoolVar()
-        val leftE = exprBuilder.mkExprSym(cond.left)
-        val rightE = if (cond.right is Value.Imm) {
-            exprBuilder.mkConst(cond.right, useTwosComplement = true, bitwidth).asSym()
+        val leftE = exprBuilder.mkExprSym(left)
+        val rightE = if (right is Value.Imm) {
+            exprBuilder.mkConst(right, useTwosComplement = true, bitwidth).asSym()
         } else {
-            exprBuilder.mkExprSym(cond.right)
+            exprBuilder.mkExprSym(right)
         }
         val tacRhs = exprBuilder.mkBinRelExp(cond.op, leftE, rightE)
         return assign(tacLhs, tacRhs)
@@ -409,12 +416,12 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         val right = inst.cond.right
         val op = inst.cond.op
 
-        val leftTy = regTypes.typeAtInstruction(locInst, left.r)
+        val leftTy = types.typeAtInstruction(locInst, left.r)
         if (leftTy is SbfType.NumType) {
             val leftVal = leftTy.value
             val rightVal = when(right) {
                 is Value.Reg ->  {
-                    val rightTy = regTypes.typeAtInstruction(locInst, right.r)
+                    val rightTy = types.typeAtInstruction(locInst, right.r)
                     if (rightTy is SbfType.NumType) {
                         rightTy.value
                     } else {
@@ -508,13 +515,13 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
 
     private fun translateAssert(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
-        check(inst is SbfInstruction.Assert) {"TAC translateAssert did not expect $inst"}
+        check(inst is SbfInstruction.Assert)
 
         val cmd = translateCond(inst.cond)
         return listOf(
             cmd,
             Calltrace.assert(inst, cmd.lhs),
-            TACCmd.Simple.AssertCmd(cmd.lhs, inst.metaData.getVal(SbfMeta.COMMENT) ?: "assertion failed", MetaMap(TACMeta.ASSERT_ID to mkFreshAssertId()))
+            TACCmd.Simple.AssertCmd(cmd.lhs, inst.metaData.getVal(SbfMeta.COMMENT) ?: "assertion failed", tac.MetaMap(TACMeta.ASSERT_ID to mkFreshAssertId()))
         )
     }
 
@@ -530,7 +537,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             Debug.satisfy(inst),
             TACCmd.Simple.AssigningCmd.AssignExpCmd(condVar, cond),
             Calltrace.satisfy(condVar),
-            TACCmd.Simple.AssertCmd(condVar, inst.metaData.getVal(SbfMeta.COMMENT) ?: "satisfy reached", MetaMap(TACMeta.SATISFY_ID to mkFreshSatisfyId()))
+            TACCmd.Simple.AssertCmd(condVar, inst.metaData.getVal(SbfMeta.COMMENT) ?: "satisfy reached", tac.MetaMap(TACMeta.SATISFY_ID to mkFreshSatisfyId()))
         )
     }
 
@@ -538,7 +545,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         val bb = cfg.getBlock(locInst.label)
         check(bb != null)
         val inst = locInst.inst
-        check(inst is SbfInstruction.Jump) {"TAC translateJump expects a jump instead of $inst"}
+        check(inst is SbfInstruction.Jump)
 
         return when (inst) {
             is SbfInstruction.Jump.UnconditionalJump -> {
@@ -603,55 +610,81 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
 
     /**
      * Translate a `memcpy` instruction to TAC.
+     * @param locInst is `memcpy(dst, src, len)`
      **/
-    private fun translateMemCopy(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
-        val inst = locInst.inst
-        check(inst is SbfInstruction.Call) {"TAC translateMemCopy expects a call instead of $inst"}
-
+    private fun translateMemcpy(locInst: LocatedSbfInstruction) : List<TACCmd.Simple> {
         val info = mem.getTACMemoryFromMemIntrinsic(locInst)
-        return if (info == null) {
-            unreachable(inst)
-        } else {
-            check(info is TACMemSplitter.MemTransferInfo) { "$inst expects MemTransferInfo" }
+            ?: return unreachable(locInst.inst)
+        val memcpy = info as? TACMemSplitter.MemTransferInfo
+            ?: throw TACTranslationError("expected MemTransferInfo")
 
-            val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-            val cmds = when (info) {
-                is TACMemSplitter.UnsupportedMemTransferInfo -> {
-                    // We couldn't generate TAC code for the memcpy instruction.
-                    // This might affect soundness because we don't havoc the destination.
-                    sbfLogger.warn { "Unsupported TAC translation of $inst in block ${locInst.label}" }
-                    listOf()
-                }
-                is TACMemSplitter.NonStackMemTransferInfo -> {
-                    // CASE 1: non-stack to non-stack
-                    memcpyNonStackToNonStack(info)
-                }
-                is TACMemSplitter.StackMemTransferInfo  -> {
-                    // CASE 2: stack to stack
-                    memcpyStackToStack(info)
-                }
-                is TACMemSplitter.MixedRegionsMemTransferInfo -> {
-                    if (info.isDestStack) {
-                        // CASE 3: from non-stack to stack
-                        memcpyNonStackToStack(info)
-                    } else {
-                        // CASE 4: from stack to non-stack
-                        memcpyStackToNonStack(info)
-                    }
+        return translateMemcpy(locInst, memcpy)
+    }
+
+    private fun translateMemcpy(
+        locInst: LocatedSbfInstruction,
+        info : TACMemSplitter.MemTransferInfo
+    ): List<TACCmd.Simple> {
+        val inst = locInst.inst
+        val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+        val cmds = when (info) {
+            is TACMemSplitter.UnsupportedMemTransferInfo -> {
+                // We couldn't generate TAC code for the memcpy instruction.
+                // This might affect soundness because we don't havoc the destination.
+                sbfLogger.warn { "Unsupported TAC translation of $inst in block ${locInst.label}" }
+                listOf()
+            }
+            is TACMemSplitter.NonStackMemTransferInfo -> {
+                // CASE 1: non-stack to non-stack
+                memcpyNonStackToNonStack(info)
+            }
+            is TACMemSplitter.StackMemTransferInfo  -> {
+                // CASE 2: stack to stack
+                memcpyStackToStack(info)
+            }
+            is TACMemSplitter.MixedRegionsMemTransferInfo -> {
+                if (info.isDestStack) {
+                    // CASE 3: from non-stack to stack
+                    memcpyNonStackToStack(info)
+                } else {
+                    // CASE 4: from stack to non-stack
+                    memcpyStackToNonStack(info)
                 }
             }
-            if (inst.writeRegister.contains(Value.Reg(SbfRegister.R0_RETURN_VALUE))) {
-                cmds + TACCmd.Simple.AssigningCmd.AssignHavocCmd(r0)
-            } else {
-                cmds
-            }
+        }
+
+        return if (inst.writeRegister.contains(Value.Reg(SbfRegister.R0_RETURN_VALUE))) {
+            cmds + TACCmd.Simple.AssigningCmd.AssignHavocCmd(r0)
+        } else {
+            cmds
         }
     }
 
     /**
+     * Translate a `memcpy_zext` instruction to TAC.
+     * @param locInst is `memcpy_zext(dst, src, i)`
+     **/
+    private fun translateMemcpyZExt(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
+        val info = mem.getTACMemoryFromMemIntrinsic(locInst)
+            ?: return unreachable(locInst.inst)
+        val memcpyZExt = info as? TACMemSplitter.MemcpyZExt
+            ?: throw TACTranslationError("expected MemcpyZExt")
+        return when (memcpyZExt) {
+            is TACMemSplitter.UnsupportedMemcpyZExtInfo -> {
+                sbfLogger.warn { "Unsupported TAC translation of ${locInst.inst} in block ${locInst.label}" }
+                listOf()
+            }
+            is TACMemSplitter.SupportedMemcpyZExtInfo -> {
+                translateMemcpy(locInst, memcpyZExt.memcpy) + translateMemset(locInst, memcpyZExt.memset)
+            }
+        }
+    }
+
+
+    /**
      *  Translate a `memcmp` instruction to TAC
      *
-     *  @param locInst is a memcmp(x,y,len) instruction
+     *  @param locInst is `memcmp(x,y,len)`
      *
      *  FIXME: right now we encode inst in TAC as r0 := (x==y ? 0: 1)
      *  However, the exact semantics of memcmp is
@@ -659,120 +692,131 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
      *  return  <0  if x < y (lexicographically)
      *  return  >0  if x > y (lexicographically)
      */
-    private fun translateMemCompare(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
-        val inst = locInst.inst
-        check(inst is SbfInstruction.Call) {"TAC translateMemCopy expects a call instead of $inst"}
+    private fun translateMemcmp(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val info = mem.getTACMemoryFromMemIntrinsic(locInst)
-        return if (info == null) {
-            unreachable(inst)
-        } else {
-            check(info is TACMemSplitter.MemCmpInfo){"$info is not MemCmpInfo"}
-            return when (info) {
-                is TACMemSplitter.UnsupportedMemCmpInfo -> {
-                    sbfLogger.warn { "TAC encoding of $inst in block ${locInst.label} will be sound but imprecise" }
-                    listOf(
-                        Debug.startFunction("memcmp"),
-                        TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)),
-                        Debug.endFunction("memcmp")
-                    )
-                }
-                is TACMemSplitter.NonStackMemCmpInfo -> {
-                    val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-                    val r1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
-                    val r2 = exprBuilder.mkVar(SbfRegister.R2_ARG)
+            ?: return unreachable(locInst.inst)
+        val memcmp = info as? TACMemSplitter.MemcmpInfo
+            ?: throw TACTranslationError("expected MemcmpInfo")
 
-                    val cmds = mutableListOf(Debug.startFunction("memcmp"))
-                    // Read word-by word from the byte maps because there is no TAC instruction
-                    // for comparison of ByteMap.
-                    // REVISIT(SOUNDNESS):
-                    // Soundness depends on all writes to the two memory regions to access exactly info.wordSize bytes.
-                    val op1Vars = mapLoads(info.op1, r1, info.wordSize, info.length, cmds)
-                    val op2Vars = mapLoads(info.op2, r2, info.wordSize, info.length, cmds)
-                    cmds.add(assign(r0,  allEqual(op1Vars, op2Vars, cmds)))
-                    cmds.add(Debug.endFunction("memcmp"))
-                    cmds
-                }
-                is TACMemSplitter.StackMemCmpInfo -> {
-                    val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+        return translateMemcmp(locInst, memcmp)
+    }
 
-                    val cmds = mutableListOf(
-                        Debug.startFunction("memcmp", "(op1=Stack${info.op1Range}, op2=Stack${info.op2Range})")
-                    )
-                    cmds.add(assign(r0, allEqual(info.op1.map{it.tacVar}, info.op2.map{it.tacVar}, cmds)))
-                    cmds.add(Debug.endFunction("memcmp"))
-                    cmds
+    private fun translateMemcmp(
+        locInst: LocatedSbfInstruction,
+        info: TACMemSplitter.MemcmpInfo
+    ) = when (info) {
+            is TACMemSplitter.UnsupportedMemCmpInfo -> {
+                sbfLogger.warn {
+                    "TAC encoding of ${locInst.inst} in block ${locInst.label} will be sound but imprecise"
                 }
-                is TACMemSplitter.MixedRegionsMemCmpInfo -> {
-                    val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-                    // scalars
-                    val op1Vars = info.scalars
+                listOf(
+                    Debug.startFunction("memcmp"),
+                    TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)),
+                    Debug.endFunction("memcmp")
+                )
+            }
+            is TACMemSplitter.NonStackMemCmpInfo -> {
+                val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+                val r1 = exprBuilder.mkVar(SbfRegister.R1_ARG)
+                val r2 = exprBuilder.mkVar(SbfRegister.R2_ARG)
 
-                    val cmds = mutableListOf(
-                        Debug.startFunction("memcmp", "(${info.scalarsReg}=${info.stackOpRange})")
-                    )
-                    // byte map
-                    // Read word-by-word from the byte map to be able to compare with the scalars.
-                    // REVISIT(SOUNDNESS):
-                    // Soundness depends on all writes to the non-scalar memory region to access exactly info.wordSize bytes.
-                    val op2Vars = mapLoads(info.byteMap, exprBuilder.mkVar(info.byteMapReg), info.wordSize, info.length, cmds)
-                    cmds.add(assign(r0, allEqual(op1Vars.map{it.tacVar}, op2Vars, cmds)))
-                    cmds.add(Debug.endFunction("memcmp"))
-                    cmds
-                }
+                val cmds = mutableListOf(Debug.startFunction("memcmp"))
+                // Read word-by word from the byte maps because there is no TAC instruction
+                // for comparison of ByteMap.
+                // REVISIT(SOUNDNESS):
+                // Soundness depends on all writes to the two memory regions to access exactly info.wordSize bytes.
+                val op1Vars = mapLoads(info.op1, r1, info.wordSize, info.length, cmds)
+                val op2Vars = mapLoads(info.op2, r2, info.wordSize, info.length, cmds)
+                cmds.add(assign(r0, allEqual(op1Vars, op2Vars, cmds)))
+                cmds.add(Debug.endFunction("memcmp"))
+                cmds
+            }
+            is TACMemSplitter.StackMemCmpInfo -> {
+                val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+                val cmds = mutableListOf(
+                    Debug.startFunction("memcmp", "(op1=Stack${info.op1Range}, op2=Stack${info.op2Range})")
+                )
+                cmds.add(assign(r0, allEqual(info.op1.map { it.tacVar }, info.op2.map { it.tacVar }, cmds)))
+                cmds.add(Debug.endFunction("memcmp"))
+                cmds
+            }
+            is TACMemSplitter.MixedRegionsMemCmpInfo -> {
+                val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
+                // scalars
+                val op1Vars = info.scalars
+
+                val cmds = mutableListOf(
+                    Debug.startFunction("memcmp", "(${info.scalarsReg}=${info.stackOpRange})")
+                )
+                // byte map
+                // Read word-by-word from the byte map to be able to compare with the scalars.
+                // REVISIT(SOUNDNESS):
+                // Soundness depends on all writes to the non-scalar memory region to access exactly info.wordSize bytes.
+                val op2Vars =
+                    mapLoads(info.byteMap, exprBuilder.mkVar(info.byteMapReg), info.wordSize, info.length, cmds)
+                cmds.add(assign(r0, allEqual(op1Vars.map { it.tacVar }, op2Vars, cmds)))
+                cmds.add(Debug.endFunction("memcmp"))
+                cmds
             }
         }
-    }
 
     /**
     *  Translate a `memset` instruction to TAC
     *
-    *  @param locInst is a memset(x,val,len) instruction
+    *  @param locInst is `memset(x,val,len)` instruction
     **/
-    private fun translateMemSet(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
-        val inst = locInst.inst
-        check(inst is SbfInstruction.Call) {"TAC translateMemCopy expects a call instead of $inst"}
+    private fun translateMemset(locInst: LocatedSbfInstruction) =
+        when(val info = mem.getTACMemoryFromMemIntrinsic(locInst)) {
+            null -> unreachable(locInst.inst)
+            else -> {
+                check(info is TACMemSplitter.MemsetInfo)
+                translateMemset(locInst, info)
+            }
+        }
 
-        val r0 = exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE)
-        val info = mem.getTACMemoryFromMemIntrinsic(locInst)
-        return if (info == null) {
-            unreachable(inst)
+    private fun translateMemset(
+        locInst: LocatedSbfInstruction,
+        info: TACMemSplitter.MemsetInfo
+    ): List<TACCmd.Simple> {
+
+        val cmds = when (info) {
+            is TACMemSplitter.UnsupportedMemsetInfo -> {
+                // We couldn't generate TAC code for the memset instruction.
+                // This might affect soundness because we don't havoc the destination.
+                sbfLogger.warn { "Unsupported TAC translation of ${locInst.inst} in block ${locInst.label}" }
+                listOf()
+            }
+            is TACMemSplitter.StackZeroMemsetInfo -> {
+                val len = info.length
+                val range = info.stackOpRange
+                val cmds = mutableListOf(Debug.startFunction("memset", "(Stack($range), 0)"))
+                for (i in 0 until len) {
+                    val offset = PTAOffset(range.lb + i)
+                    val pv = vFac.getByteStackVar(offset)
+                    cmds.add(assign(pv.tacVar, exprBuilder.ZERO.asSym()))
+                }
+                cmds.add(Debug.endFunction("memset"))
+                cmds
+            }
+            is TACMemSplitter.NonStackMemsetInfo -> {
+                val len = info.length
+                val value = info.value
+                val byteMapV = info.byteMap
+
+                val cmds = if (len <= SolanaConfig.TACMaxUnfoldedMemset.get()) {
+                    memsetNonStack(byteMapV, len, value)
+                } else {
+                    memsetNonStackWithMapDef(byteMapV, len, value)
+                }
+                listOf(Debug.startFunction("memset", "(NonStack, $value, $len)")) +
+                    cmds +
+                    listOf(Debug.endFunction("memset"))
+            }
+        }
+        return if (locInst.inst.writeRegister.contains(Value.Reg(SbfRegister.R0_RETURN_VALUE))) {
+            cmds + TACCmd.Simple.AssigningCmd.AssignHavocCmd(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE))
         } else {
-            check(info is TACMemSplitter.MemsetInfo){"$info is not MemsetInfo"}
-            return when (info) {
-                is TACMemSplitter.UnsupportedMemsetInfo -> {
-                    // We couldn't generate TAC code for the memset instruction.
-                    // This might affect soundness because we don't havoc the destination.
-                    sbfLogger.warn { "Unsupported TAC translation of $inst in block ${locInst.label}" }
-                    listOf()
-                }
-                is TACMemSplitter.StackZeroMemsetInfo -> {
-                    val len = info.length
-                    val range = info.stackOpRange
-
-                    val cmds = mutableListOf(Debug.startFunction("memset", "(Stack($range), 0)"))
-                    for (i in 0 until len) {
-                        val offset = PTAOffset(range.lb + i)
-                        val pv = vFac.getByteStackVar(offset)
-                        cmds.add(assign(pv.tacVar, exprBuilder.ZERO.asSym()))
-                    }
-                    cmds.add(Debug.endFunction("memset"))
-                    cmds
-                }
-                is TACMemSplitter.NonStackMemsetInfo -> {
-                    val len = info.length
-                    val value = info.value
-                    val byteMapV = info.byteMap
-
-                    val cmds = if (len <= SolanaConfig.TACMaxUnfoldedMemset.get()) {
-                        memsetNonStack(byteMapV, len, value)
-                    } else {
-                        memsetNonStackWithMapDef(byteMapV, len, value)
-                    }
-                    listOf(Debug.startFunction("memset", "(NonStack, $value, $len)")) +
-                        cmds +
-                        listOf(Debug.endFunction("memset"))
-                }
-            } + TACCmd.Simple.AssigningCmd.AssignHavocCmd(r0)
+            cmds
         }
     }
 
@@ -780,7 +824,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         uses: Collection<LocatedSbfInstruction>, r: SbfRegister
     ): SbfType<TNumAdaptiveScalarAnalysis, TNumAdaptiveScalarAnalysis> {
         return uses.map {
-            regTypes.typeAtInstruction(it, r)
+            types.typeAtInstruction(it, r)
         }.fold(SbfType.bottom()) { t1, t2 ->
             t1.join(t2)
         }
@@ -808,7 +852,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
 
     private fun translateCall(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
-        check(inst is SbfInstruction.Call) {"TAC translateCall expects a call instead of $inst"}
+        check(inst is SbfInstruction.Call)
         if (inst.isAbort()) {
             // If the abort was added by the slicer then we skip it in TAC because it can cause problems to sanity rules
             return if (inst.metaData.getVal(SbfMeta.UNREACHABLE_FROM_COI) != null) {
@@ -817,7 +861,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 unreachable(inst)
             }
         } else if (inst.isAllocFn()) {
-            val size = (regTypes.typeAtInstruction(locInst, SbfRegister.R1_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+            val size = (types.typeAtInstruction(locInst, SbfRegister.R1_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
             val sizeOrDefault = if (size != null) {
                 size
             } else {
@@ -865,7 +909,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                                 }
                             }
                             CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
-                                val size = (regTypes.typeAtInstruction(locInst, SbfRegister.R1_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+                                val size = (types.typeAtInstruction(locInst, SbfRegister.R1_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
                                     ?: throw TACTranslationError("Cannot statically infer the size in $locInst")
                                 listOf(Debug.externalCall(inst)) +
                                     accountsAlloc.alloc(exprBuilder.mkVar(SbfRegister.R0_RETURN_VALUE), size) +
@@ -901,7 +945,8 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                                 listOf(Calltrace.printLocation(locInst))
                             }
                             CVTCalltrace.ATTACH_LOCATION -> {
-                                listOf(Calltrace.attachLocation(locInst))
+                                // used earlier in the pipeline
+                                listOf()
                             }
                             CVTCalltrace.PRINT_STRING -> {
                                 listOf(Calltrace.printString(locInst))
@@ -945,27 +990,15 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             val solFunction  = SolanaFunction.from(inst.name)
             if (solFunction != null) {
                 return when (solFunction) {
-                    SolanaFunction.SOL_MEMCPY -> {
-                        translateMemCopy(locInst)
-                    }
-                    SolanaFunction.SOL_MEMCMP -> {
-                        translateMemCompare(locInst)
-                    }
-                    SolanaFunction.SOL_MEMSET -> {
-                        translateMemSet(locInst)
-                    }
-                    SolanaFunction.SOL_GET_CLOCK_SYSVAR -> {
-                        clock.get(locInst)
-                    }
-                    SolanaFunction.SOL_SET_CLOCK_SYSVAR -> {
-                        clock.set(locInst)
-                    }
-                    SolanaFunction.SOL_GET_RENT_SYSVAR -> {
-                        rent.get(locInst)
-                    }
-                    else -> {
-                        summarizeCall(locInst)
-                    }
+                    SolanaFunction.SOL_MEMCPY_TRUNC,
+                    SolanaFunction.SOL_MEMCPY -> translateMemcpy(locInst)
+                    SolanaFunction.SOL_MEMCPY_ZEXT -> translateMemcpyZExt(locInst)
+                    SolanaFunction.SOL_MEMCMP -> translateMemcmp(locInst)
+                    SolanaFunction.SOL_MEMSET -> translateMemset(locInst)
+                    SolanaFunction.SOL_GET_CLOCK_SYSVAR -> clock.get(locInst)
+                    SolanaFunction.SOL_SET_CLOCK_SYSVAR -> clock.set(locInst)
+                    SolanaFunction.SOL_GET_RENT_SYSVAR -> rent.get(locInst)
+                    else -> summarizeCall(locInst)
                 }
             }
 
@@ -981,22 +1014,25 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
 
     private fun translateMem(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
         val inst = locInst.inst
-        check(inst is SbfInstruction.Mem) {"TAC translateMem expects memory instruction instead of $inst"}
+        check(inst is SbfInstruction.Mem)
         val loadOrStore = mem.getTACMemory(locInst)
         return if (loadOrStore == null) {
             /* The instruction is unreachable */
             unreachable(inst)
         } else {
+            val baseReg = inst.access.base
+            val offset = inst.access.offset
+            val value = inst.value
             when (loadOrStore) {
                 is TACMemSplitter.StackLoadOrStoreInfo -> {
                     val newCmds = mutableListOf<TACCmd.Simple>()
-                    val base = exprBuilder.mkVar((inst.access.baseReg).r).asSym()
-                    val offset = exprBuilder.mkConst(inst.access.offset.toLong()).asSym()
+                    val baseE = exprBuilder.mkVar(baseReg).asSym()
+                    val offsetE = exprBuilder.mkConst(offset.toLong()).asSym()
                     if (inst.isLoad) {
-                        val lhs = inst.value as Value.Reg
+                        val lhs = value as Value.Reg
                         newCmds += stackLoad(
-                            base,
-                            offset,
+                            baseE,
+                            offsetE,
                             loadOrStore.variables,
                             loadOrStore.preservedValues,
                             exprBuilder.mkVar(lhs.r)
@@ -1005,20 +1041,22 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                         if (SolanaConfig.UsePTA.get()) {
                             // havoc any possible overlaps
                             val scalarsToHavoc = loadOrStore.locationsToHavoc
-                            check(scalarsToHavoc is TACMemSplitter.HavocScalars) { "TAC translateMem expects HavocScalars" }
+                            check(scalarsToHavoc is TACMemSplitter.HavocScalars) {
+                                "TAC translateMem expects HavocScalars"
+                            }
 
                             val havocMap = scalarsToHavoc.vars
                             when (havocMap.size) {
                                 0 -> {}
                                 1 -> newCmds += havocScalars(havocMap.toList().single().second)
-                                else -> newCmds += weakHavocScalars(base, offset, havocMap)
+                                else -> newCmds += weakHavocScalars(baseE, offsetE, havocMap)
                             }
                         }
                         newCmds += stackStore(
-                            base,
-                            offset,
+                            baseE,
+                            offsetE,
                             loadOrStore.variables,
-                            exprBuilder.mkExprSym(inst.value)
+                            exprBuilder.mkExprSym(value)
                         )
                     }
                     newCmds
@@ -1026,14 +1064,12 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 is TACMemSplitter.NonStackLoadOrStoreInfo -> {
                     /* byte map variable */
                     val memVar = loadOrStore.variable
-                    val baseReg = inst.access.baseReg
-                    val offset = inst.access.offset
                     val newCmds = mutableListOf<TACCmd.Simple>()
                     val loc = computeTACMapIndex(exprBuilder.mkVar(baseReg), PTAOffset(offset.toLong()), newCmds)
                     if (inst.isLoad) {
-                        val lhs = inst.value as Value.Reg
+                        val lhs = value as Value.Reg
                         val lhsV = exprBuilder.mkVar(lhs.r)
-                        val lhsType = regTypes.typeAtInstruction(locInst, lhs.r, isWritten = true)
+                        val lhsType = types.typeAtInstruction(locInst, lhs.r, isWritten = true)
                         val lhsVal = (lhsType as? SbfType.NumType)?.value?.toLongOrNull()
                         if (lhsVal != null) {
                             // optimization, specially important for read-only globals: if the scalar analysis knows
@@ -1046,16 +1082,18 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                         if (SolanaConfig.UsePTA.get()) {
                             // havoc any possible overlaps
                             val mapFieldsToHavoc = loadOrStore.locationsToHavoc
-                            check(mapFieldsToHavoc is TACMemSplitter.HavocMapBytes) { "TAC translateMem expects HavocMapBytes" }
+                            check(mapFieldsToHavoc is TACMemSplitter.HavocMapBytes) {
+                                "TAC translateMem expects HavocMapBytes"
+                            }
                             newCmds.addAll(havocByteMapLocation(mapFieldsToHavoc.vars, memVar, loc))
                         }
-                        val value = when (inst.value) {
-                            is Value.Imm -> { exprBuilder.mkConst(inst.value) }
-                            is Value.Reg -> { exprBuilder.mkVar(inst.value) }
+                        val valueE = when (value) {
+                            is Value.Imm -> { exprBuilder.mkConst(value) }
+                            is Value.Reg -> { exprBuilder.mkVar(value) }
                         }
-                        newCmds.add(TACCmd.Simple.AssigningCmd.ByteStore(loc, value, memVar.tacVar))
+                        newCmds.add(TACCmd.Simple.AssigningCmd.ByteStore(loc, valueE, memVar.tacVar))
                     }
-                    val baseRegType = regTypes.typeAtInstruction(locInst, baseReg.r)
+                    val baseRegType = types.typeAtInstruction(locInst, baseReg.r)
                     newCmds.addAll(addMemoryLayoutAssumptions(loc, baseRegType))
                     newCmds
                 }
@@ -1063,17 +1101,32 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         }
     }
 
-    private fun addSbfAddressAsMeta(stmts: List<TACCmd.Simple>, locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
-        val address = locInst.inst.metaData.getVal(SbfMeta.SBF_ADDRESS)
-        return if (address != null){
-            check(address <= Long.MAX_VALUE.toULong()) {"Address $address is too big SVM"}
-            stmts.map {
-                val newMeta = it.meta.add(Pair(SBF_ADDRESS, address.toLong()))
-                it.withMeta(newMeta)
+    private fun mapSbfMetaToTACMeta(
+        cmds: List<TACCmd.Simple>,
+        locInst: LocatedSbfInstruction
+    ): List<TACCmd.Simple> {
+        var pairs = tac.MetaMap()
+        val metaData = locInst.inst.metaData
+
+        // if this function starts needing more pairs,
+        // split it into individual functions for each meta pair
+
+        val address = metaData
+            .getVal(SbfMeta.SBF_ADDRESS)
+            ?.let { address ->
+                check(address <= Long.MAX_VALUE.toULong()) {"Address $address is too big SVM"}
+                address.toLong()
             }
-        } else {
-            stmts
+        if (address != null) {
+            pairs += Pair(TACMeta.SBF_ADDRESS, address)
         }
+
+        val range = metaData.getVal(SbfMeta.RANGE)
+        if (range != null) {
+            pairs += Pair(TACMeta.CVL_RANGE, range)
+        }
+
+        return cmds.map { it.plusMetaMap(pairs) }
     }
 
     private fun translate(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
@@ -1090,6 +1143,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
             is SbfInstruction.Assume -> translateAssume(locInst)
             is SbfInstruction.Call -> translateCall(locInst)
             is SbfInstruction.Exit -> translateExit()
+            is SbfInstruction.Debug -> translateDebug(locInst)
             is SbfInstruction.CallReg -> {
                 if (!SolanaConfig.SkipCallRegInst.get()) {
                     throw TACTranslationError("unsupported $inst")
@@ -1098,12 +1152,22 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
                 }
             }
         }
-        return addSbfAddressAsMeta(cmds, locInst)
+
+        return mapSbfMetaToTACMeta(cmds, locInst)
+    }
+    private fun translateDebug(locInst: LocatedSbfInstruction): List<TACCmd.Simple> {
+        return locInst.inst.metaData.getVal(SBF_DWARF_DEBUG_ANNOTATIONS)?.flatMap { edgeAnnot->
+            edgeAnnot.toAnnotations(locInst, this)
+        }.orEmpty()
     }
 
     private fun translate(bb: SbfBasicBlock): List<TACCmd.Simple> {
-        check(cfg.getBlock(bb.getLabel()) != null){"Basic block ${bb.getLabel()} not found in CFG ${cfg.getName()}"}
-        check(bb.getInstructions().isNotEmpty()){"A SbfBasicBlock should not be empty"}
+        check(cfg.getBlock(bb.getLabel()) != null){
+            "Basic block ${bb.getLabel()} not found in CFG ${cfg.getName()}"
+        }
+        check(bb.getInstructions().isNotEmpty()){
+            "A SbfBasicBlock should not be empty"
+        }
         sbfLogger.debug {"TAC translation of block ${bb.getLabel()}"}
         val cmds: MutableList<TACCmd.Simple> = mutableListOf()
         for (locInst in bb.getLocatedInstructions()) {
@@ -1209,6 +1273,22 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         if (SolanaConfig.PrintTACToStdOut.get()) {
             sbfLogger.info {"------- TAC program --------\n" + dumpTAC(program)}
         }
+
+        DWARFEdgeLabelAnnotator.printDebugAnnotatorStats(program, "After encoding to TAC")
+
         return program
+    }
+
+    override fun getStackTACVariable(
+        locInst: LocatedSbfInstruction,
+        reg: Value.Reg,
+        offset: PTAOffset
+    ): TACSymbol.Var? {
+        val base = (types.typeAtInstruction(locInst, reg.r) as? SbfType.PointerType.Stack)?.offset?.toLongOrNull() ?: return null
+        return vFac.getByteStackVar(PTAOffset(base) + offset).tacVar
+    }
+
+    override fun getRegisterTACVariable(reg: Value.Reg): TACSymbol.Var {
+        return vFac.getRegisterVar(reg.r.ordinal)
     }
 }

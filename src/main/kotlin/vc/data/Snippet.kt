@@ -31,9 +31,18 @@ import com.certora.collect.*
 import compiler.SourceSegment
 import datastructures.stdcollections.*
 import decompiler.SourceParseResult
+import dwarf.Offset
+import dwarf.RustType
 import report.calltrace.CVLReportLabel
 import report.calltrace.CallInstance
+import report.calltrace.formatter.CallTraceValue
+import report.calltrace.formatter.CallTraceValueFormatter
 import report.calltrace.printer.*
+import report.calltrace.sarif.FmtArg
+import report.calltrace.sarif.Sarif
+import report.calltrace.sarif.SarifFormatter
+import sbf.dwarf.DWARFExpression
+import solver.CounterexampleModel
 import spec.cvlast.*
 import spec.cvlast.typedescriptors.EVMTypeDescriptor
 import spec.cvlast.typedescriptors.VMTypeDescriptor
@@ -41,10 +50,14 @@ import tac.CallId
 import tac.MetaKey
 import tac.Tag
 import utils.*
+import utils.ModZm.Companion.from2s
 import vc.data.TACMeta.CVL_DISPLAY_NAME
 import vc.data.TACMeta.SCOPE_SNIPPET_END
+import vc.data.state.TACValue
 import java.io.Serializable
+import java.math.BigDecimal
 import java.math.BigInteger
+import java.math.RoundingMode
 
 /**
  * Result for a [ScopeSnippet]'s enforcement of some properties in a scope in a [TACProgram].
@@ -1414,7 +1427,9 @@ sealed class SnippetCmd: AmbiSerializable {
             val cvlPattern: CVLHookPattern,
             val substitutions: Map<VMParam.Named, HookValue>,
             val displayPath: DisplayPath?, // only (sometimes?) available for storage hooks
-        ) : CVLSnippetCmd(), TransformableSymEntityWithRlxSupport<InlinedHook> {
+            val applySiteRange: Range.Range?, // the range in source code where the hook got applied (i.e. the solidity location).
+            @GeneratedBy(Allocator.Id.CVL_EVENT, source = true) override val id: Int,
+        ) : CVLSnippetCmd(), EventID, TransformableSymEntityWithRlxSupport<InlinedHook>, UniqueIdEntity<InlinedHook> {
             override val support: Set<TACSymbol.Var>
                 get() = substitutions.values.flatMapToSet(HookValue::support) + displayPath?.support.orEmpty()
 
@@ -1432,6 +1447,12 @@ sealed class SnippetCmd: AmbiSerializable {
                 is CVLHookPattern.StoragePattern.Load -> this.substitutions[this.cvlPattern.value]
                 is CVLHookPattern.StoragePattern.Store -> this.substitutions[this.cvlPattern.previousValue]
                 else -> null
+            }
+
+            override fun mapId(f: (Any, Int, () -> Int) -> Int): InlinedHook {
+                return this.copy(
+                    id = remapEventId(this.id, f),
+                )
             }
         }
     }
@@ -1514,6 +1535,34 @@ sealed class SnippetCmd: AmbiSerializable {
             override val support: Set<TACSymbol.Var> get() = setOf(unscaledVal, scale)
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
                 CexPrintU64AsFixedOrDecimal(displayMessage = displayMessage, unscaledVal = f(unscaledVal), scale = f(scale), asFixed = asFixed)
+
+            private fun unscaledValAndScaleToBigDecimal(unscaledVal: BigInteger, scale: Int, asFixed: Boolean): BigDecimal {
+                val divisor = if (asFixed) {
+                    BigDecimal(BigInteger.ONE.shiftLeft(scale)) // 2^fractionalBits
+                } else {
+                    BigDecimal(BigInteger.TEN.pow(scale)) // 10^decimals
+                }
+                return BigDecimal(unscaledVal)
+                    .divide(divisor, scale, RoundingMode.FLOOR) // BigDecimal interprets the scale as base 10, while our scale is in base 2
+                    .stripTrailingZeros()
+            }
+            fun tryToSarif(model: CounterexampleModel): Sarif?{
+                val formatter = CallTraceValueFormatter(model)
+                val sarifFormatter = SarifFormatter(formatter);
+                val numTACValue = model.valueAsTACValue(unscaledVal)
+                val unscaledVal: BigInteger? = numTACValue?.asBigIntOrNull()
+                val scale: Int? = model.valueAsTACValue(scale)?.asBigIntOrNull()?.toIntOrNull()
+                if (unscaledVal != null && scale != null) {
+                    val decimalValue = unscaledValAndScaleToBigDecimal(unscaledVal, scale, asFixed)
+                    return sarifFormatter.fmt(
+                        "$displayMessage: $decimalValue ({})", FmtArg.CtfValue.buildOrUnknown(
+                        tv = numTACValue,
+                        type = CVLType.PureCVLType.Primitive.UIntK(256),
+                        tooltip = "unscaled value of decimal number"
+                    ));
+                }
+                return null
+            }
         }
 
         @KSerializable
@@ -1522,6 +1571,21 @@ sealed class SnippetCmd: AmbiSerializable {
             override val support: Set<TACSymbol.Var> get() = symbols.toSet()
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
                 CexPrintValues(displayMessage = displayMessage, symbols = symbols.map { f(it) })
+
+            fun toSarif(model: CounterexampleModel): Sarif {
+                val formatter = CallTraceValueFormatter(model)
+                val sarifFormatter = SarifFormatter(formatter);
+                val formattedList = symbols.map { sym ->
+                    CallTraceValue.cvlCtfValueOrUnknown(
+                        model.valueAsTACValue(sym),
+                        CVLType.PureCVLType.Primitive.UIntK(256)
+                    ).toSarif(formatter, tooltip = "value")
+                }
+                return sarifFormatter.fmt(
+                    "$displayMessage: " + List(formattedList.size) { _ -> "{}" }.joinToString(", "),
+                    *formattedList.map { FmtArg(it) }.toTypedArray<FmtArg.InlineSarif>()
+                )
+            }
         }
 
         /**
@@ -1538,6 +1602,39 @@ sealed class SnippetCmd: AmbiSerializable {
             override val support: Set<TACSymbol.Var> get() = setOf(low, high)
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
                 CexPrint128BitsValue(displayMessage = displayMessage, low = f(low), high = f(high), signed = signed)
+
+            /**
+             * Returns the [BigInteger] associated with [v] in the model. Ensures that only the lowest 64 bits of the number are
+             * possibly non-zero, while the highest 192 bits are zeroed. This is useful because negative numbers are sign-extended:
+             * for example, -1 is represented as 256 bits with all 1s, but we only care about the lowest 64 bits of the number,
+             * so the highest 192 bits are cleared.
+             */
+            private fun CounterexampleModel.get64BitsNumber(v: TACSymbol.Var): BigInteger? =
+                valueAsTACValue(v)?.asBigIntOrNull()?.let {
+                    it and Tag.Bit64.maxUnsigned
+                }
+
+            fun tryToSarif(model: CounterexampleModel): Sarif? {
+                val formatter = CallTraceValueFormatter(model)
+                val sarifFormatter = SarifFormatter(formatter);
+                val low = model.get64BitsNumber(low)
+                val high = model.get64BitsNumber(high)
+                if (low != null && high != null) {
+                    // Combines two 64-bit values (`high` and `low`) into a single 128-bit value. If the `signed` flag is true,
+                    // the result is interpreted as a signed two's complement number.
+                    val bigInt = ((high shl 64) or low).letIf(signed) {
+                        it.from2s(Tag.Bit128)
+                    }
+                    return sarifFormatter.fmt(
+                        "${displayMessage}: {}", FmtArg.CtfValue.buildOrUnknown(
+                            tv = TACValue.valueOf(bigInt),
+                            type = CVLType.PureCVLType.Primitive.UIntK(256),
+                            tooltip = "value of a 128-bit number"
+                        )
+                    )
+                }
+                return null
+            }
         }
 
         @KSerializable
@@ -1578,6 +1675,36 @@ sealed class SnippetCmd: AmbiSerializable {
             override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
                 Assert(displayMessage = displayMessage, symbol = f(symbol), fromSatisfy = fromSatisfy)
         }
+        @KSerializable
+        data class VariableBecomingLive(val variableName: String, val baseVariableType: RustType, val expressions: Map<Offset, DWARFExpression>, val persist: Boolean): SolanaSnippetCmd() , TransformableVarEntityWithSupport<VariableBecomingLive> {
+            override val support: Set<TACSymbol.Var> get() = expressions.values.flatMapToSet { it.support }
+            override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
+                VariableBecomingLive(
+                    variableName = variableName,
+                    baseVariableType = baseVariableType,
+                    expressions = expressions.mapValues { (_, v) ->
+                        v.transformSymbols(f)
+                    },
+                    persist = persist
+                )
+        }
+
+        @KSerializable
+        data class DirectMemoryAccess(val variableName: String, val baseVariableType: RustType, val offsetIntoStruct: Offset, val expression: DWARFExpression, val persist: Boolean): SolanaSnippetCmd() , TransformableVarEntityWithSupport<DirectMemoryAccess> {
+            override val support: Set<TACSymbol.Var> get() = expression.support
+            override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) =
+                DirectMemoryAccess(
+                    variableName = variableName,
+                    baseVariableType = baseVariableType,
+                    expression = expression.transformSymbols(f),
+                    offsetIntoStruct = offsetIntoStruct,
+                    persist = persist
+                )
+        }
+        @KSerializable
+        data class ExplicitDebugPushAction(override val stackElement: StackEntry, override val persist: Boolean): SolanaSnippetCmd(), DebugAdapterPushAction
+        @KSerializable
+        data class ExplicitDebugPopAction(override val persist: Boolean) : SolanaSnippetCmd(), DebugAdapterPopAction
     }
 }
 

@@ -78,6 +78,7 @@ sealed class BuiltInRuleGenerator {
                 BuiltInRuleId.hasDelegateCalls -> HasDelegateCalls(methodParamFilters).lift()
                 BuiltInRuleId.trustedMethods -> TrustedMethods(methodParamFilters).lift()
                 BuiltInRuleId.safeCasting -> SafeCastingGenerator(methodParamFilters).lift()
+                BuiltInRuleId.uncheckedOverflows -> UncheckedOverflowGenerator(methodParamFilters).lift()
                 BuiltInRuleId.msgValueInLoopRule -> if (!methodParamFilters.isEmpty()) {
                     InvalidMethodParamFiltersOnBuiltinRule(
                         birMetadata.birUseDecl.range,

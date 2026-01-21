@@ -77,7 +77,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
     }
 
     /**
-     *  Convenient helper to analyze or process `memcpy`/`memmove` instructions
+     *  Convenient helper to analyze or process `memcpy`/`memcpy_zext`/`memmove` instructions
      *  First, it throws exceptions if the instruction cannot be supported or there is some logical error
      *  Second, it asks the scalar analysis to split into cases depending on the memory areas involved in
      *  the transfer:
@@ -95,27 +95,26 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         if (inst !is SbfInstruction.Call) {
             throw DDAError("$inst is not call")
         }
-        if (SolanaFunction.from(inst.name) != SolanaFunction.SOL_MEMCPY &&
-            SolanaFunction.from(inst.name) != SolanaFunction.SOL_MEMMOVE) {
-            throw DDAError("$inst is not a memcpy or memmove")
-        }
+
 
         val dstTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R1_ARG)
         val srcTy = registerTypes.typeAtInstruction(cmd, SbfRegister.R2_ARG)
+        val lenReg = SbfRegister.R3_ARG
+
         return when (dstTy) {
             is SbfType.PointerType.Stack -> {
-                val len = (registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+                val len = (registerTypes.typeAtInstruction(cmd, lenReg) as? SbfType.NumType)?.value?.toLongOrNull()
                     ?: throw DDAError("len is not statically known at $inst")
                 val dstStarts = dstTy.offset.toLongList()
                 if (dstStarts.isEmpty()) {
-                    throw DDAError("dest on stack with unknown offset at $cmd")
+                    throw DDAError("dest on stack with unknown offset at $inst")
                 }
                 val dstStart = dstStarts.first() /** under-approximation **/
                 when (srcTy) {
                     is SbfType.PointerType.Stack -> {
                         val srcStarts = srcTy.offset.toLongList()
                         if (srcStarts.isEmpty()) {
-                            throw DDAError("src on stack with unknown offset at $cmd")
+                            throw DDAError("src on stack with unknown offset at $inst")
                         }
                         val srcStart = srcStarts.first() /** under-approximation **/
                         stackToStackF(dstStart, srcStart, len)
@@ -126,12 +125,12 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             else -> {
                 when (srcTy) {
                     is SbfType.PointerType.Stack -> {
-                        val len = (registerTypes.typeAtInstruction(cmd, SbfRegister.R3_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+                        val len = (registerTypes.typeAtInstruction(cmd, lenReg) as? SbfType.NumType)?.value?.toLongOrNull()
                             ?: throw DDAError("len is not statically known at $inst")
 
                         val srcStarts = srcTy.offset.toLongList()
                         if (srcStarts.isEmpty()) {
-                            throw DDAError("src on stack with unknown offset at $cmd")
+                            throw DDAError("src on stack with unknown offset at $inst")
                         }
                         val srcStart = srcStarts.first() /** under-approximation **/
                         stackToNonStackF(srcStart, len)
@@ -197,7 +196,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             throw DDAError(msg = "$inst is not a memory instruction")
         }
 
-        val baseTy = registerTypes.typeAtInstruction(cmd, inst.access.baseReg.r)
+        val baseTy = registerTypes.typeAtInstruction(cmd, inst.access.base)
         return if (baseTy is SbfType.PointerType.Stack) {
             val bases = baseTy.offset.toLongList()
             if (bases.isEmpty()) {
@@ -236,13 +235,14 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             throw DDAError(msg = "$inst is not a binary instruction")
         }
 
+        val rhs = inst.v
         return when (inst.op) {
             BinOp.MOV -> {
-                applyAssign(inst.dst, inst.v)
+                applyAssign(inst.dst, rhs)
             } else -> {
-                when (inst.v) {
+                when (rhs) {
                     is Value.Imm -> applyBinWithImm(inst.dst)
-                    is Value.Reg -> applyBinWithReg(inst.dst, inst.v)
+                    is Value.Reg -> applyBinWithReg(inst.dst, rhs)
                 }
             }
         }
@@ -449,7 +449,10 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         val solFunction = SolanaFunction.from(inst.name)
         return if (solFunction != null) {
             when (solFunction) {
-                SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE -> analyzeMemTransfer(inState, cmd)
+                SolanaFunction.SOL_MEMCPY,
+                SolanaFunction.SOL_MEMCPY_ZEXT,
+                SolanaFunction.SOL_MEMCPY_TRUNC,
+                SolanaFunction.SOL_MEMMOVE -> analyzeMemTransfer(inState, cmd)
                 SolanaFunction.SOL_MEMSET -> analyzeMemset(inState, cmd)
                 else -> inState
             }
@@ -502,6 +505,7 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
             is SbfInstruction.Jump.UnconditionalJump,
             is SbfInstruction.Exit,
             is SbfInstruction.CallReg,
+            is SbfInstruction.Debug,
             is SbfInstruction.Un -> inState
             is SbfInstruction.Havoc -> inState.kill(RegisterVariable(inst.dst, vFac))
             is SbfInstruction.Bin -> analyzeBin(inState, cmd)
@@ -667,7 +671,10 @@ class DataDependencyAnalysis(private val target: LocatedSbfInstruction,
         val solFunction = SolanaFunction.from(inst.name)
         if (solFunction != null) {
             when (solFunction) {
-                SolanaFunction.SOL_MEMCPY, SolanaFunction.SOL_MEMMOVE -> {
+                SolanaFunction.SOL_MEMCPY,
+                SolanaFunction.SOL_MEMCPY_ZEXT,
+                SolanaFunction.SOL_MEMCPY_TRUNC,
+                SolanaFunction.SOL_MEMMOVE -> {
                     processMemTransfer(inState, outState, cmd)
                     return
                 }

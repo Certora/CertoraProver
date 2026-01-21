@@ -33,13 +33,11 @@ import spec.cvlast.QualifiedMethodSignature
 import spec.cvlast.SolidityContract
 import spec.cvlast.Visibility
 import spec.cvlast.typedescriptors.VMValueTypeDescriptor
-import tac.MetaKey
-import tac.MetaMap
-import tac.NBId
-import tac.Tag
+import tac.*
 import utils.*
 import vc.data.*
 import vc.data.SimplePatchingProgram.Companion.patchForEach
+import verifier.equivalence.VyperIODecomposer
 import java.util.stream.Collectors
 import kotlin.jvm.optionals.getOrNull
 
@@ -50,11 +48,74 @@ import kotlin.jvm.optionals.getOrNull
  * representation, and if so, what the canonical representation is.
  */
 object PureFunctionExtraction {
-    interface CallingConvention<R: CallingConvention<R>> {
-        val argSymbols: List<TACSymbol>
-        val exitVars: List<TACSymbol.Var>
-        fun withArgsAndReturns(args: List<TACSymbol>, rets: List<TACSymbol.Var>) : R
+
+    /**
+     * A calling convention, with argument and return information.
+     *
+     * Argument information is internally represented by some type (not represented in this type signature)
+     * which can be decomposed via [decomposeArgs] into a pair of a list of symbols and [CANON_ARG]. [CANON_ARG] represents some canonical
+     * representation of the *shape* of the arguments, without mentioning the actual symbols involved.
+     *
+     * Returns are represented the same way and projected similarly with [decomposeRet].
+     *
+     * This design is very similar too (not by accident) to [analysis.icfg.InternalFunctionAbstraction].
+     */
+    interface CallingConvention<R: CallingConvention<R, CANON_ARG, CANON_RET>, CANON_ARG, CANON_RET> {
+        fun decomposeArgs(): Pair<List<TACSymbol>, CANON_ARG>
+        fun decomposeRet(): Pair<List<TACSymbol.Var>, CANON_RET>
+
+        /**
+         * Return a list of variables which represent the return value locations for this function,
+         * along with code that moves data into those variables into the appropriate location in memory
+         * (e.g., for vyper). If one of the variables in this list *is* the final data location, then
+         * no code needs to appear in the second component.
+         *
+         * This code is generated assuming call index 0, i.e., before the internal function being
+         */
         fun bindOutputs(): Pair<List<TACSymbol.Var>, CommandWithRequiredDecls<TACCmd.Simple>>
+
+        /**
+         * Bind consistent, symbolic arguments for this function. The function body has
+         * been inlined with [callId]. [argumentVar] can be used to generate consistent, symbolic argument names.
+         * Calling it with `i` will yield a consistent, non-call indexed variable which represents "the ith" input value.
+         * NB that due to static array arguments in vyper, the "ith input" value may or may not correspond to the ith
+         * argument.
+         */
+        fun bindSymbolicArgs(
+            callId: CallId,
+            argumentVar: (Int) -> TACSymbol.Var
+        ) : CommandWithRequiredDecls<TACCmd.Simple>
+    }
+
+    /**
+     * An object that can consume symbol and shape information and produce a calling convention.
+     *
+     * A similar identity  holds as in [analysis.icfg.InternalFunctionAbstraction] is expected to hold.
+     *
+     * That is given some `R` where:
+     * ```
+     * R.decomposeArgs() = (L1, A)
+     * R.decomposeRet() = (L2, R)
+     * ```
+     *
+     * Then:
+     * ```
+     * create(A, L1, R, L2) == R
+     * ```
+     *
+     * A similar property regarding list length and substitution is also expected to hold.
+     *
+     * This design lets this class extract and manipulate the symbols that define the input/outputs of an internal function
+     * while remaining agnostic as to the internal representation of argument/returns.
+     */
+    fun interface CallingConventionFactory<R: CallingConvention<R, CANON_ARG, CANON_RET>, CANON_ARG, CANON_RET> {
+        fun create(
+            argCanon: CANON_ARG,
+            argSym: List<TACSymbol>,
+
+            retCanon: CANON_RET,
+            retVars: List<TACSymbol.Var>
+        ): R
     }
 
     /**
@@ -66,7 +127,7 @@ object PureFunctionExtraction {
      * the argument/return symbols. For vyper functions, this will be the the input argument offset
      * and the variable that holds the return location.
      */
-    private data class CanonicalizedFunction<R: CallingConvention<R>>(
+    private data class CanonicalizedFunction<R: CallingConvention<R, *, *>>(
         val qual: QualifiedMethodSignature,
         val where: LTACCmd,
         val callingConvention: R,
@@ -86,7 +147,7 @@ object PureFunctionExtraction {
             get() = exitVars.toSet()
     }
 
-    abstract class StandardInternalFunctionAnnotator : PureFunctionExtractor<InternalFuncStartAnnotation, InternalFuncExitAnnotation, UnifiedCallingConvention> {
+    abstract class StandardInternalFunctionAnnotator : PureFunctionExtractor<InternalFuncStartAnnotation, InternalFuncExitAnnotation, UnifiedCallingConvention, Int, Int> {
         override fun exitFinder(prog: CoreTACProgram): Summarization.ExitFinder {
             return InternalFunctionExitFinder(prog)
         }
@@ -96,64 +157,97 @@ object PureFunctionExtraction {
         override val endMeta: MetaKey<InternalFuncExitAnnotation>
             get() = INTERNAL_FUNC_EXIT
 
-
-        override fun toCallingConvention(
-            start: InternalFuncStartAnnotation,
-            exits: List<InternalFuncExitAnnotation>,
-            startSyms: List<TACSymbol>,
-            exitVars: List<TACSymbol.Var>
-        ): UnifiedCallingConvention {
-            require(exits.map {
-                it.rets.size
-            }.allSame())
-            require(start.args.size == startSyms.size)
-            /**
-             * Ensure that every return symbol i in every exit annotatino
-             * has the same location and offset. Do this by computing the set of all
-             * pairs of "location and offset" used for return symbol i, and then seeing if that
-             * set is singleton.
-             */
-            val retPayload = exits.map {
-                it.rets.map {
-                    setOf(it.location to it.offset)
-                }
-            }.reduce { a, b ->
-                a.zip(b) { accumSet, newElems ->
-                    accumSet + newElems
-                }
-            }.monadicMap {
-                it.singleOrNull()
-            } ?: error("differeng sorts and locations")
-            val translatedArgs = start.args.zip(startSyms) { a, sym ->
-                a.copy(s = sym)
-            }
-            val rets = retPayload.zip(exitVars) { (loc, offs), sym ->
-                InternalFuncRet(
-                    location = loc,
-                    s = sym,
-                    offset = offs
-                )
-            }
-            return UnifiedCallingConvention(translatedArgs, rets)
-        }
-
-        override fun getArgSymbols(l: LTACAnnotation<InternalFuncStartAnnotation>): List<TACSymbol> {
+        override fun getArgSymbols(l: LTACAnnotation<InternalFuncStartAnnotation>): Pair<List<TACSymbol>, Int> {
             return l.annotation.args.map {
                 it.s
+            } to l.annotation.args.size
+        }
+
+        override fun getExitSymbols(l: LTACAnnotation<InternalFuncExitAnnotation>): Pair<List<TACSymbol.Var>, Int> {
+            return l.annotation.rets.map { it.s } to l.annotation.rets.size
+        }
+
+        override fun create(
+            argCanon: Int,
+            argSym: List<TACSymbol>,
+            retCanon: Int,
+            retVars: List<TACSymbol.Var>
+        ): UnifiedCallingConvention {
+            return UnifiedCallingConvention(argSym, retVars)
+        }
+    }
+
+    object AdHocVyperExtractor : PureFunctionExtractor<
+        VyperInternalFuncStartAnnotation,
+        VyperInternalFuncEndAnnotation,
+        VyperCallingConvention,
+        List<VyperCallingConvention.ValueShape>,
+        VyperCallingConvention.ValueShape?>, VyperIODecomposer {
+
+
+        override fun exitFinder(prog: CoreTACProgram): Summarization.ExitFinder {
+            return object : Summarization.ExitFinder(prog) {
+                override fun calleeStarted(cmd: TACCmd.Simple.AnnotationCmd) =
+                    (cmd.annot.v as? VyperInternalFuncStartAnnotation)?.id
+                override fun calleeExited(cmd: TACCmd.Simple.AnnotationCmd) =
+                    (cmd.annot.v as? VyperInternalFuncEndAnnotation)?.id
             }
         }
 
-        override fun getExitSymbols(l: LTACAnnotation<InternalFuncExitAnnotation>): List<TACSymbol.Var> {
-            return l.annotation.rets.map { it.s }
-        }
+        override val startMeta: MetaKey<VyperInternalFuncStartAnnotation>
+            get() = VyperInternalFuncStartAnnotation.META_KEY
+        override val endMeta: MetaKey<VyperInternalFuncEndAnnotation>
+            get() = VyperInternalFuncEndAnnotation.META_KEY
 
-
-    }
-
-    object VyperExtractor : StandardInternalFunctionAnnotator() {
         override fun accept(sig: QualifiedMethodSignature, src: ContractInstanceInSDC): Boolean {
             return sig.resType.singleOrNull() is VMValueTypeDescriptor
         }
+
+        override fun create(
+            argCanon: List<VyperCallingConvention.ValueShape>,
+            argSym: List<TACSymbol>,
+            retCanon: VyperCallingConvention.ValueShape?,
+            retVars: List<TACSymbol.Var>
+        ): VyperCallingConvention {
+            require(retVars.isEmpty() == (retCanon == null))
+            require(argSym.size == argCanon.size)
+            return VyperCallingConvention(
+                argCanon.withIndex().zip(argSym) { (pos, shape), sym ->
+                    when(shape) {
+                        is VyperCallingConvention.ValueShape.InMemory -> {
+                            require(sym is TACSymbol.Const)
+                            VyperArgument.MemoryArgument(
+                                where = sym.value,
+                                size = shape.size,
+                                logicalPosition = pos
+                            )
+                        }
+                        VyperCallingConvention.ValueShape.OnStack -> {
+                            VyperArgument.StackArgument(s = sym, logicalPosition = pos)
+                        }
+                    }
+                },
+                listOfNotNull(retCanon).zip(retVars) { shape, s ->
+                    when(shape) {
+                        is VyperCallingConvention.ValueShape.InMemory -> VyperReturnValue.MemoryReturnValue(
+                            s = s, size = shape.size
+                        )
+                        VyperCallingConvention.ValueShape.OnStack -> VyperReturnValue.StackVariable(
+                            s = s
+                        )
+                    }
+                }.singleOrNull()
+            )
+        }
+
+        override fun getArgSymbols(l: LTACAnnotation<VyperInternalFuncStartAnnotation>): Pair<List<TACSymbol>, List<VyperCallingConvention.ValueShape>> {
+            return l.annotation.args.decompose()
+        }
+
+        override fun getExitSymbols(l: LTACAnnotation<VyperInternalFuncEndAnnotation>): Pair<List<TACSymbol.Var>, VyperCallingConvention.ValueShape?> {
+            return l.annotation.returnValue.decompose()
+        }
+
     }
 
 
@@ -194,7 +288,7 @@ object PureFunctionExtraction {
      * argument *values* are always the same, simply that all all of the function bodies accessed their arguments
      * (whether symbolic or constant) in the same way.
      */
-    private data class EquivalenceClass<R: CallingConvention<R>>(
+    private data class EquivalenceClass<R: CallingConvention<R, *, *>>(
         val equivClass: SimpleCanonicalization.CanonicalProgram,
         val callingConvention: R
     ) {
@@ -203,7 +297,7 @@ object PureFunctionExtraction {
         }
     }
 
-    private fun <R: CallingConvention<R>> Collection<EquivalenceClass<R>>.equivOrNull() : EquivalenceClass<R>? {
+    private fun <R: CallingConvention<R, *, *>> Collection<EquivalenceClass<R>>.equivOrNull() : EquivalenceClass<R>? {
         var curr : EquivalenceClass<R>?= null
         for(i in this) {
             if(curr == null) {
@@ -226,7 +320,7 @@ object PureFunctionExtraction {
     private fun optimizeAndRecanonicalizeForMatch(f: EquivalenceClass<*>, prefix: List<TACCmd.Simple> = listOf()): SimpleCanonicalization.CanonicalProgram {
         val meta = TACCmd.Simple.AnnotationCmd(
             exitKeepAliveMeta,
-            ExitKeepAlive(f.callingConvention.exitVars)
+            ExitKeepAlive(f.callingConvention.decomposeRet().first)
         )
         val r = f.equivClass.code.prependToBlock0(prefix).appendToSinks(CommandWithRequiredDecls(meta))
         return standardReoptimizePipeline(
@@ -262,9 +356,12 @@ object PureFunctionExtraction {
         }
     }
 
-    private fun <R: CallingConvention<R>> optimizeForGrouping(
-        f: EquivalenceClass<R>
+    private fun <R: CallingConvention<R, ARGS, RET>, ARGS, RET> optimizeForGrouping(
+        f: EquivalenceClass<R>,
+        fact: CallingConventionFactory<R, ARGS, RET>
     ) : EquivalenceClass<R> {
+        val (retVars, retShape) = f.callingConvention.decomposeRet()
+        val (argSyms, argShape) = f.callingConvention.decomposeArgs()
         val withKeepAlive = f.equivClass.code.getEndingBlocks().map {
             f.equivClass.code.analysisCache.graph.elab(it).commands.last()
         }.filter {
@@ -275,13 +372,13 @@ object PureFunctionExtraction {
                     cmd,
                     TACCmd.Simple.AnnotationCmd(
                         exitKeepAliveMeta,
-                        ExitKeepAlive(f.callingConvention.exitVars)
+                        ExitKeepAlive(retVars)
                     )
                 )
             }
         }.prependToBlock0(listOf(TACCmd.Simple.AnnotationCmd(
             StartKeepAlive.META_KEY,
-            StartKeepAlive(f.callingConvention.argSymbols)
+            StartKeepAlive(argSyms)
         )))
 
         return standardReoptimizePipeline(withKeepAlive) { preCanon ->
@@ -302,9 +399,7 @@ object PureFunctionExtraction {
             ) { prog, canonArg, canonExit ->
                 EquivalenceClass(
                     equivClass = prog,
-                    callingConvention = f.callingConvention.withArgsAndReturns(
-                        canonArg, canonExit
-                    )
+                    callingConvention = fact.create(argShape, canonArg, retShape, canonExit)
                 )
             }
         }
@@ -382,7 +477,7 @@ object PureFunctionExtraction {
         }
         val mca = prog.analysisCache[MustBeConstantAnalysis]
 
-        val argVars = startArgs.mapIndexed { idx, internalArg ->
+        val argSyms = startArgs.mapIndexed { idx, internalArg ->
             when (internalArg) {
                 is TACSymbol.Const -> internalArg
                 is TACSymbol.Var -> {
@@ -392,7 +487,7 @@ object PureFunctionExtraction {
                 }
             }
         }
-        return mk(canon, argVars, exitVars)
+        return mk(canon, argSyms, exitVars)
     }
 
     /**
@@ -420,8 +515,9 @@ object PureFunctionExtraction {
      *
      * Otherwise, we return null, indicating we could not infer a unique, canonical representation for all functions in [canoned].
      */
-    private fun <R: CallingConvention<R>> canonicalizeGroup(
-        canoned: List<CanonicalizedFunction<R>>
+    private fun <R: CallingConvention<R, ARG, RET>, ARG, RET> canonicalizeGroup(
+        canoned: List<CanonicalizedFunction<R>>,
+        factory: CallingConventionFactory<R, ARG, RET>
     ) : EquivalenceClass<R>? {
         val equiv = mutableListOf<EquivalenceClass<R>>()
         for(p in canoned) {
@@ -446,14 +542,14 @@ object PureFunctionExtraction {
          * What is the most symbolic arguments?
          */
         val mostVars = equiv.maxOf { repr ->
-            repr.callingConvention.argSymbols.count { sym -> sym is TACSymbol.Var }
+            repr.callingConvention.decomposeArgs().first.count { sym -> sym is TACSymbol.Var }
         }
 
         /**
          * Is there a single equivalence class with that count?
          */
         val mostGeneralForm = equiv.singleOrNull { eq ->
-            eq.callingConvention.argSymbols.count { sym ->
+            eq.callingConvention.decomposeArgs().first.count { sym ->
                 sym is TACSymbol.Var
             } == mostVars
         }
@@ -466,9 +562,12 @@ object PureFunctionExtraction {
         if(mostGeneralForm == null) {
             // one last try
             return equiv.map {
-                optimizeForGrouping(it)
+                optimizeForGrouping(it, factory)
             }.equivOrNull()
         }
+
+        val (mostGeneralSym, mostGeneralShape) = mostGeneralForm.callingConvention.decomposeArgs()
+
         /**
          * Otherwise, see if the other equivalence classes are just specializations of mostGeneralForm
          */
@@ -476,10 +575,13 @@ object PureFunctionExtraction {
             if(eq.equivClass equivTo mostGeneralForm.equivClass) {
                 continue
             }
-            if(eq.callingConvention.argSymbols.size != mostGeneralForm.callingConvention.argSymbols.size) {
+
+            val (otherSym, otherShape) = eq.callingConvention.decomposeArgs()
+            if(otherShape != mostGeneralShape) {
                 return null
             }
-            val zipped = mostGeneralForm.callingConvention.argSymbols.zip(eq.callingConvention.argSymbols)
+
+            val zipped = mostGeneralSym.zip(otherSym)
 
             /**
              * This prefix is passed to [optimizeAndRecanonicalizeForMatch] for the general form, and effects the
@@ -557,7 +659,7 @@ object PureFunctionExtraction {
      * Indicates that all instances of [sig] within some external program have a canonical representation of
      * [prog]. NB this comes with some caveats, given the handling of specialization described in [canonicalizeGroup]
      */
-    data class CanonFunction<R: CallingConvention<R>>(
+    data class CanonFunction<R: CallingConvention<R, *, *>>(
         val sig: QualifiedMethodSignature,
         val prog: SimpleCanonicalization.CanonicalProgram,
         val callingConvention: R
@@ -581,10 +683,10 @@ object PureFunctionExtraction {
      * compute which can be assigned a canonical representation as represented by the [CanonFunction]
      * objects in the returned list.
      */
-    private fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R>> findCanonicalRepresentationFor(
+    private fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R, CARG, CRET>, CARG, CRET> findCanonicalRepresentationFor(
         prog: CoreTACProgram,
         pureInternalSigs: Collection<QualifiedMethodSignature>,
-        extractor: PureFunctionExtractor<T, U, R>
+        extractor: PureFunctionExtractor<T, U, R, CARG, CRET>
     ) : List<CanonFunction<R>> {
         val exits = extractor.exitFinder(prog)
         val canoned = prog.parallelLtacStream().mapNotNull {
@@ -626,18 +728,28 @@ object PureFunctionExtraction {
              *
              * However, this sort of variable reuse is not expected in practice thanks to DSA.
              */
-            val equivs = funcExits.toEquivClasses { exit ->
-                extractor.getExitSymbols(exit)
-            }
+
+            val (exitVars, exitShapes) = funcExits.map {
+                extractor.getExitSymbols(it)
+            }.unzip()
+            require(exitShapes.allSame())
+            val exitShape = exitShapes.first()
+
+            val (argSyms, argShapes) = extractor.getArgSymbols(start)
+
+            val equivs = exitVars.toEquivClasses { it }
             canonicalizeWithIO(
                 prog = prog,
                 start = where,
                 funcExits = equivs,
                 end = { maybeExit -> maybeExit.maybeAnnotation(extractor.endMeta)?.id == start.annotation.id },
-                startArgs = extractor.getArgSymbols(start)
-            ) { prog, startSyms, exitVars ->
-                val callingConv = extractor.toCallingConvention(
-                    start.annotation, funcExits.map { it.annotation }, startSyms, exitVars
+                startArgs = argSyms
+            ) { prog, startSyms, canonExitVars ->
+                val callingConv = extractor.create(
+                    argCanon = argShapes,
+                    argSym = startSyms,
+                    retCanon = exitShape,
+                    retVars = canonExitVars
                 )
 
                 CanonicalizedFunction(
@@ -657,7 +769,7 @@ object PureFunctionExtraction {
          */
         val toRet = mutableListOf<CanonFunction<R>>()
         for((_, subFuncs) in canoned) {
-            val repr = canonicalizeGroup(subFuncs) ?: continue
+            val repr = canonicalizeGroup(subFuncs, extractor) ?: continue
             toRet.add(
                 CanonFunction(
                     sig = subFuncs.first().qual,
@@ -669,22 +781,15 @@ object PureFunctionExtraction {
         return toRet
     }
 
-    interface PureFunctionExtractor<T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R>> {
+    interface PureFunctionExtractor<T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R, CANON_ARG, CANON_RET>, CANON_ARG, CANON_RET> : CallingConventionFactory<R, CANON_ARG, CANON_RET> {
         fun exitFinder(prog: CoreTACProgram) : Summarization.ExitFinder
-        fun getExitSymbols(l: LTACAnnotation<U>) : List<TACSymbol.Var>
-        fun getArgSymbols(l: LTACAnnotation<T>) : List<TACSymbol>
+        fun getExitSymbols(l: LTACAnnotation<U>) : Pair<List<TACSymbol.Var>, CANON_RET>
+        fun getArgSymbols(l: LTACAnnotation<T>) : Pair<List<TACSymbol>, CANON_ARG>
 
         val startMeta: MetaKey<T>
         val endMeta: MetaKey<U>
 
         fun accept(sig: QualifiedMethodSignature, src: ContractInstanceInSDC) : Boolean
-
-        fun toCallingConvention(
-            start: T,
-            exits: List<U>,
-            startSyms: List<TACSymbol>,
-            exitVars: List<TACSymbol.Var>
-        ) : R
     }
 
     /**
@@ -693,7 +798,7 @@ object PureFunctionExtraction {
      * 2. Have only scalar input/output types
      * 3. Have some canonical representation.
      */
-    fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R>> canonicalPureFunctionsIn(m: TACMethod, extractor: PureFunctionExtractor<T, U, R>) : List<CanonFunction<R>> {
+    fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: CallingConvention<R, ARG, RET>, ARG, RET> canonicalPureFunctionsIn(m: TACMethod, extractor: PureFunctionExtractor<T, U, R, ARG, RET>) : List<CanonFunction<R>> {
         val src = (m.getContainingContract() as? IContractWithSource)?.src ?: return listOf()
         val prog = m.code as CoreTACProgram
         val res = prog.parallelLtacStream().mapNotNull {

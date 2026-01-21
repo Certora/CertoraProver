@@ -62,15 +62,9 @@ class TACStoresTest {
         cfg.normalize()
         cfg.verify(true)
 
-        var exception = false
-        try {
+        expectException<UnknownStackContentError> {
             toTAC(cfg)
         }
-        catch (e: UnknownStackContentError) {
-            println("Test failed as expected because $e")
-            exception = true
-        }
-        Assertions.assertEquals(true, exception)
     }
 
     @Test
@@ -229,15 +223,11 @@ class TACStoresTest {
         cfg.normalize()
         cfg.verify(true)
 
-        var exception = false
-        try {
-            toTAC(cfg)
+        expectException<TACTranslationError> {
+            ConfigScope(SolanaConfig.DefactoSemantics, false).use {
+                toTAC(cfg)
+            }
         }
-        catch (e: TACTranslationError) {
-            println("Test failed as expected because $e")
-            exception = true
-        }
-        Assertions.assertEquals(true, exception)
     }
 
     /**

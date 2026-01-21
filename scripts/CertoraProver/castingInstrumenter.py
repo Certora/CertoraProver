@@ -15,10 +15,11 @@
 
 
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, Generator
+from typing import Dict, Any, Optional, Callable, Generator
 
 from CertoraProver.Compiler.CompilerCollectorSol import CompilerCollectorSol
 from CertoraProver.certoraBuildDataClasses import SDC, Instrumentation, Replace
+from CertoraProver.certoraOffsetConverter import OffsetConverter
 from Shared import certoraUtils as Util
 
 
@@ -92,7 +93,7 @@ def find_casts(ast: Dict[int, Any]) -> list[CastInfo]:
     function_nodes = [node for node in ast.values() if node.get('nodeType') == 'FunctionDefinition']
 
     for func in function_nodes:
-        for node in iter_all_nodes(func):
+        for node in iter_all_nodes_under(func):
             if isinstance(node, dict) and node.get("kind") == "typeConversion":
                 arguments = node.get("arguments", [])
                 if len(arguments) == 1 and isinstance(arguments[0], dict):
@@ -119,19 +120,21 @@ def casting_func_name(counter: int) -> str:
     return f"cast_{counter}"
 
 
-def generate_casting_function(assembly_prefix: str, cast_info: CastInfo, counter: int) -> str:
+def generate_casting_function(assembly_prefix: str, cast_info: CastInfo, counter: int, line: int, column: int) -> str:
     """
     returns the text of a solidity function that does casting according to CastInfo. It also has an encoded mload
     call, to be decoded later on the kotlin side if we run the `safeCasting` builtin rule.
     """
-    conversion_string = assembly_prefix + \
-        "{ mstore(0xffffff6e4604afefe123321beef1b03fffffffffffffffffffff" + \
-        f'{"%0.4x" % counter}{"%0.4x" % encode_type(cast_info.arg_type_str)}{"%0.4x" % encode_type(cast_info.res_type_str)}, x)' + "}"
+    conversion_string = (assembly_prefix +
+                         "{ mstore(0xffffff6e4604afefe123321beef1b03fffffffffffffff" +
+                         f'{"%0.5x" % line}{"%0.5x" % column}{"%0.4x" % encode_type(cast_info.arg_type_str)}{"%0.4x" % encode_type(cast_info.res_type_str)}, x)'
+                         "}")
     function_head = f"function {casting_func_name(counter)}({cast_info.arg_type_str} x) internal pure returns ({cast_info.res_type_str})"
     return function_head + "{\n" + conversion_string + f"return {cast_info.res_type_str}(x);\n" "}\n"
 
 
-def generate_casting_instrumentation(asts: Dict[str, Dict[str, Dict[int, Any]]], contract_file: str, sdc: SDC) \
+def generate_casting_instrumentation(asts: Dict[str, Dict[str, Dict[int, Any]]], contract_file: str, sdc: SDC,
+                                     offset_converters: dict[str, OffsetConverter]) \
         -> tuple[Dict[str, Dict[int, Instrumentation]], Dict[str, tuple[str, list[str]]]]:
     """
     Generate instrumentation for integer type casts in Solidity code.
@@ -152,7 +155,7 @@ def generate_casting_instrumentation(asts: Dict[str, Dict[str, Dict[int, Any]]],
                         " when trying to add casting instrumentation")
     assembly_prefix = sdc.compiler_collector.gen_memory_safe_assembly_prefix()
 
-    casting_funcs : Dict[str, tuple[str, list[str]]] = dict()
+    casting_funcs: dict[str, tuple[str, list[str]]] = dict()
     counter = 0
     original_files = sorted({Util.convert_path_for_solc_import(c.original_file) for c in sdc.contracts})
     for file_count, solfile in enumerate(original_files, start=1):
@@ -165,28 +168,32 @@ def generate_casting_instrumentation(asts: Dict[str, Dict[str, Dict[int, Any]]],
         casts = find_casts(curr_file_ast)
         for cast_info in casts:
             start_offset, src_len, file = curr_file_ast[cast_info.expr_id]["src"].split(":")
+            line, column = offset_converters[solfile].offset_to_line_column(int(start_offset))
             counter += 1
             per_file_inst[int(start_offset)] = Instrumentation(expected=bytes(cast_info.res_type_str[0], 'utf-8'),
                                                                to_ins=f"{libname}.{casting_func_name(counter)}",
                                                                mut=Replace(len(cast_info.res_type_str)))
-            new_func = generate_casting_function(assembly_prefix, cast_info, counter)
+            new_func = generate_casting_function(assembly_prefix, cast_info, counter, line, column)
             per_file_casts.append(new_func)
 
     return casting_instrumentation, casting_funcs
 
 
-def iter_all_nodes(node: Any) -> Generator[Any, Optional[Any], None]:
+def iter_all_nodes_under(node: Any, f: Callable[[Any], bool] = lambda node: True, is_inside: bool = False) \
+        -> Generator[Any, Optional[Any], None]:
     """
-    Yield a node and all its subnodes in depth-first order.
+    Yield a node and all its subnodes in depth-first order, but only recursively under nodes where f returns True.
     Works with dict nodes that may contain nested dicts and lists.
     """
-    yield node
+    inside = is_inside
+    if f(node):
+        inside = True
+    if inside:
+        yield node
 
     if isinstance(node, dict):
         for value in node.values():
-            if isinstance(value, (dict, list)):
-                yield from iter_all_nodes(value)
+            yield from iter_all_nodes_under(value, f, inside)
     elif isinstance(node, list):
         for item in node:
-            if isinstance(item, (dict, list)):
-                yield from iter_all_nodes(item)
+            yield from iter_all_nodes_under(item, f, inside)

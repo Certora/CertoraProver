@@ -24,6 +24,9 @@ import sbf.domains.*
 import sbf.testing.SbfTestDSL
 import org.junit.jupiter.api.*
 import sbf.analysis.AnalysisRegisterTypes
+import sbf.support.UnsupportedCallX
+import sbf.callgraph.SolanaFunction
+
 
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val env = StackEnvironment<ScalarValue<Constant, Constant>>()
@@ -365,5 +368,289 @@ class ScalarDomainTest {
         for (check in prover.getChecks()) {
             Assertions.assertEquals(true, check.result)
         }
+    }
+
+    @Test
+    fun `callx is not supported`() {
+
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val cfg = MutableSbfCFG("test")
+        val b0 = cfg.getOrInsertBlock(Label.Address(0))
+        cfg.setEntry(b0)
+        b0.add(SbfInstruction.CallReg(r1))
+        b0.add(SbfInstruction.Exit())
+
+        expectException<UnsupportedCallX> {
+            ScalarAnalysisProver(cfg, sbfTypesFac)
+        }
+    }
+
+    /**
+     * ```
+     *  *(u8 *) (r10-183):sp(3913) = 5
+     *  memcpy_zext(r10-1408, r10-183, 1)
+     *  r2 = *(u64 *) (r10-1408):sp(2688)
+     *  assert(r2 == 5)
+     * ```
+     */
+    @Test
+    fun `basic memcpy_zext`() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+
+        // *(u8 *) (r10-183):sp(3913) := 5
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm(5UL), false))
+        // memcpy_zext(r10-1408, r10-183, 1)
+        b1.add(SbfInstruction.Bin(BinOp.MOV, r1, r10, true))
+        b1.add(SbfInstruction.Bin(BinOp.SUB, r1, Value.Imm(1408UL), true))
+        b1.add(SbfInstruction.Bin(BinOp.MOV, r2, r10, true))
+        b1.add(SbfInstruction.Bin(BinOp.SUB, r2, Value.Imm(183UL), true))
+        b1.add(SbfInstruction.Bin(BinOp.MOV, r3, Value.Imm(1UL), true))
+        b1.add(SbfInstruction.Call(SolanaFunction.SOL_MEMCPY_ZEXT.syscall.name))
+        //  r2 := *(u64 *) (r10-1408):sp(2688)
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -1408), r2, true))
+        // assert(r1 == 5)
+        b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r2, Value.Imm(5UL))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        println("$cfg")
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    /**
+     * ```
+     *  *(u8 *) (r10-183):sp(3913) = 5
+     *  r1 = *(u8 *) (r10-183):sp(3913)
+     *  assert(r1 == 5)
+     * ```
+     */
+    @Test
+    fun `store of positive number of 1 byte and load of 1 byte`() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+
+        // *(u8 *) (r10-183):sp(3913) := 5
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm(5.toULong()), false))
+        // r1 = *(u8 *) (r10-183):sp(3913)
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), r1, true))
+        // assert(r1 == 5)
+        b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r1, Value.Imm(5UL))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        println("$cfg")
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    /**
+     * ```
+     *  *(u8 *) (r10-183):sp(3913) = -5
+     *  r1 = *(u8 *) (r10-183):sp(3913)
+     *  assert(r1 == 251)
+     * ```
+     */
+    @Test
+    fun `store of negative number of 1 byte and load of 1 byte`() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+
+        // *(u8 *) (r10-183):sp(3913) := -5
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm((-5).toULong()), false))
+        // r1 = *(u8 *) (r10-183):sp(3913)
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), r1, true))
+        // assert(r1 == 251)
+        b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r1, Value.Imm(251UL))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        println("$cfg")
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    /**
+     * ```
+     *  *(u8 *) (r10-183):sp(3913) = -5
+     *  r1 = *(u8 *) (r10-183):sp(3913)
+     *  r1 = r1 << 56
+     *  r1 = r1 >> 56
+     *  assert(r1 == -5)
+     * ```
+     */
+    @Test
+    fun `store of negative number of 1 byte and load of 1 byte with signed extension`() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+
+        // *(u8 *) (r10-183):sp(3913) := -5
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm((-5).toULong()), false))
+        // r1 = *(u8 *) (r10-183):sp(3913)
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), r1, true))
+        // signed extension of r1
+        b1.add(SbfInstruction.Bin(BinOp.LSH, r1, Value.Imm(56UL), true))
+        b1.add(SbfInstruction.Bin(BinOp.ARSH, r1, Value.Imm(56UL), true))
+        // assert(r1 == -5)
+        b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r1, Value.Imm((-5).toULong()))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        println("$cfg")
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    /**
+     * ```
+     *  *(u8 *) (r10-183):sp(3913) = -5
+     *  memcpy_zext(r10-1408, r10-183, 1)
+     *  r2 = *(u64 *) (r10-1408):sp(2688)
+     *  assert(r2 == 251)
+     * ```
+     */
+    @Test
+    fun `basic memcpy_zext with negative number`() {
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r3 = Value.Reg(SbfRegister.R3_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+
+        // *(u8 *) (r10-183):sp(3913) := -5
+        b1.add(SbfInstruction.Mem(Deref(1, r10, -183), Value.Imm((-5).toULong()), false))
+        // memcpy_zext(r10-1408, r10-183, 1)
+        b1.add(SbfInstruction.Bin(BinOp.MOV, r1, r10, true))
+        b1.add(SbfInstruction.Bin(BinOp.SUB, r1, Value.Imm(1408UL), true))
+        b1.add(SbfInstruction.Bin(BinOp.MOV, r2, r10, true))
+        b1.add(SbfInstruction.Bin(BinOp.SUB, r2, Value.Imm(183UL), true))
+        b1.add(SbfInstruction.Bin(BinOp.MOV, r3, Value.Imm(1UL), true))
+        b1.add(SbfInstruction.Call(SolanaFunction.SOL_MEMCPY_ZEXT.syscall.name))
+        //  r2 := *(u64 *) (r10-1408):sp(2688)
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -1408), r2, true))
+        // assert(r1 == 251)
+        b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r2, Value.Imm(251UL))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        println("$cfg")
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    @Test
+    fun `narrowing store of non-negative number without memcpy promotion`() {
+        val cfg = `narrowing store`(5UL, 5UL)
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    private val globals = GlobalVariables(DefaultElfFileView)
+    private val memSummaries = MemorySummaries()
+
+    @Test
+    fun `narrowing store of non-negative number with memcpy promotion`() {
+        val cfg = `narrowing store`(5UL, 5UL)
+        promoteStoresToMemcpy(cfg, globals, memSummaries)
+        removeUselessDefinitions(cfg)
+        println("$cfg")
+
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+
+    @Test
+    fun `narrowing store of negative number without memcpy promotion`() {
+        val cfg = `narrowing store`((-5).toULong(), 65531UL)
+
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    @Test
+    fun `narrowing store of negative number with memcpy promotion`() {
+        val cfg = `narrowing store`((-5).toULong(), 65531UL)
+        promoteStoresToMemcpy(cfg, globals, memSummaries)
+        removeUselessDefinitions(cfg)
+        println("$cfg")
+
+        val prover = ScalarAnalysisProver(cfg, sbfTypesFac)
+        for (check in prover.getChecks()) {
+            Assertions.assertEquals(true, check.result)
+        }
+    }
+
+    /**
+     * call CVT_nondet_u16
+     * assume(r0 == storedVal)
+     * *(u64 *) (r10 + -24):sp(4076) := r0
+     *
+     * r1 = *(u64 *) (r10-24):sp(4076)
+     * *(u16 *) (r10-524):sp(3572) = r1 // narrowing store
+     *
+     * r2 = *(u16 *) (r10 - 524):sp(3572)
+     * assert(r2 == assertedVal)
+     */
+    private fun `narrowing store`(storedVal: ULong, assertedVal: ULong): MutableSbfCFG {
+        val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
+        val r1 = Value.Reg(SbfRegister.R1_ARG)
+        val r2 = Value.Reg(SbfRegister.R2_ARG)
+        val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
+        val cfg = MutableSbfCFG("test")
+        val b1 = cfg.getOrInsertBlock(Label.Address(1))
+        cfg.setEntry(b1)
+
+        b1.add(SbfInstruction.Call("CVT_nondet_u16"))
+        b1.add(SbfInstruction.Assume(Condition(CondOp.EQ, r0, Value.Imm(storedVal))))
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -24), r0, false))
+        b1.add(SbfInstruction.Mem(Deref(8, r10, -24), r1, true))
+        b1.add(SbfInstruction.Mem(Deref(2, r10, -524), r1, false))
+        b1.add(SbfInstruction.Mem(Deref(2, r10, -524), r2, true))
+        b1.add(SbfInstruction.Assert(Condition(CondOp.EQ, r2, Value.Imm(assertedVal))))
+        b1.add(SbfInstruction.Exit())
+        cfg.normalize()
+        cfg.verify(true)
+
+        println("$cfg")
+        return cfg
     }
 }

@@ -58,13 +58,13 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> reorderLoads(
     var totalReorderedLoads = 0
     for (b in cfg.getMutableBlocks().values) {
         // For each block we reorder loads until no more changes.
-        // We do it in this way because `regTypes` might be invalidated after each reordering.
+        // We do it in this way because `types` might be invalidated after each reordering.
         var change = true
         var i = 0
         while (change && i < maxNumOfReorderedLoadsPerBlock) {
             change = false
-            val regTypes = AnalysisRegisterTypes(scalarAnalysis)
-            findReordering(b, regTypes)?.let { (loadLocInst, storeLocInst) ->
+            val types = AnalysisRegisterTypes(scalarAnalysis)
+            findReordering(b, types)?.let { (loadLocInst, storeLocInst) ->
 
                 // Do the actual transformation: remove load and add it before the store
                 b.removeAt(loadLocInst.pos)
@@ -88,7 +88,7 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> reorderLoads(
  */
 private fun<D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> findReordering(
     b: SbfBasicBlock,
-    regTypes: AnalysisRegisterTypes<D,TNum, TOffset>
+    types: AnalysisRegisterTypes<D,TNum, TOffset>
 ): Pair<LocatedSbfInstruction, LocatedSbfInstruction>?
 where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset>{
 
@@ -102,7 +102,7 @@ where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset>{
         val lhs = loadInst.value
         check(lhs is Value.Reg)
 
-        val loadAccess = normalizeLoadOrStore(locInst, regTypes)
+        val loadAccess = normalizeLoadOrStore(locInst, types)
         if (loadAccess.region != MemAccessRegion.STACK) {
             continue
         }
@@ -116,7 +116,7 @@ where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset>{
         if (storeInst !is SbfInstruction.Mem || storeInst.isLoad || storeInst.value != lhs) {
             continue
         }
-        val storeAccess = normalizeLoadOrStore(nextUse, regTypes)
+        val storeAccess = normalizeLoadOrStore(nextUse, types)
         if (storeAccess.region != MemAccessRegion.STACK) {
             continue
         }
@@ -143,7 +143,7 @@ private fun canLoadBeReordered(
     return b.getLocatedInstructions().subList(from.pos+1, to.pos).none {
         val inst = it.inst
         // forbid if the base register is overwritten
-        inst.writeRegister.contains(loadInst.access.baseReg) ||
+        inst.writeRegister.contains(loadInst.access.base) ||
             // forbid if any store occurs
             (inst is SbfInstruction.Mem && !inst.isLoad)
     }

@@ -36,15 +36,17 @@ from CertoraProver.certoraBuildDataClasses import CONTRACTS, ImmutableReference,
     Instrumentation, InsertBefore, InsertAfter, UnspecializedSourceFinder, instrumentation_logger
 from CertoraProver.certoraCompilerParameters import SolcParameters
 from CertoraProver.certoraContractFuncs import Func, InternalFunc, STATEMUT, SourceBytes, VyperMetadata
+from CertoraProver.certoraOffsetConverter import generate_offset_converters
 from CertoraProver.certoraSourceFinders import add_source_finders
 from CertoraProver.certoraVerifyGenerator import CertoraVerifyGenerator
+from CertoraProver.uncheckedOverflowInstrumenter import generate_overflow_instrumentation, add_instrumentation
 
 scripts_dir_path = Path(__file__).parent.parent.resolve()  # containing directory
 sys.path.insert(0, str(scripts_dir_path))
 from CertoraProver.Compiler.CompilerCollector import CompilerLang, CompilerCollector
 from CertoraProver.Compiler.CompilerCollectorSol import CompilerCollectorSol, CompilerLangSol
 from CertoraProver.Compiler.CompilerCollectorYul import CompilerLangYul, CompilerCollectorYul
-from CertoraProver.Compiler.CompilerCollectorVy import CompilerLangVy
+from CertoraProver.Compiler.CompilerCollectorVy import CompilerLangVy, CompilerCollectorVy
 from CertoraProver.Compiler.CompilerCollectorFactory import CompilerCollectorFactory, \
     get_relevant_compiler, get_compiler_lang
 from CertoraProver.certoraNodeFilters import NodeFilters as Nf
@@ -444,7 +446,7 @@ def generate_inline_finder(f: Func, internal_id: int, sym: int, compiler_collect
     return finder[1]
 
 
-def convert_pathname_to_posix(json_dict: Dict[str, Any], entry: str, smart_contract_lang: CompilerLang) -> None:
+def convert_pathname_to_posix(json_dict: Dict[str, Any], entry: str, compiler_collector: CompilerCollector) -> None:
     """
     assuming the values kept in the entry [entry] inside [json_dict] are path names
     :param json_dict: dict to iterate on
@@ -453,7 +455,7 @@ def convert_pathname_to_posix(json_dict: Dict[str, Any], entry: str, smart_contr
     if entry in json_dict:
         json_dict_posix_paths = {}
         for file_path in json_dict[entry]:
-            path_obj = Path(smart_contract_lang.normalize_file_compiler_path_name(file_path))
+            path_obj = Path(compiler_collector.normalize_file_compiler_path_name(file_path))
             if path_obj.is_file():
                 json_dict_posix_paths[path_obj.as_posix()] = json_dict[entry][file_path]
             else:
@@ -461,7 +463,7 @@ def convert_pathname_to_posix(json_dict: Dict[str, Any], entry: str, smart_contr
                 # protecting against long strings
                 if len(json_dict_str) > 200:
                     json_dict_str = json_dict_str[:200] + '...'
-                fatal_error(compiler_logger, f"The path of the source file {file_path} "
+                fatal_error(compiler_logger, f"The path of the source file {file_path} ({path_obj})"
                                              f"in the standard json file does not exist!\n{json_dict_str} ")
         json_dict[entry] = json_dict_posix_paths
 
@@ -1152,7 +1154,12 @@ class CertoraBuildGenerator:
         if file_abs_path.suffix == VY:
             smart_contract_lang: CompilerLang = CompilerLangVy()
             sdc_name = self.file_to_sdc_name[Path(contract_file).absolute()]
-            standard_json_data = self.get_standard_json_data(sdc_name, smart_contract_lang)
+            """
+            maintain backward-compatibility,
+            but in reality this equiavlence checker (equivChecker.py) should be removed
+            """
+            dummyCompilerCollectorVy = CompilerCollectorVy((0, 3, 10))
+            standard_json_data = self.get_standard_json_data(sdc_name, smart_contract_lang, dummyCompilerCollectorVy)
             abi = standard_json_data[CONTRACTS][str(Path(contract_file).absolute())][contract_name]['abi']
             ast_logger.debug(f"abi is: \n{abi}")
             for f in filter(lambda x: self.is_imported_abi_entry(x), abi):
@@ -1163,11 +1170,14 @@ class CertoraBuildGenerator:
         elif file_abs_path.suffix == SOL:
             smart_contract_lang = CompilerLangSol()
             sdc_name = self.file_to_sdc_name[file_abs_path]
-            compilation_path = self.get_compilation_path(sdc_name)
-            standard_json_data = self.get_standard_json_data(sdc_name, smart_contract_lang)
+            compilation_path = Path(Util.abs_posix_path(contract_file))
+            compilerCollectorSol = self.compiler_coll_factory.get_compiler_collector(compilation_path)
+            standard_json_data = self.get_standard_json_data(sdc_name, smart_contract_lang, compilerCollectorSol)
             storage_data = smart_contract_lang.collect_storage_layout_info(str(file_abs_path), compilation_path,
                                                                            solc, None,
-                                                                           standard_json_data)
+                                                                           standard_json_data,
+                                                                           {},  # dummy ast, not used in solc
+                                                                           str(contract_file))
             abi = storage_data[CONTRACTS][str(file_abs_path)][contract_name]["abi"]
             ast_logger.debug(f"abi is: \n{abi}")
             for f in filter(lambda x: self.is_imported_abi_entry(x), abi):
@@ -1270,7 +1280,7 @@ class CertoraBuildGenerator:
         else:
             raise RuntimeError(f"failed to get contract bytes for {contract_name} in file {contract_file}")
 
-    def get_standard_json_data(self, sdc_name: str, smart_contract_lang: CompilerLang) -> Dict[str, Any]:
+    def get_standard_json_data(self, sdc_name: str, smart_contract_lang: CompilerLang, compiler_collector : CompilerCollector) -> Dict[str, Any]:
         json_file = smart_contract_lang.compilation_output_path(sdc_name)
         process_logger.debug(f"reading standard json data from {json_file}")
         # jira CER_927 - under windows it happens the solc generate wrong
@@ -1278,7 +1288,7 @@ class CertoraBuildGenerator:
         json_dict = Util.read_json_file(json_file)
         entries = [CONTRACTS, "sources"]
         for ent in entries:
-            convert_pathname_to_posix(json_dict, ent, smart_contract_lang)
+            convert_pathname_to_posix(json_dict, ent, compiler_collector)
         return json_dict
 
     def cleanup_compiler_outputs(self, sdc_name: str, smart_contract_lang: CompilerLang) -> None:
@@ -1570,6 +1580,9 @@ class CertoraBuildGenerator:
         """
         solc_json_contract_key = os.path.relpath(contract_file_as_provided, compile_wd) if self.context.use_relpaths_for_solc_json else contract_file_posix_abs
         compiler_collector_lang = compiler_collector.smart_contract_lang
+        main_contract_for_output_selection = "*"
+        search_paths_arr = None
+        additional_asts = None
         if compiler_collector_lang == CompilerLangSol() or compiler_collector_lang == CompilerLangYul():
             sources_dict = {str(solc_json_contract_key): {
                 "urls": [str(contract_file_posix_abs)]}}  # type: Dict[str, Dict[str, Any]]
@@ -1578,28 +1591,59 @@ class CertoraBuildGenerator:
                                 "evm.bytecode.functionDebugData"]
             ast_selection = ["id", "ast"]
         elif compiler_collector_lang == CompilerLangVy():
+            main_contract_for_output_selection = "*"
+            sources_dict = {}
             with open(contract_file_posix_abs) as f:
-                contents = f.read()
-                sources_dict = {str(contract_file_posix_abs): {"content": contents}}
+                if self.context.vyper_custom_std_json_in_map and contract_file_as_provided in self.context.vyper_custom_std_json_in_map:
+                    """
+                    If we're given a custom standard_json, we'll take from it the sources and
+                    the search paths.
+                    In particular, we will separate between the interfaces (*.vyi) and regular files,
+                    so that we could get the ASTs for the regular files (as those are compilation units).
+                    This was tested ONLY on a single contract
+                    (ask Shelly)
+                    and may require refinement
+                    if we get more projects.
+                    """
+                    vyper_custom_std_json_in = self.context.vyper_custom_std_json_in_map[contract_file_as_provided]
+                    with open(vyper_custom_std_json_in) as custom:
+                        custom_json = json.load(custom)
+                        sources_dict = custom_json.get("sources", None)
+                        search_paths_arr = custom_json.get("settings", {}).get("search_paths", None)
+                        additional_asts = [x for x, _ in sources_dict.items() if x.endswith(".vy")]
+                if not sources_dict:
+                    contents = f.read()
+                    sources_dict = {str(contract_file_posix_abs): {"content": contents}}
                 output_selection = ["abi", "evm.bytecode", "evm.deployedBytecode", "evm.methodIdentifiers"]
                 if compiler_collector.compiler_version >= (0, 4, 4):
                     output_selection += ["metadata", "evm.deployedBytecode.symbolMap"]
                 ast_selection = ["ast"]
+        else:
+            # "non-compilable" language so no need to deal with it
+            fatal_error(compiler_logger, "Expected only Solidity and Vyper as "
+                                         "languages for which we build a standard-json")
 
         settings_dict: Dict[str, Any] = \
             {
                 "remappings": remappings,
                 "outputSelection": {
-                    "*": {
+                    main_contract_for_output_selection: {
                         "*": output_selection,
                         "": ast_selection
                     }
                 }
             }
+        if search_paths_arr:
+            settings_dict["search_paths"] = search_paths_arr
+        if additional_asts:
+            for p in additional_asts:
+                if p != main_contract_for_output_selection:
+                    settings_dict["outputSelection"][p] = {"": ["ast"]}
 
         self._fill_codegen_related_options(Path(contract_file_as_provided), settings_dict, compiler_collector)
 
         result_dict = {"language": compiler_collector_lang.name, "sources": sources_dict, "settings": settings_dict}
+
         # debug_print("Standard json input")
         # debug_print(json.dumps(result_dict, indent=4))
         return result_dict
@@ -1881,7 +1925,7 @@ class CertoraBuildGenerator:
                               compiler_input=standard_json_input)
 
         compiler_logger.debug(f"Collecting standard json: {collect_cmd}")
-        standard_json_data = self.get_standard_json_data(sdc_name, smart_contract_lang)
+        standard_json_data = self.get_standard_json_data(sdc_name, smart_contract_lang, compiler_collector)
 
         for error in standard_json_data.get("errors", []):
             # is an error not a warning
@@ -1890,8 +1934,10 @@ class CertoraBuildGenerator:
                 # 6275 the error code of solc compiler for missing file
                 if 'errorCode' in error and error['errorCode'] == '6275':
                     print_package_file_note()
+
+                error_msg = error.get("formattedMessage", error.get("message", "[no msg]"))
                 friendly_message = f"{compiler_ver_to_run} had an error:\n" \
-                                   f"{error['formattedMessage']}"
+                                   f"{error_msg}"
                 if fail_on_compilation_error:
                     raise Util.CertoraUserInputError(friendly_message)
                 else:
@@ -1900,16 +1946,20 @@ class CertoraBuildGenerator:
                     raise Util.SolcCompilationException(friendly_message)
 
         # load data
-        data = \
-            smart_contract_lang.collect_storage_layout_info(file_abs_path, compilation_path, compiler_ver_to_run,
-                                                            compiler_collector.compiler_version,
-                                                            standard_json_data)  # Note we collected for just ONE file
+        # In vyper, we first need the ASTs. Then collect_storage_layout_info will add
+        # storage layout keys for vyper and do nothing for solidity,
+        data = standard_json_data
         self.check_for_errors_and_warnings(data, fail_on_compilation_error)
         if smart_contract_lang.supports_ast_output:
             self.collect_asts(build_arg_contract_file, data["sources"])
+        data = \
+            smart_contract_lang.collect_storage_layout_info(file_abs_path, compilation_path, compiler_ver_to_run,
+                                                            compiler_collector.compiler_version,
+                                                            data, self.asts.get(build_arg_contract_file, {}),
+                                                            build_arg_contract_file)  # Note we collected for just ONE file
 
         contracts_with_libraries = {}
-        file_compiler_path = smart_contract_lang.normalize_file_compiler_path_name(file_abs_path)
+        file_compiler_path = compiler_collector.normalize_file_compiler_path_name(file_abs_path)
 
         # But apparently this heavily depends on the Solidity AST format anyway
 
@@ -2263,15 +2313,10 @@ class CertoraBuildGenerator:
                 vyper_metadata.venom_via_stack = metadata_func_info['venom_via_stack']
             if metadata_func_info.get('venom_return_via_stack'):
                 vyper_metadata.venom_return_via_stack = metadata_func_info['venom_return_via_stack']
-            pattern_in_symbol_map = re.compile(fr"{func_name}\(.*\)_runtime$")
-            matches = [k for k in symbol_map if pattern_in_symbol_map.search(k)]
-            if len(matches) == 0:
-                build_logger.warning(f"Could not find symbol map entry for {func_name} probably was inlined")
+            symbol_map_name = metadata_func_info["_ir_identifier"] + "_runtime"
+            if symbol_map_name not in symbol_map:
                 continue
-            elif len(matches) > 1:
-                raise RuntimeError(f"Found multiple matches for {func_name} in symbol map: {matches}")
-            else:
-                vyper_metadata.runtime_start_pc = symbol_map[matches[0]]
+            vyper_metadata.runtime_start_pc = symbol_map[symbol_map_name]
             internal_func.vyper_metadata = vyper_metadata
 
     def get_contract_in_sdc(self,
@@ -3339,14 +3384,35 @@ class CertoraBuildGenerator:
         else:
             added_source_finders = {}
 
+        offset_converters = generate_offset_converters(sdc_pre_finder)
+
         if self.context.safe_casting_builtin:
             try:
-                casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder)
+                casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder, offset_converters)
             except Exception as e:
-                instrumentation_logger.warning(
-                    f"Computing casting instrumentation failed for {build_arg_contract_file}: {e}", exc_info=True)
                 casting_instrumentations, casting_types = {}, {}
-            instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, casting_instrumentations)
+                instrumentation_logger.warning(f"Computing casting instrumentation failed for {build_arg_contract_file}: {e}", exc_info=True)
+        else:
+            casting_instrumentations, casting_types = {}, {}
+
+        if self.context.unchecked_overflow_builtin:
+            try:
+                overflow_instrumentations, op_funcs = generate_overflow_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder, offset_converters)
+            except Exception as e:
+                overflow_instrumentations, op_funcs = {}, {}
+                instrumentation_logger.warning(
+                    f"Computing overflow instrumenstation failed for {build_arg_contract_file}: {e}", exc_info=True)
+        else:
+            overflow_instrumentations, op_funcs = {}, {}
+
+        for file_name, inst_dict in casting_instrumentations.items():
+            if file_name not in overflow_instrumentations:
+                overflow_instrumentations[file_name] = dict()
+            d = overflow_instrumentations[file_name]
+            for offset, inst in inst_dict.items():
+                add_instrumentation(d, offset, inst)
+
+        instr = CertoraBuildGenerator.merge_dicts_instrumentation(instr, overflow_instrumentations)
 
         abs_build_arg_contract_file = Util.abs_posix_path(build_arg_contract_file)
         if abs_build_arg_contract_file not in instr:
@@ -3409,6 +3475,13 @@ class CertoraBuildGenerator:
                                 output.write(bytes(f, "utf8"))
                             output.write(bytes("}\n", "utf8"))
 
+                    library_name, funcs = op_funcs.get(contract_file, ("", list()))
+                    if len(funcs) > 0:
+                        output.write(bytes(f"\nlibrary {library_name}" + "{\n", "utf8"))
+                        for f in funcs:
+                            output.write(bytes(f, "utf8"))
+                        output.write(bytes("}\n", "utf8"))
+
         new_file = self.to_autofinder_file(build_arg_contract_file)
         self.context.file_to_contract[new_file] = self.context.file_to_contract[
             build_arg_contract_file]
@@ -3429,6 +3502,7 @@ class CertoraBuildGenerator:
                     f"Compiling {orig_file_name} to expose internal function information and local variables...")
             else:
                 Util.print_progress_message(f"Compiling {orig_file_name} to expose internal function information...")
+
             # record what aliases we have created (for the purposes of type canonicalization, the generated autofinder
             # is an alias of the original file)
             for k, v in autofinder_remappings.items():

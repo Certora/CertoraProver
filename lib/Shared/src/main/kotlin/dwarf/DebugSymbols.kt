@@ -17,11 +17,12 @@
 
 package dwarf
 
+import annotations.PollutesGlobalState
 import com.certora.collect.*
+import config.Config
+import config.DebugAdapterProtocolMode
 import datastructures.stdcollections.*
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import log.*
@@ -34,6 +35,7 @@ import java.io.File
 
 
 private val debugSymbolsLogger = Logger(LoggerTypes.DEBUG_SYMBOLS)
+private val sbfLogger = Logger(LoggerTypes.SBF)
 
 object DebugSymbolLoader {
     /**
@@ -42,8 +44,9 @@ object DebugSymbolLoader {
      *
      * After calling the extension, this method then deserializes the JSON to the data structure [DebugSymbols]
      */
-    @OptIn(ExperimentalSerializationApi::class)
+    @OptIn(ExperimentalSerializationApi::class, PollutesGlobalState::class)
     fun generate(file: File, demangleNames: Boolean): DebugSymbols? {
+        val start = System.currentTimeMillis()
         val cmd = listOf(
             "Gimli-DWARF-JSONDump",
             "-i",
@@ -52,13 +55,17 @@ object DebugSymbolLoader {
             listOf("-d")
         } else {
             listOf()
+        } + if (Config.CallTraceDebugAdapterProtocol.get() == DebugAdapterProtocolMode.VARIABLES) {
+            listOf("-v")
+        } else {
+            listOf()
         }
         debugSymbolsLogger.info { "Running command to generate DWARF debug information ${cmd.joinToString(" ")}" }
 
         val pb = ProcessBuilder(cmd)
         val jsonDwarfDump = pb.start()
         val debugSymbols =
-            Json { ignoreUnknownKeys = true; coerceInputValues = true }.decodeFromStream<List<CompilationUnit>>(
+            Json { ignoreUnknownKeys = true; coerceInputValues = true }.decodeFromStream<DWARFDebugInformation>(
                 jsonDwarfDump.inputStream
             )
         if (jsonDwarfDump.waitFor() != 0) {
@@ -74,7 +81,7 @@ object DebugSymbolLoader {
             return null
         }
 
-        if (debugSymbols.isEmpty()) {
+        if (debugSymbols.compilation_units.isEmpty()) {
             CVTAlertReporter.reportAlert(
                 type = CVTAlertType.DIAGNOSABILITY,
                 severity = CVTAlertSeverity.WARNING,
@@ -84,63 +91,87 @@ object DebugSymbolLoader {
             )
             return null
         }
+        val end = System.currentTimeMillis()
+        val parsingErrors = debugSymbols.parsing_errors
+        if (parsingErrors.isNotEmpty()) {
+            debugSymbolsLogger.debug { "Encountered the ${parsingErrors.size} parsing errors while parsing DWARF file.\n" + parsingErrors.joinToString("\n") }
+        }
+        RustType.intializeRegistry(debugSymbols.type_nodes)
+        sbfLogger.info { "Loading debug symbols took ${(end - start) / 1000}s" }
         return DebugSymbols(debugSymbols)
     }
 }
 
 
-open class DebugSymbols(val compilationUnits: List<CompilationUnit>) {
-    val childToParent: Map<DWARFTreeNode, DWARFTreeNode> = buildMap {
-        compilationUnits.forEach { cu ->
-            cu.dwarf_node.postOrderTraversal(parent = null) { curr, parent, _ ->
-                parent?.let { p -> this[curr] = p }
-            }
+
+@KSerializable
+data class DWARFDebugInformation(
+    val type_nodes: Map<RustTypeId, RustType> = mapOf(),
+    val compilation_units: List<CompilationUnit> = listOf(),
+    val parsing_errors: List<String> = listOf()
+)
+
+open class DebugSymbols(debugInfo: DWARFDebugInformation) {
+    val compilationUnits = debugInfo.compilation_units
+
+    open fun lookUpLineNumberInfo(addr: ULong): LineNumberInfo? {
+        val matchingCompilationUnit = this.compilationUnits.filter { it.isInRanges(addr) };
+        check(matchingCompilationUnit.size <= 1) { "Found ${matchingCompilationUnit.size} compilation units matching the address ${addr}, ranges: ${matchingCompilationUnit.mapIndexed { idx, it -> "CU($idx): ${it.ranges}" }}" }
+        return matchingCompilationUnit.firstOrNull()?.lookUpLineNumberInfo(addr)
+    }
+
+    fun getMethodByNameAndAddress(name: String, addr: ULong): Subprogram? {
+        val res = this.compilationUnits.mapNotNull { it.getSubprogramByName(name) }.filter { it.isInRanges(addr) }
+        if (res.isEmpty()) {
+            return null
         }
+        check(res.size == 1) { "Expecting to find exactly one method with the name {i}" }
+        return res.firstOrNull()
     }
-
-    private val allNodes: Set<DWARFTreeNode> = buildSet {
-        compilationUnits.forEach { cu ->
-            cu.dwarf_node.postOrderTraversal(parent = null) { curr, _, _ ->
-                this.add(curr)
-            }
-        }
-    }
-
-    fun getMethods(): List<DWARFTreeNode> =
-        allNodes.filter { it.dwarf_node_tag == DwTag.INLINED_SUBROUTINE || it.dwarf_node_tag == DwTag.SUBPROGRAMM }
-
-    /**
-     * DWARF information delivers information from instruction address to line and column of a file
-     *
-     * cb2 soroban-examples/account/src/lib.rs:119:26
-     * cb9 soroban-examples/account/src/lib.rs:225:13
-     * cc7 soroban-examples/account/src/lib.rs:0:13
-     * cc7 end-sequence
-     *
-     * This information must be read as follows: The instruction at address cb2 starts at 119:25.
-     * All addresses until cb9 refer to the same sequence of characters that ends at 225:13.
-     *
-     * Note: We expand the information (at the cost of memory) to simply lookup, i.e. we have the whole range as keys (cb2, cb3, cb4,...cb8)
-     */
-    private val instructionAddrToLineNumberInfo = run {
-        compilationUnits.flatMap { it.line_number_info }.filter { it.address != null }.sortedBy { it.address!!.toInt() }
-            .zipWithNext().flatMap { pair ->
-                val start = pair.first
-                val end = pair.second
-                (start.address!!.toInt()..<end.address!!.toInt()).map { addr -> addr to pair.first }
-            }.toMap()
-    }
-
-    open fun lookUpLineNumberInfo(addr: Int): LineNumberInfo? {
-        return instructionAddrToLineNumberInfo[addr]
-    }
-
 }
 
 
 @KSerializable
 data class CompilationUnit(
-    val dwarf_node: DWARFTreeNode, val address: String, val line_number_info: List<LineNumberInfo>
+    val ranges: List<AddressRange>,
+    val line_number_info: List<LineNumberInfo>,
+    val subprograms: List<Subprogram>,
+    val parsing_errors: List<String>
+) {
+    private val subprogramsByLinkageName = subprograms.associateBy { it.linkage_name }
+    private val subprogramsByMethodName = subprograms.associateBy { it.method_name }
+
+    private val instructionAddrToLineNumberInfo = run {
+        this.line_number_info
+            .filter { it.address != null }
+            // Filtering out line or column numbers that are zero, these lead to jumpiness in the debugger
+            .filter { it.col != 0L && it.line != 0L }
+            .sortedBy { it.address }
+            .map { it.address!!.toULong() to it }
+            .toMap()
+    }
+
+    fun lookUpLineNumberInfo(addr: ULong): LineNumberInfo? {
+        return instructionAddrToLineNumberInfo[addr]
+    }
+
+    fun isInRanges(addr: ULong): Boolean {
+        return this.ranges.any { it.inRange(addr) }
+    }
+
+    /**
+     * Returns the subprogram with the matching [name].
+     * [name] can be the mangled or the demangled method name.
+     */
+    fun getSubprogramByName(name: String): Subprogram? {
+        return subprogramsByLinkageName[name] ?: subprogramsByMethodName[name]
+    }
+}
+
+@Treapable
+@KSerializable
+data class DWARFOperationsList(
+    val operations: List<DWARFOperation>, val range: AddressRange
 )
 
 @Treapable
@@ -163,10 +194,10 @@ data class LineNumberInfo(
         }
 
         // We must substract -1 from the line number as the DWARF debug information is 1-based, but we use 0-based source positions.
-        val col = if (col == null) {
-            0
+        val col = if (col == null || col == 0L) {
+            1
         } else {
-            col - 1
+            col
         }
         return Range.Range(
             file_path,
@@ -176,177 +207,135 @@ data class LineNumberInfo(
     }
 }
 
-/**
- * This data structure is a 1:1 mapping of what DWARF considers a "node" in its tree.
- * I.e. a node in the DWARF tree contains a list of children, plus many optional attributes. The type is defined by the attributes [dwarf_node_tag]
- * As the attributes are optional, we initialize all the values with null as default.
- *
- * For most of the fields of this data class, there is a corresponding DW_AT_<FIELD_NAME> attribute in DWARF. For details on what this attribute refers to
- * see https://dwarfstd.org/doc/DWARF5.pdf
- *
- * This allows us to keep the rust program that extract DWARF info (scripts/Gimli-DWARF-JSONDump/src/main.rs) minimal and don't introduce any additional
- * types before dumping it to JSON. As we don't transform the node in the rust program, it also means the information that end up in Kotlin, matches
- * the information we see when running llvm-dwarfdump. This should help debugging the debug information.
- */
 @KSerializable
-data class DWARFTreeNode(
-    val children: List<DWARFTreeNode>, val dwarf_node_tag: DwTag = DwTag.NONE,
-
-    /**
-     * The low program counter value for which this debug information is valid for. Low and high pc values mark the range of addresses for
-     * which the information that this [DWARFTreeNode] represent is valid for.
-     *
-     * Please note, in the case of WASM, this value is relative to the start of the code section offset. I.e. one must still add this offset to get valid addresses.
-     */
-    val low_pc_value: Long? = null,
-
-    /**
-     * The high program counter value for which this debug information is valid for. Low and high pc values mark the range of addresses for
-     * which the information that this [DWARFTreeNode] represent is valid for.
-     *
-     * Please note, in the case of WASM, this value is relative to the start of the code section offset. I.e. one must still add this offset to get valid addresses.
-     */
-    val high_pc_value: Long? = null,
-
-    /**
-     * The depth of this node in the tree.
-     */
-    val depth: Int,
-
-    /**
-     * DW_AT_linkage_name of DWARF, see https://dwarfstd.org/doc/DWARF5.pdf
-     */
-    val linkage_name: String? = null,
-
-    /**
-     * DW_AT_name of DWARF, see https://dwarfstd.org/doc/DWARF5.pdf
-     */
-    val name: String? = null,
-
-    /**
-     * DW_AT_decl_line of DWARF, see https://dwarfstd.org/doc/DWARF5.pdf
-     */
-    val decl_line: Int? = null,
-
-    /**
-     * DW_AT_decl_file of DWARF, see https://dwarfstd.org/doc/DWARF5.pdf
-     */
-    val decl_file: String? = null,
-
-    /**
-     * DW_AT_call_line of DWARF, see https://dwarfstd.org/doc/DWARF5.pdf
-     */
-    val call_line: Int? = null,
-
-    /**
-     * DW_AT_call_file of DWARF, see https://dwarfstd.org/doc/DWARF5.pdf
-     */
-    val call_file: String? = null,
-
-    /**
-     * DW_AT_column of DWARF, see https://dwarfstd.org/doc/DWARF5.pdf
-     */
-    val column: Int? = null,
-
-    /**
-     * DW_AT_type_name of DWARF, see https://dwarfstd.org/doc/DWARF5.pdf
-     */
-    val type_name: String? = null
-) {
-
-    fun getVariables(): List<DWARFTreeNode> {
-        return this.children.filter { node ->
-            node.dwarf_node_tag == DwTag.FORMAL_PARAMETER || node.dwarf_node_tag == DwTag.VARIABLE
-        }
-    }
-
-    fun postOrderTraversal(
-        depth: Int = 0, parent: DWARFTreeNode? = null, callback: (DWARFTreeNode, DWARFTreeNode?, Int) -> Unit
-    ) {
-        children.forEach { it.postOrderTraversal(depth + 1, this, callback) }
-        callback(this, parent, depth)
-    }
-
-    fun hasName(): Boolean {
-        return name != null || linkage_name != null
-    }
-
-    fun hasHighPcValue(): Boolean {
-        return high_pc_value != null
-    }
-
-    fun hasLowPcValue(): Boolean {
-        return low_pc_value != null
-    }
-
-    fun asName(): String {
-        return if (!hasName()) {
-            "<Unknown>${hashCode()}"
-        } else {
-            linkage_name ?: name!!
-        }
-    }
-
-    /**
-     * This function returns a [Range.Range] indicating which file and line:col information
-     * this [DWARFTreeNode] belongs to.
-     *
-     * Note: It's rarely possible to resolve more than the original line number from the debug information.
-     * I.e. we cannot restore column information. As a fallback this method currently highlights
-     * the first three characters of the line.
-     */
-    fun getRange(): Range.Range? {
-        if (decl_file == null && call_file == null) {
-            return null
-        }
-
-        val file = decl_file.takeIf { it != null } ?: call_file!!
-        val line = decl_line.takeIf { it != null } ?: call_line
-        return line?.let { l ->
-            Range.Range(
-                file, SourcePosition((l - 1).toUInt(), (0).toUInt()), SourcePosition((l - 1).toUInt(), (3).toUInt())
-            )
-        }
+@Treapable
+data class AddressRange(val start: ULong, val end: ULong) {
+    fun inRange(addr: ULong): Boolean {
+        return start <= addr && addr < end
     }
 
     override fun toString(): String {
-        return "Name: ${
-            asName()
-        }, Type: ${dwarf_node_tag} Depth: ${depth} File: (${call_file ?: decl_file}) Line: ${
-            if (call_line != null) {
-                call_line
-            } else {
-                decl_line
-            }
-        }"
+        return "[$start, $end) // [0x${start.toString(16)}, 0x${end.toString(16)})"
     }
 }
 
 @Serializable
-enum class DwTag {
+data class SourceRange(
     /**
-     * This NONE value is the default and all unhandled cases of serialization.
-     * As we currently don't require, for instance, DW_TAG_structure_type or DW_TAG_array_type, both of them will map to NONE
+     * The file path for the range
      */
-    NONE,
+    val file_path: String,
 
-    @SerialName("DW_TAG_subprogram")
-    SUBPROGRAMM,
+    /**
+     * The 0-based line number for the range
+     */
+    val line: ULong,
 
-    @SerialName("DW_TAG_inlined_subroutine")
-    INLINED_SUBROUTINE,
-
-    @SerialName("DW_TAG_compile_unit")
-    COMPILE_UNIT,
-
-    @SerialName("DW_TAG_namespace")
-    NAMESPACE,
-
-    @SerialName("DW_TAG_variable")
-    VARIABLE,
-
-    @SerialName("DW_TAG_formal_parameter")
-    FORMAL_PARAMETER
+    /**
+     * An optional column number for the range.
+     */
+    val col: ULong? = null,
+) {
+    init {
+        check(line >= 1UL) { "Offset in DWARF debug information is 1-based." }
+    }
+    fun asRange(): Range.Range {
+        return Range.Range(file_path, SourcePosition((line - 1UL).toUInt(), col?.toUInt()
+            ?: 0U), SourcePosition(line.toUInt(), 0U));
+    }
 }
 
+//Note that this class is _not_ a data class as we want to compare it via the object identity hashCode and equals
+@Serializable
+class Subprogram(
+    val method_name: String,
+    val linkage_name: String, //The mangled name of the function
+    val variables: List<Variable>,
+    val decl_range: SourceRange,
+    val address_ranges: List<AddressRange>,
+    val inlined_methods: List<InlinedMethod>
+) : DwarfMethod {
+    override fun getDeclRange(): Range.Range {
+        return decl_range.asRange()
+    }
 
+    override fun isInRanges(addr: ULong): Boolean {
+        return address_ranges.any { it.inRange(addr) }
+    }
+
+    override fun getVars(): List<Variable> = this.variables
+
+    override fun getDepth(): ULong {
+        return 0UL
+    }
+
+    override fun getMethodName(): String {
+        return this.method_name
+    }
+}
+
+sealed interface DwarfMethod {
+    fun getDeclRange(): Range.Range
+    fun isInRanges(addr: ULong): Boolean
+    fun getVars(): List<Variable>
+    fun getDepth(): ULong
+    fun getMethodName(): String
+}
+
+//Note that this class is _not_ a data class as we want to compare it via the object identity hashCode and equals
+@Serializable
+class InlinedMethod(
+    val inline_depth: ULong,
+    val call_site_range: SourceRange,
+    val method_name: String,
+    val variables: List<Variable>,
+    val decl_range: SourceRange,
+    val address_ranges: List<AddressRange>
+) : DwarfMethod {
+    fun getRange(): Range.Range {
+        return this.call_site_range.asRange()
+    }
+
+    override fun getDeclRange(): Range.Range {
+        return this.decl_range.asRange()
+    }
+
+    override fun isInRanges(addr: ULong): Boolean {
+        return address_ranges.any { it.inRange(addr) }
+    }
+
+    override fun getVars(): List<Variable> = this.variables
+
+    override fun getDepth(): ULong {
+        return this.inline_depth
+    }
+
+    override fun getMethodName(): String {
+        return this.method_name
+    }
+}
+
+@Serializable
+data class Variable(
+    /**
+     * The bytecode address range where this variable information is valid for.
+     */
+    val address_ranges: List<AddressRange>,
+
+    /**
+     * encode the list of debug information in which register etc the variable is currently maintained.
+     */
+    val register_locations: List<DWARFOperationsList> = emptyList(),
+
+    /**
+     * The name of the variable
+     */
+    val var_name: String,
+
+    /**
+     * The actual type of the variable
+     */
+    private val var_type_id: RustTypeId,
+) {
+    fun getType() = RustType.resolve(var_type_id)
+}

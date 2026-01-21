@@ -28,6 +28,7 @@ import sbf.support.NoAssertionAfterSlicerError
 import sbf.support.printToFile
 import datastructures.stdcollections.*
 import log.*
+import sbf.support.timeIt
 import java.util.* // BitSet
 import java.io.File
 
@@ -38,8 +39,11 @@ class SlicerError(msg: String): RuntimeException("Slicer error: $msg")
  *
  * Perform the sequence slicing + PTA optimizations [SolanaConfig.SlicerIter] times
  **/
-fun sliceAndPTAOptLoop(rule: String, prog: SbfCallGraph, memSummaries: MemorySummaries,
-                       start: Long /* for printing stats */): SbfCallGraph  {
+fun sliceAndPTAOptLoop(
+    rule: String,
+    prog: SbfCallGraph,
+    memSummaries: MemorySummaries
+): SbfCallGraph  {
 
     val numOfIter = SolanaConfig.SlicerIter.get()
     if (numOfIter < 0) {
@@ -52,26 +56,23 @@ fun sliceAndPTAOptLoop(rule: String, prog: SbfCallGraph, memSummaries: MemorySum
     while (i < numOfIter.toUInt()) {
         // Slice program wrt assertions
         // Remove any code that cannot affect program assertions
-        sbfLogger.info { "Slicing entrypoint wrt to user assertions" }
-        val start1 = System.currentTimeMillis()
-        val slicerRes = sliceAssertions(optProg, memSummaries)
+        val slicerRes = timeIt("slicing entrypoint wrt to user assertions") {
+            sliceAssertions(optProg, memSummaries)
+        }
         val hasAssertions = slicerRes.first
         optProg = slicerRes.second
-        val end1 = System.currentTimeMillis()
-        sbfLogger.info { "Finished slicing entrypoint wrt to user assertions in ${(end1 - start1) / 1000}s" }
+
         sbfLogger.info { "Slicing stats after ${i+1U} iteration\n" +
                           "${optProg.getCallGraphRootSingleOrFail().getStats()}"}
         if (!hasAssertions) {
-            sbfLogger.info { "End Solana front-end in ${(end1 - start) / 1000}s" }
+            sbfLogger.info { "End Solana front-end" }
             throw NoAssertionAfterSlicerError(rule)
         }
 
         // Run PTA optimizations that must be run after program has been inlined and sliced
-        sbfLogger.info { "Started optimizations to help the memory analysis" }
-        val start2 = System.currentTimeMillis()
-        optProg = runPTAOptimizations(optProg, memSummaries)
-        val end2 = System.currentTimeMillis()
-        sbfLogger.info { "Finished optimizations in ${(end2 - start2) / 1000}s" }
+        optProg = timeIt("optimizations to help the memory analysis") {
+            runPTAOptimizations(optProg, memSummaries)
+        }
 
         val newStats = optProg.getCallGraphRootSingleOrFail().getStats()
         if (oldStats == newStats) {
@@ -253,4 +254,4 @@ private object SemanticConeOfInfluence{
 
 private fun mkUnreachable(comment: String): SbfInstruction =
     SolanaFunction.toCallInst(SolanaFunction.ABORT,
-        MetaData(Pair(SbfMeta.COMMENT, comment)).plus(Pair(SbfMeta.UNREACHABLE_FROM_COI, "")))
+        MetaData(Pair(SbfMeta.COMMENT, comment)).plus(SbfMeta.UNREACHABLE_FROM_COI()))

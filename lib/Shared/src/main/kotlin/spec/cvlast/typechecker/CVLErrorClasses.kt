@@ -2034,34 +2034,48 @@ class FieldSelectOnNonStruct private constructor(override val location: Range, o
 @KSerializable
 @CVLErrorType(
     category = CVLErrorCategory.TYPECHECKING,
-    description = "Cannot compare structs that have a field with an array type."
+    description = "Cannot compare types with nested arrays (arrays of arrays, or arrays of structs containing arrays)."
 )
 @CVLErrorExample(
     exampleCVLWithRange =
     """
         rule r {
-            PrimaryContract.StructOfArrayOfUints s; env e;
-            assert #returnsStructOfArrayOfUints(e) == s#;
+            uint256[][] arr1; uint256[][] arr2;
+            assert #arr1 == arr2#;
         }
-        """,
-    exampleMessage = "Cannot directly compare `PrimaryContract.returnsStructOfArrayOfUints(e)` to `s` because these structs contain an array (in field `PrimaryContract.StructOfArrayOfUints.uArr`). Comparison can only be done field by field"
+    """,
+    exampleMessage = "Cannot compare `arr1` to `arr2` because the type `uint256[][]` is a nested arrays. Array comparison is only supported for arrays of primitives."
 )
-class StructComparisonContainsArrays private constructor(override val location: Range, override val message: String) : CVLError() {
-    companion object {
-        /** Some logic to make sure we get `StructName.fieldName` instead of `varName.fieldName` */
-        private tailrec fun getStructAndFields(base: CVLExp, rest: String): String {
-            if (base !is CVLExp.FieldSelectExp) {
-                return "${base.getCVLType()}$rest"
-            }
-            return getStructAndFields(base.structExp, "." + base.fieldName + rest)
-        }
-    }
-
-    constructor(exp: CVLExp.RelopExp, base: CVLExp, fieldName: String) :
+class ArrayComparisonNestedArrays private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(exp: CVLExp.RelopExp, type: CVLType.PureCVLType) :
         this(
             exp.getRangeOrEmpty(),
-            "Cannot directly compare `${exp.l}` to `${exp.r}` because these structs contain an array (in field `${getStructAndFields(base, ".$fieldName")}`)." +
-                " Comparison can only be done field by field"
+            "Cannot compare `${exp.l}` to `${exp.r}` because the type `$type` is a nested arrays. Array comparison is only supported for arrays of primitives."
+        )
+}
+
+@KSerializable
+@CVLErrorType(
+    category = CVLErrorCategory.TYPECHECKING,
+    description = "Cannot compare arrays of structs. Only arrays of primitive types are supported for comparison."
+)
+@CVLErrorExample(
+    exampleCVLWithRange =
+    """
+        rule r {
+            PrimaryContract.ExampleStruct[] arr1;
+            PrimaryContract.ExampleStruct[] arr2;
+            assert #arr1 == arr2#;
+        }
+    """,
+    exampleMessage = "Cannot compare `arr1` to `arr2` because the element type `PrimaryContract.ExampleStruct` is a struct. Array comparison is only supported for arrays of primitive types."
+)
+class ArrayComparisonStructElements private constructor(override val location: Range, override val message: String) : CVLError() {
+    constructor(exp: CVLExp.RelopExp, arrayType: CVLType.PureCVLType.CVLArrayType) :
+        this(
+            exp.getRangeOrEmpty(),
+            "Cannot compare `${exp.l}` to `${exp.r}` because the element type `${arrayType.elementType}` is a struct. " +
+                "Array comparison is only supported for arrays of primitive types."
         )
 }
 
@@ -2541,7 +2555,7 @@ class DoesNotEndWithReturn private constructor(override val location: Range, ove
 )
 @CVLErrorExample(
     exampleCVLWithRange =
-    """
+        """
             function cvlFun(bool b) returns bool {
                 {
                     revert();
@@ -2552,9 +2566,29 @@ class DoesNotEndWithReturn private constructor(override val location: Range, ove
         """,
     exampleMessage = "Unreachable statement after `revert`: `assert true`"
 )
+@CVLErrorExample(
+    exampleCVLWithRange =
+        """
+            function cvlFun(bool b) returns bool {
+                {
+                    if (b) {
+                        revert();
+                    } else {
+                        return true;
+                    }
+                }
+                #return false;#
+            }
+        """,
+    exampleMessage = "Unreachable statement after `if` where all branches halt: `return false`"
+)
 class UnreachableStatement private constructor(override val location: Range, override val message: String) : CVLError() {
     constructor(cmd: CVLCmd, reason: CVLCmd.Simple.HaltingCVLCmd) : this(
         cmd.range, "Unreachable statement after `${reason.cmdName}`: `${cmd.toPrintString()}`"
+    )
+    @Suppress("UNUSED_PARAMETER")
+    constructor(cmd: CVLCmd, reason: CVLCmd.Composite.If) : this(
+        cmd.range, "Unreachable statement after `if` where all branches halt: `${cmd.toPrintString()}`"
     )
 }
 

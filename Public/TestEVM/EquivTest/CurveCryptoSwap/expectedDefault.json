@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"Equivalence of CurveCryptoSwap2 and CurveCryptoSwap2Opt on get_dy(uint256,uint256,uint256)": "SUCCESS"
+	}
+}

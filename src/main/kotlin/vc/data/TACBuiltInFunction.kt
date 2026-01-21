@@ -393,7 +393,13 @@ sealed class TACBuiltInFunction : AmbiSerializable {
 
             override fun eval(params: List<BigInteger>): BigInteger? =
                 super.eval(params).let {
-                    params[0].to2s(tag)
+                    try {
+                        params[0].to2s(tag)
+                    } catch(_ : ModZm.OutOfBoundsException) {
+                        // We completely trust whoever used this Wrap. If the value is out of bounds then we assume
+                        // this is due to some vacuity unrelated to this operation.
+                        null
+                    }
                 }
         }
 
@@ -424,9 +430,15 @@ sealed class TACBuiltInFunction : AmbiSerializable {
                 }
             }
 
-            override fun eval(params: List<BigInteger>): BigInteger =
+            override fun eval(params: List<BigInteger>): BigInteger? =
                 super.eval(params).let {
-                    params[0].from2s(tag)
+                    try {
+                        params[0].from2s(tag)
+                    } catch(_ : ModZm.OutOfBoundsException) {
+                        // We completely trust whoever used this Unwrap. If the value is out of bounds then we assume
+                        // this is due to some vacuity unrelated to this operation.
+                        null
+                    }
                 }
         }
 

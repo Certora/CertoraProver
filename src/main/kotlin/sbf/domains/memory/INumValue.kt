@@ -54,6 +54,13 @@ interface INumValue<V> {
     fun arsh(other: V): V
     fun rsh(other: V): V
     fun lsh(other: V): V
+    /** Take 8 low bits and zero-extend to 64 bits **/
+    fun zext8(): V
+    /** Take 16 low bits and zero-extend to 64 bits **/
+    fun zext16(): V
+    /** Take 32 low bits and zero-extend to 64 bits **/
+    fun zext32(): V
+
     fun assume(op: CondOp, other: V): TriBoolean
     // filter the values of `this` after the execution `this op other`
     fun filter(op: CondOp, other: V): V

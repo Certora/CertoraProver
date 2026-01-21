@@ -1,0 +1,9 @@
+{
+	"assertMessages": {
+
+	},
+	"rules": {
+    "timeStampFitsInUint40": "SUCCESS",
+    "worksAlsoWithManualEnvVars": "SUCCESS"
+  }
+}

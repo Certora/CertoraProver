@@ -53,12 +53,6 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
             raise Exception(f'{func_hash} is not convertible to hexadecimal')
 
     @staticmethod
-    def normalize_file_compiler_path_name(file_abs_path: str) -> str:
-        if not file_abs_path.startswith('/'):
-            return '/' + file_abs_path
-        return file_abs_path
-
-    @staticmethod
     def normalize_deployed_bytecode(deployed_bytecode: str) -> str:
         assert deployed_bytecode.startswith("0x"), f'expected {deployed_bytecode} to have hexadecimal prefix'
         return deployed_bytecode[2:]
@@ -785,10 +779,10 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
         return [t.resolve_forward_declared_types(name_resolution_dict) for t in real_types]
 
     @staticmethod
-    def extract_ast_types_and_public_vardecls(ast_body_nodes: Dict[int, Dict[str, Any]]) -> \
+    def extract_ast_types_and_public_vardecls(ast_body_nodes_per_file: Dict[str, Dict[int, Dict[str, Any]]]) -> \
             Tuple[List[VyperType], Dict[str, VyperType]]:
         """
-        :param ast_body_nodes:
+        :param ast_body_nodes_per_file:
         :return: (types, vars) where `types` is a list of all user-defined types, and `vars` maps public variables to
           their output types.  Note that `types` has been fully resolved - all `VyperTypeNameReference` nodes have been
           dereferenced
@@ -805,38 +799,50 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
 
         # Process named constants ahead of time, as their use site in the source may precede
         # their definition site, e.g.
-        for ast_node in ast_body_nodes.values():
-            if ast_node['ast_type'] != 'VariableDecl':
-                continue
-            if ast_node['is_constant'] and ast_node['value'] is not None and \
-               (ast_node['value']['ast_type'] == 'Int'):
-                named_constants.update({ast_node['target']['id']: int(ast_node['value']['value'])})
+        for _, ast_body_nodes in ast_body_nodes_per_file.items():
+            for ast_node in ast_body_nodes.values():
+                if ast_node['ast_type'] != 'VariableDecl':
+                    continue
+                if ast_node['is_constant'] and ast_node['value'] is not None and \
+                   (ast_node['value']['ast_type'] == 'Int'):
+                    named_constants.update({ast_node['target']['id']: int(ast_node['value']['value'])})
 
-        for ast_node in ast_body_nodes.values():
-            if ast_node['ast_type'] == 'VariableDecl':
-                decltype = CompilerLangVy.extract_type_from_variable_decl(ast_node, named_constants)
-                result_types.append(decltype)
-                if ast_node['is_public']:
-                    public_vardecls[ast_node['target']['id']] = decltype
-            elif ast_node['ast_type'] == 'StructDef':
-                result_types.append(CompilerLangVy.extract_type_from_struct_def(ast_node, named_constants))
-            # Not sure if `Import` is an actual ast type. It was already there, so I am not removing it.
-            # I only fixed the implementation of this case to what I think it should be.
-            elif ast_node['ast_type'] == 'Import':
-                result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
-            elif ast_node['ast_type'] == 'ImportFrom':
-                result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
-            elif ast_node['ast_type'] == 'InterfaceDef':
-                result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
-        resolved_result_types = CompilerLangVy.resolve_extracted_types(result_types)
-        return resolved_result_types, resolve_vardecl_types(public_vardecls, resolved_result_types)
+        resolved_result_types = []
+        for _, ast_body_nodes in ast_body_nodes_per_file.items():
+            for ast_node in ast_body_nodes.values():
+                if ast_node['ast_type'] == 'VariableDecl':
+                    decltype = CompilerLangVy.extract_type_from_variable_decl(ast_node, named_constants)
+                    result_types.append(decltype)
+                    if ast_node['is_public']:
+                        public_vardecls[ast_node['target']['id']] = decltype
+                elif ast_node['ast_type'] == 'StructDef':
+                    result_types.append(CompilerLangVy.extract_type_from_struct_def(ast_node, named_constants))
+                # Not sure if `Import` is an actual ast type. It was already there, so I am not removing it.
+                # I only fixed the implementation of this case to what I think it should be.
+                elif ast_node['ast_type'] in ['Import', 'ImportFrom']:
+                    if "name" in ast_node:
+                        result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
+                    elif "names" in ast_node:
+                        n_list = ast_node["names"]
+                        for t in n_list:
+                            result_types.append(CompilerLangVy.VyperTypeContract(t["name"]))
+                    else:
+                        raise Exception("Unrecognized import node")
+                elif ast_node['ast_type'] == 'InterfaceDef':
+                    result_types.append(CompilerLangVy.VyperTypeContract(ast_node['name']))
+            resolved_result_types.extend(CompilerLangVy.resolve_extracted_types(result_types))
+
+        # SG: I'm not sure why we didn't set it as a set to begin with. Punting for now
+        return list(set(resolved_result_types)), resolve_vardecl_types(public_vardecls, resolved_result_types)
 
     @staticmethod
     def collect_storage_layout_info(file_abs_path: str,
                                     config_path: Path,
                                     compiler_cmd: str,
                                     compiler_version: Optional[CompilerVersion],
-                                    data: Dict[str, Any]) -> Dict[str, Any]:
+                                    data: Dict[str, Any],
+                                    asts : Dict[str, Dict[int, Any]],
+                                    ast_key: str) -> Dict[str, Any]:
         # only Vyper versions 0.2.16 and up have the storage layout
         if compiler_version is None or not CompilerCollectorVy.supports_storage_layout(compiler_version):
             return data
@@ -872,20 +878,6 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
                     print(f'Error: {e}')
                     print_failed_to_run(compiler_cmd)
                     raise
-        ast_output_file_name = f'{get_certora_config_dir()}.ast'
-        ast_stdout_name = storage_layout_output_file_name + '.stdout'
-        ast_stderr_name = storage_layout_output_file_name + '.stderr'
-        args = [compiler_cmd, '-f', 'ast', '-o', ast_output_file_name, file_abs_path]
-        with Path(ast_stdout_name).open('w+') as stdout:
-            with Path(ast_stderr_name).open('w+') as stderr:
-                try:
-                    subprocess.run(args, stdout=stdout, stderr=stderr)
-                    with Path(ast_output_file_name).open('r') as output_file:
-                        ast_dict = json.load(output_file)
-                except Exception as e:
-                    print(f'Error: {e}')
-                    print_failed_to_run(compiler_cmd)
-                    raise
 
         # Depressing how many bugs old Vyper had. Example:
         # vyper 0.3.7: "userBalances": {"type": "HashMap[address, uint256]", "slot": 1}
@@ -893,10 +885,7 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
         #                               "location": "storage", "slot": 2}
         # so we'll just gracefully exit
         try:
-
-            extracted_types, _ = CompilerLangVy.extract_ast_types_and_public_vardecls(
-                {x['node_id']: x for x in ast_dict['ast']['body']}
-            )
+            extracted_types, _ = CompilerLangVy.extract_ast_types_and_public_vardecls(asts)
             all_used_types = list(itertools.chain.from_iterable([e.get_used_types() for e in extracted_types])) + \
                 list(CompilerLangVy.primitive_types.values())
             type_descriptors_by_name = {i.get_canonical_vyper_name(): i.get_storage_type_descriptor()
@@ -931,22 +920,63 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
 
                 return desc
 
-            storage_field = [{
-                'label': v,
-                'slot': str(storage_layout_dict[v]['slot']),
-                'offset': 0,
-                'type': storage_layout_dict[v]['type'],
-                'descriptor': annotate_desc(type_descriptors_by_name[storage_layout_dict[v]['type']],
-                                            storage_layout_dict[v]['type'], types_field)
-            } for v in storage_layout_dict.keys()]
+            def extract_storage_fields(storage_layout_dict: Dict[str, Any],
+                                       type_descriptors_by_name: Dict[str, Dict[str, Any]],
+                                       types_field: Dict[str, Dict[str, Any]],
+                                       parent_path: str = "") -> List[Dict[str, Any]]:
+                """
+                Recursively traverse storage layout dictionary and extract all fields with 'slot' keys.
 
-            contract_name = list(data['contracts'][file_abs_path].keys())[0]
-            data['contracts'][file_abs_path][contract_name]['storageLayout'] = {
+                Args:
+                    storage_layout_dict: The storage layout dictionary to traverse
+                    type_descriptors_by_name: Type descriptors mapping
+                    types_field: Types field for annotation
+                    parent_path: Current path in the hierarchy (for building field labels)
+
+                Returns:
+                    List of storage field dictionaries
+                """
+                storage_fields = []
+
+                for key, value in storage_layout_dict.items():
+                    current_path = f"{parent_path}.{key}" if parent_path else key
+
+                    if isinstance(value, dict):
+                        # Check if this dict contains a 'slot' key (leaf node)
+                        if 'slot' in value:
+                            # This is a storage variable - process it
+                            storage_fields.append({
+                                'label': current_path,
+                                'slot': str(value['slot']),
+                                'offset': 0,
+                                'type': value['type'],
+                                'descriptor': annotate_desc(
+                                    type_descriptors_by_name[value['type']],
+                                    value['type'],
+                                    types_field
+                                )
+                            })
+                        else:
+                            # This is a nested structure - recurse into it
+                            storage_fields.extend(
+                                extract_storage_fields(value, type_descriptors_by_name, types_field, current_path)
+                            )
+
+                return storage_fields
+
+            storage_field = extract_storage_fields(storage_layout_dict, type_descriptors_by_name, types_field)
+
+            data_key = file_abs_path if file_abs_path in data["contracts"] else ast_key
+            if data_key not in data["contracts"]:
+                raise Exception(f"Expected to have the right key into the json out for updating the storage layout, "
+                                f"tried {file_abs_path} and {ast_key} but keys are {data['contracts'].keys()}")
+            contract_name = list(data['contracts'][data_key].keys())[0]
+            data['contracts'][data_key][contract_name]['storageLayout'] = {
                 'storage': storage_field,
                 'types': types_field,
                 'storageHashArgsReversed': True
             }
-            data['contracts'][file_abs_path][contract_name]['storageHashArgsReversed'] = True
+            data['contracts'][data_key][contract_name]['storageHashArgsReversed'] = True
             return data
         except Exception as e:
             ast_logger.warning(f'Failed to get storage layout, continuing: {e}')
@@ -1175,7 +1205,7 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
             return funcs
 
         vyper_types, public_vardecls = \
-            CompilerLangVy.extract_ast_types_and_public_vardecls(asts[build_arg_contract_file][contract_file])
+            CompilerLangVy.extract_ast_types_and_public_vardecls(asts[build_arg_contract_file])
         ct_types = [x.get_certora_type(contract_name, 0) for x in vyper_types]
         getter_vars_list = [(v, public_vardecls[v].get_certora_type(contract_name, 0))
                             for v in public_vardecls if isinstance(public_vardecls[v], CompilerLangVy.VyperTypeHashMap)]
@@ -1208,7 +1238,7 @@ class CompilerLangVy(CompilerLang, metaclass=Singleton):
 
         try:
             # TODO: verify that the collected functions matches the information in data['abi']
-            collector = Collector(contract_name, asts[build_arg_contract_file][contract_file])
+            collector = Collector(contract_name, asts[build_arg_contract_file])
             type_descriptions_and_funcs = [t.get_certora_type(contract_name, 0) for t in
                                            collector.types.values()], collector.funcs
 
@@ -1249,17 +1279,24 @@ class Collector:
 
     _contract_name : str
 
-    def __init__(self, contract_name : str, asts: Dict[int, Dict[str, Any]]):
+    def __init__(self, contract_name : str, asts_per_file: Dict[str, Dict[int, Dict[str, Any]]]):
         """Collect the types and functions from the top-level 'AST' node in [ast]."""
         self.types = {}
         self.funcs = []
         self.consts = {}
         self._contract_name = contract_name
-        for node in asts.values():
-            if node['ast_type'] == 'Module':
-                self._collect_module(node)
+        # first pass - get all constants
+        for _, asts in asts_per_file.items():
+            for node in asts.values():
+                if node['ast_type'] == 'Module':
+                    self._collect_module_consts(node)
 
-    def _collect_module(self, module_node: Dict[str, Any]) -> None:
+        for _, asts in asts_per_file.items():
+            for node in asts.values():
+                if node['ast_type'] == 'Module':
+                    self._collect_module(node)
+
+    def _collect_module_consts(self, module_node: Dict[str, Any]) -> None:
         """Populate [self.types] and [self.funcs] base on 'Module' AST node in [node]."""
         assert module_node['ast_type'] == "Module"
 
@@ -1272,6 +1309,7 @@ class Collector:
         for v in var_decls:
             self._collect_const(v)
 
+    def _collect_module(self, module_node: Dict[str, Any]) -> None:
         # Extract and resolve types
         type_asts = {'EnumDef', 'StructDef', 'InterfaceDef', 'Import', 'Import', 'ImportFrom', 'FlagDef'}
         types = [e for e in module_node['body'] if e['ast_type'] in type_asts]
@@ -1286,6 +1324,7 @@ class Collector:
         for f in funs:
             self._collect_func(f)
 
+        var_decls = [e for e in module_node['body'] if e['ast_type'] == 'VariableDecl']
         # Add getters for public variables (also needs to happen after type resolution)
         for v in var_decls:
             self._collect_getter(v)
@@ -1308,7 +1347,16 @@ class Collector:
         # TODO: this is probably wrong, since you can probably import constants and things too...
         #   although in practice it appears that people only import constants
         elif type_decl_node['ast_type'] in ('InterfaceDef', 'Import', 'ImportFrom'):
-            vy_type = CompilerLangVy.VyperTypeContract(type_decl_node['name'])
+            if "names" in type_decl_node:
+                n_list = type_decl_node["names"]
+                for t in n_list:
+                    ty = CompilerLangVy.VyperTypeContract(t["name"])
+                    self.types[t["name"]] = ty
+                return
+            elif "name" in type_decl_node:
+                vy_type = CompilerLangVy.VyperTypeContract(type_decl_node['name'])
+            else:
+                raise AssertionError("Unexpected type definition")
         else:
             raise AssertionError("Unexpected type definition")
         self.types[type_decl_node['name']] = vy_type
@@ -1385,6 +1433,11 @@ class CompilerCollectorVy(CompilerCollector):
     @property
     def compiler_version(self) -> CompilerVersion:
         return self.__compiler_version
+
+    def normalize_file_compiler_path_name(self, file_abs_path: str) -> str:
+        if self.compiler_version[1] < 4 and not file_abs_path.startswith('/'):
+            return '/' + file_abs_path
+        return file_abs_path
 
     @staticmethod
     def supports_storage_layout(version: CompilerVersion) -> bool:

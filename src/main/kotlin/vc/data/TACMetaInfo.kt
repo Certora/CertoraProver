@@ -35,7 +35,7 @@ import disassembler.EVMMetaInfo
 import disassembler.EVMPC
 import log.Logger
 import log.LoggerTypes
-import scene.ITACMethod
+import scene.IBoundTACMethod
 import utils.Range
 import utils.*
 import java.math.BigInteger
@@ -167,7 +167,7 @@ fun getSourceStringOrInternalFuncForPtr(lcmd: LTACCmd): String? {
 }
 
 /** attempts to get a source string describing [lcmd] given [graph], along with a location matching this command. */
-fun getSourceHintWithRange(lcmd: LTACCmd, graph: TACCommandGraph?, method: ITACMethod?): FailureInfo {
+fun getSourceHintWithRange(lcmd: LTACCmd, graph: TACCommandGraph?, method: IBoundTACMethod?): FailureInfo {
     val cmdSource = lcmd.cmd.metaSrcInfo?.getSourceDetails()
 
     /**

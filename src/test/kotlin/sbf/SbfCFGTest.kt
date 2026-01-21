@@ -17,6 +17,7 @@
 
 package sbf
 
+import datastructures.stdcollections.*
 import sbf.callgraph.SolanaFunction
 import sbf.cfg.*
 import sbf.disassembler.*
@@ -306,23 +307,34 @@ class SbfCFGTest  {
         val newInst5 =  SbfInstruction.Bin(BinOp.MOV, Value.Reg(SbfRegister.R9), Value.Imm(5UL), true)
 
         val remap = mutableMapOf<LocatedSbfInstruction, List<SbfInstruction>>()
+
         remap[oldInst3] = listOf(newInst1, newInst2)
         remap[oldInst5] = listOf(newInst3, newInst4)
         remap[oldInst6] = listOf(newInst5, oldInst6.inst)
+        remap[oldInst4] = emptyList()
+
         println("BEFORE == \n$bb")
         bb.replaceInstructions(remap)
         println("AFTER == \n$bb")
         cfg.verify(true)
 
-        Assertions.assertEquals(true, bb.getInstructions().size == 9)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[0].inst == oldInst1.inst)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[1].inst == oldInst2.inst)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[2].inst == newInst1)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[3].inst == newInst2)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[4].inst == oldInst4.inst)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[5].inst == newInst3)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[6].inst == newInst4)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[7].inst == newInst5)
-        Assertions.assertEquals(true, bb.getLocatedInstructions()[8].inst == oldInst6.inst)
+        Assertions.assertEquals(
+            bb.getInstructions(),
+            bb.getLocatedInstructions().map { it.inst },
+        )
+
+        Assertions.assertEquals(
+            bb.getInstructions(),
+            listOf(
+                oldInst1.inst,
+                oldInst2.inst,
+                newInst1,
+                newInst2,
+                newInst3,
+                newInst4,
+                newInst5,
+                oldInst6.inst,
+            ),
+        )
     }
 }

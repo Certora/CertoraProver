@@ -18,13 +18,13 @@
 package sbf.cfg
 
 import sbf.domains.FiniteInterval
-import sbf.SolanaConfig
 import sbf.callgraph.SolanaFunction
 import sbf.disassembler.*
 import sbf.domains.*
 import datastructures.stdcollections.*
 import log.*
 import org.jetbrains.annotations.TestOnly
+import sbf.SolanaConfig
 import sbf.analysis.AdaptiveScalarAnalysis
 import sbf.analysis.AnalysisRegisterTypes
 import sbf.analysis.IAnalysis
@@ -42,6 +42,9 @@ fun promoteStoresToMemcpy(cfg: MutableSbfCFG,
                           globals: GlobalVariables,
                           memSummaries: MemorySummaries) {
     val scalarAnalysis = AdaptiveScalarAnalysis(cfg, globals, memSummaries)
+    // [findWideningAndNarrowingStores] depends on endianness. Since we never expect big-endian,
+    // we prefer to fail so that we are aware.
+    check(globals.elf.isLittleEndian())
     promoteStoresToMemcpy(cfg, scalarAnalysis)
 }
 
@@ -56,9 +59,10 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
     reorderLoads(cfg, scalarAnalysis)
 
     val types = AnalysisRegisterTypes(scalarAnalysis)
-    var numOfInsertedMemcpy = 0
+    var numOfInsertedMemcpy = 0 // counter number of new memcpy/memcpy_zext/memcpy_trunc
     for (b in cfg.getMutableBlocks().values) {
 
+        // load and stores access **same** number of bytes
         findMemcpyPatterns(b, types).let { rewrites ->
             applyRewrites(b, rewrites)
             numOfInsertedMemcpy += rewrites.size
@@ -85,10 +89,16 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
                 numOfInsertedMemcpy += rewrites.size
             }
         }
+
+        // load and stores access **different** number of bytes
+        findWideningAndNarrowingStores(b, types).let { rewrites->
+            applyRewrites(b, rewrites)
+            numOfInsertedMemcpy += rewrites.size
+        }
     }
 
     info{
-        "Number of memcpy instructions inserted: $numOfInsertedMemcpy"
+        "Number of memcpy/memcpy_zext/memcpy_trunc instructions inserted: $numOfInsertedMemcpy"
     }
 }
 
@@ -150,21 +160,22 @@ where TNum: INumValue<TNum>,
                     // If we cannot insert the store-of-load pair, then we check if we can promote
                     // the pairs we have so far.
                     memcpyPattern.canBePromoted(minSizeToBePromoted)?.let { promoted ->
-                        val memcpyInsts = emitMemcpy(
+                        emitMemcpy(
                             promoted.srcReg,
                             promoted.srcStart,
                             promoted.dstReg,
                             promoted.dstStart,
                             promoted.size,
                             promoted.metadata
-                        )
-                        rewrites.add(
-                            MemTransferRewrite(
-                                memcpyPattern.getLoads(),
-                                memcpyPattern.getStores(),
-                                memcpyInsts
+                        )?.let { newInsts ->
+                            rewrites.add(
+                                MemTransferRewrite(
+                                    memcpyPattern.getLoads(),
+                                    memcpyPattern.getStores(),
+                                    newInsts
+                                )
                             )
-                        )
+                        }
                     }
 
                     // We start a fresh sequence of store-of-load pairs
@@ -176,21 +187,22 @@ where TNum: INumValue<TNum>,
             // If the instruction is not a memory instruction, then we check if we can promote
             // the store-of-load pairs we have
             memcpyPattern.canBePromoted(minSizeToBePromoted)?.let { promoted ->
-                val memcpyInsts = emitMemcpy(
+                emitMemcpy(
                     promoted.srcReg,
                     promoted.srcStart,
                     promoted.dstReg,
                     promoted.dstStart,
                     promoted.size,
                     promoted.metadata
-                )
-                rewrites.add(
-                    MemTransferRewrite(
-                        memcpyPattern.getLoads(),
-                        memcpyPattern.getStores(),
-                        memcpyInsts
+                )?.let { newInsts ->
+                    rewrites.add(
+                        MemTransferRewrite(
+                            memcpyPattern.getLoads(),
+                            memcpyPattern.getStores(),
+                            newInsts
+                        )
                     )
-                )
+                }
                 memcpyPattern = MemcpyPattern()
             }
 
@@ -220,7 +232,7 @@ private fun <D, TNum, TOffset> processLoadStorePair(
     bb: SbfBasicBlock,
     storeLocInst: LocatedSbfInstruction,
     loadLocInst: LocatedSbfInstruction,
-    regTypes: AnalysisRegisterTypes<D, TNum, TOffset>,
+    types: AnalysisRegisterTypes<D, TNum, TOffset>,
     memcpy: MemcpyPattern
 ): Boolean
 where TNum: INumValue<TNum>,
@@ -236,15 +248,15 @@ where TNum: INumValue<TNum>,
     if (width != storeInst.access.width) {
         return false
     }
-    val loadedMemAccess = normalizeLoadOrStore(loadLocInst, regTypes)
-    val storedMemAccess = normalizeLoadOrStore(storeLocInst, regTypes)
+    val loadedMemAccess = normalizeLoadOrStore(loadLocInst, types)
+    val storedMemAccess = normalizeLoadOrStore(storeLocInst, types)
 
     // This restriction is needed when we emit the code because if both base registers in [load] and [store]
     // are scratch registers then we cannot perform the transformation because we run out of registers
     // where we can save values.
     return when {
         loadedMemAccess.region != MemAccessRegion.STACK && storedMemAccess.region != MemAccessRegion.STACK -> false
-        !isSafeToCommuteStore(bb, loadedMemAccess, loadLocInst, storedMemAccess, storeLocInst, regTypes) -> false
+        !isSafeToCommuteStore(bb, loadedMemAccess, loadLocInst, storedMemAccess, storeLocInst, types) -> false
         else -> memcpy.add(loadedMemAccess, loadLocInst, storedMemAccess, storeLocInst)
     }
 }
@@ -350,7 +362,7 @@ private class MemcpyPattern {
             } else if (srcRegion != dstRegion && srcRegion != MemAccessRegion.ANY && dstRegion != MemAccessRegion.ANY) {
                 return true
             } else {
-                return if (SolanaConfig.OptimisticMemcpyPromotion.get()) {
+                return if (SolanaConfig.optimisticMemcpyPromotion()) {
                     dbg {
                         "$name: we cannot prove that no overlaps between $loadLocInsts and $storeLocInsts"
                     }
@@ -428,6 +440,128 @@ private class MemcpyPattern {
     }
 }
 
+/**
+ * We are interested in these two related patterns:
+ * ```
+ * ldxh  r1, [r10-0x118]    ; load 16-bit value
+ * stxdw [r10-0x5E0], r1    ; spill it as a full 64-bit slot on the stack
+ * ```
+ * and
+ * ```
+ * ldxdw r2, [r10-0x5E0]    ; reload 64-bit slot from spill
+ * stxh  [r10-0x150], r2    ; store lower 16 bits to another stack slot
+ * ```
+ *
+ * This is a "type-widen → spill → type-narrow" flow caused by register pressure.
+ * The first store must be 8 bytes write because spilling uses stack slots of 8 bytes.
+ */
+private fun <D, TNum, TOffset> findWideningAndNarrowingStores(
+    bb: SbfBasicBlock,
+    types: AnalysisRegisterTypes<D, TNum, TOffset>,
+): List<MemTransferRewrite>
+where TNum: INumValue<TNum>,
+      TOffset: IOffset<TOffset>,
+      D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
+
+    val rewrites = mutableListOf<MemTransferRewrite>()
+
+    var loadReg:Value.Reg? = null
+    var loadInst:LocatedSbfInstruction? = null
+
+    for (locInst in bb.getLocatedInstructions()) {
+        when(val inst = locInst.inst) {
+            is SbfInstruction.Mem -> {
+                when (inst.isLoad) {
+                    true -> {
+                        loadReg = (inst.value as Value.Reg)
+                        loadInst = locInst
+                    }
+                    false -> {
+                        val value = inst.value
+                        if (value !is Value.Reg || loadReg != value) {
+                            continue
+                        }
+
+                        check(loadInst != null)
+
+                        val loadedMemAccess = normalizeLoadOrStore(loadInst, types)
+                        val storedMemAccess = normalizeLoadOrStore(locInst, types)
+                        if (loadedMemAccess.region != MemAccessRegion.STACK && storedMemAccess.region != MemAccessRegion.STACK) {
+                            continue
+                        }
+                        if (!isSafeToCommuteStore(bb, loadedMemAccess, loadInst, storedMemAccess, locInst, types)) {
+                            continue
+                        }
+                        when {
+                            (storedMemAccess.width.toInt() == 8 && loadedMemAccess.width.toInt() < 8) -> {
+                                // widening store to 64-bits
+                                //
+                                // ldxh  r1, [r10-0x118]    ; load 16-bit value into 64-bit register
+                                // stxdw [r10-0x5E0], r1    ; spill it as a full 64-bit slot on the stack
+                                //
+                                // Example assuming little-endian:
+                                //
+                                // r10-0x117: 0xAB  (high)
+                                // r10-0x118: 0xCD  (low)
+                                //
+                                // after ldxh  r1, [r10-0x118]
+                                //
+                                // r1 = 0x00_00_00_00_00_00_AB_CD
+                                //
+                                // after stxdw [r10-0x5E0], r1
+                                //
+                                //  r10-0x5D9:   00  (highest)
+                                //  r10-0x5DA:   00
+                                //  r10-0x5DB:   00
+                                //  r10-0x5DC:   00
+                                //  r10-0x5DD:   00
+                                //  r10-0x5DE:   00
+                                //  r10-0x5DF:   AB
+                                //  r10-0x5E0:   CD  (lowest)
+                                emitMemcpyZExt(loadedMemAccess.reg,
+                                    loadedMemAccess.offset,
+                                    storedMemAccess.reg,
+                                    storedMemAccess.offset,
+                                    i = loadedMemAccess.width.toULong(),
+                                    loadInst.inst.metaData
+                                )?.let { newInsts ->
+                                    rewrites.add(MemTransferRewrite(listOf(loadInst!!), listOf(locInst), newInsts))
+                                }
+                            }
+                            (loadedMemAccess.width.toInt() == 8 && storedMemAccess.width.toInt() < 8) -> {
+                                // narrowing store from 64-bit load
+                                //
+                                // ldxdw r2, [r10-0x5E0]    ; reload 64-bit slot from spill
+                                // stxh  [r10-0x150], r2    ; store lower 16 bits to another stack slot
+                                //
+                                // Note that there is an implicit truncation.
+                                emitMemcpyTrunc(loadedMemAccess.reg,
+                                    loadedMemAccess.offset,
+                                    storedMemAccess.reg,
+                                    storedMemAccess.offset,
+                                    storedMemAccess.width.toULong(),
+                                    loadInst.inst.metaData
+                                )?.let { newInsts ->
+                                    rewrites.add(MemTransferRewrite(listOf(loadInst!!), listOf(locInst), newInsts))
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+            }
+            else -> {
+                // Kill "active" load if its defined register is overwritten
+                if (inst.writeRegister.any { it == loadReg }) {
+                    loadInst = null
+                    loadReg = null
+                }
+            }
+        }
+    }
+    return rewrites
+}
+
 
 /**
  * Represents a recognized memory transfer pattern (e.g. memcpy).
@@ -448,6 +582,11 @@ data class MemTransferRewrite(
  *  Subsequent optimizations will remove the load instructions if they are dead.
  **/
 private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRewrite>) {
+
+    if (rewrites.isEmpty()) {
+        return
+    }
+
     // Add metadata to all load and store instructions to be promoted.
     // This is done **without** inserting or removing any instruction so all indexes in memcpyInfo are still valid.
     //
@@ -498,7 +637,7 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
 private fun addMemcpyPromotionAnnotation(bb: MutableSbfBasicBlock, locInst: LocatedSbfInstruction) {
     val inst = locInst.inst
     if (inst is SbfInstruction.Mem) {
-        val newMetaData = inst.metaData.plus(Pair(SbfMeta.MEMCPY_PROMOTION, ""))
+        val newMetaData = inst.metaData.plus(SbfMeta.MEMCPY_PROMOTION())
         val newInst = inst.copy(metaData = newMetaData)
         bb.replaceInstruction(locInst.pos, newInst)
     }
@@ -520,7 +659,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
     loadLocInst: LocatedSbfInstruction,
     store: MemAccess,
     storeLocInst: LocatedSbfInstruction,
-    regTypes: AnalysisRegisterTypes<D, TNum, TOffset>): Boolean
+    types: AnalysisRegisterTypes<D, TNum, TOffset>): Boolean
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
@@ -539,7 +678,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
 
 
     fun getMemAccessRegion(reg: MemAccessRegion): MemAccessRegion {
-        return if (SolanaConfig.OptimisticMemcpyPromotion.get()) {
+        return if (SolanaConfig.optimisticMemcpyPromotion()) {
             // If optimistic flag then we will assume that "any" can be any memory region except the stack
             when(reg) {
                 MemAccessRegion.STACK, MemAccessRegion.NON_STACK -> reg
@@ -550,7 +689,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
         }
     }
 
-    val storeBaseReg = storeInst.access.baseReg
+    val storeBaseReg = storeInst.access.base
 
     logger.debug{ "$name: $storeInst up to $loadInst?" }
     // aliases keeps track of other register that might be assigned to the loaded register
@@ -596,7 +735,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
             for (locInst in bb.getLocatedInstructions().subList(loadLocInst.pos+1, storeLocInst.pos)) {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Mem) {
-                    val normMemInst = normalizeLoadOrStore(locInst, regTypes)
+                    val normMemInst = normalizeLoadOrStore(locInst, types)
                     val canCommuteStore = when (getMemAccessRegion(normMemInst.region)) {
                         MemAccessRegion.STACK -> {
                             val noOverlap = !normMemInst.overlap(storeRange)
@@ -621,7 +760,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
                     }
                 } else if (inst is SbfInstruction.Call && SolanaFunction.from(inst.name) == SolanaFunction.SOL_MEMCPY) {
 
-                    val memAccesses = normalizeMemcpy(locInst, regTypes)
+                    val memAccesses = normalizeMemcpy(locInst, types)
                     if (memAccesses == null) {
                         logger.debug {"\t$name FAIL: cannot statically determine length in $inst"}
                         return false
@@ -665,7 +804,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
             val canCommuteStore = bb.getLocatedInstructions().subList(loadLocInst.pos+1, storeLocInst.pos).all { locInst ->
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Mem) {
-                    val normMemInst = normalizeLoadOrStore(locInst, regTypes)
+                    val normMemInst = normalizeLoadOrStore(locInst, types)
                     when (getMemAccessRegion(normMemInst.region)) {
                         MemAccessRegion.STACK -> {
                             logger.debug {"\t$name OK: $inst is stack and $storeInst is non-stack"}

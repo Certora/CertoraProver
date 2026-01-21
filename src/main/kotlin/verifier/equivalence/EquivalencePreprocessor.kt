@@ -41,6 +41,8 @@ import verifier.equivalence.data.ProgramContext
 import verifier.equivalence.instrumentation.*
 import verifier.equivalence.summarization.PureFunctionExtraction
 import verifier.equivalence.summarization.SharedPureSummarization
+import verifier.equivalence.summarization.SoliditySummarization
+import verifier.equivalence.summarization.VyperSummarization
 
 private val logger = Logger(LoggerTypes.EQUIVALENCE)
 
@@ -57,12 +59,13 @@ object EquivalencePreprocessor {
     private fun trySummarize(
         sharedSigs: Collection<QualifiedMethodSignature>,
         methodA: TACMethod,
-        methodB: TACMethod
+        methodB: TACMethod,
+        vtable: SharedPureSummarization.SummarizationImpl<*, *, *, *, *, *>
     ) : Pair<CoreTACProgram, CoreTACProgram> {
         val sigs = sharedSigs.toList().mapIndexed { index, q ->
             q to index
         }
-        val summarizer = SharedPureSummarization(sigs)
+        val summarizer = SharedPureSummarization(sigs, vtable)
         try {
             logger.info {
                 "Trying to batch summarize common pure functions: $sharedSigs"
@@ -90,8 +93,8 @@ object EquivalencePreprocessor {
                 "Trying to summarize ${s.first.prettyPrintFullyQualifiedName()}"
             }
             try {
-                val nextA = SharedPureSummarization(listOf(s)).summarize(codeAIt)
-                val nextB = SharedPureSummarization(listOf(s)).summarize(codeBIt)
+                val nextA = SharedPureSummarization(listOf(s), vtable).summarize(codeAIt)
+                val nextB = SharedPureSummarization(listOf(s), vtable).summarize(codeBIt)
                 codeAIt = nextA
                 codeBIt = nextB
             } catch(@Suppress("TooGenericExceptionCaught") e: Exception) {
@@ -111,20 +114,23 @@ object EquivalencePreprocessor {
     private data class Extraction<
         T: InternalFunctionStartAnnot,
         U: InternalFunctionExitAnnot,
-        R: PureFunctionExtraction.CallingConvention<R>
+        R: PureFunctionExtraction.CallingConvention<R, C_ARG, C_RET>,
+        C_ARG,
+        C_RET,
         >(
-        val extract: PureFunctionExtraction.PureFunctionExtractor<T, U, R>,
-        val ruleGeneration: AbstractRuleGeneration<R>
+        val extract: PureFunctionExtraction.PureFunctionExtractor<T, U, R, C_ARG, C_RET>,
+        val ruleGeneration: AbstractRuleGeneration<R>,
+        val vtable: SharedPureSummarization.SummarizationImpl<T, U, *, *, *, *>
     )
 
     /**
      * Does the common internal summarization process using the (language specific) pure function extractor [extract].
      */
-    private suspend fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: PureFunctionExtraction.CallingConvention<R>> commonInternalSummarization(
+    private suspend fun <T: InternalFunctionStartAnnot, U: InternalFunctionExitAnnot, R: PureFunctionExtraction.CallingConvention<R, A, E>, A, E> commonInternalSummarization(
         scene: IScene,
         methodAForAnalysis: TACMethod,
         methodBForAnalysis: TACMethod,
-        extract: Extraction<T, U, R>
+        extract: Extraction<T, U, R, A, E>
     ) {
         val methodBPure = PureFunctionExtraction.canonicalPureFunctionsIn(methodBForAnalysis, extract.extract)
         val methodAPure = PureFunctionExtraction.canonicalPureFunctionsIn(methodAForAnalysis, extract.extract)
@@ -179,7 +185,8 @@ object EquivalencePreprocessor {
         val (coreA, coreB) = trySummarize(
             methodA = methodAForAnalysis,
             methodB = methodBForAnalysis,
-            sharedSigs = shared
+            sharedSigs = shared,
+            vtable = extract.vtable
         )
         fun ITACMethod.earlySummaryUpdate(newCore: CoreTACProgram) = ContractUtils.transformMethodInPlace(this, ChainedMethodTransformers(listOf(
             CoreToCoreTransformer(ReportTypes.EARLY_SUMMARIZATION) { _ ->
@@ -197,12 +204,15 @@ object EquivalencePreprocessor {
 
     }
 
-    private suspend fun <R: PureFunctionExtraction.CallingConvention<R>> proveInternalFunctionEquivalence(
+    private suspend fun <R: PureFunctionExtraction.CallingConvention<R, *, *>> proveInternalFunctionEquivalence(
         context: EquivalenceQueryContext,
         qA: PureFunctionExtraction.CanonFunction<R>,
         qB: PureFunctionExtraction.CanonFunction<R>,
-        extract: Extraction<*, *, R>
+        extract: Extraction<*, *, R, *, *>
     ): Boolean {
+        logger.info {
+            "Trying to prove equivalence of internal function ${qA.sig}"
+        }
         return InternalFunctionEquivalence(
             context = context,
             sig = qA.sig,
@@ -231,9 +241,9 @@ object EquivalencePreprocessor {
 
 
         val extractor = if(langA == langB && langA == SourceLanguage.Solidity) {
-            Extraction(PureFunctionExtraction.SolidityExtractor, UnifiedInternalFunctionGenerator(context))
+            Extraction(PureFunctionExtraction.SolidityExtractor, InternalFunctionGenerator(context), SoliditySummarization)
         } else if(langA == langB && langA == SourceLanguage.Vyper) {
-            Extraction(PureFunctionExtraction.VyperExtractor, UnifiedInternalFunctionGenerator(context))
+            Extraction(PureFunctionExtraction.AdHocVyperExtractor, InternalFunctionGenerator(context), VyperSummarization)
         } else {
             null
         }

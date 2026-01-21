@@ -61,11 +61,19 @@ abstract class TACProfiler {
 
         // Generates the profile nodes for a single function call (and all of its callees).  Returns the call's node,
         // and the list of commands that exit the call.
-        fun call(name: String, callId: Int?, start: LCMD): Pair<Node, List<LCMD>> {
+        fun call(name: String, typeArgs: List<MoveType.Value>, callId: Int?, start: LCMD): Pair<Node, List<LCMD>> {
             val work = arrayDequeOf(start)
             var selfSize = 0
-            val calls = mutableListOf<Edge>()
+            val edges = mutableListOf<Edge>()
             val exits = mutableListOf<LCMD>()
+
+            if (typeArgs.isNotEmpty()) {
+                edges += Edge.Property(
+                    "typeArgs",
+                    Node.String("<${typeArgs.joinToString(", ") { it.displayName() }}>", 0)
+                )
+            }
+
             work.consume { lcmd ->
                 if (!visited.add(lcmd.ptr)) {
                     return@consume
@@ -73,19 +81,31 @@ abstract class TACProfiler {
 
                 selfSize += count(lcmd.cmd)
 
-                (lcmd.cmd as? TACCmd.Simple.AnnotationCmd)?.annot?.let { (_, v) ->
-                    if (v is MoveCallTrace.FuncStart) {
-                        val (callee, returns) = call(v.name.toString(), v.callId, graph.succ(lcmd).single())
-                        calls += Edge.Property("call", callee)
-                        work += returns
-                        return@consume
-                    } else if (v is MoveCallTrace.FuncEnd) {
-                        check(v.callId == callId) {
-                            "Function enter/exit mismatch at $lcmd: expected to exit $callId ($name)"
+                when (val c = lcmd.cmd) {
+                    is TACCmd.Simple.AnnotationCmd -> c.annot.let { (_, v) ->
+                        when (v) {
+                            is MoveCallTrace.FuncStart -> {
+                                val (callee, returns) = call(v.name.toString(), v.typeArgs, v.callId, graph.succ(lcmd).single())
+                                edges += Edge.Property("call", callee)
+                                work += returns
+                                return@consume
+                            }
+                            is MoveCallTrace.FuncEnd -> {
+                                check(v.callId == callId) {
+                                    "Function enter/exit mismatch at $lcmd: expected to exit $callId ($name)"
+                                }
+                                exits += graph.succ(lcmd)
+                                return@consume
+                            }
+                            else -> {}
                         }
-                        exits += graph.succ(lcmd)
-                        return@consume
                     }
+                    is TACCmd.Simple.AssertCmd -> {
+                        if (c.o == TACSymbol.False) {
+                            return@consume
+                        }
+                    }
+                    else -> {}
                 }
 
                 work += graph.succ(lcmd)
@@ -95,11 +115,11 @@ abstract class TACProfiler {
                 value = "${start.ptr.block}:${start.ptr.pos}",
                 className = name,
                 selfSize = selfSize,
-                edges = calls.asSequence()
+                edges = edges.asSequence()
             ) to exits
         }
 
-        val (root, _) = call("${profileName}-${graph.name}", null, graph.elab(CmdPointer(start, 0)))
+        val (root, _) = call("${profileName}-${graph.name}", listOf(), null, graph.elab(CmdPointer(start, 0)))
 
         GraphProfiler.writeProfile(
             Path(
@@ -124,6 +144,33 @@ class TACSizeProfiler : TACProfiler() {
         else -> 1
     }
 }
+
+/**
+    TAC profiler that counts conditional jumps.
+ */
+class BranchProfiler : TACProfiler() {
+    override val profileType = "Branches"
+    override fun count(cmd: TACCmd) = when(cmd) {
+        is TACCmd.Simple.JumpiCmd -> 1
+        else -> 0
+    }
+}
+
+/**
+    TAC profiler that counts stores to memory/maps.
+ */
+ class StoreProfiler: TACProfiler() {
+    override val profileType = "Stores"
+    override fun count(cmd: TACCmd): Int = when (cmd) {
+        is TACCmd.Simple.AssigningCmd.ByteStore -> 1
+        is TACCmd.Simple.WordStore -> 1
+        is TACCmd.Simple.WithLongCopy -> 1
+        is TACCmd.Simple.AssigningCmd.AssignExpCmd -> cmd.rhs.subs.count {
+            it is TACExpr.Store || it is TACExpr.MultiDimStore || it is TACExpr.LongStore || it is TACExpr.MapDefinition
+        }
+        else -> 0
+    }
+ }
 
 /**
     TAC profiler that counts "difficult" nonlinear operations in commands.

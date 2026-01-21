@@ -18,19 +18,14 @@
 package rules.genericrulecheckers
 
 import analysis.ip.SafeCastingAnnotator.CastingKey
-import datastructures.nonEmptyListOf
 import datastructures.stdcollections.*
 import evm.EVM_MOD_GROUP256
 import evm.twoToThe
-import log.*
-import report.RuleAlertReport
-import rules.*
-import spec.cvlast.SpecType
+import rules.RuleChecker
 import spec.genericrulegenerators.BuiltInRuleId
 import spec.genericrulegenerators.SafeCastingGenerator
 import spec.rules.CVLSingleRule
 import spec.rules.IRule
-import spec.rules.SingleRuleGenerationMeta
 import tac.Tag
 import utils.*
 import vc.data.*
@@ -103,60 +98,8 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
         }
     }
 
-    override suspend fun doCheck(
-        ruleChecker: RuleChecker,
-        rule: IRule,
-    ): RuleCheckResult {
-        check(rule is CVLSingleRule)
-
-        return CompiledRule.staticRules(ruleChecker.scene, ruleChecker.cvl, rule).mapCatching { codesToCheck ->
-            val checkableTACs = codesToCheck.flatMap { (currCode, currMethodInst, singleRule) ->
-                val methodName = currMethodInst.values.singleOrNull()?.toExternalABIName()
-                    ?: error("Expected the compiled builtin rule ${rule.declarationId} to contain one method parameter, but got $currMethodInst")
-
-                replaceCastsWithAsserts(currCode).mapIndexed { i, (codes, range) ->
-                    val (code, sanityCode) = codes
-                    val newRule = singleRule.copy(
-                        ruleGenerationMeta = SingleRuleGenerationMeta.WithMethodInstantiations(
-                            SingleRuleGenerationMeta.Sanity.PRE_SANITY_CHECK,
-                            currMethodInst.range(),
-                            methodName,
-                        ),
-                        range = range ?: singleRule.range,
-                        ruleIdentifier = rule.ruleIdentifier.freshDerivedIdentifier("${methodName}-${i + 1}")
-                    )
-                    val sanityRule = newRule.copy(
-                        ruleGenerationMeta = SingleRuleGenerationMeta.WithMethodInstantiations(
-                            SingleRuleGenerationMeta.Sanity.BASIC_SANITY,
-                            currMethodInst.range(),
-                            methodName,
-                        ),
-                        ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(newRule),
-                        ruleIdentifier = newRule.ruleIdentifier.freshDerivedIdentifier("-sanity")
-                    )
-                    CheckableTACWithSanity(
-                        code, currMethodInst, newRule,
-                        nonEmptyListOf(CheckableTAC(sanityCode, currMethodInst, sanityRule))
-                    )
-                }
-            }
-            if (checkableTACs.isEmpty()) {
-                RuleCheckResult.Skipped(rule, RuleAlertReport.Info("No casts found"))
-            } else {
-                val result = ruleChecker.compiledSingleRuleCheck(rule, checkableTACs)
-                val reducedResults = (result as? RuleCheckResult.Multi)?.results ?: emptyList()
-                RuleCheckResult.Multi(rule, reducedResults, RuleCheckResult.MultiResultType.PARAMETRIC)
-            }
-        }.getOrElse { e ->
-            Logger.always(
-                "Failed to compile the builtin rule ${rule.declarationId} due to $e",
-                respectQuiet = false
-            )
-            RuleCheckResult.Error(
-                rule,
-                CertoraException.fromExceptionWithRuleName(e, rule.declarationId),
-            )
-        }
-    }
+    override suspend fun doCheck(ruleChecker: RuleChecker, rule: IRule) =
+        checkDerivedRulesWithVacuity(ruleChecker, rule as CVLSingleRule, ::replaceCastsWithAsserts)
 }
+
 

@@ -124,6 +124,7 @@ object CallTraceInfra {
         ruleName: String,
         primaryContract: String,
         parametricMethodNames: List<String> = emptyList(),
+        buildOptions: List<String> = emptyList()
     ): RuleCheckInfo.WithExamplesData.CounterExample {
         val cvlText = specFilename.readText()
 
@@ -135,7 +136,7 @@ object CallTraceInfra {
                 primaryContract
             )
         )
-        return CertoraBuild.inTempDir(CertoraBuildKind.EVMBuild(), confPath).useWithBuildDir { build ->
+        return CertoraBuild.inTempDir(CertoraBuildKind.EVMBuild(buildOptions), confPath).useWithBuildDir { build ->
 
             val certoraBuilderContractSource = build.contractSource
 
@@ -217,8 +218,9 @@ object CallTraceInfra {
         ruleName: String,
         primaryContract: String,
         parametricMethodNames: List<String> = emptyList(),
+        buildOptions: List<String> = emptyList()
     ): CallTrace {
-        val counterExample = runConfAndGetCounterExample(confPath, specFilename, ruleName, primaryContract, parametricMethodNames)
+        val counterExample = runConfAndGetCounterExample(confPath, specFilename, ruleName, primaryContract, parametricMethodNames, buildOptions)
         return counterExample.callTrace ?: error("failed to get call trace, got: $counterExample")
     }
 

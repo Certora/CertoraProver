@@ -56,12 +56,6 @@ sealed class CVLReportLabel : AmbiSerializable, HasRange {
         override fun toString() = stmt.p()
         override val range get() = stmt.range
     }
-
-    @KSerializable
-    data class ApplyHook(val hookPatternString: String, override val range: Range) : CVLReportLabel() {
-        override fun toString() = "Apply hook $hookPatternString"
-    }
-
 }
 
 fun CVLCmd.Simple.p(): String =

@@ -80,36 +80,36 @@ enum class BinOp(val isCommutative: Boolean = false) {
     XOR(true),
     LSH(false),
     RSH(false),
-    ARSH(false)
-}
+    ARSH(false);
 
-fun toString(op: BinOp): String {
-    return when (op) {
-        BinOp.ADD -> "+"
-        BinOp.SUB -> "-"
-        BinOp.MUL -> "*"
-        // unsigned division
-        BinOp.DIV -> "/"
-        // Bitwise or
-        BinOp.OR -> "or"
-        // Bitwise and
-        BinOp.AND -> "and"
-        // Bitwise xor
-        BinOp.XOR -> "xor"
-        // Left shift
-        // don't use << because dot doesn't like it
-        BinOp.LSH -> "lsh"
-        // Logical right shift
-        // don't use >> because dot doesn't like it
-        BinOp.RSH -> "lrsh"
-        // Arithmetic right shif
-        BinOp.ARSH -> "arsh"
-        // Note that mod and rem are different operators and this one is rem even
-        // if the name says MOD.
-        // sbfv1 doesn't have an instruction for signed remainder so this is unsigned remainder
-        BinOp.MOD -> "%"
-        // don't print MOV
-        BinOp.MOV -> ""
+    override fun toString(): String {
+        return when (this) {
+            ADD -> "+"
+            SUB -> "-"
+            MUL -> "*"
+            // unsigned division
+            DIV -> "/"
+            // Bitwise or
+            OR -> "or"
+            // Bitwise and
+            AND -> "and"
+            // Bitwise xor
+            XOR -> "xor"
+            // Left shift
+            // don't use << because dot doesn't like it
+            LSH -> "lsh"
+            // Logical right shift
+            // don't use >> because dot doesn't like it
+            RSH -> "lrsh"
+            // Arithmetic right shif
+            ARSH -> "arsh"
+            // Note that mod and rem are different operators and this one is rem even
+            // if the name says MOD.
+            // sbfv1 doesn't have an instruction for signed remainder so this is unsigned remainder
+            MOD -> "%"
+            // don't print MOV
+            MOV -> ""
+        }
     }
 }
 
@@ -124,18 +124,18 @@ enum class UnOp {
     LE32, // dst = htole32(dst)
     LE64, // dst = htole64(dst)
 
-    NEG   // dst = neg(dst)
-}
+    NEG;   // dst = neg(dst);
 
-fun toString(op: UnOp): String {
-    return when(op) {
-        UnOp.BE16 -> "htobe16"
-        UnOp.BE32 -> "htobe32"
-        UnOp.BE64 -> "htobe64"
-        UnOp.LE16 -> "htole16"
-        UnOp.LE32 -> "htole32"
-        UnOp.LE64 -> "htole64"
-        UnOp.NEG  -> "neg"
+    override fun toString(): String {
+        return when(this) {
+            BE16 -> "htobe16"
+            BE32 -> "htobe32"
+            BE64 -> "htobe64"
+            LE16 -> "htole16"
+            LE32 -> "htole32"
+            LE64 -> "htole64"
+            NEG  -> "neg"
+        }
     }
 }
 
@@ -174,64 +174,74 @@ enum class CondOp(val isUnsigned: Boolean) {
 
     abstract fun negate(): CondOp
     abstract fun swap(): CondOp
-}
 
-fun toString(op: CondOp): String {
-    return when (op) {
-        CondOp.EQ -> "=="
-        CondOp.NE -> "!="
-        CondOp.LT -> "ult"
-        CondOp.LE -> "ule"
-        CondOp.GT -> "ugt"
-        CondOp.GE -> "uge"
-        // Don't use <, <=, >, >= because dot don't like them
-        CondOp.SLT -> "slt"
-        CondOp.SLE -> "sle"
-        CondOp.SGT -> "sgt"
-        CondOp.SGE -> "sge"
+    override fun toString(): String {
+        return when (this) {
+            EQ -> "=="
+            NE -> "!="
+            LT -> "ult"
+            LE -> "ule"
+            GT -> "ugt"
+            GE -> "uge"
+            // Don't use <, <=, >, >= because dot don't like them
+            SLT -> "slt"
+            SLE -> "sle"
+            SGT -> "sgt"
+            SGE -> "sge"
+        }
     }
 }
 
-private fun toString(v: Value, type:SbfRegisterType?): String {
-    var str = v.toString()
-    if (type != null) {
-        str += ":$type"
-    }
-    return str
+data class TypedValue(val v: Value, val type: SbfRegisterType? = null) {
+    override fun toString(): String =
+        "$v" + if (type != null) {":$type"} else {""}
 }
+
+data class TypedReg(val reg: Value.Reg, val type: SbfRegisterType? = null) {
+    override fun toString(): String =
+        "$reg" + if (type != null) {":$type"} else {""}
+}
+
+
 
 data class Condition(val op: CondOp,
-                     val left: Value.Reg,
-                     val right: Value,
-                     private val leftType: SbfRegisterType? = null,
-                     private val rightType: SbfRegisterType? = null): ReadRegister {
+                     val typedLeft: TypedReg,
+                     val typedRight: TypedValue): ReadRegister {
+
+    val left: Value.Reg get() = typedLeft.reg
+    val right: Value get() = typedRight.v
+
+    constructor(op: CondOp, left: Value.Reg, right: Value): this(op, TypedReg(left), TypedValue(right))
+
     override val readRegisters: Set<Value.Reg>
         get() = (right as? Value.Reg)?.let { setOf(it, left) } ?: setOf(left)
 
-    override fun toString(): String {
-        return toString(left, leftType) + " " + toString(op) + " " + toString(right, rightType)
-    }
+    override fun toString(): String = "$typedLeft $op $typedRight"
 
     fun negate() = copy(op = op.negate())
 }
 
 data class Deref(val width: Short,
-                 val baseReg: Value.Reg,
-                 val offset: Short,
-                 private val baseRegType: SbfRegisterType? = null) {
+                 val typedBase: TypedReg,
+                 val offset: Short) {
+
+    val base: Value.Reg get() = typedBase.reg
+
+    constructor(width: Short, base: Value.Reg, offset: Short): this(width, TypedReg(base), offset)
+
     override fun toString(): String {
+
         fun toString(type: SbfRegisterType?) = if (type != null) {":$type"} else {""}
 
-        if (baseRegType != null) {
-            if (baseRegType is SbfRegisterType.PointerType.Stack) {
-                val baseOffset = baseRegType.offset.toLongOrNull()
-                if (baseOffset != null) {
-                    val newBaseRegType = baseRegType.copy(offset = baseRegType.offset.add(offset.toLong()))
-                    return "*(u${width * 8} *) ($baseReg + $offset)${toString(newBaseRegType)}"
-                }
+        val ty = typedBase.type
+        if (ty != null && ty is SbfRegisterType.PointerType.Stack) {
+            val baseOffset = ty.offset.toLongOrNull()
+            if (baseOffset != null) {
+                val newBaseRegType = ty.copy(offset =ty.offset.add(offset.toLong()))
+                return "*(u${width * 8} *) ($base + $offset)${toString(newBaseRegType)}"
             }
         }
-        return "*(u${width * 8} *) ($baseReg${toString(baseRegType)} + $offset)"
+        return "*(u${width * 8} *) ($typedBase + $offset)"
     }
 }
 
@@ -250,17 +260,32 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
     open fun isDeallocFn() = false
     open fun isExternalFn() = false
 
+
+    // these can and probably should be replaced with polymorphism
+    open fun isCore(value: CVTCore): Boolean = false
+    open fun isCalltrace(value: CVTCalltrace): Boolean = false
+    open fun isNondet(): Boolean = false
+    open fun isPrint(): Boolean = false
+
     open fun metadataToString() = toString(metaData)
 
     data class Bin(val op: BinOp,
                    val dst: Value.Reg,
-                   val v: Value,
+                   val typedRhs: TypedValue,
                    val is64: Boolean,
                    private val preDstType: SbfRegisterType? = null,
                    private val postDstType: SbfRegisterType? = null,
-                   private val vType: SbfRegisterType? = null,
-                   override val metaData: MetaData = MetaData())
-        : SbfInstruction() {
+                   override val metaData: MetaData = MetaData()
+    ) : SbfInstruction() {
+
+        val v: Value get() = typedRhs.v
+
+        constructor(op: BinOp,
+                    dst: Value.Reg,
+                    v: Value,
+                    is64: Boolean,
+                    metaData: MetaData = MetaData())
+            : this(op, dst, TypedValue(v), is64, null, null, metaData)
 
         init {
             // to be lifted in the future
@@ -278,19 +303,20 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             }
 
         override fun toString(): String {
-            var str = toString(dst, postDstType)
-            str += if (!is64) {
-                " :=32 "
+            val sb = StringBuffer()
+            sb.append("${TypedValue(dst, postDstType)}")
+            sb.append(if (!is64) {
+                " =32 "
             } else {
-                " := "
-            }
-            str += if (op == BinOp.MOV) {
-                "$v"
+                " = "
+            })
+            sb.append(if (op == BinOp.MOV) {
+                "$typedRhs"
             } else {
-                toString(dst, preDstType) + " " + toString(op) + " " + toString(v, vType)
-            }
-            str += metadataToString()
-            return str
+                "${TypedValue(dst, preDstType)} $op  $typedRhs"
+            })
+            sb.append(metadataToString())
+            return sb.toString()
         }
     }
 
@@ -298,21 +324,25 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
                       val cond: Condition,
                       val trueVal: Value,
                       val falseVal: Value,
-                      override val metaData: MetaData = MetaData())
-        : SbfInstruction() {
+                      override val metaData: MetaData = MetaData()
+    ) : SbfInstruction() {
 
         override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
         override val writeRegister: Set<Value.Reg>
             get() = setOf(dst)
         override val readRegisters: Set<Value.Reg>
             get() = cond.readRegisters + kotlin.collections.setOfNotNull(trueVal as? Value.Reg, falseVal as? Value.Reg)
-        override fun toString() = "$dst := select($cond, $trueVal, $falseVal) ${metadataToString()}"
+        override fun toString() = "$dst = select($cond, $trueVal, $falseVal) ${metadataToString()}"
     }
 
-    data class Havoc(val dst: Value.Reg,
-                     private val dstType: SbfRegisterType? = null,
-                     override val metaData: MetaData = MetaData())
-        : SbfInstruction() {
+    data class Havoc(val typedDst: TypedReg,
+                     override val metaData: MetaData = MetaData()
+    ): SbfInstruction() {
+
+        val dst: Value.Reg get() = typedDst.reg
+
+        constructor(dst: Value.Reg): this(TypedReg(dst))
+
         override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
 
         override val writeRegister: Set<Value.Reg>
@@ -320,7 +350,7 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         override val readRegisters: Set<Value.Reg>
             get() = setOf()
 
-        override fun toString() = toString(dst, dstType) + " := havoc() ${metadataToString()}"
+        override fun toString() = "$typedDst = havoc() ${metadataToString()}"
     }
 
     data class Un(val op: UnOp,
@@ -343,15 +373,16 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             get() = setOf(dst)
 
         override fun toString(): String {
-            var str = toString(dst, postDstType)
-            str += if (!is64) {
-                " :=32 "
+            val sb = StringBuilder()
+            sb.append("${TypedReg(dst, postDstType)}")
+            sb.append(if (!is64) {
+                " =32 "
             } else {
-                " := "
-            }
-            str += toString(op) + "(" + toString(dst, preDstType) + ")"
-            str += metadataToString()
-            return str
+                " = "
+            })
+            sb.append("$op(${TypedReg(dst,preDstType)})")
+            sb.append(metadataToString())
+            return sb.toString()
         }
     }
 
@@ -399,12 +430,13 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
 
             override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
             override fun toString(): String {
-                var str = "if ($cond) then goto $target"
+                val sb = StringBuilder()
+                sb.append("if ($cond) then goto $target")
                 if (falseTarget != null) {
-                    str += " else goto $falseTarget"
+                    sb.append(" else goto $falseTarget")
                 }
-                str += metadataToString()
-                return str
+                sb.append(metadataToString())
+                return sb.toString()
             }
         }
 
@@ -421,16 +453,23 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
     /**
      *  This class represents both memory loads and stores.
      *  - If isLoad is true
-     *    value := *access
+     *    value = *access
      *  - else
-     *    *access := value
+     *    *access = value
      */
     data class Mem(val access: Deref,
-                   val value: Value,
+                   val typedValue: TypedValue,
                    val isLoad: Boolean,
-                   private val valueType: SbfRegisterType? = null,
                    override val metaData: MetaData = MetaData())
         : SbfInstruction() {
+
+        constructor(access: Deref,
+                    value: Value,
+                    isLoad: Boolean,
+                    metaData: MetaData = MetaData())
+            : this(access, TypedValue(value), isLoad, metaData)
+
+        val value: Value get() = typedValue.v
 
         init {
             check(!isLoad || value is Value.Reg) {"the lhs of a load must be a register"}
@@ -447,24 +486,20 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
 
         override val readRegisters: Set<Value.Reg>
             get() = if (isLoad) {
-                setOf(access.baseReg)
+                setOf(access.base)
             } else {
-                (value as? Value.Reg)?.let { setOf(it, access.baseReg) } ?: setOf(access.baseReg)
+                (value as? Value.Reg)?.let { setOf(it, access.base) } ?: setOf(access.base)
             }
 
         override fun toString(): String {
-            val strB = StringBuilder()
+            val sb = StringBuilder()
             if (isLoad) {
-                strB.append(toString(value, valueType))
-                strB.append(" := ")
-                strB.append(access.toString())
+                sb.append("$typedValue = $access")
             } else {
-                strB.append(access.toString())
-                strB.append(" := ")
-                strB.append(toString(value, valueType))
+                sb.append("$access = $typedValue")
             }
-            strB.append(metadataToString())
-            return strB.toString()
+            sb.append(metadataToString())
+            return sb.toString()
         }
     }
 
@@ -484,9 +519,9 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
         override fun isAbort() =
                 SolanaFunction.from(name) == SolanaFunction.ABORT || name in AbortFunctions
         override fun isTerminator() = isAbort()
-        override fun isAssert() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.ASSERT)
-        override fun isSatisfy() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.SATISFY)
-        override fun isSanity() = CVTFunction.from(name) == CVTFunction.Core(CVTCore.SANITY)
+        override fun isAssert() = isCore(CVTCore.ASSERT)
+        override fun isSatisfy() = isCore(CVTCore.SATISFY)
+        override fun isSanity() = isCore(CVTCore.SANITY)
         override fun isAllocFn(): Boolean {
                 return ((name == "__rust_alloc" || name == "__rust_alloc_zeroed") || /* Rust alloc*/
                         (name == "malloc" || name == "calloc" ))                     /* C alloc */
@@ -501,9 +536,50 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
                     CompilerRtFunction.from(name) != null)
         }
 
+        override fun isCore(value: CVTCore): Boolean {
+            val function = CVTFunction.from(name) as? CVTFunction.Core ?: return false
+            return function.value == value
+        }
+        override fun isCalltrace(value: CVTCalltrace): Boolean {
+            val function = CVTFunction.from(name) as? CVTFunction.Calltrace ?: return false
+            return function.value == value
+        }
+        override fun isNondet() = CVTFunction.from(name) is CVTFunction.Nondet
+        override fun isPrint(): Boolean {
+            val function = CVTFunction.from(name) as? CVTFunction.Calltrace
+            return when (function?.value) {
+                CVTCalltrace.PRINT_U64_1,
+                CVTCalltrace.PRINT_U64_2,
+                CVTCalltrace.PRINT_U64_3,
+                CVTCalltrace.PRINT_U128,
+                CVTCalltrace.PRINT_I64_1,
+                CVTCalltrace.PRINT_I64_2,
+                CVTCalltrace.PRINT_I64_3,
+                CVTCalltrace.PRINT_I128,
+                CVTCalltrace.PRINT_U64_AS_FIXED,
+                CVTCalltrace.PRINT_U64_AS_DECIMAL,
+                CVTCalltrace.PRINT_TAG,
+                CVTCalltrace.PRINT_STRING -> true
+
+                CVTCalltrace.PRINT_LOCATION,
+                CVTCalltrace.ATTACH_LOCATION,
+                CVTCalltrace.SCOPE_START,
+                CVTCalltrace.SCOPE_END,
+                CVTCalltrace.RULE_LOCATION -> false
+
+                null -> false
+            }
+        }
+
+        private fun isPromotedMemcpy(f: SolanaFunction) =
+            f == SolanaFunction.SOL_MEMCPY && metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
+
+        private fun isPromotedMemset(f: SolanaFunction) =
+            f == SolanaFunction.SOL_MEMSET && metaData.getVal(SbfMeta.MEMSET_PROMOTION) != null
+
         // special case for promoted memcpy
         private fun writeRegister(f: SolanaFunction?) =
-            if (f == SolanaFunction.SOL_MEMCPY && metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null) {
+            if (f != null && (isPromotedMemset(f) || isPromotedMemcpy(f))) {
                 setOf()
             } else {
                 f?.syscall?.writeRegister
@@ -562,10 +638,22 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             return "exit ${metadataToString()}"
         }
     }
+
+    data class Debug(val readRegister: Set<Value.Reg>, override val metaData: MetaData = MetaData()): SbfInstruction() {
+        override val writeRegister: Set<Value.Reg>
+            get() = setOf()
+        override val readRegisters: Set<Value.Reg>
+            get() = readRegister
+        override fun copyInst(metadata: MetaData) = copy(metaData = metadata)
+        override fun toString(): String {
+            return metadataToString()
+        }
+    }
 }
 
 /**
  * Useful for when we want a pointer back to the containing block for an instruction
+ * Only valid for the block from which it originated
  * @param label the label of the block containing [inst]
  * @param pos is the index of [inst] in block [label]
  **/

@@ -69,7 +69,7 @@ private typealias LoopInputEquiv = List<Pair<ProgramValueLocation, ProgramValueL
 
 private val logger = Logger(LoggerTypes.EQUIVALENCE)
 
-class LoopEquivalence<R: PureFunctionExtraction.CallingConvention<R>> private constructor(
+class LoopEquivalence<R: PureFunctionExtraction.CallingConvention<R, *, *>> private constructor(
     val ruleGenerator: AbstractRuleGeneration<R>,
     val queryContext: EquivalenceQueryContext,
     private val loopA: LoopInProgram<MethodMarker.METHODA, R>,
@@ -222,7 +222,7 @@ class LoopEquivalence<R: PureFunctionExtraction.CallingConvention<R>> private co
     /**
      * Situates an [annotatedLoop] within some [program] which we know how to call.
      */
-    private data class LoopInProgram<M: MethodMarker, R: PureFunctionExtraction.CallingConvention<R>>(
+    private data class LoopInProgram<M: MethodMarker, R: PureFunctionExtraction.CallingConvention<R, *, *>>(
         val annotatedLoop: AnnotatedLoop,
         val program: CallableProgram<M, R>
     )
@@ -1553,7 +1553,9 @@ class LoopEquivalence<R: PureFunctionExtraction.CallingConvention<R>> private co
                     o = assertion,
                     description = "Loop values equal"
                 )
-            ))
+            )).merge(l.flatMap { (a, b) ->
+                listOf(a.reprVar, b.reprVar)
+            }).merge(assertion)
         }.toCore("assertion-program", Allocator.getNBId())
     }
 
@@ -1741,7 +1743,7 @@ class LoopEquivalence<R: PureFunctionExtraction.CallingConvention<R>> private co
          * is proven, the loops are replaced with a sound summary via [deleteLoop], and the process repeats
          * until equivalence fails (or there are no more loops).
          */
-        private suspend fun <R: PureFunctionExtraction.CallingConvention<R>> loopSummarizationIteration(
+        private suspend fun <R: PureFunctionExtraction.CallingConvention<R, *, *>> loopSummarizationIteration(
             ruleGeneration: AbstractRuleGeneration<R>,
             queryContext: EquivalenceQueryContext,
             a: CallableProgram<MethodMarker.METHODA, R>,
@@ -1802,7 +1804,7 @@ class LoopEquivalence<R: PureFunctionExtraction.CallingConvention<R>> private co
          * Iteratively try summarizing the loops in [a] and [b], removing them when possible. The returned
          * pair has all equivalent loops replaced with sound summaries via [deleteLoop].
          */
-        suspend fun <R: PureFunctionExtraction.CallingConvention<R>> trySummarizeLoops(
+        suspend fun <R: PureFunctionExtraction.CallingConvention<R, *, *>> trySummarizeLoops(
             ruleGeneration: AbstractRuleGeneration<R>,
             queryContext: EquivalenceQueryContext,
             a: CallableProgram<MethodMarker.METHODA, R>,
@@ -1840,7 +1842,7 @@ class LoopEquivalence<R: PureFunctionExtraction.CallingConvention<R>> private co
             sourceProgram: CoreTACProgram
         ) : LoopConfigOptions? {
             logger.debug {
-                "Starting loop scan in $sourceProgram"
+                "Starting loop scan in ${sourceProgram.name}"
             }
             val progLoops = getNaturalLoops(sourceProgram.analysisCache.graph)
             if(progLoops.any { l ->
@@ -2234,7 +2236,7 @@ class LoopEquivalence<R: PureFunctionExtraction.CallingConvention<R>> private co
          * Instruments [p] so that control-flow does not reach a return/revert, and does not reach any loop besides that
          * with the head referenced in [p]'s [LoopInProgram.annotatedLoop]
          */
-        private fun <M: MethodMarker, R: PureFunctionExtraction.CallingConvention<R>> instrumentNoReturns(
+        private fun <M: MethodMarker, R: PureFunctionExtraction.CallingConvention<R, *, *>> instrumentNoReturns(
             p: LoopInProgram<M, R>,
         ): CallableProgram<M, R> {
             return p.program.map { core ->

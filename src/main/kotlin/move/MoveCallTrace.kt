@@ -32,6 +32,16 @@ import vc.data.*
     Functions for annotating Move programs with call trace information.
  */
 object MoveCallTrace {
+    private fun List<Value>.simplify(): List<Value> = when {
+        Config.onlyPrimitiveCalltrace.get() -> map {
+            when (it) {
+                is Value.Primitive -> it
+                else -> Value.NotDisplayed("filtered out")
+            }
+        }
+        else -> this
+    }
+
     @KSerializable
     sealed class MoveSnippetCmd : SnippetCmd.MoveSnippetCmd()
 
@@ -143,6 +153,7 @@ object MoveCallTrace {
     data class FuncStart(
         val callId: Int,
         val name: MoveFunctionName,
+        val typeArgs: List<MoveType.Value>,
         override val range: Range.Range?
     ) : MoveSnippetCmd()
 
@@ -201,12 +212,14 @@ object MoveCallTrace {
     /** Snippet for a user-defined assume */
     @KSerializable
     data class Assume(
+        val condition: TACSymbol,
         val message: String?,
         override val messageVar: TACSymbol.Var?,
         override val range: Range.Range?
     ) : MoveSnippetCmd(), TransformableVarEntityWithSupport<Assume>, WithMessageFromVar {
-        override val support: Set<TACSymbol.Var> get() = setOfNotNull(messageVar)
+        override val support: Set<TACSymbol.Var> get() = setOfNotNull(condition as? TACSymbol.Var, messageVar)
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var) = copy(
+            condition = (condition as? TACSymbol.Var)?.let(f) ?: condition,
             messageVar = messageVar?.let(f)
         )
         override fun resolveMessage(message: String?) = when (message) {
@@ -380,10 +393,11 @@ object MoveCallTrace {
         cmds += FuncStart(
             callId = callId,
             name = func.name,
+            typeArgs = func.typeArguments,
             range = func.range
         ).toAnnotation().withDecls()
 
-        val argVals = func.params.zip(args).map { (argType, argVal) -> makeValue(cmds, argType, argVal) }
+        val argVals = func.params.zip(args).map { (argType, argVal) -> makeValue(cmds, argType, argVal) }.simplify()
         val typeArgIds = func.typeArguments.mapIndexed { i, typeArg ->
             TACSymbol.Var("type_arg_$i", Tag.Bit256).toUnique("!").also {
                 cmds += assign(it) { CvlmHash.typeId(typeArg) }
@@ -408,7 +422,7 @@ object MoveCallTrace {
      */
     fun annotateFuncEnd(callId: Int, func: MoveFunction, returns: List<TACSymbol.Var>): MoveCmdsWithDecls {
         val cmds = mutableListOf<MoveCmdsWithDecls>()
-        val returnVals = func.returns.zip(returns).map { (retType, retVal) -> makeValue(cmds, retType, retVal) }
+        val returnVals = func.returns.zip(returns).map { (retType, retVal) -> makeValue(cmds, retType, retVal) }.simplify()
         cmds += FuncEnd(
             callId = callId,
             name = func.name,
@@ -423,11 +437,12 @@ object MoveCallTrace {
         Generates an annotation for a user-defined assume command, with an optional message variable and text message.
      */
     fun annotateUserAssume(
+        condition: TACSymbol,
         range: Range.Range?,
         messageVar: TACSymbol.Var? = null,
         messageText: String? = UNRESOLVED_MESSAGE
     ): SimpleCmdsWithDecls {
-        return Assume(messageText, messageVar, range).toAnnotation().withDecls()
+        return Assume(condition, messageText, messageVar, range).toAnnotation().withDecls()
     }
 
     /**

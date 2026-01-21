@@ -446,6 +446,8 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 when (solFunction) {
                     SolanaFunction.SOL_MEMCMP,
                     SolanaFunction.SOL_MEMCPY,
+                    SolanaFunction.SOL_MEMCPY_ZEXT,
+                    SolanaFunction.SOL_MEMCPY_TRUNC,
                     SolanaFunction.SOL_MEMMOVE,
                     SolanaFunction.SOL_MEMSET ->
                         reductionFromScalarsToPtaGraph(locInst)
@@ -531,9 +533,11 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         // instructions the base register and the lhs can be the same register.
         reductionFromScalarsToPtaGraph(locInst)
 
+        val base = stmt.access.base
+
         // In the case of a load instruction where base register and lhs are the same register, we need to remember
         // the scalar value of the base before it might have been overwritten.
-        val baseType = scalars.getAsScalarValueWithNumToPtrCast(stmt.access.baseReg, globals).type()
+        val baseType = scalars.getAsScalarValueWithNumToPtrCast(base, globals).type()
 
         scalars.analyze(locInst, globals, memSummaries)
 
@@ -541,7 +545,6 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
             setToBottom()
         } else  {
             check(!baseType.isBottom()) { "Unexpected bottom scalar value at $stmt" }
-            val base = stmt.access.baseReg
             val isLoad = stmt.isLoad
             if (isLoad) {
                 ptaGraph.doLoad(locInst, base, baseType, globals, scalars)
@@ -590,6 +593,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                 is SbfInstruction.Mem -> analyzeMem(locInst, globals, memSummaries)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
+                is SbfInstruction.Debug -> {}
             }
         }
         dbg {"$this\n"}

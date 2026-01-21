@@ -90,7 +90,9 @@ class CvlmApi(scene: MoveScene) {
                     TACCmd.Simple.AssertCmd(
                         call.args[0],
                         "cvlm_assert",
-                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
+                            (TACMeta.ASSERT_ID to ASSERT_ID_PLACEHOLDER) +
+                            (call.range?.let { MetaMap(TACMeta.CVL_RANGE to it) } ?: MetaMap())
                     ).withDecls()
                 )
             }
@@ -114,7 +116,9 @@ class CvlmApi(scene: MoveScene) {
                     TACCmd.Simple.AssertCmd(
                         call.args[0],
                         "cvlm_assert_msg (could not extract message)", // message will be replaced later
-                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT)
+                        MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
+                            (TACMeta.ASSERT_ID to ASSERT_ID_PLACEHOLDER) +
+                            (call.range?.let { MetaMap(TACMeta.CVL_RANGE to it) } ?: MetaMap())
                     ).withDecls()
                 )
             }
@@ -129,6 +133,7 @@ class CvlmApi(scene: MoveScene) {
             singleBlockSummary(call) {
                 mergeMany(
                     MoveCallTrace.annotateUserAssume(
+                        condition = call.args[0],
                         messageText = call.displaySource,
                         range = call.range
                     ),
@@ -149,6 +154,7 @@ class CvlmApi(scene: MoveScene) {
             singleBlockSummary(call) {
                 mergeMany(
                     MoveCallTrace.annotateUserAssume(
+                        condition = call.args[0],
                         messageVar = call.args[1],
                         messageText = call.displaySource,
                         range = call.range
@@ -179,7 +185,7 @@ class CvlmApi(scene: MoveScene) {
                         TACCmd.Simple.AssertCmd(
                             cond.s,
                             "cvlm_satisfy",
-                            MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (TACMeta.SATISFY_ID to allocSatisfyId())
+                            MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) + (TACMeta.SATISFY_ID to SATISFY_ID_PLACEHOLDER)
                         ).withDecls()
                     )
                 }
@@ -206,7 +212,7 @@ class CvlmApi(scene: MoveScene) {
                             cond.s,
                             "cvlm_satisfy_msg (could not extract message)",
                             MetaMap(TACMeta.CVL_USER_DEFINED_ASSERT) +
-                                (TACMeta.SATISFY_ID to allocSatisfyId())
+                                (TACMeta.SATISFY_ID to SATISFY_ID_PLACEHOLDER)
                         ).withDecls()
                     )
                 }

@@ -20,6 +20,7 @@ package sbf.disassembler
 import sbf.callgraph.MAX_SYSCALL_FUNCTIONS
 import sbf.sbfLogger
 import datastructures.stdcollections.*
+import dwarf.DebugSymbols
 
 typealias FunctionId = Int
 
@@ -151,4 +152,5 @@ data class BytecodeProgram(val entriesMap: Map<String, ElfAddress>,
                            // each element in relocatedCalls is an index in program
                            // Strictly, we don't really need this because for all resolved
                            // calls via relocation the value of the IMM field should be -1.
-                           val relocatedCalls : Set<Int>)
+                           val relocatedCalls : Set<Int>,
+                           val debugInformation: DebugSymbols)

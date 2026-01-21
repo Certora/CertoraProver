@@ -685,7 +685,7 @@ open class DefaultTACCmdSpecMapper: DefaultTACCmdMapper() {
         is TACCmd.CVL.CompareStorage -> mapCompareStorage(t)
         is TACCmd.CVL.ArrayCopy -> mapArrayCopy(t)
         is TACCmd.CVL.LocalAlloc -> mapLocalAlloc(t)
-        is TACCmd.CVL.CompareBytes1Array -> mapCompareBytes1Array(t)
+        is TACCmd.CVL.CompareArray -> mapCompareArray(t)
     }
 
     open fun mapArrayCopy(t: TACCmd.CVL.ArrayCopy): TACCmd.CVL.ArrayCopy {
@@ -778,8 +778,8 @@ open class DefaultTACCmdSpecMapper: DefaultTACCmdMapper() {
             meta = mapMeta(meta)
         )
     }
-    open fun mapCompareBytes1Array(t: TACCmd.CVL.CompareBytes1Array): TACCmd.CVL.CompareBytes1Array {
-        return this.mapCompareBytes1Array(
+    open fun mapCompareArray(t: TACCmd.CVL.CompareArray): TACCmd.CVL.CompareArray {
+        return this.mapCompareArray(
             lhsVar = t.lhsVar,
             left = t.left,
             right = t.right,
@@ -787,13 +787,13 @@ open class DefaultTACCmdSpecMapper: DefaultTACCmdMapper() {
         )
     }
 
-    open fun mapCompareBytes1Array(
+    open fun mapCompareArray(
         lhsVar: TACSymbol.Var,
         left: TACSymbol.Var,
         right: TACSymbol.Var,
         meta: MetaMap
-    ): TACCmd.CVL.CompareBytes1Array {
-        return TACCmd.CVL.CompareBytes1Array(
+    ): TACCmd.CVL.CompareArray {
+        return TACCmd.CVL.CompareArray(
             lhsVar = mapLhs(lhsVar, 0),
             left = mapVar(left,1),
             right = mapVar(right, 2),

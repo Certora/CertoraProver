@@ -1,0 +1,10 @@
+[package]
+name = "Test"
+edition = "2024.beta"
+
+[dependencies]
+MoveStdlib = { override = true, git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "framework/testnet" }
+cvlm = { git = "https://github.com/Certora/cvl-move-proto.git", subdir = "cvlm", rev = "main" }
+
+[addresses]
+test = "0x0"

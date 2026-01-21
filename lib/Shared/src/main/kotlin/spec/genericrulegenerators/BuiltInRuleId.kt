@@ -21,6 +21,7 @@ enum class BuiltInRuleId {
     hasDelegateCalls,
     trustedMethods,
     safeCasting,
+    uncheckedOverflows,
     msgValueInLoopRule,
     viewReentrancy,
     deepSanity,

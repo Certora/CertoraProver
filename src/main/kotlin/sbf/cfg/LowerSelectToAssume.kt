@@ -76,7 +76,7 @@ private fun replaceSelectWithAssignAndAssume(
         }
         val trueCst = Condition(CondOp.EQ, select.dst, select.trueVal)
         val falseCst = Condition(CondOp.EQ, select.dst, select.falseVal)
-        val newMetadata = select.metaData.plus(SbfMeta.LOWERED_SELECT to "")
+        val newMetadata = select.metaData.plus(SbfMeta.LOWERED_SELECT())
 
         val (newAssumeInst, newAssignInst) =
             when {
@@ -158,7 +158,7 @@ private fun replaceSelectWithAssign(
             continue
         }
 
-        val newMetadata = select.metaData.plus(SbfMeta.LOWERED_SELECT to "")
+        val newMetadata = select.metaData.plus(SbfMeta.LOWERED_SELECT())
         val newAssignInst = when {
             // cond is always false -> dst := falseVal
             npAnalysis.isBottom(np, locSelectInst, select.cond) ->

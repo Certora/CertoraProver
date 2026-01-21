@@ -396,4 +396,7 @@ object TACMeta {
 
     /** Soroban Env */
     val SOROBAN_ENV = MetaKey.Nothing("soroban.env")
+
+    /** address of the SBF instruction, for TAC debugging */
+    val SBF_ADDRESS  = MetaKey<Long>("sbf.bytecode.address")
 }

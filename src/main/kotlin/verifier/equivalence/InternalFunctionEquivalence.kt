@@ -17,7 +17,6 @@
 
 package verifier.equivalence
 
-import log.*
 import spec.cvlast.QualifiedMethodSignature
 import spec.rules.EquivalenceRule
 import vc.data.*
@@ -39,7 +38,7 @@ import verifier.equivalence.tracing.BufferTraceInstrumentation
  * summarize away equivalent loops via [LoopEquivalence]; after this process
  * the equivalence of the resulting functions is checked with [FullEquivalence].
  */
-class InternalFunctionEquivalence<R: PureFunctionExtraction.CallingConvention<R>>(
+class InternalFunctionEquivalence<R: PureFunctionExtraction.CallingConvention<R, *, *>>(
     val sig: QualifiedMethodSignature,
     val context: EquivalenceQueryContext,
     val ruleGeneration: AbstractRuleGeneration<R>,

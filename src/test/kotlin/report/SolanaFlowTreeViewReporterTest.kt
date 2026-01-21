@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import solver.SolanaFlowTest
 import datastructures.stdcollections.*
+import solver.SolanaCallTraceTest
 
 class SolanaFlowTreeViewReporterTest {
     data class RuleAssertCount(val totalAsserts: Int, val verifiedAsserts: Int)
@@ -50,7 +51,7 @@ class SolanaFlowTreeViewReporterTest {
         ConfigScope(Config.MultiAssertCheck, true)
             .extend(Config.DoSanityChecksForRules, SanityValues.NONE)
             .use {
-                val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rulesToAsserts.keys.toHashSet()).first
+                val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(SolanaCallTraceTest.confPath, SolanaCallTraceTest.elfFilePath, rulesToAsserts.keys.toHashSet()).first
                 val nodes = treeView.nodes()
                 /**
                  * The multi assert mode generates one TAC program per assert and the tree will list the base rule and for each assert in the
@@ -66,7 +67,7 @@ class SolanaFlowTreeViewReporterTest {
     @Test
     fun sanityBasicFlow() {
         ConfigScope(Config.DoSanityChecksForRules, SanityValues.BASIC).use {
-            val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rulesToAsserts.keys.toHashSet()).first
+            val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(SolanaCallTraceTest.confPath, SolanaCallTraceTest.elfFilePath, rulesToAsserts.keys.toHashSet()).first
             val nodes = treeView.nodes()
             val pathsToLeaves = treeView.pathsToLeaves()
 
@@ -86,7 +87,7 @@ class SolanaFlowTreeViewReporterTest {
     @Test
     fun sanityAdvancedFlow() {
         ConfigScope(Config.DoSanityChecksForRules, SanityValues.ADVANCED).use {
-            val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rulesToAsserts.keys.toHashSet()).first
+            val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(SolanaCallTraceTest.confPath, SolanaCallTraceTest.elfFilePath, rulesToAsserts.keys.toHashSet()).first
             val nodes = treeView.nodes()
 
             /**
@@ -107,7 +108,7 @@ class SolanaFlowTreeViewReporterTest {
     @Test
     fun sanityAdvancedAndMultiAssertFlow() {
         ConfigScope(Config.DoSanityChecksForRules, SanityValues.ADVANCED).extend(Config.MultiAssertCheck, true).use {
-            val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(rulesToAsserts.keys.toHashSet()).first
+            val treeView = SolanaFlowTest.runSolanaFlowOnProjectForTests(SolanaCallTraceTest.confPath, SolanaCallTraceTest.elfFilePath, rulesToAsserts.keys.toHashSet()).first
             val nodes = treeView.nodes()
 
             assertEquals(

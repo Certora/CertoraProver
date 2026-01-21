@@ -28,7 +28,6 @@ import report.calltrace.sarif.Sarif
 import report.checkWarn
 import report.globalstate.logger
 import rules.ContractInfo
-import scene.ISceneIdentifiers
 import solver.CounterexampleModel
 import spec.cvlast.EVMBuiltinTypes.evmBitWidths
 import utils.*
@@ -44,7 +43,6 @@ import java.math.BigInteger.ZERO
 internal class ValueFormattingJob(val tacValueIn: TACValue,
                          val type: FormatterType.Value<*>,
                          val addrToContract: Map<TACValue.PrimitiveValue.Integer, ContractInfo>,
-                         val scene: ISceneIdentifiers,
                          val model: CounterexampleModel) {
 
     init {
@@ -210,11 +208,8 @@ internal class ValueFormattingJob(val tacValueIn: TACValue,
      * for each (non pre-compiled) contract in [scene], [modelAddrToContractName] maps the model's
      * chosen address for that contract to the [ContractInfo] of that address.
      *
-     * [scene] will be used in the future to recognize pre-compiled contracts (CERT-1917)
      */
     private fun computeContractName(tv: TACValue): String? {
-        unused(scene)
-
         val modelAddrToContractName: Map<BigInteger, String> =
             addrToContract
                 .entries

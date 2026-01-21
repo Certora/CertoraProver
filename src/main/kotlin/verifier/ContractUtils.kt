@@ -28,6 +28,7 @@ import analysis.split.SplitContext.Companion.storageLoc
 import analysis.type.TypeRewriter
 import bridge.ContractInstanceInSDC
 import bridge.EVMExternalMethodInfo
+import bridge.SourceLanguage
 import cache.ContractLoad
 import com.certora.collect.*
 import config.ReportTypes
@@ -114,7 +115,14 @@ object ContractUtils {
                     // Annotate internal functions
                     CoreToCoreTransformer(
                         ReportTypes.INTERNAL_FUNCTION_ANNOTATED
-                    ) { c: CoreTACProgram -> FunctionFlowAnnotator.doAnalysis(c, source) },
+                    ) { c: CoreTACProgram ->
+                        when (source.lang) {
+                            SourceLanguage.Solidity,
+                            SourceLanguage.Yul,
+                            SourceLanguage.Unknown -> FunctionFlowAnnotator.doAnalysis(c, source)
+                            SourceLanguage.Vyper -> VyperInternalFunctionAnnotator(c, source).annotate()
+                        }
+                    },
                     // validate internal functions
                     CoreToCoreTransformer(
                         ReportTypes.INTERNAL_FUNCTION_VALIDATED
@@ -129,6 +137,8 @@ object ContractUtils {
                     ) { c: CoreTACProgram -> SourceFinderAnnotator.annotate(c, source) },
                     // instrument the safeCasting builtin rule
                     CoreToCoreTransformer(ReportTypes.SAFE_CASTING_ANNOTATOR, SafeCastingAnnotator::annotate),
+                    // instrument the uncheckedOverflow builtin rule
+                    CoreToCoreTransformer(ReportTypes.UNCHECKED_OVERFLOW_ANNOTATOR, UncheckedOverflowAnnotator::annotate),
                     // Basic instrumentation
                     CoreToCoreTransformer(
                         ReportTypes.ENV_START_BLOCK
@@ -243,7 +253,7 @@ object ContractUtils {
         return simplifiedTACCode
     }
 
-    fun <T : ITACMethod> transformMethodInPlace(method: T, transformers: ChainedCoreTransformers) {
+    fun <T : IBoundTACMethod> transformMethodInPlace(method: T, transformers: ChainedCoreTransformers) {
         transformMethod_(
             method,
             ChainedMethodTransformers(transformers.l.map { ts: CoreToCoreTransformer -> ts.lift<T>() }),
@@ -251,7 +261,7 @@ object ContractUtils {
         )
     }
 
-    fun <T : ITACMethod> transformMethodInPlace(method: T, transformers: ChainedMethodTransformers<T>) {
+    fun <T : IBoundTACMethod> transformMethodInPlace(method: T, transformers: ChainedMethodTransformers<T>) {
         transformMethod_(
             method,
             transformers,
@@ -259,14 +269,14 @@ object ContractUtils {
         )
     }
 
-    fun <T : ITACMethod> transformMethod(method: T, transformers: ChainedCoreTransformers): T =
+    fun <T : IBoundTACMethod> transformMethod(method: T, transformers: ChainedCoreTransformers): T =
         transformMethod_(
             method,
             ChainedMethodTransformers(transformers.l.map { ts: CoreToCoreTransformer -> ts.lift<T>() }),
             false
         )
 
-    fun <T : ITACMethod> transformMethod(method: T, transformers: ChainedMethodTransformers<T>): T =
+    fun <T : IBoundTACMethod> transformMethod(method: T, transformers: ChainedMethodTransformers<T>): T =
         transformMethod_(
             method,
             transformers,
@@ -276,7 +286,7 @@ object ContractUtils {
     /**
      * The most general transformMethod variant
      */
-    private fun <T : ITACMethod> transformMethod_(
+    private fun <T : IBoundTACMethod> transformMethod_(
         method: T,
         transformers: ChainedMethodTransformers<T>,
         inPlace: Boolean

@@ -104,7 +104,7 @@ fun MethodRef.resolveIn(contract: IContractClassIdentifiers): IMethodIdentifiers
         contract.getMethodBySigHash(this.sigHash?.n ?: error("No sighash for $this"))
     }
 
-fun ITACMethod.toRef() = MethodRef(
+fun IBoundTACMethod.toRef() = MethodRef(
         contractId = this.getContainingContract().instanceId,
         sigHash = this.sigHash,
         attr = this.attribute

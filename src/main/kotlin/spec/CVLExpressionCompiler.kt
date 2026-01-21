@@ -1202,7 +1202,12 @@ class CVLExpressionCompiler(
         cvlCompiler.exprFact::Ge,
     )
 
-    private fun CVLExp.isBytesOperand() = this.getCVLType() isConvertibleTo CVLType.PureCVLType.DynamicArray.PackedBytes ||  this.getCVLType() isConvertibleTo CVLType.PureCVLType.DynamicArray.StringType
+    /** Checks if this expression is an array */
+    private fun CVLExp.isArrayOperand(): Boolean {
+        val type = this.getOrInferPureCVLType { _, _ -> }.resultOrNull()
+        return type is CVLType.PureCVLType.CVLArrayType
+    }
+
     private fun compileEqExp(
         out: TACSymbol.Var,
         exp: CVLExp.RelopExp.EqExp
@@ -1220,8 +1225,10 @@ class CVLExpressionCompiler(
                     isEquality = true
                 )
             }
-            exp.l.isBytesOperand() && exp.r.isBytesOperand() -> {
-                compileBytes1ArrayComparison(
+           exp.l.isArrayOperand() && exp.r.isArrayOperand() -> {
+                // array comparison (non-bytes1 arrays)
+                // Type checker has validated that the arrays don't have nested arrays
+                compileArrayComparison(
                     left = exp.l,
                     right = exp.r,
                     outVar = out
@@ -1229,13 +1236,12 @@ class CVLExpressionCompiler(
             }
             exp.l.getOrInferPureCVLType { _, _ -> }.resultOrNull() is CVLType.PureCVLType.Struct -> {
                 /**
-                 * Accepts two expressions representing structs (of the same type).
-                 * @return a list of [CVLExpressionCompiler.CompiledProgramWithOut] where each element is a comparison of one of the struct's fields
-                 * Note that if the field is itself a struct this function will recursively expand it to a list of comparisons of _it's_ fields.
+                 * Recursively compiles comparison for structs (and handles array fields).
+                 * @return a list of [CVLExpressionCompiler.CompiledProgramWithOut] where each element is a comparison of one component
                  */
-                fun compileFieldEqExp(baseExpL: CVLExp, baseExpR: CVLExp): List<CVLExpressionCompiler.CompiledProgramWithOut> {
+                fun compileTypeComparison(baseExpL: CVLExp, baseExpR: CVLExp): List<CVLExpressionCompiler.CompiledProgramWithOut> {
                     check(baseExpL.getOrInferPureCVLType() == baseExpR.getOrInferPureCVLType()) {
-                        "The typechecker should have made  sure the right- and left-hand sides of the comparison are of the same type." +
+                        "The typechecker should have made sure the right- and left-hand sides of the comparison are of the same type." +
                             "got ${baseExpL.getOrInferPureCVLType()} and ${baseExpR.getOrInferPureCVLType()}"
                     }
                     val structType = baseExpL.getOrInferPureCVLType() as CVLType.PureCVLType.Struct
@@ -1244,17 +1250,22 @@ class CVLExpressionCompiler(
                             when (val fieldVal = field.cvlType) {
                                 is CVLType.PureCVLType.Struct -> {
                                     // An inner struct. Recursively compile its fields
-                                    compileFieldEqExp(
+                                    compileTypeComparison(
                                         CVLExp.FieldSelectExp(baseExpL, field.fieldName, fieldVal.asTag()),
                                         CVLExp.FieldSelectExp(baseExpR, field.fieldName, fieldVal.asTag())
                                     )
                                 }
-
+                                is CVLType.PureCVLType.CVLArrayType -> {
+                                    // Array field - generate array comparison
+                                    // This handles both bytes1 arrays and general arrays
+                                    val leftField = CVLExp.FieldSelectExp(baseExpL, field.fieldName, fieldVal.asTag())
+                                    val rightField = CVLExp.FieldSelectExp(baseExpR, field.fieldName, fieldVal.asTag())
+                                    val arrayCompareOut = TACKeyword.TMP(Tag.Bool, "!fieldArrayCmp").toUnique("!")
+                                    val compiled = compileArrayComparison(leftField, rightField, arrayCompareOut)
+                                    listOf(CompiledProgramWithOut(compiled, arrayCompareOut))
+                                }
                                 else -> {
-                                    if (fieldVal is CVLType.PureCVLType.CVLArrayType && fieldVal !is CVLType.PureCVLType.DynamicArray.Bytes1Array) {
-                                        error("typechecker should have prevented this case")
-                                    }
-                                    // compile `baseExpL.fieldName == baseExpR.fieldName`
+                                    // Primitive field - compile as direct EqExp
                                     listOf(compileExp(CVLExp.RelopExp.EqExp(
                                         CVLExp.FieldSelectExp(baseExpL, field.fieldName, fieldVal.asTag()),
                                         CVLExp.FieldSelectExp(baseExpR, field.fieldName, fieldVal.asTag()),
@@ -1267,7 +1278,7 @@ class CVLExpressionCompiler(
                 }
 
                 val baseCVLTACProgram = CommandWithRequiredDecls(TACCmd.Simple.LabelCmd("→ struct comparison ($exp)")).toProgWithCurrEnv("structComparison")
-                val fieldComparisons = compileFieldEqExp(exp.l, exp.r)
+                val fieldComparisons = compileTypeComparison(exp.l, exp.r)
                 val (mergedFieldComparisons, conjunction) = fieldComparisons.fold(baseCVLTACProgram to TACSymbol.True.asSym() as TACExpr) { acc, compiledWithOut ->
                     acc.first.merge(compiledWithOut.prog.getAsSimple()) to TACExprFactUntyped {
                         acc.second and compiledWithOut.out.asSym()
@@ -2414,7 +2425,11 @@ class CVLExpressionCompiler(
             ), outVar, v1, v2).toProgWithCurrEnv("storage compare")
         )
     }
-    private fun compileBytes1ArrayComparison(
+    /**
+     * Compiles array comparison (for both bytes1 arrays and general arrays).
+     * Generates a [TACCmd.CVL.CompareArray] command.
+     */
+    private fun compileArrayComparison(
         left: CVLExp,
         right: CVLExp,
         outVar: TACSymbol.Var
@@ -2424,7 +2439,7 @@ class CVLExpressionCompiler(
                 val res = lCompiled.prog.getAsSimple()
                     .merge(rCompiled.prog.getAsSimple())
                     .merge(CommandWithRequiredDecls(listOf(
-                        TACCmd.CVL.CompareBytes1Array(
+                        TACCmd.CVL.CompareArray(
                             outVar,
                             lCompiled.out,
                             rCompiled.out

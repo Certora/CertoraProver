@@ -121,6 +121,7 @@ data class ContractInstanceInSDC(
     val immutables: List<ImmutableReference> = listOf(),
     val allMethods: List<Method> = listOf(),
     val internalFunctions: Map<String, MethodInContract> = mapOf(),
+    val internalFuncs: List<Method> = listOf(), // TODO fix the naming! (CERT-9841)
     val internalFunctionHarnesses: Map<InternalFuncName, InternalFuncExternalHarnessName> = mapOf(),
     /**
      * If any `create()` call in the EVM bytecode has any element of [prototypeFor] as its prefix,

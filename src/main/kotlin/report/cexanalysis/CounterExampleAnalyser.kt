@@ -37,7 +37,6 @@ interface CexAnalysisInfo {
     val cmd : TACCmd.Simple
     val msg : String
     val range get() = cmd.sourceOrCVLRange as? Range.Range
-
 }
 
 /**
@@ -123,7 +122,7 @@ class CounterExampleAnalyser(
                         cex.g.getLhs(ptr)?.let(cex::invoke)
                             ?.let { "($it)".yellow }.orEmpty()
                     }
-                    .print(code)
+                    .toString(code, "CEX-Analysis")
             }
         }
     }

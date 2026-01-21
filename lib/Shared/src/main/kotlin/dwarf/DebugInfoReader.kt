@@ -17,7 +17,6 @@
 
 package dwarf
 
-import config.Config
 import datastructures.stdcollections.*
 import kotlinx.serialization.SerialName
 import log.*
@@ -27,8 +26,6 @@ import report.CVTAlertType
 import utils.Range
 import utils.*
 import kotlinx.serialization.json.Json
-import java.io.File
-import java.nio.file.Paths
 
 private val debugSymbolsLogger = Logger(LoggerTypes.DEBUG_SYMBOLS)
 
@@ -138,7 +135,7 @@ object DebugInfoReader {
         val start = SourcePosition(line, column)
         val end = SourcePosition(line + 1U, 0U)
         val range = Range.Range(file, start, end)
-        return if (fileExistsInSourcesDir(range)) {
+        return if (range.fileExistsInSourcesDir()) {
             range
         } else {
             null
@@ -151,7 +148,7 @@ object DebugInfoReader {
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     fun getInlinedFramesInSourcesDir(addresses: List<ULong>): Map<ULong, List<Range.Range>> {
         return getInlinedFrames(addresses).mapValues { (_, inlinedFrames) ->
-            inlinedFrames.filter { fileExistsInSourcesDir(it) }
+            inlinedFrames.filter { it.fileExistsInSourcesDir() }
         }
     }
 
@@ -275,16 +272,6 @@ object DebugInfoReader {
         }
     }
 
-    /** Checks if the file referenced by the given [range] exists in the local sources directory. */
-    private fun fileExistsInSourcesDir(range: Range.Range): Boolean {
-        val file = File(Config.prependSourcesDir(range.file))
-        debugSymbolsLogger.info {
-            "Considering range for file '${range.file}' at ${range.start.lineForIDE}:${range.start.characterForIDE}-${range.end.lineForIDE}:${range.end.characterForIDE}. File '$file' exists: ${file.exists()}"
-        }
-        // If the range is absolute, we ignore it: we cannot resolve files in the local sources directory if the path is absolute.
-        val pathIsRelative = !Paths.get(range.file).isAbsolute
-        return pathIsRelative && file.exists()
-    }
 
 }
 

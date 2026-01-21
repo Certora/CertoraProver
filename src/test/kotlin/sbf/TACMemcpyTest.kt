@@ -543,16 +543,9 @@ class TACMemcpyTest {
         cfg.normalize()
         cfg.verify(true)
         println("$cfg")
-        var exception = false
-        try {
+        expectException<UnknownStackContentError> {
             toTAC(cfg)
         }
-        catch (e: UnknownStackContentError) {
-            println("Test failed as expected because $e")
-            exception = true
-        }
-        Assertions.assertEquals(true, exception)
-
     }
 
     @Test
@@ -1217,15 +1210,9 @@ class TACMemcpyTest {
 
         ConfigScope(SolanaConfig.OptimisticPTAOverlaps, true).use {
             ConfigScope(SolanaConfig.AddMemLayoutAssumptions, false).use {
-                var exception = false
-                try {
+                expectException<UnknownStackContentError> {
                     toTAC(cfg)
                 }
-                catch (e: UnknownStackContentError) {
-                    println("Test failed as expected because $e")
-                    exception = true
-                }
-                Assertions.assertEquals(true, exception)
             }
         }
     }

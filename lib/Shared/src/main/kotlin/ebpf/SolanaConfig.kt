@@ -19,6 +19,7 @@ package sbf
 
 import config.ConfigType
 import org.apache.commons.cli.Option
+import org.jetbrains.annotations.TestOnly
 
 /** Static object that contains all the Solana CLI options **/
 object SolanaConfig {
@@ -76,13 +77,22 @@ object SolanaConfig {
         }
     }
 
-
     val SkipCallRegInst = object : ConfigType.BooleanCmdLine(
         false,
         Option(
             "solanaSkipCallRegInst",
             true,
             "Skip callx instructions. If enabled the analysis might be unsound. [default: false]"
+        )
+    ) {}
+
+    @TestOnly
+    val DefactoSemantics = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "solanaDefactoSemantics",
+            true,
+            "Assume the behavior that compilers actually implement and rely on in practice [default: true]"
         )
     ) {}
 
@@ -96,31 +106,33 @@ object SolanaConfig {
         )
     ) {}
 
+    @TestOnly
     val OptimisticPTAJoin = object : ConfigType.BooleanCmdLine(
         false,
         Option(
             "solanaOptimisticJoin",
             true,
-            "Optimistic join in the pointer analysis in presence of Rust dangling pointers. [default: false]"
+            "The join of a pointer and dangling pointer always chooses the pointer. [default: false]"
         )
     ) {}
 
-    val OptimisticPTAJoinWithStackPtr = object : ConfigType.BooleanCmdLine(
+    private val OptimisticPTAJoinWithStackPtr = object : ConfigType.BooleanCmdLine(
         false,
         Option(
             "solanaOptimisticJoinWithStackPtr",
             true,
-            "At a joint point, if a field might point to either a stack pointer or non-stack pointer then it chooses the stack pointer. " +
+            "The join of a stack pointer and non-stack pointer chooses the stack pointer. " +
                       "The flag ${OptimisticPTAJoin.name} must be enabled [default: false]"
         )
     ) {}
 
+    @TestOnly
     val OptimisticPTAOverlaps = object : ConfigType.BooleanCmdLine(
         false,
         Option(
             "solanaOptimisticOverlaps",
             true,
-            "Optimistically assume that no sharing due to overlapping can occur during pointer analysis. [default: false]"
+            "At a join, overlapping pointers between the two branches are propagated. [default: false]"
         )
     ) {}
 
@@ -130,29 +142,33 @@ object SolanaConfig {
             "solanaSlicerThroughAsserts",
             true,
             "Optimistically backward propagate necessary preconditions through asserts. " +
-                       "Enabling this flag might be unsound if a failing assertion lies on a dead path marked by the backward analysis. [default: false]"
+                      "Enabling this flag might be unsound if a failing assertion lies on a dead path " +
+                      "marked by the backward analysis. [default: false]"
         )
     ) {}
 
-    val OptimisticDealloc = object : ConfigType.BooleanCmdLine(
+    private val OptimisticDealloc = object : ConfigType.BooleanCmdLine(
         false,
         Option(
             "solanaOptimisticDealloc",
             true,
-            "Optimistically dealloc memory without proving the pointer analysis that the deallocated memory does not represent multiple concrete memory objects [default: false]"
+            "Optimistically dealloc memory without proving the pointer analysis that the deallocated " +
+                      "memory does not represent multiple concrete memory objects [default: false]"
         )
     ) {}
 
+    @TestOnly
     val OptimisticMemcpyPromotion = object : ConfigType.BooleanCmdLine(
         false,
         Option(
             "solanaOptimisticMemcpyPromotion",
             true,
-            "Optimistically promote stores to memcpy if the analysis cannot prove that source and destination do not overlap. [default: false]"
+            "Optimistically promote stores to memcpy if the analysis cannot prove that source and " +
+                      "destination do not overlap. [default: false]"
         )
     ) {}
 
-    val OptimisticMemcmp = object : ConfigType.BooleanCmdLine(
+    private val OptimisticMemcmp = object : ConfigType.BooleanCmdLine(
         false,
         Option(
             "solanaOptimisticMemcmp",
@@ -161,7 +177,7 @@ object SolanaConfig {
         )
     ) {}
 
-    val OptimisticNoMemmove = object : ConfigType.BooleanCmdLine(
+    private val OptimisticNoMemmove = object : ConfigType.BooleanCmdLine(
         false,
         Option(
             "solanaOptimisticNoMemmove",
@@ -171,12 +187,13 @@ object SolanaConfig {
     ) {}
 
     val AggressiveGlobalDetection = object : ConfigType.BooleanCmdLine(
-        false,
+        true,
         Option(
             "solanaAggressiveGlobalDetection",
             true,
             "Interpret a read access to an address x in the global segment (data.ro) as a global variable at x. " +
-            "Caveat: this option treats x as an independent global variable even if in reality it is part of some aggregate global object (e.g., when x is an element of some global array). [default: false]"
+                "Caveat: this option treats x as an independent global variable even if in reality it is part of some " +
+                "aggregate global object (e.g., when x is an element of some global array). [default: true]"
         )
     ) {}
 
@@ -217,29 +234,29 @@ object SolanaConfig {
     ) {}
 
     val PrintDevMsg = object : ConfigType.BooleanCmdLine(
-        false,
+        true,
         Option(
             "solanaPrintDevMsg",
             true,
-            "If an error happens, then it prints extra information for developers. [default: false]"
+            "If an error happens, then it prints extra information for developers. [default: true]"
         )
     ) {}
 
     // CFG optimizations
     val SlicerIter = object : ConfigType.IntCmdLine(
-        2,
+        6,
         Option(
             "solanaSlicerIter", true,
-            "Number of times the slicer+pta optimizations loop is executed. [default: 2]"
+            "Number of times the slicer+pta optimizations loop is executed. [default: 6]"
         )
     ) {}
 
     val EnableRemovalOfCFGDiamonds = object : ConfigType.BooleanCmdLine(
-        false,
+        true,
         Option(
             "solanaRemoveCFGDiamonds",
             true,
-            "Remove CFG diamonds by inserting select instructions [default: false]"
+            "Remove CFG diamonds by inserting select instructions [default: true]"
         )
     ) {}
 
@@ -322,7 +339,8 @@ object SolanaConfig {
         Option(
             "solanaTACPromoteOverflow",
             true,
-            "Detect overflow checks (e.g., checked_add and saturating_add) and promote them to convenient overflow checks in TAC. [default: true]"
+            "Detect overflow checks (e.g., checked_add and saturating_add) and promote them to convenient " +
+                      "overflow checks in TAC. [default: true]"
         )
     ) {}
 
@@ -360,7 +378,8 @@ object SolanaConfig {
         Option(
             "solanaTACMaxUnfoldedMemset",
             true,
-            "If length of memset is less or equal than this number then memset is translated as multiple byte map stores. [default: 256]"
+            "If length of memset is less or equal than this number then memset is translated as multiple byte" +
+                     "map stores. [default: 256]"
         )
     ) {}
 
@@ -369,7 +388,8 @@ object SolanaConfig {
         Option(
             "solanaTACMaxGlobalInit",
             true,
-            "The initialization of a global variable is part of the TAC encoding if the number of bytes being initialized is less or equal that this number. [default: 64]"
+            "The initialization of a global variable is part of the TAC encoding if the number of bytes being " +
+                      "initialized is less or equal that this number. [default: 64]"
         )
     ) {}
 
@@ -463,4 +483,21 @@ object SolanaConfig {
                        "The block names must match those shown by ${PrintAnalyzedToDot.name}."
         ),
     ) {}
+
+
+    val DumpDwarfDebugInfoInReports: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option("dumpDwarfDebugInfoInReports",
+            false,
+            "Dump all dwarf info that was added after CFG construction to the .dot files and dumps added annotation in TAC dumps."
+        ),
+    ) {}
+
+    fun optimisticJoin() = DefactoSemantics.get() || OptimisticPTAJoin.get()
+    fun optimisticOverlaps() = DefactoSemantics.get() || OptimisticPTAOverlaps.get()
+    fun optimisticMemcpyPromotion() = DefactoSemantics.get() || OptimisticMemcpyPromotion.get()
+    fun optimisticMemcmp() = DefactoSemantics.get() || OptimisticMemcmp.get()
+    fun optimisticNoMemmove() = DefactoSemantics.get() || OptimisticNoMemmove.get()
+    fun optimisticDealloc(): Boolean = OptimisticDealloc.get()
+    fun optimisticJoinWithStackPtr(): Boolean = OptimisticPTAJoinWithStackPtr.get()
 }

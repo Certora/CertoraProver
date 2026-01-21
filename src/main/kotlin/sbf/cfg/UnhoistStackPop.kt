@@ -55,9 +55,9 @@ fun unhoistStackPop(cfg: MutableSbfCFG, numInstsBeforePop: Int = 5) {
                         // Added metadata to CVT_restore_scratch registers and the stack pop instructions
                         val prevInst = b.getInstruction(i-1)
                         check(prevInst is SbfInstruction.Bin)
-                        val newPrevInst = prevInst.copy(metaData = prevInst.metaData.plus(Pair(SbfMeta.UNHOISTED_STACK_POP, "")))
+                        val newPrevInst = prevInst.copy(metaData = prevInst.metaData.plus(SbfMeta.UNHOISTED_STACK_POP()))
                         b.replaceInstruction(i-1, newPrevInst)
-                        val newInst = inst.copy(metaData = inst.metaData.plus(Pair(SbfMeta.UNHOISTED_STACK_POP, "")))
+                        val newInst = inst.copy(metaData = inst.metaData.plus(SbfMeta.UNHOISTED_STACK_POP()))
                         b.replaceInstruction(i, newInst)
 
                         // We intentionally exclude the call to CVT_restore_scratch_registers from unhoisting

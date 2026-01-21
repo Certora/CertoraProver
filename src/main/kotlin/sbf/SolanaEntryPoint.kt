@@ -40,6 +40,7 @@ import sbf.analysis.cpis.getInvokes
 import sbf.analysis.cpis.cpisSubstitutionMap
 import sbf.cfg.*
 import sbf.domains.*
+import sbf.dwarf.DWARFEdgeLabelAnnotator
 import utils.Range
 import spec.cvlast.RuleIdentifier
 import spec.rules.EcosystemAgnosticRule
@@ -110,8 +111,9 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
     // 3. Convert to sequence of labeled (pair of program counter and instruction) SBF instructions
     val sbfProgram = bytecodeToSbfProgram(bytecode)
     // 4. Convert to a set of CFGs (one per function)
-    sbfLogger.info { "Generating a CFG for each function" }
-    val cfgs = sbfProgramToSbfCfgs(sbfProgram, inliningConfig, memSummaries)
+    val cfgs = timeIt("generation of CFG for each function") {
+        sbfProgramToSbfCfgs(sbfProgram, inliningConfig, memSummaries)
+    }
 
     if (SolanaConfig.PrintAnalyzedToDot.get()) {
         cfgs.callGraphStructureToDot(ArtifactManagerFactory().outputDir)
@@ -119,7 +121,7 @@ fun solanaSbfToTAC(elfFile: String): List<CompiledGenericRule> {
 
     val rules = (targets + sanityRules).mapNotNull { target ->
         try {
-            solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries, start0)
+            solanaRuleToTAC(target, cfgs, inliningConfig, memSummaries)
         } catch (e: SolanaError) {
             val alert = RuleAlertReport.Error(e)
             CompiledGenericRule.AnalysisFail(target, alert)
@@ -137,23 +139,20 @@ private fun solanaRuleToTAC(
     rule: EcosystemAgnosticRule,
     prog: SbfCallGraph,
     inliningConfig: InlinerConfig,
-    memSummaries: MemorySummaries,
-    start0: Long
+    memSummaries: MemorySummaries
 ): CompiledGenericRule? {
 
     val target = rule.ruleIdentifier.toString()
     // 1. Inline all internal calls starting from `target` as root
-    sbfLogger.info { "[$target] Started inlining " }
-    val start1 = System.currentTimeMillis()
+    val inlinedProg = timeIt(target, "inlining") {
+        // `root` must be the name of an existing function. There are cases (e.g., vacuity rules) where `target` is not name of a function.
+        //
+        // If the rule is not a vacuity rule, the ruleIdentifier doesn't have a parent and `root` is the name of the rule (i.e., `target`)
+        // after removing `devVacuitySuffix` in case it has it. Otherwise, `root` is the name of the parent rule associated with the vacuity rule.
+        val root = rule.ruleIdentifier.parentIdentifier?.displayName ?: target.removeSuffix(devVacuitySuffix)
+        inline(root, target, prog, memSummaries, inliningConfig)
+    }
 
-    // `root` must be the name of an existing function. There are cases (e.g., vacuity rules) where `target` is not name of a function.
-    //
-    // If the rule is not a vacuity rule, the ruleIdentifier doesn't have a parent and `root` is the name of the rule (i.e., `target`)
-    // after removing `devVacuitySuffix` in case it has it. Otherwise, `root` is the name of the parent rule associated with the vacuity rule.
-    val root = rule.ruleIdentifier.parentIdentifier?.displayName ?: target.removeSuffix(devVacuitySuffix)
-    val inlinedProg = inline(root, target, prog, memSummaries, inliningConfig)
-    val end1 = System.currentTimeMillis()
-    sbfLogger.info { "[$target] Finished inlining in ${(end1 - start1) / 1000}s" }
 
     val isVacuityRule = rule.ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck
 
@@ -185,7 +184,7 @@ private fun solanaRuleToTAC(
     val optProg = try {
         sliceAndPTAOptLoop(target,
                            removeSanityCalls(inlinedProg, isVacuityRule),
-                           memSummaries, start0)
+                           memSummaries)
     } catch (e: NoAssertionAfterSlicerError) {
         sbfLogger.warn { "$e" }
         vacuousProgram(target, inlinedProg.getGlobals(), "No assertions found after slicer")
@@ -198,8 +197,8 @@ private fun solanaRuleToTAC(
         inliningConfig,
         memSummaries,
         sbfTypesFac,
-        ptaFlagsFac,
-        start0).let {
+        ptaFlagsFac
+      ).let {
         runGlobalInferenceAnalysis(it, memSummaries)
     }
 
@@ -226,11 +225,16 @@ private fun solanaRuleToTAC(
         }
     }
 
+    // 3.5 Consume "attached location" instructions in the program, and inline them as meta
+    val progWithLocations = timeIt(target, "inlining attached locations") {
+        inlineAttachedLocations(analyzedProg, memSummaries)
+    }
+
     // 4. Perform memory analysis to map each memory operation to a memory partitioning
     val analysisResults =
         getMemoryAnalysis(
             target,
-            analyzedProg,
+            progWithLocations,
             memSummaries,
             sbfTypesFac,
             ptaFlagsFac,
@@ -238,23 +242,20 @@ private fun solanaRuleToTAC(
             processor = null)?.getResults()
 
     // 5. Convert to TAC
-    sbfLogger.info { "[$target] Started translation to CoreTACProgram" }
-    val start2 = System.currentTimeMillis()
-    val coreTAC = sbfCFGsToTAC(analyzedProg, memSummaries, analysisResults)
-    val end2 = System.currentTimeMillis()
-    sbfLogger.info { "[$target] Finished translation to CoreTACProgram in ${(end2 - start2) / 1000}s" }
+    val coreTAC = timeIt(target, "translation of CoreTACProgram") {
+        sbfCFGsToTAC(progWithLocations, memSummaries, analysisResults)
+    }
 
     // 6. Unroll loops and perform optionally some TAC-to-TAC optimizations
-    sbfLogger.info { "[$target] Started TAC optimizations" }
-    val start3 = System.currentTimeMillis()
-    val optCoreTAC = if (SolanaConfig.UseLegacyTACOpt.get()) {
-        legacyOptimize(coreTAC, isSatisfiedRule)
-    } else {
-        optimize(coreTAC, isSatisfiedRule)
+    val optCoreTAC = timeIt(target, "TAC optimizations") {
+        if (SolanaConfig.UseLegacyTACOpt.get()) {
+            legacyOptimize(coreTAC, isSatisfiedRule)
+        } else {
+            optimize(coreTAC, isSatisfiedRule)
+        }
     }
-    val end0 = System.currentTimeMillis()
-    sbfLogger.info { "[$target] Finished TAC optimizations in ${(end0 - start3) / 1000}s" }
 
+    DWARFEdgeLabelAnnotator.printDebugAnnotatorStats(optCoreTAC, "After TAC optimizations")
     return attachRangeToRule(rule, optCoreTAC, isSatisfiedRule)
 }
 
@@ -270,30 +271,30 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     opts: MemoryDomainOpts,
     processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?
 ): WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>? = if (SolanaConfig.UsePTA.get()) {
-    sbfLogger.info { "[$target] Started whole-program memory analysis " }
 
-    val start = System.currentTimeMillis()
-    val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, ptaFlagsFac, opts, processor)
-    try {
-        analysis.inferAll()
-    } catch (e: PointerAnalysisError) {
-        when (e) {
-            // These are the PTA errors for which we can run some analysis to help debugging them
-            is UnknownStackPointerError,
-            is UnknownPointerDerefError,
-            is UnknownPointerStoreError,
-            is UnknownGlobalDerefError,
-            is UnknownStackContentError,
-            is UnknownMemcpyLenError,
-            is DerefOfAbsoluteAddressError,
-            is PointerStackEscapingError -> explainPTAError(e, program, memSummaries)
-            else -> {}
+
+    val analysis = timeIt(target, "whole-program memory analysis") {
+        val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, ptaFlagsFac, opts, processor)
+        try {
+            analysis.inferAll()
+        } catch (e: PointerAnalysisError) {
+            when (e) { // These are the PTA errors for which we can run some analysis to help debugging them
+                is UnknownStackPointerError,
+                is UnknownPointerDerefError,
+                is UnknownPointerStoreError,
+                is UnknownGlobalDerefError,
+                is UnknownStackContentError,
+                is UnknownMemcpyLenError,
+                is DerefOfAbsoluteAddressError,
+                is PointerStackEscapingError -> explainPTAError(e, program, memSummaries)
+                else -> {}
+            }
+            // we throw again the exception for the user to see
+            throw e
         }
-        // we throw again the exception for the user to see
-        throw e
+        analysis
     }
-    val end = System.currentTimeMillis()
-    sbfLogger.info { "[$target] Finished whole-program memory analysis in ${(end - start) / 1000}s" }
+
     if (SolanaConfig.PrintResultsToStdOut.get()) {
         sbfLogger.info { "[$target] Whole-program memory analysis results:\n${analysis}" }
     }
@@ -322,38 +323,45 @@ private fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, Flags: IPTANodeF
     inliningConfig: InlinerConfig,
     memSummaries: MemorySummaries,
     sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
-    ptaFlagsFac: () -> Flags,
-    start: Long
+    ptaFlagsFac: () -> Flags
 ): SbfCallGraph {
     if (!SolanaConfig.EnableCpiAnalysis.get()) {
         return p1
     }
 
-    val start0 = System.currentTimeMillis()
-    sbfLogger.info { "[$target] Started lowering of CPI calls" }
-    // Run an analysis to infer global variables by use
-    val p2 = runGlobalInferenceAnalysis(p1, memSummaries)
+    val p3 = timeIt(target, "lowering of CPI calls") {
+        // Run an analysis to infer global variables by use
+        val p2 = runGlobalInferenceAnalysis(p1, memSummaries)
 
-    val invokes = getInvokes(p2)
-    val processor = InvokeInstructionListener<TNum, TOffset, Flags>(
-        cpisSubstitutionMap,
-        invokes,
-        p2.getGlobals()
-    )
-    val memDomOpts = MemoryDomainOpts(useEqualityDomain = true)
-    val memAnalysis = getMemoryAnalysis(target, p2, memSummaries, sbfTypesFac, ptaFlagsFac, memDomOpts, processor = processor)
-    if (memAnalysis == null) {
-        val end = System.currentTimeMillis()
-        sbfLogger.info { "\tUnexpected problem during memory analysis. Skipped lowering of CPI calls" }
-        sbfLogger.info { "[$target] Finished lowering of CPI calls in ${(end - start0) / 1000}s" }
-        return p1
+        val invokes = getInvokes(p2)
+        val processor = InvokeInstructionListener<TNum, TOffset, Flags>(
+            cpisSubstitutionMap,
+            invokes,
+            p2.getGlobals()
+        )
+
+        val memDomOpts = MemoryDomainOpts(useEqualityDomain = true)
+        val memAnalysis = getMemoryAnalysis(
+            target,
+            p2,
+            memSummaries,
+            sbfTypesFac,
+            ptaFlagsFac,
+            memDomOpts,
+            processor = processor
+        )
+
+        if (memAnalysis == null) {
+            sbfLogger.info {
+                    "\tUnexpected problem during memory analysis. Skipped lowering of CPI calls\n" +
+                    "[$target] Finished lowering of CPI calls."
+            }
+            return p1
+        }
+
+        val cpiCalls = processor.getCpis()
+        substituteCpiCalls(memAnalysis, target, cpiCalls, inliningConfig)
     }
-
-    val cpiCalls = processor.getCpis()
-    val p3 = substituteCpiCalls(memAnalysis, target, cpiCalls, inliningConfig, start)
-
-    val end = System.currentTimeMillis()
-    sbfLogger.info { "[$target] Finished lowering of CPI calls in ${(end - start0) / 1000}s" }
 
     // HACK: remove some annotations added by the memory analysis.
     // These annotations are generated and consumed by the memory analysis.
@@ -375,7 +383,6 @@ fun removeSanityCalls(prog: SbfCallGraph, isVacuityRule: Boolean): SbfCallGraph 
         }
     }
 }
-
 
 /**
  * Attaches the correct range to a Solana rule and updates its originating rule if applicable.

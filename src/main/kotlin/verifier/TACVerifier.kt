@@ -17,6 +17,7 @@
 
 package verifier
 
+import analysis.TACProgramPrinter
 import analysis.opt.intervals.IntervalsRewriter
 import annotations.PollutesGlobalState
 import config.Config
@@ -323,6 +324,12 @@ class TACVerifier private constructor(
                 repeat = Config.LastIntervalsRewriter.get(),
                 handleLeinoVars = true
             )
+        }
+
+        when (Config.printFinalTac.get()) {
+            1 -> TACProgramPrinter.standard().dontShowCmds<TACCmd.Simple.AnnotationCmd>().print(finalTac, "FINAL-TAC")
+            2 -> TACProgramPrinter.standard().print(finalTac, "FINAL-TAC")
+            else -> {}
         }
 
         ArtifactManagerFactory().dumpMandatoryCodeArtifacts(

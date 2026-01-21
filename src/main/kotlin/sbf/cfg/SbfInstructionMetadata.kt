@@ -19,14 +19,14 @@ package sbf.cfg
 
 import utils.*
 import datastructures.stdcollections.*
+import sbf.dwarf.DWARFCfgEdgeLabel
 
 class MetaData private constructor(private val meta: Map<MetaKey<*>, Any>) {
     constructor(): this(mutableMapOf())
 
     fun<T> getVal(key: MetaKey<T>): T? = meta[key]?.uncheckedAs()
 
-    val keys: Collection<MetaKey<*>>
-        get() = meta.keys
+    internal val entries get() = meta.entries
 
     operator fun<T> plus(entry: Pair<MetaKey<T>, T>): MetaData {
         return MetaData(meta.plus(entry.uncheckedAs<Pair<MetaKey<*>, Any>>()))
@@ -62,6 +62,8 @@ object SbfMeta {
     val REG_TYPE =  MetaKey<Pair<Value.Reg, SbfRegisterType>>("reg_type")
     // Address of the instruction
     val SBF_ADDRESS = MetaKey<ULong>("sbf_bytecode_address")
+
+    val SBF_DWARF_DEBUG_ANNOTATIONS = MetaKey<List<DWARFCfgEdgeLabel>>("sbf_debug_edge_annotation")
     // The value is true if the loaded register affects the control flow of the program
     val LOADED_AS_NUM_FOR_PTA = MetaKey<Boolean>("loaded_as_number_for_pta")
     //  Promoted overflow check condition
@@ -70,24 +72,32 @@ object SbfMeta {
     val SET_GLOBAL = MetaKey<String>("set_global")
     // If a call to a function is mocking a call to another function, this is the original function
     val MOCK_FOR = MetaKey<String>("mock_for")
+    // for source line information
+    val RANGE = MetaKey<Range.Range>("range")
 
     // These keys have empty strings as values. The values are irrelevant
-    val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<String>("hint_optimized_wide_store")
-    val MEMCPY_PROMOTION = MetaKey<String>("promoted_stores_to_memcpy")
-    val UNHOISTED_STORE = MetaKey<String>("unhoisted_store")
-    val UNHOISTED_LOAD = MetaKey<String>("unhoisted_load")
-    val UNHOISTED_MEMCPY = MetaKey<String>("unhoisted_memcpy")
-    val UNHOISTED_MEMCMP = MetaKey<String>("unhoisted_memcmp")
-    val UNHOISTED_STACK_POP = MetaKey<String>("unhoisted_stack_pop")
-    val LOWERED_SELECT = MetaKey<String>("lowered_select")
-    val REMOVED_MEMMOVE = MetaKey<String>("sol_memmove_")
-    val LOWERED_ASSUME = MetaKey<String>("lowered_assume")
-    val LOWERED_OR = MetaKey<String>("lowered_or")
-    val UNREACHABLE_FROM_COI = MetaKey<String>("unreachable_from_coi")
-    val SAFE_MATH = MetaKey<String>("safe_math")
+    val HINT_OPTIMIZED_WIDE_STORE =  MetaKey<Unit>("hint_optimized_wide_store")
+    val MEMCPY_PROMOTION = MetaKey<Unit>("promoted_memcpy")
+    val MEMCPY_ZEXT_PROMOTION = MetaKey<Unit>("promoted_memcpy_zext")
+    val MEMCPY_TRUNC_PROMOTION = MetaKey<Unit>("promoted_memcpy_trunc")
+    val MEMSET_PROMOTION = MetaKey<Unit>("promoted_memset")
+    val UNHOISTED_STORE = MetaKey<Unit>("unhoisted_store")
+    val UNHOISTED_LOAD = MetaKey<Unit>("unhoisted_load")
+    val UNHOISTED_MEMCPY = MetaKey<Unit>("unhoisted_memcpy")
+    val UNHOISTED_MEMCMP = MetaKey<Unit>("unhoisted_memcmp")
+    val UNHOISTED_STACK_POP = MetaKey<Unit>("unhoisted_stack_pop")
+    val LOWERED_SELECT = MetaKey<Unit>("lowered_select")
+    val REMOVED_MEMMOVE = MetaKey<Unit>("sol_memmove_")
+    val LOWERED_ASSUME = MetaKey<Unit>("lowered_assume")
+    val LOWERED_OR = MetaKey<Unit>("lowered_or")
+    val UNREACHABLE_FROM_COI = MetaKey<Unit>("unreachable_from_coi")
+    val SAFE_MATH = MetaKey<Unit>("safe_math")
+
 }
 
 data class MetaKey<T>(val name: String)
+
+operator fun MetaKey<Unit>.invoke() = this to Unit
 
 data class StackContentMeta(val offset: Long, val width: Short)
 
@@ -97,9 +107,13 @@ fun toString(metaData: MetaData): String {
     metaData.getVal(SbfMeta.COMMENT)?.let {
         strB.append(" /*$it*/")
     }
-    for (k in metaData.keys) {
+    for ((k, v) in metaData.entries) {
         when (k) {
-            SbfMeta.HINT_OPTIMIZED_WIDE_STORE, SbfMeta.MEMCPY_PROMOTION,
+            SbfMeta.HINT_OPTIMIZED_WIDE_STORE,
+            SbfMeta.MEMCPY_PROMOTION,
+            SbfMeta.MEMCPY_ZEXT_PROMOTION,
+            SbfMeta.MEMCPY_TRUNC_PROMOTION,
+            SbfMeta.MEMSET_PROMOTION,
             SbfMeta.UNHOISTED_STORE, SbfMeta.UNHOISTED_LOAD,
             SbfMeta.UNHOISTED_MEMCPY, SbfMeta.UNHOISTED_MEMCMP, SbfMeta.UNHOISTED_STACK_POP,
             SbfMeta.LOWERED_SELECT, SbfMeta.LOWERED_OR, SbfMeta.LOADED_AS_NUM_FOR_PTA, SbfMeta.REMOVED_MEMMOVE,
@@ -107,33 +121,31 @@ fun toString(metaData: MetaData): String {
                 strB.append(" /*${k.name}*/")
             }
             SbfMeta.CALL_ID, SbfMeta.INLINED_FUNCTION_NAME, SbfMeta.INLINED_FUNCTION_SIZE -> {
-                metaData.getVal(k)?.let {
-                    strB.append(" /*${k.name}=$it*/")
-                }
+                strB.append(" /*${k.name}=${v}*/")
             }
-            SbfMeta.SBF_ADDRESS-> {
-                metaData.getVal(k)?.let {
-                    val address: ULong = it.uncheckedAs()
-                    strB.append(" /* 0x${address.toString(16)} */")
-                }
+            SbfMeta.SBF_ADDRESS -> {
+                val address: ULong = v.uncheckedAs()
+                strB.append(" /* 0x${address.toString(16)} */")
             }
             SbfMeta.LOWERED_ASSUME -> {}
             SbfMeta.KNOWN_ARITY, SbfMeta.EQUALITY_REG_AND_STACK -> {}
             SbfMeta.UNREACHABLE_FROM_COI -> {}
             SbfMeta.COMMENT -> {}
-            SbfMeta.PROMOTED_OVERFLOW_CHECK-> {
-                metaData.getVal(k)?.let {
-                    val cond: Condition = it.uncheckedAs()
-                    strB.append(" /*${k.name}: $cond*/")
-                }
+            SbfMeta.PROMOTED_OVERFLOW_CHECK -> {
+                val cond: Condition = v.uncheckedAs()
+                strB.append(" /*${k.name}: $cond*/")
             }
             SbfMeta.REG_TYPE -> {
-                metaData.getVal(k)?.let {
-                    val (reg, type) = it.uncheckedAs<Pair<Value.Reg, SbfRegisterType>>()
-                    strB.append(" /* type($reg)=$type */")
+                val (reg, type) = v.uncheckedAs<Pair<Value.Reg, SbfRegisterType>>()
+                strB.append(" /* type($reg)=$type */")
+            }
+            SbfMeta.SBF_DWARF_DEBUG_ANNOTATIONS -> {
+                metaData.getVal(SbfMeta.SBF_DWARF_DEBUG_ANNOTATIONS)?.let { scopeEnds ->
+                    strB.append(scopeEnds.joinToString("\n"))
                 }
             }
             SbfMeta.MANGLED_NAME -> {}
+            SbfMeta.RANGE -> {}
         }
     }
     return strB.toString()

@@ -23,6 +23,7 @@ import compiler.SolidityFunctionStateMutability
 import compiler.SourceSegment
 import evm.SighashInt
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import scene.MethodAttribute
 import spec.cvlast.*
 import spec.cvlast.typedescriptors.PrintingContext
@@ -57,11 +58,13 @@ data class Method(
     val contractName: String,
     val sourceBytes: SourceBytes? = null,
     private val originalFile: String? = null,
+    @SerialName("vyper_metadata")
+    val vyperMetadata: VyperMetadata? = null,
 ): java.io.Serializable {
 
     override fun hashCode() = hash {
         it + name + fullArgs + returns + sighash + notpayable + isEnvFree + isConstant + stateMutability + visibility +
-        paramNames + isLibrary + sourceBytes + originalFile
+        paramNames + isLibrary + sourceBytes + originalFile + vyperMetadata
     }
 
     enum class MethodVisibility {
@@ -70,6 +73,16 @@ data class Method(
         external,
         internal
     }
+
+    @Serializable
+    @Treapable
+    data class VyperMetadata(
+        @SerialName("frame_size") val frameSize: Int? = null,
+        @SerialName("frame_start") val frameStart: Int? = null,
+        @SerialName("venom_via_stack") val venomViaStack: List<String>? = null,
+        @SerialName("venom_return_via_stack") val venomReturnViaStack: Boolean? = null,
+        @SerialName("runtime_start_pc") val runtimeStartPc: Int? = null
+    ) : java.io.Serializable
 
     /**
      * Extracts returned values's types, and the parameters's values and types of `this`.

@@ -1133,7 +1133,7 @@ sealed class EVMTypeDescriptor : VMTypeDescriptor {
         override fun toString(): String = name
 
         override fun mergeWith(other: VMTypeDescriptor): CollectingResult<VMTypeDescriptor, String> {
-            if (other !is UserDefinedValueType || other.canonicalId != this.canonicalId) {
+            if (other !is UserDefinedValueType) {
                 return "Cannot merge $this with $other, they are different types".asError()
             }
             if (this.name != other.name) {

@@ -17,6 +17,7 @@
 
 package sbf.tac
 
+import sbf.analysis.IRegisterTypes
 import sbf.callgraph.CVTCalltrace
 import sbf.callgraph.CVTFunction
 import sbf.cfg.*
@@ -29,7 +30,7 @@ import sbf.sbfLogger
 import vc.data.*
 
 /** This class adds annotations used by the calltrace **/
-object Calltrace {
+internal object Calltrace {
 
     fun externalCall(inst: SbfInstruction.Call, symbols: List<TACSymbol.Var>): TACCmd.Simple {
         return SnippetCmd.SolanaSnippetCmd.ExternalCall(inst.name, symbols).toAnnotation()
@@ -49,7 +50,7 @@ object Calltrace {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
 
-        val tag = getString(locInst, SbfRegister.R1_ARG)
+        val tag = types.getString(locInst, SbfRegister.R1_ARG)
         return if (cexPrintFunction == CVTFunction.Calltrace(CVTCalltrace.PRINT_TAG)) {
             SnippetCmd.CvlrSnippetCmd.CexPrintTag(tag).toAnnotation()
         } else {
@@ -67,14 +68,14 @@ object Calltrace {
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
         startScope(locInst: LocatedSbfInstruction): TACCmd.Simple {
-        val scopeName = getString(locInst, SbfRegister.R1_ARG)
+        val scopeName = types.getString(locInst, SbfRegister.R1_ARG)
         return SnippetCmd.CvlrSnippetCmd.ScopeStart(scopeName).toAnnotation()
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>
         endScope(locInst: LocatedSbfInstruction): TACCmd.Simple {
-        val scopeName = getString(locInst, SbfRegister.R1_ARG)
+        val scopeName = types.getString(locInst, SbfRegister.R1_ARG)
         return SnippetCmd.CvlrSnippetCmd.ScopeEnd(scopeName).toAnnotation()
     }
 
@@ -82,7 +83,7 @@ object Calltrace {
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  print128BitsValue(
         locInst: LocatedSbfInstruction, signed: Boolean
     ): TACCmd.Simple {
-        val tag = getString(locInst, SbfRegister.R1_ARG)
+        val tag = types.getString(locInst, SbfRegister.R1_ARG)
         val low = exprBuilder.mkVar(SbfRegister.R3_ARG)
         val high = exprBuilder.mkVar(SbfRegister.R4_ARG)
         return SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue(tag, low, high, signed).toAnnotation()
@@ -92,7 +93,7 @@ object Calltrace {
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  printU64AsFixed(
         locInst: LocatedSbfInstruction
     ): TACCmd.Simple {
-        val tag = getString(locInst, SbfRegister.R1_ARG)
+        val tag = types.getString(locInst, SbfRegister.R1_ARG)
         val unscaledVar = exprBuilder.mkVar(SbfRegister.R3_ARG)
         val scaleVar = exprBuilder.mkVar(SbfRegister.R4_ARG)
         return SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixedOrDecimal(tag, unscaledVar, scaleVar, asFixed = true).toAnnotation()
@@ -102,7 +103,7 @@ object Calltrace {
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  printU64AsDecimal(
         locInst: LocatedSbfInstruction
     ): TACCmd.Simple {
-        val tag = getString(locInst, SbfRegister.R1_ARG)
+        val tag = types.getString(locInst, SbfRegister.R1_ARG)
         val unscaledVar = exprBuilder.mkVar(SbfRegister.R3_ARG)
         val scaleVar = exprBuilder.mkVar(SbfRegister.R4_ARG) // number of decimals
         return SnippetCmd.CvlrSnippetCmd.CexPrintU64AsFixedOrDecimal(tag, unscaledVar, scaleVar, asFixed = false).toAnnotation()
@@ -112,23 +113,15 @@ object Calltrace {
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  printLocation(
         locInst: LocatedSbfInstruction
     ): TACCmd.Simple {
-        val (filepath, lineNumber) = getFilepathAndLineNumber(locInst)
+        val (filepath, lineNumber) = types.getFilepathAndLineNumber(locInst)
         return SnippetCmd.CvlrSnippetCmd.CexPrintLocation(filepath, lineNumber).toAnnotation()
-    }
-
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  attachLocation(
-        locInst: LocatedSbfInstruction
-    ): TACCmd.Simple {
-        val (filepath, lineNumber) = getFilepathAndLineNumber(locInst)
-        return SnippetCmd.CvlrSnippetCmd.CexAttachLocation(filepath, lineNumber).toAnnotation()
     }
 
     context(SbfCFGToTAC<TNum, TOffset, TFlags>)
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  ruleLocation(
         locInst: LocatedSbfInstruction
     ): TACCmd.Simple {
-        val (filepath, lineNumber) = getFilepathAndLineNumber(locInst)
+        val (filepath, lineNumber) = types.getFilepathAndLineNumber(locInst)
         val ruleLocationAnnotation = RuleLocationAnnotation(filepath, lineNumber)
         return TACCmd.Simple.AnnotationCmd(RULE_LOCATION, ruleLocationAnnotation)
     }
@@ -137,20 +130,19 @@ object Calltrace {
     fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>>  printString(
         locInst: LocatedSbfInstruction
     ): TACCmd.Simple {
-        val tag = getString(locInst, SbfRegister.R1_ARG)
-        val str = getString(locInst, SbfRegister.R3_ARG)
+        val tag = types.getString(locInst, SbfRegister.R1_ARG)
+        val str = types.getString(locInst, SbfRegister.R3_ARG)
         return SnippetCmd.CvlrSnippetCmd.CexPrintTag("$tag: $str").toAnnotation()
     }
 
 
     /** Read the filepath from the first two registers and the line number from the third one. */
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getFilepathAndLineNumber(
-        locInst: LocatedSbfInstruction
+    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> IRegisterTypes<TNum, TOffset>.getFilepathAndLineNumber(
+        locInst: LocatedSbfInstruction,
     ): Pair<String, UInt> {
-        val filepath = getString(locInst, SbfRegister.R1_ARG)
+        val filepath = this.getString(locInst, SbfRegister.R1_ARG)
         // The first two registers are for the filepath (pointer + length), the third is for the line number.
-        val value = (regTypes.typeAtInstruction(locInst, SbfRegister.R3_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+        val value = this.typeAtInstruction(locInst, SbfRegister.R3_ARG).let { it as? SbfType.NumType }?.value?.toLongOrNull()
         val lineNumber = if (value == null) {
             sbfLogger.warn {
                 "Cannot identify statically the line number associated with ${locInst.inst}. " +
@@ -163,11 +155,11 @@ object Calltrace {
         return filepath to lineNumber
     }
 
-    context(SbfCFGToTAC<TNum, TOffset, TFlags>)
-    private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getString(
-        locInst: LocatedSbfInstruction, reg: SbfRegister
+    fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> IRegisterTypes<TNum, TOffset>.getString(
+        locInst: LocatedSbfInstruction,
+        reg: SbfRegister,
     ): String {
-        return regTypes.typeAtInstruction(locInst, reg).let {
+        return this.typeAtInstruction(locInst, reg).let {
             val str = (it as? SbfType.PointerType.Global)?.global?.strValue
             if (str != null) {
                 str

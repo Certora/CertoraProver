@@ -70,9 +70,9 @@ class SummarizationContext(
 
     fun newBlockId(template: NBId) = newBlockId(template.origStartPc, template.bodyIdx)
 
-    private var satisfyCount = 0
-    /** Allocate a new SATISFY_ID */
-    fun allocSatisfyId() = satisfyCount++
+    // Placeholders for assert/satisfy IDs.  We will fill these in after the Move TAC is fully explanded
+    val SATISFY_ID_PLACEHOLDER get() = -1
+    val ASSERT_ID_PLACEHOLDER get() = -2
 
     /**
         Construct a single-block summary for a Move function call.

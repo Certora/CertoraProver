@@ -50,7 +50,7 @@ fun unhoistStoresAndLoads(cfg: MutableSbfCFG, globals: GlobalVariables, maxNumOf
                             isStoreDerefOfLoads(inst, b, i) ||
                             isDerefToGlobalVariable(inst, b, i, globals)
                         ) {
-                            addAnnotation(b, locInst, Pair(SbfMeta.UNHOISTED_STORE, ""))
+                            addAnnotation(b, locInst, SbfMeta.UNHOISTED_STORE())
                             worklist.add(Pair(b, i + 1))
                             // Important: we unhoist at most one instruction per block. We could unhoist more, but then we need
                             // to be careful when we call foldIntoPredecessors.
@@ -60,7 +60,7 @@ fun unhoistStoresAndLoads(cfg: MutableSbfCFG, globals: GlobalVariables, maxNumOf
                         if (/* Add here new patterns */
                             isDerefToGlobalVariable(inst, b, i, globals)
                         ) {
-                            addAnnotation(b, locInst, Pair(SbfMeta.UNHOISTED_LOAD, ""))
+                            addAnnotation(b, locInst, SbfMeta.UNHOISTED_LOAD())
                             worklist.add(Pair(b, i+1))
                             // Important: we unhoist at most one instruction per block. We could unhoist more, but then we need
                             // to be careful when we call foldIntoPredecessors.
@@ -128,7 +128,7 @@ private fun isStoreValOfAssignsOrLoads(storeInst: SbfInstruction.Mem, bb: SbfBas
  *       *r2 := ...
  **/
 private fun isStoreDerefOfLoads(storeInst: SbfInstruction.Mem, bb: SbfBasicBlock, idx: Int): Boolean {
-    val baseReg = storeInst.access.baseReg
+    val baseReg = storeInst.access.base
     val baseRegRoot = findRoot(baseReg, bb.getInstructions(), 0, idx)
     if (baseRegRoot != null) {
         val predsBB = bb.getPreds()
@@ -164,7 +164,7 @@ private fun isDerefToGlobalVariable(memInst: SbfInstruction.Mem,
                                     bb: SbfBasicBlock,
                                     idx: Int,
                                     globals: GlobalVariables): Boolean {
-    val baseReg = memInst.access.baseReg
+    val baseReg = memInst.access.base
     val baseRegRoot = findRoot(baseReg, bb.getInstructions(), 0, idx)
     if (baseRegRoot != null) {
         val predsBB = bb.getPreds()
@@ -178,7 +178,7 @@ private fun isDerefToGlobalVariable(memInst: SbfInstruction.Mem,
                         defInst.op == BinOp.MOV &&
                         defInst.v is Value.Imm
                     ) {
-                        val globalAddress = defInst.v.v
+                        val globalAddress = (defInst.v as Value.Imm).v
                         if (globalAddress <= Long.MAX_VALUE.toULong()) {
                             globals.contains(globalAddress.toLong())
                         } else {
@@ -216,10 +216,10 @@ private fun findRoot(reg: Value.Reg, insts: List<SbfInstruction>, from: Int, to:
     var root = reg
     for (inst in insts.subList(from, to).asReversed()) {
         if (inst is SbfInstruction.Bin) {
+            val lhs = inst.dst
+            val rhs = inst.v
             when (inst.op) {
                 BinOp.MOV -> {
-                    val lhs = inst.dst
-                    val rhs = inst.v
                     if (lhs == root && rhs is Value.Reg) {
                         // change the root
                         root = rhs
@@ -227,8 +227,7 @@ private fun findRoot(reg: Value.Reg, insts: List<SbfInstruction>, from: Int, to:
                     }
                 }
                 else -> {
-                    val lhs = inst.dst
-                    if (lhs == root && inst.v is Value.Imm) {
+                    if (lhs == root && rhs is Value.Imm) {
                         // keep the same root
                         continue
                     }
@@ -260,7 +259,7 @@ private fun matchLoadLhs(inst: SbfInstruction, lhs: Value): Boolean {
     }
 }
 
-private fun addAnnotation(bb: MutableSbfBasicBlock, locInst: LocatedSbfInstruction, annotation: Pair<MetaKey<String>, String>) {
+private fun<T> addAnnotation(bb: MutableSbfBasicBlock, locInst: LocatedSbfInstruction, annotation: Pair<MetaKey<T>, T>) {
     val inst = locInst.inst
     if (inst is SbfInstruction.Mem) {
         val newMetaData = inst.metaData.plus(annotation)

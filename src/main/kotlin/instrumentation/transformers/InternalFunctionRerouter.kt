@@ -1566,7 +1566,7 @@ object InternalFunctionRerouter {
      * with the code to perform that rerouting, sans the actual [CallSummary] (see the discussion on [RerouteToMaterialize]).
      */
     fun reroute(code: CoreTACProgram, cvlQuery: CVL): CoreTACProgram {
-        val rerouter = object : InternalSummarizer<CVL.SummarySignature.Internal, SpecCallSummary.Reroute>() {
+        val rerouter = object : InternalSummarizerSolidity<CVL.SummarySignature.Internal, SpecCallSummary.Reroute>() {
 
             /**
              * In some summarization context [ctxt], generate code to decode the values returned by the reroute of
@@ -2138,12 +2138,12 @@ object InternalFunctionRerouter {
                 internalFunctionStartInfo: InternalFunctionStartInfo,
                 selectedSummary: SummarySelection<CVL.SummarySignature.Internal, SpecCallSummary.Reroute>,
                 functionStart: CmdPointer,
-                rets: FunctionReturnInformation,
+                rets: List<InternalFuncRet>,
                 intermediateCode: CoreTACProgram
             ): CoreTACProgram {
                 return generateInstrumentation(
                     args = internalFunctionStartInfo.args,
-                    rets = rets.rets,
+                    rets = rets,
                     summarizedSig = internalFunctionStartInfo.methodSignature,
                     r = selectedSummary.selectedSummary,
                     functionStart = functionStart,

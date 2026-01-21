@@ -34,29 +34,33 @@ fun <T: AbstractDomain<T>> annotateCFGWithTypes(cfg: MutableSbfCFG,
                                                 getType: (Value, T) -> SbfRegisterType?) {
 
     fun annotateCondWithTypes(cond: Condition, types: T): Condition {
-        return cond.copy(leftType = getType(cond.left, types),
-                         rightType = getType(cond.right, types))
+        return cond.copy(typedLeft = cond.typedLeft.copy(type = getType(cond.left, types)),
+                         typedRight = cond.typedRight.copy(type = getType(cond.right, types)))
     }
 
     fun annotateMemWithTypes(inst: SbfInstruction.Mem, pre: T, post: T): SbfInstruction.Mem {
         return if (inst.isLoad) {
             val valueType = getType(inst.value, post)
-            val baseType =  if ((inst.value as Value.Reg) == inst.access.baseReg) {
-                getType(inst.access.baseReg, pre)
+            val baseType =  if ((inst.value as Value.Reg) == inst.access.base) {
+                getType(inst.access.base, pre)
             } else {
                 // we use "post" in case the memory load recast baseReg (e.g., number -> ptr)
-                getType(inst.access.baseReg, post)
+                getType(inst.access.base, post)
             }
-            inst.copy(valueType = valueType,
-                    access = inst.access.copy(baseRegType = baseType))
+            inst.copy(typedValue = inst.typedValue.copy(type = valueType),
+                      access = inst.access.copy(typedBase = inst.access.typedBase.copy(type = baseType)))
         } else {
-            inst.copy(valueType = getType(inst.value, pre),
-                    access = inst.access.copy(baseRegType = getType(inst.access.baseReg, post)))
+            inst.copy(typedValue = inst.typedValue.copy(type = getType(inst.value, pre)),
+                      access = inst.access.copy(typedBase = inst.access.typedBase.copy(type = getType(inst.access.base, post))))
         }
     }
 
     fun annotateBinOpWithTypes(inst: SbfInstruction.Bin, pre: T, post: T): SbfInstruction.Bin {
-        return inst.copy(preDstType = getType(inst.dst, pre), postDstType = getType(inst.dst, post), vType = getType(inst.v, pre))
+        return inst.copy(
+            typedRhs = inst.typedRhs.copy(type = getType(inst.v, pre)),
+            preDstType = getType(inst.dst, pre),
+            postDstType = getType(inst.dst, post)
+        )
     }
 
     fun annotateUnOpWithTypes(inst: SbfInstruction.Un, pre: T, post: T): SbfInstruction.Un {

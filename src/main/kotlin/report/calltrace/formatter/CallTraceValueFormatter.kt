@@ -36,7 +36,6 @@ import report.calltrace.sarif.Sarif
 import report.calltrace.sarif.SarifBuilder.Companion.joinToSarif
 import report.calltrace.sarif.SarifBuilder.Companion.mkSarif
 import rules.ContractInfo
-import scene.ISceneIdentifiers
 import solver.CounterexampleModel
 import utils.*
 import java.math.BigInteger
@@ -50,9 +49,8 @@ internal val logger = Logger(LoggerTypes.CALLTRACE)
  * that class hierarchy some way down the line).
  */
 class CallTraceValueFormatter(
-        private val addrToContract: Map<TACValue.PrimitiveValue.Integer, ContractInfo>,
-        private val scene: ISceneIdentifiers,
-        private val model: CounterexampleModel
+        private val model: CounterexampleModel,
+        private val addrToContract: Map<TACValue.PrimitiveValue.Integer, ContractInfo> = mapOf(),
     ) {
 
     companion object {
@@ -103,7 +101,7 @@ class CallTraceValueFormatter(
 
 
     fun valueToSarif(tv: TACValue, type: FormatterType.Value<*>, tooltip: String): Sarif {
-        val (values, truncatable) = ValueFormattingJob(tv, type, addrToContract, scene, model).run()
+        val (values, truncatable) = ValueFormattingJob(tv, type, addrToContract, model).run()
         return Sarif.Arg(values, tooltip, type.toTypeString(), truncatable).asSarif
     }
 

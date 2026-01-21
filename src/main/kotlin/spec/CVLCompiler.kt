@@ -3017,12 +3017,21 @@ class CVLCompiler(
 
     private fun ensureBitWidth(t: CVLType.PureCVLType, toConstrain: TACExpr): CommandWithRequiredDecls<TACCmd.Spec> =
         when (t) {
-            is CVLType.PureCVLType.Struct -> t.fields.fold(CommandWithRequiredDecls<TACCmd.Spec>()) { acc, member ->
-                if (member.cvlType !is CVLType.PureCVLType.Struct && member.cvlType !is CVLType.PureCVLType.CVLValueType) {
-                    return@fold acc
+            is CVLType.PureCVLType.Struct -> {
+                val fieldBounds = t.fields.fold(CommandWithRequiredDecls<TACCmd.Spec>()) { acc, member ->
+                    if (member.cvlType !is CVLType.PureCVLType.Struct && member.cvlType !is CVLType.PureCVLType.CVLValueType) {
+                        return@fold acc
+                    }
+                    // TODO: figure out how to use type checked factory
+                    acc.merge(ensureBitWidth(member.cvlType, TACExpr.StructAccess(toConstrain, member.fieldName, member.cvlType.toTag())))
                 }
-                // TODO: figure out how to use type checked factory
-                acc.merge(ensureBitWidth(member.cvlType, TACExpr.StructAccess(toConstrain, member.fieldName, member.cvlType.toTag())))
+                if (Config.assumeTimestampWithinUint40Range.get() && t == EVMBuiltinTypes.env) {
+                    val accessBlock = TACExpr.StructAccess(toConstrain, "block", EVMBuiltinTypes.block.toTag());
+                    val accessTimestamp = TACExpr.StructAccess(accessBlock, "timestamp", CVLType.PureCVLType.Primitive.UIntK(256).toTag());
+                    fieldBounds.merge(wrapWithCVL(ensureBitWidth(CVLType.PureCVLType.Primitive.UIntK(40), accessTimestamp), "Assuming timestamp bounded by uint40"))
+                } else {
+                    fieldBounds
+                }
             }
 
             is CVLType.PureCVLType.CVLValueType -> {

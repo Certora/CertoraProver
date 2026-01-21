@@ -448,6 +448,45 @@ class CallTraceTest {
     }
 
     @Test
+    fun testCallHook() {
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("CallHooks/run.conf"),
+            specFilename = resolvePath("CallHooks/test.spec"),
+            ruleName = "trigger_call_opcode",
+            primaryContract = "Caller",
+            buildOptions = listOf("--solc_via_ir")
+        )
+
+        val callTraceFlat = callTrace.callHierarchyRoot.allChildren().toList()
+
+        val labelInstances =
+            callTraceFlat.filterIsInstance<CallInstance.LabelInstance>().toList()
+
+        val hookNode = labelInstances.filter { it.name.contains("Apply hook CALL") }
+        assertTrue(hookNode.size == 1) { "Expecting the call trace to have a node of type LabelInstance with the given string" }
+        assertEquals(hookNode.first().range, Range.Range("Caller.sol", SourcePosition(13U, 27U), SourcePosition(15U, 9U)))
+    }
+
+    @Test
+    fun testStorageHook() {
+        val callTrace = CallTraceInfra.runConfAndGetCallTrace(
+            confPath = resolvePath("StorageHooks/run.conf"),
+            specFilename = resolvePath("StorageHooks/test.spec"),
+            ruleName = "trigger_storage_set",
+            primaryContract = "TestContract"
+        )
+
+        val callTraceFlat = callTrace.callHierarchyRoot.allChildren().toList()
+
+        val labelInstances =
+            callTraceFlat.filterIsInstance<CallInstance.LabelInstance>().toList()
+
+        val hookNode = labelInstances.filter { it.name.contains("Apply hook store") }
+        assertTrue(hookNode.size == 1) { "Expecting the call trace to have a node of type LabelInstance with the given string" }
+        assertEquals(hookNode.first().range, Range.Range("TestContract.sol", SourcePosition(6U, 8U), SourcePosition(6U, 24U)))
+    }
+
+    @Test
     fun testCVLFunctionComplexTestStringAndBytes() {
         val callTrace = CallTraceInfra.runConfAndGetCallTrace(
             confPath = resolvePath("CVLFunctionComplex/run.conf"),

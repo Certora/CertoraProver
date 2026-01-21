@@ -183,7 +183,7 @@ fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TF
 ): List<TACCmd.Simple> {
     val inst = locInst.inst
     check(inst is SbfInstruction.Call)
-    val offset = (regTypes.typeAtInstruction(locInst, SbfRegister.R2_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
+    val offset = (types.typeAtInstruction(locInst, SbfRegister.R2_ARG) as? SbfType.NumType)?.value?.toLongOrNull()
         ?: throw TACTranslationError("Cannot statically infer the offset (r2) in $locInst")
     if (offset < 0) {
         throw TACTranslationError("$locInst does not support negative offsets (r2) but given $offset")

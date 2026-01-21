@@ -75,13 +75,13 @@ private fun replaceOrWithAssume(b: MutableSbfBasicBlock): Boolean {
         val inst = locInst.inst
         if (inst is SbfInstruction.Bin && inst.op == BinOp.OR && inst.v is Value.Reg) {
             val left = inst.dst
-            val right = inst.v
+            val right = inst.v as Value.Reg
             val nextUseLocInst = getNextIntraBlockUse(b, locInst) ?: continue
             val nextUse = nextUseLocInst.inst
             if (nextUse is SbfInstruction.Assume) {
                 if (isEqualToZero(nextUse.cond)) /* left == 0 */ {
                     val newAssume = SbfInstruction.Assume(Condition(CondOp.EQ, right, Value.Imm(0UL)),
-                                                          inst.metaData.plus(SbfMeta.LOWERED_OR to ""))
+                                                          inst.metaData.plus(SbfMeta.LOWERED_OR()))
                     // replace the or instruction with `assume(right == 0)`
                     b.replaceInstruction(locInst.pos, newAssume)
                     return true
@@ -91,9 +91,9 @@ private fun replaceOrWithAssume(b: MutableSbfBasicBlock): Boolean {
                     isBoolean(locInst, b, right)) {
                     // since left and right are boolean `assume(left != 1)` is equivalent to `assume(left == 0)`
                     val newAssume1 = SbfInstruction.Assume(Condition(CondOp.EQ, left, Value.Imm(0UL)),
-                                                            inst.metaData.plus(SbfMeta.LOWERED_OR to ""))
+                                                            inst.metaData.plus(SbfMeta.LOWERED_OR()))
                     val newAssume2 = SbfInstruction.Assume(Condition(CondOp.EQ, right, Value.Imm(0UL)),
-                                                            inst.metaData.plus(SbfMeta.LOWERED_OR to ""))
+                                                            inst.metaData.plus(SbfMeta.LOWERED_OR()))
                     // replace `assume(left != 1)` with `assume(left == 0)`
                     b.replaceInstruction(nextUseLocInst.pos, newAssume1)
                     // replace the or instruction with `assume(right == 0)`

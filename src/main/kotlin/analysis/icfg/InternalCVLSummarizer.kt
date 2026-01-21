@@ -18,7 +18,6 @@
 package analysis.icfg
 
 import allocator.Allocator
-import allocator.SuppressRemapWarning
 import analysis.*
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import analysis.icfg.InternalCVLSummarizer.SummarizationResult.Materialized
@@ -58,7 +57,7 @@ private val logger = Logger(LoggerTypes.SUMMARIZATION)
 class InternalCVLSummarizer private constructor(
     private val expressionSummaryHandler: ExpressionSummaryHandler,
     private val summaries: Map<out CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>
-) : InternalSummarizer<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>() {
+) : InternalSummarizerSolidity<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>() {
 
     /**
      * Indicates what the summarization did. If it *materialized* a summary, then this should return [Materialized]
@@ -104,7 +103,7 @@ class InternalCVLSummarizer private constructor(
         fun handleExpressionSummary(
             where: CmdPointer,
             entryInfo: InternalFunctionStartInfo,
-            rets: FunctionReturnInformation,
+            rets: List<InternalFuncRet>,
             summaryId: CVL.SummarySignature.Internal,
             summary: SpecCallSummary.Exp,
             enclosingProgram: CoreTACProgram
@@ -113,7 +112,7 @@ class InternalCVLSummarizer private constructor(
         fun handleRerouteSummary(
             where: CmdPointer,
             entryInfo: InternalFunctionStartInfo,
-            rets: FunctionReturnInformation,
+            rets: List<InternalFuncRet>,
             summaryId: CVL.SummarySignature.Internal
         ) : SummarizationResult
     }
@@ -135,7 +134,7 @@ class InternalCVLSummarizer private constructor(
         override fun handleExpressionSummary(
             where: CmdPointer,
             entryInfo: InternalFunctionStartInfo,
-            rets: FunctionReturnInformation,
+            rets: List<InternalFuncRet>,
             summaryId: CVL.SummarySignature.Internal,
             summary: SpecCallSummary.Exp,
             enclosingProgram: CoreTACProgram
@@ -151,7 +150,7 @@ class InternalCVLSummarizer private constructor(
             // multiple assignments of the returned value to several variables, all of which are used later (even
             // though they have the same value). So we group the InternalFuncRets according to the offset, since that
             // will be the same for all variables being assigned the same return value.
-            val groupedRets = rets.rets.groupBy { it.offset }.entries.sortedBy { it.key }.map { it.value }
+            val groupedRets = rets.groupBy { it.offset }.entries.sortedBy { it.key }.map { it.value }
 
             /** alert the user of this possible error, which we only detect in the internal summary case */
             if (entryInfo.methodSignature.resType.size != compiledSummary.outVars.size || groupedRets.size != compiledSummary.outVars.size) {
@@ -242,7 +241,7 @@ class InternalCVLSummarizer private constructor(
 
             fun voidSummary() = CommandWithRequiredDecls(listOf(TACCmd.Simple.NopCmd)).toProg("nothing", compiledSummary.callId.toContext())
 
-            val assignOuts = if (rets.rets.isEmpty() || compiledSummary.outVars.isEmpty()) {
+            val assignOuts = if (rets.isEmpty() || compiledSummary.outVars.isEmpty()) {
                 voidSummary()
             } else {
                 val retTypes = (summaryId.signature as? MethodSignature)?.resType?: summary.expectedType!!
@@ -345,7 +344,7 @@ class InternalCVLSummarizer private constructor(
         override fun handleRerouteSummary(
             where: CmdPointer,
             entryInfo: InternalFunctionStartInfo,
-            rets: FunctionReturnInformation,
+            rets: List<InternalFuncRet>,
             summaryId: CVL.SummarySignature.Internal
         ): SummarizationResult {
             throw IllegalStateException("Should have replaced reroute summary at $where far, far earlier in the pipeline")
@@ -425,10 +424,10 @@ class InternalCVLSummarizer private constructor(
         summSignature: CVL.SummarySignature.Internal,
         specCallSumm: SpecCallSummary.ExpressibleInCVL,
         where: CmdPointer,
-        retAnnot: FunctionReturnInformation,
+        retAnnot: List<InternalFuncRet>,
         enclosingProgram: CoreTACProgram
     ): CoreTACProgram {
-        val rets = retAnnot.rets.map { it.s }
+        val rets = retAnnot.map { it.s }
         val summAppReason = SummaryApplicationReason.Spec.reasonFor(specCallSumm, summSignature.funcSignature)
         /*
          * Runtime check to ensure we are not summarizing a reference type returning function with a non-exp funtion.
@@ -515,7 +514,7 @@ class InternalCVLSummarizer private constructor(
                         listOf(
                             TACCmd.Simple.AnnotationCmd(
                                 SummaryStack.END_INTERNAL_SUMMARY,
-                                SummaryStack.SummaryEnd.Internal(appliedSummary, retAnnot.rets, callSite.methodSignature)
+                                SummaryStack.SummaryEnd.Internal(appliedSummary, retAnnot, callSite.methodSignature)
                             )
                         ).withDecls()
                     )
@@ -572,7 +571,7 @@ class InternalCVLSummarizer private constructor(
         internalFunctionStartInfo: InternalFunctionStartInfo,
         selectedSummary: SummarySelection<CVL.SummarySignature.Internal, SpecCallSummary.ExpressibleInCVL>,
         functionStart: CmdPointer,
-        rets: FunctionReturnInformation,
+        rets: List<InternalFuncRet>,
         intermediateCode: CoreTACProgram
     ): CoreTACProgram {
         return generateSummary(
@@ -583,16 +582,6 @@ class InternalCVLSummarizer private constructor(
             retAnnot = rets,
             intermediateCode
         )
-    }
-
-
-    @SuppressRemapWarning
-    private data class WrappedInlinedSummary(
-        val wrapped: InternalCallSummary
-    ) : FunctionReturnInformation {
-        override val rets: List<InternalFuncRet>
-            get() = wrapped.internalExits
-
     }
 
     override fun handleExplicitSummary(
@@ -607,7 +596,7 @@ class InternalCVLSummarizer private constructor(
                 summSignature = selectedSummary.summaryKey,
                 specCallSumm = selectedSummary.selectedSummary,
                 where = where,
-                retAnnot = WrappedInlinedSummary(explicit),
+                retAnnot = explicit.internalExits,
                 enclosingProgram = enclosingProgram
             )
             patcher.replaceCommand(where, gen)
@@ -659,14 +648,14 @@ class InternalCVLSummarizer private constructor(
         override fun handleExpressionSummary(
             where: CmdPointer,
             entryInfo: InternalFunctionStartInfo,
-            rets: FunctionReturnInformation,
+            rets: List<InternalFuncRet>,
             summaryId: CVL.SummarySignature.Internal,
             summary: SpecCallSummary.Exp,
             enclosingProgram: CoreTACProgram
         ): SummarizationResult {
             val theSummary = InternalCallSummary(
                 signature = entryInfo.methodSignature,
-                internalExits = rets.rets,
+                internalExits = rets,
                 internalArgs = entryInfo.args.takeIf {
                     !Config.EnableAggressiveABIOptimization.get() || !summary.isNoArgSummary()
                 }.orEmpty(),
@@ -685,7 +674,7 @@ class InternalCVLSummarizer private constructor(
         override fun handleRerouteSummary(
             where: CmdPointer,
             entryInfo: InternalFunctionStartInfo,
-            rets: FunctionReturnInformation,
+            rets: List<InternalFuncRet>,
             summaryId: CVL.SummarySignature.Internal
         ): SummarizationResult {
             val theSummary = InternalCallSummary(
@@ -694,7 +683,7 @@ class InternalCVLSummarizer private constructor(
                 calleeSrc = entryInfo.calleeSrc,
                 callSrc = entryInfo.callSiteSrc,
                 id = Allocator.getFreshId(Allocator.Id.INTERNAL_CALL_SUMMARY),
-                internalExits = rets.rets
+                internalExits = rets
             )
             return Resummarized(CommandWithRequiredDecls(listOf(
                 TACCmd.Simple.SummaryCmd(

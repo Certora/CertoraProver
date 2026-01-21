@@ -64,7 +64,7 @@ fun removeCFGDiamonds(cfg: MutableSbfCFG) {
 private fun matchAssign(inst: SbfInstruction): Pair<Value.Reg, Value>? {
     if (inst is SbfInstruction.Bin) {
         if (inst.op == BinOp.MOV) {
-            return Pair(inst.dst, inst.v)
+            return inst.dst to inst.v
         }
     }
     return null

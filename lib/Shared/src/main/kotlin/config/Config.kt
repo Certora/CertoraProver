@@ -843,6 +843,7 @@ object Config {
     }
 
     // This is not private only because it's required for validation in [validateRuleChoices]. Please don't use it otherwise :)
+    // Note if [this] is null that means that no method filters/excludes were provided so this should always return true in that case.
     fun Collection<String>?.containsMethod(methodSig: String, contract: String, mainContract: String): Boolean {
         if (this == null) {
             return true
@@ -851,7 +852,8 @@ object Config {
         return this.any { m ->
             val (c, f) = m.splitToContractAndMethod(mainContract)
 
-            f == methodSig && (c == CVLKeywords.wildCardExp.keyword || contract == CVLKeywords.wildCardExp.keyword || c == contract)
+            (f == methodSig || f == methodSig.splitOnce("(")?.first || f.splitOnce("(")?.first == methodSig) &&
+                (c == CVLKeywords.wildCardExp.keyword || contract == CVLKeywords.wildCardExp.keyword || c == contract)
         }
     }
 
@@ -888,7 +890,24 @@ object Config {
         if (MethodChoices == null && ExcludeMethodChoices == null) {
             return all
         }
-        return all.filter { MethodChoices?.contains(it) ?: true }.filterNot { ExcludeMethodChoices?.contains(it) ?: false }.toSet()
+
+        // Helper to check if a signature matches a choice (which may be just a name or full signature)
+        fun String.matchesChoice(choice: String): Boolean {
+            // If choice is a full signature (contains '('), require exact match
+            @Suppress("ForbiddenMethodCall")
+            if ("(" in choice) {
+                return this == choice
+            }
+            // Otherwise, choice is just a name, so match by name
+            val sigName = this.splitOnce("(")?.first ?: this
+            return sigName == choice
+        }
+
+        return all.filter { sig ->
+            MethodChoices?.any { choice -> sig.matchesChoice(choice) } ?: true
+        }.filterNot { sig ->
+            ExcludeMethodChoices?.any { choice -> sig.matchesChoice(choice) } ?: false
+        }.toSet()
     }
 
     val methodsAreFiltered get() = MethodChoices != null || ExcludeMethodChoices != null
@@ -1171,6 +1190,15 @@ object Config {
             "assumeAddressZeroHasNoCode",
             true,
             "If enabled, assumes that address(0).code.length is equal to zero"
+        )
+    ) {}
+
+    val assumeTimestampWithinUint40Range = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "assumeTimestampWithinUint40Range",
+            true,
+            "If enabled, assumes that block.timestamp will always fit in a uint40"
         )
     ) {}
 
@@ -2293,6 +2321,16 @@ object Config {
         )
     ) {}
 
+    val printFinalTac = ConfigType.IntCmdLine(
+        default = 0,
+        option = Option(
+            "printFinalTac",
+            true,
+            "Prints the final TACs to stdout, used only for debugging. " +
+                "prints: 0:nothing, 1:without annotations 2:including annotations [default = 0]"
+        )
+    )
+
 
     val patternRewriter = object : ConfigType.IntCmdLine(
         default = 10,
@@ -2535,10 +2573,21 @@ object Config {
     val SafeCastingBuiltin: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         false,
         Option(
-            "safeCastingBuiltin", true,
+            "safeCastingBuiltin",
+            true,
             "Used to signal that the python side instrumented the safeCasting builtin rule [default: false]"
         ),
         pythonName = "--safe_casting_builtin"
+    ) {}
+
+    val UncheckedOverflowBuiltin: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "uncheckedOverflowBuiltin",
+            true,
+            "Used to signal that the python side instrumented the uncheckedOverflow builtin rule [default: false]"
+        ),
+        pythonName = "--unchecked_overflow_builtin"
     ) {}
 
     val CallTraceHardFail = object : ConfigType.HardFailCmdLine(
@@ -2564,12 +2613,22 @@ object Config {
         )
     ) {}
 
-    val CallTraceDebugAdapterProtocol = object : ConfigType.BooleanCmdLine(
-        false,
+    val CallTraceDebugAdapterProtocol = object : ConfigType.DebugAdapterCmdLine(
+        DebugAdapterProtocolMode.DISABLED,
         Option(
             "callTraceDebugAdapterProtocol",
             true,
-            "Dumps a JSON file that can be read by our Certora Debug Extension (VSCode extension)" +
+            "Controls the level of debug information dumped for the Certora Debug Extension (VSCode extension). " +
+                "Available options: :\n ${DebugAdapterProtocolMode.paramDescriptions()}. [default: disabled]"
+        )
+    ) {}
+
+    val CallTraceDebugAdapterProtocolOnlyInSources = object : ConfigType.BooleanCmdLine(
+        true,
+        Option(
+            "callTraceDebugAdapterProtocolOnlyInSources",
+            true,
+            "Only adds steps to debug statement that are contained in the .certora_sources folder" +
                 "[default: true]"
         )
     ) {}
@@ -3558,6 +3617,15 @@ object Config {
             "Avoid adding storage information to CallTrace. (default false)"
         ),
         pythonName = "--no_calltrace_storage_information"
+    ), TransformationAgnosticConfig {}
+
+    val onlyPrimitiveCalltrace: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "onlyPrimitiveCalltrace",
+            true,
+            "Only include primitive values in CallTrace (Move-language only). (default false)"
+        )
     ), TransformationAgnosticConfig {}
 
     val flattenBranchesInCallTrace: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(

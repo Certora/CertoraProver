@@ -1228,6 +1228,19 @@ class BufferTraceInstrumentation private constructor(
                             }
                         } && (futureConsumer !is EventLongRead || futureConsumer.explicitReadId == null)
                 }
+            }.letIf(sourceLanguage == SourceLanguage.Vyper) { curr ->
+                /*
+                 * Because of how vyper manages memory within revert blocks,
+                 * it's *very* important we treat the start of a revert block as a "synthetic"
+                 * GC point for all buffers constructed (and consumed) within the revert block.
+                 */
+                curr + g.cache.revertBlocks.map {
+                    g.elab(it).commands.first().ptr
+                }.associateWith { start ->
+                    sources.filter { laterRead ->
+                        reach.canReach(start, laterRead.where)
+                    }
+                }.filterValues { it.isNotEmpty() }
             }
 
             /**

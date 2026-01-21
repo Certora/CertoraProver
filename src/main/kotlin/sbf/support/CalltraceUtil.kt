@@ -18,41 +18,36 @@
 package sbf.support
 
 import dwarf.DebugInfoReader
-import sbf.tac.SBF_ADDRESS
 import utils.Range
-import vc.data.TACCmd
 
 object SolanaCalltraceUtil {
     /**
      * Converts an SBF address from the metadata of the given TAC command to a range.
-     * Returns [null] if the SBF metadata is not present or if it is not possible to resolve the range information.
+     * Returns null if the SBF metadata is not present or if it is not possible to resolve the range information.
      * Tries to resolve the inlined frames associated also to previous SBF addresses until [address - windowSize].
      */
     fun sbfAddressToRangeWithHeuristic(
-        stmt: TACCmd.Simple.AnnotationCmd,
-        windowSize: UShort = 80U
+        sbfAddress: ULong,
     ): Range.Range? {
-        return stmt.meta[SBF_ADDRESS]?.let { address ->
-            val uLongAddress = address.toULong()
-            // Consider address, address - 8, address - 16, ..., address - (windowSize + 8)
-            val addresses: MutableList<ULong> = mutableListOf()
-            var nextAddress = uLongAddress
-            // The first condition is to check the absence of underflows.
-            while (uLongAddress <= nextAddress && uLongAddress - nextAddress <= windowSize) {
-                addresses.add(nextAddress)
-                nextAddress -= 8U
-            }
-            val rangesMap = DebugInfoReader.getInlinedFramesInSourcesDir(addresses)
-            // Iterate over the addresses: address, address - 8, address - 16, ...
-            // The first address that is associated with non-null range information will be the returned address.
-            for (addr in addresses) {
-                rangesMap[addr]?.let { ranges ->
-                    ranges.firstOrNull { range ->
-                        return range
-                    }
+        val windowSize = 80U
+        // Consider address, address - 8, address - 16, ..., address - (windowSize + 8)
+        val addresses: MutableList<ULong> = mutableListOf()
+        var nextAddress = sbfAddress
+        // The first condition is to check the absence of underflows.
+        while (sbfAddress <= nextAddress && sbfAddress - nextAddress <= windowSize) {
+            addresses.add(nextAddress)
+            nextAddress -= 8U
+        }
+        val rangesMap = DebugInfoReader.getInlinedFrames(addresses)
+        // Iterate over the addresses: address, address - 8, address - 16, ...
+        // The first address that is associated with non-null range information will be the returned address.
+        for (addr in addresses) {
+            rangesMap[addr]?.let { ranges ->
+                ranges.firstOrNull { range ->
+                    return range
                 }
             }
-            return null
         }
+        return null
     }
 }

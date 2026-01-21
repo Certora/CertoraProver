@@ -17,10 +17,12 @@
 
 package move
 
+import analysis.*
 import bridge.*
 import config.*
 import datastructures.stdcollections.*
 import diagnostics.*
+import event.RuleEvent
 import java.io.Closeable
 import kotlin.io.path.*
 import log.*
@@ -88,6 +90,8 @@ class MoveVerifier : Closeable {
                         isSatisfyRule = compiled.isSatisfy
                     ) to compiled
                 }
+            }.let {
+                expandMultiAsserts(it)
             }
 
         treeView.buildRuleTree(rules.map { (rule, _) -> rule })
@@ -138,5 +142,95 @@ class MoveVerifier : Closeable {
             isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
             isSolverResultFromCache = IsFromCache.INAPPLICABLE,
         )
+    }
+
+    /** Replace in [code] all assertion commands with assume commands except the one with ASSERT_ID=[assertId] **/
+    private fun replaceAssertWithAssumeExcept(
+        code: MoveTACProgram,
+        assertId: Int,
+        idToPtr: Map<Int, GenericLTACCmdView<TACCmd.Simple.AssertCmd>>,
+    ): MoveTACProgram {
+        val p = code.toPatchingProgram()
+
+        idToPtr.forEachEntry { (id, lcmd) ->
+            if (id != assertId) {
+                p.update(
+                    lcmd.ptr,
+                    TACCmd.Simple.AssumeCmd(lcmd.cmd.o, "replaced assert: ${lcmd.cmd.msg}", lcmd.cmd.meta)
+                )
+            }
+        }
+
+        return p.toCode(code)
+    }
+
+    /**
+        For a given rule [compiledRule] with N assert commands, return N new rules where each rule has exactly one
+        assert.
+     */
+    private fun transformMulti(
+        rule: EcosystemAgnosticRule,
+        compiled: MoveToTAC.CompiledRule
+    ): List<Pair<EcosystemAgnosticRule, MoveToTAC.CompiledRule>> {
+        val code = compiled.moveTAC
+
+        // Get all assertions by ID
+        val idToPtr = buildMap {
+            code.graph.commands.forEach {
+                it.maybeNarrow<TACCmd.Simple.AssertCmd, _>()?.let { assertPtr ->
+                    assertPtr.cmd.meta[TACMeta.ASSERT_ID]?.let { id ->
+                        check(id >= 0) {
+                            "In ${code.name}, did not instantiate assert ID at $assertPtr"
+                        }
+                        val other = put(id, assertPtr)
+                        check(other == null) {
+                            "In ${code.name}, multiple assertions with ID $id at $other and $assertPtr"
+                        }
+                    }
+                }
+            }
+        }
+
+        check(idToPtr.isNotEmpty()) { "No user asserts found in ${code.name}" }
+
+        return idToPtr.map { (assertId, assertPtr) ->
+            val newRuleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertSpecFile(
+                rule,
+                assertId,
+                assertPtr.cmd.msg,
+                assertPtr.cmd.meta[TACMeta.CVL_RANGE] ?: Range.Empty()
+            )
+
+            val newRule = rule.copy(
+                ruleIdentifier = rule.ruleIdentifier.freshDerivedIdentifier("#assert_$assertId"),
+                ruleType = newRuleType,
+                range = newRuleType.cvlCmdLoc,
+            )
+
+            val newCode = replaceAssertWithAssumeExcept(
+                code,
+                assertId,
+                idToPtr
+            ).copy(name = "${code.name}-assert${assertId}")
+
+            newRule to compiled.copy(moveTAC = newCode)
+        }
+    }
+
+    private fun expandMultiAsserts(
+        rules: List<Pair<EcosystemAgnosticRule, MoveToTAC.CompiledRule>>
+    ): List<Pair<EcosystemAgnosticRule, MoveToTAC.CompiledRule>> {
+        return rules.flatMap { (rule, compiled) ->
+            when {
+                rule.isSatisfyRule -> listOf(rule to compiled)
+                Config.MultiAssertCheck.get() -> transformMulti(rule, compiled)
+                else -> listOf(
+                    rule.copy(
+                        ruleIdentifier = rule.ruleIdentifier.freshDerivedIdentifier(RuleEvent.ASSERTS_NODE_TITLE),
+                        ruleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertsOnly(rule),
+                    ) to compiled
+                )
+            }
+        }
     }
 }
