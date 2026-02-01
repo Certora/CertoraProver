@@ -256,7 +256,16 @@ class BoolOptimizer(val code: CoreTACProgram) {
 
                 is TACCmd.Simple.AnnotationCmd -> {
                     if (!isTransformableAnnotation(cmd.annot)) {
-                        badNodes += cmd.freeVars().mapToSet(Node::Var)
+                        badNodes += cmd.mentionedVariables.mapToSet(Node::Var)
+                    }
+                    null
+                }
+
+                is TACCmd.Simple.SummaryCmd -> {
+                    badNodes += cmd.summ.variables.mapToSet(Node::Var)
+                    if (cmd.summ is AssigningSummary) {
+                        badNodes += cmd.summ.mayWriteVars.mapToSet(Node::Var)
+                        badNodes += cmd.summ.mustWriteVars.mapToSet(Node::Var)
                     }
                     null
                 }

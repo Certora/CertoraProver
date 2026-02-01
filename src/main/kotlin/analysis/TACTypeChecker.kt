@@ -345,7 +345,6 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
                 missingDeclarations.add(v)
                 // reporting only 1 time
                 addError("The variable $v @$ptr is not declared in this program")
-                Thread.dumpStack()
             }
         }
     }

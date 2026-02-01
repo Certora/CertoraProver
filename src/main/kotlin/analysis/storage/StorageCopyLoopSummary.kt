@@ -107,7 +107,7 @@ data class StorageCopyLoopSummary(
         override val skipTarget: NBId,
 ) : ConditionalBlockSummary {
     override val variables: Set<TACSymbol.Var>
-        get() = setOf()
+        get() = effects.keys + preconditions.mapToSet { it.first } + loopInfeasible?.usedVars.orEmpty()
     override val mayWriteVars: Collection<TACSymbol.Var>
         get() = modifiedVars
     override val mustWriteVars: Collection<TACSymbol.Var>
