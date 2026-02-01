@@ -210,6 +210,43 @@ object SymbolType : BufferType() {
     }
 
     @KSerializable
+    data class NewSymbolFromSliceSummary(
+        val newHandle: TACSymbol.Var,
+        val slice: TACSymbol,
+    ): WasmPostUnrollSummary(phase = WasmPipelinePhase.PreOptimization) {
+        override val inputs get() = listOf(
+            slice,
+        )
+
+        override val mustWriteVars get() = listOf(
+            newHandle,
+            mappings,
+            sizes,
+            TACKeyword.SOROBAN_OBJECT_DIGEST.toVar(),
+        )
+
+        override fun transformSymbols(f: Transformer): AssignmentSummary =
+            NewSymbolFromSliceSummary(
+                newHandle = f(newHandle),
+                slice = f(slice),
+            )
+
+        override val annotationDesc: String
+            get() = "$newHandle := new Symbol handle from slice [$slice]"
+
+        override val mayWriteVars: List<TACSymbol.Var>
+            get() = mustWriteVars
+
+        override fun gen(
+            simplifiedInputs: List<TACExpr>,
+            analysisCache: TACCommandGraphAnalysisCache
+        ): CommandWithRequiredDecls<TACCmd.Simple> = simplifiedInputs.let { (slice) ->
+            val staticData = analysisCache[StaticMemoryAnalysis]
+            return newFromStrPtr(newHandle, slice, staticData)
+        }
+    }
+
+    @KSerializable
     data class NewSymbolFromStrSummary(
         val newHandle: TACSymbol.Var,
         val strPtr: TACSymbol,

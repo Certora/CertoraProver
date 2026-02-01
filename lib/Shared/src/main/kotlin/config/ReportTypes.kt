@@ -294,6 +294,7 @@ enum class ReportTypes(val loggerCategory: LoggerTypes) : DumpType, CategoryName
     EQUIVALENCE_DEBUG(LoggerTypes.EQUIVALENCE),
     ELIMINATE_DROPS(LoggerTypes.WASM),
     ANNOTATE_STACK_FRAMES(LoggerTypes.WASM),
+    INLINE_STATIC_MEMORY(LoggerTypes.WASM),
     RETURN_COPY_COLLAPSE(LoggerTypes.EQUIVALENCE),
     RETURN_COPY_LABELLING(LoggerTypes.EQUIVALENCE),
     ;

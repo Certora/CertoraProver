@@ -196,7 +196,7 @@ object MapType : MappingType() {
     private val keyToIndex = TACKeyword.SOROBAN_MAP_KEY_TO_INDEX.toVar()
     private val indexToKey = TACKeyword.SOROBAN_MAP_INDEX_TO_KEY.toVar()
 
-    fun TACExprFact.indexMappingConsistent(handle: TACSymbol, index: TACSymbol) =
+    private fun TACExprFact.indexMappingConsistent(handle: TACSymbol, index: TACSymbol) =
         (
             select(
                 keyToIndex.asSym(),

@@ -40,8 +40,8 @@ internal object VecModuleImpl : ModuleImpl() {
             "vec_slice" -> VecType.slice(retVar!!, args[0], args[1], args[2])
             "vec_new_from_linear_memory" -> VecType.newFromMemory(retVar!!, args[0], args[1])
             "vec_unpack_to_linear_memory" -> VecType.copyToMemory(args[0], args[1], args[2])
+            "vec_first_index_of" -> VecType.findFirst(retVar!!, args[0], args[1])
             // TODO CERT-6700:
-            // vec_first_index_of
             // vec_last_index_of
             // vec_binary_search
             else -> null

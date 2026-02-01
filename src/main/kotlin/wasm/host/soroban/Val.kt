@@ -388,7 +388,7 @@ object Val {
             Trap.assert("Expected sym to be a valid Val, in $module/$func") { valid }
         }
 
-    fun assumeValid(sym: TACSymbol, checkAlloc: Boolean, vararg validTags: Tag) =
+    private fun assumeValid(sym: TACSymbol, checkAlloc: Boolean, vararg validTags: Tag) =
         withValidity(sym.asSym(), checkAlloc, validTags) { valid ->
             assume { valid }
         }

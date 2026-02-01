@@ -21,6 +21,7 @@ import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
 import com.certora.collect.*
+import config.Config
 import datastructures.stdcollections.*
 import tac.*
 import tac.generation.*
@@ -29,6 +30,8 @@ import vc.data.*
 import wasm.WasmPipelinePhase
 import wasm.WasmPostUnrollSummary
 import wasm.host.soroban.*
+import wasm.host.soroban.Val.digest
+import wasm.host.soroban.Val.withDigest
 
 /**
     Vectors are [ArrayType]s whose values are arbitrary [Val]s.
@@ -140,4 +143,34 @@ object VecType : ArrayType() {
             ).withDecls(bytesLen)
         )
     }
+
+    /*
+    * NOTE: Underapproximated impl of `contains` based on `LoopUnrollConstant`.
+    * This is unsound but John mentioned that we do this elsewhere for EVM
+    * when passing an array of structs (or other complex types) to an external function,
+    * so it's not too egregious.
+    * If we ever do reason about loop invariants, this will require a revisit.
+    * */
+    fun findFirst(dest: TACSymbol.Var, handle: TACSymbol, value: TACSymbol) =
+        withSize(handle) { size ->
+            withDigest(value.asSym()) { valDigest ->
+                val k = Config.LoopUnrollConstant.get()
+                var found: TACExpr = false.asTACExpr
+                var res: TACExpr = Val.VOID
+                for (i in 0 until k) {
+                    val inBounds = i.asTACExpr lt size.asSym()
+                    val atIndexI = (digest(selectFromPreviousMappings(handle.asSym(), i.asTACExpr)) eq valDigest)
+                    val hit = inBounds and atIndexI
+
+                    res = ite((TACExpr.UnaryExp.LNot(found)) and hit, i.asTACExpr, res)
+                    found = found or hit
+                }
+                mergeMany(
+                    Trap.assert("vec_first_index_of exceeds loop_iter") {
+                        size.asSym() le k.asTACExpr
+                    },
+                    assign(dest) { res }
+                )
+            }
+        }
 }

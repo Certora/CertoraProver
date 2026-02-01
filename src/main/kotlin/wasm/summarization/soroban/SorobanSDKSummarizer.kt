@@ -22,6 +22,7 @@ import datastructures.stdcollections.*
 import analysis.CommandWithRequiredDecls
 import analysis.CommandWithRequiredDecls.Companion.mergeMany
 import analysis.CommandWithRequiredDecls.Companion.withDecls
+import tac.MetaMap
 import tac.generation.*
 import tac.Tag
 import utils.*
@@ -82,6 +83,12 @@ class SorobanSDKSummarizer(
             null
         ),
 
+        SDK_SYMBOL_TRY_FROM_BYTES_RUSTC_1_91_0(
+            demangledName = "\$<soroban_env_common::symbol::Symbol as soroban_env_common::convert::TryFromVal<E,&str>>::try_from_val",
+            listOf(WasmPrimitiveType.I32, WasmPrimitiveType.I32, WasmPrimitiveType.I32),
+            null,
+        ),
+
         // The SDK Symbol type is actually a struct comprising an Env and a soroban_env_common::Symbol.
         // However, for the wasm target, the Env impl is a 0-size Guest struct, so this method
         // ends up looking exactly the same as the soroban_env_common::Symbol implementation
@@ -121,6 +128,10 @@ class SorobanSDKSummarizer(
             SorobanSDKBuiltin.SYMBOL_NEW -> {
                 check(call.maybeRet != null) { "expected Symbol::new to have an lhs" }
                 summarizeSymbolNew(call.maybeRet, call.args[0], call.args[1])
+            }
+
+            SorobanSDKBuiltin.SDK_SYMBOL_TRY_FROM_BYTES_RUSTC_1_91_0 -> {
+                summarizeSymbolNew(call.args[0], call.args[2])
             }
 
             SorobanSDKBuiltin.TRY_FROM_VAL_TO_I128 -> {
@@ -310,6 +321,20 @@ class SorobanSDKSummarizer(
             strPtr.toTacSymbol(),
             len.toTacSymbol()
         )
+
+    private fun summarizeSymbolNew(out: Arg, slicePtr: Arg): CommandWithRequiredDecls<TACCmd.Simple> {
+        val newHandle = TACKeyword.TMP(Tag.Bit256, "!newSymbol!handle")
+        val outPtr = out.toTacSymbol()
+        return mergeMany(
+            SymbolType.NewSymbolFromSliceSummary(newHandle, slicePtr.toTacSymbol()).toCmd(),
+
+            memStore(outPtr.asSym(), 0.asTACExpr, MetaMap(WASM_MEMORY_OP_WIDTH to 8)),
+
+            TXF { outPtr add 8 }.letVar { resultPtr ->
+                memStore(resultPtr, newHandle.asSym(), MetaMap(WASM_MEMORY_OP_WIDTH to 8))
+            }
+        ).merge(newHandle)
+    }
 }
 
 class UnknownSorobanSDKFunction(val f: WasmName): Exception()
