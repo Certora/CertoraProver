@@ -35,7 +35,11 @@ private val loggerSetupHelpers = Logger(LoggerTypes.SETUP_HELPERS)
 /**
     Converts a MoveTACProgram to a CoreTACProgram by expanding all TACCmd.Move commands into Core TAC implementations.
  */
-class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : MemoryLayout.VarInitializer {
+class MoveTACSimplifier(
+    val scene: MoveScene,
+    val moveCode: MoveTACProgram,
+    val trapMode: TrapMode
+) : MemoryLayout.VarInitializer {
 
     fun transform(): CoreTACProgram {
         val transformedBlocks = moveCode.graph.blocks.associate { block ->
@@ -318,7 +322,7 @@ class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : Me
         val elemCount = cmd.dsts.size
         return mergeMany(
             listOf(
-                Trap.assert("Vector length mismatch", cmd.meta) {
+                Trap.assert("Vector length mismatch", trapMode, cmd.meta) {
                     vecLoc.vecLen() eq elemCount.asTACExpr
                 }
             ) + cmd.dsts.mapIndexed { elemIndex, dst ->
@@ -345,7 +349,9 @@ class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : Me
             mergeMany(
                 listOfNotNull(
                     runIf(cmd.doBoundsCheck) {
-                        Trap.assert("Index out of bounds", cmd.meta) { cmd.index lt loc.vecLen() }
+                        Trap.assert("Index out of bounds", trapMode, cmd.meta) {
+                            cmd.index lt loc.vecLen()
+                        }
                     },
                     assign(dstRefLayout.layoutId, cmd.meta) { elemLoc.layout.id },
                     assign(dstRefLayout.offset, cmd.meta) { elemLoc.offset }
@@ -401,7 +407,7 @@ class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : Me
                 TXF { oldLen sub 1 }.letVar("newLen", Tag.Bit256, cmd.meta) { newLen ->
                     val srcElemLoc = vecLoc.elementLoc(vecType, newLen)
                     mergeMany(
-                        Trap.assert("Empty vector", cmd.meta) { oldLen gt 0.asTACExpr },
+                        Trap.assert("Empty vector", trapMode, cmd.meta) { oldLen gt 0.asTACExpr },
                         assign(oldVecDigest, cmd.meta) { vecLoc.vecDigest() },
                         vecLoc.setVecLen(newLen, cmd.meta),
                         dstElemLoc.assign(srcElemLoc, elemType, cmd.meta),
@@ -448,7 +454,7 @@ class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : Me
         return mergeMany(
             listOfNotNull(
                 runIf(cmd.doVariantCheck) {
-                    Trap.assert("Variant tag mismatch", cmd.meta) {
+                    Trap.assert("Variant tag mismatch", trapMode, cmd.meta) {
                         srcEnumLoc.enumVariant(enumType) eq cmd.variant.asTACExpr
                     }
                 }
@@ -471,7 +477,7 @@ class MoveTACSimplifier(val scene: MoveScene, val moveCode: MoveTACProgram) : Me
             mergeMany(
                 listOfNotNull(
                     runIf(cmd.doVariantCheck) {
-                        Trap.assert("Variant tag mismatch", cmd.meta) {
+                        Trap.assert("Variant tag mismatch", trapMode, cmd.meta) {
                             srcEnumLoc.enumVariant(enumType) eq cmd.variant.asTACExpr
                         }
                     }

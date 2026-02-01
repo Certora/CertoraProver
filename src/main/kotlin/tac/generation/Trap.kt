@@ -29,9 +29,21 @@ import vc.data.*
 import vc.data.tacexprutil.*
 import java.util.stream.Collectors
 
+/**
+    Implements Wasm "trap" / Move "abort" semantics.  Trap/abort are similar to the EVM "revert" operation, in that they
+    terminate the current operation and revert any state changes.  CVLR/CVLM rules have no way to handle this event, and
+    so the default behavior is to implicitly assume no abort/trap paths will be taken.  We implement this behavior by
+    inserting [TACCmd.Simple.RevertCmd], which the general TAC pipeline treats as an `assume(false)`.
+
+    A CVLM rule may optionally be declared as a "no-revert rule," which changes the semantics such that the rule
+    implicitly *asserts* that no aborting paths are taken.
+
+    Additionally, we have a config option [Config.TrapAsAssert] that will force "normal" rules to also assert no
+    traps/aborts.
+ */
 object Trap {
-    fun trap(reason: String, meta: MetaMap = MetaMap()) =
-        if (Config.TrapAsAssert.get()) {
+    fun trap(reason: String, mode: TrapMode = TrapMode.DEFAULT, meta: MetaMap = MetaMap()) =
+        if (mode.isAssert) {
             trapAsAssert(TACSymbol.False, reason, meta)
         } else {
             trapRevert(reason, meta)
@@ -39,13 +51,14 @@ object Trap {
 
     fun assert(
         reason: String,
+        mode: TrapMode = TrapMode.DEFAULT,
         meta: MetaMap = MetaMap(),
         cond: TACExprFact.() -> TACExpr
     ): CommandWithRequiredDecls<TACCmd.Simple> {
         val condSym = TACSymbol.Var("cond", Tag.Bool).toUnique("!")
         return mergeMany(
             ExprUnfolder.unfoldTo(TACExprFactUntyped(cond), condSym, meta).merge(condSym),
-            if (Config.TrapAsAssert.get()) {
+            if (mode.isAssert) {
                 trapAsAssert(condSym, reason, meta)
             } else {
                 listOf(ConditionalTrapRevert(condSym, reason).toCmd(meta)).withDecls()
@@ -75,6 +88,21 @@ object Trap {
         ).withDecls()
 }
 
+/**
+    Selects the mode for [Trap] operations.
+ */
+enum class TrapMode {
+    ASSERT,
+    REVERT,
+    DEFAULT,
+    ;
+
+    val isAssert get() = when (this) {
+        ASSERT -> true
+        REVERT -> false
+        DEFAULT -> Config.TrapAsAssert.get()
+    }
+}
 
 /**
     Reverts if [cond] is false, otherwise continues.

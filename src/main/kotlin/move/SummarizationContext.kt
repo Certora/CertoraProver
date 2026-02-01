@@ -32,7 +32,8 @@ class SummarizationContext(
     val scene: MoveScene,
     private val moveToTAC: MoveToTAC,
     /** Maps MoveType.Function values (which are integers) to their corresponding function instantiations */
-    val parametricTargets: Map<Int, MoveFunction>
+    val parametricTargets: Map<Int, MoveFunction>,
+    val trapMode: TrapMode
 ) {
     private var bodyIdxAllocator = 1 // Start at 1 to avoid conflict with Allocator.getNBId()
     private var currentBodyIdx = bodyIdxAllocator++
