@@ -1256,7 +1256,7 @@ class MutableSbfCFG(private val name: String): SbfCFG {
         this.getEntry().getInstruction(0).metaData.getVal(SbfMeta.SBF_ADDRESS)?.let {addr ->
             val debugInfoForMethod = debugInformation.getMethodByNameAndAddress(this.name, addr)
             if(debugInfoForMethod != null) {
-                DWARFEdgeLabelAnnotator(debugInformation, debugInfoForMethod, this, addr).addDebugInformation();
+                DWARFEdgeLabelAnnotator(debugInformation, debugInfoForMethod, this, addr).addDebugInformation()
             }
         }
     }

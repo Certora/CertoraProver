@@ -65,6 +65,7 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
         // load and stores access **same** number of bytes
         findMemcpyPatterns(b, types).let { rewrites ->
             applyRewrites(b, rewrites)
+            narrowLoadsFromMemcpy(b, cfg) // remove some loads
             numOfInsertedMemcpy += rewrites.size
         }
 
@@ -86,6 +87,7 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
             */
             findMemcpyPatterns(b, types, maxNumOfPairs = 1).let { rewrites ->
                 applyRewrites(b, rewrites)
+                narrowLoadsFromMemcpy(b, cfg) // remove some loads
                 numOfInsertedMemcpy += rewrites.size
             }
         }
@@ -852,4 +854,11 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
     }
     logger.debug {"$name OK"}
     return true
+}
+
+private fun narrowLoadsFromMemcpy(b: MutableSbfBasicBlock, cfg: MutableSbfCFG) {
+    narrowMaskedLoads(b, cfg) { loadInst ->
+        loadInst.isLoad &&
+            loadInst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
+    }
 }
