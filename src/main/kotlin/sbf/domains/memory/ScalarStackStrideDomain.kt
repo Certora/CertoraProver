@@ -186,14 +186,19 @@ object PredicateFactory: ScalarValueFactory<SetOfStackStridePredicate> {
  * Note that if `reg` is spilled to the stack then the current implementation will lose track of it.
  * However, `reg` should be typically loop counters and hopefully the compiler will try not to spill loop counters.
  */
-class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackStridePredicate>)  {
+class StackStridePredicateDomain(
+    private val base: ScalarBaseDomain<SetOfStackStridePredicate>,
+    val globalState: GlobalState
+)  {
 
     companion object {
-        fun makeBottom() = StackStridePredicateDomain(ScalarBaseDomain.makeBottom(PredicateFactory))
-        fun makeTop() = StackStridePredicateDomain(ScalarBaseDomain.makeTop(PredicateFactory))
+        fun makeBottom(globalState: GlobalState) =
+            StackStridePredicateDomain(ScalarBaseDomain.makeBottom(PredicateFactory), globalState)
+        fun makeTop(globalState: GlobalState) =
+            StackStridePredicateDomain(ScalarBaseDomain.makeTop(PredicateFactory), globalState)
     }
 
-    fun deepCopy() = StackStridePredicateDomain(base.deepCopy())
+    fun deepCopy() = StackStridePredicateDomain(base.deepCopy(), globalState)
 
     fun isBottom() = base.isBottom()
 
@@ -203,9 +208,9 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
 
     fun setToTop() { base.setToTop() }
 
-    fun join(other: StackStridePredicateDomain) =  StackStridePredicateDomain(base.join(other.base))
+    fun join(other: StackStridePredicateDomain) =  StackStridePredicateDomain(base.join(other.base), globalState)
 
-    fun widen(other: StackStridePredicateDomain) = StackStridePredicateDomain(base.widen(other.base))
+    fun widen(other: StackStridePredicateDomain) = StackStridePredicateDomain(base.widen(other.base), globalState)
 
     fun lessOrEqual(other: StackStridePredicateDomain) = base.lessOrEqual(other.base)
 
@@ -623,9 +628,6 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
         }
     }
 
-
-
-
     /** Return true iff [locInst] is a call to a CVT function **/
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCVTCall(
         locInst: LocatedSbfInstruction,
@@ -646,7 +648,7 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
                     CVTCore.RESTORE_SCRATCH_REGISTERS -> {
                         val topStack = (scalars.getValue(Value.Reg(SbfRegister.R10_STACK_POINTER)).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
                         check(topStack != null){ "r10 should point to a statically known stack offset"}
-                        base.restoreScratchRegisters(topStack)
+                        base.restoreScratchRegisters(topStack, globalState.globals.elf.useDynamicFrames())
                         return true
 
                     }
@@ -838,27 +840,45 @@ class StackStridePredicateDomain(private val base: ScalarBaseDomain<SetOfStackSt
 }
 
 /** Reduced product of [ScalarDomain] and [StackStridePredicateDomain] **/
-class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
+class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private constructor(
         private val scalars: ScalarDomain<TNum, TOffset>,
-        private val predicates: StackStridePredicateDomain
+        private val predicates: StackStridePredicateDomain,
+        private val globalState: GlobalState
 ) : AbstractDomain<ScalarStackStridePredicateDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
     MemoryDomainScalarOps<TNum, TOffset> {
 
     val sbfTypeFac: ISbfTypeFactory<TNum, TOffset> = scalars.sbfTypeFac
 
-    constructor(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, initPreconditions: Boolean = false):
-        this(ScalarDomain(sbfTypeFac, initPreconditions), StackStridePredicateDomain.makeTop())
+    constructor(
+        sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+        globalState: GlobalState,
+        initPreconditions: Boolean = false):
+        this(
+            ScalarDomain(sbfTypeFac, globalState, initPreconditions),
+            StackStridePredicateDomain.makeTop(globalState),
+            globalState
+        )
 
     companion object {
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeBottom(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): ScalarStackStridePredicateDomain<TNum, TOffset> =
-            ScalarStackStridePredicateDomain(ScalarDomain.makeBottom(sbfTypeFac), StackStridePredicateDomain.makeBottom())
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeBottom(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+            globalState: GlobalState,
+        ): ScalarStackStridePredicateDomain<TNum, TOffset> =
+            ScalarStackStridePredicateDomain(
+                ScalarDomain.makeBottom(sbfTypeFac, globalState),
+                StackStridePredicateDomain.makeBottom(globalState),
+                globalState
+            )
 
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>) =
-            ScalarStackStridePredicateDomain(sbfTypeFac)
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+            globalState: GlobalState
+        ) = ScalarStackStridePredicateDomain(sbfTypeFac, globalState)
     }
 
-    override fun deepCopy() = ScalarStackStridePredicateDomain(scalars.deepCopy(), predicates.deepCopy())
+    override fun deepCopy() =
+        ScalarStackStridePredicateDomain(scalars.deepCopy(), predicates.deepCopy(), globalState)
 
     override fun isBottom() = scalars.isBottom() || predicates.isBottom()
 
@@ -880,7 +900,11 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         } else if (other.isBottom()) {
             deepCopy()
         } else {
-            ScalarStackStridePredicateDomain(scalars.join(other.scalars, left, right), predicates.join(other.predicates))
+            ScalarStackStridePredicateDomain(
+                scalars.join(other.scalars, left, right),
+                predicates.join(other.predicates),
+                globalState
+            )
         }
 
     override fun widen(other: ScalarStackStridePredicateDomain<TNum, TOffset>, b: Label?) =
@@ -889,7 +913,11 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         } else if (other.isBottom()) {
             deepCopy()
         } else {
-            ScalarStackStridePredicateDomain(scalars.widen(other.scalars, b), predicates.widen(other.predicates))
+            ScalarStackStridePredicateDomain(
+                scalars.widen(other.scalars, b),
+                predicates.widen(other.predicates),
+                globalState
+            )
         }
 
 
@@ -971,10 +999,10 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         scalars.setStackContent(offset, width, value)
     }
 
-    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globals: GlobalVariables) =
-        scalars.getAsScalarValueWithNumToPtrCast(reg, globals)
+    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg) =
+        scalars.getAsScalarValueWithNumToPtrCast(reg)
 
-    fun analyze(locInst: LocatedSbfInstruction, globals: GlobalVariables, memSummaries: MemorySummaries) {
+    fun analyze(locInst: LocatedSbfInstruction) {
         val inst = locInst.inst
         dbg { "$inst\n" }
         if (!isBottom()) {
@@ -999,8 +1027,8 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
                 }
             }
 
-            scalars.analyze(locInst, globals, memSummaries)
-            predicates.analyze(locInst, scalars, memSummaries)
+            scalars.analyze(locInst)
+            predicates.analyze(locInst, scalars, globalState.memSummaries)
 
             if (SolanaConfig.UseScalarPredicateDomain.get()) {
                 if (inst is SbfInstruction.Assume) {
@@ -1016,17 +1044,16 @@ class ScalarStackStridePredicateDomain<TNum: INumValue<TNum>, TOffset: IOffset<T
         dbg { "$this\n" }
     }
 
-    override fun analyze(b: SbfBasicBlock,
-                         globals: GlobalVariables,
-                         memSummaries: MemorySummaries,
-                         listener: InstructionListener<ScalarStackStridePredicateDomain<TNum, TOffset>>
+    override fun analyze(
+        b: SbfBasicBlock,
+        listener: InstructionListener<ScalarStackStridePredicateDomain<TNum, TOffset>>
     ): ScalarStackStridePredicateDomain<TNum, TOffset> {
         dbg { "=== Scalar+StackStridePredicate domain analyzing ${b.getLabel()} ===\nAt entry: $this\n" }
         return analyzeBlock(
             b,
             inState = this,
             transferFunction = { mutState, locInst ->
-                mutState.analyze(locInst, globals, memSummaries)
+                mutState.analyze(locInst)
             },
             listener
         )

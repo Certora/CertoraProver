@@ -134,7 +134,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
                 cpiLog.info { "Analyzing located instruction `$inst`" }
 
                 // Found the call to `invoke` that we were looking for.
-                val programId = getProgramIdBeforeInvoke(pre, globals)
+                val programId = getProgramIdBeforeInvoke(pre)
                 if (programId == null) {
                     cpiLog.warn {
                         "It was not possible to infer the program id before the call to invoke. " +
@@ -154,7 +154,7 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
                     return
                 }
 
-                val instruction = getInstruction(discriminants, pre, globals)
+                val instruction = getInstruction(discriminants, pre)
                 if (instruction == null) {
                     cpiLog.warn { "Could not infer program instruction: analysis is not precise enough" }
                 } else {
@@ -183,11 +183,10 @@ class InvokeInstructionListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffse
  * id is encoded in 32 bytes.
  */
 private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getProgramIdBeforeInvoke(
-    memoryDomain: MemoryDomain<TNum, TOffset, TFlags>,
-    globals: GlobalVariables
+    memoryDomain: MemoryDomain<TNum, TOffset, TFlags>
 ): ProgramId? {
     val r2 = Value.Reg(SbfRegister.R2_ARG)
-    val pubkey = memoryDomain.getPubkey(r2, OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID.toLong(), globals) ?: return null
+    val pubkey = memoryDomain.getPubkey(r2, OFFSET_FROM_INSTRUCTION_TO_PROGRAM_ID.toLong()) ?: return null
     return ProgramId(pubkey.word0, pubkey.word1, pubkey.word2, pubkey.word3)
 }
 
@@ -199,10 +198,9 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
  */
 private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> getInstruction(
     discriminants: ProgramDiscriminants,
-    memoryDomain: MemoryDomain<TNum, TOffset, TFlags>,
-    globals: GlobalVariables
+    memoryDomain: MemoryDomain<TNum, TOffset, TFlags>
 ): InvokeMock? {
-    val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG), globals)
+    val r2 = memoryDomain.getRegCell(Value.Reg(SbfRegister.R2_ARG))
     if (r2 == null) {
         cpiLog.warn { "Could not infer register cell associated with R2" }
         return null

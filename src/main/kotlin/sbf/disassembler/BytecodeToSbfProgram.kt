@@ -117,40 +117,63 @@ private fun getBinValue(inst: SbfBytecode): Value {
     }
 }
 
+private fun makeBinAluInst(op: BinOp, bytecode: SbfBytecode, is64: Boolean) =
+    SbfInstruction.Bin(op, Value.Reg(SbfRegister.getByValue(bytecode.dst)), getBinValue(bytecode), is64)
 
-private fun makeBinAluInst(op: BinOp, inst: SbfBytecode, is64: Boolean): SbfInstruction =
-    SbfInstruction.Bin(op, Value.Reg(SbfRegister.getByValue(inst.dst)), getBinValue(inst), is64)
-private fun makeUnAluInst(op: UnOp, inst: SbfBytecode, is64: Boolean): SbfInstruction =
-    SbfInstruction.Un(op, Value.Reg(SbfRegister.getByValue(inst.dst)), is64)
+private fun makeUnAluInst(op: UnOp, bytecode: SbfBytecode, is64: Boolean) =
+    SbfInstruction.Un(op, Value.Reg(SbfRegister.getByValue(bytecode.dst)), is64)
 
 @TestOnly
-fun makeAluInst(inst: SbfBytecode): SbfInstruction {
-    val dstReg = Value.Reg(SbfRegister.getByValue(inst.dst))
-    if (dstReg.r == SbfRegister.R10_STACK_POINTER) {
-        throw DisassemblerError("cannot write on r10")
-    }
-    val is64 = (inst.opcode.toInt() and SbfInstructionCodes.INST_CLS_MASK.opcode) == SbfInstructionCodes.INST_CLS_ALU64.opcode
-    when (inst.opcode.toInt().shr(4) and 0xF) {
-        0x0 -> return makeBinAluInst(BinOp.ADD, inst, is64)
-        0x1 -> return makeBinAluInst(BinOp.SUB, inst, is64)
-        0x2 -> return makeBinAluInst(BinOp.MUL, inst, is64)
-        0x3 -> return makeBinAluInst(BinOp.DIV, inst, is64)
-        0x4 -> return makeBinAluInst(BinOp.OR, inst, is64)
-        0x5 -> return makeBinAluInst(BinOp.AND, inst, is64)
-        0x6 -> return makeBinAluInst(BinOp.LSH, inst, is64)
-        0x7 -> return makeBinAluInst(BinOp.RSH, inst, is64)
-        0x8 -> return makeUnAluInst(UnOp.NEG, inst, is64)
-        0x9 -> return makeBinAluInst(BinOp.MOD, inst, is64)
-        0xa -> return makeBinAluInst(BinOp.XOR, inst, is64)
-        0xb -> return makeBinAluInst(BinOp.MOV, inst, is64)
-        0xc -> return makeBinAluInst(BinOp.ARSH, inst, is64)
+fun makeAluInst(bytecode: SbfBytecode, elf:  IElfFileView): SbfInstruction {
+    val is64 = (bytecode.opcode.toInt() and SbfInstructionCodes.INST_CLS_MASK.opcode) == SbfInstructionCodes.INST_CLS_ALU64.opcode
+    val useDynFrames = elf.useDynamicFrames()
+    val inst = when (bytecode.opcode.toInt().shr(4) and 0xF) {
+        0x0 -> makeBinAluInst(BinOp.ADD, bytecode, is64)
+        0x1 -> makeBinAluInst(BinOp.SUB, bytecode, is64)
+        0x2 -> makeBinAluInst(BinOp.MUL, bytecode, is64)
+        0x3 -> makeBinAluInst(BinOp.DIV, bytecode, is64)
+        0x4 -> makeBinAluInst(BinOp.OR, bytecode, is64)
+        0x5 -> makeBinAluInst(BinOp.AND, bytecode, is64)
+        0x6 -> makeBinAluInst(BinOp.LSH, bytecode, is64)
+        0x7 -> makeBinAluInst(BinOp.RSH, bytecode, is64)
+        0x8 -> makeUnAluInst(UnOp.NEG, bytecode, is64)
+        0x9 -> makeBinAluInst(BinOp.MOD, bytecode, is64)
+        0xa -> makeBinAluInst(BinOp.XOR, bytecode, is64)
+        0xb -> makeBinAluInst(BinOp.MOV, bytecode, is64)
+        0xc -> makeBinAluInst(BinOp.ARSH, bytecode, is64)
         0xd -> {
             // LE16/LE32/LE64/BE16/BE32/BE64
             sbfLogger.warn{"unsupported LE/BE instruction: generated instead dst := havoc()"}
-            return SbfInstruction.Havoc(Value.Reg(SbfRegister.getByValue(inst.dst)))
+            SbfInstruction.Havoc(Value.Reg(SbfRegister.getByValue(bytecode.dst)))
         }
         else -> throw DisassemblerError("invalid ALU instruction")
     }
+
+    // Sanity checks about R10
+    val lhs = SbfRegister.getByValue(bytecode.dst)
+    if (lhs == SbfRegister.R10_STACK_POINTER) {
+        when (useDynFrames) {
+            false -> {
+                throw DisassemblerError(
+                    "In ${elf.sbpfVersion()} r10 is read-only but $inst modifies it"
+                )
+            }
+            true -> {
+                if (inst !is SbfInstruction.Bin || inst.op != BinOp.ADD) {
+                    throw DisassemblerError(
+                        "r10 can only be updated by add64 instruction instead of $inst"
+                    )
+                }
+                val rhs = inst.typedRhs.v
+                if (rhs !is Value.Imm) {
+                    throw DisassemblerError(
+                        "r10 can only be added by an immediate value instead of $inst"
+                    )
+                }
+            }
+        }
+    }
+    return inst
 }
 
 @TestOnly
@@ -311,7 +334,7 @@ private fun bytecodeToInstruction(pc: Int, inst: SbfBytecode, bytecode: Bytecode
             makeMemInst(inst)
         }
         SbfInstructionCodes.INST_CLS_ALU.opcode, SbfInstructionCodes.INST_CLS_ALU64.opcode -> {
-            makeAluInst(inst)
+            makeAluInst(inst, bytecode.globals.elf)
         }
         SbfInstructionCodes.INST_CLS_JMP32.opcode, SbfInstructionCodes.INST_CLS_JMP.opcode -> {
             val isRelocatedCall = (bytecode.relocatedCalls.contains(pc))
@@ -334,13 +357,14 @@ fun bytecodeToSbfProgram(bytecode: BytecodeProgram): SbfProgram {
     val newInsts = ArrayList<SbfLabeledInstruction>()
     var pc = 0
     var exitCount = 0 // number of exit instructions
+
     while (pc < bytecode.program.size) {
         val inst = bytecode.program[pc]
         val (newInst, isLddwInst) = bytecodeToInstruction(pc, inst, bytecode)
         if (newInst is SbfInstruction.Exit) {
             exitCount++
         }
-        newInsts.add(Pair(Label.Address(pc.toLong()), newInst))
+        newInsts.add(Label.Address(pc.toLong()) to newInst)
         pc++
         if (isLddwInst) {
             // skip the immediate value that has been already processed

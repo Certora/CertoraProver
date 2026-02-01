@@ -40,7 +40,7 @@ fun runSimplePTAOptimizations(cfg: MutableSbfCFG, globals: GlobalVariables) {
     cfg.verify(false, "after unhoisting stores")
     cfg.removeUselessBlocks()
     cfg.verify(false, "after remove useless blocks")
-    unhoistStackPop(cfg)
+    unhoistStackPop(cfg, globals)
     cfg.verify(false, "after unhoisting stack pop instruction")
     unhoistCalltraceFunctions(cfg)
     cfg.verify(false, "after unhoisting calltrace functions")

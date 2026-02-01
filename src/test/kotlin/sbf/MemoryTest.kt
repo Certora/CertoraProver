@@ -36,6 +36,7 @@ private val sbfTypesFac = ConstantSbfTypeFactory()
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 private val memDomainOpts = MemoryDomainOpts(false)
 private val globals = GlobalVariables(DefaultElfFileView)
+private val memSummaries = MemorySummaries()
 
 class MemoryTest {
 
@@ -48,7 +49,7 @@ class MemoryTest {
     ): PTASymCell<Flags>? {
         val inst = SbfInstruction.Mem(Deref(width, base, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doLoad(locInst, base, SbfType.top(), globals)
+        g.doLoad(locInst, base, SbfType.top())
         return g.getRegCell(lhs)
     }
 
@@ -61,14 +62,20 @@ class MemoryTest {
     ) {
         val inst = SbfInstruction.Mem(Deref(width, base, offset), value, false)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doStore(locInst, base, value, SbfType.top(), SbfType.top(), globals)
+        g.doStore(locInst, base, value, SbfType.top(), SbfType.top())
     }
 
     private fun createMemcpy() = LocatedSbfInstruction(Label.fresh(),0, SbfInstruction.Call(SolanaFunction.SOL_MEMCPY.syscall.name))
 
 
     private fun createMemoryDomain() =
-        MemoryDomain(nodeAllocator, sbfTypesFac, memDomainOpts,true)
+        MemoryDomain(
+            nodeAllocator,
+            sbfTypesFac,
+            memDomainOpts,
+            GlobalState(globals, memSummaries),
+            initPreconditions = true
+        )
 
     @Test
     fun test01() {
@@ -79,7 +86,7 @@ class MemoryTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         val g1 = absVal1.getPTAGraph()
@@ -126,7 +133,7 @@ class MemoryTest {
 
         Assertions.assertEquals(true, check1)
 
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
 
         val c4 = stack2.getNode().getSucc(PTAField(PTAOffset(4040), 4))
@@ -162,7 +169,7 @@ class MemoryTest {
         val r4 = Value.Reg(SbfRegister.R4_ARG)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         val g1 = absVal1.getPTAGraph()
@@ -276,7 +283,7 @@ class MemoryTest {
         val r4 = Value.Reg(SbfRegister.R4_ARG)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         val g1 = absVal1.getPTAGraph()
@@ -360,12 +367,12 @@ class MemoryTest {
 
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().mkLink(0, 4, stack1.concretize())
 
         val absVal2 = absVal1.deepCopy()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         sbfLogger.info {
             "\n" +
@@ -394,9 +401,9 @@ class MemoryTest {
                 "absVal2=\n" +
                 "$absVal2"
         }
-        val c1 = absVal2.getRegCell(r1, globals)
+        val c1 = absVal2.getRegCell(r1)
         check(c1 != null)
-        val c2 = absVal2.getRegCell(r10, globals)
+        val c2 = absVal2.getRegCell(r10)
         check(c2 != null)
         c1.concretize().unify(c2.concretize())
 
@@ -432,7 +439,7 @@ class MemoryTest {
         val r1 = Value.Reg(SbfRegister.R1_ARG)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         val g1 = absVal1.getPTAGraph()
@@ -469,7 +476,7 @@ class MemoryTest {
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
@@ -493,7 +500,7 @@ class MemoryTest {
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
@@ -501,7 +508,7 @@ class MemoryTest {
 
 
         val absVal2 = createMemoryDomain()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         stack2.getNode().setRead()
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
@@ -528,7 +535,7 @@ class MemoryTest {
         val r2 = Value.Reg(SbfRegister.R2_ARG)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         val g1 = absVal1.getPTAGraph()
@@ -538,7 +545,7 @@ class MemoryTest {
         g1.setRegCell(r2, n2.createSymCell(0))
 
         val absVal2 = createMemoryDomain()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         stack2.getNode().setRead()
         val g2 = absVal2.getPTAGraph()
@@ -557,7 +564,7 @@ class MemoryTest {
     fun test9() {
         println("====== TEST 9 (UNIFY) =======")
 
-        val g = PTAGraph(nodeAllocator, sbfTypesFac)
+        val g = PTAGraph(nodeAllocator, sbfTypesFac, GlobalState(globals, memSummaries))
         val n1 = g.mkNode()
         val n2 = g.mkNode()
         val n3 = g.mkNode()
@@ -596,7 +603,7 @@ class MemoryTest {
         val r1 = Value.Reg(SbfRegister.R1_ARG)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         val g1= absVal1.getPTAGraph()
@@ -610,7 +617,7 @@ class MemoryTest {
 
 
         val absVal2 = createMemoryDomain()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         stack2.getNode().setRead()
         val g2 = absVal2.getPTAGraph()
@@ -637,7 +644,7 @@ class MemoryTest {
     fun `test isWordCompatible function from PTACell`() {
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -693,7 +700,7 @@ class MemoryTest {
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
@@ -703,7 +710,7 @@ class MemoryTest {
         absVal1.getPTAGraph().forget(Value.Reg(SbfRegister.R1_ARG))
 
         val absVal2 = createMemoryDomain()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         stack2.getNode().setRead()
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
@@ -716,7 +723,7 @@ class MemoryTest {
                 val absVal3 = absVal1.join(absVal2)
                 sbfLogger.warn { "absVal3 := join(absVal1, absVal2) --> \n$absVal3" }
                 // We should lose track of R1
-                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) == null)
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG)) == null)
             }
         }
     }
@@ -731,7 +738,7 @@ class MemoryTest {
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
@@ -739,7 +746,7 @@ class MemoryTest {
         absVal1.getScalars().setScalarValue(Value.Reg(SbfRegister.R1_ARG), ScalarValue(sbfTypesFac.toNum(4)))
 
         val absVal2 = createMemoryDomain()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         stack2.getNode().setRead()
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
@@ -755,7 +762,7 @@ class MemoryTest {
                 val absVal4 = absVal2.join(absVal1)
                 sbfLogger.warn { "absVal4 := join(absVal2, absVal1) --> \n$absVal4" }
                 Assertions.assertEquals(true, absVal3.lessOrEqual(absVal4) && absVal4.lessOrEqual(absVal3))
-                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) != null)
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG)) != null)
             }
         }
     }
@@ -772,7 +779,7 @@ class MemoryTest {
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
 
         val absVal1 = createMemoryDomain()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         stack1.getNode().setRead()
         stack1.getNode().mkLink(4040, 4, stack1.getNode().createCell(4036))
@@ -782,7 +789,7 @@ class MemoryTest {
         absVal1.getPTAGraph().setRegCell(Value.Reg(SbfRegister.R1_ARG), integerNode.createSymCell(0))
 
         val absVal2 = createMemoryDomain()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         stack2.getNode().setRead()
         stack2.getNode().mkLink(4040, 4, stack2.getNode().createCell(4036))
@@ -798,7 +805,7 @@ class MemoryTest {
                 val absVal4 = absVal2.join(absVal1)
                 sbfLogger.warn { "absVal4 := join(absVal2, absVal1) --> \n$absVal4" }
                 Assertions.assertEquals(true, absVal3.lessOrEqual(absVal4) && absVal4.lessOrEqual(absVal3))
-                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG), globals) != null)
+                Assertions.assertEquals(true, absVal3.getRegCell(Value.Reg(SbfRegister.R1_ARG)) != null)
             }
         }
     }
@@ -811,7 +818,7 @@ class MemoryTest {
 
         val absVal1 = createMemoryDomain()
         val g1 = absVal1.getPTAGraph()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         val n1 = g1.mkIntegerNode()
         val n2 = g1.mkIntegerNode()
@@ -827,7 +834,7 @@ class MemoryTest {
 
         val absVal2 = createMemoryDomain()
         val g2 = absVal2.getPTAGraph()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         val n3 = g2.mkIntegerNode()
         n3.setWrite()
@@ -856,7 +863,7 @@ class MemoryTest {
 
         val absVal1 = createMemoryDomain()
         val g1 = absVal1.getPTAGraph()
-        val stack1 = absVal1.getRegCell(r10, globals)
+        val stack1 = absVal1.getRegCell(r10)
         check(stack1 != null) { "memory domain cannot find the stack node" }
         val n1 = g1.mkIntegerNode()
         val n2 = g1.mkIntegerNode()
@@ -869,7 +876,7 @@ class MemoryTest {
 
         val absVal2 = createMemoryDomain()
         val g2 = absVal2.getPTAGraph()
-        val stack2 = absVal2.getRegCell(r10, globals)
+        val stack2 = absVal2.getRegCell(r10)
         check(stack2 != null) { "memory domain cannot find the stack node" }
         val n3 = g2.mkIntegerNode()
         n3.setWrite()
@@ -899,7 +906,7 @@ class MemoryTest {
 
         val absVal = createMemoryDomain()
         val g = absVal.getPTAGraph()
-        val stack = absVal.getRegCell(r10, globals)
+        val stack = absVal.getRegCell(r10)
         check(stack != null) { "memory domain cannot find the stack node" }
 
         val n1 = g.mkNode()
@@ -915,8 +922,7 @@ class MemoryTest {
             LocatedSbfInstruction(Label.fresh(),
             0,
             SbfInstruction.Select(r1, Condition(CondOp.EQ, Value.Reg(SbfRegister.R3_ARG), Value.Imm(0UL)), r1, r2)),
-            globals,
-            ScalarDomain.makeTop(sbfTypesFac)
+            ScalarDomain.makeTop(sbfTypesFac, GlobalState(globals, memSummaries))
         )
         println("\nAfter:\n$g")
 
@@ -943,7 +949,7 @@ class MemoryTest {
 
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
         val absVal = createMemoryDomain()
-        val stack = absVal.getRegCell(r10, globals)
+        val stack = absVal.getRegCell(r10)
         check(stack != null) { "memory domain cannot find the stack node" }
         stack.getNode().setRead()
         val g = absVal.getPTAGraph()
@@ -1163,13 +1169,12 @@ class MemoryTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
         val r4 = Value.Reg(SbfRegister.R4_ARG)
         val r5 = Value.Reg(SbfRegister.R5_ARG)
-        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac, MemoryDomainOpts(false), true)
-        val stack = absVal.getRegCell(r10, globals)
+        val absVal = createMemoryDomain()
+        val stack = absVal.getRegCell(r10)
         check(stack != null) { "memory domain cannot find the stack node" }
         stack.getNode().setRead()
         val g = absVal.getPTAGraph()
         val scalars = absVal.getScalars()
-        val globals = globals
         val sumN = g.mkSummarizedNode()
         sumN.setWrite()
         sumN.setRead()
@@ -1179,7 +1184,7 @@ class MemoryTest {
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(4032)))
         g.setRegCell(r2,sumN.createSymCell(PTAOffset(0)))
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32)))
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1=sp(4032),r2=(sumN,0),r3=32): $g")
 
         val c1 = stack.getNode().getSucc(PTAField(PTAOffset(4032), 8))
@@ -1195,7 +1200,7 @@ class MemoryTest {
         // memcpy(r1=sp(3032), r2=sp(4042), r3=32)
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(3032)))
         g.setRegCell(r2, stack.getNode().createSymCell(PTAOffset(4032)))
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1=sp(3032), r2=sp(4042), r3=32): $g")
 
         g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))
@@ -1220,13 +1225,12 @@ class MemoryTest {
         val r4 = Value.Reg(SbfRegister.R4_ARG)
         val r5 = Value.Reg(SbfRegister.R5_ARG)
 
-        val absVal = MemoryDomain(nodeAllocator, sbfTypesFac, MemoryDomainOpts(false),true)
-        val stack = absVal.getRegCell(r10, globals)
+        val absVal = createMemoryDomain()
+        val stack = absVal.getRegCell(r10)
         check(stack != null) { "memory domain cannot find the stack node" }
         stack.getNode().setRead()
         val g = absVal.getPTAGraph()
         val scalars = absVal.getScalars()
-        val globals = globals
         val sumN = g.mkSummarizedNode()
         sumN.setWrite()
         sumN.setRead()
@@ -1236,7 +1240,7 @@ class MemoryTest {
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(4032)))
         g.setRegCell(r2,sumN.createSymCell(PTAOffset(0)))
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32)))
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1=sp(4032),r2=(sumN,0),r3=32): $g")
 
         val c1 = stack.getNode().getSucc(PTAField(PTAOffset(4032), 8))
@@ -1257,7 +1261,7 @@ class MemoryTest {
         // memcpy(r1=sp(3032), r2=sp(4042), r3=32)
         g.setRegCell(r1, stack.getNode().createSymCell(PTAOffset(3032)))
         g.setRegCell(r2, stack.getNode().createSymCell(PTAOffset(4032)))
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1=sp(3032), r2=sp(4042), r3=32): $g")
 
         g.setRegCell(r4, stack.getNode().createSymCell(PTAOffset(3032)))

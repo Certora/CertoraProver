@@ -44,12 +44,16 @@ class AnalysisProver<D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     init {  run() }
 
     private fun run() {
+        val globals = scalarAnalysis.getGlobalVariableMap()
+        val memSummaries = scalarAnalysis.getMemorySummaries()
+        val globalState = GlobalState(globals, memSummaries)
+
         val regTypes = AnalysisRegisterTypes(scalarAnalysis)
         for (b in scalarAnalysis.getCFG().getBlocks().values) {
             for (locInst in b.getLocatedInstructions()) {
                 val inst = locInst.inst
                 if (inst is SbfInstruction.Assert) {
-                    val x = ScalarDomain.makeTop(vfac)
+                    val x = ScalarDomain.makeTop(vfac, globalState)
                     for (use in inst.readRegisters) {
                         val scalarVal = ScalarValue(regTypes.typeAtInstruction(locInst, use.r))
                         x.setScalarValue(use, scalarVal)

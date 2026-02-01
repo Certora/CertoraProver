@@ -20,18 +20,16 @@ package sbf.cfg
 import sbf.disassembler.*
 import sbf.domains.AbstractDomain
 import sbf.domains.InstructionListener
-import sbf.domains.MemorySummaries
 
 /**
  *  Modify *IN-PLACE* the CFG to annotate instruction operands with types.
  *  This annotation is mostly useful for debugging and pretty-printing, but
  *  it can be also convenient to communicate types between different analyses.
  **/
-fun <T: AbstractDomain<T>> annotateCFGWithTypes(cfg: MutableSbfCFG,
-                                                globals: GlobalVariables,
-                                                memSummaries: MemorySummaries,
-                                                preMap: (Label) -> T?,
-                                                getType: (Value, T) -> SbfRegisterType?) {
+fun <T: AbstractDomain<T>> annotateCFGWithTypes(
+    cfg: MutableSbfCFG,
+    preMap: (Label) -> T?,
+    getType: (Value, T) -> SbfRegisterType?) {
 
     fun annotateCondWithTypes(cond: Condition, types: T): Condition {
         return cond.copy(typedLeft = cond.typedLeft.copy(type = getType(cond.left, types)),
@@ -116,7 +114,7 @@ fun <T: AbstractDomain<T>> annotateCFGWithTypes(cfg: MutableSbfCFG,
             }
             val newInsts = ArrayList<SbfInstruction>()
             val listener = AnnotateWithTypesListener(newInsts)
-            blockAbsVal.analyze(b, globals, memSummaries, listener)
+            blockAbsVal.analyze(b, listener)
             // REVISIT: in-place modification of the CFG
             b.replaceInstructions(newInsts)
         }

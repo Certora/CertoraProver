@@ -19,7 +19,7 @@ package sbf.cfg
 
 import sbf.callgraph.CVTCore
 import sbf.callgraph.CVTFunction
-import sbf.disassembler.SbfRegister
+import sbf.disassembler.GlobalVariables
 
 /**
  * Move instruction that pops the stack into its predecessors.
@@ -31,7 +31,12 @@ import sbf.disassembler.SbfRegister
  * This allows to remove dead stack fields in the pointer analysis before performing
  * joins that might cause extra unifications.
  **/
-fun unhoistStackPop(cfg: MutableSbfCFG, numInstsBeforePop: Int = 5) {
+fun unhoistStackPop(
+    cfg: MutableSbfCFG,
+    globals: GlobalVariables,
+    numInstsBeforePop: Int = 5
+) {
+    val useDynFrames = globals.elf.useDynamicFrames()
     val workList = arrayListOf<Pair<MutableSbfBasicBlock, Int>>()
     for (b in cfg.getMutableBlocks().values) {
         if (b.getPreds().size > 1) {
@@ -48,7 +53,7 @@ fun unhoistStackPop(cfg: MutableSbfCFG, numInstsBeforePop: Int = 5) {
                             // If unhoisting already took place we bail out.
                             break
                         }
-                        if (i == 0 || !isStackPop(b.getInstruction(i-1))) {
+                        if (i == 0 || !(b.getInstruction(i-1).isStackPop(useDynFrames))) {
                             // If a stack pop instruction does not precede CVT_restore_scratch_registers then we bail out
                             break
                         }
@@ -79,15 +84,3 @@ fun unhoistStackPop(cfg: MutableSbfCFG, numInstsBeforePop: Int = 5) {
         b.foldIntoPredecessors(i)
     }
 }
-
-private fun isStackPop(inst: SbfInstruction): Boolean {
-    return if (inst is SbfInstruction.Bin) {
-            val lhs = inst.dst
-            val rhs = inst.v
-            (lhs == Value.Reg(SbfRegister.R10_STACK_POINTER) && inst.op == BinOp.SUB &&
-            (rhs is Value.Imm && rhs.v == SBF_STACK_FRAME_SIZE.toULong()))
-    } else {
-        false
-    }
-}
-

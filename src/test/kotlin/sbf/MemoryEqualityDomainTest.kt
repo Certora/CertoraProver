@@ -44,7 +44,7 @@ private fun checkProgramIdInvoke(results: MemoryAnalysisT, label: Label, expecte
     println("$memAbsVal")
     check(memAbsVal != null)
 
-    val programId = memAbsVal.getPubkey(Value.Reg(SbfRegister.R2_ARG), 48, results.globals)
+    val programId = memAbsVal.getPubkey(Value.Reg(SbfRegister.R2_ARG), 48)
     println("$programId")
 
     Assertions.assertEquals(true, programId != null)
@@ -61,7 +61,7 @@ private fun checkNoProgramIdInvoke(results: MemoryAnalysisT, label: Label) {
     println("$memAbsVal")
     check(memAbsVal != null)
 
-    val programId = memAbsVal.getPubkey(Value.Reg(SbfRegister.R2_ARG), 48, results.globals)
+    val programId = memAbsVal.getPubkey(Value.Reg(SbfRegister.R2_ARG), 48)
     println("$programId")
 
     Assertions.assertEquals(true, programId == null)

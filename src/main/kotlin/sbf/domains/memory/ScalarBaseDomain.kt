@@ -243,10 +243,17 @@ class ScalarBaseDomain<ScalarValue>(
         return scratchRegisters.removeLast()
     }
 
-    private fun removeDeadStackFields(topStack: Long) {
+    private fun isDeadOffset(offset: Long, topOfStack: Long, useDynFrames: Boolean) =
+        if (useDynFrames) {
+            offset < topOfStack
+        } else {
+            offset > topOfStack
+        }
+
+    private fun removeDeadStackFields(topStack: Long, useDynFrames: Boolean) {
         val deadFields = ArrayList<ByteRange>()
         for ((k, _) in stack) {
-            if (k.offset > topStack) {
+            if (isDeadOffset(k.offset, topStack, useDynFrames)) {
                 deadFields.add(k)
             }
         }
@@ -271,7 +278,7 @@ class ScalarBaseDomain<ScalarValue>(
      *  Transfer function for `__CVT_restore_scratch_registers`
      *  Invariant ensured by CFG construction: `r10` has been decremented already
      **/
-    fun restoreScratchRegisters(topStack: Long) {
+    fun restoreScratchRegisters(topStack: Long, useDynFrames: Boolean) {
         check(!isBottom()) {"Unexpected restoreScratchRegisters on bottom"}
 
         if (!isTop()) {
@@ -282,7 +289,7 @@ class ScalarBaseDomain<ScalarValue>(
                 setRegister(Value.Reg(SbfRegister.R8), popScratchReg())
                 setRegister(Value.Reg(SbfRegister.R7), popScratchReg())
                 setRegister(Value.Reg(SbfRegister.R6), popScratchReg())
-                removeDeadStackFields(topStack)
+                removeDeadStackFields(topStack, useDynFrames)
             }
         }
     }

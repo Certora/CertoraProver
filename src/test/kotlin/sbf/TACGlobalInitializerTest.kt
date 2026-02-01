@@ -31,6 +31,8 @@ class TACGlobalInitializerTest {
     /** Mock for the tests **/
     private object MockedElfFileView: IElfFileView {
         override fun isLittleEndian() = true
+        override fun sbpfVersion() = SbpfVersion.SBF
+        override fun useDynamicFrames() = false
         override fun isGlobalVariable(address: ElfAddress) = (address == 671456L)
         override fun isReadOnlyGlobalVariable(address: ElfAddress) = false
         override fun getAsConstantString(

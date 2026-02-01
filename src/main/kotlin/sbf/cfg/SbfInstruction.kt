@@ -259,7 +259,7 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
     open fun isAllocFn() = false
     open fun isDeallocFn() = false
     open fun isExternalFn() = false
-
+    open fun isStackPop(useDynamicFrames: Boolean) = false
 
     // these can and probably should be replaced with polymorphism
     open fun isCore(value: CVTCore): Boolean = false
@@ -301,6 +301,25 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             } else {
                 (v as? Value.Reg)?.let { setOf(dst, it) } ?: setOf(dst)
             }
+
+        /**
+         * With static frames:
+         * - Pop:  `sub64 r10, STACK_FRAME_SIZE` (decrease stack pointer)
+         * With dynamic frames:
+         * - Pop:  `add64 r10, x`                (increase stack pointer)
+         */
+        override fun isStackPop(useDynamicFrames: Boolean): Boolean {
+            val isLhsStackPtr = dst == Value.Reg(SbfRegister.R10_STACK_POINTER)
+            val rhsAsImmVal =  (typedRhs.v as? Value.Imm)?.v?.toLong()
+            return if (!useDynamicFrames) {
+                // decrease stack pointer
+                (op == BinOp.SUB) && isLhsStackPtr && (rhsAsImmVal == SBF_STACK_FRAME_SIZE)
+
+            } else {
+                // increase stack pointer
+                (op == BinOp.ADD) && isLhsStackPtr && (rhsAsImmVal != null && rhsAsImmVal > 0)
+            }
+        }
 
         override fun toString(): String {
             val sb = StringBuffer()

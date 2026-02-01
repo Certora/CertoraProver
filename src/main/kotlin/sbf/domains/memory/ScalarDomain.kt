@@ -90,31 +90,47 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>
         else -> error("unsupported bit-width $n in zext operation")
     }
 
-class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
+class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private constructor(
     private val base: ScalarBaseDomain<ScalarValue<TNum, TOffset>>,
-    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
-    )
-    : AbstractDomain<ScalarDomain<TNum, TOffset>>,
-      ScalarValueProvider<TNum, TOffset>,
-      MemoryDomainScalarOps<TNum, TOffset> {
+    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+    val globalState: GlobalState
+) : AbstractDomain<ScalarDomain<TNum, TOffset>>,
+    ScalarValueProvider<TNum, TOffset>,
+    MemoryDomainScalarOps<TNum, TOffset> {
 
-    constructor(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, initPreconditions: Boolean = false):
-        this(ScalarBaseDomain(ValueFactory(sbfTypeFac)), sbfTypeFac) {
+    constructor(
+        sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+        globalState: GlobalState,
+        initPreconditions: Boolean = false
+    ): this(ScalarBaseDomain(ValueFactory(sbfTypeFac)), sbfTypeFac, globalState) {
         if (initPreconditions) {
-            setRegister(Value.Reg(SbfRegister.R10_STACK_POINTER), ScalarValue(sbfTypeFac.toStackPtr(SBF_STACK_FRAME_SIZE)))
+
+            val initialOffset = getInitialStackOffset(globalState.globals.elf.useDynamicFrames())
+            setRegister(
+                Value.Reg(SbfRegister.R10_STACK_POINTER),
+                ScalarValue(sbfTypeFac.toStackPtr(initialOffset))
+            )
         }
     }
 
     companion object {
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeBottom(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): ScalarDomain<TNum, TOffset> {
-            val res = ScalarDomain(sbfTypeFac)
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeBottom(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+            globalState: GlobalState
+        ): ScalarDomain<TNum, TOffset> {
+            val res = ScalarDomain(sbfTypeFac, globalState)
             res.setToBottom()
             return res
         }
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>) = ScalarDomain(sbfTypeFac)
+
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+            globalState: GlobalState
+        ) = ScalarDomain(sbfTypeFac, globalState)
     }
 
-    override fun deepCopy(): ScalarDomain<TNum, TOffset> = ScalarDomain(base.deepCopy(), sbfTypeFac)
+    override fun deepCopy(): ScalarDomain<TNum, TOffset> =
+        ScalarDomain(base.deepCopy(), sbfTypeFac, globalState)
 
     override fun isBottom() = base.isBottom()
 
@@ -130,10 +146,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
 
     override fun join(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?) =
-        ScalarDomain(base.join(other.base), sbfTypeFac)
+        ScalarDomain(base.join(other.base), sbfTypeFac, globalState)
 
     override fun widen(other: ScalarDomain<TNum, TOffset>, b: Label?) =
-        ScalarDomain(base.widen(other.base), sbfTypeFac)
+        ScalarDomain(base.widen(other.base), sbfTypeFac, globalState)
 
     override fun lessOrEqual(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?) =
         base.lessOrEqual(other.base)
@@ -141,9 +157,13 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     /** TRANSFER FUNCTIONS **/
 
     /**
-     * This check is probably redundant because of [checkStackInBounds] but we still keep it.
+     * Check that if `value` is a stack pointer then its offset must be non-negative.
      */
-    private fun checkStackAccess(value: ScalarValue<TNum, TOffset>) {
+    private fun checkStackOffset(value: ScalarValue<TNum, TOffset>) {
+        if (globalState.globals.elf.useDynamicFrames()) {
+            return
+        }
+
         val offset = (value.type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset ?: return
         if (offset.isBottom()) {
             throw SolanaError("Stack offset is bottom and this is unexpected")
@@ -167,6 +187,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         newType: SbfType<TNum, TOffset>,
         locInst: LocatedSbfInstruction
     ) {
+        if (globalState.globals.elf.useDynamicFrames()) {
+            return
+        }
+
         val inst = locInst.inst
         check(inst is SbfInstruction.Bin)
 
@@ -200,6 +224,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
      * @param [baseType] is the type of base register being de-referenced.
      **/
     private fun checkStackInBounds(baseType: SbfType<TNum, TOffset>, locInst: LocatedSbfInstruction) {
+        if (globalState.globals.elf.useDynamicFrames()) {
+            return
+        }
+
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem)
 
@@ -226,7 +254,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     }
 
     private fun setRegister(reg: Value.Reg, value: ScalarValue<TNum, TOffset>) {
-        checkStackAccess(value)
+        checkStackOffset(value)
         base.setRegister(reg, value)
     }
 
@@ -400,13 +428,13 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun getValue(x: Value, globals: GlobalVariables): ScalarValue<TNum, TOffset> {
+    private fun getValueWithGlobals(x: Value): ScalarValue<TNum, TOffset> {
         when (x) {
             is Value.Imm -> {
-                // We cast a number to a global variable if it matches an address from our [globals] map
+                // We cast a number to a global variable if it matches an address from our globals map
                 val address = x.v
                 if (address <= Long.MAX_VALUE.toULong()) {
-                    globals.findGlobalThatContains(address.toLong())?.let { gv ->
+                    globalState.globals.findGlobalThatContains(address.toLong())?.let { gv ->
                         return ScalarValue(sbfTypeFac.toGlobalPtr(address.toLong(), gv))
                     }
                 }
@@ -418,12 +446,13 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun analyzeBin(locInst: LocatedSbfInstruction, globals: GlobalVariables) {
+    private fun analyzeBin(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"analyzeBin cannot be called on bottom"}
 
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Bin)
 
+        val globals = globalState.globals
         val dst = stmt.dst
         val src = stmt.v
         if (src is Value.Imm) {
@@ -435,7 +464,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                      * it is a global variable.
                      **/
                     setRegister(dst, if (stmt.metaData.getVal(SbfMeta.SET_GLOBAL) != null) {
-                        getValue(src, globals)
+                        getValueWithGlobals(src)
                     }  else {
                         getValue(src)
                     })
@@ -515,7 +544,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val stackPtr = Value.Reg(SbfRegister.R10_STACK_POINTER)
         val topStack = (getRegister(stackPtr).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
         check(topStack != null){ "r10 should point to a statically known stack offset"}
-        base.restoreScratchRegisters(topStack)
+        base.restoreScratchRegisters(topStack, globalState.globals.elf.useDynamicFrames())
     }
 
     /** Extracts known constant length from a register, or throws a detailed error. */
@@ -724,20 +753,19 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     }
 
 
-    private fun castNumToString(reg: Value.Reg, globals: GlobalVariables) {
+    private fun castNumToString(reg: Value.Reg) {
         val oldType = getRegister(reg).type() as? SbfType.NumType ?: return
-        val newType = oldType.castToPtr(sbfTypeFac, globals)
+        val newType = oldType.castToPtr(sbfTypeFac, globalState.globals)
         if (newType is SbfType.PointerType.Global && newType.global?.strValue != null) {
             setRegister(reg, ScalarValue(newType))
         }
     }
 
-    private fun analyzeCall(locInst: LocatedSbfInstruction,
-                            globals: GlobalVariables,
-                            memSummaries: MemorySummaries) {
+    private fun analyzeCall(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"analyzeCall cannot be called on bottom"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Call) {"analyzeCall expects a call instead of $stmt"}
+
         val solFunction = SolanaFunction.from(stmt.name)
         if  (solFunction != null) {
             /** Solana syscall **/
@@ -748,7 +776,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 SolanaFunction.SOL_GET_STACK_HEIGHT ->
                     setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(sbfTypeFac.anyNum()))
                 SolanaFunction.SOL_GET_CLOCK_SYSVAR, SolanaFunction.SOL_GET_RENT_SYSVAR ->
-                    summarizeCall(locInst, memSummaries)
+                    summarizeCall(locInst)
                 SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
                 SolanaFunction.SOL_MEMCPY -> analyzeMemcpy(locInst)
@@ -759,7 +787,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 else -> forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
             }
         } else {
-            if (stmt.isAllocFn() && memSummaries.getSummary(stmt.name) == null) {
+            if (stmt.isAllocFn() && globalState.memSummaries.getSummary(stmt.name) == null) {
                 /// This is only used for pretty-printing
                 setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(sbfTypeFac.anyHeapPtr()))
             } else {
@@ -781,7 +809,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                 CVTCore.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
                                 CVTCore.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
                                 CVTCore.MASK_64, CVTCore.NONDET_ACCOUNT_INFO -> {
-                                    summarizeCall(locInst, memSummaries)
+                                    summarizeCall(locInst)
                                 }
                                 CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
                                     /// This is only used for pretty-printing
@@ -808,23 +836,23 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                         is CVTFunction.U128Intrinsics,
                         is CVTFunction.I128Intrinsics,
                         is CVTFunction.NativeInt  ->  {
-                            summarizeCall(locInst, memSummaries)
+                            summarizeCall(locInst)
                         }
                         is CVTFunction.Calltrace -> {
                             cvtFunction.value.strings.forEach {
-                                castNumToString(it.string, globals)
+                                castNumToString(it.string)
                             }
                         }
                     }
                 } else {
                     /** SBF to SBF call **/
-                    summarizeCall(locInst, memSummaries)
+                    summarizeCall(locInst)
                 }
             }
         }
     }
 
-    private fun summarizeCall(locInst: LocatedSbfInstruction, memSummaries: MemorySummaries) {
+    private fun summarizeCall(locInst: LocatedSbfInstruction) {
 
         class ScalarSummaryVisitor: SummaryVisitor {
             private fun getScalarValue(ty: MemSummaryArgumentType): ScalarValue<TNum, TOffset> {
@@ -864,7 +892,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
 
         val vis = ScalarSummaryVisitor()
-        memSummaries.visitSummary(locInst, vis)
+        globalState.memSummaries.visitSummary(locInst, vis)
     }
 
     private fun analyzeAssumeNumNum(op: CondOp,
@@ -1065,7 +1093,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globals: GlobalVariables): ScalarValue<TNum, TOffset> {
+    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset> {
         check(!isBottom()) {"getAsScalarValueWithNumToPtrCast cannot be called on bottom"}
         val scalarVal = getRegister(reg)
         val type = scalarVal.type()
@@ -1077,7 +1105,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 return ScalarValue.mkBottom()
             }
             // Attempt to cast a number to a pointer
-            type.castToPtr(sbfTypeFac, globals)?.let {
+            type.castToPtr(sbfTypeFac, globalState.globals)?.let {
                 return ScalarValue(it)
             }
         }
@@ -1088,10 +1116,12 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
      *  Return the abstract value of the base register if it will be killed by the lhs of a load instruction.
      *  Otherwise, it returns null. This is used by the Memory Domain.
      **/
-    private fun analyzeMem(locInst: LocatedSbfInstruction, globals: GlobalVariables) {
+    private fun analyzeMem(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"analyzeMem cannot be called on bottom"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Mem) {"analyzeMem expect a memory instruction instead of $stmt"}
+
+        val globals = globalState.globals
 
         val baseReg = stmt.access.base
         val offset = stmt.access.offset
@@ -1099,7 +1129,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val value = stmt.value
         val isLoad = stmt.isLoad
 
-        val baseScalarVal = getAsScalarValueWithNumToPtrCast(baseReg, globals)
+        val baseScalarVal = getAsScalarValueWithNumToPtrCast(baseReg)
         if (baseScalarVal.isBottom()) {
             setToBottom()
             return
@@ -1247,16 +1277,14 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         base.updateStack(ByteRange(offset, width), value, isWeak = false)
     }
 
-    fun analyze(locInst: LocatedSbfInstruction,
-                globals: GlobalVariables,
-                memSummaries: MemorySummaries) {
+    fun analyze(locInst: LocatedSbfInstruction) {
         val s = locInst.inst
         dbg { "$s\n" }
         if (!isBottom()) {
             when (s) {
                 is SbfInstruction.Un -> analyzeUn(s)
-                is SbfInstruction.Bin -> analyzeBin(locInst, globals)
-                is SbfInstruction.Call -> analyzeCall(locInst, globals, memSummaries)
+                is SbfInstruction.Bin -> analyzeBin(locInst)
+                is SbfInstruction.Call -> analyzeCall(locInst)
                 is SbfInstruction.CallReg -> {
                     if (!SolanaConfig.SkipCallRegInst.get()) {
                         throw UnsupportedCallX(locInst)
@@ -1267,7 +1295,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 is SbfInstruction.Jump.ConditionalJump -> {}
                 is SbfInstruction.Assume -> analyzeAssume(s)
                 is SbfInstruction.Assert -> analyzeAssert(s)
-                is SbfInstruction.Mem -> analyzeMem(locInst, globals)
+                is SbfInstruction.Mem -> analyzeMem(locInst)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
                 is SbfInstruction.Debug -> {}
@@ -1276,16 +1304,16 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         dbg { "$this\n" }
     }
 
-    override fun analyze(b: SbfBasicBlock,
-                         globals: GlobalVariables,
-                         memSummaries: MemorySummaries,
-                         listener: InstructionListener<ScalarDomain<TNum, TOffset>>): ScalarDomain<TNum, TOffset> {
+    override fun analyze(
+        b: SbfBasicBlock,
+        listener: InstructionListener<ScalarDomain<TNum, TOffset>>
+    ): ScalarDomain<TNum, TOffset> {
         dbg { "=== Scalar domain analyzing ${b.getLabel()} ===\nAt entry: $this\n" }
         return analyzeBlock(
             b,
             inState = this,
             transferFunction = { mutState, locInst ->
-                mutState.analyze(locInst, globals, memSummaries)
+                mutState.analyze(locInst)
             },
             listener
         )

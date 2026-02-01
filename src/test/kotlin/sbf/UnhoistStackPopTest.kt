@@ -24,11 +24,13 @@ import org.junit.jupiter.api.*
 import sbf.callgraph.CVTCore
 
 class UnhoistStackPopTest {
+
     private fun getNumOfUnhoistedStackPop(cfg: SbfCFG): UInt {
         var counter = 0U
         for (b in cfg.getBlocks().values) {
             for (inst in b.getInstructions()) {
-                if (inst is SbfInstruction.Call && CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
+                if (inst is SbfInstruction.Call &&
+                    CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
                     continue
                 }
                 val metadata = inst.metaData
@@ -51,6 +53,8 @@ class UnhoistStackPopTest {
             Value.Imm(SBF_STACK_FRAME_SIZE.toULong()), true))
         bb.add(SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name))
     }
+
+    val globals = GlobalVariables(DefaultElfFileView)
 
     @Test
     fun test01() {
@@ -124,7 +128,7 @@ class UnhoistStackPopTest {
         cfg.normalize()
         println("Before\n$cfg")
         cfg.verify(true)
-        unhoistStackPop(cfg)
+        unhoistStackPop(cfg, globals)
         println("After\n$cfg")
         Assertions.assertEquals(true,  getNumOfUnhoistedStackPop(cfg) == 2U)
     }

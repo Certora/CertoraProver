@@ -52,7 +52,7 @@ where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
                 "Missing block $block in cfg"
             }
             // Analyze the basic block to collect types per instruction
-            absVal.analyze(bb, analysis.getGlobalVariableMap(), analysis.getMemorySummaries(), listener)
+            absVal.analyze(bb, listener)
         }
     }
 

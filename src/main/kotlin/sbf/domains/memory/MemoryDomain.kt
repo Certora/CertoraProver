@@ -21,7 +21,6 @@ import sbf.SolanaConfig
 import sbf.cfg.*
 import sbf.disassembler.*
 import sbf.support.SolanaInternalError
-import com.certora.collect.*
 import log.*
 import org.jetbrains.annotations.TestOnly
 import sbf.callgraph.SolanaFunction
@@ -82,7 +81,7 @@ interface MemoryDomainScalarOps<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>
      * However, if the scalar value is a number then it tries to cast it to a pointer
      * in cases where that number is a known pointer address.
      */
-    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globals: GlobalVariables): ScalarValue<TNum, TOffset>
+    fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset>
 }
 
 private typealias TScalarDomain<TNum, TOffset> = ScalarStackStridePredicateDomain<TNum, TOffset>
@@ -102,21 +101,47 @@ data class MemoryDomainOpts(
 /** Representation of a 256-bit `Pubkey` as four u64s. */
 data class Pubkey(val word0: ULong, val word1: ULong, val word2: ULong, val word3: ULong)
 
-class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>>(
+/**
+ * Returns the initial stack offset that `r10` points to at program start.
+ *
+ * Stack layout differs between frame models:
+ * - Dynamic frames: Stack grows downward (toward lower addresses).
+ *   r10 starts at the end of the stack region, and the first frame allocation happens explicitly in the code.
+ *   However, we start from 0 to get more readable offsets.
+ * - Static frames: Stack grows upward (toward higher addresses). r10 starts at 4096,
+ *   simulating that one frame has already been allocated.
+*/
+fun getInitialStackOffset(useDynamicFrames: Boolean): Long {
+    return if (useDynamicFrames) {
+        DYNAMIC_FRAME_INITIAL_OFFSET
+    } else {
+        STATIC_FRAME_INITIAL_OFFSET
+    }
+}
+
+private const val DYNAMIC_FRAME_INITIAL_OFFSET = 0L
+private val STATIC_FRAME_INITIAL_OFFSET = SBF_STACK_FRAME_SIZE
+
+
+class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> private constructor(
     private val scalars: TScalarDomain<TNum, TOffset>,
     private val ptaGraph: PTAGraph<TNum, TOffset, Flags>,
     private val memcmpPreds: MemEqualityPredicateDomain<Flags>,
-    private val opts: MemoryDomainOpts
+    private val opts: MemoryDomainOpts,
+    private val globalState: GlobalState
     ) : AbstractDomain<MemoryDomain<TNum, TOffset, Flags>>, ScalarValueProvider<TNum, TOffset> {
 
     constructor(nodeAllocator: PTANodeAllocator<Flags>,
                 sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
                 opts: MemoryDomainOpts,
+                globalState: GlobalState,
                 initPreconditions: Boolean = false
-    ) : this(TScalarDomain(sbfTypeFac, initPreconditions),
-             PTAGraph(nodeAllocator, sbfTypeFac, initPreconditions),
-             MemEqualityPredicateDomain(),
-             opts)
+    ) : this(TScalarDomain(sbfTypeFac, globalState, initPreconditions),
+             PTAGraph(nodeAllocator, sbfTypeFac, globalState, initPreconditions),
+             MemEqualityPredicateDomain(globalState = globalState),
+             opts,
+             globalState
+    )
 
     /**
      *  Check that the subdomains are consistent about the common facts that they infer.
@@ -172,19 +197,19 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     override fun deepCopy(): MemoryDomain<TNum, TOffset, Flags> {
         return if (isBottom()) {
-            val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts)
+            val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts, globalState)
             res.apply { setToBottom() }
         } else {
-            MemoryDomain(scalars.deepCopy(), ptaGraph.copy(), memcmpPreds.deepCopy(), opts)
+            MemoryDomain(scalars.deepCopy(), ptaGraph.copy(), memcmpPreds.deepCopy(), opts, globalState)
         }
     }
 
     private fun deepCopyOnlyScalars(): MemoryDomain<TNum, TOffset, Flags> {
         return if (isBottom()) {
-            val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts)
+            val res = MemoryDomain(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts, globalState)
             res.apply { setToBottom() }
         } else {
-            MemoryDomain(scalars.deepCopy(), ptaGraph, memcmpPreds.deepCopy(), opts)
+            MemoryDomain(scalars.deepCopy(), ptaGraph, memcmpPreds.deepCopy(), opts, globalState)
         }
     }
 
@@ -193,26 +218,29 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> initPreconditions(
             nodeAllocator: PTANodeAllocator<Flags>,
             sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
-            opts: MemoryDomainOpts
+            opts: MemoryDomainOpts,
+            globalState: GlobalState
         ): MemoryDomain<TNum, TOffset, Flags> {
-            return MemoryDomain(nodeAllocator, sbfTypeFac, opts, true)
+            return MemoryDomain(nodeAllocator, sbfTypeFac, opts, globalState, initPreconditions = true)
         }
 
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> makeBottom(
             nodeAllocator: PTANodeAllocator<Flags>,
             sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
-            opts: MemoryDomainOpts
+            opts: MemoryDomainOpts,
+            globalState: GlobalState
         ): MemoryDomain<TNum, TOffset, Flags> {
-            val res = MemoryDomain(nodeAllocator, sbfTypeFac, opts)
+            val res = MemoryDomain(nodeAllocator, sbfTypeFac, opts, globalState)
             return res.apply { setToBottom() }
         }
 
         fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANodeFlags<Flags>> makeTop(
             nodeAllocator: PTANodeAllocator<Flags>,
             sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
-            opts: MemoryDomainOpts
+            opts: MemoryDomainOpts,
+            globalState: GlobalState
         ): MemoryDomain<TNum, TOffset, Flags> {
-            return MemoryDomain(nodeAllocator, sbfTypeFac, opts)
+            return MemoryDomain(nodeAllocator, sbfTypeFac, opts, globalState)
         }
     }
 
@@ -274,7 +302,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                         memcmpPreds.widen(other.memcmpPreds, left)
                     }
 
-            return MemoryDomain(outScalars, outPtaGraph, outMemcmpPreds, opts)
+            return MemoryDomain(outScalars, outPtaGraph, outMemcmpPreds, opts, globalState)
         }
     }
 
@@ -310,17 +338,15 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     @TestOnly fun getScalars() = scalars
 
-    private fun analyzeUn(locInst: LocatedSbfInstruction,
-                          globals: GlobalVariables,
-                          memSummaries: MemorySummaries) {
+    private fun analyzeUn(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"called analyzeUn on bottom in memory domain"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Un)
-        scalars.analyze(locInst, globals, memSummaries)
+        scalars.analyze(locInst)
         if (scalars.isBottom()) {
             setToBottom()
         } else {
-            ptaGraph.doUn(locInst, globals, memSummaries)
+            ptaGraph.doUn(locInst)
         }
     }
 
@@ -403,10 +429,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         }
     }
 
-    private fun analyzeBin(b: SbfBasicBlock,
-                           locInst: LocatedSbfInstruction,
-                           globals: GlobalVariables,
-                           memSummaries: MemorySummaries) {
+    private fun analyzeBin(b: SbfBasicBlock, locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"called analyzeBin on bottom in memory domain"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Bin)
@@ -422,20 +445,18 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         // @dstType must be obtained before the transfer function on the scalar domain takes place
         // since @dst can be overwritten to top.
         val dstType = scalars.getAsScalarValue(dst).type()
-        scalars.analyze(locInst, globals, memSummaries)
+        scalars.analyze(locInst)
         if (scalars.isBottom()) {
             setToBottom()
         } else  {
             val srcType = scalars.getAsScalarValue(src).type()
-            ptaGraph.doBin(locInst, stmt.op, dst, src, dstType, srcType, globals)
+            ptaGraph.doBin(locInst, stmt.op, dst, src, dstType, srcType)
         }
     }
 
-    private fun analyzeCall(locInst: LocatedSbfInstruction,
-                            globals: GlobalVariables,
-                            memSummaries: MemorySummaries) {
+    private fun analyzeCall(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"called analyzeCall on bottom in memory domain"}
-        scalars.analyze(locInst, globals, memSummaries)
+        scalars.analyze(locInst)
         if (scalars.isBottom()) {
             setToBottom()
         } else {
@@ -454,45 +475,36 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
                     else -> {}
                 }
             }
-            ptaGraph.doCall(locInst, globals, memSummaries, scalars)
+            ptaGraph.doCall(locInst, scalars)
         }
     }
 
-    private fun analyzeAssume(locInst: LocatedSbfInstruction,
-                              globals: GlobalVariables,
-                              memSummaries: MemorySummaries) {
+    private fun analyzeAssume(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"called analyzeAssume on bottom in memory domain"}
-        scalars.analyze(locInst, globals, memSummaries)
+        scalars.analyze(locInst)
         if (scalars.isBottom()) {
             setToBottom()
         }
     }
 
-    private fun analyzeAssert(locInst: LocatedSbfInstruction,
-                              globals: GlobalVariables,
-                              memSummaries: MemorySummaries) {
+    private fun analyzeAssert(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"called analyzeAssert on bottom in memory domain"}
-        scalars.analyze(locInst, globals, memSummaries)
+        scalars.analyze(locInst)
         if (scalars.isBottom()) {
             setToBottom()
         }
     }
 
-    private fun analyzeHavoc(locInst: LocatedSbfInstruction,
-                             globals: GlobalVariables,
-                             memSummaries: MemorySummaries) {
+    private fun analyzeHavoc(locInst: LocatedSbfInstruction) {
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Havoc)
-        scalars.analyze(locInst, globals, memSummaries)
+        scalars.analyze(locInst)
         if (!isBottom()) {
             ptaGraph.forget(stmt.dst)
         }
     }
 
-    private fun analyzeSelect(b: SbfBasicBlock,
-                              locInst: LocatedSbfInstruction,
-                              globals: GlobalVariables,
-                              memSummaries: MemorySummaries) {
+    private fun analyzeSelect(b: SbfBasicBlock, locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"called analyzeSelect on bottom in memory domain"}
         val inst = locInst.inst
         check(inst is SbfInstruction.Select)
@@ -500,13 +512,13 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         reductionFromPtaGraphToScalars(b, locInst, inst.trueVal)
         reductionFromPtaGraphToScalars(b, locInst, inst.falseVal)
 
-        scalars.analyze(locInst, globals, memSummaries)
+        scalars.analyze(locInst)
         if (scalars.isBottom()) {
             setToBottom()
         } else {
             val stmt = locInst.inst
             check(stmt is SbfInstruction.Select)
-            ptaGraph.doSelect(locInst, globals, scalars)
+            ptaGraph.doSelect(locInst, scalars)
         }
     }
 
@@ -521,9 +533,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
      * To improve the design, we should do that second reduction also here so that when `doLoad` and `doStore` are called,
      * all the cells have been reconstructed.
      */
-    private fun analyzeMem(locInst: LocatedSbfInstruction,
-                           globals: GlobalVariables,
-                           @Suppress("UNUSED_PARAMETER") memSummaries: MemorySummaries) {
+    private fun analyzeMem(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"called analyzeMem on bottom in memory domain"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Mem) {"Memory domain expects a memory instruction instead of $stmt"}
@@ -537,9 +547,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
         // In the case of a load instruction where base register and lhs are the same register, we need to remember
         // the scalar value of the base before it might have been overwritten.
-        val baseType = scalars.getAsScalarValueWithNumToPtrCast(base, globals).type()
+        val baseType = scalars.getAsScalarValueWithNumToPtrCast(base).type()
 
-        scalars.analyze(locInst, globals, memSummaries)
+        scalars.analyze(locInst)
 
         if (scalars.isBottom()) {
             setToBottom()
@@ -547,11 +557,11 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
             check(!baseType.isBottom()) { "Unexpected bottom scalar value at $stmt" }
             val isLoad = stmt.isLoad
             if (isLoad) {
-                ptaGraph.doLoad(locInst, base, baseType, globals, scalars)
+                ptaGraph.doLoad(locInst, base, baseType, scalars)
             } else {
                 val value = stmt.value
                 val valueType = scalars.getAsScalarValue(value).type()
-                ptaGraph.doStore(locInst, base, value, baseType, valueType, globals)
+                ptaGraph.doStore(locInst, base, value, baseType, valueType)
             }
         }
     }
@@ -564,33 +574,29 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
              it is SbfInstruction.Exit}
     }
 
-    private fun analyze(b: SbfBasicBlock,
-                        locInst: LocatedSbfInstruction,
-                        globals: GlobalVariables,
-                        memSummaries: MemorySummaries) {
-
+    private fun analyze(b: SbfBasicBlock, locInst: LocatedSbfInstruction) {
         val inst = locInst.inst
         dbg { "$inst\n" }
         if (!isBottom()) {
             if (opts.useEqualityDomain) {
-                memcmpPreds.analyze(locInst, this, globals, memSummaries)
+                memcmpPreds.analyze(locInst, this)
             }
 
             when (inst) {
-                is SbfInstruction.Un -> analyzeUn(locInst, globals, memSummaries)
-                is SbfInstruction.Bin -> analyzeBin(b, locInst, globals, memSummaries)
-                is SbfInstruction.Call -> analyzeCall(locInst, globals, memSummaries)
+                is SbfInstruction.Un -> analyzeUn(locInst)
+                is SbfInstruction.Bin -> analyzeBin(b, locInst)
+                is SbfInstruction.Call -> analyzeCall(locInst)
                 is SbfInstruction.CallReg-> {
                     if (!SolanaConfig.SkipCallRegInst.get()) {
                         throw MemoryDomainError("Memory domain does not support $inst")
                     }
                 }
-                is SbfInstruction.Select -> analyzeSelect(b, locInst, globals, memSummaries)
-                is SbfInstruction.Havoc -> analyzeHavoc(locInst, globals, memSummaries)
+                is SbfInstruction.Select -> analyzeSelect(b, locInst)
+                is SbfInstruction.Havoc -> analyzeHavoc(locInst)
                 is SbfInstruction.Jump.ConditionalJump -> {}
-                is SbfInstruction.Assume -> analyzeAssume(locInst, globals, memSummaries)
-                is SbfInstruction.Assert -> analyzeAssert(locInst, globals, memSummaries)
-                is SbfInstruction.Mem -> analyzeMem(locInst, globals, memSummaries)
+                is SbfInstruction.Assume -> analyzeAssume(locInst)
+                is SbfInstruction.Assert -> analyzeAssert(locInst)
+                is SbfInstruction.Mem -> analyzeMem(locInst)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
                 is SbfInstruction.Debug -> {}
@@ -599,16 +605,16 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
         dbg {"$this\n"}
     }
 
-    override fun analyze(b: SbfBasicBlock,
-                         globals: GlobalVariables,
-                         memSummaries: MemorySummaries,
-                         listener: InstructionListener<MemoryDomain<TNum, TOffset, Flags>>): MemoryDomain<TNum, TOffset, Flags> {
+    override fun analyze(
+        b: SbfBasicBlock,
+        listener: InstructionListener<MemoryDomain<TNum, TOffset, Flags>>
+    ): MemoryDomain<TNum, TOffset, Flags> {
 
 
         dbg { "=== Memory Domain analyzing ${b.getLabel()} ===\n$this\n" }
         if (listener is DefaultInstructionListener) {
             if (isBottom()) {
-                return makeBottom(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts)
+                return makeBottom(ptaGraph.nodeAllocator, scalars.sbfTypeFac, opts, globalState)
             }
             val out = if (isNonOpForPTA(b)) {
                 this.deepCopyOnlyScalars()
@@ -618,7 +624,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
             for (locInst in b.getLocatedInstructions()) {
                 out.checkConsistencyBetweenSubdomains("Before $locInst")
-                out.analyze(b, locInst, globals, memSummaries)
+                out.analyze(b, locInst)
                 if (out.isBottom()) {
                     break
                 }
@@ -633,7 +639,7 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
             for (locInst in b.getLocatedInstructions()) {
                 listener.instructionEventBefore(locInst, out)
                 out.checkConsistencyBetweenSubdomains("Before $locInst")
-                out.analyze(b, locInst, globals, memSummaries)
+                out.analyze(b, locInst)
                 listener.instructionEventAfter(locInst, out)
             }
             return out
@@ -644,17 +650,17 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     override fun getStackContent(offset: Long, width: Byte) = getScalars().getStackContent(offset, width)
 
     /** External API for TAC encoding **/
-    fun getRegCell(reg: Value.Reg, globals: GlobalVariables): PTASymCell<Flags>? {
+    fun getRegCell(reg: Value.Reg): PTASymCell<Flags>? {
         val scalarVal = getScalars().getAsScalarValue(reg)
-        return getPTAGraph().getRegCell(reg, scalarVal.type(), globals, locInst = null)
+        return getPTAGraph().getRegCell(reg, scalarVal.type(), locInst = null)
     }
 
     /**
      * Return a [Pubkey] stored at `*([reg] + [offset])`, or null if the domain cannot be sure.
      */
-    fun getPubkey(reg: Value.Reg, offset: Long, globals: GlobalVariables): Pubkey? {
-        return getPubkeyFromMemEqDomain(reg, offset, globals)
-            ?: getPubkeyFromPtrDomain(reg, offset, globals)
+    fun getPubkey(reg: Value.Reg, offset: Long): Pubkey? {
+        return getPubkeyFromMemEqDomain(reg, offset)
+            ?: getPubkeyFromPtrDomain(reg, offset)
     }
 
     /**
@@ -664,10 +670,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
      */
     private fun getPubkeyFromMemEqDomain(
         reg: Value.Reg,
-        offset: Long,
-        globals: GlobalVariables
+        offset: Long
     ): Pubkey ? =
-        getPubkey(reg, globals) { c, i ->
+        getPubkey(reg) { c, i ->
             // size = 32 because that's the size of Pubkey in bytes
             // stride = 8 because the Pubkey was recovered by [MemoryEqualityDomain] from either
             // (1) load instructions of 8 bytes or through (2) `memcmp` instructions
@@ -693,9 +698,8 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
     private fun getPubkeyFromPtrDomain(
         reg: Value.Reg,
         offset: Long,
-        globals: GlobalVariables
     ): Pubkey? =
-        getPubkey(reg, globals) { c, i ->
+        getPubkey(reg) { c, i ->
             if (!c.getNode().isExactNode()) {
                 return@getPubkey null
             }
@@ -712,10 +716,9 @@ class MemoryDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTA
 
     private fun getPubkey(
         reg: Value.Reg,
-        globals: GlobalVariables,
         wordExtractor: (c: PTACell<Flags>, index: Int) -> ULong?
     ): Pubkey? {
-        val sc = getRegCell(reg, globals) ?: return null
+        val sc = getRegCell(reg) ?: return null
         if (!sc.isConcrete()) {
             return null
         }

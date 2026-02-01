@@ -25,6 +25,7 @@ import vc.data.TACSymbol
 import datastructures.stdcollections.*
 import sbf.domains.IPTANodeFlags
 import vc.data.TACKeyword
+import kotlin.math.absoluteValue
 
 private typealias ByteMapCache<NodeFlags> = MutableMap<PTANode<NodeFlags>, TACByteMapVariable>
 private typealias ByteStackCache = MutableMap<PTAOffset, TACByteStackVariable>
@@ -52,15 +53,24 @@ data class TACByteMapVariable(override val tacVar: TACSymbol.Var): TACVariable(t
 }
 
 /** Factory for TAC variables **/
-class TACVariableFactory<Flags: IPTANodeFlags<Flags>> {
+class TACVariableFactory<Flags: IPTANodeFlags<Flags>>(
+    private val useDynFrames: Boolean
+) {
     private var varId: Int = 0
     private val byteMapCache: ByteMapCache<Flags> = mutableMapOf()
     private val byteStackCache: ByteStackCache = mutableMapOf()
     private val declaredVars: MutableSet<TACSymbol.Var> = mutableSetOf()
 
     private fun mkByteStackVar(offset: PTAOffset): TACByteStackVariable {
-        val suffix = "${offset.v}"
-        val name = "Stack_B_$suffix"
+        val offsetL = if (useDynFrames) {
+            // all offsets are non-positive
+            offset.v.absoluteValue
+        } else {
+            // all offsets are non-negative
+            offset.v
+        }
+
+        val name = "Stack_B_$offsetL"
         val scalarVar = TACSymbol.Var(name, Tag.Bit256)
         declaredVars.add(scalarVar)
         return TACByteStackVariable(scalarVar, offset)
