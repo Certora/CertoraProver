@@ -194,7 +194,7 @@ def generate_adapter_harness(original_harness_name: str, abi_signature: str, ctx
             HumanMessage(content=adapater_prompt)
         ])
         assert isinstance(res, AIMessage)
-        code = res.text()
+        code = res.text
         if code:
             # despite my *insistent* urgings in the prompt, claude will still include markdown
             # just strip it off...
