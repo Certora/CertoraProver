@@ -2215,18 +2215,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     private fun getType(scalar: ScalarValue<TNum, TOffset>): SbfType<TNum, TOffset>? =
         if (scalar.isTop() || scalar.isBottom()) { null } else { scalar.type() }
 
-    private fun getNumber(scalar: SbfType<TNum, TOffset>) = (scalar as? SbfType.NumType)?.value?.toLongOrNull()
-
     /** This is just a heuristic to identify dangling pointers **/
-    private fun isNullOrDanglingPtr(scalar: SbfType<TNum, TOffset>): Boolean {
-        val n = getNumber(scalar)
-        return if (n != null) {
-            // Rust `dangling()` function returns a small power-of-two
-            (n == 0L || n == 1L || n == 2L || n == 4L || n == 8L || n == 16L || n == 32L || n == 64L)
-        } else {
-            false
-        }
-    }
+    private fun isNullOrDanglingPtr(scalar: SbfType<TNum, TOffset>): Boolean =
+        (scalar as? SbfType.NumType)?.value?.toLongOrNull()?.let { isZeroOrSmallPowerOfTwo(it) } ?: false
 
     /**
      * If a register points to a cell but the same register in the other operand is null
