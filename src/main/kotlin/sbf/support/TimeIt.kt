@@ -17,29 +17,34 @@
 
 package sbf.support
 
+import log.*
 import sbf.sbfLogger
 
 /** Run [block] and print its running time **/
 inline fun <T> timeIt(
     prefix: String,
     msg: String,
+    logger: Logger = sbfLogger,
     block: () -> T
-): T = timeItImpl(prefix, msg, block)
+): T = timeItImpl(prefix, msg, logger, block)
 
 /** Run [block] and print its running time **/
 inline fun <T> timeIt(
     msg: String,
+    logger: Logger = sbfLogger,
     block: () -> T
-): T = timeItImpl(null, msg, block)
+): T = timeItImpl(null, msg, logger, block)
 
 inline fun <T> timeItImpl(
     prefix: String?,
-    msg: String, block: () -> T
+    msg: String,
+    logger: Logger,
+    block: () -> T
 ): T {
 
     @Suppress("name_shadowing")
     val prefix = prefix?.let { "[$it] " }.orEmpty()
-    sbfLogger.info { "${prefix}Started $msg" }
+    logger.info { "${prefix}Started $msg" }
 
     val start = System.currentTimeMillis()
     val result = block()
@@ -50,6 +55,6 @@ inline fun <T> timeItImpl(
         else -> "${duration}ms"
     }
 
-    sbfLogger.info { "${prefix}Finished $msg in $timeStr" }
+    logger.info { "${prefix}Finished $msg in $timeStr" }
     return result
 }

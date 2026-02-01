@@ -3076,10 +3076,26 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doSelect(
+    private fun<ScalarDomain> updateScalarWithImm(
+        dst: Value.Reg,
+        value: Value.Imm,
+        scalars: ScalarDomain
+    ): ScalarDomain
+    where
+        ScalarDomain: AbstractDomain<ScalarDomain>,
+        ScalarDomain: MemoryDomainScalarOps<TNum, TOffset> =
+        scalars.deepCopy().apply {
+            setScalarValue(dst, ScalarValue(sbfTypesFac.toNum(value.v)))
+        }
+
+    fun<ScalarDomain> doSelect(
         locInst: LocatedSbfInstruction,
         scalars: ScalarDomain
-    ) {
+    ) where
+        ScalarDomain: ScalarValueProvider<TNum, TOffset>,
+        ScalarDomain: AbstractDomain<ScalarDomain>,
+        ScalarDomain: MemoryDomainScalarOps<TNum, TOffset>
+    {
         val inst = locInst.inst
         check(inst is SbfInstruction.Select) {"doSelect expects a select instruction instead of $inst"}
 
@@ -3091,8 +3107,19 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
         val unificationList = mutableListOf<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>()
         // set destination (the result of joinRegister can be null)
-        setRegCell(Value.Reg(dst.r),
-            joinRegister(dst.r, getStack(), getStack(), trueC, falseC, scalars, scalars, unificationList))
+        setRegCell(
+            dst,
+            joinRegister(
+                dst.r,
+                getStack(),
+                getStack(),
+                trueC,
+                falseC,
+                (trueVal as? Value.Imm)?.let { updateScalarWithImm(dst, it, scalars) } ?: scalars,
+                (falseVal as? Value.Imm)?.let { updateScalarWithImm(dst, it, scalars) } ?: scalars,
+                unificationList
+            )
+        )
 
         // extra unifications
         unificationList.forEach { (leftSc, rightSc) ->

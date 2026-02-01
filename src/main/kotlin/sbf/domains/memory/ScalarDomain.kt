@@ -289,36 +289,6 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         base.forget(reg)
     }
 
-    /**
-     * Refine the value of a register used as an operand in an arithmetic or relational operation.
-     * This refinement is sound because if the value turns to be a pointer then the scalar domain
-     * will throw an exception at the time the pointer is de-referenced.
-     **/
-    private fun refineType(op: BinOp, ty: SbfType<TNum, TOffset>): SbfType<TNum, TOffset> {
-        check(!ty.isBottom()) {"cannot call refineType with bottom"}
-        return if (!ty.isTop()) {
-            ty
-        } else {
-            when (op) {
-                BinOp.ARSH, BinOp.LSH, BinOp.RSH,
-                BinOp.DIV, BinOp.MOD, BinOp.MUL -> sbfTypeFac.anyNum()
-                else -> ty
-            }
-        }
-    }
-    private fun refineType(op: CondOp, ty: SbfType<TNum, TOffset>): SbfType<TNum, TOffset> {
-        check(!ty.isBottom()) {"cannot call refineType with bottom"}
-        return if (!ty.isTop()) {
-            ty
-        } else {
-            when (op) {
-                CondOp.SGE, CondOp.SGT, CondOp.SLE, CondOp.SLT,
-                CondOp.GE, CondOp.GT, CondOp.LE, CondOp.LT -> sbfTypeFac.anyNum()
-                else -> ty
-            }
-        }
-    }
-
     private fun analyzeByteSwapInst(reg: Value.Reg) {
         when (val oldVal = getRegister(reg).type()) {
             is SbfType.Top, is SbfType.Bottom -> null
@@ -350,94 +320,161 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         }
     }
 
-    private fun doConstantPointerArithmetic(
+    /**
+     * Encapsulate the types of the operands of a binary operation.
+     *
+     * Order is important since the operation might not be commutative.
+     */
+    data class BinaryTypes<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
+        val left: SbfType<TNum, TOffset>,
+        val right: SbfType<TNum, TOffset>
+    )
+
+    /**
+     * Refines the [types] of the operands of an arithmetic operation [op]
+     * by applying some simple type inference rules to validate program type safety.
+     *
+     * This refinement is sound: if a value refined to a numeric type is actually
+     * a pointer, the scalar domain will detect and report the error when the
+     * pointer is de-referenced.
+     */
+    private fun refineTypes(
         op: BinOp,
-        dst: Value.Reg,
-        src: SbfType.NumType<TNum, TOffset>,
-        locInst: LocatedSbfInstruction
-    ) {
-        val dstType = getRegister(dst).type()
-        if (dstType is SbfType.PointerType) {
-            val dstOffset = dstType.offset
-            val newVal = when (op) {
-                BinOp.ADD  -> ScalarValue(dstType.withOffset(dstOffset.add(sbfTypeFac.numToOffset(src.value))))
-                BinOp.SUB  -> ScalarValue(dstType.withOffset(dstOffset.sub(sbfTypeFac.numToOffset(src.value))))
-                else -> {
-                    if (enableDefensiveChecks) {
-                        throw ScalarDomainError("Unexpected pointer arithmetic $dst:= $dst $op $src")
-                    } else {
-                        ScalarValue(dstType.withTopOffset(sbfTypeFac))
-                    }
+        types: BinaryTypes<TNum, TOffset>
+    ): BinaryTypes<TNum, TOffset> {
+        val (left, right) = types
+        return when (op) {
+            // num - top ~> num - num
+            BinOp.SUB -> {
+                when (left) {
+                    is SbfType.NumType ->
+                        BinaryTypes(
+                            left,
+                            right.leftBiasedMeet(sbfTypeFac.anyNum())
+                        )
+                    else -> types
                 }
             }
-            checkStackInBounds(dstType, newVal.type(), locInst)
-            setRegister(dst, newVal)
-        } else {
-            forget(dst)
+            // top << top ~> num << num
+            // top >> top ~> num >> num
+            // top / top  ~> num / num
+            // top % top  ~> num % num
+            // top * top  ~> num * num
+            BinOp.ARSH,
+            BinOp.LSH,
+            BinOp.RSH,
+            BinOp.DIV,
+            BinOp.MOD,
+            BinOp.MUL -> BinaryTypes(
+                left.leftBiasedMeet(sbfTypeFac.anyNum()),
+                right.leftBiasedMeet(sbfTypeFac.anyNum())
+            )
+            else -> types
         }
     }
 
-    private fun doNormalizedPointerArithmetic(
-        op: BinOp, dst: Value.Reg,
-        op1: Value.Reg, op1Type: SbfType.PointerType<TNum, TOffset>,
-        op2: Value.Reg, op2Type: SbfType<TNum, TOffset>,
-        locInst: LocatedSbfInstruction
-    ) {
-        check(op2Type !is SbfType.Bottom) {"failed preconditions on doNormalizedPointerArithmetic"}
-
-        when (op2Type) {
-            is SbfType.NumType -> {
-                val newVal = when (op) {
-                    BinOp.ADD  -> ScalarValue(op1Type.withOffset(op1Type.offset.add(sbfTypeFac.numToOffset(op2Type.value))))
-                    BinOp.SUB  -> ScalarValue(op1Type.withOffset(op1Type.offset.sub(sbfTypeFac.numToOffset(op2Type.value))))
-                    else -> {
-                        if (enableDefensiveChecks) {
-                            throw ScalarDomainError("Unexpected pointer arithmetic $dst:= $op1 $op $op2")
-                        } else {
-                            ScalarValue(op1Type.withTopOffset(sbfTypeFac))
-                        }
-                    }
-                }
-                checkStackInBounds(getRegister(dst).type(), newVal.type(), locInst)
-                setRegister(dst, newVal)
-            }
-            is SbfType.PointerType -> {
-                if (op1Type.samePointerType(op2Type)) {
-                    if (op == BinOp.SUB) {
-                        // subtraction of pointers of the same type is okay
-                        val diff = op1Type.offset.sub(op2Type.offset)
-                        setRegister(dst, ScalarValue(SbfType.NumType(sbfTypeFac.offsetToNum(diff))))
-                    } else {
-                        throw ScalarDomainError("Unexpected pointer arithmetic $dst:= $op1 $op $op2")
-                    }
-                } else {
-                    throw ScalarDomainError("cannot mix pointer from different memory regions ($op1Type and $op2Type)")
-                }
-            }
-            is SbfType.Top -> {
-                setRegister(dst, ScalarValue(op1Type.withTopOffset(sbfTypeFac)))
-            }
-            else -> {
-                throw ScalarDomainError("unexpected type $op2Type for operand $op2")
-            }
-        } // end when
+    /**
+     * Refines the [types] of the operand of a comparison [op]
+     * by applying some simple type inference rules to validate program type safety.
+     *
+     * This refinement is sound: if a value refined to a numeric type is actually
+     * a pointer, the scalar domain will detect and report the error when the
+     * pointer is de-referenced.
+     */
+    private fun refineTypes(
+        op: CondOp,
+        types: BinaryTypes<TNum, TOffset>
+    ): BinaryTypes<TNum, TOffset> {
+        val (left, right) = types
+        return when (op) {
+            // top op top ~> num op num  if op not in {=, !=}
+            CondOp.SGE,
+            CondOp.SGT,
+            CondOp.SLE,
+            CondOp.SLT,
+            CondOp.GE,
+            CondOp.GT,
+            CondOp.LE,
+            CondOp.LT ->
+                BinaryTypes(
+                    left.leftBiasedMeet(sbfTypeFac.anyNum()),
+                    right.leftBiasedMeet(sbfTypeFac.anyNum())
+                )
+            else -> types
+        }
     }
 
+    private fun updateType(
+        reg: Value.Reg,
+        newType: SbfType<TNum, TOffset>
+    ): ScalarValue<TNum, TOffset>  {
+        check(!newType.isBottom()) { "cannot call updateType with bottom" }
+        val old = getRegister(reg)
+        val new = ScalarValue(newType)
+        if (!old.lessOrEqual(new)) {
+            // new is strictly more precise than old
+            setRegister(reg, new)
+        }
+        return new
+    }
+
+    /**
+     * Transfer function for `dst = ptrType op operandType` when [ptrType] is known to be a pointer.
+     *
+     * - If [operandType] is a number then [dst] is a pointer as [ptrType] whose offset is updated with [operandType]
+     * - If [operandType] is a pointer then the [dst] is a number whose value is the difference between two pointers
+     * - If [operandType] is top then [dst] is a pointer but with unknown offset
+    **/
     private fun doPointerArithmetic(
         op: BinOp,
         dst: Value.Reg,
-        src: Value.Reg,
+        ptrType: SbfType.PointerType<TNum, TOffset>,
+        operandType: SbfType<TNum, TOffset>,
         locInst: LocatedSbfInstruction
     ) {
-        val dstType = getRegister(dst).type()
-        val srcType = getRegister(src).type()
+        val inst = locInst.inst
+        when (operandType) {
+            // ptr(o) +/- num ~> ptr(o +/- num)
+            // ptr(o) op num  ~> ptr(top)  (error if enableDefensiveChecks)
+            is SbfType.NumType -> {
+                val dstPtrType = when (op) {
+                    BinOp.ADD  ->
+                        ptrType.withOffset(ptrType.offset.add(sbfTypeFac.numToOffset(operandType.value)))
+                    BinOp.SUB  ->
+                        ptrType.withOffset(ptrType.offset.sub(sbfTypeFac.numToOffset(operandType.value)))
+                    else -> {
+                        if (enableDefensiveChecks) {
+                            throw ScalarDomainError("Unexpected pointer arithmetic in $inst")
+                        }
+                        ptrType.withTopOffset(sbfTypeFac)
+                    }
+                }
+                checkStackInBounds(getRegister(dst).type(), dstPtrType, locInst)
+                setRegister(dst, ScalarValue(dstPtrType))
+            }
+            // ptr(o1)  - ptr(o2) ~> num(o1 - o2)
+            // ptr(o1) op ptr(o2) ~> error
+            is SbfType.PointerType -> {
+                if (!ptrType.samePointerType(operandType)) {
+                    throw ScalarDomainError(
+                        "cannot mix pointer from different memory regions ($ptrType and $operandType)"
+                    )
+                }
+                if (op != BinOp.SUB) {
+                    throw ScalarDomainError("Unexpected pointer arithmetic in $inst")
+                }
 
-        if (dstType is SbfType.PointerType) {
-            doNormalizedPointerArithmetic(op, dst, dst, dstType, src, srcType, locInst)
-        } else if (srcType is SbfType.PointerType && op.isCommutative) {
-            doNormalizedPointerArithmetic(op, dst, src, srcType, dst, dstType, locInst)
-        } else {
-            forget(dst)
+                // subtraction of pointers of the same type is okay
+                val diff = ptrType.offset.sub(operandType.offset)
+                setRegister(dst, ScalarValue(SbfType.NumType(sbfTypeFac.offsetToNum(diff))))
+            }
+            // ptr(o) op top ~> ptr(top)
+            is SbfType.Top -> {
+                setRegister(dst, ScalarValue(ptrType.withTopOffset(sbfTypeFac)))
+            }
+            else -> {
+                throw ScalarDomainError("unexpected type $operandType for right operand in $inst")
+            }
         }
     }
 
@@ -492,9 +529,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         val globals = globalState.globals
         val dst = stmt.dst
         val src = stmt.v
+        val op = stmt.op
         if (src is Value.Imm) {
             // dst := dst op k
-            when (stmt.op) {
+            when (op) {
                 BinOp.MOV -> {
                     /**
                      * We assume that the destination operand is a number unless the analysis that
@@ -507,28 +545,35 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                     })
                 }
                 else ->  {
-                    val dstType = refineType(stmt.op, getRegister(dst).type())
-                    if (dstType is SbfType.NumType) {
-                        doALU(stmt.op, dst, dstType, sbfTypeFac.toNum(src.v))
-                    } else {
-                        /**
-                         * We don't know for sure whether dst is a pointer or not.
-                         * doConstantPointerArithmetic will deal with that.
-                         **/
-                        doConstantPointerArithmetic(stmt.op, dst, sbfTypeFac.toNum(src.v), locInst)
+                    val srcType = sbfTypeFac.toNum(src.v)
+                    val (dstType, _) = refineTypes(op, BinaryTypes(getRegister(dst).type(), srcType))
+                    when (dstType) {
+                        is SbfType.NumType ->
+                            doALU(op, dst, dstType, srcType)
+                        is SbfType.PointerType ->
+                            doPointerArithmetic(
+                                op,
+                                dst,
+                                ptrType = dstType,
+                                operandType = srcType,
+                                locInst
+                            )
+                        else ->
+                            forget(dst)
                     }
                 }
             }
         } else {
             // dst := dst op src
-            when (stmt.op) {
+            when (op) {
                 BinOp.MOV -> {
                     /**
-                     * If we know that src is the address of a global variable then we cast the destination to
-                     * that global variable.
+                     * If we know that src is the address of a global variable then we cast
+                     * the destination to that global variable.
                      *
-                     * The use of `toLongOrNull` does not lose precision because the MOV instruction has been tagged with
-                     * the metadata `SET_GLOBAL` which means that `src` is an immediate value.
+                     * The use of `toLongOrNull` does not lose precision because the MOV
+                     * instruction has been tagged with the metadata `SET_GLOBAL` which
+                     * means that `src` is an immediate value.
                      */
                     setRegister(dst, if (stmt.metaData.getVal(SbfMeta.SET_GLOBAL) != null) {
                         (getValue(src).type() as? SbfType.NumType<TNum, TOffset>)?.value?.toLongOrNull().let {
@@ -545,23 +590,37 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                     })
                 }
                 else -> {
-                    val dstType = refineType(stmt.op, getRegister(dst).type())
-                    val srcTypeBefore = getRegister(src as Value.Reg).type()
-                    val srcType = refineType(stmt.op, srcTypeBefore)
-                    if (!srcTypeBefore.lessOrEqual(srcType)) {
-                        // srcType is strictly more precise than srcTypeBefore
-                        setRegister(src, ScalarValue(srcType))
-                    }
-                    if (dstType is SbfType.NumType && srcType is SbfType.NumType) {
-                        doALU(stmt.op, dst, dstType, srcType)
-                    } else {
-                        if (srcType is SbfType.NumType) {
-                            if (!srcType.value.isTop()) {
-                                doConstantPointerArithmetic(stmt.op, dst, srcType, locInst)
-                                return
-                            }
-                        }
-                        doPointerArithmetic(stmt.op, dst, src, locInst)
+                    // Refine operands before performing the transfer function
+                    val (dstType, srcType) = refineTypes(
+                        op,
+                        BinaryTypes(
+                            getRegister(dst).type(),
+                            getRegister(src as Value.Reg).type()
+                        )
+                    )
+                    updateType(src, srcType)
+                    // Performing transfer function as either an ALU operation or pointer arithmetic
+                    when {
+                        dstType is SbfType.NumType && srcType is SbfType.NumType ->
+                            doALU(op, dst, dstType, srcType)
+                        dstType is SbfType.PointerType  ->
+                            doPointerArithmetic(
+                                op,
+                                dst,
+                                dstType,
+                                srcType,
+                                locInst
+                            )
+                        srcType is SbfType.PointerType && op.isCommutative ->
+                            doPointerArithmetic(
+                                op,
+                                dst,
+                                srcType,
+                                dstType,
+                                locInst
+                            )
+                        else ->
+                            forget(dst)
                     }
                 }
             }
@@ -1045,22 +1104,6 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         }
     }
 
-    /**
-     * Update the type for [reg] knowing that [reg] is uses in a conditional [op], and return that type.
-     **/
-    private fun updateTypeWithRefinement(reg: Value.Reg, op: CondOp): ScalarValue<TNum, TOffset> {
-        val old = getRegister(reg)
-        val new = ScalarValue(refineType(op,old.type()))
-        check(!new.isBottom()) {
-            "refinement should not return bottom"
-        }
-        if (!old.lessOrEqual(new)) {
-            // new is strictly more precise than old
-            setRegister(reg, new)
-        }
-        return new
-    }
-
     @TestOnly
     fun analyzeAssume(cond: Condition) {
         check(!isBottom()) {"analyzeAssume cannot be called on bottom"}
@@ -1068,27 +1111,36 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         val op = cond.op
         val left = cond.left
         val right = cond.right
-        val leftAbsVal = updateTypeWithRefinement(left, op)
+        val (leftType, rightType) = refineTypes(
+            op,
+            BinaryTypes(
+                getRegister(left).type(),
+                when(right) {
+                    is Value.Imm -> sbfTypeFac.toNum(right.v)
+                    is Value.Reg -> getRegister(right).type()
+                }
+            )
+        )
+        updateType(left, leftType)
         when (right) {
             is Value.Imm -> {
-                val rightAbsVal = ScalarValue(sbfTypeFac.toNum(right.v))
                 when {
-                    leftAbsVal.type() is SbfType.NumType -> {
+                    leftType is SbfType.NumType -> {
                         analyzeAssumeNumNum(op,
                             left,
-                            leftAbsVal.type() as SbfType.NumType,
+                            leftType,
                             right,
-                            rightAbsVal.type() as SbfType.NumType)
+                            rightType as SbfType.NumType)
                     }
-                    leftAbsVal.type() is SbfType.PointerType -> {
+                    leftType is SbfType.PointerType -> {
                         // do nothing: we can do better here if op is EQ
                     }
-                    leftAbsVal.isTop() -> {
+                    leftType.isTop() -> {
                         /**
                          * We assume that the left operand is a number,
                          * although we don't really know at this point.
                          **/
-                        analyzeAssumeTopNonTop(op, left, leftAbsVal.type(), rightAbsVal.type())
+                        analyzeAssumeTopNonTop(op, left, leftType, rightType)
                     }
                     else -> {
                         // do nothing
@@ -1096,18 +1148,16 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                 }
             }
             is Value.Reg -> {
-                val rightAbsVal = updateTypeWithRefinement(right, op)
+                updateType(right, rightType)
                 when {
-                    leftAbsVal.isTop() && rightAbsVal.isTop() -> {
+                    leftType.isTop() && rightType.isTop() -> {
                         // do nothing
                     }
-                    leftAbsVal.isTop() || rightAbsVal.isTop() -> {
-                        analyzeAssumeTopNonTop(op, left, leftAbsVal.type(), rightAbsVal.type())
-                        analyzeAssumeTopNonTop(op, right, leftAbsVal.type(), rightAbsVal.type())
+                    leftType.isTop() || rightType.isTop() -> {
+                        analyzeAssumeTopNonTop(op, left, leftType, rightType)
+                        analyzeAssumeTopNonTop(op, right, leftType, rightType)
                     }
                     else -> {
-                        val leftType = leftAbsVal.type()
-                        val rightType = rightAbsVal.type()
                         when {
                             leftType is SbfType.NumType && rightType is SbfType.NumType -> {
                                 analyzeAssumeNumNum(op, left, leftType, right, rightType)
@@ -1161,15 +1211,25 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             if (absValCondIsFalse.isBottom()) {
                 setRegister(stmt.dst, getValue(stmt.trueVal))
             } else {
-
-                // 1. refine types of the registers appearing on the select's condition
                 val cond = stmt.cond
-                val leftOp = cond.left
-                val rightOp = cond.right
+                val leftOperand = cond.left
+                val rightOperand = cond.right
                 val condOp = cond.op
 
-                updateTypeWithRefinement(leftOp, condOp)
-                (rightOp as? Value.Reg)?.let { updateTypeWithRefinement(it, condOp) }
+                // 1. refine types of the registers appearing on the select's condition
+                refineTypes(
+                    condOp,
+                    BinaryTypes(
+                        getRegister(leftOperand).type(),
+                        when(rightOperand) {
+                            is Value.Imm -> sbfTypeFac.toNum(rightOperand.v)
+                            is Value.Reg -> getRegister(rightOperand).type()
+                        }
+                    )
+                ).let { (leftType, rightType) ->
+                    updateType(leftOperand, leftType)
+                    (rightOperand as? Value.Reg)?.let { updateType(rightOperand, rightType) }
+                }
 
                 // 2. Apply the rules
                 // - t=top and f=num(!=0) -> lhs=num

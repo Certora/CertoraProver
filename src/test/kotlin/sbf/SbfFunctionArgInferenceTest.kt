@@ -55,6 +55,7 @@ class SbfFunctionArgInferenceTest {
 
     private fun runAnalysis(cfgs: List<MutableSbfCFG>, root:String, slice: Boolean = false): FunctionArgumentInference {
         val callgraph = compileCFG(cfgs, root)
+        println(callgraph)
         val cfg = if (slice) {
             sliceAssertions(callgraph, MemorySummaries()).second.getCallGraphRootSingleOrFail()
         } else {
@@ -199,6 +200,8 @@ class SbfFunctionArgInferenceTest {
             bb(0) {
                 r6 = r1
                 BinOp.ADD(r7, r2)
+                assume(CondOp.GT(r6, 0)) // to avoid r6 to be dead
+                assume(CondOp.GT(r7, 0)) // to avoid r7 to be dead
                 exit()
             }
         }
@@ -206,6 +209,8 @@ class SbfFunctionArgInferenceTest {
             bb(0) {
                 r6 = r1
                 BinOp.ADD(r7, r5)
+                assume(CondOp.GT(r6, 0)) // to avoid r6 to be dead
+                assume(CondOp.GT(r7, 0)) // to avoid r7 to be dead
                 exit()
             }
         }
