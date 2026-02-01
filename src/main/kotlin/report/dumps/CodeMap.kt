@@ -18,6 +18,7 @@
 package report.dumps
 
 import algorithms.topologicalOrderOrNull
+import java.util.concurrent.ConcurrentHashMap
 import analysis.CmdPointer
 import analysis.icfg.Inliner
 import analysis.icfg.SummaryStack
@@ -314,7 +315,7 @@ data class CodeMap(
     private fun cmdToHtml(c: TACCmd, ast: TACProgram<*>, b: IBlockId): HTMLString {
 
         fun varWithAnchor(v: TACSymbol.Var) = v.toSMTRep().sanitize().let {
-            "<a href=\"#def_$it\" class=\"deflink use_$it\" onclick=\"highlightDef('$it')\">$it</a>"
+            "<a href=\"#\" class=\"deflink use_$it\" onclick=\"highlightDef('$it'); return false;\">$it</a>"
         }
 
         fun getHtmlRep(s: TACSymbol): String {
@@ -343,9 +344,9 @@ data class CodeMap(
         }
 
         fun getHtmlRepAnchor(s: TACSymbol): String {
-            // wrap with an anchor
+            // wrap with a clickable anchor for the definition site
             val t = s.toSMTRep().sanitize()
-            return "<span id=\"def_$t\">$t</span>"
+            return "<a href=\"#\" id=\"def_$t\" class=\"deflink\" onclick=\"highlightDef('$t'); return false;\">$t</a>"
         }
 
         fun getHtmlRepExpr(e: TACExpr): String {
@@ -1291,13 +1292,13 @@ data class CodeMap(
     fun getPreviousMapping(): String {
         fun edgeHrefWithAnchor(b: NBId, prefix: String): String {
             return """
-                <a name="${prefix}${b}" id="${prefix}${b}" href="#block${b}" onclick="highlightAnchor('${b}')">${b}</a>
+                <a name="${prefix}${b}" id="${prefix}${b}" href="#" onclick="highlightAnchor('${b}'); return false;">${b}</a>
             """
         }
 
         fun edgeHref(b: NBId): String {
             return """
-                <a href="#block${b}" onclick="highlightAnchor('${b}')">${b}</a>
+                <a href="#" onclick="highlightAnchor('${b}'); return false;">${b}</a>
             """
         }
 
@@ -1344,37 +1345,38 @@ ${edgeHrefWithAnchor(trg, "edgeP")} <- ${srcs.map { edgeHref(it) }.joinToString(
 
             val codeAsHtml = cmdListToHTML(cmds.mapIndexed { i, cmd -> LTACCmdForAllTACS(CmdPointer(nbId, i), cmd) }, ast, nbId)
 """
-<a name="block${nbId}" id="block${nbId}" href="#block${nbId}" onclick="highlightAnchor('${nbId}')">Block ${nbId}:</a>
-<br/>
+<div class="block-wrapper">
+<div class="block-header"><a name="block${nbId}" id="block${nbId}" href="#" onclick="highlightAnchor('${nbId}'); return false;">Block ${nbId}:</a></div>
 $difficultyStats$codeAsHtml
-<br/>
+</div>
 """
         }
 
+        val divOfBlocks =
+"""
+<div id="blocksHtml${id}" style="overflow: scroll; height: 100%;">${htmlOfBlocks.joinToString("")}</div>
+"""
+
+        return divOfBlocks
+    }
+
+    fun getSuccessorMapHtml(id: String): String {
+        val callIdInt = id.toIntOrNull() ?: 0
         val htmlOfEdges = edges
-            .filter { it.key.src.calleeIdx == id.toInt() || it.key.trg.calleeIdx == id.toInt() } // only those pertaining to the call
+            .filter { it.key.src.calleeIdx == callIdInt || it.key.trg.calleeIdx == callIdInt }
             .filter { isInSubsetToShow(it.key.src) }
             .map { edgeEntry ->
                 val keyEdge = edgeEntry.key
                 val expressionAsHtml = edgeEntry.value.joinToString(",") {
                     it.toPrintRep { v -> v.toSMTRep() }
                 }
-                val exprValue = "" // not implemented
-
 """
-Edge <a name="edgeS${keyEdge.src}" id="edgeS${keyEdge.src}" href="#block${keyEdge.src}" onclick="highlightAnchor('${keyEdge.src}')">${keyEdge.src}</a>
-    -> <a name="edgeT${keyEdge.trg}" id="edgeT${keyEdge.trg}" href="#block${keyEdge.trg}" onclick="highlightAnchor('${keyEdge.trg}')">${keyEdge.trg}</a>:
-$expressionAsHtml $exprValue
+Edge <a name="edgeS${keyEdge.src}" id="edgeS${keyEdge.src}" href="#" onclick="highlightAnchor('${keyEdge.src}'); return false;">${keyEdge.src}</a>
+    -> <a name="edgeT${keyEdge.trg}" id="edgeT${keyEdge.trg}" href="#" onclick="highlightAnchor('${keyEdge.trg}'); return false;">${keyEdge.trg}</a>:
+$expressionAsHtml
 """
             }
-
-        val divOfBlocks =
-"""
-<div id="blocksHtml${id}" style="overflow: scroll; height: 90%;">${htmlOfBlocks.joinToString("</br>")}</div>
-<div id="edgesHtml${id}" style="overflow: scroll; height: 10%;">Successor map:<br/>${htmlOfEdges.joinToString("</br>")}</div>
-"""
-
-        return divOfBlocks
+        return htmlOfEdges.joinToString("</br>")
     }
 
     fun blocksToHtml(): String {
@@ -1383,6 +1385,10 @@ $expressionAsHtml $exprValue
 
     fun getBlocksHtml(): String {
         return blocksToHtml()
+    }
+
+    fun getSuccessorMapHtml(): String {
+        return getSuccessorMapHtml("0")
     }
 
     companion object {
@@ -2143,3 +2149,64 @@ fun String.shortRustName(): String =
     if (this.length <= 80) { this } else { this.substringAfterLast("::") }
 
 fun String.shortRustForHTML(): String = this.shortRustName().escapeHTML()
+
+// ============================================================================
+// Dataflow Visualization Support
+// ============================================================================
+
+/**
+ * Dataflow information for a variable.
+ * @property inputs Variables that flow INTO this variable's definition
+ * @property outputs Variables that are computed FROM this variable
+ */
+data class DataflowInfo(
+    val inputs: Set<String>,
+    val outputs: Set<String>
+)
+
+/**
+ * Computes dataflow relationships for all variables across all subgraphs.
+ * For each variable definition, tracks:
+ * - inputs: variables used to compute this definition (RHS of assignment)
+ * - outputs: variables whose definitions use this variable
+ *
+ * This unified map spans all call graphs, so cross-graph dataflow is captured.
+ *
+ * @param subAsts Map of all subgraphs (callId -> TACProgram)
+ * @return Map from sanitized variable name to its dataflow info
+ */
+fun computeUnifiedDataflowMap(subAsts: Map<CallId, TACProgram<*>>): Map<String, DataflowInfo> {
+    // Thread-safe maps for parallel processing
+    val inputsMap = ConcurrentHashMap<String, ConcurrentHashMap.KeySetView<String, Boolean>>()
+    val outputsMap = ConcurrentHashMap<String, ConcurrentHashMap.KeySetView<String, Boolean>>()
+
+    // Flatten all commands first, then process with single-level parallelism
+    // This avoids thread pool starvation from nested parallelStream calls
+    val allCommands = subAsts.values.flatMap { program ->
+        program.code.values.flatten()
+    }
+
+    allCommands.parallelStream().forEach { cmd ->
+        // Don't HTML-sanitize here - the browser decodes HTML entities in onclick attributes
+        // before passing to JavaScript, so dataflowMap keys must use raw variable names.
+        // JavaScript escaping is applied later in generateDataflowMapJS.
+        val lhs = cmd.getLhs()?.toSMTRep()
+        val rhsVars = cmd.getFreeVarsOfRhs().map { it.toSMTRep() }
+
+        if (lhs != null) {
+            inputsMap.computeIfAbsent(lhs) { ConcurrentHashMap.newKeySet() }.addAll(rhsVars)
+            rhsVars.forEach { rhsVar ->
+                outputsMap.computeIfAbsent(rhsVar) { ConcurrentHashMap.newKeySet() }.add(lhs)
+            }
+        }
+    }
+
+    // Combine into DataflowInfo
+    val allVars = inputsMap.keys + outputsMap.keys
+    return allVars.associateWith { varName ->
+        DataflowInfo(
+            inputs = inputsMap[varName].orEmpty(),
+            outputs = outputsMap[varName].orEmpty()
+        )
+    }
+}

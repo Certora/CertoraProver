@@ -2033,6 +2033,17 @@ object Config {
         )
     )
 
+    val AssumeNoCastOverflow = ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "assumeNoCastingOverflow",
+            true,
+            "if true then it is assumed that no under/overflows happen in casts." +
+                " Should be run from the python command line only (not directly in prover_args) [default: false]"
+        ),
+        pythonName = "--assume_no_casting_overflow"
+    )
+
     val ParallelSplitting: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         false,
         Option(

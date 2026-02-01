@@ -97,7 +97,6 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
                 numOfInsertedMemcpy += rewrites.size
             }
         }
-
     }
 
     info{
@@ -216,15 +215,7 @@ where TNum: INumValue<TNum>,
         }
     }
 
-    // Important: we sort `rewrites` by the position of its first load that appears in the block
-    // We need this because we need to adjust the insertion points while we will insert the emitted memcpy code.
-    // If `rewrites` is not sorted then the adjustment becomes unnecessarily complicated.
-    return rewrites.sortedBy { rewrite ->
-        // Return the position of the first load of `it` within the block to be promoted
-        val loads = rewrite.loads
-        check(loads.isNotEmpty()) {"$rewrite should have non-empty load instructions"}
-        loads.minByOrNull { locInst -> locInst.pos }!!.pos
-    }
+    return rewrites
 }
 
 /**
@@ -582,8 +573,10 @@ data class MemTransferRewrite(
  *  Subsequent optimizations will remove the load instructions if they are dead.
  **/
 private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRewrite>) {
+    // Important to sort first rewrites: required for soundness of the transformation.
+    val sortedRewrites = sortRewrites(rewrites)
 
-    if (rewrites.isEmpty()) {
+    if (sortedRewrites.isEmpty()) {
         return
     }
 
@@ -593,7 +586,7 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
     // This metadata is needed to mark this instructions for the next loop.
     // Eventually, only load instructions that used by other instructions will maintain that metadata.
     // In that case, it's only used for debugging purposes.
-    for (rewrite in rewrites) {
+    for (rewrite in sortedRewrites) {
         for (loadLocInst in rewrite.loads) {
             addMemcpyPromotionAnnotation(bb, loadLocInst)
         }
@@ -606,7 +599,7 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
     //  We need to add the memcpy instructions before the first load.
     //  For an explanation, see test13 in PromoteStoresToMemcpyTest.kt
     var numAdded = 0   // used to adjust the insertion points after each memcmpy is inserted
-    for (rewrite in rewrites) {
+    for (rewrite in sortedRewrites) {
         val loads = rewrite.loads.sortedBy { it.pos}
         val firstLoad = loads.firstOrNull()
         check(firstLoad != null) {"memcpyInfo should not be empty"}
@@ -633,6 +626,21 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
         bb.removeAt(adjPos)
     }
 }
+
+/**
+ * Sort [rewrites] by the position of their first load in the block.
+ *
+ * This simplifies adjusting insertion points as we insert the emitted code.
+ * Without sorting, tracking insertion point adjustments would be unnecessarily complicated.
+ */
+private fun sortRewrites(rewrites: List<MemTransferRewrite>): List<MemTransferRewrite> =
+    rewrites.sortedBy { rewrite ->
+        // Return the position of the first load of `it` within the block to be promoted
+        val loads = rewrite.loads
+        check(loads.isNotEmpty()) {"$rewrite should have non-empty load instructions"}
+        loads.minByOrNull { locInst -> locInst.pos }!!.pos
+    }
+
 
 private fun addMemcpyPromotionAnnotation(bb: MutableSbfBasicBlock, locInst: LocatedSbfInstruction) {
     val inst = locInst.inst

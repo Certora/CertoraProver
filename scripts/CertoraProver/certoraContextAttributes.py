@@ -1243,6 +1243,19 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False,
     )
 
+    ASSUME_NO_CASTING_OVERFLOW = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="Will Assume solidity casting expressions never overflow",
+        default_desc="Solidity casting expressions may overflow",
+        jar_flag='-assumeNoCastingOverflow',
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE,
+            'default': False
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+    )
+
     UNCHECKED_OVERFLOW_BUILTIN = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.BOOLEAN,
         help_msg="This needs to be set to true for the uncheckedOverflow builtin to work",

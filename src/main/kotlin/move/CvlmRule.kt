@@ -19,17 +19,20 @@ package move
 
 import config.*
 import datastructures.stdcollections.*
+import tac.generation.TrapMode
 import utils.*
 
 sealed class CvlmRule {
     abstract val ruleName: String
     abstract val ruleInstanceName: String
     abstract val parametricTargetNames: Set<String>
+    abstract val trapMode: TrapMode
 
     /** An instantiation of a (possibly parametric) user rule */
     class UserRule(
         val entry: MoveFunction,
-        val parametricTargets: Map<Int, MoveFunction>
+        val parametricTargets: Map<Int, MoveFunction>,
+        override val trapMode: TrapMode
     ) : CvlmRule() {
         override val ruleName get() = entry.name.toString()
         override val ruleInstanceName get() =
@@ -42,6 +45,7 @@ sealed class CvlmRule {
         abstract val target: MoveFunction
         override val ruleName get() = target.name.toString()
         override val parametricTargetNames get() = setOf<String>()
+        override val trapMode get() = TrapMode.DEFAULT
 
         class AssertTrue(override val target: MoveFunction) : TargetSanity() {
             override val ruleInstanceName get() = "$ruleName-Assertions"
@@ -56,10 +60,19 @@ sealed class CvlmRule {
         fun loadAll(): List<CvlmRule> = allRules().flatMap { (ruleFuncName, manifestRuleType) ->
             with (Instantiator()) {
                 when (manifestRuleType) {
-                    CvlmManifest.RuleType.USER_RULE -> {
+                    CvlmManifest.RuleType.USER_RULE,
+                    CvlmManifest.RuleType.USER_RULE_NO_ABORT -> {
                         val ruleFunc = instantiate(ruleFuncName)
                         targetPermutations(ruleFunc).map { targets ->
-                            UserRule(ruleFunc, targets)
+                            UserRule(
+                                ruleFunc,
+                                targets,
+                                trapMode = when (manifestRuleType) {
+                                    CvlmManifest.RuleType.USER_RULE -> TrapMode.DEFAULT
+                                    CvlmManifest.RuleType.USER_RULE_NO_ABORT -> TrapMode.ASSERT
+                                    CvlmManifest.RuleType.SANITY -> `impossible!`
+                                }
+                            )
                         }
                     }
                     CvlmManifest.RuleType.SANITY -> {

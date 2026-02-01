@@ -352,7 +352,7 @@ class CvlmApi(scene: MoveScene) {
             singleBlockSummary(call) {
                 val v = call.args[0].asSym()
                 mergeMany(
-                    Trap.assert("MathInt value in u256 range") {
+                    Trap.assert("MathInt value in u256 range", trapMode) {
                         (v ge 0.asTACExpr(Tag.Int)) and (v le Tag.Bit256.maxUnsigned.asTACExpr(Tag.Int))
                     },
                     assign(call.returns[0]) { safeMathNarrow(v, Tag.Bit256) }

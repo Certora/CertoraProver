@@ -1,0 +1,12 @@
+{
+	"rules": {
+		"vacuity::vacuity::assert_not_vacuous": "SUCCESS",
+		"vacuity::vacuity::assert_vacuous": "SANITY_FAIL",
+		"vacuity::vacuity::satisfy_not_vacuous": "FAIL",
+		"vacuity::vacuity::satisfy_vacuous": "SANITY_FAIL",
+		"vacuity::vacuity::target_not_vacuous-Assertions": "SUCCESS",
+		"vacuity::vacuity::target_not_vacuous-Reached end of function": "SUCCESS",
+		"vacuity::vacuity::target_vacuous-Assertions": "SUCCESS",
+		"vacuity::vacuity::target_vacuous-Reached end of function": "FAIL"
+	}
+}

@@ -168,9 +168,7 @@ class TreeViewReporter(
 
     private val hotUpdateJob = startAutoHotUpdate()
 
-    init {
-        instance = this
-    }
+    private var closed = false
 
     /** [LiveStatsReporter] is a specialized part of [TreeViewReporter] that live stats are reported to and that
      * enters them into the treeViewReports during [hotUpdate]. */
@@ -181,6 +179,31 @@ class TreeViewReporter(
             DummyLiveStatsReporter
         }
 
+    /** Sanity checks on tree view state on termination. returns true if no problems found */
+    fun onCloseSanityCheck(): Boolean {
+        if (!Config.getUseVerificationResultsForExitCode() || Config.BoundedModelChecking.exists()) {
+            // we're in test configuration that might clash with this check (exit codes can be bogus then) -- not checking
+            // or we are in BMC mode in which the reporting works differently as we manually construct the tree.
+            return true
+        }
+
+        val nodeToResult = tree
+            .getChildren(ROOT_NODE_IDENTIFIER)
+            .map { it to tree.getResultForNode(it) }
+
+        val stillRunning = nodeToResult.filter { (_, result) -> result.isRunning }
+        if (stillRunning.isNotEmpty()) {
+            val msg = stillRunningErrorMessage(stillRunning)
+
+            if(Config.TestMode.get()){
+                throw IllegalStateException(msg)
+            }
+            Logger.alwaysWarn(msg)
+        }
+
+        return nodeToResult.all { (_, result) -> !result.status.isViolationOrErrorOrRunning() }
+    }
+
     /**
      * The version of the treeView report JSON file.
      * Each invocation of [writeToFile] increments this version by one.
@@ -190,6 +213,8 @@ class TreeViewReporter(
     private val perAssertReporter = PerAssertReporter()
 
     init {
+        instance = this
+
         // set up the files we'll dump
         ArtifactManagerFactory().registerArtifact(versionedFile, StaticArtifactLocation.TreeViewReports)
         ArtifactManagerFactory().registerArtifact(Config.OutputJSONFile)
@@ -254,6 +279,8 @@ class TreeViewReporter(
             get() = name
 
         fun isRunning() = this == REGISTERED || this == SOLVING
+
+        fun isViolationOrErrorOrRunning() = this != VERIFIED && this != SKIPPED && this != BENIGN_SKIPPED
 
         fun toOutputJSONRep(): SolverResult.JSONRepresentation = when (this) {
             VIOLATED -> SolverResult.JSONRepresentation.FAIL
@@ -360,12 +387,21 @@ class TreeViewReporter(
                     return ChildrenNumbers(Int.MAX_VALUE.toBigInteger(), normalizedFinished)
                 }
             }
+    }
 
-        fun printForErrorLog(): String = listOf(
-            "nodeType" to nodeType.toString(),
-            "status" to status.toString(),
-            "isRunning" to isRunning.toString(),
-        ).joinToString(separator = "\n") { (label, contents) -> "   $label: $contents" }
+    private fun stillRunningErrorMessage(stillRunning: List<Pair<DisplayableIdentifier, TreeViewNodeResult>>) = buildString {
+        appendLine("We are shutting down, but some rules are still registered as `isRunning`:")
+
+        for ((rule, result) in stillRunning) {
+            val resultDescription = listOf(
+                "nodeType" to result.nodeType.toString(),
+                "status" to result.status.toString(),
+                "isRunning" to result.isRunning.toString(),
+            ).joinToString(separator = "\n") { (label, contents) -> "   $label: $contents" }
+
+            appendLine(rule.displayName)
+            appendLine(resultDescription)
+        }
     }
 
     /**
@@ -490,8 +526,8 @@ class TreeViewReporter(
             }
         }
 
-        fun getChildren(node: DisplayableIdentifier): Sequence<DisplayableIdentifier> {
-            return parentToChild[node]?.asSequence().orEmpty()
+        fun getChildren(node: DisplayableIdentifier): List<DisplayableIdentifier> {
+            return parentToChild[node]?.toList().orEmpty()
         }
 
         fun updateDisplayName(node: RuleIdentifier, displayName: String) {
@@ -705,15 +741,18 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
 
 
         /**
-         * Performs a basic check that the tree doesn't contain any running nodes, if so it will
-         * log an error.
+         * Performs a basic check that the tree doesn't contain any running nodes.
+         * Running nodes will be set to timed out.
          */
-        fun checkAllLeavesAreTerminated() {
+        fun terminateRunningLeaves() {
             val runningNodes = identifierToNode.filter {
                 getChildren(it.key).isEmpty() && it.value.status == TreeViewStatusEnum.SOLVING
             }
-            if (runningNodes.isNotEmpty()) {
-                logger.error("There are still running nodes in the tree: ${runningNodes.keys}}}")
+            for ((id, result) in runningNodes) {
+                logger.error("The node `${id.displayName}` is still running, and will be set to timed out")
+
+                val timedOut = result.copy(status = TreeViewStatusEnum.TIMEOUT, isRunning = false)
+                this.identifierToNode[id] = timedOut
             }
         }
 
@@ -1166,27 +1205,6 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
         }
     }
 
-    /**
-     * Returns a list of pairs consisting of the rule identifier, and a string (multiline) for detailed error-printing.
-     */
-    fun topLevelRulesStillRunning() =
-        tree.getChildren(ROOT_NODE_IDENTIFIER)
-            .filter { topLevelRule -> tree.getResultForNode(topLevelRule).isRunning }
-            .map { rule -> rule to "${rule.displayName}:\n" + tree.getResultForNode(rule).printForErrorLog() + "\n" }
-
-    /**
-     * Returns a list of pairs consisting of the rule identifier, and a string (multiline) for detailed error-printing.
-     */
-    fun topLevelRulesWithViolationOrErrorOrRunning() =
-        tree.getChildren(ROOT_NODE_IDENTIFIER).filter { topLevelRule ->
-            val res = tree.getResultForNode(topLevelRule)
-            (res.status != TreeViewStatusEnum.VERIFIED &&
-                res.status != TreeViewStatusEnum.SKIPPED &&
-                res.status != TreeViewStatusEnum.BENIGN_SKIPPED)
-        }.map { rule ->
-            rule to "${rule.displayName}:\n" + tree.getResultForNode(rule).printForErrorLog() + "\n"
-        }
-
     @TestOnly
     fun treePublic() = tree
 
@@ -1195,10 +1213,13 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
     fun pathsToLeaves(): Set<List<DisplayableIdentifier>> {
         val paths = mutableSetOf<List<DisplayableIdentifier>>()
         fun rec(node: DisplayableIdentifier, prefix: List<DisplayableIdentifier>) {
-            when (val children = tree.getChildren(node)) {
-                emptySequence<DisplayableIdentifier>() -> paths.add(prefix + node)
-                else -> children.forEach { child ->
-                    rec(child, prefix + node)
+            val children = tree.getChildren(node)
+            val path = prefix + node
+            if (children.isEmpty()) {
+                paths.add(path)
+            } else {
+                for (child in children) {
+                    rec(child, path)
                 }
             }
         }
@@ -1358,22 +1379,26 @@ ${getTopLevelNodes().joinToString("\n") { nodeToString(it, 0) }}
     }
 
     override fun close() {
-        try {
-            /**
-             * At this time, no child of the tree should be in the state [SOLVING] anymore.
-             */
-            tree.checkAllLeavesAreTerminated()
-            /**
-             * Do a last hotupdate to ensure output.json and treeViewStatus_X.json contain the
-             * same information.
-             */
-            hotUpdate()
-            hotUpdateJob?.cancel()
-        } finally {
-            /**
-             * Write the output<CONFIG_NAME>.json file to disk
-             */
-            writeOutputJson()
+        synchronized(this) {
+            if (this.closed) { return }
+            try {
+                /**
+                 * At this time, no child of the tree should be in the state [SOLVING] anymore.
+                 */
+                tree.terminateRunningLeaves()
+                /**
+                 * Do a last hotupdate to ensure output.json and treeViewStatus_X.json contain the
+                 * same information.
+                 */
+                hotUpdate()
+                hotUpdateJob?.cancel()
+            } finally {
+                /**
+                 * Write the output<CONFIG_NAME>.json file to disk
+                 */
+                writeOutputJson()
+                this.closed = true
+            }
         }
     }
 }
