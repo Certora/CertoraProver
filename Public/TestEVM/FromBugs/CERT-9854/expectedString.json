@@ -1,0 +1,17 @@
+{
+	"rules": {
+		"mapping_nameToAddress_fully_in_soldity": "SUCCESS",
+		"mapping_nameToAddress_load_in_cvl": "SUCCESS",
+		"mapping_nameToAddress_load_in_solidity_with_cvl_string": "SUCCESS",
+		"mapping_nameToAddress_load_in_solidity_with_solidity_string": "SUCCESS",
+		"mapping_nameToUint_load_in_solidity_with_cvl_string": "SUCCESS",
+		"mapping_nameToUint_load_in_solidity_with_cvl_string_32bytes": "SUCCESS",
+		"mapping_nameToUint_load_in_solidity_with_cvl_string_40bytes": "SUCCESS",
+		"mapping_nameToUint_load_in_solidity_with_cvl_string_64bytes": "SUCCESS",
+		"mapping_nameToUint_load_in_solidity_with_cvl_string_empty": "SUCCESS",
+		"mapping_nameToUint_load_in_solidity_with_cvl_string_havocced": "SUCCESS",
+		"mapping_uintToAddress_key_in_cvl_then_key_in_solidity": "SUCCESS",
+		"plain_string_comparison_in_cvl": "SUCCESS",
+		"plain_string_comparison_in_solidity": "SUCCESS"
+	}
+}
