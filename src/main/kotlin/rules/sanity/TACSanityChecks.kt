@@ -47,9 +47,9 @@ import verifier.Verifier
  *
  * As of now, only a Vacuity Check is implemented, we expected more checks to be added later.
  */
-class TACSanityChecks(vacuityCheckLevel: SanityValues) {
+object TACSanityChecks {
 
-    private val registeredChecks = listOf(VacuityCheck(vacuityCheckLevel))
+    private val registeredChecks = listOf(VacuityCheck)
 
     suspend fun analyse(scene: IScene, baseRule: EcosystemAgnosticRule, baseRuleTac: CoreTACProgram, baseRuleResult: Verifier.VerifierResult, treeViewReporter: TreeViewReporter) {
         registeredChecks.filter { DoSanityChecksForRules.get() >= it.sanityLevel }.parallelMapOrdered { _, sanityCheck ->
@@ -146,24 +146,23 @@ class TACSanityChecks(vacuityCheckLevel: SanityValues) {
      *
      * [spec.cvlast.SpecType.Single.GeneratedFromBasicRule.VacuityCheck] transforms CVL, this check transforms the actual TAC.
      */
-    class VacuityCheck(override val sanityLevel: SanityValues) : SanityCheck() {
-
-        companion object {
-            const val SANITY_RULE_NAME = "rule_not_vacuous_tac"
-        }
+    object VacuityCheck : SanityCheck() {
 
         /**
          * The name in the web UI for the child node in the rule report tree. The name is the same as with the CVL based
          * vacuity check [spec.cvlast.SpecType.Single.GeneratedFromBasicRule.VacuityCheck]
          */
-        override val sanityRuleName get() = SANITY_RULE_NAME
+        override val sanityRuleName: String = "rule_not_vacuous_tac"
+
+        override val sanityLevel: SanityValues = SanityValues.ADVANCED
 
         /**
          * The sanity rules will only be executed if the original results of the base rule did not find a counter example.
+         *
+         * For a non-satisfy rules, sanity is executed when the original results was UNSAT.
+         * For a satisfy rule, sanity is executed when the original result was SAT.
          */
-        override fun shouldExecute(baseRule: EcosystemAgnosticRule, baseRuleResult: Verifier.VerifierResult) =
-            baseRuleResult.finalResult == SolverResult.UNSAT
-
+        override fun shouldExecute(baseRule: EcosystemAgnosticRule, baseRuleResult: Verifier.VerifierResult) = !baseRule.isSatisfyRule && baseRuleResult.finalResult == SolverResult.UNSAT || baseRule.isSatisfyRule && baseRuleResult.finalResult == SolverResult.SAT
         override fun transformTac(baseRuleTac: CoreTACProgram, baseRule: EcosystemAgnosticRule): CoreTACProgram {
             return baseRuleTac.patching { p ->
                 // Replace all assert commands
@@ -194,7 +193,6 @@ class TACSanityChecks(vacuityCheckLevel: SanityValues) {
             baseRule.copy(
                 ruleIdentifier = baseRule.ruleIdentifier.freshDerivedIdentifier(sanityRuleName),
                 ruleType = SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck(baseRule),
-                isSatisfyRule = false
             )
     }
 }

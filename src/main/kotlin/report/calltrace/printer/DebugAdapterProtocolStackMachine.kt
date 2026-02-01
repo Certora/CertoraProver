@@ -57,13 +57,16 @@ import spec.cvlast.VMParam
 import spec.rules.IRule
 import tac.DataField
 import utils.*
-import vc.data.*
+import vc.data.SnippetCmd
+import vc.data.TACCmd
+import vc.data.TACMeta
 import vc.data.TACMeta.CVL_DISPLAY_NAME
 import vc.data.TACMeta.CVL_GHOST
 import vc.data.TACMeta.CVL_RANGE
 import vc.data.TACMeta.CVL_STRUCT_PATH
 import vc.data.TACMeta.CVL_VAR
 import vc.data.TACMeta.SNIPPET
+import vc.data.TACSymbol
 import vc.data.state.TACValue
 import java.io.IOException
 import java.math.BigInteger
@@ -288,13 +291,6 @@ class DebugAdapterProtocolStackMachine(
      */
     private var frames = persistentStackOf<StackFrame>()
 
-    /**
-     * Number of indentations that preceed the consoleOutput -- this will be equivalent to the number
-     * of encountered snippets of type [vc.data.SnippetCmd.CvlrSnippetCmd.ScopeStart] minus the one of type
-     * [vc.data.SnippetCmd.CvlrSnippetCmd.ScopeEnd]
-     */
-    var consoleIndentation: Int = 0
-
     init {
         frames = frames.push(StackFrame(StackEntry.Rule(rule), TACCmd.Simple.NopCmd, rule.range.nonEmpty()))
         model.tacAssignments.filterKeys { ContractInfo.fromTACSymbol(it) != null }
@@ -395,7 +391,7 @@ class DebugAdapterProtocolStackMachine(
     class StackFrame(val el: StackEntry, var cmd: TACCmd, var range: Range.Range?) {
         val variables: MutableMap<VariableIdentifier, DebuggerValue> = mutableMapOf()
 
-        // Output that is printed to the debug console in VSCode while stepping through the code.
+        // Output that is printed to the debug console in VSCode while stepping throught the code.
         var consoleOutput: String = ""
         fun stepTo(cmd: TACCmd, range: Range.Range?) {
             this.cmd = cmd
@@ -736,7 +732,7 @@ class DebugAdapterProtocolStackMachine(
                         updateVariables(idp, debugValue, VariableType.LOCAL)
                     }
 
-                persistFrames = persistFrames || snippet.persist
+                persistFrames = snippet.persist
             }
             if (snippet is SnippetCmd.SolanaSnippetCmd.DirectMemoryAccess) {
                 val pieces = snippet.expression.evaluate(model)
@@ -748,7 +744,7 @@ class DebugAdapterProtocolStackMachine(
                         updateVariables(idp, debugValue, VariableType.LOCAL)
                     }
 
-                persistFrames = persistFrames || snippet.persist
+                persistFrames = snippet.persist
             }
         }
     }
@@ -773,26 +769,11 @@ class DebugAdapterProtocolStackMachine(
                     snippet.tryToSarif(model)
                 }
 
-                is SnippetCmd.CvlrSnippetCmd.ScopeStart -> {
-                    Sarif.fromPlainStringUnchecked(snippet.scopeName)
-                }
-
-                is SnippetCmd.CvlrSnippetCmd.ScopeEnd -> {
-                    // Decrease indentation before logging
-                    consoleIndentation--
-                    Sarif.fromPlainStringUnchecked(snippet.scopeName)
-                }
                 else -> null
             }
             if (sarif != null) {
-                val output = "\t".repeat(consoleIndentation) + sarif.prettyPrint() + "\n";
-                persistFrames = true
+                val output = sarif.prettyPrint() + "\n";
                 frames.top.consoleOutput += output
-            }
-
-            if(snippet is SnippetCmd.CvlrSnippetCmd.ScopeStart){
-                // Increase indentation after logging so it applies for the next logs.
-                consoleIndentation++
             }
         }
     }

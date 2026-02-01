@@ -361,15 +361,6 @@ fun main(args: Array<String>) {
         SDCollectorFactory.collector().collectRunId()
         // to file - as defined in config
         SDCollectorFactory.collector().toFile()
-
-        val treeView = TreeViewReporter.instance
-        if (treeView != null) {
-            if (!treeView.onCloseSanityCheck()) {
-                finalResult = FinalResult.FAIL
-            }
-            treeView.close()
-        }
-
         // if we defined a non-default prefix, we still want a copy in the default, because automatic systems use it
         if (Config.OutputJSONStatsDataFilePrefix.get() != Config.OutputJSONStatsDataFilePrefix.default) {
             SDCollectorFactory.collector().toFile(Config.getDefaultJSONStatsDataOutputFile())
@@ -399,6 +390,8 @@ fun main(args: Array<String>) {
             HTMLReporter.open()
         }
 
+        finalResult = checkTreeViewState(finalResult)
+
         Notifications.showNotification(
             "Certora Prover completed",
             if (HTMLReporter.isDisabledPopup()) {
@@ -416,6 +409,31 @@ fun main(args: Array<String>) {
     }
 
     exitProcess(finalResult.getExitCode())
+}
+
+/** Sanity checks on tree view state on lockdown, including comparing it with [FinalResult]. */
+private fun checkTreeViewState(finalResult: FinalResult): FinalResult {
+    if (!Config.getUseVerificationResultsForExitCode() || Config.BoundedModelChecking.getOrNull() != null) {
+        // we're in test configuration that might clash with this check (exit codes can be bogus then) -- not checking
+        // or we are in BMC mode in which the reporting works differently as we manually construct the tree.
+        return finalResult
+    }
+
+    val stillRunning = TreeViewReporter.instance?.topLevelRulesStillRunning()
+    if (stillRunning?.isNotEmpty() == true) {
+        val msg = "We are shutting down, but some rules are still registered as `isRunning`:\n" +
+            stillRunning.joinToString(separator = "\n") { it.second }
+        if(Config.TestMode.get()){
+            throw IllegalStateException(msg)
+        }
+        Logger.alwaysWarn(msg)
+    }
+
+    val treeViewViolationOrErrors = TreeViewReporter.instance?.topLevelRulesWithViolationOrErrorOrRunning()
+    if (treeViewViolationOrErrors?.isNotEmpty() == true) {
+        return FinalResult.FAIL
+    }
+    return finalResult
 }
 
 /**
@@ -589,7 +607,7 @@ sealed interface CompiledGenericRule {
                    created earlies.
                  */
                 this.rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
-                TACSanityChecks(vacuityCheckLevel = SanityValues.ADVANCED).analyse(scene, this.rule, this.code, vRes, treeView)
+                TACSanityChecks.analyse(scene, this.rule, this.code, vRes, treeView)
             }
 
             if (vRes.unsatCoreSplitsData != null) {

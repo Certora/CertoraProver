@@ -53,7 +53,7 @@ class CvlmManifest(val scene: MoveScene) {
 
     fun maybeShadowType(type: MoveType.Struct): MoveType.Value? = shadowedTypes[type.name]?.invoke(type)
 
-    enum class RuleType { USER_RULE, USER_RULE_NO_ABORT, SANITY }
+    enum class RuleType { USER_RULE, SANITY }
 
     private val rulesBuilder = mutableMapOf<MoveFunctionName, RuleType>()
     private val shadowedTypes = mutableMapOf<MoveDatatypeName, (MoveType.Struct) -> MoveType.Value>()
@@ -206,8 +206,7 @@ class CvlmManifest(val scene: MoveScene) {
                 }
                 is Instruction.Call -> {
                     when (inst.index.deref().name) {
-                        MoveFunctionName(manifestModule, "rule") -> rule(RuleType.USER_RULE, manifestName, stack)
-                        MoveFunctionName(manifestModule, "no_abort_rule") -> rule(RuleType.USER_RULE_NO_ABORT, manifestName, stack)
+                        MoveFunctionName(manifestModule, "rule") -> rule(manifestName, stack)
                         MoveFunctionName(manifestModule, "summary") -> summary(manifestName, stack)
                         MoveFunctionName(manifestModule, "ghost") -> ghost(manifestName, stack)
                         MoveFunctionName(manifestModule, "hash") -> hash(manifestName, stack)
@@ -243,7 +242,7 @@ class CvlmManifest(val scene: MoveScene) {
         }
     }
 
-    private fun rule(ruleType: RuleType, manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
+    private fun rule(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {
         /*
             ```
             public native fun rule(ruleFunName: vector<u8>);
@@ -262,7 +261,7 @@ class CvlmManifest(val scene: MoveScene) {
             )
         }
 
-        addRule(ruleName, ruleType)
+        addRule(ruleName, RuleType.USER_RULE)
     }
 
     private fun targetSanity(manifestName: MoveFunctionName, stack: ArrayDeque<StackValue>) {

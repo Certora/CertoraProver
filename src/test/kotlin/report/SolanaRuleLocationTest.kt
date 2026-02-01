@@ -78,7 +78,7 @@ class SolanaRuleLocationTest {
         val expectedName = concat(
             "rule_passing_with_location",
             RuleEvent.ASSERTS_NODE_TITLE,
-            TACSanityChecks.VacuityCheck.SANITY_RULE_NAME,
+            TACSanityChecks.VacuityCheck.sanityRuleName,
         )
         assertExistsRuleWithExpectedRange(
             expectedName,

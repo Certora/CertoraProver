@@ -31,7 +31,6 @@ import bridge.EVMExternalMethodInfo
 import bridge.SourceLanguage
 import cache.ContractLoad
 import com.certora.collect.*
-import config.Config
 import config.ReportTypes
 import datastructures.stdcollections.*
 import decompiler.Decompiler
@@ -50,7 +49,6 @@ import parallel.ParallelPool.Companion.runInherit
 import parallel.Scheduler
 import parallel.forkEvery
 import parallel.pcompute
-import rules.genericrulecheckers.SafeCastingChecker
 import scene.*
 import spec.CVL
 import statistics.*
@@ -192,17 +190,6 @@ object ContractUtils {
                     CoreToCoreTransformer(
                             ReportTypes.FREE_MEM_POINTER_SCALARIZE_CLEANUP
                     ) { c: CoreTACProgram -> FreePointerScalarizer.cleanup(c) },
-                    CoreToCoreTransformer(ReportTypes.SAFE_CASTING_ANNOTATOR) {
-                        if (Config.AssumeNoCastOverflow.get()) {
-                            checkNot(Config.SafeCastingBuiltin.get()) {
-                                "Running the safe casting builting rule while assuming casting does not overflow " +
-                                    "doesn't make sense"
-                            }
-                            SafeCastingChecker.assumeNoCastOverflows(it)
-                        } else {
-                            it
-                        }
-                    },
                 )
             ).transform(simplifiedCode)
         }

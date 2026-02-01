@@ -62,7 +62,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         val isSatisfy: Boolean
     ) {
         fun toCoreTAC(scene: MoveScene): CoreTACProgram {
-            return moveTACtoCoreTAC(scene, moveTAC, isSatisfy, rule.trapMode)
+            return moveTACtoCoreTAC(scene, moveTAC, isSatisfy)
         }
     }
 
@@ -73,29 +73,23 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         fun compileMoveTAC(
             entryFuncName: MoveFunctionName,
             scene: MoveScene,
-            trapMode: TrapMode
         ) = with(scene) {
             val def = maybeDefinition(entryFuncName) ?: error("No function found with name $entryFuncName")
             MoveToTAC(scene).compileMoveTACProgram(
                 entryFuncName.toString(),
                 MoveFunction(def.function, typeArguments = listOf()),
                 SanityMode.NONE,
-                parametricTargets = mapOf(),
-                trapMode
+                parametricTargets = mapOf()
             )
         }
 
-        private fun moveTACtoCoreTAC(
-            scene: MoveScene,
-            code: MoveTACProgram,
-            isSatisfy: Boolean,
-            trapMode: TrapMode
-        ) = CoreTACProgram.Linear(
+        private fun moveTACtoCoreTAC(scene: MoveScene, code: MoveTACProgram, isSatisfy: Boolean) =
+            CoreTACProgram.Linear(
                 code
                 .transform(ReportTypes.DEDUPLICATED) { deduplicateBlocks(it) }
                 .mergeBlocks()
                 .also { TACSizeProfiler().profile(it, "presimplified") }
-                .transform(ReportTypes.SIMPLIFIED) { MoveTACSimplifier(scene, it, trapMode).transform() }
+                .transform(ReportTypes.SIMPLIFIED) { MoveTACSimplifier(scene, it).transform() }
                 .also { TACSizeProfiler().profile(it, "simplified") }
             )
             .map(CoreToCoreTransformer(ReportTypes.DSA, TACDSA::simplify))
@@ -270,10 +264,9 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         name: String,
         entryFunc: MoveFunction,
         sanityMode: SanityMode,
-        parametricTargets: Map<Int, MoveFunction>,
-        trapMode: TrapMode
+        parametricTargets: Map<Int, MoveFunction>
     ): MoveTACProgram {
-        with (SummarizationContext(scene, this, parametricTargets, trapMode)) {
+        with (SummarizationContext(scene, this, parametricTargets)) {
             val args = entryFunc.params.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.toVarName()}_arg_$i", it.toTag()) }
             val returns = entryFunc.returns.mapIndexed { i, it -> TACSymbol.Var("${entryFunc.toVarName()}_ret_$i", it.toTag()) }
 
@@ -460,13 +453,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
         sanityMode: SanityMode,
         parametricTargets: Map<Int, MoveFunction>
     ): CompiledRule {
-        val moveTAC = compileMoveTACProgram(
-            rule.ruleInstanceName,
-            entryFunc,
-            sanityMode,
-            parametricTargets,
-            rule.trapMode
-        )
+        val moveTAC = compileMoveTACProgram(rule.ruleInstanceName, entryFunc, sanityMode, parametricTargets)
         ArtifactManagerFactory().dumpCodeArtifacts(moveTAC, ReportTypes.JIMPLE, DumpTime.POST_TRANSFORM)
         val isSatisfy = when (sanityMode) {
             SanityMode.NONE -> isSatisfyRule(moveTAC)
@@ -520,10 +507,13 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                 ?.meta?.containsKey(TACMeta.SATISFY_ID)
         }.toList()
         if (areSatisfyAsserts.isEmpty()) {
-            return false
+            throw CertoraException(
+                CertoraErrorType.CVL,
+                "Rule ${code.name} contains no assertions after compilation. Assertions may have been trivially unreachable and removed by the compiler."
+            )
         }
         return areSatisfyAsserts.uniqueOrNull()
-            ?: throw CertoraException(
+            ?:throw CertoraException(
                 CertoraErrorType.CVL,
                 "Rule ${code.name} mixes assert and satisfy commands."
             )
@@ -849,9 +839,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                         } else {
                             // Check for overflow
                             mergeMany(
-                                Trap.assert("u${toType.size} overflow", trapMode, meta) {
-                                    fromValue.s le MASK_SIZE(toType.size).asTACExpr
-                                },
+                                Trap.assert("u${toType.size} overflow", meta) { fromValue.s le MASK_SIZE(toType.size).asTACExpr },
                                 push(toType, fromValue)
                             )
                         }
@@ -866,43 +854,33 @@ class MoveToTAC private constructor (val scene: MoveScene) {
 
                     is MoveInstruction.Add -> mathOp { t, a, b ->
                         mergeMany(
-                            Trap.assert("u${t.size} overflow in addition", trapMode, meta) {
-                                (MASK_SIZE(t.size).asTACExpr sub a) ge b
-                            },
+                            Trap.assert("u${t.size} overflow in addition", meta) { (MASK_SIZE(t.size).asTACExpr sub a) ge b },
                             push(t) { a add b }
                         )
                     }
                     is MoveInstruction.Sub -> mathOp { t, a, b ->
                         mergeMany(
-                            Trap.assert("u${t.size} overflow in subtraction", trapMode, meta) {
-                                a ge b
-                            },
+                            Trap.assert("u${t.size} overflow in subtraction", meta) { a ge b },
                             push(t) { a sub b }
                         )
                     }
                     is MoveInstruction.Mul -> mathOp { t, a, b ->
                         TXF { a intMul b }.letVar(Tag.Int) { result ->
                             mergeMany(
-                                Trap.assert("u${t.size} overflow in multiplication", trapMode, meta) {
-                                    result le MASK_SIZE(t.size).asTACExpr
-                                },
+                                Trap.assert("u${t.size} overflow in multiplication", meta) { result le MASK_SIZE(t.size).asTACExpr },
                                 push(t) { safeMathNarrowAssuming(result, Tag.Bit256, MASK_SIZE(t.size)) }
                             )
                         }
                     }
                     is MoveInstruction.Div -> mathOp { t, a, b ->
                         mergeMany(
-                            Trap.assert("Division by zero", trapMode, meta) {
-                                b neq 0.asTACExpr
-                            },
+                            Trap.assert("Division by zero", meta) { b neq 0.asTACExpr },
                             push(t) { a div b },
                         )
                     }
                     is MoveInstruction.Mod -> mathOp { t, a, b ->
                         mergeMany(
-                            Trap.assert("Division by zero", trapMode, meta) {
-                                b neq 0.asTACExpr
-                            },
+                            Trap.assert("Division by zero", meta) { b neq 0.asTACExpr },
                             push(t) { a mod b },
                         )
                     }
@@ -924,9 +902,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                             listOfNotNull(
                                 // The Move VM doesn't check shift overflow for U256
                                 runIf(valueType != MoveType.U256) {
-                                    Trap.assert("u${valueType.size} shift overflow", trapMode, meta) {
-                                        shift lt valueType.size.asTACExpr
-                                    }
+                                    Trap.assert("u${valueType.size} shift overflow", meta) { shift lt valueType.size.asTACExpr }
                                 },
                                 when (inst) {
                                     is MoveInstruction.Shl -> push(valueType) { value shiftL shift }
@@ -997,7 +973,7 @@ class MoveToTAC private constructor (val scene: MoveScene) {
                     is MoveInstruction.Abort -> {
                         pop() // we ignore the error code for now
                         fallthrough = null
-                        Trap.trap("Abort", trapMode, meta)
+                        Trap.trap("Abort", meta)
                     }
 
                     is MoveInstruction.Pack -> {

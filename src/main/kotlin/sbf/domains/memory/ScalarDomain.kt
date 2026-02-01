@@ -90,33 +90,6 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>
         else -> error("unsupported bit-width $n in zext operation")
     }
 
-/** Return true if [n] is 0 or a small power of two **/
-fun isZeroOrSmallPowerOfTwo(n: Long): Boolean =
-    n in setOf(0L, 1L, 2L, 4L, 8L, 16L, 32L, 64L)
-
-/** Return true if the analysis is certain that `this` must be a number, and thus it cannot be a pointer **/
-private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> SbfType<TNum, TOffset>.mustBeNumber(): Boolean {
-    if (this !is SbfType.NumType) {
-        return false
-    }
-
-    val v = this.value
-    // if it's NumType then it shouldn't be bottom
-    check(!v.isBottom())
-
-    return when {
-        v.isTop() -> false  // unknown number, can still be a pointer
-        else -> {
-            val values = v.toLongList()
-            // cannot be empty because it's not top
-            check(values.isNotEmpty())
-            // - zero can be the null pointer
-            // - a small power of two can be a dangling pointer
-            values.all { !isZeroOrSmallPowerOfTwo(it) }
-        }
-    }
-}
-
 class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private constructor(
     private val base: ScalarBaseDomain<ScalarValue<TNum, TOffset>>,
     val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
@@ -423,12 +396,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         } // end when
     }
 
-    private fun doPointerArithmetic(
-        op: BinOp,
-        dst: Value.Reg,
-        src: Value.Reg,
-        locInst: LocatedSbfInstruction
-    ) {
+    private fun doPointerArithmetic(op: BinOp, dst: Value.Reg, src: Value.Reg, locInst: LocatedSbfInstruction) {
         val dstType = getRegister(dst).type()
         val srcType = getRegister(src).type()
 
@@ -441,12 +409,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         }
     }
 
-    private fun doALU(
-        op: BinOp,
-        dst: Value.Reg,
-        dstType: SbfType.NumType<TNum, TOffset>,
-        srcType: SbfType.NumType<TNum, TOffset>
-    ) {
+    private fun doALU(op: BinOp, dst: Value.Reg, dstType: SbfType.NumType<TNum, TOffset>, srcType: SbfType.NumType<TNum, TOffset>) {
         val dstCst = dstType.value
         val srcCst = srcType.value
         when (op) {
@@ -497,8 +460,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
             when (stmt.op) {
                 BinOp.MOV -> {
                     /**
-                     * We assume that the destination operand is a number unless the analysis that
-                     * infers globals says it is a global variable.
+                     * We assume that the destination operand is a number unless the analysis that infers globals says
+                     * it is a global variable.
                      **/
                     setRegister(dst, if (stmt.metaData.getVal(SbfMeta.SET_GLOBAL) != null) {
                         getValueWithGlobals(src)
@@ -932,14 +895,11 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         globalState.memSummaries.visitSummary(locInst, vis)
     }
 
-    /** Update both [left] and [right] **/
-    private fun analyzeAssumeNumNum(
-        op: CondOp,
-        left: Value.Reg,
-        leftType: SbfType.NumType<TNum, TOffset>,
-        right: Value,
-        rightType: SbfType.NumType<TNum, TOffset>
-    ) {
+    private fun analyzeAssumeNumNum(op: CondOp,
+                                    left: Value.Reg,
+                                    leftType: SbfType.NumType<TNum, TOffset>,
+                                    right: Value,
+                                    rightType: SbfType.NumType<TNum, TOffset>) {
 
         val newLeftVal = leftType.value.filter(op, rightType.value)
         if (newLeftVal.isBottom()) {
@@ -958,49 +918,20 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         }
     }
 
-
-    /**
-     * Biased meet operation that prefers `this` over [other] when both are not top/bottom values
-     * This is a sound meet operation, but it is not the greatest lower bound
-     **/
-    private fun SbfType<TNum, TOffset>.leftBiasedMeet(
-        other: SbfType<TNum, TOffset>
-    ): SbfType<TNum, TOffset> {
-        return when {
-            isBottom() || other.isBottom() -> SbfType.bottom()
-            isTop() -> other
-            other.isTop() -> this
-            else -> this // biased towards `this`
-        }
-    }
-
-    /** Update [left] **/
-    private fun analyzeAssumeTopNonTop(
-        op: CondOp,
-        left: Value.Reg,
-        leftType: SbfType<TNum, TOffset>,
-        rightType: SbfType<TNum, TOffset>
-    ) {
-        check(leftType is SbfType.Top || rightType is SbfType.Top) {
-            "failed preconditions on analyzeAssumeTopNonTop"
-        }
-        check(!(leftType !is SbfType.Top && rightType !is SbfType.Top)) {
-            "failed preconditions on analyzeAssumeTopNonTop"
-        }
-
+    private fun analyzeAssumeTopNonTop(op: CondOp, left: Value.Reg, leftType: SbfType<TNum, TOffset>, rightType: SbfType<TNum, TOffset>) {
+        check(leftType is SbfType.Top || rightType is SbfType.Top) {"failed preconditions on analyzeAssumeTopNonTop"}
+        check(!(leftType !is SbfType.Top && rightType !is SbfType.Top)) {"failed preconditions on analyzeAssumeTopNonTop"}
         if (op == CondOp.EQ) {
-            setRegister(left, ScalarValue(leftType.leftBiasedMeet(rightType)))
+            if (leftType is SbfType.Top) {
+                setRegister(left, ScalarValue(rightType))
+            } else if (rightType is SbfType.Top) {
+                setRegister(left, ScalarValue(leftType))
+            }
         }
     }
 
-    /** Update both [left] and [right] **/
-    private fun analyzeAssumePtrPtr(
-        op: CondOp,
-        left: Value.Reg,
-        leftType: SbfType.PointerType<TNum, TOffset>,
-        right: Value.Reg,
-        rightType: SbfType.PointerType<TNum, TOffset>
-    ) {
+    private fun analyzeAssumePtrPtr(op: CondOp, left: Value.Reg, leftType: SbfType.PointerType<TNum, TOffset>,
+                                    right: Value.Reg, rightType: SbfType.PointerType<TNum, TOffset>) {
         if (leftType.samePointerType(rightType)) {
             val leftOffset = leftType.offset
             val rightOffset = rightType.offset
@@ -1045,87 +976,60 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         }
     }
 
-    /**
-     * Update the type for [reg] knowing that [reg] is uses in a conditional [op], and return that type.
-     **/
-    private fun updateTypeWithRefinement(reg: Value.Reg, op: CondOp): ScalarValue<TNum, TOffset> {
-        val old = getRegister(reg)
-        val new = ScalarValue(refineType(op,old.type()))
-        check(!new.isBottom()) {
-            "refinement should not return bottom"
-        }
-        if (!old.lessOrEqual(new)) {
-            // new is strictly more precise than old
-            setRegister(reg, new)
-        }
-        return new
-    }
-
     @TestOnly
     fun analyzeAssume(cond: Condition) {
-        check(!isBottom()) {"analyzeAssume cannot be called on bottom"}
-
         val op = cond.op
-        val left = cond.left
-        val right = cond.right
-        val leftAbsVal = updateTypeWithRefinement(left, op)
-        when (right) {
-            is Value.Imm -> {
-                val rightAbsVal = ScalarValue(sbfTypeFac.toNum(right.v))
-                when {
-                    leftAbsVal.type() is SbfType.NumType -> {
-                        analyzeAssumeNumNum(op,
-                            left,
-                            leftAbsVal.type() as SbfType.NumType,
-                            right,
-                            rightAbsVal.type() as SbfType.NumType)
-                    }
-                    leftAbsVal.type() is SbfType.PointerType -> {
-                        // do nothing: we can do better here if op is EQ
-                    }
-                    leftAbsVal.isTop() -> {
-                        /**
-                         * We assume that the left operand is a number,
-                         * although we don't really know at this point.
-                         **/
-                        analyzeAssumeTopNonTop(op, left, leftAbsVal.type(), rightAbsVal.type())
-                    }
-                    else -> {
-                        // do nothing
-                    }
-                }
+        val leftReg = cond.left
+        val rightVal = cond.right
+        check(!isBottom()) {"analyzeAssume cannot be called on bottom"}
+        val leftAbsValBefore = getRegister(leftReg)
+        val leftAbsVal = ScalarValue(refineType(op,leftAbsValBefore.type()))
+        if (!leftAbsValBefore.lessOrEqual(leftAbsVal)) {
+            // leftAbsVal is strictly more precise than leftAbsValBefore
+            setRegister(leftReg, leftAbsVal)
+        }
+        check(!leftAbsVal.isBottom()) {"analyzeAssume: leftAbsVal is bottom after refinement"}
+        if (rightVal is Value.Imm) {
+            val rightAbsVal = ScalarValue(sbfTypeFac.toNum(rightVal.v))
+            if (leftAbsVal.type() is SbfType.NumType) {
+                analyzeAssumeNumNum(op,
+                                    leftReg,
+                                    leftAbsVal.type() as SbfType.NumType,
+                                    rightVal,
+                                    rightAbsVal.type() as SbfType.NumType)
+            } else if (leftAbsVal.type() is SbfType.PointerType) {
+                // do nothing: we can do better here if op is EQ
+            } else if (leftAbsVal.isTop()) {
+                /**
+                 * We assume that the left operand is a number,
+                 * although we don't really know at this point.
+                 **/
+                analyzeAssumeTopNonTop(op, leftReg, leftAbsVal.type(), rightAbsVal.type())
             }
-            is Value.Reg -> {
-                val rightAbsVal = updateTypeWithRefinement(right, op)
-                when {
-                    leftAbsVal.isTop() && rightAbsVal.isTop() -> {
-                        // do nothing
-                    }
-                    leftAbsVal.isTop() || rightAbsVal.isTop() -> {
-                        analyzeAssumeTopNonTop(op, left, leftAbsVal.type(), rightAbsVal.type())
-                        analyzeAssumeTopNonTop(op, right, leftAbsVal.type(), rightAbsVal.type())
-                    }
-                    else -> {
-                        val leftType = leftAbsVal.type()
-                        val rightType = rightAbsVal.type()
-                        when {
-                            leftType is SbfType.NumType && rightType is SbfType.NumType -> {
-                                analyzeAssumeNumNum(op, left, leftType, right, rightType)
-                            }
-                            leftType is SbfType.PointerType && rightType is SbfType.NumType -> {
-                                // do nothing: note that comparing pointers and numbers is perfectly fine
-                            }
-                            leftType is SbfType.NumType && rightType is SbfType.PointerType -> {
-                                // do nothing: note that comparing pointers and numbers is perfectly fine
-                            }
-                            leftType is SbfType.PointerType && rightType is SbfType.PointerType -> {
-                                analyzeAssumePtrPtr(op, left, leftType, right, rightType)
-                            }
-                            else -> {
-                                // do nothing
-                            }
-                        }
-                    }
+        } else {
+            val rightAbsValBefore = getRegister(rightVal as Value.Reg)
+            val rightAbsVal = ScalarValue(refineType(op, rightAbsValBefore.type()))
+            if (!rightAbsValBefore.lessOrEqual(rightAbsVal)) {
+                // rightAbsVal is strictly more precise than rightAbsValBefore
+                setRegister(rightVal, rightAbsVal)
+            }
+            check(!rightAbsVal.isBottom()) {"analyzeAssume: rightAbsVal is bottom after refinement"}
+            if (leftAbsVal.isTop() && rightAbsVal.isTop()) {
+                // do nothing
+            } else if (leftAbsVal.isTop() || rightAbsVal.isTop()) {
+                analyzeAssumeTopNonTop(op, leftReg, leftAbsVal.type(), rightAbsVal.type())
+                analyzeAssumeTopNonTop(op, rightVal, leftAbsVal.type(), rightAbsVal.type())
+            } else {
+                val leftType = leftAbsVal.type()
+                val rightType = rightAbsVal.type()
+                if (leftType is SbfType.NumType && rightType is SbfType.NumType) {
+                    analyzeAssumeNumNum(op, leftReg, leftType, rightVal, rightType)
+                } else if (leftType is SbfType.PointerType && rightType is SbfType.NumType) {
+                    // do nothing: note that comparing pointers and numbers is perfectly fine
+                } else if (leftType is SbfType.NumType && rightType is SbfType.PointerType) {
+                    // do nothing: note that comparing pointers and numbers is perfectly fine
+                } else if (leftType is SbfType.PointerType && rightType is SbfType.PointerType) {
+                    analyzeAssumePtrPtr(op, leftReg, leftType, rightVal, rightType)
                 }
             }
         }
@@ -1146,50 +1050,34 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         forget(stmt.dst)
     }
 
+    private fun refineSelectCond(cond: Condition, other: ScalarDomain<TNum, TOffset>) {
+        fun refine(x: ScalarValue<TNum, TOffset>, y: ScalarValue<TNum, TOffset>) = if (x.isTop()) { y } else { x }
+        val left = cond.left
+        setRegister(left, refine(getValue(left), other.getValue(left)))
+        val right = cond.right
+        if (right is Value.Reg) {
+            setRegister(right, refine(getValue(right), other.getValue(right)))
+        }
+    }
+
+
     private fun analyzeSelect(stmt: SbfInstruction.Select) {
         check(!isBottom()) {"analyzeSelect cannot be called on bottom"}
 
-        // apply `assume(cond)` to `this`
-        val absValCondIsTrue = deepCopy().apply { analyzeAssume(stmt.cond) }
-
-        if (absValCondIsTrue.isBottom()) {
+        val trueAbsVal = deepCopy()
+        trueAbsVal.analyzeAssume(stmt.cond)
+        if (trueAbsVal.isBottom()) {
             setRegister(stmt.dst, getValue(stmt.falseVal))
         } else {
-            // apply `assume(not(cond))` to `this`
-            val absValCondIsFalse = deepCopy().apply { analyzeAssume(stmt.cond.negate()) }
-
-            if (absValCondIsFalse.isBottom()) {
+            val falseAbsVal = deepCopy()
+            falseAbsVal.analyzeAssume(stmt.cond.negate())
+            if (falseAbsVal.isBottom()) {
                 setRegister(stmt.dst, getValue(stmt.trueVal))
             } else {
-
-                // 1. refine types of the registers appearing on the select's condition
-                val cond = stmt.cond
-                val leftOp = cond.left
-                val rightOp = cond.right
-                val condOp = cond.op
-
-                updateTypeWithRefinement(leftOp, condOp)
-                (rightOp as? Value.Reg)?.let { updateTypeWithRefinement(it, condOp) }
-
-                // 2. Apply the rules
-                // - t=top and f=num(!=0) -> lhs=num
-                // - t=num(!=0) and f=top -> lhs=num
-                // - else                 -> lhs=join(f, t)
-
-                val falseScalar = getValue(stmt.falseVal)
-                val trueScalar = getValue(stmt.trueVal)
-                val falseType = falseScalar.type()
-                val trueType = trueScalar.type()
-
-                val rhsAbsVal = when {
-                    falseType is SbfType.Top && trueType.mustBeNumber() ->
-                        ScalarValue(sbfTypeFac.anyNum())
-                    falseType.mustBeNumber() && trueType is SbfType.Top ->
-                        ScalarValue(sbfTypeFac.anyNum())
-                    else ->
-                        falseScalar.join(trueScalar)
-                }
-                setRegister(stmt.dst, rhsAbsVal)
+                refineSelectCond(stmt.cond, trueAbsVal.join(falseAbsVal))
+                setRegister(stmt.dst,
+                            getValue(stmt.falseVal)
+                                .join(getValue(stmt.trueVal)))
             }
         }
     }
@@ -1197,9 +1085,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
     private fun forgetOrNum(v: Value.Reg, isNum: Boolean) {
         if (isNum) {
             // This should be always a "weak" read because we can read twice from the same memory location
-            // but one loaded value can be considered as non-pointer because it's never de-referenced
-            // but the other one can be de-referenced. Since the scalar domain is non-relation all reads
-            // are weak anyway.
+            // but one loaded value can be considered as non-pointer because it's never de-referenced but the other one can be de-referenced.
+            // Since the scalar domain is non-relation all reads are weak anyway.
             setRegister(v, ScalarValue(sbfTypeFac.anyNum()))
         } else {
             forget(v)
@@ -1293,13 +1180,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                             if (isLoad) {
                                 forgetOrNum(value as Value.Reg, loadedAsNumForPTA)
                             } else {
-                                throw UnknownStackPointerError(
-                                    DevErrorInfo(
-                                        locInst,
-                                        PtrExprErrReg(baseReg),
-                                        "store: $stmt to unknown stack location"
-                                    )
-                                )
+                                throw UnknownStackPointerError(DevErrorInfo(locInst, PtrExprErrReg(baseReg), "store: $stmt to unknown stack location"))
                             }
                         } else {
                             val stackOffsets = stackTOffsets.toLongList()
@@ -1331,9 +1212,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
                                     stackOffsets.forEach {
                                         val slice = ByteRange(it, width.toByte())
                                         // onlyPartial=true + isWeak=true means that
-                                        // if slice is already in `stack` then its value is not removed and
-                                        // `stack.put` will do a weak update with `value`.
-                                        // Any other overlapping entry will be removed by `killOffsets`
+                                        //   if slice is already in `stack` then its value is not removed and `stack.put` will do a weak update with `value`.
+                                        //   Any other overlapping entry will be removed by `killOffsets`
                                         base.removeStackSliceIf(slice.offset, slice.width.toLong(), onlyPartial = true)
                                         base.updateStack(slice, getValue(value), isWeak = true)
                                     }

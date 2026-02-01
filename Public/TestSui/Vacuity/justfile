@@ -1,5 +1,0 @@
-build:
-    sui move build --test
-
-run: build
-    certoraSuiProver.py Single.conf
