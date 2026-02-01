@@ -18,6 +18,7 @@
 package rules.genericrulecheckers
 
 import analysis.ip.SafeCastingAnnotator.CastingKey
+import analysis.ip.SafeCastingAnnotator.SafeCastInfo
 import datastructures.stdcollections.*
 import evm.EVM_MOD_GROUP256
 import evm.twoToThe
@@ -44,6 +45,37 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
 
     private val txf = TACExprFactUntyped
 
+    private fun allCasts(code : CoreTACProgram) =
+        code.parallelLtacStream()
+            .mapNotNull { it.ptr `to?` it.cmd.maybeAnnotation(CastingKey) }
+            .collect(Collectors.toList())
+
+    private fun castIsSafeExp(info: SafeCastInfo): TACExpr? {
+        val (fromType, toType, sym, _) = info
+        // if we go from a type to a wider one, no chance this will fail.
+        // the second case is when we cast an unsigned narrow int to a wider signed int.
+        if ((toType.isSigned == fromType.isSigned && fromType.width <= toType.width) ||
+            (!fromType.isSigned && toType.isSigned && fromType.width < toType.width)
+        ) {
+            return null
+        }
+        return txf {
+            val w = toType.width
+            when (fromType.isSigned to toType.isSigned) {
+                true to true -> LOr(
+                    Le(sym.asSym(), (twoToThe(w - 1) - 1).asTACExpr),
+                    Ge(sym.asSym(), (EVM_MOD_GROUP256 - twoToThe(w - 1)).asTACExpr)
+                )
+
+                false to false -> Le(sym.asSym(), (twoToThe(w) - 1).asTACExpr)
+                true to false -> Le(sym.asSym(), (twoToThe(w - 1) - 1).asTACExpr)
+                false to true -> Le(sym.asSym(), (twoToThe(w - 1) - 1).asTACExpr)
+                else -> `impossible!`
+            }
+        }
+    }
+
+
     /**
      * Returns pairs of programs, one for each cast:
      *  1. The cast being replaced by an assert that checks if the cast is in range.
@@ -51,32 +83,10 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
      * Each such pair is accompanied with the source information for the original assert.
      */
     private fun replaceCastsWithAsserts(originalCode: CoreTACProgram): List<Pair<SimplePair<CoreTACProgram>, Range.Range?>> {
-        val casts = originalCode.parallelLtacStream()
-            .mapNotNull { it.ptr `to?` it.cmd.maybeAnnotation(CastingKey) }
-            .collect(Collectors.toList())
-        return casts.mapNotNull { (ptr, info) ->
-            val (fromType, toType, sym, range) = info
-            // if we go from a type to a wider one, no chance this will fail.
-            // the second case is when we cast an unsigned narrow int to a wider signed int.
-            if ((toType.isSigned == fromType.isSigned && fromType.width <= toType.width) ||
-                (!fromType.isSigned && toType.isSigned && fromType.width < toType.width)
-            ) {
-                return@mapNotNull null
-            }
-            val exp = txf {
-                val w = toType.width
-                when (fromType.isSigned to toType.isSigned) {
-                    true to true -> LOr(
-                        Le(sym.asSym(), (twoToThe(w - 1) - 1).asTACExpr),
-                        Ge(sym.asSym(), (EVM_MOD_GROUP256 - twoToThe(w - 1)).asTACExpr)
-                    )
-
-                    false to false -> Le(sym.asSym(), (twoToThe(w) - 1).asTACExpr)
-                    true to false -> Le(sym.asSym(), (twoToThe(w - 1) - 1).asTACExpr)
-                    false to true -> Le(sym.asSym(), (twoToThe(w - 1) - 1).asTACExpr)
-                    else -> `impossible!`
-                }
-            }
+        return allCasts(originalCode).mapNotNull { (ptr, info) ->
+            val (fromType, toType, _, range) = info
+            val exp = castIsSafeExp(info)
+                ?: return@mapNotNull null
             val patcher = originalCode.toPatchingProgram()
             val sanityPatcher = originalCode.toPatchingProgram()
 
@@ -95,6 +105,22 @@ object SafeCastingChecker : BuiltInRuleCustomChecker<SafeCastingGenerator>() {
             val code = patcher.toCode(originalCode)
             val sanityCode = sanityPatcher.toCode(originalCode)
             (code to sanityCode) to range
+        }
+    }
+
+    fun assumeNoCastOverflows(code: CoreTACProgram): CoreTACProgram {
+        val patcher = code.toPatchingProgram()
+        var found = false
+        for ((ptr, info) in allCasts(code)) {
+            val exp = castIsSafeExp(info)
+                ?: continue
+            found = true
+            patcher.update(ptr, TACCmd.Simple.AssumeExpCmd(exp))
+        }
+        return if (found) {
+            patcher.toCode(code)
+        } else {
+            code
         }
     }
 

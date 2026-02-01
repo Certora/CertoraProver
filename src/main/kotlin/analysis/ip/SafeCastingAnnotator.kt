@@ -61,7 +61,7 @@ object SafeCastingAnnotator {
      * builtin rule.
      */
     fun annotate(code: CoreTACProgram): CoreTACProgram {
-        if (!Config.SafeCastingBuiltin.get()) {
+        if (!Config.SafeCastingBuiltin.get() && !Config.AssumeNoCastOverflow.get()) {
             return code
         }
         val g = code.analysisCache.graph
