@@ -1043,4 +1043,46 @@ fun test09() {
         Assertions.assertEquals(true, checkMemcpy(cfg))
         Assertions.assertEquals(true, getNumOfLoads(cfg) == 1)
     }
+
+    /**
+     * ```
+     *   r6 = *(u64 *) (r10 - 300)
+     *   r1 = 5
+     *   CVT_save_scratch_registers
+     *   r0 = r1
+     *   r0 = r0 + 1
+     *   CVT_restore_scratch_registers
+     *   *(u64 *) (r10 -64) = r6
+     * ```
+     **/
+
+    @Test
+    fun `load and store via a scratch register with function in between`() {
+        val cfg = SbfTestDSL.makeCFG("entrypoint") {
+            bb(0) {
+                BinOp.ADD(r10, 4096)
+                r6 = r10[-300]
+                r1 = 5
+                push("foo", 1UL)
+                BinOp.ADD(r10, 4096)
+                r0 = r1
+                BinOp.ADD(r0, 1)
+                BinOp.SUB(r10, 4096)
+                pop("foo", 1UL)
+                r10[-64] = r6
+                exit()
+            }
+        }
+
+        val scalarAnalysis = ScalarAnalysis(cfg, globals, memSummaries, sbfTypesFac)
+        println("Before transformation\n$cfg")
+        ConfigScope(SolanaConfig.OptimisticMemcpyPromotion, true).use {
+            promoteStoresToMemcpy(cfg, scalarAnalysis)
+        }
+        println("After transformation\n$cfg")
+        removeUselessDefinitions(cfg)
+        println("After remove useless loads transformation\n$cfg")
+        Assertions.assertEquals(true, checkMemcpy(cfg))
+    }
+
 }

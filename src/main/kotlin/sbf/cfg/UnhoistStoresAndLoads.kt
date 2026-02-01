@@ -17,8 +17,6 @@
 
 package sbf.cfg
 
-import sbf.callgraph.CVTCore
-import sbf.callgraph.CVTFunction
 import sbf.disassembler.*
 
 /**
@@ -37,9 +35,7 @@ fun unhoistStoresAndLoads(cfg: MutableSbfCFG, globals: GlobalVariables, maxNumOf
                 if (i >= maxNumOfUnhoistedInsts) {
                     break
                 }
-                if (inst is SbfInstruction.Call &&
-                    (CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS) ||
-                        CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS))) {
+                if (inst.isSaveScratchRegisters() || inst.isRestoreScratchRegisters()) {
                     // we don't want to unhoist these instructions, so we bail out
                     break
                 }

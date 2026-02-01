@@ -78,7 +78,7 @@ context(SbfCFGToTAC<TNum, TOffset, TFlags>)
 fun<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> SbfInstruction.Call.toStartInlinedAnnotation(
     locInst: LocatedSbfInstruction
 ): SbfInlinedFuncStartAnnotation? {
-    if (CVTFunction.from(name) != CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
+    if (!isSaveScratchRegisters()) {
         return null
     }
     val fnName = metaData.getVal(SbfMeta.INLINED_FUNCTION_NAME) ?: return null

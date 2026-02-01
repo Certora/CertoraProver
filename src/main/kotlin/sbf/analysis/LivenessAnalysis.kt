@@ -75,8 +75,7 @@ class LivenessAnalysis(graph: SbfCFG) :
     }
 
     private fun getFunctionId(inst: SbfInstruction.Call): ULong {
-        check(CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS) ||
-            CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS))
+        check(inst.isSaveScratchRegisters() || inst.isRestoreScratchRegisters())
         {"Precondition of getFunctionId failed"}
         val id = inst.metaData.getVal(SbfMeta.CALL_ID)
         check(id != null ) {"getFunctionId expects $inst to have IDs"}
@@ -94,7 +93,7 @@ class LivenessAnalysis(graph: SbfCFG) :
             Value.Reg(SbfRegister.R9)
         )
 
-        return  if (CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
+        return  if (call.isRestoreScratchRegisters()) {
             // kill scratch registers and remember the live scratch registers at this point
             val newLiveScratchRegsAfterFunction = inState.liveScratchRegsAfterFunction + (getFunctionId(call) to inState.registers.intersect(scratchRegs))
             genAndKill(inState.copy(liveScratchRegsAfterFunction = newLiveScratchRegsAfterFunction),
@@ -107,8 +106,7 @@ class LivenessAnalysis(graph: SbfCFG) :
     }
 
     private fun transformCall(inState: LiveState, call: SbfInstruction.Call, cmd: LocatedSbfInstruction): LiveState {
-        return if (CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS) ||
-                  CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
+        return if (call.isSaveScratchRegisters() || call.isRestoreScratchRegisters()) {
             transformScratchRegisterOp(inState, call, cmd)
         } else if (call.isAllocFn()) {
             genAndKill(inState,

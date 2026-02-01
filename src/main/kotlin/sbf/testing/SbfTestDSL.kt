@@ -21,6 +21,7 @@ import sbf.cfg.*
 import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
 import datastructures.stdcollections.*
+import sbf.callgraph.CVTCore
 import kotlin.reflect.KProperty
 
 /**
@@ -271,6 +272,24 @@ object SbfTestDSL {
 
         fun assert(c: Condition) {
             SbfInstruction.Assert(c).push()
+        }
+
+        fun push(callName: String, callId: ULong) {
+            val metaData = MetaData().plus(
+                SbfMeta.CALL_ID to callId
+            ).plus(
+                SbfMeta.INLINED_FUNCTION_NAME to callName
+            )
+            SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData).push()
+        }
+
+        fun pop(callName: String, callId: ULong) {
+            val metaData = MetaData().plus(
+                SbfMeta.CALL_ID to callId
+            ).plus(
+                SbfMeta.INLINED_FUNCTION_NAME to callName
+            )
+            SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name, metaData = metaData).push()
         }
 
         fun exit() {

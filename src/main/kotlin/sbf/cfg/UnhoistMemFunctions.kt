@@ -19,9 +19,7 @@ package sbf.cfg
 
 import sbf.disassembler.SbfRegister
 import sbf.disassembler.Label
-import sbf.callgraph.CVTFunction
 import datastructures.stdcollections.*
-import sbf.callgraph.CVTCore
 import sbf.callgraph.SolanaFunction
 
 data class UnhoistHeuristics(
@@ -135,9 +133,7 @@ private fun findUnhoistMemFunCandidates(
         }
 
         if (inst is SbfInstruction.Call) {
-            val cvtFunction = CVTFunction.from(inst.name)
-            if (cvtFunction == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)  ||
-                cvtFunction == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
+            if (inst.isSaveScratchRegisters() || inst.isRestoreScratchRegisters()) {
                 // We don't want to unhoist these instructions, we bail out.
                 break
             }
@@ -191,14 +187,12 @@ private fun findUnhoistPromotedMemcpyCandidates(
 }
 
 private fun isStartPromotedMemcpy(inst: SbfInstruction) =
-        inst is SbfInstruction.Call &&
-        CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS) &&
+        inst.isSaveScratchRegisters()  &&
         inst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
 
 
 private fun isEndPromotedMemcpy(inst: SbfInstruction) =
-        inst is SbfInstruction.Call &&
-        CVTFunction.from(inst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS) &&
+        inst.isRestoreScratchRegisters() &&
         inst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
 
 /** Do the actual program transformation **/
