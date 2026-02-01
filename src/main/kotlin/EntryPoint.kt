@@ -607,7 +607,7 @@ sealed interface CompiledGenericRule {
                    created earlies.
                  */
                 this.rule.ruleType !is SpecType.Single.GeneratedFromBasicRule.SanityRule.VacuityCheck) {
-                TACSanityChecks.analyse(scene, this.rule, this.code, vRes, treeView)
+                TACSanityChecks(vacuityCheckLevel = SanityValues.ADVANCED).analyse(scene, this.rule, this.code, vRes, treeView)
             }
 
             if (vRes.unsatCoreSplitsData != null) {
