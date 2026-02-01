@@ -4251,7 +4251,19 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             unifications.forEach { (leftSc, rightSc) ->
                 val leftC = concretizeCell(leftSc, "memcpy", null)
                 val rightC = concretizeCell(rightSc, "memcpy", null)
-                leftC.unify(rightC)
+
+                @Suppress("SwallowedException")
+                try {
+                    leftC.unify(rightC)
+                } catch (e: PointerDomainError) {
+                    throw StackCannotBeScalarizedAfterMemcpyError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(Value.Reg(SbfRegister.R2_ARG)),
+                            msg= "cannot scalarize stack after memcpy"
+                        )
+                    )
+                }
             }
         }
 
