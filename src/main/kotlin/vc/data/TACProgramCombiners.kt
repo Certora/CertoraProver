@@ -273,7 +273,7 @@ internal fun codeFromListOfCommands(
     rootId,
     cmds,
     name,
-    TACSymbolTable.withTags(TACUtils.tagsFromList(cmds))
+    TACSymbolTable.withVars(TACUtils.tagsFromList(cmds))
 )
 
 

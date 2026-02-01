@@ -218,7 +218,7 @@ class IntervalAnalysisPropertyTest {
         val block = allocer.freshBlock()
         blocks[block] = treapSetOf()
         code[block] = cmds
-        return TACCommandGraph(blocks, code, TACSymbolTable.withTags(dom), name = "test")
+        return TACCommandGraph(blocks, code, TACSymbolTable.withVars(dom), name = "test")
     }
 
     private fun SimpleQualifiedIntState.declareVars(script: SmtExpScriptBuilder) {

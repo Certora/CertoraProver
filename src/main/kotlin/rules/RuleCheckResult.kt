@@ -645,7 +645,7 @@ sealed class RuleCheckResult(open val rule: IRule) {
 
                 companion object {
 
-                    private fun allSymbolsInProgram(program: CoreTACProgram) = program.symbolTable.tags.keys
+                    private fun allSymbolsInProgram(program: CoreTACProgram) = program.symbolTable.vars
 
                     /**
                      * finds all contracts in [programVars], then returns a map where the keys are the addresses

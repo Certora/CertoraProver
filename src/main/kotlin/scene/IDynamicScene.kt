@@ -227,7 +227,7 @@ interface IDynamicScene : IScene {
                 procedures = orig.procedures.mapTo(mutableSetOf()) { proc ->
                     cloneRemapper.remapProcedure(state = state, proc)
                 },
-                symbolTable = TACSymbolTable.withTags(vars),
+                symbolTable = TACSymbolTable.withVars(vars),
                 name = newProgName,
                 instrumentationTAC = orig.instrumentationTAC
             )

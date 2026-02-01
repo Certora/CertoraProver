@@ -816,23 +816,21 @@ open class PatchingTACProgram<T : TACCmd> protected constructor(
 
     }
 
-    protected fun buildNewTags(symbolTable: TACSymbolTable, ufs: Set<FunctionInScope.UF>): Tags<TACSymbol.Var> {
-        val newTagsBuilder = symbolTable.tags.builder()
-        replacedVarDecls.values.forEach {
-            newTagsBuilder[it] = it.tag
-        }
-        newTagsBuilder.mergeTags(newVarDecls)
+    protected fun buildNewVars(symbolTable: TACSymbolTable, ufs: Set<FunctionInScope.UF>): TreapSet<TACSymbol.Var> {
+        var newVars = symbolTable.vars
+        newVars -= replacedVarDecls.keys
+        newVars += replacedVarDecls.values
+        newVars += newVarDecls
 
         // add tags for the uninterpreted functions to the type scope; but only if they're not explicitly replaced -- then they already have a tag
-        val newTagsSmtReps = newTagsBuilder.build().keys.mapToSet { it.smtRep }
+        val newTagsSmtReps = newVars.mapToSet { it.smtRep }
         ufs.forEach { uf ->
             if (uf.name !in newTagsSmtReps) {
-                val tag = uf.asTag
-                newTagsBuilder[TACSymbol.Var(uf.name, tag)] = tag
+                newVars += TACSymbol.Var(uf.name, uf.asTag)
             }
         }
 
-        return newTagsBuilder.build()
+        return newVars
     }
 
     fun <R : TACProgram<T>> toCode(base: R, empty: T? = null): R {
@@ -850,11 +848,11 @@ open class PatchingTACProgram<T : TACCmd> protected constructor(
 
         val newUfs = base.symbolTable.uninterpretedFunctions().mapToSet { replacedScalarUfs[it] ?: it } + newUfs - ufsToDrop
 
-        val newTags = buildNewTags(base.symbolTable, newUfs)
+        val newVars = buildNewVars(base.symbolTable, newUfs)
 
         val newTACSymbolTable = TACSymbolTable(
             userDefinedTypes = base.symbolTable.userDefinedTypes + newUninterpretedSorts,
-            tags = newTags,
+            vars = newVars,
             uninterpretedFunctions = newUfs,
             globalScope = base.symbolTable.globalScope
         )
@@ -1222,7 +1220,7 @@ fun <T : TACCmd> PatchingTACProgram<T>.addCode(code: TACProgram<T>, retPoint: NB
     addCodeToGraph(sink, listOf(TACCmd.Simple.JumpCmd(retPoint)).uncheckedAs())
     blockgraph[sink] = treapSetOf(retPoint)
 
-    addVarDecls(code.symbolTable.tags.asSequence().toMap().keys) // need to take into account the overrides, @jtoman?
+    addVarDecls(code.symbolTable.vars)
     if(code is IProcedural) {
         procedures.addAll(code.procedures)
     }

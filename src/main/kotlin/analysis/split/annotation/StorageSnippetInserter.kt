@@ -234,7 +234,7 @@ sealed class StorageSnippetInserter(protected val patcher: SimplePatchingProgram
                 val patcher = ConcurrentPatchingProgram(code)
 
                 fun takeValueSym(s: TACSymbol) =
-                    s is TACSymbol.Const || (s is TACSymbol.Var && s in code.symbolTable.tags)
+                    s is TACSymbol.Const || (s is TACSymbol.Var && s in code.symbolTable)
 
                 /** give raw snippets to the loads and stores that were not annotated otherwise */
                 code.parallelLtacStream()

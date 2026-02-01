@@ -89,7 +89,7 @@ class ArrayAnalysisTest : SolidityContractTest {
                 name = "test",
                 blockgraph = graph.toBlockGraph(),
                 procedures = emptySet(),
-                symbolTable = TACSymbolTable.withTags(TACUtils.tagsFromBlocks(graph.code)),
+                symbolTable = TACSymbolTable.withVars(TACUtils.tagsFromBlocks(graph.code)),
                 ufAxioms = UfAxioms.empty()
         )
         val x = InitAnnotation.annotateInitializationWindows(coreProgram)

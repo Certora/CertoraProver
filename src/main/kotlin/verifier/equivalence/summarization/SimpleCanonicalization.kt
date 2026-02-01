@@ -285,7 +285,7 @@ class SimpleCanonicalization private constructor(
         }
         val canonProgram = CoreTACProgram(blockgraph = blockGraph.mapValuesTo(LinkedArrayHashMap()) {
             it.value.toTreapSet()
-        }, code = code, check = true, instrumentationTAC = InstrumentationTAC(UfAxioms.empty()), symbolTable = TACSymbolTable.withTags(canonVars.values.toSet()), procedures = setOf(), name = "canon")
+        }, code = code, check = true, instrumentationTAC = InstrumentationTAC(UfAxioms.empty()), symbolTable = TACSymbolTable.withVars(canonVars.values.toTreapSet()), procedures = setOf(), name = "canon")
         return CanonicalProgram(canonProgram, variableMapping = {
             canonVars[it.namePrefix]
         })

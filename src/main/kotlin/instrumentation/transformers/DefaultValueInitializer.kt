@@ -73,7 +73,7 @@ object DefaultValueInitializer {
                 code.rootBlock.commands.first().ptr,
                 newVars.map(::AssignHavocCmd)
             )
-            patcher.addVarDecls(newVars - code.symbolTable.tags.keys)
+            patcher.addVarDecls(newVars)
         }
     }
 

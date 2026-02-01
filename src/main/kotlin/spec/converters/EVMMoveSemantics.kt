@@ -379,7 +379,7 @@ object EVMMoveSemantics : EVMTypeDescriptor.ConverstionSemantics, SafeMathCodeGe
             }
             else -> src
         }
-        val tmp = dest.copy(tag = srcTag).toUnique(".")
+        val tmp = dest.updateTagUnique(srcTag, ".")
         return listOf(cb(TACCmd.Simple.AssigningCmd.AssignExpCmd(tmp, srcExp)) as TACCmd.Simple)
             .withDecls(src.getFreeVarsAsSyms().map { sym -> sym.s }, dest)
             .merge(ValueConverters.convertValueTypeToCVL(dest, destType, tmp, srcType))

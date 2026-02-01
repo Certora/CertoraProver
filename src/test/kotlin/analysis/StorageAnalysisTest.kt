@@ -1819,7 +1819,7 @@ class StorageAnalysisTest : SingleMethodTest {
             cfg.code,
             cfg.blockGraph,
             "TestProg",
-            TACSymbolTable.withTags(setOf(
+            TACSymbolTable.withVars(setOf(
                 TACSymbol.Var("L1020", Tag.Bool),
                 TACSymbol.Var("L1021", Tag.Bit256),
                 TACKeyword.STORAGE.toVar()

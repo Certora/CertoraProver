@@ -279,7 +279,7 @@ class BoolOptimizer(val code: CoreTACProgram) {
 
     companion object {
         internal fun boolify(v: TACSymbol.Var) =
-            v.copy(tag = Tag.Bool, meta = v.meta.plus(TACMeta.REPLACED_WITH_BOOL)).withSuffix("!boolified")
+            v.updateTag(Tag.Bool, "boolified", meta = v.meta.plus(TACMeta.REPLACED_WITH_BOOL))
 
         val BigInteger.canBeBool
             get() = this == BigInteger.ZERO || this == BigInteger.ONE

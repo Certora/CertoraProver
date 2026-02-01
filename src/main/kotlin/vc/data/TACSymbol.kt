@@ -369,18 +369,19 @@ sealed class TACSymbol : ITACSymbol, Tagged, TransformableSymEntity<TACSymbol>, 
             if (other !is Var) return false
             if (namePrefix != other.namePrefix) return false
             if (callIndex != other.callIndex) return false
+            if (tag != other.tag) return false
             return true
         }
 
         override fun hashCode(): Int {
             var result: Int = namePrefix.hashCode()
             result = 31 * result + callIndex.hashCode()
+            result = 31 * result + tag.hashCode()
             return result
         }
 
         fun copy(
             namePrefix: String = this.namePrefix,
-            tag: Tag = this.tag,
             meta: MetaMap = this.meta
         ) = Var(namePrefix, tag, callIndex, meta)
 
@@ -398,8 +399,12 @@ sealed class TACSymbol : ITACSymbol, Tagged, TransformableSymEntity<TACSymbol>, 
 
         // methods for creating new [Var]s
 
-        fun updateTagCopy(t: Tag): Var {
-            return this.copy(tag = t)
+        fun updateTag(tag: Tag, suffix: String, sep: String = "!", meta: MetaMap = this.meta): Var {
+            return Var(tag = tag, namePrefix = "$namePrefix$sep$suffix", callIndex = callIndex, meta = meta)
+        }
+
+        fun updateTagUnique(tag: Tag, sep: String = "!", meta: MetaMap = this.meta): Var {
+            return Var(tag = tag, namePrefix = namePrefix, callIndex = callIndex, meta = meta).toUnique(sep)
         }
 
         fun convertBoolToNumber(): TACExpr {

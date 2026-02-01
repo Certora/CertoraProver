@@ -615,13 +615,14 @@ data class CanonicalTACProgram<T : TACCmd.Spec, E : ShouldErase>(
             val uninterpretedFunctions =
                 tac.symbolTable.uninterpretedFunctions().mapToSet { table.mapUF(it) }
 
-            val tags = Tags(
+            val vars =
                 newBlocks.values.asSequence()
                     .flatMap { cmds -> cmds.flatMap { it.getFreeVarsOfRhs() } + cmds.mapNotNull { it.getLhs() } }
-                    .toSet() + canonAxioms.values.asSequence().flatten()
-                    .flatMap { it.exp.getFreeVars() })
+                    .toTreapSet() + canonAxioms.values.asSequence().flatten()
+                    .flatMap { it.exp.getFreeVars() }
+                    .toTreapSet()
             val newTACSymbolTable =
-                TACSymbolTable(userDefinedTypes, uninterpretedFunctions, tags, mapOf())
+                TACSymbolTable(userDefinedTypes, uninterpretedFunctions, vars, mapOf())
 
             return CanonicalTACProgram(
                 code = newBlocks,
@@ -868,7 +869,7 @@ data class CVLTACProgram(
     fun addSink(cmds: CommandWithRequiredDecls<TACCmd.Spec>, env: CVLCompiler.CallIdContext): Pair<CVLTACProgram, NBId> {
         val newBlockId = env.newBlockId()
         val newCode = code.plus(Pair(newBlockId, cmds.cmds))
-        val newDecls = cmds.varDecls.toSet()
+        val newDecls = cmds.varDecls
         val newGraph = MutableBlockGraph(blockgraph)
         getEndingBlocks().forEach {
             newGraph.put(it, treapSetOf(newBlockId))
@@ -878,7 +879,7 @@ data class CVLTACProgram(
         return this.copy(
             code = newCode,
             blockgraph = newGraph,
-            symbolTable = this.symbolTable.mergeDecls(Tags(newDecls))
+            symbolTable = this.symbolTable.mergeDecls(newDecls)
         ) to newBlockId
     }
 
@@ -1281,11 +1282,11 @@ class CoreTACProgram private constructor(
             return _analysisCache!!
         }
 
-    fun copyWithPatchingAndTags(copy: PatchingTACProgram<TACCmd.Simple>, tags: Tags<TACSymbol.Var>): CoreTACProgram {
+    fun copyWithPatchingAndTags(copy: PatchingTACProgram<TACCmd.Simple>, vars: TreapSet<TACSymbol.Var>): CoreTACProgram {
         val (code, block) = copy.toCode(TACCmd.Simple.NopCmd)
         return copy(
             code = code, blockgraph = block,
-            symbolTable = symbolTable.copy(tags = symbolTable.tags.overwriteTags(tags)),
+            symbolTable = symbolTable.copy(vars = symbolTable.vars + vars),
             check = true
         )
     }
@@ -1366,7 +1367,7 @@ class CoreTACProgram private constructor(
     companion object {
         data class CopyMapperState(
             val targetCallIndex: CallId,
-            val tags: Tags.Builder<TACSymbol.Var>,
+            val tags: TreapSet.Builder<TACSymbol.Var>,
             val idMap: MutableMap<Pair<Any, Int>, Int>,
             val remapCallSummary: Boolean
         )
@@ -1390,7 +1391,7 @@ class CoreTACProgram private constructor(
         val copyRemapper = CodeRemapper(
             variableMapper = { state, v ->
                 v.also {
-                    state.tags.set(it, it.tag)
+                    state.tags += it
                 }
             },
             callIndexStrategy = object : CodeRemapper.CallIndexStrategy<CopyMapperState> {
@@ -1594,7 +1595,7 @@ class CoreTACProgram private constructor(
     ) : Pair<CoreTACProgram, (Allocator.Id, Int) -> Int> {
         val idMap = mutableMapOf<Pair<Any, Int>, Int>()
         val state = CopyMapperState(
-            tags = tagsBuilder(),
+            tags = treapSetBuilderOf(),
             idMap = idMap,
             targetCallIndex = id,
             remapCallSummary = remapCallSummary
@@ -1613,7 +1614,7 @@ class CoreTACProgram private constructor(
             newBlocks,
             newGraph,
             name,
-            symbolTable.copy(tags = state.tags.build()),
+            symbolTable.copy(vars = state.tags.build()),
             instrumentationTAC,
             procedures
         ).prependToBlock0(listOf(TACCmd.Simple.LabelCmd("Start procedure $name")))
@@ -1720,7 +1721,6 @@ class CoreTACProgram private constructor(
     fun addSinkMainCall(cmds: CommandWithRequiredDecls<TACCmd.Simple>): Pair<CoreTACProgram, NBId> {
         val newBlockId = Allocator.getNBId()
         val newCode = code.plus(Pair(newBlockId, cmds.cmds))
-        val newDecls = Tags(cmds.varDecls)
         val newGraph = MutableBlockGraph(blockgraph)
         getEndingBlocks().forEach {
             newGraph.put(it, treapSetOf(newBlockId))
@@ -1730,7 +1730,7 @@ class CoreTACProgram private constructor(
         return this.copy(
             code = newCode,
             blockgraph = newGraph,
-            symbolTable = this.symbolTable.mergeDecls(newDecls)
+            symbolTable = this.symbolTable.mergeDecls(cmds.varDecls)
         ) to newBlockId
     }
 

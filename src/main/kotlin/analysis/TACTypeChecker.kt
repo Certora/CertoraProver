@@ -340,17 +340,13 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
     }
 
     fun checkExists(v: TACSymbol.Var, ptr: CmdPointer) {
-        // check tag matches
-        val currTag = symbolTable.tags[v]
-        if (currTag == null) {
+        if (v !in symbolTable) {
             if (v !in missingDeclarations) {
                 missingDeclarations.add(v)
                 // reporting only 1 time
                 addError("The variable $v @$ptr is not declared in this program")
                 Thread.dumpStack()
             }
-        } else if (currTag != v.tag) {
-            addError("The variable $v @$ptr is expected to have tag $currTag")
         }
     }
 
@@ -680,7 +676,7 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
 
         fun checkSymbol(e: Sym.Var): CollectingResult<Sym.Var, String> =
             checkTag(e.s.tag).bind { tag ->
-                e.copy(s = e.s.copy(tag = tag), tag = tag).lift()
+                e.copy(tag = tag).lift()
             }
 
         return when (e) {
@@ -688,8 +684,8 @@ class TACTypeChecker(private val symbolTable: TACSymbolTable, private val allowT
                 typeCheck(e.body).bind { bodyTypeChecked ->
                     val bodyTag = bodyTypeChecked.tagAssumeChecked
                     e.quantifiedVars.map { v ->
-                        checkTag(v.tag).bind { tag ->
-                            v.copy(tag = tag).lift()
+                        checkTag(v.tag).bind {
+                            v.lift()
                         }
                     }
                         .flatten().bind { argsTypeChecked ->

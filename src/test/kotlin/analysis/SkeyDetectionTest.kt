@@ -20,6 +20,7 @@ package analysis
 import analysis.skeyannotation.AnnotateSkeyBifs
 import annotation.SolidityConfigMatrix
 import annotation.SolidityVersion
+import com.certora.collect.*
 import datastructures.stdcollections.*
 import io.mockk.every
 import io.mockk.mockk
@@ -32,7 +33,6 @@ import scene.IScene
 import solver.SolverResult
 import tac.StartBlock
 import tac.Tag
-import tac.Tags
 import utils.*
 import vc.data.*
 import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
@@ -81,7 +81,7 @@ private val ghostMapStore =
         val x = TACSymbol.Var("x", Tag.Bit256)
         val a = TACSymbol.Var("a", Tag.Bool)
 
-        val symbolTable = TACSymbolTable().copy(tags = Tags(setOf(m0, m1, s, v, x, a)), userDefinedTypes = setOf(skeySort))
+        val symbolTable = TACSymbolTable().copy(vars = treapSetOf(m0, m1, s, v, x, a), userDefinedTypes = setOf(skeySort))
         val txf = TACExprFactTypeChecked(symbolTable)
 
         codeFromListOfCommands(
@@ -159,7 +159,7 @@ internal class SkeyDetectionTest : SingleMethodTest, TACBuilderAuxiliaries() {
         val r1 = TACSymbol.Var("R1", Tag.Bit256)
         val r2 = TACSymbol.Var("R2", Tag.Bit256)
         val r3 = TACSymbol.Var("R3", Tag.Bit256)
-        val txf = TACExprFactTypeChecked(TACSymbolTable.withTags(setOf(r0, r1, r2, r3)))
+        val txf = TACExprFactTypeChecked(TACSymbolTable.withVars(setOf(r0, r1, r2, r3)))
         val p = codeFromListOfCommands(
             StartBlock,
             listOf(
@@ -182,7 +182,7 @@ internal class SkeyDetectionTest : SingleMethodTest, TACBuilderAuxiliaries() {
         val r1 = TACSymbol.Var("R1", Tag.Bit256)
         val r2 = TACSymbol.Var("R2", Tag.Bit256)
         val r3 = TACSymbol.Var("R3", Tag.Bit256)
-        val txf = TACExprFactTypeChecked(TACSymbolTable.withTags(setOf(r0, r1, r2, r3)))
+        val txf = TACExprFactTypeChecked(TACSymbolTable.withVars(setOf(r0, r1, r2, r3)))
         val p = codeFromListOfCommands(
             StartBlock,
             listOf(

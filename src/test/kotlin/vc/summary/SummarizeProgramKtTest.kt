@@ -65,7 +65,7 @@ internal class SummarizeProgramKtTest : WithTACSource {
             SummarizeProgram.summarizeTAC(
                 prog,
                 ComputeTACSummaryProjectAndPrune(
-                    setOf(TACSymbol.Var("trackedVar", Tag.Bit256)),
+                    setOf(TACSymbol.Var("trackedVar", Tag.Bool)),
                     prog.sinks,
                     ComputeTACSummaryProjectAndPrune.Settings(trackAssumes = true, markReturnedVarForTracking = false)
                 )
@@ -85,7 +85,7 @@ internal class SummarizeProgramKtTest : WithTACSource {
             SummarizeProgram.summarizeTAC(
                 prog,
                 ComputeTACSummaryProjectAndPrune(
-                    setOf(TACSymbol.Var("trackedVar", Tag.Bit256)),
+                    setOf(TACSymbol.Var("trackedVar", Tag.Bool)),
                     prog.sinks,
                     ComputeTACSummaryProjectAndPrune.Settings(trackAssumes = true, markReturnedVarForTracking = false)
                 )

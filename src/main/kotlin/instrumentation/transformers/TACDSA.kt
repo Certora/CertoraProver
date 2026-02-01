@@ -21,6 +21,7 @@ import algorithms.postOrder
 import algorithms.topologicalOrderOrNull
 import analysis.*
 import analysis.opt.DiamondSimplifier.registerMergeableAnnot
+import com.certora.collect.*
 import datastructures.MutableBijection
 import datastructures.stdcollections.*
 import instrumentation.transformers.TACDSA.TACDSARenaming
@@ -133,7 +134,7 @@ object TACDSA {
 
         private val assignmentRewrites = mutableMapOf<CmdPointer, TACSymbol.Var>()
         private val deadAssignments = mutableSetOf<CmdPointer>()
-        private val newTags = tagsBuilder<TACSymbol.Var>()
+        private val newVars = treapSetBuilderOf<TACSymbol.Var>()
         private val ufRewrites = mutableSetOf<FunctionInScope.UF>()
         private val newUfAxioms = mutableMapOf<FunctionInScope.UF, List<TACAxiom>>()
 
@@ -154,21 +155,21 @@ object TACDSA {
             }
         }
 
-        private fun TACSymbol.Var.registerTag() =
-            this.also { newTags.safePut(it, it.tag) }
+        private fun TACSymbol.Var.register() =
+            this.also { newVars += it }
 
         private fun newVar(v: TACSymbol.Var, moreMeta: MetaMap = MetaMap()) =
             if (v.tag is Tag.GhostMap) {
                 v.copy(
                     namePrefix = "${v.smtRep}!${newVarCounter++}",
                     meta = v.meta + moreMeta
-                ).registerTag()
+                ).register()
             } else {
                 toRegister(
                     newVarCounter++, v, v.callIndex.takeIf {
                         v in preserveCallIndices
                     }, v.meta + moreMeta
-                ).registerTag()
+                ).register()
             }
 
         /** This works only on the original version of the variables, and returns the original uf */
@@ -480,7 +481,7 @@ object TACDSA {
             val postDSA = core.copy(
                 code = code,
                 blockgraph = block,
-                symbolTable = core.symbolTable.mergeDecls(newTags.build()).mergeUfs(ufRewrites),
+                symbolTable = core.symbolTable.mergeDecls(newVars.build()).mergeUfs(ufRewrites),
                 instrumentationTAC = core.instrumentationTAC.copy(
                     ufAxioms = core.instrumentationTAC.ufAxioms.merge(
                         UfAxioms(newUfAxioms)

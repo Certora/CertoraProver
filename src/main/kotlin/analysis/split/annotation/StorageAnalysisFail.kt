@@ -90,7 +90,7 @@ class StorageAnalysisFailWithMeta(
 ): StorageAnalysisFail(patcher, contId) {
 
     /** All the original vars in the program. Used to check that we use only these in display paths */
-    private val allVars = graph.symbolTable.tags.keys
+    private val allVars = graph.symbolTable.vars
 
     /** returns true if [path] does not refer to variables that are not in the original program */
     private fun isValid(path: DisplayPath): Boolean =

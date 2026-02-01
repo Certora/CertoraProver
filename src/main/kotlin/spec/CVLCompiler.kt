@@ -261,12 +261,7 @@ class CVLCompiler(
             // citating from ghostToTACUF: "we assume ghost variables are allocated while ghost functions are not"
             ghosts.filter { (it !is CVLGhostDeclaration.Variable && it !is CVLGhostDeclaration.Sum) || allocatedTACSymbols.isAllocated(it.id) }
                 .map { ghost -> ghostToTACUF(ghost, allocatedTACSymbols) }.toSet(),
-            tagsBuilder<TACSymbol.Var>().let {
-                allocatedTACSymbols.getGlobalScope().map { (_, v) ->
-                    it[v] = v.tag
-                }
-                it.build()
-            },
+            allocatedTACSymbols.getGlobalScope().values.toTreapSet(),
             allocatedTACSymbols.getGlobalScope()
         )
 

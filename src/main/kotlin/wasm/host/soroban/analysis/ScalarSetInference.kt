@@ -746,8 +746,7 @@ class ScalarSetTypeInference(
         }
 
         val typeEnv = symbolTable
-            .tags
-            .keys
+            .vars
             .associateWith { x ->
                 when (val t = x.tag) {
                     is Tag.GhostMap, is Tag.ByteMap ->

@@ -17,44 +17,45 @@
 
 package vc.data
 
+import com.certora.collect.*
 import tac.*
 
 @Deprecated("Do not use this object anymore - tags should be explicitly given")
 object TACUtils {
-    fun tagsFromList(l: List<TACCmd>, tags: Tags.Builder<TACSymbol.Var>) {
+    fun tagsFromList(l: List<TACCmd>, tags: TreapSet.Builder<TACSymbol.Var>) {
         l.forEach { c ->
             tagsFromCommand(c, tags)
         }
     }
 
-    fun tagsFromCommand(c: TACCmd.Simple): Tags<TACSymbol.Var> {
-        val tags = tagsBuilder<TACSymbol.Var>()
+    fun tagsFromCommand(c: TACCmd.Simple): TreapSet<TACSymbol.Var> {
+        val tags = treapSetBuilderOf<TACSymbol.Var>()
         tagsFromCommand(c, tags)
         return tags.build()
     }
 
-    fun tagsFromCommand(c: TACCmd, tags: Tags.Builder<TACSymbol.Var>) {
+    fun tagsFromCommand(c: TACCmd, tags: TreapSet.Builder<TACSymbol.Var>) {
         c.getLhs()?.let {
             (it as? TACSymbol.Var)?.let {
-                tags.safePut(it, it.tag)
+                tags += it
             }
         }
         c.getFreeVarsOfRhs().forEach {
-            tags.safePut(it, it.tag)
+            tags += it
         }
         if (c is TACCmd.Simple.ByteLongCopy) { // TODO: can we update getFreeVarsOfRhs?
-            tags.safePut(c.dstBase, c.dstBase.tag)
+            tags += c.dstBase
         }
     }
 
-    fun tagsFromList(l: List<TACCmd>): Tags<TACSymbol.Var> {
-        val tags = tagsBuilder<TACSymbol.Var>()
+    fun tagsFromList(l: List<TACCmd>): TreapSet<TACSymbol.Var> {
+        val tags = treapSetBuilderOf<TACSymbol.Var>()
         tagsFromList(l, tags)
         return tags.build()
     }
 
-    fun tagsFromBlocks(blocks: Map<NBId, List<TACCmd>>): Tags<TACSymbol.Var> {
-        val tags = tagsBuilder<TACSymbol.Var>()
+    fun tagsFromBlocks(blocks: Map<NBId, List<TACCmd>>): TreapSet<TACSymbol.Var> {
+        val tags = treapSetBuilderOf<TACSymbol.Var>()
         blocks.forEach {
             tagsFromList(it.value, tags)
         }

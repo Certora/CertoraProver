@@ -279,7 +279,7 @@ class ConstantArrayInitializationSummarizationTest: SorobanTestFixture() {
             code = cfg.code,
             blockgraph = cfg.blockGraph,
             name = "test",
-            symbolTable = TACSymbolTable.withTags(syms),
+            symbolTable = TACSymbolTable.withVars(syms),
             procedures = setOf(),
             check = false
         )

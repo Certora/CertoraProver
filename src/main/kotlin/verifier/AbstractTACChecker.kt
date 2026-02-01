@@ -162,7 +162,7 @@ abstract class AbstractTACChecker {
                         counters.keys.filterToSet { counters[it] == 1 }
                     }
 
-                    simpleSimpleObj.symbolTable.tags.keys.filterToSet { v ->
+                    simpleSimpleObj.symbolTable.vars.filterToSet { v ->
                         // CVL now ensures most variables will only appear on lhs once, and in any case previous incarnation won't be read
                         v in singleDefVars && (TACMeta.CVL_VAR in v.meta || TACMeta.IS_CALLDATA in v.meta ||
                             BufferTraceInstrumentation.BUFFER_INSTRUMENTATION in v.meta)
@@ -175,7 +175,7 @@ abstract class AbstractTACChecker {
             val protectCallIndex =
                 // I don't think this has any effect on running time... we can probably do this always.
                 runIf(!simpleSimpleObj.destructiveOptimizations) {
-                    simpleSimpleObj.symbolTable.tags.keys.filterToSet {
+                    simpleSimpleObj.symbolTable.vars.filterToSet {
                         TACMeta.IS_CALLDATA in it.meta
                     }
                 }.orEmpty()
