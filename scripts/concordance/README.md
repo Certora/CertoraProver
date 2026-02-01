@@ -14,9 +14,9 @@ running the script ensure that `ANTHROPIC_API_KEY` is set in your environment.
 
 ## Running the script
 
-The basic usage is via the wrapper script:
+The basic usage is:
 
-`../certoraConcordance.py ./file`
+`concordance.py ./file`
 
 Where `./file` is a file that contains an internal function body that you want rewritten.
 There are various other command line options to tweak the parameters/models used when invoking the LLM;

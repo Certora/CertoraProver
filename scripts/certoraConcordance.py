@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #      The Certora Prover
 #      Copyright (C) 2025  Certora Ltd.
 #

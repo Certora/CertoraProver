@@ -816,7 +816,6 @@ val scripts = project.fileTree("scripts") {
 		"certoraEVMProver.py",
 		"certoraRanger.py",
 		"certoraConcord.py",
-		"certoraConcordance.py",
 		"certoraMutate.py",
 		"rustMutator.py",
 		"certoraEqCheck.py",
@@ -829,8 +828,8 @@ val scripts = project.fileTree("scripts") {
 		"certora-select",
 		"certoraCVLFormatter.py",
 		"graphcore/**/*.py",
-		"concordance/**/*",
 	)
+	exclude("**/__init__.py")
 }
 
 
