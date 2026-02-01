@@ -1,0 +1,12 @@
+{
+	"rules": {
+		"notOverriddenNotReplaced": "SUCCESS",
+		"overriddenReplaced": "SUCCESS",
+		"sanity": {
+			"SUCCESS": [
+				"foo()",
+				"foo(uint256)"
+			]
+		}
+	}
+}

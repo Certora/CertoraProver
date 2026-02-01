@@ -1,0 +1,110 @@
+{
+	"assertMessages": {},
+	"rules": {
+		"genericPreservedInv": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [
+						"Base1.<receiveOrFallback>()",
+						"Base1.callFlipB()",
+						"Base1.callGetInExtension1()",
+						"Base1.callGetInExtension2()",
+						"Base1.callSetInExtension1(uint256)",
+						"Base1.callSetInExtension2(uint256)",
+						"Base1.flipB()",
+						"Base1.getExtensionImmut()",
+						"Base1.getInExtension1()",
+						"Base1.getInExtension2()",
+						"Base1.setInExtension1(uint256)",
+						"Base1.setInExtension2(uint256)",
+						"Base2.<receiveOrFallback>()",
+						"Base2.callGetInExtension2()",
+						"Base2.callSetInExtension2(uint256)",
+						"Base2.getInExtension2()",
+						"Base2.setInExtension2(uint256)"
+					],
+					"SUCCESS": [],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		},
+		"immutablesAreTheSame": "SUCCESS",
+		"linking": "SUCCESS",
+		"parametricRule": {
+			"FAIL": [],
+			"SANITY_FAIL": [],
+			"SUCCESS": [
+				"Base1.<receiveOrFallback>()",
+				"Base1.IMMUT1()",
+				"Base1.IMMUT2()",
+				"Base1.callFlipB()",
+				"Base1.callGetInExtension1()",
+				"Base1.callGetInExtension2()",
+				"Base1.callSetInExtension1(uint256)",
+				"Base1.callSetInExtension2(uint256)",
+				"Base1.flipB()",
+				"Base1.getExtensionImmut()",
+				"Base1.getImmut()",
+				"Base1.getInExtension1()",
+				"Base1.getInExtension2()",
+				"Base1.setInExtension1(uint256)",
+				"Base1.setInExtension2(uint256)",
+				"Base2.<receiveOrFallback>()",
+				"Base2.callGetInExtension2()",
+				"Base2.callSetInExtension2(uint256)",
+				"Base2.getInExtension2()",
+				"Base2.setInExtension2(uint256)"
+			],
+			"TIMEOUT": [],
+			"UNKNOWN": []
+		},
+		"setInExtension1Direct": "SUCCESS",
+		"setInExtension1viaDelegate": "SUCCESS",
+		"setInExtension2Direct": "SUCCESS",
+		"setInExtension2DirectBase2": "SUCCESS",
+		"setInExtension2viaDelegate": "SUCCESS",
+		"setInExtension2viaDelegateBase2": "SUCCESS",
+		"specificPreservedInv": {
+			"Induction base: After the constructor": "SUCCESS",
+			"Induction step: after external (non-view) methods": {
+				"Using general requirements": {
+					"FAIL": [
+						"Base1.<receiveOrFallback>()",
+						"Base1.callSetInExtension2(uint256)"
+					],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"Base1.callFlipB()",
+						"Base1.callGetInExtension1()",
+						"Base1.callGetInExtension2()",
+						"Base1.callSetInExtension1(uint256)",
+						"Base1.flipB()",
+						"Base1.getExtensionImmut()",
+						"Base1.getInExtension1()",
+						"Base1.getInExtension2()",
+						"Base1.setInExtension1(uint256)",
+						"Base2.<receiveOrFallback>()",
+						"Base2.callGetInExtension2()",
+						"Base2.callSetInExtension2(uint256)",
+						"Base2.getInExtension2()"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				},
+				"Using specific requirements": {
+					"FAIL": [],
+					"SANITY_FAIL": [],
+					"SUCCESS": [
+						"Base1.setInExtension2(uint256)",
+						"Base2.setInExtension2(uint256)"
+					],
+					"TIMEOUT": [],
+					"UNKNOWN": []
+				}
+			}
+		}
+	}
+}

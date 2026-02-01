@@ -2698,6 +2698,16 @@ object Config {
         }
     }
 
+    val OverrideExtendedContractFunctions = object : ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "overrideExtendedContractFunctions",
+            true,
+            "When using contract extensions, allow the extending contract to override extended contract functions of the same name [default: false]"
+        ),
+        pythonName = "--contract_extensions_override"
+    ) {}
+
     val HashingScheme = Smt.HashingScheme
 
     val LiaBeforeBv = Smt.LiaBeforeBv
