@@ -1033,96 +1033,104 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
      * Otherwise returns false
      * The [visitedDefs] list is needed to avoid infinite recursion because the backedge of the loop hasn't been removed yet
      */
-    /**
-     * Checks if a var [v] monotonically increases toward [c].
-     * Returns the step value if monotone increasing, null otherwise.
-     * All increment operations must use the same constant step.
-     */
-    private fun isMonotoneIncreasing(v: TACSymbol.Var, c: BigInteger, origin: CmdPointer, visitedDefs: MutableList<CmdPointer>): BigInteger? {
+    private fun isMonotoneIncreasing(v: TACSymbol.Var, c: BigInteger, origin: CmdPointer, visitedDefs: MutableList<CmdPointer>): Boolean {
         val g = this.code.analysisCache.graph
         val def = this.code.analysisCache.def
         val nonTrivialDef = NonTrivialDefAnalysis(g, def)
 
-        // Returns: null if not monotone, BigInteger.ZERO for const init, positive value for step
-        fun isMonotoneCmd(cmd: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>): BigInteger? {
+
+        fun isMonotoneCmd(cmd: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>, sym: TACSymbol.Var): Boolean {
             val assignExp = cmd.cmd
 
             return when (assignExp.rhs) {
                 is TACExpr.Sym.Const -> {
-                    // we start with something smaller than the condition
-                    BigInteger.ZERO.takeIf { assignExp.rhs.s.value < c }
+                    // we start with something larger than the condition
+                    assignExp.rhs.s.value < c
                 }
                 is TACExpr.Sym.Var -> {
-                    // assigning to a variable, the expression is increasing if the variable is increasing
-                    isMonotoneIncreasing(assignExp.rhs.s, c, cmd.ptr, visitedDefs)
+                    //assigning to a variable, the expression is increasing if the variable is increasing
+                   isMonotoneIncreasing(assignExp.rhs.s, c, cmd.ptr, visitedDefs)
                 }
                 is TACExpr.Vec.Add -> {
-                    val pattern = PatternDSL.build { (Var + Const).commute.toBuilder() }
-                    val (variable, const) = PatternMatcher.compilePattern(g, pattern).queryFrom(cmd)
-                        .toNullableResult() ?: return null
-                    // x = x + C or x = y + C: check const > 0 and recurse
-                    const.takeIf { it > BigInteger.ZERO }?.let { constVal ->
-                        isMonotoneIncreasing(variable, c, cmd.ptr, visitedDefs)
-                            ?.takeIf { it == BigInteger.ZERO || it == constVal }
-                            ?.let { constVal }
+                    val pattern =  PatternDSL.build { (Var + Const).commute.toBuilder()}
+                    val result = PatternMatcher.compilePattern(g, pattern).queryFrom(cmd).toNullableResult()
+                    val variable = result?.first
+                    val const = result?.second
+                    when (variable)  {
+                        sym, is TACSymbol.Var -> {
+                            // Great, we're adding to our symbol (x = x + C) or to another variable (x = y + C),
+                            // let's check whether we're adding a constant 1, and
+                            // that it's monotone increasing until this point as well
+                            const == BigInteger.ONE &&
+                                    isMonotoneIncreasing(variable, c, cmd.ptr, visitedDefs)
+                        }
+                        else -> {
+                            return false
+                        }
                     }
                 }
-                else -> null
+                else -> false
             }
         }
 
         val defsOfV = nonTrivialDef.nontrivialDef(v, origin)
-        val steps = defsOfV.filter { ptr ->
+        return defsOfV.filter { ptr ->
             ptr !in visitedDefs
-        }.map { ptr ->
+        }.all{ ptr ->
             visitedDefs.add(ptr)
             val cmd = g.elab(ptr)
-            isMonotoneCmd(cmd.maybeNarrow() ?: return null)
-        }
-
-        if (steps.any { it == null }) {
-            return null
-        }
-        val nonZeroSteps = steps.filterNotNull().filter { it > BigInteger.ZERO }
-        return when {
-            nonZeroSteps.isEmpty() -> BigInteger.ZERO // only const inits
-            nonZeroSteps.toSet().size == 1 -> nonZeroSteps.first() // all same step
-            else -> null // inconsistent steps
+            isMonotoneCmd(cmd.maybeNarrow()?: return@all false, v)
         }
     }
 
     /**
      * Checks if a var [v] monotonically decreases - all of its definitions (not just the ones immediately preceding
      * the [origin] ptr) are either const assignments (that are strictly more than [c]) or are Sub commands.
-     * If it's monotonic, returns a pair of (range, step) where range = initialValue - c, otherwise returns null.
+     * If it's monotonic, returns the initial value of the var, otherwise returns null
      * The [visitedDefs] list is needed to avoid infinite recursion because the backedge of the loop hasn't been removed yet
      */
-    private fun isMonotoneDecreasing(v: TACSymbol.Var, c: BigInteger, origin: CmdPointer, visitedDefs: MutableList<CmdPointer>): Pair<BigInteger, BigInteger>? {
+    private fun isMonotoneDecreasing(v: TACSymbol.Var, c: BigInteger, origin: CmdPointer, visitedDefs: MutableList<CmdPointer>): BigInteger? {
         val g = this.code.analysisCache.graph
         val def = this.code.analysisCache.def
         val nonTrivialDef = NonTrivialDefAnalysis(g, def)
 
-        // Returns: Pair(initialValue, step) for const init (step=0 as sentinel), Pair(range, step) for Sub, null if not monotone
-        fun isMonotoneCmd(cmd: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>): Pair<BigInteger, BigInteger>? {
+        fun isMonotoneCmd(cmd: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignExpCmd>, sym: TACSymbol.Var): BigInteger? {
             val assignExp = cmd.cmd
             return when (assignExp.rhs) {
                 is TACExpr.Sym.Const -> {
                     // we start with something larger than the condition
-                    (assignExp.rhs.s.value to BigInteger.ZERO).takeIf { assignExp.rhs.s.value > c }
+                    if (assignExp.rhs.s.value > c) {
+                        assignExp.rhs.s.value
+                    } else {
+                        null
+                    }
                 }
                 is TACExpr.Sym.Var -> {
-                    // assigning to a variable, the expression is decreasing if the variable is decreasing
+                    //assigning to a variable, the expression is decreasing if the variable is decreasing
                     isMonotoneDecreasing(assignExp.rhs.s, c, cmd.ptr, visitedDefs)
                 }
                 is TACExpr.BinOp.Sub -> {
-                    val pattern = PatternDSL.build { (Var - Const).toBuilder() }
-                    val (variable, const) = PatternMatcher.compilePattern(g, pattern).queryFrom(cmd)
-                        .toNullableResult() ?: return null
-                    // x = x - C or x = y - C: check const > 0 and recurse
-                    const.takeIf { it > BigInteger.ZERO }?.let { constVal ->
-                        isMonotoneDecreasing(variable, c, cmd.ptr, visitedDefs)
-                            ?.takeIf { (_, innerStep) -> innerStep == BigInteger.ZERO || innerStep == constVal }
-                            ?.let { (innerVal, _) -> innerVal to constVal }
+
+                    val pattern =  PatternDSL.build { (Var - Const).toBuilder()}
+                    val result = PatternMatcher.compilePattern(g, pattern).queryFrom(cmd).toNullableResult()
+                    val variable = result?.first
+                    val const = result?.second
+
+                    when (variable) {
+                        sym, is TACSymbol.Var -> {
+                            // great, we're subtracting from our symbol or from another var (x = y - C).
+                            // let's check if we're subtracting a constant of value 1 or a variable
+                            if (const == BigInteger.ONE) {
+                                // Decreasing by 1, yay!
+                                // Verify that it's monotone decreasing until this point as well
+                                isMonotoneDecreasing(variable, c, cmd.ptr, visitedDefs)
+                            } else {
+                                null
+                            }
+                        }
+                        else -> {
+                            null
+                        }
                     }
                 }
                 else -> null
@@ -1130,28 +1138,18 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
         }
 
         var ret: BigInteger? = null
-        var step: BigInteger? = null
         val defsOfV = nonTrivialDef.nontrivialDef(v, origin)
         val allMonotonic = defsOfV.filter { ptr ->
             ptr !in visitedDefs
         }.let { allDefs ->
             if (allDefs.isEmpty()) {
-                return c to BigInteger.ONE // default step of 1 for empty defs
+                return c
             }
             allDefs.all { ptr ->
                 visitedDefs.add(ptr)
                 val cmd = g.elab(ptr)
-                val result = isMonotoneCmd(cmd.maybeNarrow() ?: return@all false)
-                if (result != null) {
-                    val (b, s) = result
-                    if (s > BigInteger.ZERO) {
-                        // This is a step operation, track the step
-                        if (step == null || step == s) {
-                            step = s
-                        } else {
-                            return@all false // inconsistent steps
-                        }
-                    }
+                val b = isMonotoneCmd(cmd.maybeNarrow()?: return@all false, v)
+                if (b != null) {
                     if (b == c) {
                         // This def is monotonic, but doesn't provide us with the start condition. Continue searching
                         true
@@ -1167,8 +1165,8 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
                 }
             }
         }
-        return if (allMonotonic && ret != null) {
-            ret!! to (step ?: BigInteger.ONE)
+        return if (allMonotonic) {
+            ret
         } else {
             null
         }
@@ -1258,56 +1256,29 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
                 val constInitVal = constInit.map {
                     it.second
                 }.uniqueOrNull() ?: return null
-                logger.info { "Eq loop: loopVar=$loopVar, init=$constInitVal, bound=$compVal" }
                 val diff = if(constInitVal == compVal) {
                     return null
                 } else if(constInitVal < compVal) {
-                    // monotone increasing - extract constant step from each update
-                    val steps = complex.mapNotNull { (_, e) ->
-                        if (e is TACExpr.Vec.Add && e.operandsAreSyms() &&
-                            e.getOperands().any { it is TACExpr.Sym.Var && it.s == loopVar }) {
-                            e.getOperands().filterIsInstance<TACExpr.Sym.Const>()
-                                .singleOrNull()?.s?.value
-                        } else {
-                            null
+                    // monotone increasing?
+                    if(!complex.all { (_, e) ->
+                        e is TACExpr.Vec.Add && e.operandsAreSyms() && e.getOperands().any {
+                            it is TACExpr.Sym.Const && it.s.value == BigInteger.ONE
+                        } && e.getOperands().any {
+                            it is TACExpr.Sym.Var && it.s == loopVar
                         }
-                    }
-                    if (steps.size != complex.size) {
+                    }) {
                         return null
                     }
-                    val step = steps.uniqueOrNull() ?: return null
-                    if (step <= BigInteger.ZERO) {
-                        return null
-                    }
-                    val range = compVal - constInitVal
-                    if (range % step != BigInteger.ZERO) {
-                        return null
-                    }
-                    logger.info { "Detected increasing Eq loop: range=$range, step=$step, iterations=${range / step}" }
-                    range / step
+                    compVal - constInitVal
                 } else {
-                    // monotone decreasing - extract constant step from each update
-                    val steps = complex.mapNotNull { (_, e) ->
-                        if (e is TACExpr.BinOp.Sub && e.o1 is TACExpr.Sym.Var && e.o1.s == loopVar &&
-                            e.o2 is TACExpr.Sym.Const) {
-                            e.o2.s.value
-                        } else {
-                            null
-                        }
-                    }
-                    if (steps.size != complex.size) {
+                    // monotone decreasing?
+                    if(!complex.all { (_, e) ->
+                            e is TACExpr.BinOp.Sub && e.o1 is TACExpr.Sym.Var && e.o1.s == loopVar &&
+                                e.o2 is TACExpr.Sym.Const && e.o2.s.value == BigInteger.ONE
+                        }) {
                         return null
                     }
-                    val step = steps.uniqueOrNull() ?: return null
-                    if (step <= BigInteger.ZERO) {
-                        return null
-                    }
-                    val range = constInitVal - compVal
-                    if (range % step != BigInteger.ZERO) {
-                        return null
-                    }
-                    logger.info { "Detected decreasing Eq loop: range=$range, step=$step, iterations=${range / step}" }
-                    range / step
+                    constInitVal - compVal
                 }
                 return diff.letIf(isProbablyDoLoop) {
                     it + BigInteger.ONE
@@ -1324,29 +1295,21 @@ class BMCRunner(@Suppress("PrivatePropertyName") private val UNROLL_CONST : Int,
                 }
 
                 // we have a const o2, which is good, and an o1 which is a variable, but is o1 monotonically increasing/decreasing?
-                logger.info { "Lt/Gt loop: var=${o1.s}, bound=$o2, rel=${defCmdOfCond.cmd.rhs::class.simpleName}" }
                 if (defCmdOfCond.cmd.rhs !is TACExpr.BinRel.Lt && defCmdOfCond.cmd.rhs !is TACExpr.BinRel.Gt &&
                     defCmdOfCond.cmd.rhs !is TACExpr.BinRel.Slt && defCmdOfCond.cmd.rhs !is TACExpr.BinRel.Sgt) {
                     null
-                } else if (defCmdOfCond.cmd.rhs is TACExpr.BinRel.Lt || defCmdOfCond.cmd.rhs is TACExpr.BinRel.Slt) {
-                    val step = isMonotoneIncreasing(o1.s, o2, defPtrOfCond, mutableListOf())
-                    if (step != null && step > BigInteger.ZERO) {
-                        // iterations = ceil(bound / step)
-                        val iterations = (o2 + step - BigInteger.ONE) / step
-                        logger.info { "Detected Lt loop: bound=$o2, step=$step, iterations=$iterations" }
-                        iterations
+                } else if (defCmdOfCond.cmd.rhs is TACExpr.BinRel.Lt || defCmdOfCond.cmd.rhs is TACExpr.BinRel.Slt ) {
+                    if (isMonotoneIncreasing(o1.s, o2, defPtrOfCond, mutableListOf())) {
+                        o2
                     } else {
+                        logger.info { "Assignments to lhs within the loop and before it must adhere to the " +
+                                "supported pattern" }
                         null
                     }
                 } else { // condition is gt, so need to check monotonically decreasing
-                    val result = isMonotoneDecreasing(o1.s, o2, defPtrOfCond, mutableListOf())
-                    if (result != null) {
-                        val (range, step) = result
-                        // iterations = ceil(range / step)
-                        val iterations = (range + step - BigInteger.ONE) / step
-                        logger.info { "Detected Gt loop: range=$range, step=$step, iterations=$iterations" }
-                        iterations
-                    } else {
+                    isMonotoneDecreasing(o1.s, o2, defPtrOfCond, mutableListOf()) ?: run {
+                        logger.info { "Assignments to lhs within the loop and before it must adhere to the " +
+                                "supported pattern" }
                         null
                     }
                 }
