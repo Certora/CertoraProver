@@ -58,6 +58,6 @@ object SoliditySummarization : SharedPureSummarization.SummarizationImpl<Interna
                     ite(sym, 1, 0)
                 }
             }
-        )))
+        )), r.s)
     }
 }
