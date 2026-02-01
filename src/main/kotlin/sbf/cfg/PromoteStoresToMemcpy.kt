@@ -62,6 +62,12 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
     var numOfInsertedMemcpy = 0 // counter number of new memcpy/memcpy_zext/memcpy_trunc
     for (b in cfg.getMutableBlocks().values) {
 
+        // load and stores access **different** number of bytes
+        findWideningAndNarrowingStores(b, types).let { rewrites->
+            applyRewrites(b, rewrites)
+            numOfInsertedMemcpy += rewrites.size
+        }
+
         // load and stores access **same** number of bytes
         findMemcpyPatterns(b, types).let { rewrites ->
             applyRewrites(b, rewrites)
@@ -92,11 +98,6 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
             }
         }
 
-        // load and stores access **different** number of bytes
-        findWideningAndNarrowingStores(b, types).let { rewrites->
-            applyRewrites(b, rewrites)
-            numOfInsertedMemcpy += rewrites.size
-        }
     }
 
     info{
@@ -467,24 +468,22 @@ where TNum: INumValue<TNum>,
 
     val rewrites = mutableListOf<MemTransferRewrite>()
 
-    var loadReg:Value.Reg? = null
-    var loadInst:LocatedSbfInstruction? = null
+    // used to find the definition of a value to be stored
+    val defLoads = mutableMapOf<SbfRegister, LocatedSbfInstruction>()
 
     for (locInst in bb.getLocatedInstructions()) {
         when(val inst = locInst.inst) {
             is SbfInstruction.Mem -> {
                 when (inst.isLoad) {
                     true -> {
-                        loadReg = (inst.value as Value.Reg)
-                        loadInst = locInst
+                        defLoads[(inst.value as Value.Reg).r] = locInst
                     }
                     false -> {
                         val value = inst.value
-                        if (value !is Value.Reg || loadReg != value) {
+                        if (value !is Value.Reg) {
                             continue
                         }
-
-                        check(loadInst != null)
+                        val loadInst = defLoads[value.r] ?: continue
 
                         val loadedMemAccess = normalizeLoadOrStore(loadInst, types)
                         val storedMemAccess = normalizeLoadOrStore(locInst, types)
@@ -527,7 +526,7 @@ where TNum: INumValue<TNum>,
                                     i = loadedMemAccess.width.toULong(),
                                     loadInst.inst.metaData
                                 )?.let { newInsts ->
-                                    rewrites.add(MemTransferRewrite(listOf(loadInst!!), listOf(locInst), newInsts))
+                                    rewrites.add(MemTransferRewrite(listOf(loadInst), listOf(locInst), newInsts))
                                 }
                             }
                             (loadedMemAccess.width.toInt() == 8 && storedMemAccess.width.toInt() < 8) -> {
@@ -544,7 +543,7 @@ where TNum: INumValue<TNum>,
                                     storedMemAccess.width.toULong(),
                                     loadInst.inst.metaData
                                 )?.let { newInsts ->
-                                    rewrites.add(MemTransferRewrite(listOf(loadInst!!), listOf(locInst), newInsts))
+                                    rewrites.add(MemTransferRewrite(listOf(loadInst), listOf(locInst), newInsts))
                                 }
                             }
                             else -> {}
@@ -554,9 +553,8 @@ where TNum: INumValue<TNum>,
             }
             else -> {
                 // Kill "active" load if its defined register is overwritten
-                if (inst.writeRegister.any { it == loadReg }) {
-                    loadInst = null
-                    loadReg = null
+                for (reg in inst.writeRegister) {
+                    defLoads.remove(reg.r)
                 }
             }
         }
