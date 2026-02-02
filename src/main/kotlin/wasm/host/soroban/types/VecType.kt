@@ -146,9 +146,8 @@ object VecType : ArrayType() {
 
     /*
     * NOTE: Underapproximated impl of `contains` based on `LoopUnrollConstant`.
-    * This is unsound but John mentioned that we do this elsewhere for EVM
-    * when passing an array of structs (or other complex types) to an external function,
-    * so it's not too egregious.
+    * The approach is similar to our EVM handling
+    * when passing an array of structs (or other complex types) to an external function.
     * If we ever do reason about loop invariants, this will require a revisit.
     * */
     fun findFirst(dest: TACSymbol.Var, handle: TACSymbol, value: TACSymbol) =
