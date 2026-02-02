@@ -281,7 +281,7 @@ class SimplePatchingProgram(
 
         val newUfs = base.symbolTable.uninterpretedFunctions().mapToSet { replacedScalarUfs[it] ?: it } + newUfs - ufsToDrop
 
-        val newTags = buildNewTags(base.symbolTable, newUfs)
+        val newVars = buildNewVars(base.symbolTable, newUfs)
 
         val newUfAxioms = updateAxiomsWrtReplacedUfs(replacedUfAxioms ?: base.ufAxioms)
 
@@ -291,7 +291,7 @@ class SimplePatchingProgram(
             procedures = base.procedures + newProcedures,
             symbolTable = TACSymbolTable(
                 userDefinedTypes = base.symbolTable.userDefinedTypes + newUninterpretedSorts,
-                tags = newTags,
+                vars = newVars,
                 uninterpretedFunctions = newUfs,
                 globalScope = base.symbolTable.globalScope
             ),

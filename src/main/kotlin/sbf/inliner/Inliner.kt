@@ -82,7 +82,8 @@ private class Inliner(val entry: String,
                       private val memSummaries: MemorySummaries,
                       private val inlinerConfig: InlinerConfig) {
 
-    val prog = InlinerSbfCallGraph(callgraph)
+    private val useDynamicFrames = callgraph.getGlobals().elf.useDynamicFrames()
+    private val prog = InlinerSbfCallGraph(callgraph)
     // For debugging only
     private val numOfInsts = mutableMapOf<String, ULong>()
 
@@ -183,6 +184,70 @@ private class Inliner(val entry: String,
         return cfg.splitBlock(bb.getLabel(), i - 1)
     }
 
+    interface FrameLowering{
+        fun emitPrologue(entry: MutableSbfBasicBlock)
+        fun emitEpilogue(exit: MutableSbfBasicBlock)
+    }
+
+    class StaticFrameLowering(
+        private val frameSize: ULong = SBF_STACK_FRAME_SIZE.toULong()
+    ): FrameLowering {
+        override fun emitPrologue(entry: MutableSbfBasicBlock){
+            // Add `r10 += 4096`
+            entry.add(
+                i = 0,
+                inst = createFrameAdjustment(BinOp.ADD)
+            )
+        }
+        override fun emitEpilogue(exit: MutableSbfBasicBlock){
+            // Add `r10 -= 4096` right before the jump instruction which is always the last one
+            exit.add(
+                i = exit.numOfInstructions() - 1,
+                inst = createFrameAdjustment(BinOp.SUB)
+            )
+        }
+
+        private fun createFrameAdjustment(op: BinOp) = SbfInstruction.Bin(
+            op,
+            Value.Reg(SbfRegister.R10_STACK_POINTER),
+            Value.Imm(frameSize),
+            is64 = true
+        )
+    }
+
+    class DynamicFrameLowering: FrameLowering {
+        override fun emitPrologue(entry: MutableSbfBasicBlock){}
+        override fun emitEpilogue(exit: MutableSbfBasicBlock){}
+    }
+
+    /**
+     * Transform
+     * ```
+     * callerBB:
+     *     call foo
+     *     goto cont
+     * cont:
+     *     ...
+     * ```
+     * into
+     *
+     * ```
+     * callerBB:
+     *     REMOVE call foo
+     *     saveRegisters
+     *     goto fooEntry
+     * fooEntry:
+     *     emitPrologue
+     *     ...
+     * fooExit:
+     *     ...
+     *     emitEpilogue
+     *     goto contBB
+     * contBB:
+     *     restoreRegisters
+     *     ...
+     * ```
+     */
     private fun inlineCalleeIntoCaller(callerCFG: MutableSbfCFG,
                                        callerBB: MutableSbfBasicBlock,
                                        call: SbfInstruction.Call,
@@ -225,28 +290,34 @@ private class Inliner(val entry: String,
 
         val saveRegistersInst = SbfInstruction.Call(name = CVTCore.SAVE_SCRATCH_REGISTERS.function.name, metaData = metaData)
         val restoreRegistersInst = SbfInstruction.Call(name = CVTCore.RESTORE_SCRATCH_REGISTERS.function.name, metaData = metaData)
-        // r10 += 4096
-        val increaseFramePtrInst = SbfInstruction.Bin(BinOp.ADD, Value.Reg(SbfRegister.R10_STACK_POINTER),
-                                                        Value.Imm(SBF_STACK_FRAME_SIZE.toULong()), true)
-        // r10 -= 4096
-        val decreaseFramePtrInst = SbfInstruction.Bin(BinOp.SUB, Value.Reg(SbfRegister.R10_STACK_POINTER),
-                                                        Value.Imm(SBF_STACK_FRAME_SIZE.toULong()), true)
 
-        // Wire up blocks
-        callerBB.removeAt(callerBB.numOfInstructions() -1)  // remove goto continuationBB
-        callerBB.add(saveRegistersInst)
+        // -- Wire up blocks
+
+        callerBB.replaceInstruction(   // replace goto `continuationBB` with `saveRegistersInst`
+            i = callerBB.numOfInstructions() -1,
+            saveRegistersInst
+        )
         callerBB.add(SbfInstruction.Jump.UnconditionalJump(calleeEntry.getLabel()))
 
         callerBB.removeSuccs()
         callerBB.addSucc(calleeEntry)
-        calleeEntry.add(0, increaseFramePtrInst)
 
-        continuationBB.add(0, decreaseFramePtrInst)
-        continuationBB.add(1, restoreRegistersInst)
-        calleeExit.removeAt(calleeExit.numOfInstructions() - 1)  // remove exit instruction
-        calleeExit.add(SbfInstruction.Jump.UnconditionalJump(continuationBB.getLabel()))
+        // Remove old jump in callee
+        calleeExit.removeAt(calleeExit.numOfInstructions() -1)
         calleeExit.removeSuccs()
+        // Add new jump to the caller continuation
+        calleeExit.add(SbfInstruction.Jump.UnconditionalJump(continuationBB.getLabel()))
         calleeExit.addSucc(continuationBB)
+
+        continuationBB.add(0, restoreRegistersInst)
+
+        val emitter = when (useDynamicFrames) {
+            true -> DynamicFrameLowering()
+            false -> StaticFrameLowering()
+        }
+
+        emitter.emitPrologue(calleeEntry)
+        emitter.emitEpilogue(calleeExit)
     }
 
     // The correctness of the inliner relies on having at most one call per basic block.

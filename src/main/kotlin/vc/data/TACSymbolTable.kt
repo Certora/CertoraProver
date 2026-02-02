@@ -24,7 +24,6 @@ import log.*
 import smt.solverscript.functionsymbols.IFixedFunctionSignatures.FixedFunctionSignatures
 import smt.solverscript.functionsymbols.UserDefinedFunctionSymbol
 import tac.Tag
-import tac.Tags
 import utils.*
 import vc.data.tacexprutil.subs
 import vc.data.tacexprutil.toVarSet
@@ -57,7 +56,7 @@ class TACSymbolTableException(msg: String) : Exception("Invalid TACSymbolTable: 
 data class TACSymbolTable(
         internal val userDefinedTypes: Set<Tag.UserDefined>,
         private val uninterpretedFunctions: UninterpretedFunctions,
-        val tags: Tags<TACSymbol.Var>,
+        val vars: TreapSet<TACSymbol.Var>,
         val globalScope: Map<String, TACSymbol.Var>
 ) : Serializable {
 
@@ -66,7 +65,7 @@ data class TACSymbolTable(
             userDefinedTypes,
             mapOf(),
             symbols.filterIsInstance<TACSymbol.Var>()
-                .toSet()
+                .toTreapSet()
                 .also { vars ->
                     vars.groupBy { it.callIndex to it.namePrefix }
                         .forEachEntry { (_, equivalentVars) ->
@@ -74,8 +73,7 @@ data class TACSymbolTable(
                                 "Equivalent variables $equivalentVars should have the same tag in TACSymbolTable"
                             }
                         }
-                }
-                .let(::Tags),
+                },
             mapOf()
         )
 
@@ -85,12 +83,12 @@ data class TACSymbolTable(
         this(e.subs.toVarSet(), e.subs.mapNotNull { it.tag as? Tag.UserDefined }.toSet())
 
     fun isEmpty() =
-        userDefinedTypes.isEmpty() && uninterpretedFunctions.isEmpty() && tags.isEmpty()
+        userDefinedTypes.isEmpty() && uninterpretedFunctions.isEmpty() && vars.isEmpty()
 
     constructor(
         userDefinedTypes: Set<Tag.UserDefined>,
         uninterpretedFunctions: Set<FunctionInScope.UF>,
-        tags: Tags<TACSymbol.Var>,
+        vars: TreapSet<TACSymbol.Var>,
         globalScope: Map<String, TACSymbol.Var>
     ) :
             this(userDefinedTypes,
@@ -116,11 +114,24 @@ data class TACSymbolTable(
                             map
                         }
                     },
-                tags,
+                vars,
                 globalScope
             )
 
     init {
+        /*
+            Every time we construct a new symbol table, check that we don't have any variables with the same name, but
+            different tags.
+         */
+        vars.groupBy { it.smtRep }.forEachEntry { (_, equivalentVars) ->
+            check(equivalentVars.size == 1) {
+                "Multiple variables with same name: ${equivalentVars.joinToString(", ")}"
+            }
+        }
+
+        /*
+            Check for undefined tags in Uninterpreted Function declarations
+         */
         val errors = mutableListOf<String>()
 
         val undefinedParamTags = uninterpretedFunctions().mapNotNull { func ->
@@ -158,10 +169,9 @@ data class TACSymbolTable(
 
     companion object {
         fun empty() = TACSymbolTable()
-        fun withTags(tags: Tags<TACSymbol.Var>) = TACSymbolTable(setOf(), setOf(), tags, mapOf())
-        fun withTags(tags: Set<TACSymbol.Var>) = TACSymbolTable(setOf(), setOf(), Tags(tags), mapOf())
+        fun withVars(vars: Set<TACSymbol.Var>) = TACSymbolTable(setOf(), setOf(), vars.toTreapSet(), mapOf())
         fun <T: TACCmd> withRequiredDecls(cmdsWithReqDecls: CommandWithRequiredDecls<T>) =
-            TACSymbolTable(setOf(), setOf(), Tags(cmdsWithReqDecls.varDecls), mapOf())
+            TACSymbolTable(setOf(), setOf(), cmdsWithReqDecls.varDecls.toTreapSet(), mapOf())
 
         private fun <K, V> Map<K, V>.merge(other: Map<K, V>, error: (K, V, V) -> Unit): Map<K, V> {
             val newMap = mutableMapOf<K, V>()
@@ -191,10 +201,9 @@ data class TACSymbolTable(
         is Tag.Bits, Tag.Bool, Tag.Int, Tag.WordMap, Tag.ByteMap, Tag.BlockchainState, is Tag.Move -> true
     }
 
-    operator fun contains(v: TACSymbol.Var): Boolean = v in tags
+    operator fun contains(v: TACSymbol.Var): Boolean = v in vars
 
-    val nameToSymbol: Map<String, TACSymbol.Var> by lazy { tags.keys.associateBy { sym -> sym.toString() } }
-    val smtrepToSymbol: Map<String, TACSymbol.Var> by lazy { tags.keys.associateBy { sym -> sym.smtRep.toString() } }
+    val nameToSymbol: Map<String, TACSymbol.Var> by lazy { vars.associateBy { it.toString() } }
 
     fun containsUninterpretedFunction(name: String, numParams: Int) =
         uninterpretedFunctions[name]?.containsKey(numParams) ?: false
@@ -224,7 +233,7 @@ data class TACSymbolTable(
 
         val newSorts = this.userDefinedTypes.union(other.userDefinedTypes)
         val newUninterpretedFunctions = this.uninterpretedFunctions + other.uninterpretedFunctions
-        val newTags = this.tags.mergeTags(other.tags)
+        val newVars = this.vars + other.vars
         val newGlobalScope = this.globalScope + other.globalScope
 
         // Either the global scope of one of the symbol table is contained in the other one, or they are completely separate.
@@ -233,24 +242,20 @@ data class TACSymbolTable(
             newGlobalScope.size == this.globalScope.size + other.globalScope.size) { // they are exclusive
             "Merging to symbol tables that have contradicting global scopes"
         }
-        this.copy(userDefinedTypes = newSorts, uninterpretedFunctions = newUninterpretedFunctions, tags = newTags, globalScope = newGlobalScope)
-    }
-
-    fun mergeDecls(decls: Tags<TACSymbol.Var>): TACSymbolTable {
-        return this.copy(tags = this.tags.mergeTags(decls))
+        this.copy(userDefinedTypes = newSorts, uninterpretedFunctions = newUninterpretedFunctions, vars = newVars, globalScope = newGlobalScope)
     }
 
     fun mergeUfs(ufs: Set<FunctionInScope.UF>): TACSymbolTable {
         return TACSymbolTable(
             userDefinedTypes = userDefinedTypes,
             uninterpretedFunctions = uninterpretedFunctions() + ufs,
-            tags = tags,
+            vars = vars,
             globalScope = globalScope
         )
     }
 
     fun mergeDecls(decls: Set<TACSymbol.Var>): TACSymbolTable {
-        return this.copy(tags = this.tags.mergeTags(decls))
+        return this.copy(vars = this.vars + decls)
     }
 
     private val uninterpretedFunctionSymbols: MutableMap<FunctionInScope, UserDefinedFunctionSymbol> = mutableMapOf()

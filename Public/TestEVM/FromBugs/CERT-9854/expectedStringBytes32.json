@@ -1,0 +1,5 @@
+{
+    "rules": {
+        "mapping_nameToUint_load_in_solidity_with_cvl_string": "SUCCESS"
+    }
+}

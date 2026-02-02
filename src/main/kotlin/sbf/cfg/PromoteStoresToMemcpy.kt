@@ -45,13 +45,15 @@ fun promoteStoresToMemcpy(cfg: MutableSbfCFG,
     // [findWideningAndNarrowingStores] depends on endianness. Since we never expect big-endian,
     // we prefer to fail so that we are aware.
     check(globals.elf.isLittleEndian())
-    promoteStoresToMemcpy(cfg, scalarAnalysis)
+    promoteStoresToMemcpy(cfg, scalarAnalysis, globals.elf.useDynamicFrames())
 }
 
 @TestOnly
 fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
     cfg: MutableSbfCFG,
     scalarAnalysis: IAnalysis<D>,
+    // For tests, we use static frames by default
+    useDynFrames: Boolean = false,
     // For tests, it's sometimes convenient to disable it
     aggressivePromotion: Boolean = true)
     where D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
@@ -62,9 +64,16 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
     var numOfInsertedMemcpy = 0 // counter number of new memcpy/memcpy_zext/memcpy_trunc
     for (b in cfg.getMutableBlocks().values) {
 
-        // load and stores access **same** number of bytes
-        findMemcpyPatterns(b, types).let { rewrites ->
+        // load and stores access **different** number of bytes
+        findWideningAndNarrowingStores(b, types, useDynFrames).let { rewrites->
             applyRewrites(b, rewrites)
+            numOfInsertedMemcpy += rewrites.size
+        }
+
+        // load and stores access **same** number of bytes
+        findMemcpyPatterns(b, types, useDynFrames).let { rewrites ->
+            applyRewrites(b, rewrites)
+            narrowLoadsFromMemcpy(b, cfg) // remove some loads
             numOfInsertedMemcpy += rewrites.size
         }
 
@@ -84,16 +93,11 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
             * However, we can promote the two pairs of load-store to two separate `memcpy` of 8 bytes each one.
             * To do that, we do another round where we search for single pairs of load-store.
             */
-            findMemcpyPatterns(b, types, maxNumOfPairs = 1).let { rewrites ->
+            findMemcpyPatterns(b, types, useDynFrames, maxNumOfPairs = 1).let { rewrites ->
                 applyRewrites(b, rewrites)
+                narrowLoadsFromMemcpy(b, cfg) // remove some loads
                 numOfInsertedMemcpy += rewrites.size
             }
-        }
-
-        // load and stores access **different** number of bytes
-        findWideningAndNarrowingStores(b, types).let { rewrites->
-            applyRewrites(b, rewrites)
-            numOfInsertedMemcpy += rewrites.size
         }
     }
 
@@ -127,6 +131,7 @@ fun <D, TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> promoteStoresToMemcpy(
 private fun <D, TNum, TOffset> findMemcpyPatterns(
     bb: SbfBasicBlock,
     types: AnalysisRegisterTypes<D, TNum, TOffset>,
+    useDynFrames: Boolean,
     maxNumOfPairs: Int = Int.MAX_VALUE,
     minSizeToBePromoted: ULong = 1UL
 ): List<MemTransferRewrite>
@@ -138,90 +143,92 @@ where TNum: INumValue<TNum>,
     val rewrites = mutableListOf<MemTransferRewrite>()
 
     // used to find the definition of a value to be stored
-    val defLoads = mutableMapOf<SbfRegister, LocatedSbfInstruction>()
+    val defLoads = mutableMapOf<SbfRegister, Pair<LocatedSbfInstruction, ULong>>()
     // Note that we allow inserting multiple memcpy instructions in the same basic block
     // We try eagerly to group together the maximal number of stores
     var memcpyPattern = MemcpyPattern()
+    // a load can be paired with a stored if they are at the same stack depth
+    var curStackDepth = 0UL
     for (locInst in bb.getLocatedInstructions()) {
         val inst = locInst.inst
-        if (inst is SbfInstruction.Mem) {
+        when {
+            inst.isSaveScratchRegisters() ->  curStackDepth++
+            inst.isRestoreScratchRegisters() -> curStackDepth--
+            inst is SbfInstruction.Mem -> {
+                if (inst.isLoad) {
+                    defLoads[(inst.value as Value.Reg).r] = locInst to curStackDepth
+                } else {
+                    val value = inst.value
+                    if (value !is Value.Reg) {
+                        continue
+                    }
+                    val (loadInst, stackDepth) = defLoads[value.r] ?: continue
 
-            if (inst.isLoad) {
-                defLoads[(inst.value as Value.Reg).r] = locInst
-            } else {
-                val value = inst.value
-                if (value !is Value.Reg) {
-                    continue
-                }
-                val loadInst = defLoads[value.r] ?: continue
-                val canProcessPair = processLoadStorePair(bb, locInst, loadInst, types, memcpyPattern)
-                if (memcpyPattern.getLoads().size >= maxNumOfPairs || !canProcessPair) {
-
-                    // If we cannot insert the store-of-load pair, then we check if we can promote
-                    // the pairs we have so far.
-                    memcpyPattern.canBePromoted(minSizeToBePromoted)?.let { promoted ->
-                        emitMemcpy(
-                            promoted.srcReg,
-                            promoted.srcStart,
-                            promoted.dstReg,
-                            promoted.dstStart,
-                            promoted.size,
-                            promoted.metadata
-                        )?.let { newInsts ->
-                            rewrites.add(
-                                MemTransferRewrite(
-                                    memcpyPattern.getLoads(),
-                                    memcpyPattern.getStores(),
-                                    newInsts
-                                )
-                            )
-                        }
+                    // We only pair load and stores at the same stack depth
+                    if (curStackDepth != stackDepth) {
+                        continue
                     }
 
-                    // We start a fresh sequence of store-of-load pairs
-                    memcpyPattern = MemcpyPattern()
-                    processLoadStorePair(bb, locInst, loadInst, types, memcpyPattern)
-                }
-            }
-        } else {
-            // If the instruction is not a memory instruction, then we check if we can promote
-            // the store-of-load pairs we have
-            memcpyPattern.canBePromoted(minSizeToBePromoted)?.let { promoted ->
-                emitMemcpy(
-                    promoted.srcReg,
-                    promoted.srcStart,
-                    promoted.dstReg,
-                    promoted.dstStart,
-                    promoted.size,
-                    promoted.metadata
-                )?.let { newInsts ->
-                    rewrites.add(
-                        MemTransferRewrite(
-                            memcpyPattern.getLoads(),
-                            memcpyPattern.getStores(),
-                            newInsts
-                        )
-                    )
-                }
-                memcpyPattern = MemcpyPattern()
-            }
+                    val canProcessPair = processLoadStorePair(bb, locInst, loadInst, types, useDynFrames, memcpyPattern)
+                    if (memcpyPattern.getLoads().size >= maxNumOfPairs || !canProcessPair) {
+                        // If we cannot insert the store-of-load pair, then we check if we can promote
+                        // the pairs we have so far.
+                        memcpyPattern.canBePromoted(minSizeToBePromoted)?.let { promoted ->
+                            emitMemcpy(
+                                promoted.srcReg,
+                                promoted.srcStart,
+                                promoted.dstReg,
+                                promoted.dstStart,
+                                promoted.size,
+                                promoted.metadata
+                            )?.let { newInsts ->
+                                rewrites.add(
+                                    MemTransferRewrite(
+                                        memcpyPattern.getLoads(),
+                                        memcpyPattern.getStores(),
+                                        newInsts
+                                    )
+                                )
+                            }
+                        }
 
-            // Kill any active load if its defined register is overwritten
-            for (reg in inst.writeRegister) {
-                defLoads.remove(reg.r)
+                        // We start a fresh sequence of store-of-load pairs
+                        memcpyPattern = MemcpyPattern()
+                        processLoadStorePair(bb, locInst, loadInst, types, useDynFrames, memcpyPattern)
+                    }
+                }
+            }
+            else -> {
+                // If the instruction is not a memory instruction, then we check if we can promote
+                // the store-of-load pairs we have
+                memcpyPattern.canBePromoted(minSizeToBePromoted)?.let { promoted ->
+                    emitMemcpy(
+                        promoted.srcReg,
+                        promoted.srcStart,
+                        promoted.dstReg,
+                        promoted.dstStart,
+                        promoted.size,
+                        promoted.metadata
+                    )?.let { newInsts ->
+                        rewrites.add(
+                            MemTransferRewrite(
+                                memcpyPattern.getLoads(),
+                                memcpyPattern.getStores(),
+                                newInsts
+                            )
+                        )
+                    }
+                    memcpyPattern = MemcpyPattern()
+                }
+
+                // Kill any active load if its defined register is overwritten
+                for (reg in inst.writeRegister) {
+                    defLoads.remove(reg.r)
+                }
             }
         }
     }
-
-    // Important: we sort `rewrites` by the position of its first load that appears in the block
-    // We need this because we need to adjust the insertion points while we will insert the emitted memcpy code.
-    // If `rewrites` is not sorted then the adjustment becomes unnecessarily complicated.
-    return rewrites.sortedBy { rewrite ->
-        // Return the position of the first load of `it` within the block to be promoted
-        val loads = rewrite.loads
-        check(loads.isNotEmpty()) {"$rewrite should have non-empty load instructions"}
-        loads.minByOrNull { locInst -> locInst.pos }!!.pos
-    }
+    return rewrites
 }
 
 /**
@@ -233,6 +240,7 @@ private fun <D, TNum, TOffset> processLoadStorePair(
     storeLocInst: LocatedSbfInstruction,
     loadLocInst: LocatedSbfInstruction,
     types: AnalysisRegisterTypes<D, TNum, TOffset>,
+    useDynFrames: Boolean,
     memcpy: MemcpyPattern
 ): Boolean
 where TNum: INumValue<TNum>,
@@ -255,8 +263,17 @@ where TNum: INumValue<TNum>,
     // are scratch registers then we cannot perform the transformation because we run out of registers
     // where we can save values.
     return when {
-        loadedMemAccess.region != MemAccessRegion.STACK && storedMemAccess.region != MemAccessRegion.STACK -> false
-        !isSafeToCommuteStore(bb, loadedMemAccess, loadLocInst, storedMemAccess, storeLocInst, types) -> false
+        loadedMemAccess.region != MemAccessRegion.STACK &&
+            storedMemAccess.region != MemAccessRegion.STACK -> false
+        !isSafeToCommuteStore(
+            bb,
+            loadedMemAccess,
+            loadLocInst,
+            storedMemAccess,
+            storeLocInst,
+            types,
+            useDynFrames
+        ) ->  false
         else -> memcpy.add(loadedMemAccess, loadLocInst, storedMemAccess, storeLocInst)
     }
 }
@@ -404,7 +421,7 @@ private class MemcpyPattern {
                 val srcSingleton = srcIntervals.getSingleton()
                 val dstSingleton = dstIntervals.getSingleton()
                 if (srcSingleton != null && dstSingleton != null) {
-                    return Pair(srcSingleton, dstSingleton)
+                    return srcSingleton to dstSingleton
                 } else {
                     // Before we return null we remove the last inserted pair and try again
                     loads.removeLast()
@@ -458,6 +475,7 @@ private class MemcpyPattern {
 private fun <D, TNum, TOffset> findWideningAndNarrowingStores(
     bb: SbfBasicBlock,
     types: AnalysisRegisterTypes<D, TNum, TOffset>,
+    useDynFrames: Boolean
 ): List<MemTransferRewrite>
 where TNum: INumValue<TNum>,
       TOffset: IOffset<TOffset>,
@@ -465,31 +483,29 @@ where TNum: INumValue<TNum>,
 
     val rewrites = mutableListOf<MemTransferRewrite>()
 
-    var loadReg:Value.Reg? = null
-    var loadInst:LocatedSbfInstruction? = null
+    // used to find the definition of a value to be stored
+    val defLoads = mutableMapOf<SbfRegister, LocatedSbfInstruction>()
 
     for (locInst in bb.getLocatedInstructions()) {
         when(val inst = locInst.inst) {
             is SbfInstruction.Mem -> {
                 when (inst.isLoad) {
                     true -> {
-                        loadReg = (inst.value as Value.Reg)
-                        loadInst = locInst
+                        defLoads[(inst.value as Value.Reg).r] = locInst
                     }
                     false -> {
                         val value = inst.value
-                        if (value !is Value.Reg || loadReg != value) {
+                        if (value !is Value.Reg) {
                             continue
                         }
-
-                        check(loadInst != null)
+                        val loadInst = defLoads[value.r] ?: continue
 
                         val loadedMemAccess = normalizeLoadOrStore(loadInst, types)
                         val storedMemAccess = normalizeLoadOrStore(locInst, types)
                         if (loadedMemAccess.region != MemAccessRegion.STACK && storedMemAccess.region != MemAccessRegion.STACK) {
                             continue
                         }
-                        if (!isSafeToCommuteStore(bb, loadedMemAccess, loadInst, storedMemAccess, locInst, types)) {
+                        if (!isSafeToCommuteStore(bb, loadedMemAccess, loadInst, storedMemAccess, locInst, types, useDynFrames)) {
                             continue
                         }
                         when {
@@ -525,7 +541,7 @@ where TNum: INumValue<TNum>,
                                     i = loadedMemAccess.width.toULong(),
                                     loadInst.inst.metaData
                                 )?.let { newInsts ->
-                                    rewrites.add(MemTransferRewrite(listOf(loadInst!!), listOf(locInst), newInsts))
+                                    rewrites.add(MemTransferRewrite(listOf(loadInst), listOf(locInst), newInsts))
                                 }
                             }
                             (loadedMemAccess.width.toInt() == 8 && storedMemAccess.width.toInt() < 8) -> {
@@ -542,7 +558,7 @@ where TNum: INumValue<TNum>,
                                     storedMemAccess.width.toULong(),
                                     loadInst.inst.metaData
                                 )?.let { newInsts ->
-                                    rewrites.add(MemTransferRewrite(listOf(loadInst!!), listOf(locInst), newInsts))
+                                    rewrites.add(MemTransferRewrite(listOf(loadInst), listOf(locInst), newInsts))
                                 }
                             }
                             else -> {}
@@ -552,9 +568,8 @@ where TNum: INumValue<TNum>,
             }
             else -> {
                 // Kill "active" load if its defined register is overwritten
-                if (inst.writeRegister.any { it == loadReg }) {
-                    loadInst = null
-                    loadReg = null
+                for (reg in inst.writeRegister) {
+                    defLoads.remove(reg.r)
                 }
             }
         }
@@ -582,8 +597,10 @@ data class MemTransferRewrite(
  *  Subsequent optimizations will remove the load instructions if they are dead.
  **/
 private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRewrite>) {
+    // Important to sort first rewrites: required for soundness of the transformation.
+    val sortedRewrites = sortRewrites(rewrites)
 
-    if (rewrites.isEmpty()) {
+    if (sortedRewrites.isEmpty()) {
         return
     }
 
@@ -593,7 +610,7 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
     // This metadata is needed to mark this instructions for the next loop.
     // Eventually, only load instructions that used by other instructions will maintain that metadata.
     // In that case, it's only used for debugging purposes.
-    for (rewrite in rewrites) {
+    for (rewrite in sortedRewrites) {
         for (loadLocInst in rewrite.loads) {
             addMemcpyPromotionAnnotation(bb, loadLocInst)
         }
@@ -606,7 +623,7 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
     //  We need to add the memcpy instructions before the first load.
     //  For an explanation, see test13 in PromoteStoresToMemcpyTest.kt
     var numAdded = 0   // used to adjust the insertion points after each memcmpy is inserted
-    for (rewrite in rewrites) {
+    for (rewrite in sortedRewrites) {
         val loads = rewrite.loads.sortedBy { it.pos}
         val firstLoad = loads.firstOrNull()
         check(firstLoad != null) {"memcpyInfo should not be empty"}
@@ -634,6 +651,21 @@ private fun applyRewrites(bb: MutableSbfBasicBlock, rewrites: List<MemTransferRe
     }
 }
 
+/**
+ * Sort [rewrites] by the position of their first load in the block.
+ *
+ * This simplifies adjusting insertion points as we insert the emitted code.
+ * Without sorting, tracking insertion point adjustments would be unnecessarily complicated.
+ */
+private fun sortRewrites(rewrites: List<MemTransferRewrite>): List<MemTransferRewrite> =
+    rewrites.sortedBy { rewrite ->
+        // Return the position of the first load of `it` within the block to be promoted
+        val loads = rewrite.loads
+        check(loads.isNotEmpty()) {"$rewrite should have non-empty load instructions"}
+        loads.minByOrNull { locInst -> locInst.pos }!!.pos
+    }
+
+
 private fun addMemcpyPromotionAnnotation(bb: MutableSbfBasicBlock, locInst: LocatedSbfInstruction) {
     val inst = locInst.inst
     if (inst is SbfInstruction.Mem) {
@@ -642,6 +674,9 @@ private fun addMemcpyPromotionAnnotation(bb: MutableSbfBasicBlock, locInst: Loca
         bb.replaceInstruction(locInst.pos, newInst)
     }
 }
+
+private fun SbfInstruction.isMemcpy() =
+    this is SbfInstruction.Call && SolanaFunction.from(this.name) == SolanaFunction.SOL_MEMCPY
 
 /**
  *  Return true if the store commute over all instructions between [loadLocInst] and [storeLocInst]
@@ -659,7 +694,9 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
     loadLocInst: LocatedSbfInstruction,
     store: MemAccess,
     storeLocInst: LocatedSbfInstruction,
-    types: AnalysisRegisterTypes<D, TNum, TOffset>): Boolean
+    types: AnalysisRegisterTypes<D, TNum, TOffset>,
+    useDynFrames: Boolean
+): Boolean
     where TNum: INumValue<TNum>,
           TOffset: IOffset<TOffset>,
           D: AbstractDomain<D>, D: ScalarValueProvider<TNum, TOffset> {
@@ -691,22 +728,25 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
 
     val storeBaseReg = storeInst.access.base
 
-    logger.debug{ "$name: $storeInst up to $loadInst?" }
+    dbg { "$name: $storeInst up to $loadInst?" }
     // aliases keeps track of other register that might be assigned to the loaded register
     val aliases = mutableSetOf<Value.Reg>()
     aliases.addAll(loadInst.writeRegister)
     bb.getInstructions().subList(loadLocInst.pos+1 ,storeLocInst.pos).forEach {
         // Ensure that loaded register cannot be modified between the load and store
-        if (it.writeRegister.intersect(loadInst.writeRegister).isNotEmpty()) {
-            logger.debug{ "\t$name: $it might modify the loaded register" }
+        if (!it.isRestoreScratchRegisters() && it.writeRegister.intersect(loadInst.writeRegister).isNotEmpty()) {
+            dbg { "\t$name: $it might modify the loaded register" }
             return false
         }
 
         // Ensure that the base register of the store is not overwritten between the load and store.
         // This restriction might be not necessary, specially if load and stores are on the stack, but we prefer
         // to be conservative here.
-        if (it.writeRegister.contains(storeBaseReg)) {
-            logger.debug{ "\t$name: $it might modify the base register of the store" }
+        if (!it.isRestoreScratchRegisters() &&
+            !it.isStackPush(useDynFrames) &&
+            !it.isStackPop(useDynFrames) &&
+            it.writeRegister.contains(storeBaseReg)) {
+            dbg { "\t$name: $it might modify the base register of the store" }
             return false
         }
 
@@ -721,7 +761,7 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
         // See test18 in PromoteStoresToMemcpyTest.kt
         if (it.isAssertOrSatisfy() || it is SbfInstruction.Assume) {
             if (it.readRegisters.intersect(aliases).isNotEmpty()) {
-                logger.debug{ "\t$name: $it might affect the loaded register" }
+                dbg { "\t$name: $it might affect the loaded register" }
                 return false
             }
         }
@@ -734,68 +774,75 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
             // between the load and the store, or not.
             for (locInst in bb.getLocatedInstructions().subList(loadLocInst.pos+1, storeLocInst.pos)) {
                 val inst = locInst.inst
-                if (inst is SbfInstruction.Mem) {
-                    val normMemInst = normalizeLoadOrStore(locInst, types)
-                    val canCommuteStore = when (getMemAccessRegion(normMemInst.region)) {
-                        MemAccessRegion.STACK -> {
-                            val noOverlap = !normMemInst.overlap(storeRange)
-                            if (noOverlap) {
-                                logger.debug { "\t$name OK: $inst is stack and $storeInst is stack but no overlap." }
-                            } else {
-                                logger.debug { "\t$name FAIL: $inst is stack and $storeInst is stack and they overlap." }
+                when {
+                    inst is SbfInstruction.Mem -> {
+                        val normMemInst = normalizeLoadOrStore(locInst, types)
+                        val canCommuteStore = when (getMemAccessRegion(normMemInst.region)) {
+                            MemAccessRegion.STACK -> {
+                                val noOverlap = !normMemInst.overlap(storeRange)
+                                dbg {
+                                    if (noOverlap) {
+                                        "\t$name OK: $inst is stack and $storeInst is stack but no overlap."
+                                    } else {
+                                        "\t$name FAIL: $inst is stack and $storeInst is stack and they overlap."
+                                    }
+                                }
+                                noOverlap
                             }
-                            noOverlap
-                        }
-                        MemAccessRegion.NON_STACK -> {
-                            logger.debug {"\t$name OK: $inst is non-stack and $storeInst is stack"}
-                            true
-                        }
-                        MemAccessRegion.ANY -> {
-                            logger.debug {"\t$name FAIL: $inst is any memory and $storeInst is stack"}
-                            false
-                        }
-                    }
-                    if (!canCommuteStore) {
-                        return false
-                    }
-                } else if (inst is SbfInstruction.Call && SolanaFunction.from(inst.name) == SolanaFunction.SOL_MEMCPY) {
-
-                    val memAccesses = normalizeMemcpy(locInst, types)
-                    if (memAccesses == null) {
-                        logger.debug {"\t$name FAIL: cannot statically determine length in $inst"}
-                        return false
-                    }
-                    val (normSrc, normDest) = memAccesses
-                    // Check store commute over destination
-                    when (normDest.region) {
-                        MemAccessRegion.STACK -> {
-                            if (!normDest.overlap(storeRange)) {
-                                logger.debug { "\t$name OK: $inst is stack and $storeInst is stack but no overlap." }
-                            } else {
-                                logger.debug { "\t$name FAIL: $inst is stack and $storeInst is stack and they overlap." }
-                                return false
+                            MemAccessRegion.NON_STACK -> {
+                                dbg { "\t$name OK: $inst is non-stack and $storeInst is stack" }
+                                true
+                            }
+                            MemAccessRegion.ANY -> {
+                                dbg { "\t$name FAIL: $inst is any memory and $storeInst is stack" }
+                                false
                             }
                         }
-                        else -> {
-                            logger.debug { "\t$name FAIL: stores do not commute over memcpy for now" }
+                        if (!canCommuteStore) {
                             return false
                         }
                     }
-
-                    // Check store commute over source
-                    when (normSrc.region) {
-                        MemAccessRegion.STACK -> {
-                            if (!normSrc.overlap(storeRange)) {
-                                logger.debug { "\t$name OK: $inst is stack and $storeInst is stack but no overlap." }
-                            } else {
-                                logger.debug { "\t$name FAIL: $inst is stack and $storeInst is stack and they overlap." }
+                    inst.isMemcpy() -> {
+                        val memAccesses = normalizeMemcpy(locInst, types)
+                        if (memAccesses == null) {
+                            dbg { "\t$name FAIL: cannot statically determine length in $inst" }
+                            return false
+                        }
+                        val (normSrc, normDest) = memAccesses
+                        // Check store commute over destination
+                        when (normDest.region) {
+                            MemAccessRegion.STACK -> {
+                                if (!normDest.overlap(storeRange)) {
+                                    dbg { "\t$name OK: $inst is stack and $storeInst is stack but no overlap." }
+                                } else {
+                                    dbg { "\t$name FAIL: $inst is stack and $storeInst is stack and they overlap." }
+                                    return false
+                                }
+                            }
+                            else -> {
+                                dbg { "\t$name FAIL: stores do not commute over memcpy for now" }
                                 return false
                             }
                         }
-                        else -> {
-                            logger.debug { "\t$name FAIL: stores do not commute over memcpy for now" }
-                            return false
+
+                        // Check store commute over source
+                        when (normSrc.region) {
+                            MemAccessRegion.STACK -> {
+                                if (!normSrc.overlap(storeRange)) {
+                                    dbg { "\t$name OK: $inst is stack and $storeInst is stack but no overlap." }
+                                } else {
+                                    dbg { "\t$name FAIL: $inst is stack and $storeInst is stack and they overlap." }
+                                    return false
+                                }
+                            }
+                            else -> {
+                                dbg { "\t$name FAIL: stores do not commute over memcpy for now" }
+                                return false
+                            }
                         }
+                    }
+                    else -> {
+                        // Intentionally skip next instruction
                     }
                 }
             }
@@ -803,39 +850,44 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
         MemAccessRegion.NON_STACK -> {
             val canCommuteStore = bb.getLocatedInstructions().subList(loadLocInst.pos+1, storeLocInst.pos).all { locInst ->
                 val inst = locInst.inst
-                if (inst is SbfInstruction.Mem) {
-                    val normMemInst = normalizeLoadOrStore(locInst, types)
-                    when (getMemAccessRegion(normMemInst.region)) {
-                        MemAccessRegion.STACK -> {
-                            logger.debug {"\t$name OK: $inst is stack and $storeInst is non-stack"}
-                            true
-                        }
-                        MemAccessRegion.NON_STACK -> {
-                            if (normMemInst.reg == storeBaseReg.r) { // we know that storeBaseReg doesn't change
-                                val noOverlap = !normMemInst.overlap(storeRange)
-                                if (noOverlap) {
-                                    logger.debug { "\t$name OK: $inst is non-stack and $storeInst non-stack but same register and no overlap." }
+                when {
+                    inst is SbfInstruction.Mem -> {
+                        val normMemInst = normalizeLoadOrStore(locInst, types)
+                        when (getMemAccessRegion(normMemInst.region)) {
+                            MemAccessRegion.STACK -> {
+                                dbg { "\t$name OK: $inst is stack and $storeInst is non-stack" }
+                                true
+                            }
+                            MemAccessRegion.NON_STACK -> {
+                                if (normMemInst.reg == storeBaseReg.r) { // we know that storeBaseReg doesn't change
+                                    val noOverlap = !normMemInst.overlap(storeRange)
+                                    dbg {
+                                        if (noOverlap) {
+                                            "\t$name OK: $inst is non-stack and $storeInst non-stack but same register and no overlap."
+                                        } else {
+                                            "\t$name FAIL: $inst is non-stack and $storeInst non-stack but same register and overlap."
+                                        }
+                                    }
+                                    noOverlap
                                 } else {
-                                    logger.debug { "\t$name FAIL: $inst is non-stack and $storeInst non-stack but same register and overlap." }
+                                    dbg { "\t$name FAIL: $inst is non-stack and $storeInst is non-stack" }
+                                    false
                                 }
-                                noOverlap
-                            } else {
-                                logger.debug {"\t$name FAIL: $inst is non-stack and $storeInst is non-stack"}
+                            }
+                            MemAccessRegion.ANY -> {
+                                dbg { "\t$name: $inst is any memory and $storeInst is non-stack" }
                                 false
                             }
                         }
-                        MemAccessRegion.ANY -> {
-                            logger.debug {"\t$name: $inst is any memory and $storeInst is non-stack"}
-                            false
-                        }
                     }
-                } else {
-                    // We could do better, but we bail out if the instruction is a memcpy
-                    val isNotMemcpy = !(inst is SbfInstruction.Call && SolanaFunction.from(inst.name) == SolanaFunction.SOL_MEMCPY)
-                    if (!isNotMemcpy) {
-                        logger.debug { "\t$name FAIL: stores do not commute over memcpy for now" }
+                    inst.isMemcpy() -> {
+                        // We could do better, but we bail out if the instruction is a memcpy
+                        dbg { "\t$name FAIL: stores do not commute over memcpy for now" }
+                        false
                     }
-                    isNotMemcpy
+                    else -> {
+                        true
+                    }
                 }
             }
             if (!canCommuteStore) {
@@ -843,13 +895,19 @@ private fun <D, TNum, TOffset>  isSafeToCommuteStore(
             }
         }
         MemAccessRegion.ANY -> {
-            logger.debug { "\t$name: $storeInst on unknown memory " }
+            dbg { "\t$name: $storeInst on unknown memory " }
             return bb.getInstructions().subList(loadLocInst.pos+1, storeLocInst.pos).all {
-                it !is SbfInstruction.Mem &&
-                    !(it is SbfInstruction.Call && SolanaFunction.from(it.name) == SolanaFunction.SOL_MEMCPY)
+                it !is SbfInstruction.Mem && !it.isMemcpy()
             }
         }
     }
-    logger.debug {"$name OK"}
+    dbg {"$name OK"}
     return true
+}
+
+private fun narrowLoadsFromMemcpy(b: MutableSbfBasicBlock, cfg: MutableSbfCFG) {
+    narrowMaskedLoads(b, cfg) { loadInst ->
+        loadInst.isLoad &&
+            loadInst.metaData.getVal(SbfMeta.MEMCPY_PROMOTION) != null
+    }
 }

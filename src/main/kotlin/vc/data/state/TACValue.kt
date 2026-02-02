@@ -31,7 +31,6 @@ import smtlibutils.algorithms.Substitutor
 import smtlibutils.data.*
 import smtlibutils.data.Sort.Companion.SKeySort
 import tac.Tag
-import tac.emptyTags
 import utils.*
 import vc.data.*
 import vc.data.TACBuiltInFunction.Hash.Companion.skeySort
@@ -770,7 +769,7 @@ sealed class TACValue : SerializableWithAdapter {
         companion object {
             // NB (alex:) the `20` is just a (generous) magic constant used for these here typing purposes only
             // -- if we get higher-arity hashes, this will crash and we should think of something better
-            val symbolTable = TACSymbolTable(setOf(TACBuiltInFunction.Hash.skeySort), setOf(), emptyTags(), mapOf())
+            val symbolTable = TACSymbolTable(setOf(TACBuiltInFunction.Hash.skeySort), setOf(), treapSetOf(), mapOf())
             private val txf = TACExprFactTypeChecked(symbolTable)
 
             val skeySmtSort =

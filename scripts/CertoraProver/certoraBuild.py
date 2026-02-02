@@ -3337,6 +3337,9 @@ class CertoraBuildGenerator:
                 })
         return result
 
+    def _needs_casting_instrumentation(self) -> bool:
+        return self.context.safe_casting_builtin or self.context.assume_no_casting_overflow
+
     def instrument_auto_finders(self, build_arg_contract_file: str, i: int,
                                 sdc_pre_finders: List[SDC],
                                 path_for_compiler_collector_file: str,
@@ -3386,7 +3389,7 @@ class CertoraBuildGenerator:
 
         offset_converters = generate_offset_converters(sdc_pre_finder)
 
-        if self.context.safe_casting_builtin:
+        if self._needs_casting_instrumentation():
             try:
                 casting_instrumentations, casting_types = generate_casting_instrumentation(self.asts, build_arg_contract_file, sdc_pre_finder, offset_converters)
             except Exception as e:
@@ -3467,7 +3470,7 @@ class CertoraBuildGenerator:
                         read_so_far += amt + 1 + to_skip
                     output.write(in_file.read(-1))
 
-                    if self.context.safe_casting_builtin:
+                    if self._needs_casting_instrumentation():
                         library_name, funcs = casting_types.get(contract_file, ("", list()))
                         if len(funcs) > 0:
                             output.write(bytes(f"\nlibrary {library_name}" + "{\n", "utf8"))

@@ -27,7 +27,7 @@ class VarResolver(private val symbolTable: TACSymbolTable, callId: CallId) {
     constructor(c: CoreTACProgram, callId: Int) : this(c.symbolTable, callId)
 
     private fun findCallSpecificByKeyword(keyword: TACKeyword, callId: CallId) =
-        symbolTable.tags.keys.singleOrNull { it.namePrefix == keyword.getName() && it.callIndex == callId }
+        symbolTable.vars.singleOrNull { it.namePrefix == keyword.getName() && it.callIndex == callId }
 
     val address by lazy { findCallSpecificByKeyword(TACKeyword.ADDRESS, callId) ?: TACKeyword.ADDRESS.toVar(callId) }
     // msg

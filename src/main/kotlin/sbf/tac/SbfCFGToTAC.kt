@@ -103,7 +103,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     // Factory for creating TACExpr
     val exprBuilder: TACExprBuilder
     // Factory for creating TACSymbol.Var
-    val vFac = TACVariableFactory<TFlags>()
+    val vFac = TACVariableFactory<TFlags>(globals.elf.useDynamicFrames())
     // Symbolic memory allocators
     val heapMemAlloc = TACBumpAllocator("TACHeapAllocator", SBF_HEAP_START.toULong(), SBF_HEAP_END.toULong())
     private val accountsAlloc = TACFixedSizeBlockAllocator("TACSolanaAccountAllocator", SBF_INPUT_START.toULong(), MAX_SOLANA_ACCOUNTS.toUShort(), SOLANA_ACCOUNT_SIZE.toULong())
@@ -145,7 +145,7 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
         }
         exprBuilder = TACExprBuilder(regVars)
         mem = if (memoryAnalysis != null) {
-            PTAMemSplitter(cfg, vFac, memoryAnalysis, globals)
+            PTAMemSplitter(cfg, vFac, memoryAnalysis)
         } else {
             DummyMemSplitter(vFac, types)
         }
@@ -194,10 +194,18 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
     private fun addInitialPreconditions(): List<TACCmd.Simple> {
         val b = vFac.mkFreshBoolVar()
         val r10 = exprBuilder.mkVar(SbfRegister.R10_STACK_POINTER)
-        // r10 points to the end of the stack frame
+
         return listOf(
-            assign(b, exprBuilder.mkBinRelExp(CondOp.EQ, TACExpr.Sym.Var(r10), SBF_STACK_START + SBF_STACK_FRAME_SIZE)),
-            TACCmd.Simple.AssumeCmd(b, "InitialPreconditions"))
+            assign(b,
+                   exprBuilder.mkBinRelExp(
+                       CondOp.EQ,
+                       TACExpr.Sym.Var(r10),
+                       SBF_STACK_START + getInitialStackOffset(globals.elf.useDynamicFrames())
+                   )
+            ),
+            TACCmd.Simple.AssumeCmd(b, "InitialPreconditions")
+        )
+
     }
 
     private fun addGlobalInitializers(): List<TACCmd.Simple> {
@@ -252,9 +260,17 @@ internal class SbfCFGToTAC<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFl
      *       0x100000000    0x200000000          0x30000000     0x40000000         ?
      *  ```
      **/
-    fun addMemoryLayoutAssumptions(ptr: TACSymbol.Var, region: SbfType<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>?): List<TACCmd.Simple> {
+    fun addMemoryLayoutAssumptions(
+        ptr: TACSymbol.Var,
+        region: SbfType<TNumAdaptiveScalarAnalysis, TOffsetAdaptiveScalarAnalysis>?
+    ): List<TACCmd.Simple> {
+
 
         if (!SolanaConfig.AddMemLayoutAssumptions.get()) {
+            return listOf()
+        }
+
+        if (globals.elf.useDynamicFrames()) {
             return listOf()
         }
 

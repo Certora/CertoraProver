@@ -203,12 +203,10 @@ object DisciplinedHashModel {
         pta: IPointsToInformation
     ): HashRewriteEffect {
         val code = method.code as CoreTACProgram
-        // this only rewrites callcores calling the hash precompiled, and AssignSha3Cmd with constant length
-        val updatedHashCallCoreCmds = adjustHashesToWritePatterns(method, memoryModel, pta, patch)
 
-        if (pta is WithSummaryInformation) {
+        val bytesKeyHashesRewritten = if (pta is WithSummaryInformation) {
             // this rewrites [AssignSha3Cmd] commands with non-constant length, and some associated [ByteStore]s
-            handleBytesKeyHashes(code, indexLogic = object : BytesKeyIndexLogic {
+            val rewrittenCommands = handleBytesKeyHashes(code, indexLogic = object : BytesKeyIndexLogic {
                 override fun isFinalWordWrite(
                     ctp: CoreTACProgram,
                     hashLoc: LTACCmdView<TACCmd.Simple.AssigningCmd.AssignSha3Cmd>,
@@ -237,8 +235,13 @@ object DisciplinedHashModel {
             }, patcher = patch)
             // this rewrites summary commands
             handleExternalGetterHashes(code.analysisCache.graph, pta, patch)
+            rewrittenCommands
+        } else {
+            setOf()
         }
-        return updatedHashCallCoreCmds
+
+        // this only rewrites callcores calling the hash precompiled, and AssignSha3Cmd with constant length
+        return adjustHashesToWritePatterns(method, memoryModel, pta, patch, bytesKeyHashesRewritten)
     }
 
     fun computeOffsetTaggingFor(
@@ -283,13 +286,19 @@ object DisciplinedHashModel {
      * Does the classic "disciplined hash model" which adjusts the hash to see the write patterns based on the [memoryModel] and [pta]
      * @return the set of updated [CmdPointer]s that are CallCores
      */
-    private fun adjustHashesToWritePatterns(method: TACMethod, memoryModel: MemoryMap, pta: IPointsToInformation, patch: SimplePatchingProgram): HashRewriteEffect {
+    private fun adjustHashesToWritePatterns(method: TACMethod, memoryModel: MemoryMap, pta: IPointsToInformation, patch: SimplePatchingProgram, bytesKeyHashesRewritten: Set<TACCmd.Simple.AssigningCmd.AssignSha3Cmd>): HashRewriteEffect {
         val code = method.code as CoreTACProgram
         val g = code.analysisCache.graph
         val updated = mutableSetOf<CmdPointer>()
         val stagedSaves = mutableMapOf<LTACVar, TACSymbol.Var>()
         val hashesToRewrite = g.commands.mapNotNull {
             if(it.ptr !in memoryModel) {
+                return@mapNotNull null
+            }
+            /**
+             * Important: Do not rewrite commands that already have been rewritten in [handleBytesKeyHashes]
+             */
+            if(it.cmd in bytesKeyHashesRewritten){
                 return@mapNotNull null
             }
             if(it.cmd is TACCmd.Simple.AssigningCmd.AssignSha3Cmd) {
@@ -647,12 +656,14 @@ object DisciplinedHashModel {
      * symbol M. For such a buffer, M is the mapping location, and the prefix of the buffer less these last 32 bytes are
      * the bytes key. This code inserts a BytesKeyHash summary indicating that we are getting a storage slot out in [BytesKeyHash.output]
      * for some key in map [BytesKeyHash.slot], whose representative hash is given in [BytesKeyHash.keyHash].
+     *
+     * Returns the set of commands that was updated.
      */
-    private fun handleBytesKeyHashes(ctp: CoreTACProgram, indexLogic: BytesKeyIndexLogic, patcher: SimplePatchingProgram) {
+    private fun handleBytesKeyHashes(ctp: CoreTACProgram, indexLogic: BytesKeyIndexLogic, patcher: SimplePatchingProgram): Set<TACCmd.Simple.AssigningCmd.AssignSha3Cmd> {
         /**
          * Find all hashes where the base and length are variables, and with a single successor
          */
-        ctp.parallelLtacStream().mapNotNull {
+        return ctp.parallelLtacStream().mapNotNull {
             it.maybeNarrow<TACCmd.Simple.AssigningCmd.AssignSha3Cmd>()?.takeIf {
                 it.cmd.memBaseMap == TACKeyword.MEMORY.toVar() && it.cmd.op1 is TACSymbol.Var && it.cmd.op2 is TACSymbol.Var &&
                     ctp.analysisCache.graph.succ(it.ptr).size == 1
@@ -679,7 +690,7 @@ object DisciplinedHashModel {
             indexLogic.isFinalWordWrite(
                 ctp, hash, prev
             )
-        }.sequential().forEach { (hash, prevSlotWrite) ->
+        }.sequential().map { (hash, prevSlotWrite) ->
             val stringHash = TACSymbol.Factory.getFreshAuxVar(
                 TACSymbol.Factory.AuxVarPurpose.SUMMARY,
                 hash.cmd.op1 as TACSymbol.Var
@@ -759,7 +770,8 @@ object DisciplinedHashModel {
                 pred != summaryBlock
             }
             patcher.addVarDecls(added)
-        }
+            hash.cmd
+        }.toList().toSet()
     }
 
     /*

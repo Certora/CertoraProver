@@ -1810,6 +1810,8 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     val nodeAllocator: PTANodeAllocator<Flags>,
     /** Global factory for sbf types **/
     val sbfTypesFac: ISbfTypeFactory<TNum, TOffset>,
+    /** Global state used by transfer functions **/
+    val globalState: GlobalState,
     init: Boolean = false,
     /** Node allocation for globals **/
     private val globalAlloc: GlobalAllocation<Flags> = GlobalAllocation(nodeAllocator),
@@ -1857,8 +1859,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             /** This node represents the Stack memory region **/
             val stackNode = mkNode()
             stackNode.flags = stackNode.flags.stackInitializer()
-            setRegCell(Value.Reg(SbfRegister.R10_STACK_POINTER),
-                       stackNode.createSymCell(SBF_STACK_FRAME_SIZE))
+
+            val initialOffset = getInitialStackOffset(globalState.globals.elf.useDynamicFrames())
+            setRegCell(
+                Value.Reg(SbfRegister.R10_STACK_POINTER),
+                stackNode.createSymCell(initialOffset)
+            )
         }
     }
 
@@ -1993,7 +1999,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         { "sliceScratchRegisters should have same size than scratchRegisters" }
 
         // We create a fresh stack node that points to the cells that the old stack pointed to
-        val newG = PTAGraph(nodeAllocator, sbfTypesFac, init = false,
+        val newG = PTAGraph(nodeAllocator, sbfTypesFac, globalState, init = false,
                             globalAlloc, heapAlloc, externAlloc, integerAlloc,
                             untrackedStackFields, unmaterializedStack)
         val oldStack = getStack()
@@ -2209,18 +2215,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     private fun getType(scalar: ScalarValue<TNum, TOffset>): SbfType<TNum, TOffset>? =
         if (scalar.isTop() || scalar.isBottom()) { null } else { scalar.type() }
 
-    private fun getNumber(scalar: SbfType<TNum, TOffset>) = (scalar as? SbfType.NumType)?.value?.toLongOrNull()
-
     /** This is just a heuristic to identify dangling pointers **/
-    private fun isNullOrDanglingPtr(scalar: SbfType<TNum, TOffset>): Boolean {
-        val n = getNumber(scalar)
-        return if (n != null) {
-            // Rust `dangling()` function returns a small power-of-two
-            (n == 0L || n == 1L || n == 2L || n == 4L || n == 8L || n == 16L || n == 32L || n == 64L)
-        } else {
-            false
-        }
-    }
+    private fun isNullOrDanglingPtr(scalar: SbfType<TNum, TOffset>): Boolean =
+        (scalar as? SbfType.NumType)?.value?.toLongOrNull()?.let { isZeroOrSmallPowerOfTwo(it) } ?: false
 
     /**
      * If a register points to a cell but the same register in the other operand is null
@@ -2700,10 +2697,10 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      **/
     private fun reductionFromScalars(reg: Value.Reg,
                                      type: SbfType<TNum, TOffset>,
-                                     globals: GlobalVariables,
                                      locInst: LocatedSbfInstruction?,
                                      stopIfError: Boolean) {
 
+        val globals = globalState.globals
         val pointerType: SbfType.PointerType<TNum, TOffset>? = when(type) {
             is SbfType.NumType -> type.castToPtr(sbfTypesFac, globals)
             is SbfType.PointerType -> type
@@ -2773,7 +2770,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     fun getRegCell(reg: Value.Reg,
                    type: SbfType<TNum, TOffset>,
-                   globals: GlobalVariables,
                    locInst: LocatedSbfInstruction?,
                    stopIfError: Boolean = true): PTASymCell<Flags>? {
 
@@ -2781,7 +2777,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         return if (sc != null) {
             sc
         } else {
-            reductionFromScalars(reg, type, globals, locInst, stopIfError)
+            reductionFromScalars(reg, type, locInst, stopIfError)
             getRegCell(reg)
         }
     }
@@ -2790,11 +2786,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         setRegCell(reg, null)
     }
 
-    fun doUn(locInst: LocatedSbfInstruction,
-             @Suppress("UNUSED_PARAMETER")
-             globals: GlobalVariables,
-             @Suppress("UNUSED_PARAMETER")
-             memSummaries: MemorySummaries) {
+    fun doUn(locInst: LocatedSbfInstruction) {
 
         val inst = locInst.inst
         check(inst is SbfInstruction.Un)
@@ -2841,10 +2833,16 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      *  @param op1 is a pointer.
      *  @param op2 is a number that can be later promoted to a pointer but that's okay.
      **/
-    private fun doConstantPointerArithmetic(op: BinOp,
-                                            dst: Value.Reg,
-                                            op1: Value.Reg,
-                                            op2: Value.Imm) {
+    private fun doConstantPointerArithmetic(
+        op: BinOp,
+        dst: Value.Reg,
+        op1: Value.Reg,
+        op2: Value.Imm,
+        locInst: LocatedSbfInstruction
+    ) {
+        val inst = locInst.inst
+        check(inst is SbfInstruction.Bin)
+
         if ((op == BinOp.ADD || op == BinOp.SUB) && op2.v == 0UL) {
             doPointerAssign(dst, op1)
         } else {
@@ -2855,19 +2853,23 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     forget(dst)
                     return
                 }
+
             val n = c.getNode()
             val o = c.getOffset()
-            if (op == BinOp.ADD || op == BinOp.SUB) {
-                val newOffset = updateOffset(op, n, o, op2.v.toLong())
-                setRegCell(dst, n.createSymCell(newOffset))
-                if (op == BinOp.SUB &&
-                    dst.r == SbfRegister.R10_STACK_POINTER &&
-                    op1.r == SbfRegister.R10_STACK_POINTER && op2.v == SBF_STACK_FRAME_SIZE.toULong()) {
-                    // Pop stack
-                    removeDeadStackFields()
+
+            when(op) {
+                BinOp.ADD,
+                BinOp.SUB -> {
+                    val newOffset = updateOffset(op, n, o, op2.v.toLong())
+                    setRegCell(dst, n.createSymCell(newOffset))
                 }
-            } else {
-                doUnknownPointerArithmetic(dst, n)
+                else -> {
+                    doUnknownPointerArithmetic(dst, n)
+                }
+            }
+
+            if (inst.isStackPop(globalState.globals.elf.useDynamicFrames())) {
+                removeDeadStackFields()
             }
         }
     }
@@ -3043,7 +3045,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
               src: Value,
               dstType: SbfType<TNum, TOffset>,
               srcType: SbfType<TNum, TOffset>,
-              @Suppress("UNUSED_PARAMETER") globals: GlobalVariables) {
+    ) {
         if (op != BinOp.MOV && (dstType is SbfType.NumType && srcType is SbfType.NumType)) {
             // op is a binary operation where the two operands are not pointer.
             forget(dst)
@@ -3059,7 +3061,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     forget(dst)
                 }
                 else -> {
-                    doConstantPointerArithmetic(op, dst, dst, src)
+                    doConstantPointerArithmetic(op, dst, dst, src, locInst)
                 }
             }
         } else {
@@ -3074,11 +3076,26 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
     }
 
-    fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doSelect(
-        locInst: LocatedSbfInstruction,
-        @Suppress("UNUSED_PARAMETER") globals: GlobalVariables,
+    private fun<ScalarDomain> updateScalarWithImm(
+        dst: Value.Reg,
+        value: Value.Imm,
         scalars: ScalarDomain
-    ) {
+    ): ScalarDomain
+    where
+        ScalarDomain: AbstractDomain<ScalarDomain>,
+        ScalarDomain: MemoryDomainScalarOps<TNum, TOffset> =
+        scalars.deepCopy().apply {
+            setScalarValue(dst, ScalarValue(sbfTypesFac.toNum(value.v)))
+        }
+
+    fun<ScalarDomain> doSelect(
+        locInst: LocatedSbfInstruction,
+        scalars: ScalarDomain
+    ) where
+        ScalarDomain: ScalarValueProvider<TNum, TOffset>,
+        ScalarDomain: AbstractDomain<ScalarDomain>,
+        ScalarDomain: MemoryDomainScalarOps<TNum, TOffset>
+    {
         val inst = locInst.inst
         check(inst is SbfInstruction.Select) {"doSelect expects a select instruction instead of $inst"}
 
@@ -3090,8 +3107,19 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
         val unificationList = mutableListOf<Pair<PTASymCell<Flags>, PTASymCell<Flags>>>()
         // set destination (the result of joinRegister can be null)
-        setRegCell(Value.Reg(dst.r),
-            joinRegister(dst.r, getStack(), getStack(), trueC, falseC, scalars, scalars, unificationList))
+        setRegCell(
+            dst,
+            joinRegister(
+                dst.r,
+                getStack(),
+                getStack(),
+                trueC,
+                falseC,
+                (trueVal as? Value.Imm)?.let { updateScalarWithImm(dst, it, scalars) } ?: scalars,
+                (falseVal as? Value.Imm)?.let { updateScalarWithImm(dst, it, scalars) } ?: scalars,
+                unificationList
+            )
+        )
 
         // extra unifications
         unificationList.forEach { (leftSc, rightSc) ->
@@ -3322,22 +3350,20 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     fun doLoad(locInst: LocatedSbfInstruction,
                base: Value.Reg,
                baseType: SbfType<TNum, TOffset>,
-               globals: GlobalVariables) =
-        doLoad(locInst, base, baseType, globals, ScalarDomain.makeTop(sbfTypesFac))
+    ) = doLoad(locInst, base, baseType, ScalarDomain.makeTop(sbfTypesFac, globalState))
 
     /** Transfer function for load instruction **/
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doLoad(
         locInst: LocatedSbfInstruction,
         base: Value.Reg,
         baseType: SbfType<TNum, TOffset>,
-        globals: GlobalVariables,
         scalars: ScalarDomain
     ) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem && inst.isLoad) {"doLoad expects a Load instruction instead of $inst"}
 
         // Get symbolic cell pointed by baseReg
-        val baseSc = getRegCell(base, baseType, globals, locInst)
+        val baseSc = getRegCell(base, baseType, locInst)
                 ?: throw UnknownPointerDerefError(
                     DevErrorInfo(
                         locInst,
@@ -3755,13 +3781,12 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 base: Value.Reg,
                 value: Value,
                 baseType: SbfType<TNum, TOffset>,
-                valueType: SbfType<TNum, TOffset>,
-                globals: GlobalVariables) {
+                valueType: SbfType<TNum, TOffset>) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem && !inst.isLoad) { "doStore expects a Store instruction instead of $inst" }
 
         // Get symbolic cell pointed by baseReg
-        val baseSc = getRegCell(base, baseType, globals, locInst)
+        val baseSc = getRegCell(base, baseType, locInst)
             ?: throw UnknownPointerDerefError(
                 DevErrorInfo(
                     locInst,
@@ -3956,8 +3981,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     @TestOnly
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpy(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain,
-        globals: GlobalVariables
+        scalars: ScalarDomain
     ) {
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
@@ -3968,7 +3992,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         // For instance, RawVec can call memcpy with length == 0 and destination being a small number
         // (alignment of the data type being transferred)
         // https://github.com/anza-xyz/rust/blob/solana-1.79.0/library/alloc/src/raw_vec.rs#L148
-        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst, stopIfError = len.toLongOrNull() != 0L)
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), locInst, stopIfError = len.toLongOrNull() != 0L)
             ?: throw UnknownPointerDerefError(
                 DevErrorInfo(
                     locInst,
@@ -3976,7 +4000,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     "memcpy: r1 does not point to a graph node in $this"
                 )
             )
-        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst, stopIfError = true)
+        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), locInst, stopIfError = true)
             ?: throw UnknownPointerDerefError(
                 DevErrorInfo(
                     locInst,
@@ -4251,7 +4275,19 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
             unifications.forEach { (leftSc, rightSc) ->
                 val leftC = concretizeCell(leftSc, "memcpy", null)
                 val rightC = concretizeCell(rightSc, "memcpy", null)
-                leftC.unify(rightC)
+
+                @Suppress("SwallowedException")
+                try {
+                    leftC.unify(rightC)
+                } catch (e: PointerDomainError) {
+                    throw StackCannotBeScalarizedAfterMemcpyError(
+                        DevErrorInfo(
+                            locInst,
+                            PtrExprErrReg(Value.Reg(SbfRegister.R2_ARG)),
+                            msg= "cannot scalarize stack after memcpy"
+                        )
+                    )
+                }
             }
         }
 
@@ -4446,8 +4482,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      **/
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcmp(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain,
-        globals: GlobalVariables
+        scalars: ScalarDomain
     ) {
         fun readWords(c1: PTACell<Flags>, c2: PTACell<Flags>, len: Int) {
             val node1 = c1.getNode()
@@ -4483,9 +4518,9 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         val r2 = Value.Reg(SbfRegister.R2_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
-        val sc1 = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst)
+        val sc1 = getRegCell(r1, scalars.getAsScalarValue(r1).type(), locInst)
             ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r1), "memcmp: r1 does not point to a graph node in $this"))
-        val sc2 = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst)
+        val sc2 = getRegCell(r2, scalars.getAsScalarValue(r2).type(), locInst)
             ?: throw UnknownPointerDerefError(DevErrorInfo(locInst, PtrExprErrReg(r2),"memcmp: r2 does not point to a graph node in $this"))
         val len = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
         if (len != null) {
@@ -4501,8 +4536,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     @TestOnly
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemset(
         locInst: LocatedSbfInstruction,
-        scalars: ScalarDomain,
-        globals: GlobalVariables
+        scalars: ScalarDomain
     ) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
@@ -4511,7 +4545,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
-        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst)
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), locInst)
             ?: throw UnknownPointerDerefError(
                 DevErrorInfo(
                     locInst,
@@ -4541,7 +4575,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doMemcpyZExtOrTrunc(
         locInst: LocatedSbfInstruction,
         scalars: ScalarDomain,
-        globals: GlobalVariables,
         kind:  MemcpyKind
     ) {
         check(kind == MemcpyKind.Widening || kind == MemcpyKind.Narrowing)
@@ -4557,7 +4590,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         val i = (scalars.getAsScalarValue(r3).type() as? SbfType.NumType)?.value
             ?: sbfTypesFac.anyNum().value
 
-        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst, stopIfError = i.toLongOrNull() != 0L)
+        val dstSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), locInst, stopIfError = i.toLongOrNull() != 0L)
             ?: throw UnknownPointerDerefError(
                 DevErrorInfo(
                     locInst,
@@ -4565,7 +4598,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     "${inst.name}: r1 does not point to a graph node in $this"
                 )
             )
-        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), globals, locInst, stopIfError = true)
+        val srcSc = getRegCell(r2, scalars.getAsScalarValue(r2).type(), locInst, stopIfError = true)
             ?: throw UnknownPointerDerefError(
                 DevErrorInfo(
                     locInst,
@@ -4595,6 +4628,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     }
 
 
+    private fun isDeadOffset(offset: Long, topOfStack: Long) =
+        if (globalState.globals.elf.useDynamicFrames()) {
+            offset < topOfStack
+        } else {
+            offset > topOfStack
+        }
+
     /**
      *  Any field that has an offset greater than the top of the stack is dead because
      *  a caller can never access to a callee stack.
@@ -4606,7 +4646,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         // 1. Remove all dead links
         val deadLinks = mutableListOf<PTALink<Flags>>()
         for ((field, succC) in stack.getSuccs()) {
-            if (field.offset > topStack) {
+            if (isDeadOffset(field.offset.v, topStack)) {
                 deadLinks.add(PTALink(field, succC))
             }
         }
@@ -4614,11 +4654,13 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
         // 2. Remove all dead fields from the set of untracked fields
         untrackedStackFields = untrackedStackFields.removeAll {
-            it.offset > topStack
+            isDeadOffset(it.offset.v, topStack)
         }
 
         // 3. Remove all dead slices
-        unmaterializedStack = unmaterializedStack.removeAll { interval -> interval.l > topStack}
+        unmaterializedStack = unmaterializedStack.removeAll {
+                interval -> isDeadOffset(interval.l, topStack)
+        }
     }
 
 
@@ -4699,8 +4741,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
 
     fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> doCall(
         locInst: LocatedSbfInstruction,
-        globals: GlobalVariables,
-        memSummaries: MemorySummaries,
         scalars: ScalarDomain
     ) {
 
@@ -4715,22 +4755,22 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 SolanaFunction.SOL_LOG_64 ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
                 SolanaFunction.SOL_MEMCPY ->
-                    doMemcpy(locInst, scalars, globals)
+                    doMemcpy(locInst, scalars)
                 SolanaFunction.SOL_MEMCPY_ZEXT ->
-                    doMemcpyZExtOrTrunc(locInst, scalars, globals, MemcpyKind.Widening)
+                    doMemcpyZExtOrTrunc(locInst, scalars, MemcpyKind.Widening)
                 SolanaFunction.SOL_MEMCPY_TRUNC ->
-                    doMemcpyZExtOrTrunc(locInst, scalars, globals, MemcpyKind.Narrowing)
+                    doMemcpyZExtOrTrunc(locInst, scalars, MemcpyKind.Narrowing)
                 SolanaFunction.SOL_MEMSET ->
-                    doMemset(locInst, scalars, globals)
+                    doMemset(locInst, scalars)
                 SolanaFunction.SOL_MEMCMP ->
-                    doMemcmp(locInst, scalars, globals)
+                    doMemcmp(locInst, scalars)
                 SolanaFunction.SOL_MEMMOVE ->
                     throw PointerDomainError("TODO(4): support memmove")
                 SolanaFunction.SOL_ALLOC_FREE ->
                     throw PointerDomainError("TODO(5): support sol_alloc_free")
                 SolanaFunction.SOL_GET_CLOCK_SYSVAR,
                 SolanaFunction.SOL_GET_RENT_SYSVAR ->
-                    summarizeCall(locInst, globals, scalars, memSummaries)
+                    summarizeCall(locInst, scalars)
                 SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
                 else -> {
@@ -4753,11 +4793,11 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                                     "SimplifyBuiltinCalls::renameCVTCall was probably not called.")
                             CVTCore.SATISFY, CVTCore.SANITY -> {}
                             CVTCore.NONDET_ACCOUNT_INFO, CVTCore.MASK_64 ->
-                                summarizeCall(locInst, globals, scalars, memSummaries)
+                                summarizeCall(locInst, scalars)
                             CVTCore.NONDET_SOLANA_ACCOUNT_SPACE ->
                                 summarizeSolanaAccountSpace(locInst)
                             CVTCore.ALLOC_SLICE ->
-                                summarizeAllocSlice(locInst, globals, scalars)
+                                summarizeAllocSlice(locInst, scalars)
                         }
                     }
                     is CVTFunction.Calltrace -> {}
@@ -4765,7 +4805,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     is CVTFunction.U128Intrinsics,
                     is CVTFunction.I128Intrinsics,
                     is CVTFunction.NativeInt  ->
-                        summarizeCall(locInst, globals, scalars, memSummaries)
+                        summarizeCall(locInst, scalars)
                 }
             } else {
                 /** SBF to SBF call */
@@ -4774,7 +4814,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 } else if (callee.isDeallocFn()) {
                     doDealloc()
                 } else {
-                    summarizeCall(locInst, globals, scalars, memSummaries)
+                    summarizeCall(locInst, scalars)
                 }
             }
         }
@@ -4783,9 +4823,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
     // precondition: function names have been already demangled
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> summarizeCall(
         locInst: LocatedSbfInstruction,
-        globals: GlobalVariables,
-        scalars: ScalarDomain,
-        memSummaries: MemorySummaries
+        scalars: ScalarDomain
     ) {
 
         class PointerSummaryVisitor: SummaryVisitor {
@@ -4831,7 +4869,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                     MemSummaryArgumentType.NUM -> {
                         val valReg = Value.Reg(reg)
                         val v = scalars.getAsScalarValue(valReg)
-                        val sc1 = getRegCell(valReg, v.type(), globals, locInst)
+                        val sc1 = getRegCell(valReg, v.type(), locInst)
                         check(sc1 != null) { "unexpected situation while summarizing $call" }
                         val c1 = concretizeCell(sc1, "$call (1)", locInst)
                         val c2 = c1.getNode().createCell(c1.getOffset() + offset)
@@ -4870,7 +4908,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
         }
 
         val vis = PointerSummaryVisitor()
-        memSummaries.visitSummary(locInst, vis)
+        globalState.memSummaries.visitSummary(locInst, vis)
     }
 
     private fun summarizeSolanaAccountSpace(locInst: LocatedSbfInstruction) {
@@ -4892,7 +4930,6 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
      **/
     private fun<ScalarDomain: ScalarValueProvider<TNum, TOffset>> summarizeAllocSlice(
         locInst: LocatedSbfInstruction,
-        globals: GlobalVariables,
         scalars: ScalarDomain
     ) {
         val r0 = Value.Reg(SbfRegister.R0_RETURN_VALUE)
@@ -4904,7 +4941,7 @@ class PTAGraph<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, Flags: IPTANode
                 "\n\t$locInst\n" +
                 "\t$this")
 
-        val baseSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), globals, locInst) ?:
+        val baseSc = getRegCell(r1, scalars.getAsScalarValue(r1).type(), locInst) ?:
             throw PointerDomainError("CVT_alloc_size: r1 does not point to a node" +
                 "\t$locInst\n" +
                 "\t$this")

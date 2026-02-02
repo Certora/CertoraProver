@@ -164,7 +164,7 @@ class ExpressionSimplifierTests : TACBuilderAuxiliaries() {
                 blocks,
                 g.toBlockGraph(),
                 "dummy",
-                TACSymbolTable.withTags(TACUtils.tagsFromBlocks(blocks)),
+                TACSymbolTable.withVars(TACUtils.tagsFromBlocks(blocks)),
                 UfAxioms.empty(),
                 IProcedural.empty()
             )
@@ -208,7 +208,7 @@ class ExpressionSimplifierTests : TACBuilderAuxiliaries() {
                 blocks,
                 g.toBlockGraph(),
                 "dummy",
-                TACSymbolTable.withTags(TACUtils.tagsFromBlocks(blocks)),
+                TACSymbolTable.withVars(TACUtils.tagsFromBlocks(blocks)),
                 UfAxioms.empty(),
                 IProcedural.empty(),
                     check = false

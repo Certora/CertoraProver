@@ -54,9 +54,60 @@ fun removeCFGDiamonds(cfg: MutableSbfCFG) {
                 }
             }
         }
+
+        // Post-optimization: simplify new select instructions
+        // Important for other optimizations such as simplifyBools
+        simplifySelect(block)
+    }
+
+    // Post-optimization: remove dead definitions
+    // Important for lowering select into assume
+    removeUselessDefinitions(cfg)
+}
+
+/**
+ *  Replace true and false values from a select instruction with immediate values if possible.
+ *  This transformation does not use intentionally the scalar analysis, so it is limited in scope.
+ *
+ *  This transformation is important for other transformations such as `simplifyBool`.
+ */
+private fun simplifySelect(b: MutableSbfBasicBlock) {
+    for (locInst in b.getLocatedInstructions()) {
+        when(val inst = locInst.inst) {
+            is SbfInstruction.Select -> {
+                val pos = locInst.pos
+                val newTrueVal = (inst.trueVal as? Value.Reg)
+                    ?.let { getDefinitionRHS(it, b, pos) as? Value.Imm }
+                    ?: inst.trueVal
+
+                val newFalseVal = (inst.falseVal as? Value.Reg)
+                    ?.let { getDefinitionRHS(it, b, pos) as? Value.Imm }
+                    ?: inst.falseVal
+
+                if (newTrueVal != inst.trueVal || newFalseVal != inst.falseVal) {
+                    b.replaceInstruction(pos, inst.copy(
+                        trueVal = newTrueVal,
+                        falseVal = newFalseVal
+                    ))
+                }
+            }
+            else -> {}
+        }
     }
 }
 
+/**
+ *  Best effort to return the RHS of the definition of [reg] if the definition is an assignment.
+ *  The function starts from position [start] in block [b].
+ **/
+private fun getDefinitionRHS(reg: Value.Reg, b: SbfBasicBlock, start: Int): Value? {
+    val defLocInst = findDefinitionInterBlock(b, reg, start) ?: return null
+    val defInst = defLocInst.inst as? SbfInstruction.Bin ?: return null
+    if (defInst.op != BinOp.MOV) {
+        return null
+    }
+    return defInst.v
+}
 
 /**
  * Return the pair (lhs, rhs) if [inst] is of the form `lhs = rhs`. Otherwise, it returns null.
@@ -146,22 +197,6 @@ private fun matchGoto(cfg: SbfCFG, label: Label, gotoLabel: Label): Boolean {
     return false
 }
 
-/**
- *  Return the definition of [reg] in [block] if:
- *  1) the definition is in [block],
- *  2) the set of defined variables is a singleton
- *  Otherwise, it returns null.
- */
-private fun findSingleDefinition(block: SbfBasicBlock, reg: Value.Reg): LocatedSbfInstruction? {
-    val defLocInst = findDefinitionInterBlock(block, reg) ?: return null
-    if (defLocInst.label != block.getLabel()) {
-        return null
-    }
-    if (defLocInst.inst.writeRegister.singleOrNull() == null) {
-        return null
-    }
-    return defLocInst
-}
 
 fun isDiamond(cfg: SbfCFG, l1: Label, l2: Label): Label? {
     val b1 = cfg.getBlock(l1)
@@ -188,12 +223,14 @@ fun isDiamond(cfg: SbfCFG, l1: Label, l2: Label): Label? {
  * @param blocksToBeRemoved: blocks of the diamond that will be removed.
  * @param accBlocksToBeRemoved: blocks marked to be removed so far at the level of the whole CFG.
  */
-private fun markDiamondsForRemoval(cfg: MutableSbfCFG,
-                                   block: MutableSbfBasicBlock,
-                                   selectInst: SbfInstruction.Select,
-                                   gotoInst: SbfInstruction.Jump.UnconditionalJump,
-                                   blocksToBeRemoved: List<Label>,
-                                   accBlocksToBeRemoved: MutableSet<Label>) {
+private fun markDiamondsForRemoval(
+    cfg: MutableSbfCFG,
+    block: MutableSbfBasicBlock,
+    selectInst: SbfInstruction.Select,
+    gotoInst: SbfInstruction.Jump.UnconditionalJump,
+    blocksToBeRemoved: List<Label>,
+    accBlocksToBeRemoved: MutableSet<Label>
+) {
     // Add selectInst before last instruction
     val lastInstIdx = block.getInstructions().lastIndex
     check(lastInstIdx >= 0)
@@ -211,120 +248,103 @@ private fun markDiamondsForRemoval(cfg: MutableSbfCFG,
     }
 }
 
-/** [l1] must be the block taken if [cond] is evaluated to true **/
-private fun removeDiamondOfThree(cfg: MutableSbfCFG,
-                         block: MutableSbfBasicBlock, cond: Condition, l1: Label, l2: Label,
-                         metadata: MetaData,
-                         accBlocksToBeRemoved: MutableSet<Label>): Boolean {
-    val done = matchAssignAndGoto(cfg, l2, l1)?.let { (reg, v2) ->
-        /**
-         * Transform
-         * ```
-         *  L0:
-         *     r := v1
-         *     if (c) goto L1 else L2
-         *  L2:
-         *     r := v2
-         *     goto L1
-         *  L1: ...
-         *  ```
-         *  into
-         *  ```
-         *  L0:
-         *     r:= select(cond, v1, v2)
-         *     goto L1
-         *  ```
-         */
-        val defLocInst = findSingleDefinition(block, reg)
-        if (defLocInst != null) {
-            val defInst = defLocInst.inst
-            val v1 = if (defInst is SbfInstruction.Bin && defInst.op == BinOp.MOV &&
-                         !isUsed(block, reg, defLocInst.pos, block.getInstructions().size)) {
-                // small optimization: we can use the rhs of the assignment if
-                //    (1) we remove the assignment (see test1) and
-                //    (2) the lhs of the assignment is not used in the rest of the block (see test4).
-                block.removeAt(defLocInst.pos)
-                defInst.v
-            } else {
-                check(defInst.writeRegister.size == 1)
-                defInst.writeRegister.single()
-            }
-            val selectInst = SbfInstruction.Select(reg, cond, v1, v2)
-            val gotoInst = SbfInstruction.Jump.UnconditionalJump(l1, metadata)
-            // l2 is not physically removed but logically it's
-            markDiamondsForRemoval(cfg, block, selectInst, gotoInst, listOf(l2), accBlocksToBeRemoved)
-            true
-        } else {
-            false
-        }
+/**
+ * Transform
+ * ```
+ *  L0:
+ *     r := v1
+ *     if (c) goto L1 else L2
+ *  L2:
+ *     r := v2
+ *     goto L1
+ *  L1: ...
+ *  ```
+ *  into
+ *  ```
+ *  L0:
+ *     r:= select(cond, v1, v2)
+ *     goto L1
+ *  ```
+ *   [l1] must be the block taken if [cond] is evaluated to true
+ **/
+private fun removeDiamondOfThree(
+    cfg: MutableSbfCFG,
+    b0: MutableSbfBasicBlock,
+    cond: Condition,
+    l1: Label,
+    l2: Label,
+    metadata: MetaData,
+    accBlocksToBeRemoved: MutableSet<Label>
+): Boolean {
+    matchAssignAndGoto(cfg, l2, l1)?.let { (reg, v2) ->
+        val selectInst = SbfInstruction.Select(reg, cond, reg, v2)
+        val gotoInst = SbfInstruction.Jump.UnconditionalJump(l1, metadata)
+        // l2 is not physically removed but logically it's
+        markDiamondsForRemoval(
+            cfg,
+            b0,
+            selectInst,
+            gotoInst,
+            listOf(l2),
+            accBlocksToBeRemoved
+        )
+        return true
     }
-    return done == true
+    return false
 }
 
-/** [l1] must be the block taken if [cond] is evaluated to true **/
-private fun removeDiamondOfFour(cfg: MutableSbfCFG,
-                                block: MutableSbfBasicBlock, cond: Condition, l1: Label, l2: Label,
-                                metadata: MetaData,
-                                accBlocksToBeRemoved: MutableSet<Label>): Boolean {
-    val l3 = isDiamond(cfg, l1, l2)
-    return if (l3 != null) {
-        (matchGoto(cfg, l2, l3) && matchAssignAndGoto(cfg, l1, l3)?.let { (reg, v2) ->
-            /**
-             * Transform
-             * ```
-             *  L0:
-             *     r := v1
-             *     if (c) goto L1 else L2
-             *  L1:
-             *     r := v2
-             *     goto L3
-             *  L2:
-             *     goto L3
-             *  L3: ...
-             *  ```
-             *  into
-             *  ```
-             *   L0:
-             *     r:= select(cond, v2, v1)
-             *     goto L3
-             *  ```
-             */
-            val defLocInst = findSingleDefinition(block, reg)
-            if (defLocInst != null) {
-                val defInst = defLocInst.inst
-                val v1 = if (defInst is SbfInstruction.Bin && defInst.op == BinOp.MOV &&
-                             !isUsed(block, reg, defLocInst.pos, block.getInstructions().size)) {
-                    // small optimization: we can use the rhs of the assignment if
-                    //    (1) we remove the assignment (see test1) and
-                    //    (2) the lhs of the assignment is not used in the rest of the block (see test4).
-                    block.removeAt(defLocInst.pos)
-                    defInst.v
-                } else {
-                    check(defInst.writeRegister.size == 1)
-                    defInst.writeRegister.single()
-                }
-                val selectInst =
-                    SbfInstruction.Select(reg, cond, v2, v1)
-                val gotoInst =
-                    SbfInstruction.Jump.UnconditionalJump(l3, metadata)
-                // l1 and l2 are not physically removed, but logically they are
-                markDiamondsForRemoval(
-                    cfg,
-                    block,
-                    selectInst,
-                    gotoInst,
-                    listOf(l1, l2),
-                    accBlocksToBeRemoved
-                )
-                val b3 = cfg.getMutableBlock(l3)
-                check(b3 != null)
-                block.addSucc(b3)
-                true
-            } else {
-                false
-            }
-        } == true)
-    } else {
-        false
+/**
+ * Transform
+ * ```
+ *  L0:
+ *     r := v1
+ *     if (c) goto L1 else L2
+ *  L1:
+ *     r := v2
+ *     goto L3
+ *  L2:
+ *     goto L3
+ *  L3: ...
+ *  ```
+ *  into
+ *  ```
+ *   L0:
+ *     r:= select(cond, v2, v1)
+ *     goto L3
+ *  ```
+ *  [l1] must be the block taken if [cond] is evaluated to true
+ **/
+private fun removeDiamondOfFour(
+    cfg: MutableSbfCFG,
+    block: MutableSbfBasicBlock,
+    cond: Condition,
+    l1: Label,
+    l2: Label,
+    metadata: MetaData,
+    accBlocksToBeRemoved: MutableSet<Label>
+): Boolean {
+    val l3 = isDiamond(cfg, l1, l2) ?: return false
+    if (!matchGoto(cfg, l2, l3)) {
+        return false
     }
+    matchAssignAndGoto(cfg, l1, l3)?.let { (reg, v2) ->
+        val selectInst =
+            SbfInstruction.Select(reg, cond, v2, reg)
+        val gotoInst =
+            SbfInstruction.Jump.UnconditionalJump(l3, metadata)
+        // l1 and l2 are not physically removed, but logically they are
+        markDiamondsForRemoval(
+            cfg,
+            block,
+            selectInst,
+            gotoInst,
+            listOf(l1, l2),
+            accBlocksToBeRemoved
+        )
+        val b3 = cfg.getMutableBlock(l3)
+        check(b3 != null)
+        block.addSucc(b3)
+        return true
+    }
+    return false
 }

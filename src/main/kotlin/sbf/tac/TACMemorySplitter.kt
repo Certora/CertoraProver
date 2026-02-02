@@ -116,9 +116,8 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                      private val cfg: SbfCFG,
                      private val vFac: TACVariableFactory<TFlags>,
                       // Memory analysis
-                     private val analysis: MemoryAnalysis<TNum, TOffset, TFlags>,
-                      // Global state needed to reply invariants at each statement
-                     private val globals: GlobalVariables) : TACMemSplitter {
+                     private val analysis: MemoryAnalysis<TNum, TOffset, TFlags>
+) : TACMemSplitter {
 
     /* For memory load and store */
     private val memTACMap: MutableMap<LocatedSbfInstruction, TACMemSplitter.LoadOrStoreInfo> = mutableMapOf()
@@ -303,15 +302,14 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
         timeIt("re-running memory analysis to replay invariants") {
             val listener = MemoryPartitioningListener<TNum, TOffset, TFlags>(
                 ::encodePTAtoTAC,
-                analysis.memSummaries,
-                globals
+                analysis.memSummaries
             )
             for (block in cfg.getBlocks().values) {
                 val absVal = analysis.getPre(block.getLabel())
                 if (absVal == null || absVal.isBottom())  {
                     continue
                 }
-                absVal.analyze(block, globals, analysis.memSummaries, listener)
+                absVal.analyze(block, listener)
             }
         }
     }
@@ -707,8 +705,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
      **/
     class MemoryPartitioningListener<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> (
             private val tacEncoder: (locInst: LocatedSbfInstruction, memInfo: PTAMemoryInfo<TFlags>) -> Unit,
-            private val memSummaries: MemorySummaries,
-            private val globals: GlobalVariables
+            private val memSummaries: MemorySummaries
     ) : InstructionListener<MemoryDomain<TNum, TOffset, TFlags>> {
         override fun instructionEvent(locInst: LocatedSbfInstruction,
                                       pre: MemoryDomain<TNum, TOffset, TFlags>,
@@ -881,12 +878,11 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
          }
 
         class MemPartitioningSummaryVisitor<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANodeFlags<TFlags>> (
-            private val absVal: MemoryDomain<TNum, TOffset, TFlags>,
-            private val globals: GlobalVariables
+            private val absVal: MemoryDomain<TNum, TOffset, TFlags>
         ) : SummaryVisitor {
             private val sumFields = ArrayList<PTACallModifiedField<TFlags>>()
             private val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-            private val stackNode = absVal.getRegCell(r10, globals)?.getNode()
+            private val stackNode = absVal.getRegCell(r10)?.getNode()
 
             init {
                 if (stackNode == null) {
@@ -909,7 +905,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                 val call = locInst.inst
                 check(call is SbfInstruction.Call)
                 val r = Value.Reg(reg)
-                val symC = absVal.getRegCell(r, globals)
+                val symC = absVal.getRegCell(r)
                     ?: throw TACTranslationError("memory partitioning failed because" +
                                                  "cannot find a cell for $r ($call)")
                 val c = symC.concretize()
@@ -928,7 +924,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             absVal: MemoryDomain<TNum, TOffset, TFlags>
         ): PTACell<TFlags> {
             val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
-            val stackPtrSc = absVal.getRegCell(r10, globals)
+            val stackPtrSc = absVal.getRegCell(r10)
                 ?: throw TACTranslationError(
                     "memory partitioning failed at $locInst because cannot find a cell for r10"
                 )
@@ -947,7 +943,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
             locInst: LocatedSbfInstruction,
             absVal: MemoryDomain<TNum, TOffset, TFlags>
         ): PTASymCell<TFlags> {
-            val baseSc = absVal.getRegCell(reg, globals)
+            val baseSc = absVal.getRegCell(reg)
                 ?: throw TACTranslationError(
                     "memory partitioning failed because" +
                         "cannot find a cell for $reg (${locInst.inst}) in the local graph ${locInst.label}"
@@ -1110,7 +1106,7 @@ class PTAMemSplitter<TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags:
                                 when(memSummaries.getSummary(inst.name)) {
                                     null -> null
                                     else -> {
-                                        val vis = MemPartitioningSummaryVisitor(post, globals)
+                                        val vis = MemPartitioningSummaryVisitor(post)
                                         memSummaries.visitSummary(locInst, vis)
                                         vis.getPTAMemInfo()
                                     }

@@ -98,11 +98,11 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
     /**
      * Checks if the TAC Expr `uses` the variable `v`.
      */
-    /**
-     * Checks if the TAC Expr `uses` the variable `v`.
-     */
     fun usesVar(v: TACSymbol.Var) =
         subs.filterIsInstance<Sym.Var>().any { it.s == v }
+
+    val usedVars: Set<TACSymbol.Var>
+        get() = subs.filterIsInstance<Sym.Var>().mapToSet { it.s }
 
     // REVIEW: looks redundant with `TACExpr.subs` in `TACExprUtils.kt` --> unify?
     fun nestedSubexprs(): Collection<TACExpr> {
@@ -283,7 +283,7 @@ sealed class TACExpr : AmbiSerializable, ToLExpression, ToTACExpr {
                             ?: it
                     }
                     vars += v as LExpression.Identifier
-                    lExpressionBoundsOf(conv.lxf, v, tacVar.meta[QUANTIFIED_VAR_TYPE], conv.symbolTable.tags[tacVar])
+                    lExpressionBoundsOf(conv.lxf, v, tacVar.meta[QUANTIFIED_VAR_TYPE], tacVar.tag)
                 }.let { l ->
                     when (l.size) {
                         0 -> null

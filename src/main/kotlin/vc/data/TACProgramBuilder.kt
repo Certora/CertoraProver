@@ -179,7 +179,7 @@ class TACProgramBuilder private constructor() {
             code,
             graph,
             "TestProg",
-            TACSymbolTable.withTags(blocks.values.flatMapToSet { it.vars }),
+            TACSymbolTable.withVars(blocks.values.flatMapToSet { it.vars }),
             UfAxioms.empty(),
             IProcedural.empty()
         ).letIf(Config.DestructiveOptimizationsMode.get() == DestructiveOptimizationsModeEnum.ENABLE) {

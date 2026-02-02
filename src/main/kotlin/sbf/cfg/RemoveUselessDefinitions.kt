@@ -29,11 +29,8 @@ fun removeUselessDefinitions(cfg: MutableSbfCFG) {
 
 fun removeUselessDefinitions(cfg: MutableSbfCFG, liveness: LivenessAnalysis) {
     for ((label, bb) in cfg.getMutableBlocks()) {
-        if (!bb.getInstructions().any { inst ->  inst is SbfInstruction.Mem && inst.isLoad }) {
-            continue
-        }
         val livenessAfterInst = liveness.getLiveRegistersAtInst(label, before = false)
-        val newInsts = ArrayList<SbfInstruction>()
+        val newInsts = mutableListOf<SbfInstruction>()
         var change = false
         for (locInst in bb.getLocatedInstructions()) {
             val inst = locInst.inst

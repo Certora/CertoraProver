@@ -27,6 +27,7 @@ import org.junit.jupiter.api.*
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 private val globals = GlobalVariables(DefaultElfFileView)
+private val memSummaries = MemorySummaries()
 
 class MemoryMemsetTest {
 
@@ -39,7 +40,7 @@ class MemoryMemsetTest {
         check(base != lhs)
         val inst = SbfInstruction.Mem(Deref(width, base, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doLoad(locInst, base, SbfType.top(), globals)
+        g.doLoad(locInst, base, SbfType.top())
         val sc = g.getRegCell(lhs)
         return sc?.getNode()
     }
@@ -52,7 +53,19 @@ class MemoryMemsetTest {
     ) = getNode(g, base, offset, 8)?.id == node.getNode().id
 
     private fun createMemoryDomain() =
-        MemoryDomain(nodeAllocator, sbfTypesFac, MemoryDomainOpts(false),true)
+        MemoryDomain(
+            nodeAllocator,
+            sbfTypesFac,
+            MemoryDomainOpts(false),
+            GlobalState(globals, memSummaries),
+            initPreconditions = true
+        )
+
+    private fun createScalarDomain() =
+        ScalarDomain(
+            sbfTypesFac,
+            GlobalState(globals, memSummaries)
+        )
 
     @Test
     fun test01() {
@@ -65,7 +78,7 @@ class MemoryMemsetTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -80,12 +93,12 @@ class MemoryMemsetTest {
         stackC.getNode().mkLink(4056, 8, n3.createCell(0))
         g.setRegCell(r1, stackC.getNode().createSymCell(4040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         val locInst = LocatedSbfInstruction(Label.Address(0), 0, SolanaFunction.toCallInst(SolanaFunction.SOL_MEMSET))
         sbfLogger.warn { "Before memset(r1,r2,24)\n$g" }
-        g.doMemset(locInst, scalars, globals)
+        g.doMemset(locInst, scalars)
         sbfLogger.warn { "After\n$g" }
 
         Assertions.assertEquals(false, checkPointsToNode(g, r1, 0, n1))
@@ -103,7 +116,7 @@ class MemoryMemsetTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -118,11 +131,11 @@ class MemoryMemsetTest {
         stackC.getNode().mkLink(4056, 8, n3.createCell(0))
         g.setRegCell(r1, stackC.getNode().createSymCell(4040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
         val locInst = LocatedSbfInstruction(Label.Address(0), 0, SolanaFunction.toCallInst(SolanaFunction.SOL_MEMSET))
         sbfLogger.warn { "Before memset(r1,r2,24)\n$g" }
-        g.doMemset(locInst, scalars, globals)
+        g.doMemset(locInst, scalars)
         sbfLogger.warn { "After\n$g" }
 
         Assertions.assertEquals(true, checkPointsToNode(g, r1, 0, n1))
@@ -153,12 +166,12 @@ class MemoryMemsetTest {
         heapNode.mkLink(16, 8, n3.createCell(0))
         g.setRegCell(r1, heapNode.createSymCell(0))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r2, ScalarValue(sbfTypesFac.toNum(0UL)))
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         val locInst = LocatedSbfInstruction(Label.Address(0), 0, SolanaFunction.toCallInst(SolanaFunction.SOL_MEMSET))
         sbfLogger.warn { "Before memset(r1,r2,24)\n$g" }
-        g.doMemset(locInst, scalars, globals)
+        g.doMemset(locInst, scalars)
         sbfLogger.warn { "After\n$g" }
 
         Assertions.assertEquals(true, checkPointsToNode(g, r1, 0, n1))

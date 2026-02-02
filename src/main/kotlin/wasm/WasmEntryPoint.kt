@@ -71,6 +71,7 @@ import java.util.stream.Collectors
 import wasm.transform.BitopsRewriter
 import wasm.transform.BranchConditionSimplifier
 import wasm.transform.MaskNormalizer
+import wasm.transform.StaticMemoryInliner
 
 class InvalidRules(msg: String) : Exception(msg)
 class TrivialRule(msg: String) : Exception(msg)
@@ -286,6 +287,7 @@ object WasmEntryPoint {
                     PostUnrollAssignmentSummary.materialize(it, WasmPipelinePhase.PreOptimization)
                 })
                 .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
+                .map(CoreToCoreTransformer(ReportTypes.INLINE_STATIC_MEMORY, StaticMemoryInliner::transform))
                 .mapIf(isSatisfyRule, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, ::rewriteAsserts))
 
             val maybeOptimized = runIf(optimize) {
@@ -410,7 +412,11 @@ object WasmEntryPoint {
                         {}
                     else -> {
                         removedAssertConds += cmd.o
-                        p.replaceCommand(ptr, listOf(TACCmd.Simple.AssumeCmd(cmd.o, "rewrote assert: ${cmd.msg}", cmd.meta)))
+                        p.replaceCommand(
+                            ptr,
+                            listOf(TACCmd.Simple.AssumeCmd(cmd.o, "rewrote assert: ${cmd.msg}", cmd.meta))
+                        )
+
                     }
                 }
             }

@@ -68,7 +68,7 @@ private fun addInterproceduralLinks(svg: String): String {
         val textAttr = matchRes.destructured.component1()
         val num = matchRes.destructured.component2()
         val funcName = matchRes.destructured.component3()
-        "<a href=\"#blank${num}\" onclick=\"toggleSVG('${num}')\"><text $textAttr>${num}: ${funcName}</text></a>"
+        "<a href=\"#\" onclick=\"toggleSVG('${num}'); return false;\"><text $textAttr>${num}: ${funcName}</text></a>"
     }
     return new
 }
@@ -79,7 +79,7 @@ private fun addRegularNodeLinks(svg: String): String {
     val new = svg.replace(regex) { matchRes ->
         val textAttr = matchRes.destructured.component1()
         val blockNum = matchRes.destructured.component2()
-        "<a href=\"#block${blockNum}\" onclick=\"highlightAnchor('$blockNum')\"><text $textAttr>$blockNum</text></a>"
+        "<a href=\"#\" onclick=\"highlightAnchor('$blockNum'); return false;\"><text $textAttr>$blockNum</text></a>"
     }
     return new
 }

@@ -153,7 +153,7 @@ class StorageCodedataTest {
             ),
             cfg.toTestProgram(
                 setOf(
-                    TACSymbol.Var.stackVar(1020).copy(tag = Tag.Bool),
+                    TACSymbol.Var.stackVar(1020).updateTag(Tag.Bool, "", ""),
                     TACSymbol.Var.stackVar(1021),
                     TACSymbol.Var.stackVar(1022),
                     TACSymbol.Var.stackVar(1023),
@@ -185,7 +185,7 @@ class StorageCodedataTest {
             code = this.code,
             blockgraph = this.blockGraph,
             name = "test",
-            symbolTable = TACSymbolTable.withTags(
+            symbolTable = TACSymbolTable.withVars(
                 stackVars +
                     setOf(
                         TACKeyword.CODEDATA.toVar(),

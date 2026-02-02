@@ -123,7 +123,7 @@ private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> annotateWithTypes
     }
     fun getPre(block: Label) = scalarAnalysis.getPre(block)
 
-    annotateCFGWithTypes(cfg, scalarAnalysis.globals, scalarAnalysis.memSummaries, ::getPre, ::getType)
+    annotateCFGWithTypes(cfg, ::getPre, ::getType)
 }
 
 

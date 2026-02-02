@@ -43,6 +43,8 @@ class UnhoistMemcpyTest {
         return counter
     }
 
+    val unhoistOpts = UnhoistHeuristics(true, 10)
+
     @Test
     fun test01_false() {
         // without hoisting memcpy we cannot prove that the *r1 contains a number
@@ -170,7 +172,7 @@ class UnhoistMemcpyTest {
         cfg.verify(true)
 
         if (hoistMemcpy) {
-            unhoistMemFunctions(cfg)
+            unhoistMemFunctions(cfg, unhoistOpts)
             cfg.simplify(globals)
             println("After unhoisting memcpy instructions: $cfg")
             Assertions.assertEquals(true, getNumOfUnhoistedMemcpy(cfg) == 3U)
@@ -282,7 +284,7 @@ class UnhoistMemcpyTest {
         cfg.normalize()
         println("$cfg")
         cfg.verify(true)
-        unhoistMemFunctions(cfg)
+        unhoistMemFunctions(cfg, unhoistOpts)
         cfg.simplify(globals)
         println("After unhoisting memcpy instructions: $cfg")
         Assertions.assertEquals(true, getNumOfUnhoistedMemcpy(cfg) == 6U)
@@ -390,7 +392,7 @@ class UnhoistMemcpyTest {
         cfg.normalize()
         println("$cfg")
         cfg.verify(true)
-        unhoistMemFunctions(cfg)
+        unhoistMemFunctions(cfg, unhoistOpts)
         cfg.simplify(globals)
         println("After unhoisting memcpy instructions: $cfg")
         Assertions.assertEquals(true, getNumOfUnhoistedMemcpy(cfg) == 2U)
@@ -420,7 +422,7 @@ class UnhoistMemcpyTest {
         cfg.normalize()
         println( "Before $cfg" )
         cfg.verify(true)
-        unhoistMemFunctions(cfg)
+        unhoistMemFunctions(cfg, unhoistOpts)
         cfg.simplify(globals)
         println("After $cfg")
         Assertions.assertEquals(true, getNumOfUnhoistedMemcpy(cfg) == 2U)

@@ -75,7 +75,7 @@ class MoveLiveVariableAnalysisTest {
     fun testVecLocLive() {
         val l0 = loc(0, MoveTag.Vec(MoveType.U256))
         val r0 = ref(0, MoveType.Vector(MoveType.U256))
-        val r1 = ref(0, MoveType.U256)
+        val r1 = ref(1, MoveType.U256)
         val idx = TACKeyword.TMP(Tag.Bit256)
         val tmp = TACKeyword.TMP(Tag.Bit256)
         val x = TACKeyword.TMP(Tag.Bit256)
@@ -115,7 +115,7 @@ class MoveLiveVariableAnalysisTest {
         )
         val l0 = loc(0, MoveTag.Struct(ty))
         val r0 = ref(0, ty)
-        val r1 = ref(0, MoveType.U256)
+        val r1 = ref(1, MoveType.U256)
         val idx = TACKeyword.TMP(Tag.Bit256)
         val tmp = TACKeyword.TMP(Tag.Bit256)
         val x = TACKeyword.TMP(Tag.Bit256)

@@ -189,7 +189,7 @@ data class CallOutput(val base: TACSymbol.Var, val offset: TACSymbol, val size: 
             }
     ).let {
         @Suppress("DEPRECATION")
-        CommandWithRequiredDecls(it.cmds, TACUtils.tagsFromList(it.cmds).keys)
+        CommandWithRequiredDecls(it.cmds, TACUtils.tagsFromList(it.cmds))
     }
 
     fun feedFrom(tacSymbol: TACSymbol): CommandWithRequiredDecls<TACCmd.Simple> {

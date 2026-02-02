@@ -83,7 +83,7 @@ class QuantifierNormalizer(val prog: CoreTACProgram) {
         if (qCount != toSkeyQCount) {
             return null
         }
-        val newQ = q.copy(tag = skeySort)
+        val newQ = q.updateTag(skeySort, "skey")
         return newQ to
             body.replaceVarsExtended(q to newQ)
                 .postTransform {
@@ -108,7 +108,7 @@ class QuantifierNormalizer(val prog: CoreTACProgram) {
             ?: (q.meta[QUANTIFIED_VAR_TYPE] as? CVLType.PureCVLType.Primitive.AccountIdentifier)
                 ?.let { Tag.Bits(256) /* could be 160, but let's take 256 for now */ }
             ?: return null
-        val newQ = q.copy(tag = actualTag)
+        val newQ = q.updateTag(actualTag, actualTag.toString())
         return newQ to
             body.replaceVarsExtended(q to newQ)
                 .postTransform {

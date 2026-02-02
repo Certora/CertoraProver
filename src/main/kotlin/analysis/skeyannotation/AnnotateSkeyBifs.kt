@@ -486,7 +486,7 @@ object AnnotateSkeyBifs {
                 baseType.paramSorts[paramIndex] != Hash.skeySort
         }
 
-    private fun switchToSkeySort(t: TACSymbol.Var) = t.copy(tag = Hash.skeySort)
+    private fun switchToSkeySort(t: TACSymbol.Var) = t.updateTag(Hash.skeySort, "skey")
 
     private fun toSkey(exp: TACExpr, ptr: ExpPointer, txf: TACExprFact): Pair<TACExpr, ExpPointer> {
         return if (exp is TACExpr.Sym.Const && exp.s.value < Config.MaxBaseStorageSlot.get()) {

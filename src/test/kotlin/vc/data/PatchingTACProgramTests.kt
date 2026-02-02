@@ -49,7 +49,7 @@ class PatchingTACProgramTests {
             )
 
         val symbol = TACKeyword.TMP(Tag.Bool, "dummyVar").toUnique("!")
-        val tags = Tags(treapSetOf(symbol))
+        val tags = treapSetOf(symbol)
 
         val symbolTable = TACSymbolTable(treapSetOf(), treapSetOf(), tags, mapOf())
 
@@ -116,7 +116,7 @@ class PatchingTACProgramTests {
         )
 
 
-        val symbolTable = TACSymbolTable(treapSetOf(), treapSetOf(), emptyTags(), mapOf())
+        val symbolTable = TACSymbolTable(treapSetOf(), treapSetOf(), treapSetOf(), mapOf())
         val program = CoreTACProgram(
             code,
             blockGraph,
@@ -180,7 +180,7 @@ class PatchingTACProgramTests {
         )
 
         val symbol = TACKeyword.TMP(Tag.Bool, "dummyVar").toUnique("!")
-        val tags = Tags(treapSetOf(symbol))
+        val tags = treapSetOf(symbol)
 
         val code: BlockNodes<TACCmd.Simple> = mapOf(
             block0 to listOf(TACCmd.Simple.JumpiCmd(block1_A, block1_B, symbol)),
@@ -225,7 +225,7 @@ class PatchingTACProgramTests {
         )
 
         val symbol = TACKeyword.TMP(Tag.Bool, "dummyVar").toUnique("!")
-        val tags = Tags(treapSetOf(symbol))
+        val tags = treapSetOf(symbol)
 
 
         val code: BlockNodes<TACCmd.Simple> = mapOf(
@@ -276,7 +276,7 @@ class PatchingTACProgramTests {
         )
 
         val symbol = TACKeyword.TMP(Tag.Bool, "dummyVar").toUnique("!")
-        val tags = Tags(treapSetOf(symbol))
+        val tags = treapSetOf(symbol)
 
         val code: BlockNodes<TACCmd.Simple> = mapOf(
             block0 to listOf(TACCmd.Simple.JumpCmd(block1)),
@@ -320,7 +320,7 @@ class PatchingTACProgramTests {
         )
 
         val symbol = TACKeyword.TMP(Tag.Bool, "dummyVar").toUnique("!")
-        val tags = Tags(treapSetOf(symbol))
+        val tags = treapSetOf(symbol)
 
         val code: BlockNodes<TACCmd.Simple> = mapOf(
             block0 to listOf(mkAnnotation(TARGET_COMMAND), TACCmd.Simple.JumpCmd(block1)),
@@ -366,7 +366,7 @@ class PatchingTACProgramTests {
         )
 
         val symbol = TACKeyword.TMP(Tag.Bool, "dummyVar").toUnique("!")
-        val tags = Tags(treapSetOf(symbol))
+        val tags = treapSetOf(symbol)
 
 
         val code: BlockNodes<TACCmd.Simple> = mapOf(
@@ -419,7 +419,7 @@ class PatchingTACProgramTests {
         )
 
         val symbol = TACKeyword.TMP(Tag.Bool, "dummyVar").toUnique("!")
-        val tags = Tags(treapSetOf(symbol))
+        val tags = treapSetOf(symbol)
 
         val commandSameCallId = "commandInBlockWithSameCallId"
         val commandDifferentCallId = "commandInBlockWithDifferentCallId"

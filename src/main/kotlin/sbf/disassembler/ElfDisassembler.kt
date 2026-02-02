@@ -27,6 +27,7 @@ import net.fornwall.jelf.*
 import net.fornwall.jelf.ElfSymbol.STT_FUNC
 import sbf.callgraph.SolanaFunction
 import sbf.domains.FiniteInterval
+import sbf.sbfLogger
 import sbf.support.SolanaError
 import sbf.support.safeLongToInt
 import java.io.File
@@ -48,11 +49,32 @@ private val globalSectionsByExactName = listOf(".data.rel.ro", ".rodata")
  */
 private val globalSectionsByPrefix = listOf(".data", ".bss")
 
+enum class SbpfVersion {
+    SBF,    // legacy sbfv1
+    SBPF_V0,
+    SBPF_V1,
+    SBPF_V2,
+    SBPF_V3;
+
+    override fun toString() =
+        when(this) {
+            SBF -> "sbf/sbfv1"
+            SBPF_V0 -> "sbpfv0"
+            SBPF_V1 -> "sbpfv1"
+            SBPF_V2 -> "sbpfv2"
+            SBPF_V3 -> "sbpfv3"
+        }
+}
+
 /**
  * The reason for defining an interface is to allow mocking these functions without
  * requiring an ELF file during testing.
  */
 interface IElfFileView {
+    /** Return the sbf/sbpf architecture **/
+    fun sbpfVersion(): SbpfVersion
+    /** Return true if the program uses dynamic-sized stack frames **/
+    fun useDynamicFrames(): Boolean
     /** SBF is little-endian, but we extract that info from the ELF file in case it will change in the future **/
     fun isLittleEndian(): Boolean
     /** Return true if [address] is in the range of any ELF section known to store global variables **/
@@ -123,6 +145,24 @@ class ElfFileView(private val reader: ElfFile, private val parser: ElfParser): I
             globalVMARanges[range] = GlobalFlags(!ElfFileWrapper.isWritable(sh))
         }
     }
+
+    override fun sbpfVersion(): SbpfVersion {
+        // Cannot distinguish between `SBF` and `SBPF_V0`.
+        // Both have same flag value (0) and same `reader.e_machine`.
+        // We treat `SBPF_V0` as the same architecture as `SBF`.
+        return when(reader.e_flags) {
+            0 -> SbpfVersion.SBF
+            1 -> SbpfVersion.SBPF_V1
+            2 -> SbpfVersion.SBPF_V2
+            3 -> SbpfVersion.SBPF_V3
+            else -> {
+                sbfLogger.warn {"Cannot recognize sbpf version, assuming SBF"}
+                SbpfVersion.SBF
+            }
+        }
+    }
+
+    override fun useDynamicFrames() = sbpfVersion() >= SbpfVersion.SBPF_V1
 
     override fun isLittleEndian() = reader.ei_data == ElfFile.DATA_LSB
 
@@ -408,6 +448,7 @@ class ElfDisassembler(pathName: String) {
         val relocatedCalls = resolveRelocations(sectionStart, instructions, functionMan)
         val initGlobals = GlobalVariables(globalsSymTable)
         val globals = populateGlobalVariables(initGlobals)
+        sbfLogger.info {"Found architecture: ${globals.elf.sbpfVersion()}"}
         return BytecodeProgram(entryOffsetMap, functionMan, instructions, globals, relocatedCalls, this.debugSymbols)
     }
 }

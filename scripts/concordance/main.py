@@ -48,6 +48,8 @@ def setup_argument_parser() -> argparse.ArgumentParser:
 def setup_logging(debug: bool) -> None:
     """Configure logging based on debug flag."""
     if debug:
+        import langchain
+        langchain.debug = True  # type: ignore[attr-defined]
         logger.setLevel(logging.DEBUG)
         if not logger.handlers:
             handler = logging.StreamHandler()

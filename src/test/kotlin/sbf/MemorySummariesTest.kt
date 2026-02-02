@@ -43,14 +43,20 @@ class MemorySummariesTest {
         check(baseR != lhs)
         val inst = SbfInstruction.Mem(Deref(width, baseR, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doLoad(locInst, baseR, SbfType.top(), globals)
+        g.doLoad(locInst, baseR, SbfType.top())
         val sc = g.getRegCell(lhs)
         check(sc != null)
         return sc.getNode()
     }
 
-    private fun createMemoryDomain() =
-        MemoryDomain(nodeAllocator, sbfTypesFac, MemoryDomainOpts(false),true)
+    private fun createMemoryDomain(memSummaries: MemorySummaries = MemorySummaries()) =
+        MemoryDomain(
+            nodeAllocator,
+            sbfTypesFac,
+            MemoryDomainOpts(false),
+            GlobalState(globals, memSummaries),
+            initPreconditions = true
+        )
 
     @Test
     fun test01() {
@@ -64,9 +70,13 @@ class MemorySummariesTest {
         val r10 = Value.Reg(SbfRegister.R10_STACK_POINTER)
         val r1 = Value.Reg(SbfRegister.R1_ARG)
         val r2 = Value.Reg(SbfRegister.R2_ARG)
+
+        val configFileContents = arrayListOf("#[type((*i64)(r1+0):num)]", "^foo$")
+        val memSummaries = MemorySummaries.readSpecFile(configFileContents,"unknown")
+
         // Create abstract state
-        val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val absVal = createMemoryDomain(memSummaries)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -85,8 +95,7 @@ class MemorySummariesTest {
         g.setRegCell(r1, n1.createSymCell(0))
         g.setRegCell(r2, n2.createSymCell(0))
 
-        val configFileContents = arrayListOf("#[type((*i64)(r1+0):num)]", "^foo$")
-        val memSummaries = MemorySummaries.readSpecFile(configFileContents,"unknown")
+
 
         val call = SbfInstruction.Call(name = "foo")
 
@@ -94,7 +103,7 @@ class MemorySummariesTest {
         // before the call *(r1+0) == *(r2+0)
         val oldN = getNode(g, r1, 0, 8)
         Assertions.assertEquals(true,  oldN == getNode(g, r2, 0, 8))
-        g.doCall(LocatedSbfInstruction(Label.fresh(), 0, call), globals, memSummaries, absVal.getScalars())
+        g.doCall(LocatedSbfInstruction(Label.fresh(), 0, call), absVal.getScalars())
         println("After $call with ${memSummaries.getSummary("foo")}: $g")
 
         // after the call *(r1+0) != *(r2+0)

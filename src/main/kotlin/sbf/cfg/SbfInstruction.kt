@@ -259,7 +259,10 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
     open fun isAllocFn() = false
     open fun isDeallocFn() = false
     open fun isExternalFn() = false
-
+    open fun isStackPush(useDynamicFrames: Boolean) = false
+    open fun isStackPop(useDynamicFrames: Boolean) = false
+    open fun isSaveScratchRegisters() = false
+    open fun isRestoreScratchRegisters() = false
 
     // these can and probably should be replaced with polymorphism
     open fun isCore(value: CVTCore): Boolean = false
@@ -301,6 +304,44 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
             } else {
                 (v as? Value.Reg)?.let { setOf(dst, it) } ?: setOf(dst)
             }
+
+        /**
+         * With static frames:
+         * - Push:  `add64 r10, STACK_FRAME_SIZE` (increase stack pointer)
+         * With dynamic frames:
+         * - push:  `add64 r10, -x`               (decrease stack pointer)
+         */
+        override fun isStackPush(useDynamicFrames: Boolean): Boolean {
+            val isLhsStackPtr = dst == Value.Reg(SbfRegister.R10_STACK_POINTER)
+            val rhsAsImmVal =  (typedRhs.v as? Value.Imm)?.v?.toLong()
+            return if (!useDynamicFrames) {
+                // increase stack pointer
+                (op == BinOp.ADD) && isLhsStackPtr && (rhsAsImmVal == SBF_STACK_FRAME_SIZE)
+
+            } else {
+                // decrease stack pointer
+                (op == BinOp.ADD) && isLhsStackPtr && (rhsAsImmVal != null && rhsAsImmVal < 0)
+            }
+        }
+
+        /**
+         * With static frames:
+         * - Pop:  `sub64 r10, STACK_FRAME_SIZE` (decrease stack pointer)
+         * With dynamic frames:
+         * - Pop:  `add64 r10, x`                (increase stack pointer)
+         */
+        override fun isStackPop(useDynamicFrames: Boolean): Boolean {
+            val isLhsStackPtr = dst == Value.Reg(SbfRegister.R10_STACK_POINTER)
+            val rhsAsImmVal =  (typedRhs.v as? Value.Imm)?.v?.toLong()
+            return if (!useDynamicFrames) {
+                // decrease stack pointer
+                (op == BinOp.SUB) && isLhsStackPtr && (rhsAsImmVal == SBF_STACK_FRAME_SIZE)
+
+            } else {
+                // increase stack pointer
+                (op == BinOp.ADD) && isLhsStackPtr && (rhsAsImmVal != null && rhsAsImmVal > 0)
+            }
+        }
 
         override fun toString(): String {
             val sb = StringBuffer()
@@ -535,6 +576,10 @@ sealed class SbfInstruction: ReadRegister, WriteRegister  {
                     CVTFunction.from(name) != null ||
                     CompilerRtFunction.from(name) != null)
         }
+        override fun isSaveScratchRegisters() =
+            CVTFunction.from(name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)
+        override fun isRestoreScratchRegisters() =
+            CVTFunction.from(name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)
 
         override fun isCore(value: CVTCore): Boolean {
             val function = CVTFunction.from(name) as? CVTFunction.Core ?: return false

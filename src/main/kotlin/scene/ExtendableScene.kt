@@ -20,6 +20,7 @@ package scene
 import analysis.EthereumVariables
 import bridge.EVMExternalMethodInfo
 import bridge.NamedContractIdentifier
+import config.Config
 import instrumentation.transformers.CodeRemapper
 import tac.ICoreTACProgram
 import vc.data.CoreTACProgram
@@ -66,6 +67,7 @@ interface ExtendableScene {
 
     fun IContractClass.extendWith(toAdd: List<TACMethod>) : IContractClass {
         val added = mutableMapOf<BigInteger, TACMethod>()
+        val removed = mutableSetOf<BigInteger>()
         require(this is IContractWithSource) {
             "Cannot merge into contracts without source, this should always be satisfied!"
         }
@@ -78,14 +80,8 @@ interface ExtendableScene {
             if(m.sigHash == null) {
                 return@mapNotNull err("Cannot merge function without sighash ${m.name} from contract ${m.getContainingContract().name} into ${this.name}")
             }
-            val extant = this.getMethodBySigHash(m.sigHash.n)
-            if(extant != null) {
-                return@mapNotNull err(
-                    "Cannot merge function ${m.name} from contract ${m.getContainingContract().name}, " +
-                    "it collides with ${extant.name} in ${this.name}. Consider adding this function to the \"exclude\" list"
-                )
-            }
-            val alreadyMerged = added[m.sigHash.n]
+            val sighash = m.sigHash.n
+            val alreadyMerged = added[sighash]
             if(alreadyMerged != null) {
                 return@mapNotNull err(
                     "Cannot merge ${m.name} from contract ${m.getContainingContract().name} into ${this.name}, " +
@@ -93,7 +89,19 @@ interface ExtendableScene {
                         "with which it collides. Consider adding one of the implementations to an \"exclude\" list"
                 )
             }
-            added[m.sigHash.n] = m
+            added[sighash] = m
+            val extant = this.getMethodBySigHash(sighash)
+            if(extant != null) {
+                if (Config.OverrideExtendedContractFunctions.get()) {
+                    removed.add(sighash)
+                } else {
+                    return@mapNotNull err(
+                        "Cannot merge function ${m.name} from contract ${m.getContainingContract().name}, " +
+                            "it collides with ${extant.name} in ${this.name}. Consider adding this function to " +
+                            "the \"exclude\" list, or using ${Config.OverrideExtendedContractFunctions.userFacingName()}"
+                    )
+                }
+            }
             val remapState = RemapState(
                 mutableMapOf(),
                 srcId = m.getContainingContract().instanceId,
@@ -132,7 +140,7 @@ interface ExtendableScene {
             storageLayout = this.getStorageLayout(),
             transientStorageLayout = this.getTransientStorageLayout(),
             src = this.src,
-            methods = this.getStandardMethods() + ext,
+            methods = this.getStandardMethods().filterNot { it.sigHash?.n in removed } + ext,
             bytecode = this.bytecode,
             constructorBytecode = this.constructorBytecode,
             constructorCode = this.constructorMethod!!,

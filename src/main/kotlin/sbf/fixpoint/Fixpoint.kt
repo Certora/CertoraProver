@@ -21,10 +21,8 @@ import sbf.analysis.LiveRegisters
 import sbf.cfg.SbfBasicBlock
 import sbf.disassembler.Label
 import sbf.cfg.SbfCFG
-import sbf.disassembler.GlobalVariables
 import sbf.domains.AbstractDomain
 import sbf.domains.InstructionListener
-import sbf.domains.MemorySummaries
 import sbf.sbfLogger
 
 const val debugFixpo = false
@@ -54,10 +52,10 @@ interface FixpointSolver<T: AbstractDomain<T>> {
 /**
  * Common operations independent of the fixpoint solving strategy
  */
-open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
-                                                          protected val top: T,
-                                                          private val globals: GlobalVariables,
-                                                          private val memSummaries: MemorySummaries) {
+open class FixpointSolverOperations<T: AbstractDomain<T>>(
+    protected val bot: T,
+    protected val top: T
+) {
 
     /** Produce the initial abstract state for a given block **/
     fun getInState(
@@ -134,7 +132,7 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(protected val bot: T,
             sbfLogger.info { "BEFORE ${inState}\n" }
         }
 
-        val outState = inState.analyze(block, globals, memSummaries)
+        val outState = inState.analyze(block)
 
         if (deadMap != null) {
             // Remove all registers that are dead at the end of this block.

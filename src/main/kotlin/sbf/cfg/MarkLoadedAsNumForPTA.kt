@@ -18,7 +18,6 @@
 package sbf.cfg
 
 import sbf.analysis.LivenessAnalysis
-import sbf.callgraph.*
 import sbf.disassembler.*
 import datastructures.stdcollections.*
 import sbf.SolanaConfig
@@ -81,8 +80,7 @@ private fun allUsesAreNumForPTA(loadInst: LocatedSbfInstruction,
                         return Pair(SbfMeta.LOADED_AS_NUM_FOR_PTA, false)
                     }
                 } else if (!(loadedReg.r >= SbfRegister.R6 && loadedReg.r <= SbfRegister.R9)) {
-                    if (CVTFunction.from(nextUseInst.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS) ||
-                        CVTFunction.from(nextUseInst.name) == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)) {
+                    if (nextUseInst.isSaveScratchRegisters() || nextUseInst.isRestoreScratchRegisters()) {
                         nextPos = nextUseLocInst.pos + 1
                         continue@inner
                     }

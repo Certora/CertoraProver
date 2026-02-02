@@ -33,6 +33,7 @@ import utils.*
 import vc.data.*
 import wasm.WasmPipelinePhase
 import wasm.WasmPostUnrollSummary
+import wasm.host.soroban.types.BytesType
 import vc.data.TACExprFactUntyped as txf
 import wasm.host.soroban.types.MapType
 import wasm.impCfg.*
@@ -122,6 +123,7 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
 
 
         CVT_NONDET_BYTES(CvlrFunctions.CVT_nondet_bytes, "env", listOf(I32), I32),
+        CVT_NONDET_BYTES_N_32(CvlrFunctions.CVT_nondet_bytes_n, "env", listOf(), I64),
         CVT_NONDET_MAP(CvlrFunctions.CVT_nondet_map, "env", listOf(), I64),
 
         /*
@@ -268,6 +270,10 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
                 nondetBytes(call.maybeRet, outSize)
             }
 
+            CVTBuiltin.CVT_NONDET_BYTES_N_32 -> {
+                check(call.maybeRet != null) { "expected nondet_bytes_n to have a lhs " }
+                summarizeNondetBytesN(call.maybeRet)
+            }
             CVTBuiltin.NONDET_U8, CVTBuiltin.CVT_NONDET_U8 -> {
                 check(call.maybeRet != null) { "expected nondet_u8 to have a lhs " }
                 summarizeNondet(call.maybeRet, 8)
@@ -686,6 +692,13 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
         return mergeMany(assignHavoc(argSymTac), rangeCheckTac)
     }
 
+    context (WasmImpCfgContext)
+    private fun summarizeNondetBytesN(lhs: Tmp): CommandWithRequiredDecls<TACCmd.Simple> {
+        val handle = TACSymbol.Var(lhs.toString(), Tag.Bit256)
+        val content = TACSymbol.Var("NondetBytesN" + allocFresh(), Tag.Bit256)
+        return mergeMany(assignHavoc(content), BytesType.newFromBit256(handle, content))
+    }
+
     /**
      * Make two i64s and write them to memory location [loc] and [loc] + 64
      * */
@@ -822,8 +835,8 @@ class WasmBuiltinCallSummarizer(private val typeContext: Map<WasmName, WasmProgr
                                 TACCmd.Simple.AssigningCmd.AssignExpCmd(lowNm, low.toTacSymbol()),
                                 SnippetCmd.CvlrSnippetCmd.CexPrint128BitsValue(
                                     tag,
-                                    highNm,
                                     lowNm,
+                                    highNm,
                                     signed
                                 ).toAnnotation()
                             ), setOf(highNm, lowNm)

@@ -1642,14 +1642,11 @@ object CallGraphBuilder {
          */
         private val pseudoCalldataModel: TreapMap<ByteRange, HeapInt>? by lazy d@{
             val cd = m.calldataEncoding as? CalldataEncoding ?: return@d null
-            if(!cd.valueTypesArgsOnly || cd.expectedCalldataSize == null) {
-                return@d null
-            }
             fun CalldataByteRange.toNative() = ByteRange(
                 this.from, this.to
             )
             val builder = treapMapBuilderOf<ByteRange, HeapInt>()
-            var offsIt = if(cd.sighashSize != BigInteger.ZERO) {
+            val offsStart = if(cd.sighashSize != BigInteger.ZERO) {
                 val range = CalldataByteRange(
                     BigInteger.ZERO, cd.sighashSize - BigInteger.ONE
                 )
@@ -1668,11 +1665,11 @@ object CallGraphBuilder {
             } else {
                 BigInteger.ZERO
             }
-            while(offsIt < cd.expectedCalldataSize) {
-                val expectedRange = CalldataByteRange(
-                    offsIt, offsIt + EVM_WORD_SIZE - BigInteger.ONE
-                )
-                val scalar = cd.byteOffsetToScalar[expectedRange] ?: return@d null
+            for((cdRange, scalar) in cd.byteOffsetToScalar) {
+                if(cdRange.from < offsStart) {
+                    continue
+                }
+                val range = cdRange.toNative()
                 val absVal = HeapInt(
                     symbolicValueSource = null,
                     returnVal = null,
@@ -1683,12 +1680,11 @@ object CallGraphBuilder {
                     storageSet = StorageSet.Set(setOf(
                         SymbolicAddress.CallDataInput(
                             inputArg = scalar,
-                            offset = offsIt
+                            offset = offsStart
                         )
                     ))
                 )
-                builder[expectedRange.toNative()] = absVal
-                offsIt += EVM_WORD_SIZE
+                builder[range] = absVal
             }
             builder.build()
         }

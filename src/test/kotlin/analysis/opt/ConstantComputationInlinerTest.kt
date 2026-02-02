@@ -43,7 +43,7 @@ class ConstantComputationInlinerTest : MockStackVarMixin, CommandFinderMixin {
             name = "testHandleByteLongCopy_ByteLoad0",
             blockgraph = graph.toBlockGraph(),
             procedures = emptySet(),
-            symbolTable = TACSymbolTable.withTags(TACUtils.tagsFromBlocks(graph.code)),
+            symbolTable = TACSymbolTable.withVars(TACUtils.tagsFromBlocks(graph.code)),
             ufAxioms = UfAxioms.empty()
         )
 
@@ -69,7 +69,7 @@ class ConstantComputationInlinerTest : MockStackVarMixin, CommandFinderMixin {
             name = "testHandleByteLongCopy_ByteLoad32",
             blockgraph = graph.toBlockGraph(),
             procedures = emptySet(),
-            symbolTable = TACSymbolTable.withTags(TACUtils.tagsFromBlocks(graph.code)),
+            symbolTable = TACSymbolTable.withVars(TACUtils.tagsFromBlocks(graph.code)),
             ufAxioms = UfAxioms.empty()
         )
 
@@ -95,7 +95,7 @@ class ConstantComputationInlinerTest : MockStackVarMixin, CommandFinderMixin {
             name = "testHandleByteLongCopy_ByteLoad32",
             blockgraph = graph.toBlockGraph(),
             procedures = emptySet(),
-            symbolTable = TACSymbolTable.withTags(TACUtils.tagsFromBlocks(graph.code)),
+            symbolTable = TACSymbolTable.withVars(TACUtils.tagsFromBlocks(graph.code)),
             ufAxioms = UfAxioms.empty()
         )
 
@@ -136,7 +136,7 @@ class ConstantComputationInlinerTest : MockStackVarMixin, CommandFinderMixin {
             name = "testHandleByteLongCopy_Assignment",
             blockgraph = graph.toBlockGraph(),
             procedures = emptySet(),
-            symbolTable = TACSymbolTable.withTags(TACUtils.tagsFromBlocks(graph.code)),
+            symbolTable = TACSymbolTable.withVars(TACUtils.tagsFromBlocks(graph.code)),
             ufAxioms = UfAxioms.empty()
         )
 
@@ -166,7 +166,7 @@ class ConstantComputationInlinerTest : MockStackVarMixin, CommandFinderMixin {
             name = "testHandleByteLongCopy_ByteStore",
             blockgraph = graph.toBlockGraph(),
             procedures = emptySet(),
-            symbolTable = TACSymbolTable.withTags(TACUtils.tagsFromBlocks(graph.code)),
+            symbolTable = TACSymbolTable.withVars(TACUtils.tagsFromBlocks(graph.code)),
             ufAxioms = UfAxioms.empty()
         )
 
@@ -196,7 +196,7 @@ class ConstantComputationInlinerTest : MockStackVarMixin, CommandFinderMixin {
             name = "testHandleByteLongCopy_Src32",
             blockgraph = graph.toBlockGraph(),
             procedures = emptySet(),
-            symbolTable = TACSymbolTable.withTags(TACUtils.tagsFromBlocks(graph.code)),
+            symbolTable = TACSymbolTable.withVars(TACUtils.tagsFromBlocks(graph.code)),
             ufAxioms = UfAxioms.empty()
         )
 
@@ -242,7 +242,7 @@ class ConstantComputationInlinerTest : MockStackVarMixin, CommandFinderMixin {
             name = "testHandleByteLongCopy_SrcConst64",
             blockgraph = graph.toBlockGraph(),
             procedures = emptySet(),
-            symbolTable = TACSymbolTable.withTags(TACUtils.tagsFromBlocks(graph.code)),
+            symbolTable = TACSymbolTable.withVars(TACUtils.tagsFromBlocks(graph.code)),
             ufAxioms = UfAxioms.empty()
         )
 

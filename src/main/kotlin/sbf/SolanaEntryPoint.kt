@@ -272,7 +272,6 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
     processor: InstructionListener<MemoryDomain<TNum, TOffset, TFlags>>?
 ): WholeProgramMemoryAnalysis<TNum, TOffset, TFlags>? = if (SolanaConfig.UsePTA.get()) {
 
-
     val analysis = timeIt(target, "whole-program memory analysis") {
         val analysis = WholeProgramMemoryAnalysis(program, memSummaries, sbfTypesFac, ptaFlagsFac, opts, processor)
         try {
@@ -286,6 +285,7 @@ private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>, TFlags: IPTANod
                 is UnknownStackContentError,
                 is UnknownMemcpyLenError,
                 is DerefOfAbsoluteAddressError,
+                is StackCannotBeScalarizedAfterMemcpyError,
                 is PointerStackEscapingError -> explainPTAError(e, program, memSummaries)
                 else -> {}
             }

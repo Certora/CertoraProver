@@ -167,12 +167,14 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFla
     private fun run() {
         val nodeAllocator = PTANodeAllocator(flagsFac)
         val entry = cfg.getEntry()
-        val bot = MemoryDomain.makeBottom(nodeAllocator, sbfTypesFac, opts)
-        val top = MemoryDomain.makeTop(nodeAllocator, sbfTypesFac, opts)
+        val globalState = GlobalState(globals, memSummaries)
+        val bot = MemoryDomain.makeBottom(nodeAllocator, sbfTypesFac, opts, globalState)
+        val top = MemoryDomain.makeTop(nodeAllocator, sbfTypesFac, opts, globalState)
         val fixpoOpts = WtoBasedFixpointOptions(2U,1U)
-        val fixpo = WtoBasedFixpointSolver(bot, top, fixpoOpts, globals, memSummaries)
+        val fixpo = WtoBasedFixpointSolver(bot, top, fixpoOpts)
         if (isEntryPoint) {
-            preMap[entry.getLabel()] = MemoryDomain.initPreconditions(nodeAllocator, sbfTypesFac, opts)
+            preMap[entry.getLabel()] =
+                MemoryDomain.initPreconditions(nodeAllocator, sbfTypesFac, opts, globalState)
         }
         val liveMapAtExit = LivenessAnalysis(cfg).getLiveRegistersAtExit()
         fixpo.solve(cfg, preMap, postMap, liveMapAtExit, processor)
@@ -192,7 +194,7 @@ open class MemoryAnalysis<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>, TFla
         for (block in cfg.getBlocks().values) {
             getPre(block.getLabel())
                 ?.takeUnless { it.isBottom() }
-                ?.analyze(block, globals, memSummaries)
+                ?.analyze(block)
         }
     }
 

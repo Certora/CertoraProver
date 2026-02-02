@@ -179,7 +179,7 @@ class CVLExpressionCompiler(
         )
 
     private fun doWrapping(inVar: TACSymbol.Var, t: CVLType.PureCVLType): Pair<TACSymbol.Var, CommandWithRequiredDecls<TACCmd.Spec>> {
-        val outVar = inVar.copy(tag = Tag.Bit256).toUnique("!")
+        val outVar = inVar.updateTagUnique(Tag.Bit256)
         val actualType = when(t){
             is CVLType.PureCVLType.UserDefinedValueType -> t.base
             else -> t
@@ -284,7 +284,7 @@ class CVLExpressionCompiler(
             preOpRhsManipulationCommands
         ))
 
-        val outBitvector = out.copy(tag = Tag.Bit256).toUnique("!")
+        val outBitvector = out.updateTagUnique(Tag.Bit256)
 
         val bitwiseOpCommands = CommandWithRequiredDecls<TACCmd.Spec>(
             TACCmd.Simple.AssigningCmd.AssignExpCmd(outBitvector, lwrapped, rwrapped, exprConstructor).plusMeta(
@@ -624,7 +624,7 @@ class CVLExpressionCompiler(
         val innerCompiled = compileExp(exp.e)
         val outType = exp.getPureCVLType()
         val (wrappedInner, preOpManipulation) = doWrapping(innerCompiled.out, exp.e.getOrInferPureCVLType())
-        val outBitvector = out.copy(tag = Tag.Bit256).toUnique("!")
+        val outBitvector = out.updateTagUnique(Tag.Bit256)
         val bitwisOp = CommandWithRequiredDecls<TACCmd.Spec>(TACCmd.Simple.AssigningCmd.AssignExpCmd(outBitvector, wrappedInner.asSym(), cvlCompiler.exprFact::BWNot).plusMeta(
             CVL_EXP,
             CVLExpToTACExprMeta.UnaryCVLExp(
@@ -2691,7 +2691,7 @@ class CVLExpressionCompiler(
                     compileExp(exp.index).bindCmd { i ->
                         check(i.tag == Tag.Bit256 || i.tag == Tag.Int)
 
-                        val idxAsBitvector = i.copy(tag = Tag.Bit256).toUnique(".")
+                        val idxAsBitvector = i.updateTagUnique(Tag.Bit256, ".")
                         val base = exp.baseCVLKeyword()?.let { TACKeyword.findByCVLCorrespondence(it)?.let { mapVar.withMeta(KEYWORD_ENTRY, it.keywordEntry) } } ?: mapVar
                         CommandWithRequiredDecls.mergeMany(
                             CastToUnsignedInt(Config.VMConfig.registerBitwidth).compileAssertCast(
@@ -2721,7 +2721,7 @@ class CVLExpressionCompiler(
                 compileExp(exp.array).bindParam { arrVar ->
                     compileExp(exp.index).bindProg { i ->
                         // an array index is type checked to be UInt256 and so is guaranteed to fit into a Bit256
-                        val idxAsBitvector = i.copy(tag = Tag.Bit256).toUnique(".")
+                        val idxAsBitvector = i.updateTagUnique(Tag.Bit256, ".")
                         val idxNarrow = CastToUnsignedInt(Config.VMConfig.registerBitwidth).compileAssertCast(
                             idxAsBitvector,
                             i

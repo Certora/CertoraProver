@@ -1243,6 +1243,19 @@ class EvmAttributes(AttrUtil.Attributes):
         disables_build_cache=False,
     )
 
+    ASSUME_NO_CASTING_OVERFLOW = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="Will Assume solidity casting expressions never overflow",
+        default_desc="Solidity casting expressions may overflow",
+        jar_flag='-assumeNoCastingOverflow',
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE,
+            'default': False
+        },
+        affects_build_cache_key=True,
+        disables_build_cache=False,
+    )
+
     UNCHECKED_OVERFLOW_BUILTIN = AttrUtil.AttributeDefinition(
         arg_type=AttrUtil.AttrArgType.BOOLEAN,
         help_msg="This needs to be set to true for the uncheckedOverflow builtin to work",
@@ -1253,6 +1266,19 @@ class EvmAttributes(AttrUtil.Attributes):
             'default': False
         },
         affects_build_cache_key=True,
+        disables_build_cache=False,
+    )
+
+    CONTRACT_EXTENSIONS_OVERRIDE = AttrUtil.AttributeDefinition(
+        arg_type=AttrUtil.AttrArgType.BOOLEAN,
+        help_msg="Set this flag if you are using `contract_extensions` and an extending contract has a method that should override a method with the same name in the extension contract",
+        default_desc="Prover will fail if an extending contract has a method with the same name as one in the extended contract that wasn't excluded.",
+        jar_flag='-overrideExtendedContractFunctions',
+        argparse_args={
+            'action': AttrUtil.STORE_TRUE,
+            'default': False
+        },
+        affects_build_cache_key=False,
         disables_build_cache=False,
     )
 

@@ -19,6 +19,7 @@ package move
 
 import analysis.*
 import bridge.*
+import cli.SanityValues
 import config.*
 import datastructures.stdcollections.*
 import diagnostics.*
@@ -30,6 +31,7 @@ import parallel.coroutines.*
 import report.*
 import rules.*
 import rules.CompiledRule.Companion.mapCheckResult
+import rules.sanity.TACSanityChecks
 import scene.*
 import scene.source.*
 import spec.cvlast.*
@@ -128,15 +130,22 @@ class MoveVerifier : Closeable {
         reporterContainer.toFile(cvlScene)
     }
 
+    private val EcosystemAgnosticRule.isGenerated get() =
+        ruleType is SpecType.Single.GeneratedFromBasicRule.SanityRule || ruleType is SpecType.Single.BuiltIn
+
     suspend fun verifyTAC(rule: EcosystemAgnosticRule, tac: CoreTACProgram): CompiledRule.CompileRuleCheckResult {
-        return runCatching {
+        return coRunCatching {
             val startTime = System.currentTimeMillis()
             val optimized = MoveToTAC.optimize(tac)
-            val joinedResult = Verifier.JoinedResult(
-                TACVerifier.verify(cvlScene, optimized, treeView.liveStatsReporter, rule)
-            )
+            val vRes = TACVerifier.verify(cvlScene, optimized, treeView.liveStatsReporter, rule)
             val endTime = System.currentTimeMillis()
-            ResultAndTime(joinedResult, VerifyTime.WithInterval(startTime, endTime))
+
+            // Do rule sanity checks (but not for built-in/generated rules)
+            if (!rule.isGenerated) {
+                TACSanityChecks(vacuityCheckLevel = SanityValues.BASIC).analyse(cvlScene, rule, tac, vRes, treeView)
+            }
+
+            ResultAndTime(Verifier.JoinedResult(vRes), VerifyTime.WithInterval(startTime, endTime))
         }.mapCheckResult(
             ruleName = rule.ruleIdentifier.displayName,
             isOptimizedRuleFromCache = IsFromCache.INAPPLICABLE,
@@ -222,7 +231,7 @@ class MoveVerifier : Closeable {
     ): List<Pair<EcosystemAgnosticRule, MoveToTAC.CompiledRule>> {
         return rules.flatMap { (rule, compiled) ->
             when {
-                rule.isSatisfyRule -> listOf(rule to compiled)
+                rule.isSatisfyRule || rule.isGenerated -> listOf(rule to compiled)
                 Config.MultiAssertCheck.get() -> transformMulti(rule, compiled)
                 else -> listOf(
                     rule.copy(

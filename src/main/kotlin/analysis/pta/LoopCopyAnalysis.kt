@@ -104,7 +104,8 @@ object LoopCopyAnalysis {
         val iterationVariable: TACSymbol.Var,
         val boundVariable: TACSymbol.Var,
         val stride: BigInteger
-    ) : AmbiSerializable, TransformableVarEntity<IterationVariableBound> {
+    ) : AmbiSerializable, TransformableVarEntityWithSupport<IterationVariableBound> {
+        override val support get() = setOf(iterationVariable, boundVariable)
         override fun transformSymbols(f: (TACSymbol.Var) -> TACSymbol.Var): IterationVariableBound {
             return IterationVariableBound(f(iterationVariable), f(boundVariable), stride)
         }

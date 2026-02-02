@@ -41,6 +41,7 @@ import scene.source.*
 import smt.*
 import spec.cvlast.*
 import spec.rules.*
+import tac.generation.TrapMode
 import testutils.*
 import utils.*
 import verifier.*
@@ -74,6 +75,7 @@ abstract class MoveTestFixture() {
             }
             module cvlm::manifest {
                 public native fun rule(ruleFunName: vector<u8>);
+                public native fun no_abort_rule(ruleFunName: vector<u8>);
                 public native fun summary(
                     summaryFunName: vector<u8>,
                     summarizedFunAddr: address,
@@ -251,7 +253,7 @@ abstract class MoveTestFixture() {
                 check(type == CvlmManifest.RuleType.USER_RULE) {
                     "Expected a user rule, but got $type"
                 }
-                return MoveToTAC.compileMoveTAC(selected, moveScene)
+                return MoveToTAC.compileMoveTAC(selected, moveScene, TrapMode.REVERT)
             }
     }
 

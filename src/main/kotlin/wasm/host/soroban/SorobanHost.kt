@@ -257,7 +257,7 @@ object SorobanHost : WasmHost {
             SorobanType.i64 -> passthrough()
             SorobanType.u64 -> passthrough()
 
-            SorobanType.Bool -> arg to Val.assertIsBool(arg, module, func)
+            SorobanType.Bool -> arg to isBool()
 
             SorobanType.StorageType -> arg to Contract.assertValidStorageType(arg, module, func)
 

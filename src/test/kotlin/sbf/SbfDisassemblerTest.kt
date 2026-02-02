@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Test
 
 class SbfDisassemblerTest {
 
+    val elf = DefaultElfFileView
+
     private fun convert(bytes: List<Byte>, isLSB: Boolean = true): Long {
         check(bytes.size == 8)
         val value = if (isLSB) {
@@ -52,8 +54,8 @@ class SbfDisassemblerTest {
             0x00.toByte()
         )
 
-        val inst1 = makeAluInst(SbfBytecode.decodeInstruction(convert(bytes, true), true, 0))
-        val inst2 = makeAluInst(SbfBytecode.decodeInstruction(convert(bytes, false), false, 0))
+        val inst1 = makeAluInst(SbfBytecode.decodeInstruction(convert(bytes, true), true, 0), elf)
+        val inst2 = makeAluInst(SbfBytecode.decodeInstruction(convert(bytes, false), false, 0), elf)
         println("$inst1 and $inst2")
         Assertions.assertEquals(true, inst1.toString() == inst2.toString())
     }
@@ -74,8 +76,8 @@ class SbfDisassemblerTest {
             0x00.toByte()
         )
 
-        val inst1 = makeAluInst(SbfBytecode.decodeInstruction(convert(bytes, true) , true, 0))
-        val inst2 = makeAluInst(SbfBytecode.decodeInstruction(convert(bytes, false), false, 0))
+        val inst1 = makeAluInst(SbfBytecode.decodeInstruction(convert(bytes, true) , true, 0),elf)
+        val inst2 = makeAluInst(SbfBytecode.decodeInstruction(convert(bytes, false), false, 0), elf)
         println("$inst1 and $inst2")
         Assertions.assertEquals(true, inst1.toString() == inst2.toString())
         Assertions.assertEquals(true,

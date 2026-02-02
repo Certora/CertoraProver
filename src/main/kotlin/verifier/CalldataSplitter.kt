@@ -19,8 +19,8 @@ package verifier
 
 import analysis.CalldataAnalysis
 import analysis.TACCommandGraph
+import com.certora.collect.*
 import tac.Tag
-import tac.tagsBuilder
 import vc.data.*
 import java.math.BigInteger
 
@@ -38,10 +38,10 @@ object CalldataSplitter {
                     + (TACMeta.WORDMAP_KEY to idx)
             )
 
-        val newTags = tagsBuilder<TACSymbol.Var>()
+        val newTags = treapSetBuilderOf<TACSymbol.Var>()
         fun replaceLoad(lhs: TACSymbol.Var, source: TACSymbol.Var) =
             TACCmd.Simple.AssigningCmd.AssignExpCmd(lhs = lhs, rhs = source).apply {
-                newTags.set(source,source.tag)
+                newTags += source
             }
 
         val graph = TACCommandGraph(prog)

@@ -2033,6 +2033,17 @@ object Config {
         )
     )
 
+    val AssumeNoCastOverflow = ConfigType.BooleanCmdLine(
+        false,
+        Option(
+            "assumeNoCastingOverflow",
+            true,
+            "if true then it is assumed that no under/overflows happen in casts." +
+                " Should be run from the python command line only (not directly in prover_args) [default: false]"
+        ),
+        pythonName = "--assume_no_casting_overflow"
+    )
+
     val ParallelSplitting: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         false,
         Option(
@@ -2686,6 +2697,16 @@ object Config {
                 "Argument to -summaryRecursionLimit should be a non-negative integer"
         }
     }
+
+    val OverrideExtendedContractFunctions = object : ConfigType.BooleanCmdLine(
+        default = false,
+        option = Option(
+            "overrideExtendedContractFunctions",
+            true,
+            "When using contract extensions, allow the extending contract to override extended contract functions of the same name [default: false]"
+        ),
+        pythonName = "--contract_extensions_override"
+    ) {}
 
     val HashingScheme = Smt.HashingScheme
 

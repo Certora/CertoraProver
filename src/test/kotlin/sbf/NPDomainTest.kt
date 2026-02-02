@@ -784,6 +784,84 @@ class NPDomainTest {
         println("Postcondition=$absVal\n$b\nPrecondition=$newAbsVal")
         Assertions.assertEquals(false, newAbsVal.isBottom())
     }
+
+    @Test
+    fun `unhoisting memcpy is needed to avoid losses at join`() {
+        val cfg = SbfTestDSL.makeCFG("test") {
+            bb(0) {
+                r9 = r10
+                BinOp.SUB(r9, 200)
+                br(CondOp.EQ(r3, 0x0), 1, 2)
+            }
+            bb(1) {
+                r1 = r10[-664]
+                assume(CondOp.NE(r1, 4))
+                r6 = r10
+                BinOp.SUB(r6, 824)
+                r2 = r10
+                BinOp.SUB(r2, 664)
+                r1 = r6
+                r3 = 160
+                "sol_memcpy_"()
+                goto(3)
+            }
+            bb(2) {
+                r1 = r10[-1704]
+                assume(CondOp.NE(r1, 4))
+                r6 = r10
+                BinOp.SUB(r6, 1864)
+                r2 = r10
+                BinOp.SUB(r2, 1704)
+                r1 = r6
+                r3 = 160
+                "sol_memcpy_"()
+                goto(3)
+            }
+            bb(3) {
+                r1 = r9
+                r2 = r6
+                r3 = 160
+                "sol_memcpy_"()
+                goto(4)
+            }
+            bb(4) {
+                r1 = r9[0]
+                assume(CondOp.EQ(r1, 4))
+                assert(CondOp.EQ(r4, 0))
+                exit()
+            }
+        }
+        cfg.normalize()
+        println( "Before $cfg" )
+        cfg.verify(true)
+
+        ConfigScope(SolanaConfig.SlicerBackPropagateThroughAsserts, false).use {
+            val np = NPAnalysis(cfg, globals, memSummaries)
+            for (label in cfg.getBlocks().keys) {
+                val absVal = np.getPreconditionsAtEntry(label)
+                check(absVal != null)
+                println("Preconditions at entry of $label=$absVal")
+                if (label==Label.Address(0)) {
+                    Assertions.assertEquals(false, absVal.isBottom())
+                }
+            }
+        }
+
+        ConfigScope(SolanaConfig.SlicerBackPropagateThroughAsserts, false).use {
+            cfg.simplify(globals) // will unhoist memcpy which is key for precision of the NPDomain
+            println("After unhoisting $cfg")
+
+            val np = NPAnalysis(cfg, globals, memSummaries)
+            for (label in cfg.getBlocks().keys) {
+                val absVal = np.getPreconditionsAtEntry(label)
+                check(absVal != null)
+                println("Preconditions at entry of $label=$absVal")
+                if (label==Label.Address(0)) {
+                    Assertions.assertEquals(true, absVal.isBottom())
+                }
+            }
+        }
+    }
 }
 
 

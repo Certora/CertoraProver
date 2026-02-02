@@ -27,8 +27,7 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.plus
 import tac.*
-import utils.ArtifactFileUtils
-import utils.mapToSet
+import utils.*
 import vc.data.*
 import vc.data.parser.infix.TACInfixExprParser
 import vc.data.parser.infix.TacInfixLexer
@@ -228,9 +227,9 @@ private fun writeTACSymbolTable(
     }
     w.appendLine("\t}")
     //Vars:
-    symbolTable.tags.forEach { variable, overwrite ->
+    symbolTable.vars.forEach { variable ->
         w.appendLine(
-            "\t${variable.updateTagCopy(overwrite).printDeclaration()}${
+            "\t${variable.printDeclaration()}${
                 printMetaString(
                     metas,
                     variable.meta
@@ -248,15 +247,8 @@ private fun writeTACSymbolTable(
  */
 fun compareCoreTACPrograms(p1: CoreTACProgram, p2: CoreTACProgram) : Boolean {
     fun compareSymbolTables(s1: TACSymbolTable, s2:TACSymbolTable) {
-        //compare tagged:
-        // only the last tag of the tags is serialized, (I don't know why it is saved originally),
-        // so comparing here is done with the overridden tag, and can't be done just by hashcode
-        check(s1.tags.keys.size == s2.tags.keys.size) {"tags sizes not equal, diff: ${s1.tags.keys-s2.tags.keys}"}
-        s1.tags.sortedSequence { it.namePrefix }.zip(s2.tags.sortedSequence { it.namePrefix }).find {
-              (t1,t2) -> t1 != t2
-        }?.let {
-          throw SerializationException ( "tags are different: $it")
-        }
+        //compare vars
+        check(s1.vars.hashCode() == s2.vars.hashCode())
         //compare user defined
         check(s1.types().hashCode() == s2.types().hashCode())
             {"userDefined types different:\n ${s1.types()},\n ${s2.types()}"}
@@ -314,7 +306,7 @@ fun <T> DeserializeTacStream(inputStream: InputStream, sourceName: String?, cons
     val symbolTableParsed = TACSymbolTable(
         parsedObject.symbolTable.userDefined.values.toTreapSet(),
         parsedObject.symbolTable.uifs.values.toTreapSet(),
-        Tags(parsedObject.symbolTable.tagged.mapToSet { it.withResolvedMetaRefs(mapOfMetaMaps) }),
+        parsedObject.symbolTable.tagged.mapToTreapSet { it.withResolvedMetaRefs(mapOfMetaMaps) },
         mapOf()
     )
 

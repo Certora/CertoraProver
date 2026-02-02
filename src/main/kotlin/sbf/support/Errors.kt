@@ -156,6 +156,17 @@ private val conflictingHeapUsage = UserErrorInfo(
         "\t(2) summarize the code that dereferences absolute addresses to be known in the heap",
     code = 3309)
 
+private val stackCannotBeScalarizedAfterMemcpy = UserErrorInfo(
+    msg = "Stack cannot be scalarized after memcpy",
+    note= "A memcpy operation caused two stack pointers to be unified, preventing stack \n" +
+          "scalarization. This typically occurs when the memcpy source pointer is ambiguous \n" +
+          "and may reference multiple memory locations (e.g., two different stack pointers).",
+    help = "To resolve this error consider one of the following:\n" +
+           "\t(1) if using Result/Option types, call \".unwrap()\" or \".expect()\" to eliminate error paths before the memcpy\n" +
+           "\t(2) simplify pointer logic to guarantee a single memory location\n" +
+           "\t(3) consider restructuring code to avoid conditional pointer assignments",
+    code = 3310)
+
 class UnknownStackPointerError(devInfo: DevErrorInfo)
     : PointerAnalysisError(devInfo, userInfo = unknownStackPointer)
 
@@ -182,6 +193,9 @@ class DerefOfAbsoluteAddressError(devInfo: DevErrorInfo)
 
 class ConflictingHeapUsage(devInfo: DevErrorInfo)
     : PointerAnalysisError(devInfo, userInfo = conflictingHeapUsage)
+
+class StackCannotBeScalarizedAfterMemcpyError(devInfo: DevErrorInfo)
+    : PointerAnalysisError(devInfo, userInfo = stackCannotBeScalarizedAfterMemcpy)
 
 class NoAssertionError(rule: String) : SolanaError(
     FormattedErrorMessage(

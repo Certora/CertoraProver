@@ -75,7 +75,7 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
 
         return if (inlinedFunction == null || callId == null) {
             inState
-        } else if (CVTFunction.from(call.name) == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
+        } else if (call.isSaveScratchRegisters()) {
             visitedInlinedFunctions.updateInPlace(inlinedFunction, setOf()) {
                 it + cmd
             }
@@ -86,8 +86,7 @@ private class FunctionArgumentAnalysis(graph: SbfCFG) :
     }
 
     private fun transformCall(inState: LiveArgRegisters, call: SbfInstruction.Call, cmd: LocatedSbfInstruction): LiveArgRegisters {
-        return if (CVTFunction.from(call.name)  == CVTFunction.Core(CVTCore.RESTORE_SCRATCH_REGISTERS)  ||
-                   CVTFunction.from(call.name)  == CVTFunction.Core(CVTCore.SAVE_SCRATCH_REGISTERS)) {
+        return if (call.isSaveScratchRegisters() || call.isRestoreScratchRegisters()) {
             transformScratchRegisterOp(inState, call, cmd)
         } else if (SolanaFunction.from(call.name) != null ||
                    CVTFunction.from(call.name) != null ||

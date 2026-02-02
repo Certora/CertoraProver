@@ -20,6 +20,7 @@
 package move
 
 import com.charleskorn.kaml.*
+import datastructures.stdcollections.*
 import java.math.BigInteger
 import java.nio.file.*
 import kotlinx.serialization.*
@@ -35,7 +36,7 @@ data class MoveBuildInfo(
     @KSerializable
     data class CompiledPackageInfo(
         @SerialName("package_name") val packageName: String,
-        @SerialName("address_alias_instantiation") val addressAliasInstantiation: Map<String, BigInteger>
+        @SerialName("address_alias_instantiation") val addressAliasInstantiation: Map<String, BigInteger> = mapOf()
         // there is a lot more info available, but we don't need it yet
     )
 

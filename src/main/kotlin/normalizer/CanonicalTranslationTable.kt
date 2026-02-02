@@ -236,7 +236,7 @@ class CanonicalTranslationTable private constructor(
         }
 
         // please note - these are unordered
-        ctp.symbolTable.tags.keys.forEach(::mapVar)
+        ctp.symbolTable.vars.forEach(::mapVar)
     }
 
     companion object {

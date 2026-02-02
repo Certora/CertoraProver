@@ -90,31 +90,74 @@ fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>>
         else -> error("unsupported bit-width $n in zext operation")
     }
 
-class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
-    private val base: ScalarBaseDomain<ScalarValue<TNum, TOffset>>,
-    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>
-    )
-    : AbstractDomain<ScalarDomain<TNum, TOffset>>,
-      ScalarValueProvider<TNum, TOffset>,
-      MemoryDomainScalarOps<TNum, TOffset> {
+/** Return true if [n] is 0 or a small power of two **/
+fun isZeroOrSmallPowerOfTwo(n: Long): Boolean =
+    n in setOf(0L, 1L, 2L, 4L, 8L, 16L, 32L, 64L)
 
-    constructor(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>, initPreconditions: Boolean = false):
-        this(ScalarBaseDomain(ValueFactory(sbfTypeFac)), sbfTypeFac) {
+/** Return true if the analysis is certain that `this` must be a number, and thus it cannot be a pointer **/
+private fun <TNum : INumValue<TNum>, TOffset : IOffset<TOffset>> SbfType<TNum, TOffset>.mustBeNumber(): Boolean {
+    if (this !is SbfType.NumType) {
+        return false
+    }
+
+    val v = this.value
+    // if it's NumType then it shouldn't be bottom
+    check(!v.isBottom())
+
+    return when {
+        v.isTop() -> false  // unknown number, can still be a pointer
+        else -> {
+            val values = v.toLongList()
+            // cannot be empty because it's not top
+            check(values.isNotEmpty())
+            // - zero can be the null pointer
+            // - a small power of two can be a dangling pointer
+            values.all { !isZeroOrSmallPowerOfTwo(it) }
+        }
+    }
+}
+
+class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private constructor(
+    private val base: ScalarBaseDomain<ScalarValue<TNum, TOffset>>,
+    val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+    val globalState: GlobalState
+) : AbstractDomain<ScalarDomain<TNum, TOffset>>,
+    ScalarValueProvider<TNum, TOffset>,
+    MemoryDomainScalarOps<TNum, TOffset> {
+
+    constructor(
+        sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+        globalState: GlobalState,
+        initPreconditions: Boolean = false
+    ): this(ScalarBaseDomain(ValueFactory(sbfTypeFac)), sbfTypeFac, globalState) {
         if (initPreconditions) {
-            setRegister(Value.Reg(SbfRegister.R10_STACK_POINTER), ScalarValue(sbfTypeFac.toStackPtr(SBF_STACK_FRAME_SIZE)))
+
+            val initialOffset = getInitialStackOffset(globalState.globals.elf.useDynamicFrames())
+            setRegister(
+                Value.Reg(SbfRegister.R10_STACK_POINTER),
+                ScalarValue(sbfTypeFac.toStackPtr(initialOffset))
+            )
         }
     }
 
     companion object {
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeBottom(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>): ScalarDomain<TNum, TOffset> {
-            val res = ScalarDomain(sbfTypeFac)
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeBottom(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+            globalState: GlobalState
+        ): ScalarDomain<TNum, TOffset> {
+            val res = ScalarDomain(sbfTypeFac, globalState)
             res.setToBottom()
             return res
         }
-        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(sbfTypeFac: ISbfTypeFactory<TNum, TOffset>) = ScalarDomain(sbfTypeFac)
+
+        fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> makeTop(
+            sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
+            globalState: GlobalState
+        ) = ScalarDomain(sbfTypeFac, globalState)
     }
 
-    override fun deepCopy(): ScalarDomain<TNum, TOffset> = ScalarDomain(base.deepCopy(), sbfTypeFac)
+    override fun deepCopy(): ScalarDomain<TNum, TOffset> =
+        ScalarDomain(base.deepCopy(), sbfTypeFac, globalState)
 
     override fun isBottom() = base.isBottom()
 
@@ -130,10 +173,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
 
     override fun join(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?) =
-        ScalarDomain(base.join(other.base), sbfTypeFac)
+        ScalarDomain(base.join(other.base), sbfTypeFac, globalState)
 
     override fun widen(other: ScalarDomain<TNum, TOffset>, b: Label?) =
-        ScalarDomain(base.widen(other.base), sbfTypeFac)
+        ScalarDomain(base.widen(other.base), sbfTypeFac, globalState)
 
     override fun lessOrEqual(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?) =
         base.lessOrEqual(other.base)
@@ -141,9 +184,13 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     /** TRANSFER FUNCTIONS **/
 
     /**
-     * This check is probably redundant because of [checkStackInBounds] but we still keep it.
+     * Check that if `value` is a stack pointer then its offset must be non-negative.
      */
-    private fun checkStackAccess(value: ScalarValue<TNum, TOffset>) {
+    private fun checkStackOffset(value: ScalarValue<TNum, TOffset>) {
+        if (globalState.globals.elf.useDynamicFrames()) {
+            return
+        }
+
         val offset = (value.type() as? SbfType.PointerType.Stack<TNum, TOffset>)?.offset ?: return
         if (offset.isBottom()) {
             throw SolanaError("Stack offset is bottom and this is unexpected")
@@ -167,6 +214,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         newType: SbfType<TNum, TOffset>,
         locInst: LocatedSbfInstruction
     ) {
+        if (globalState.globals.elf.useDynamicFrames()) {
+            return
+        }
+
         val inst = locInst.inst
         check(inst is SbfInstruction.Bin)
 
@@ -200,6 +251,10 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
      * @param [baseType] is the type of base register being de-referenced.
      **/
     private fun checkStackInBounds(baseType: SbfType<TNum, TOffset>, locInst: LocatedSbfInstruction) {
+        if (globalState.globals.elf.useDynamicFrames()) {
+            return
+        }
+
         val inst = locInst.inst
         check(inst is SbfInstruction.Mem)
 
@@ -226,42 +281,12 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     }
 
     private fun setRegister(reg: Value.Reg, value: ScalarValue<TNum, TOffset>) {
-        checkStackAccess(value)
+        checkStackOffset(value)
         base.setRegister(reg, value)
     }
 
     override fun forget(reg: Value.Reg) {
         base.forget(reg)
-    }
-
-    /**
-     * Refine the value of a register used as an operand in an arithmetic or relational operation.
-     * This refinement is sound because if the value turns to be a pointer then the scalar domain
-     * will throw an exception at the time the pointer is de-referenced.
-     **/
-    private fun refineType(op: BinOp, ty: SbfType<TNum, TOffset>): SbfType<TNum, TOffset> {
-        check(!ty.isBottom()) {"cannot call refineType with bottom"}
-        return if (!ty.isTop()) {
-            ty
-        } else {
-            when (op) {
-                BinOp.ARSH, BinOp.LSH, BinOp.RSH,
-                BinOp.DIV, BinOp.MOD, BinOp.MUL -> sbfTypeFac.anyNum()
-                else -> ty
-            }
-        }
-    }
-    private fun refineType(op: CondOp, ty: SbfType<TNum, TOffset>): SbfType<TNum, TOffset> {
-        check(!ty.isBottom()) {"cannot call refineType with bottom"}
-        return if (!ty.isTop()) {
-            ty
-        } else {
-            when (op) {
-                CondOp.SGE, CondOp.SGT, CondOp.SLE, CondOp.SLT,
-                CondOp.GE, CondOp.GT, CondOp.LE, CondOp.LT -> sbfTypeFac.anyNum()
-                else -> ty
-            }
-        }
     }
 
     private fun analyzeByteSwapInst(reg: Value.Reg) {
@@ -295,93 +320,170 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun doConstantPointerArithmetic(
+    /**
+     * Encapsulate the types of the operands of a binary operation.
+     *
+     * Order is important since the operation might not be commutative.
+     */
+    data class BinaryTypes<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
+        val left: SbfType<TNum, TOffset>,
+        val right: SbfType<TNum, TOffset>
+    )
+
+    /**
+     * Refines the [types] of the operands of an arithmetic operation [op]
+     * by applying some simple type inference rules to validate program type safety.
+     *
+     * This refinement is sound: if a value refined to a numeric type is actually
+     * a pointer, the scalar domain will detect and report the error when the
+     * pointer is de-referenced.
+     */
+    private fun refineTypes(
+        op: BinOp,
+        types: BinaryTypes<TNum, TOffset>
+    ): BinaryTypes<TNum, TOffset> {
+        val (left, right) = types
+        return when (op) {
+            // num - top ~> num - num
+            BinOp.SUB -> {
+                when (left) {
+                    is SbfType.NumType ->
+                        BinaryTypes(
+                            left,
+                            right.leftBiasedMeet(sbfTypeFac.anyNum())
+                        )
+                    else -> types
+                }
+            }
+            // top << top ~> num << num
+            // top >> top ~> num >> num
+            // top / top  ~> num / num
+            // top % top  ~> num % num
+            // top * top  ~> num * num
+            BinOp.ARSH,
+            BinOp.LSH,
+            BinOp.RSH,
+            BinOp.DIV,
+            BinOp.MOD,
+            BinOp.MUL -> BinaryTypes(
+                left.leftBiasedMeet(sbfTypeFac.anyNum()),
+                right.leftBiasedMeet(sbfTypeFac.anyNum())
+            )
+            else -> types
+        }
+    }
+
+    /**
+     * Refines the [types] of the operand of a comparison [op]
+     * by applying some simple type inference rules to validate program type safety.
+     *
+     * This refinement is sound: if a value refined to a numeric type is actually
+     * a pointer, the scalar domain will detect and report the error when the
+     * pointer is de-referenced.
+     */
+    private fun refineTypes(
+        op: CondOp,
+        types: BinaryTypes<TNum, TOffset>
+    ): BinaryTypes<TNum, TOffset> {
+        val (left, right) = types
+        return when (op) {
+            // top op top ~> num op num  if op not in {=, !=}
+            CondOp.SGE,
+            CondOp.SGT,
+            CondOp.SLE,
+            CondOp.SLT,
+            CondOp.GE,
+            CondOp.GT,
+            CondOp.LE,
+            CondOp.LT ->
+                BinaryTypes(
+                    left.leftBiasedMeet(sbfTypeFac.anyNum()),
+                    right.leftBiasedMeet(sbfTypeFac.anyNum())
+                )
+            else -> types
+        }
+    }
+
+    private fun updateType(
+        reg: Value.Reg,
+        newType: SbfType<TNum, TOffset>
+    ): ScalarValue<TNum, TOffset>  {
+        check(!newType.isBottom()) { "cannot call updateType with bottom" }
+        val old = getRegister(reg)
+        val new = ScalarValue(newType)
+        if (!old.lessOrEqual(new)) {
+            // new is strictly more precise than old
+            setRegister(reg, new)
+        }
+        return new
+    }
+
+    /**
+     * Transfer function for `dst = ptrType op operandType` when [ptrType] is known to be a pointer.
+     *
+     * - If [operandType] is a number then [dst] is a pointer as [ptrType] whose offset is updated with [operandType]
+     * - If [operandType] is a pointer then the [dst] is a number whose value is the difference between two pointers
+     * - If [operandType] is top then [dst] is a pointer but with unknown offset
+    **/
+    private fun doPointerArithmetic(
         op: BinOp,
         dst: Value.Reg,
-        src: SbfType.NumType<TNum, TOffset>,
+        ptrType: SbfType.PointerType<TNum, TOffset>,
+        operandType: SbfType<TNum, TOffset>,
         locInst: LocatedSbfInstruction
     ) {
-        val dstType = getRegister(dst).type()
-        if (dstType is SbfType.PointerType) {
-            val dstOffset = dstType.offset
-            val newVal = when (op) {
-                BinOp.ADD  -> ScalarValue(dstType.withOffset(dstOffset.add(sbfTypeFac.numToOffset(src.value))))
-                BinOp.SUB  -> ScalarValue(dstType.withOffset(dstOffset.sub(sbfTypeFac.numToOffset(src.value))))
-                else -> {
-                    if (enableDefensiveChecks) {
-                        throw ScalarDomainError("Unexpected pointer arithmetic $dst:= $dst $op $src")
-                    } else {
-                        ScalarValue(dstType.withTopOffset(sbfTypeFac))
-                    }
-                }
-            }
-            checkStackInBounds(dstType, newVal.type(), locInst)
-            setRegister(dst, newVal)
-        } else {
-            forget(dst)
-        }
-    }
-
-    private fun doNormalizedPointerArithmetic(
-        op: BinOp, dst: Value.Reg,
-        op1: Value.Reg, op1Type: SbfType.PointerType<TNum, TOffset>,
-        op2: Value.Reg, op2Type: SbfType<TNum, TOffset>,
-        locInst: LocatedSbfInstruction
-    ) {
-        check(op2Type !is SbfType.Bottom) {"failed preconditions on doNormalizedPointerArithmetic"}
-
-        when (op2Type) {
+        val inst = locInst.inst
+        when (operandType) {
+            // ptr(o) +/- num ~> ptr(o +/- num)
+            // ptr(o) op num  ~> ptr(top)  (error if enableDefensiveChecks)
             is SbfType.NumType -> {
-                val newVal = when (op) {
-                    BinOp.ADD  -> ScalarValue(op1Type.withOffset(op1Type.offset.add(sbfTypeFac.numToOffset(op2Type.value))))
-                    BinOp.SUB  -> ScalarValue(op1Type.withOffset(op1Type.offset.sub(sbfTypeFac.numToOffset(op2Type.value))))
+                val dstPtrType = when (op) {
+                    BinOp.ADD  ->
+                        ptrType.withOffset(ptrType.offset.add(sbfTypeFac.numToOffset(operandType.value)))
+                    BinOp.SUB  ->
+                        ptrType.withOffset(ptrType.offset.sub(sbfTypeFac.numToOffset(operandType.value)))
                     else -> {
                         if (enableDefensiveChecks) {
-                            throw ScalarDomainError("Unexpected pointer arithmetic $dst:= $op1 $op $op2")
-                        } else {
-                            ScalarValue(op1Type.withTopOffset(sbfTypeFac))
+                            throw ScalarDomainError("Unexpected pointer arithmetic in $inst")
                         }
+                        ptrType.withTopOffset(sbfTypeFac)
                     }
                 }
-                checkStackInBounds(getRegister(dst).type(), newVal.type(), locInst)
-                setRegister(dst, newVal)
+                checkStackInBounds(getRegister(dst).type(), dstPtrType, locInst)
+                setRegister(dst, ScalarValue(dstPtrType))
             }
+            // ptr(o1)  - ptr(o2) ~> num(o1 - o2)
+            // ptr(o1) op ptr(o2) ~> error
             is SbfType.PointerType -> {
-                if (op1Type.samePointerType(op2Type)) {
-                    if (op == BinOp.SUB) {
-                        // subtraction of pointers of the same type is okay
-                        val diff = op1Type.offset.sub(op2Type.offset)
-                        setRegister(dst, ScalarValue(SbfType.NumType(sbfTypeFac.offsetToNum(diff))))
-                    } else {
-                        throw ScalarDomainError("Unexpected pointer arithmetic $dst:= $op1 $op $op2")
-                    }
-                } else {
-                    throw ScalarDomainError("cannot mix pointer from different memory regions ($op1Type and $op2Type)")
+                if (!ptrType.samePointerType(operandType)) {
+                    throw ScalarDomainError(
+                        "cannot mix pointer from different memory regions ($ptrType and $operandType)"
+                    )
                 }
+                if (op != BinOp.SUB) {
+                    throw ScalarDomainError("Unexpected pointer arithmetic in $inst")
+                }
+
+                // subtraction of pointers of the same type is okay
+                val diff = ptrType.offset.sub(operandType.offset)
+                setRegister(dst, ScalarValue(SbfType.NumType(sbfTypeFac.offsetToNum(diff))))
             }
+            // ptr(o) op top ~> ptr(top)
             is SbfType.Top -> {
-                setRegister(dst, ScalarValue(op1Type.withTopOffset(sbfTypeFac)))
+                setRegister(dst, ScalarValue(ptrType.withTopOffset(sbfTypeFac)))
             }
             else -> {
-                throw ScalarDomainError("unexpected type $op2Type for operand $op2")
+                throw ScalarDomainError("unexpected type $operandType for right operand in $inst")
             }
-        } // end when
-    }
-
-    private fun doPointerArithmetic(op: BinOp, dst: Value.Reg, src: Value.Reg, locInst: LocatedSbfInstruction) {
-        val dstType = getRegister(dst).type()
-        val srcType = getRegister(src).type()
-
-        if (dstType is SbfType.PointerType) {
-            doNormalizedPointerArithmetic(op, dst, dst, dstType, src, srcType, locInst)
-        } else if (srcType is SbfType.PointerType && op.isCommutative) {
-            doNormalizedPointerArithmetic(op, dst, src, srcType, dst, dstType, locInst)
-        } else {
-            forget(dst)
         }
     }
 
-    private fun doALU(op: BinOp, dst: Value.Reg, dstType: SbfType.NumType<TNum, TOffset>, srcType: SbfType.NumType<TNum, TOffset>) {
+    private fun doALU(
+        op: BinOp,
+        dst: Value.Reg,
+        dstType: SbfType.NumType<TNum, TOffset>,
+        srcType: SbfType.NumType<TNum, TOffset>
+    ) {
         val dstCst = dstType.value
         val srcCst = srcType.value
         when (op) {
@@ -400,13 +502,13 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun getValue(x: Value, globals: GlobalVariables): ScalarValue<TNum, TOffset> {
+    private fun getValueWithGlobals(x: Value): ScalarValue<TNum, TOffset> {
         when (x) {
             is Value.Imm -> {
-                // We cast a number to a global variable if it matches an address from our [globals] map
+                // We cast a number to a global variable if it matches an address from our globals map
                 val address = x.v
                 if (address <= Long.MAX_VALUE.toULong()) {
-                    globals.findGlobalThatContains(address.toLong())?.let { gv ->
+                    globalState.globals.findGlobalThatContains(address.toLong())?.let { gv ->
                         return ScalarValue(sbfTypeFac.toGlobalPtr(address.toLong(), gv))
                     }
                 }
@@ -418,51 +520,60 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun analyzeBin(locInst: LocatedSbfInstruction, globals: GlobalVariables) {
+    private fun analyzeBin(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"analyzeBin cannot be called on bottom"}
 
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Bin)
 
+        val globals = globalState.globals
         val dst = stmt.dst
         val src = stmt.v
+        val op = stmt.op
         if (src is Value.Imm) {
             // dst := dst op k
-            when (stmt.op) {
+            when (op) {
                 BinOp.MOV -> {
                     /**
-                     * We assume that the destination operand is a number unless the analysis that infers globals says
-                     * it is a global variable.
+                     * We assume that the destination operand is a number unless the analysis that
+                     * infers globals says it is a global variable.
                      **/
                     setRegister(dst, if (stmt.metaData.getVal(SbfMeta.SET_GLOBAL) != null) {
-                        getValue(src, globals)
+                        getValueWithGlobals(src)
                     }  else {
                         getValue(src)
                     })
                 }
                 else ->  {
-                    val dstType = refineType(stmt.op, getRegister(dst).type())
-                    if (dstType is SbfType.NumType) {
-                        doALU(stmt.op, dst, dstType, sbfTypeFac.toNum(src.v))
-                    } else {
-                        /**
-                         * We don't know for sure whether dst is a pointer or not.
-                         * doConstantPointerArithmetic will deal with that.
-                         **/
-                        doConstantPointerArithmetic(stmt.op, dst, sbfTypeFac.toNum(src.v), locInst)
+                    val srcType = sbfTypeFac.toNum(src.v)
+                    val (dstType, _) = refineTypes(op, BinaryTypes(getRegister(dst).type(), srcType))
+                    when (dstType) {
+                        is SbfType.NumType ->
+                            doALU(op, dst, dstType, srcType)
+                        is SbfType.PointerType ->
+                            doPointerArithmetic(
+                                op,
+                                dst,
+                                ptrType = dstType,
+                                operandType = srcType,
+                                locInst
+                            )
+                        else ->
+                            forget(dst)
                     }
                 }
             }
         } else {
             // dst := dst op src
-            when (stmt.op) {
+            when (op) {
                 BinOp.MOV -> {
                     /**
-                     * If we know that src is the address of a global variable then we cast the destination to
-                     * that global variable.
+                     * If we know that src is the address of a global variable then we cast
+                     * the destination to that global variable.
                      *
-                     * The use of `toLongOrNull` does not lose precision because the MOV instruction has been tagged with
-                     * the metadata `SET_GLOBAL` which means that `src` is an immediate value.
+                     * The use of `toLongOrNull` does not lose precision because the MOV
+                     * instruction has been tagged with the metadata `SET_GLOBAL` which
+                     * means that `src` is an immediate value.
                      */
                     setRegister(dst, if (stmt.metaData.getVal(SbfMeta.SET_GLOBAL) != null) {
                         (getValue(src).type() as? SbfType.NumType<TNum, TOffset>)?.value?.toLongOrNull().let {
@@ -479,23 +590,37 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                     })
                 }
                 else -> {
-                    val dstType = refineType(stmt.op, getRegister(dst).type())
-                    val srcTypeBefore = getRegister(src as Value.Reg).type()
-                    val srcType = refineType(stmt.op, srcTypeBefore)
-                    if (!srcTypeBefore.lessOrEqual(srcType)) {
-                        // srcType is strictly more precise than srcTypeBefore
-                        setRegister(src, ScalarValue(srcType))
-                    }
-                    if (dstType is SbfType.NumType && srcType is SbfType.NumType) {
-                        doALU(stmt.op, dst, dstType, srcType)
-                    } else {
-                        if (srcType is SbfType.NumType) {
-                            if (!srcType.value.isTop()) {
-                                doConstantPointerArithmetic(stmt.op, dst, srcType, locInst)
-                                return
-                            }
-                        }
-                        doPointerArithmetic(stmt.op, dst, src, locInst)
+                    // Refine operands before performing the transfer function
+                    val (dstType, srcType) = refineTypes(
+                        op,
+                        BinaryTypes(
+                            getRegister(dst).type(),
+                            getRegister(src as Value.Reg).type()
+                        )
+                    )
+                    updateType(src, srcType)
+                    // Performing transfer function as either an ALU operation or pointer arithmetic
+                    when {
+                        dstType is SbfType.NumType && srcType is SbfType.NumType ->
+                            doALU(op, dst, dstType, srcType)
+                        dstType is SbfType.PointerType  ->
+                            doPointerArithmetic(
+                                op,
+                                dst,
+                                dstType,
+                                srcType,
+                                locInst
+                            )
+                        srcType is SbfType.PointerType && op.isCommutative ->
+                            doPointerArithmetic(
+                                op,
+                                dst,
+                                srcType,
+                                dstType,
+                                locInst
+                            )
+                        else ->
+                            forget(dst)
                     }
                 }
             }
@@ -515,7 +640,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val stackPtr = Value.Reg(SbfRegister.R10_STACK_POINTER)
         val topStack = (getRegister(stackPtr).type() as? SbfType.PointerType.Stack)?.offset?.toLongOrNull()
         check(topStack != null){ "r10 should point to a statically known stack offset"}
-        base.restoreScratchRegisters(topStack)
+        base.restoreScratchRegisters(topStack, globalState.globals.elf.useDynamicFrames())
     }
 
     /** Extracts known constant length from a register, or throws a detailed error. */
@@ -724,20 +849,19 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     }
 
 
-    private fun castNumToString(reg: Value.Reg, globals: GlobalVariables) {
+    private fun castNumToString(reg: Value.Reg) {
         val oldType = getRegister(reg).type() as? SbfType.NumType ?: return
-        val newType = oldType.castToPtr(sbfTypeFac, globals)
+        val newType = oldType.castToPtr(sbfTypeFac, globalState.globals)
         if (newType is SbfType.PointerType.Global && newType.global?.strValue != null) {
             setRegister(reg, ScalarValue(newType))
         }
     }
 
-    private fun analyzeCall(locInst: LocatedSbfInstruction,
-                            globals: GlobalVariables,
-                            memSummaries: MemorySummaries) {
+    private fun analyzeCall(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"analyzeCall cannot be called on bottom"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Call) {"analyzeCall expects a call instead of $stmt"}
+
         val solFunction = SolanaFunction.from(stmt.name)
         if  (solFunction != null) {
             /** Solana syscall **/
@@ -748,7 +872,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 SolanaFunction.SOL_GET_STACK_HEIGHT ->
                     setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(sbfTypeFac.anyNum()))
                 SolanaFunction.SOL_GET_CLOCK_SYSVAR, SolanaFunction.SOL_GET_RENT_SYSVAR ->
-                    summarizeCall(locInst, memSummaries)
+                    summarizeCall(locInst)
                 SolanaFunction.SOL_SET_CLOCK_SYSVAR ->
                     forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
                 SolanaFunction.SOL_MEMCPY -> analyzeMemcpy(locInst)
@@ -759,7 +883,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 else -> forget(Value.Reg(SbfRegister.R0_RETURN_VALUE))
             }
         } else {
-            if (stmt.isAllocFn() && memSummaries.getSummary(stmt.name) == null) {
+            if (stmt.isAllocFn() && globalState.memSummaries.getSummary(stmt.name) == null) {
                 /// This is only used for pretty-printing
                 setRegister(Value.Reg(SbfRegister.R0_RETURN_VALUE), ScalarValue(sbfTypeFac.anyHeapPtr()))
             } else {
@@ -781,7 +905,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                 CVTCore.SAVE_SCRATCH_REGISTERS -> saveScratchRegisters()
                                 CVTCore.RESTORE_SCRATCH_REGISTERS -> restoreScratchRegisters()
                                 CVTCore.MASK_64, CVTCore.NONDET_ACCOUNT_INFO -> {
-                                    summarizeCall(locInst, memSummaries)
+                                    summarizeCall(locInst)
                                 }
                                 CVTCore.NONDET_SOLANA_ACCOUNT_SPACE -> {
                                     /// This is only used for pretty-printing
@@ -808,23 +932,23 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                         is CVTFunction.U128Intrinsics,
                         is CVTFunction.I128Intrinsics,
                         is CVTFunction.NativeInt  ->  {
-                            summarizeCall(locInst, memSummaries)
+                            summarizeCall(locInst)
                         }
                         is CVTFunction.Calltrace -> {
                             cvtFunction.value.strings.forEach {
-                                castNumToString(it.string, globals)
+                                castNumToString(it.string)
                             }
                         }
                     }
                 } else {
                     /** SBF to SBF call **/
-                    summarizeCall(locInst, memSummaries)
+                    summarizeCall(locInst)
                 }
             }
         }
     }
 
-    private fun summarizeCall(locInst: LocatedSbfInstruction, memSummaries: MemorySummaries) {
+    private fun summarizeCall(locInst: LocatedSbfInstruction) {
 
         class ScalarSummaryVisitor: SummaryVisitor {
             private fun getScalarValue(ty: MemSummaryArgumentType): ScalarValue<TNum, TOffset> {
@@ -864,14 +988,17 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
 
         val vis = ScalarSummaryVisitor()
-        memSummaries.visitSummary(locInst, vis)
+        globalState.memSummaries.visitSummary(locInst, vis)
     }
 
-    private fun analyzeAssumeNumNum(op: CondOp,
-                                    left: Value.Reg,
-                                    leftType: SbfType.NumType<TNum, TOffset>,
-                                    right: Value,
-                                    rightType: SbfType.NumType<TNum, TOffset>) {
+    /** Update both [left] and [right] **/
+    private fun analyzeAssumeNumNum(
+        op: CondOp,
+        left: Value.Reg,
+        leftType: SbfType.NumType<TNum, TOffset>,
+        right: Value,
+        rightType: SbfType.NumType<TNum, TOffset>
+    ) {
 
         val newLeftVal = leftType.value.filter(op, rightType.value)
         if (newLeftVal.isBottom()) {
@@ -890,20 +1017,49 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         }
     }
 
-    private fun analyzeAssumeTopNonTop(op: CondOp, left: Value.Reg, leftType: SbfType<TNum, TOffset>, rightType: SbfType<TNum, TOffset>) {
-        check(leftType is SbfType.Top || rightType is SbfType.Top) {"failed preconditions on analyzeAssumeTopNonTop"}
-        check(!(leftType !is SbfType.Top && rightType !is SbfType.Top)) {"failed preconditions on analyzeAssumeTopNonTop"}
-        if (op == CondOp.EQ) {
-            if (leftType is SbfType.Top) {
-                setRegister(left, ScalarValue(rightType))
-            } else if (rightType is SbfType.Top) {
-                setRegister(left, ScalarValue(leftType))
-            }
+
+    /**
+     * Biased meet operation that prefers `this` over [other] when both are not top/bottom values
+     * This is a sound meet operation, but it is not the greatest lower bound
+     **/
+    private fun SbfType<TNum, TOffset>.leftBiasedMeet(
+        other: SbfType<TNum, TOffset>
+    ): SbfType<TNum, TOffset> {
+        return when {
+            isBottom() || other.isBottom() -> SbfType.bottom()
+            isTop() -> other
+            other.isTop() -> this
+            else -> this // biased towards `this`
         }
     }
 
-    private fun analyzeAssumePtrPtr(op: CondOp, left: Value.Reg, leftType: SbfType.PointerType<TNum, TOffset>,
-                                    right: Value.Reg, rightType: SbfType.PointerType<TNum, TOffset>) {
+    /** Update [left] **/
+    private fun analyzeAssumeTopNonTop(
+        op: CondOp,
+        left: Value.Reg,
+        leftType: SbfType<TNum, TOffset>,
+        rightType: SbfType<TNum, TOffset>
+    ) {
+        check(leftType is SbfType.Top || rightType is SbfType.Top) {
+            "failed preconditions on analyzeAssumeTopNonTop"
+        }
+        check(!(leftType !is SbfType.Top && rightType !is SbfType.Top)) {
+            "failed preconditions on analyzeAssumeTopNonTop"
+        }
+
+        if (op == CondOp.EQ) {
+            setRegister(left, ScalarValue(leftType.leftBiasedMeet(rightType)))
+        }
+    }
+
+    /** Update both [left] and [right] **/
+    private fun analyzeAssumePtrPtr(
+        op: CondOp,
+        left: Value.Reg,
+        leftType: SbfType.PointerType<TNum, TOffset>,
+        right: Value.Reg,
+        rightType: SbfType.PointerType<TNum, TOffset>
+    ) {
         if (leftType.samePointerType(rightType)) {
             val leftOffset = leftType.offset
             val rightOffset = rightType.offset
@@ -950,58 +1106,76 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
 
     @TestOnly
     fun analyzeAssume(cond: Condition) {
-        val op = cond.op
-        val leftReg = cond.left
-        val rightVal = cond.right
         check(!isBottom()) {"analyzeAssume cannot be called on bottom"}
-        val leftAbsValBefore = getRegister(leftReg)
-        val leftAbsVal = ScalarValue(refineType(op,leftAbsValBefore.type()))
-        if (!leftAbsValBefore.lessOrEqual(leftAbsVal)) {
-            // leftAbsVal is strictly more precise than leftAbsValBefore
-            setRegister(leftReg, leftAbsVal)
-        }
-        check(!leftAbsVal.isBottom()) {"analyzeAssume: leftAbsVal is bottom after refinement"}
-        if (rightVal is Value.Imm) {
-            val rightAbsVal = ScalarValue(sbfTypeFac.toNum(rightVal.v))
-            if (leftAbsVal.type() is SbfType.NumType) {
-                analyzeAssumeNumNum(op,
-                                    leftReg,
-                                    leftAbsVal.type() as SbfType.NumType,
-                                    rightVal,
-                                    rightAbsVal.type() as SbfType.NumType)
-            } else if (leftAbsVal.type() is SbfType.PointerType) {
-                // do nothing: we can do better here if op is EQ
-            } else if (leftAbsVal.isTop()) {
-                /**
-                 * We assume that the left operand is a number,
-                 * although we don't really know at this point.
-                 **/
-                analyzeAssumeTopNonTop(op, leftReg, leftAbsVal.type(), rightAbsVal.type())
+
+        val op = cond.op
+        val left = cond.left
+        val right = cond.right
+        val (leftType, rightType) = refineTypes(
+            op,
+            BinaryTypes(
+                getRegister(left).type(),
+                when(right) {
+                    is Value.Imm -> sbfTypeFac.toNum(right.v)
+                    is Value.Reg -> getRegister(right).type()
+                }
+            )
+        )
+        updateType(left, leftType)
+        when (right) {
+            is Value.Imm -> {
+                when {
+                    leftType is SbfType.NumType -> {
+                        analyzeAssumeNumNum(op,
+                            left,
+                            leftType,
+                            right,
+                            rightType as SbfType.NumType)
+                    }
+                    leftType is SbfType.PointerType -> {
+                        // do nothing: we can do better here if op is EQ
+                    }
+                    leftType.isTop() -> {
+                        /**
+                         * We assume that the left operand is a number,
+                         * although we don't really know at this point.
+                         **/
+                        analyzeAssumeTopNonTop(op, left, leftType, rightType)
+                    }
+                    else -> {
+                        // do nothing
+                    }
+                }
             }
-        } else {
-            val rightAbsValBefore = getRegister(rightVal as Value.Reg)
-            val rightAbsVal = ScalarValue(refineType(op, rightAbsValBefore.type()))
-            if (!rightAbsValBefore.lessOrEqual(rightAbsVal)) {
-                // rightAbsVal is strictly more precise than rightAbsValBefore
-                setRegister(rightVal, rightAbsVal)
-            }
-            check(!rightAbsVal.isBottom()) {"analyzeAssume: rightAbsVal is bottom after refinement"}
-            if (leftAbsVal.isTop() && rightAbsVal.isTop()) {
-                // do nothing
-            } else if (leftAbsVal.isTop() || rightAbsVal.isTop()) {
-                analyzeAssumeTopNonTop(op, leftReg, leftAbsVal.type(), rightAbsVal.type())
-                analyzeAssumeTopNonTop(op, rightVal, leftAbsVal.type(), rightAbsVal.type())
-            } else {
-                val leftType = leftAbsVal.type()
-                val rightType = rightAbsVal.type()
-                if (leftType is SbfType.NumType && rightType is SbfType.NumType) {
-                    analyzeAssumeNumNum(op, leftReg, leftType, rightVal, rightType)
-                } else if (leftType is SbfType.PointerType && rightType is SbfType.NumType) {
-                    // do nothing: note that comparing pointers and numbers is perfectly fine
-                } else if (leftType is SbfType.NumType && rightType is SbfType.PointerType) {
-                    // do nothing: note that comparing pointers and numbers is perfectly fine
-                } else if (leftType is SbfType.PointerType && rightType is SbfType.PointerType) {
-                    analyzeAssumePtrPtr(op, leftReg, leftType, rightVal, rightType)
+            is Value.Reg -> {
+                updateType(right, rightType)
+                when {
+                    leftType.isTop() && rightType.isTop() -> {
+                        // do nothing
+                    }
+                    leftType.isTop() || rightType.isTop() -> {
+                        analyzeAssumeTopNonTop(op, left, leftType, rightType)
+                        analyzeAssumeTopNonTop(op, right, leftType, rightType)
+                    }
+                    else -> {
+                        when {
+                            leftType is SbfType.NumType && rightType is SbfType.NumType -> {
+                                analyzeAssumeNumNum(op, left, leftType, right, rightType)
+                            }
+                            leftType is SbfType.PointerType && rightType is SbfType.NumType -> {
+                                // do nothing: note that comparing pointers and numbers is perfectly fine
+                            }
+                            leftType is SbfType.NumType && rightType is SbfType.PointerType -> {
+                                // do nothing: note that comparing pointers and numbers is perfectly fine
+                            }
+                            leftType is SbfType.PointerType && rightType is SbfType.PointerType -> {
+                                analyzeAssumePtrPtr(op, left, leftType, right, rightType)
+                            }
+                            else -> {
+                                // do nothing
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1022,34 +1196,60 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         forget(stmt.dst)
     }
 
-    private fun refineSelectCond(cond: Condition, other: ScalarDomain<TNum, TOffset>) {
-        fun refine(x: ScalarValue<TNum, TOffset>, y: ScalarValue<TNum, TOffset>) = if (x.isTop()) { y } else { x }
-        val left = cond.left
-        setRegister(left, refine(getValue(left), other.getValue(left)))
-        val right = cond.right
-        if (right is Value.Reg) {
-            setRegister(right, refine(getValue(right), other.getValue(right)))
-        }
-    }
-
-
     private fun analyzeSelect(stmt: SbfInstruction.Select) {
         check(!isBottom()) {"analyzeSelect cannot be called on bottom"}
 
-        val trueAbsVal = deepCopy()
-        trueAbsVal.analyzeAssume(stmt.cond)
-        if (trueAbsVal.isBottom()) {
+        // apply `assume(cond)` to `this`
+        val absValCondIsTrue = deepCopy().apply { analyzeAssume(stmt.cond) }
+
+        if (absValCondIsTrue.isBottom()) {
             setRegister(stmt.dst, getValue(stmt.falseVal))
         } else {
-            val falseAbsVal = deepCopy()
-            falseAbsVal.analyzeAssume(stmt.cond.negate())
-            if (falseAbsVal.isBottom()) {
+            // apply `assume(not(cond))` to `this`
+            val absValCondIsFalse = deepCopy().apply { analyzeAssume(stmt.cond.negate()) }
+
+            if (absValCondIsFalse.isBottom()) {
                 setRegister(stmt.dst, getValue(stmt.trueVal))
             } else {
-                refineSelectCond(stmt.cond, trueAbsVal.join(falseAbsVal))
-                setRegister(stmt.dst,
-                            getValue(stmt.falseVal)
-                                .join(getValue(stmt.trueVal)))
+                val cond = stmt.cond
+                val leftOperand = cond.left
+                val rightOperand = cond.right
+                val condOp = cond.op
+
+                // 1. refine types of the registers appearing on the select's condition
+                refineTypes(
+                    condOp,
+                    BinaryTypes(
+                        getRegister(leftOperand).type(),
+                        when(rightOperand) {
+                            is Value.Imm -> sbfTypeFac.toNum(rightOperand.v)
+                            is Value.Reg -> getRegister(rightOperand).type()
+                        }
+                    )
+                ).let { (leftType, rightType) ->
+                    updateType(leftOperand, leftType)
+                    (rightOperand as? Value.Reg)?.let { updateType(rightOperand, rightType) }
+                }
+
+                // 2. Apply the rules
+                // - t=top and f=num(!=0) -> lhs=num
+                // - t=num(!=0) and f=top -> lhs=num
+                // - else                 -> lhs=join(f, t)
+
+                val falseScalar = getValue(stmt.falseVal)
+                val trueScalar = getValue(stmt.trueVal)
+                val falseType = falseScalar.type()
+                val trueType = trueScalar.type()
+
+                val rhsAbsVal = when {
+                    falseType is SbfType.Top && trueType.mustBeNumber() ->
+                        ScalarValue(sbfTypeFac.anyNum())
+                    falseType.mustBeNumber() && trueType is SbfType.Top ->
+                        ScalarValue(sbfTypeFac.anyNum())
+                    else ->
+                        falseScalar.join(trueScalar)
+                }
+                setRegister(stmt.dst, rhsAbsVal)
             }
         }
     }
@@ -1057,15 +1257,16 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
     private fun forgetOrNum(v: Value.Reg, isNum: Boolean) {
         if (isNum) {
             // This should be always a "weak" read because we can read twice from the same memory location
-            // but one loaded value can be considered as non-pointer because it's never de-referenced but the other one can be de-referenced.
-            // Since the scalar domain is non-relation all reads are weak anyway.
+            // but one loaded value can be considered as non-pointer because it's never de-referenced
+            // but the other one can be de-referenced. Since the scalar domain is non-relation all reads
+            // are weak anyway.
             setRegister(v, ScalarValue(sbfTypeFac.anyNum()))
         } else {
             forget(v)
         }
     }
 
-    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg, globals: GlobalVariables): ScalarValue<TNum, TOffset> {
+    override fun getAsScalarValueWithNumToPtrCast(reg: Value.Reg): ScalarValue<TNum, TOffset> {
         check(!isBottom()) {"getAsScalarValueWithNumToPtrCast cannot be called on bottom"}
         val scalarVal = getRegister(reg)
         val type = scalarVal.type()
@@ -1077,7 +1278,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 return ScalarValue.mkBottom()
             }
             // Attempt to cast a number to a pointer
-            type.castToPtr(sbfTypeFac, globals)?.let {
+            type.castToPtr(sbfTypeFac, globalState.globals)?.let {
                 return ScalarValue(it)
             }
         }
@@ -1088,10 +1289,12 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
      *  Return the abstract value of the base register if it will be killed by the lhs of a load instruction.
      *  Otherwise, it returns null. This is used by the Memory Domain.
      **/
-    private fun analyzeMem(locInst: LocatedSbfInstruction, globals: GlobalVariables) {
+    private fun analyzeMem(locInst: LocatedSbfInstruction) {
         check(!isBottom()) {"analyzeMem cannot be called on bottom"}
         val stmt = locInst.inst
         check(stmt is SbfInstruction.Mem) {"analyzeMem expect a memory instruction instead of $stmt"}
+
+        val globals = globalState.globals
 
         val baseReg = stmt.access.base
         val offset = stmt.access.offset
@@ -1099,7 +1302,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         val value = stmt.value
         val isLoad = stmt.isLoad
 
-        val baseScalarVal = getAsScalarValueWithNumToPtrCast(baseReg, globals)
+        val baseScalarVal = getAsScalarValueWithNumToPtrCast(baseReg)
         if (baseScalarVal.isBottom()) {
             setToBottom()
             return
@@ -1150,7 +1353,13 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                             if (isLoad) {
                                 forgetOrNum(value as Value.Reg, loadedAsNumForPTA)
                             } else {
-                                throw UnknownStackPointerError(DevErrorInfo(locInst, PtrExprErrReg(baseReg), "store: $stmt to unknown stack location"))
+                                throw UnknownStackPointerError(
+                                    DevErrorInfo(
+                                        locInst,
+                                        PtrExprErrReg(baseReg),
+                                        "store: $stmt to unknown stack location"
+                                    )
+                                )
                             }
                         } else {
                             val stackOffsets = stackTOffsets.toLongList()
@@ -1182,8 +1391,9 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                                     stackOffsets.forEach {
                                         val slice = ByteRange(it, width.toByte())
                                         // onlyPartial=true + isWeak=true means that
-                                        //   if slice is already in `stack` then its value is not removed and `stack.put` will do a weak update with `value`.
-                                        //   Any other overlapping entry will be removed by `killOffsets`
+                                        // if slice is already in `stack` then its value is not removed and
+                                        // `stack.put` will do a weak update with `value`.
+                                        // Any other overlapping entry will be removed by `killOffsets`
                                         base.removeStackSliceIf(slice.offset, slice.width.toLong(), onlyPartial = true)
                                         base.updateStack(slice, getValue(value), isWeak = true)
                                     }
@@ -1247,16 +1457,14 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         base.updateStack(ByteRange(offset, width), value, isWeak = false)
     }
 
-    fun analyze(locInst: LocatedSbfInstruction,
-                globals: GlobalVariables,
-                memSummaries: MemorySummaries) {
+    fun analyze(locInst: LocatedSbfInstruction) {
         val s = locInst.inst
         dbg { "$s\n" }
         if (!isBottom()) {
             when (s) {
                 is SbfInstruction.Un -> analyzeUn(s)
-                is SbfInstruction.Bin -> analyzeBin(locInst, globals)
-                is SbfInstruction.Call -> analyzeCall(locInst, globals, memSummaries)
+                is SbfInstruction.Bin -> analyzeBin(locInst)
+                is SbfInstruction.Call -> analyzeCall(locInst)
                 is SbfInstruction.CallReg -> {
                     if (!SolanaConfig.SkipCallRegInst.get()) {
                         throw UnsupportedCallX(locInst)
@@ -1267,7 +1475,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
                 is SbfInstruction.Jump.ConditionalJump -> {}
                 is SbfInstruction.Assume -> analyzeAssume(s)
                 is SbfInstruction.Assert -> analyzeAssert(s)
-                is SbfInstruction.Mem -> analyzeMem(locInst, globals)
+                is SbfInstruction.Mem -> analyzeMem(locInst)
                 is SbfInstruction.Jump.UnconditionalJump -> {}
                 is SbfInstruction.Exit -> {}
                 is SbfInstruction.Debug -> {}
@@ -1276,16 +1484,16 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>(
         dbg { "$this\n" }
     }
 
-    override fun analyze(b: SbfBasicBlock,
-                         globals: GlobalVariables,
-                         memSummaries: MemorySummaries,
-                         listener: InstructionListener<ScalarDomain<TNum, TOffset>>): ScalarDomain<TNum, TOffset> {
+    override fun analyze(
+        b: SbfBasicBlock,
+        listener: InstructionListener<ScalarDomain<TNum, TOffset>>
+    ): ScalarDomain<TNum, TOffset> {
         dbg { "=== Scalar domain analyzing ${b.getLabel()} ===\nAt entry: $this\n" }
         return analyzeBlock(
             b,
             inState = this,
             transferFunction = { mutState, locInst ->
-                mutState.analyze(locInst, globals, memSummaries)
+                mutState.analyze(locInst)
             },
             listener
         )

@@ -68,6 +68,8 @@ fun dumpTAC(program: CoreTACProgram): String {
 
 object DefaultElfFileView: IElfFileView {
     override fun isLittleEndian() = true
+    override fun sbpfVersion() = SbpfVersion.SBF
+    override fun useDynamicFrames() = false
     override fun isGlobalVariable(address: ElfAddress) = false
     override fun isReadOnlyGlobalVariable(address: ElfAddress) = false
     override fun getAsConstantString(

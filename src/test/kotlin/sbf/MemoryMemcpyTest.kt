@@ -29,6 +29,7 @@ import sbf.support.UnknownMemcpyLenError
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private val nodeAllocator = PTANodeAllocator { BasicPTANodeFlags() }
 private val globals = GlobalVariables(DefaultElfFileView)
+private val memSummaries = MemorySummaries()
 
 class MemoryMemcpyTest {
 
@@ -46,7 +47,7 @@ class MemoryMemcpyTest {
         check(base != lhs)
         val inst = SbfInstruction.Mem(Deref(width, base, offset), lhs, true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doLoad(locInst, base, SbfType.top(), globals)
+        g.doLoad(locInst, base, SbfType.top())
         return g.getRegCell(lhs)
     }
 
@@ -63,7 +64,7 @@ class MemoryMemcpyTest {
     ) {
         val inst = SbfInstruction.Mem(Deref(width, base, offset), value, false)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doStore(locInst, base, value, baseType = SbfType.top(), valueType = SbfType.top(), globals)
+        g.doStore(locInst, base, value, baseType = SbfType.top(), valueType = SbfType.top())
     }
 
     /**
@@ -76,7 +77,7 @@ class MemoryMemcpyTest {
     ) {
         val inst = SbfInstruction.Bin(BinOp.ADD, base, Value.Imm(offset.toULong()), true)
         val locInst = LocatedSbfInstruction(Label.fresh(), 0, inst)
-        g.doBin(locInst, BinOp.ADD, base, Value.Imm(offset.toULong()), SbfType.top(), SbfType.top(), globals)
+        g.doBin(locInst, BinOp.ADD, base, Value.Imm(offset.toULong()), SbfType.top(), SbfType.top())
     }
 
     // Check that *([baseR] + [offset]) points to [node]
@@ -89,7 +90,18 @@ class MemoryMemcpyTest {
     private fun createMemcpy() = LocatedSbfInstruction(Label.fresh(),0, SbfInstruction.Call(SolanaFunction.SOL_MEMCPY.syscall.name))
     //private fun createMemset() = LocatedSbfInstruction(Label.fresh(),0, SbfInstruction.Call(SolanaFunction.SOL_MEMSET.syscall.name))
     private fun createMemoryDomain() =
-        MemoryDomain(nodeAllocator, sbfTypesFac, MemoryDomainOpts(false),true)
+        MemoryDomain(
+            nodeAllocator,
+            sbfTypesFac,
+            MemoryDomainOpts(false),
+            GlobalState(globals, memSummaries),
+            initPreconditions = true
+        )
+    private fun createScalarDomain() =
+        ScalarDomain(
+            sbfTypesFac,
+            GlobalState(globals, memSummaries)
+        )
 
     @Test
     fun test01() {
@@ -102,7 +114,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -118,10 +130,10 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, stackC.getNode().createSymCell(4040))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -140,7 +152,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -160,10 +172,10 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, srcNode.createSymCell(0))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -182,7 +194,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -203,10 +215,10 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, srcNode.createSymCell(0))
         g.setRegCell(r1, dstN.createSymCell(0))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         Assertions.assertEquals(true, !dstN.isUnaccessed())
@@ -227,7 +239,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -254,12 +266,12 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, stackC.getNode().createSymCell(4040))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
 
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -278,7 +290,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -309,11 +321,11 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, srcNode.createSymCell(0))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -333,7 +345,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -366,11 +378,11 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, srcNode.createSymCell(0))
         g.setRegCell(r1, dstN.createSymCell(0))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         Assertions.assertEquals(true, !n4.getNode().isUnaccessed())
@@ -389,7 +401,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -422,12 +434,12 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, srcNode.createSymCell(0))
         g.setRegCell(r1, dstN.createSymCell(0))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         val r3 = Value.Reg(SbfRegister.R3_ARG)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.anyNum()))
         // memcpy(r1, r2, r3)
         println("Before memcpy(r1,r2,r3) with r3=top -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,r3) with r3=top -> $g")
 
         // It should unify the nodes pointed by src with those pointed by dst.
@@ -444,7 +456,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -475,12 +487,12 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, srcNode.createSymCell(0))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
 
         expectException<UnknownMemcpyLenError> {
             // memcpy(r1, r2, r3)
             println("Before memcpy(r1,r2,r3) with r3=top -> $g")
-            g.doMemcpy(createMemcpy(), scalars, globals)
+            g.doMemcpy(createMemcpy(), scalars)
         }
     }
 
@@ -504,7 +516,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -536,11 +548,11 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, srcNode.createSymCell(0))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         // memcpy(r1, r2, 24)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
 
@@ -586,7 +598,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -618,11 +630,11 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, dstNode.createSymCell(0))
         g.setRegCell(r2, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         // memcpy(r1, r2, 24)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         val c1 = stackC.getNode().getSucc(PTAField(PTAOffset(3030), 8))
@@ -650,7 +662,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -683,12 +695,12 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, srcNode.createSymCell(0))
         g.setRegCell(r1, dstNode.createSymCell(0))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         val r3 = Value.Reg(SbfRegister.R3_ARG)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
         // memcpy(r1, r2, 24)
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         // It should unify the nodes pointed by src with those pointed by dst.
@@ -717,7 +729,7 @@ class MemoryMemcpyTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -748,11 +760,11 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, stackC.getNode().createSymCell(4040))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println( "Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println( "After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -795,7 +807,7 @@ class MemoryMemcpyTest {
 
         // Create abstract state
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -823,11 +835,11 @@ class MemoryMemcpyTest {
         g.setRegCell(r1, dstNode.createSymCell(4))
         g.setRegCell(r2, stackC.getNode().createSymCell(3896))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         // memcpy(r1, r2, 24)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(32UL)))
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         Assertions.assertEquals(true, load(g, r1, 0, 8)?.getNode() == n1)
@@ -859,7 +871,7 @@ class MemoryMemcpyTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -891,11 +903,11 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, stackC.getNode().createSymCell(4040))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -931,7 +943,7 @@ class MemoryMemcpyTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -962,11 +974,11 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, stackC.getNode().createSymCell(4040))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(24UL)))
 
         println("Before memcpy(r1,r2,24) -> $g")
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1,r2,24) -> $g")
 
         checkPointsToNode(g, r1, 0, 8, n1)
@@ -986,7 +998,7 @@ class MemoryMemcpyTest {
         val r2 = Value.Reg(SbfRegister.R2_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -1035,7 +1047,7 @@ class MemoryMemcpyTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -1057,12 +1069,12 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, stackC.getNode().createSymCell(4040))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
 
         println("Initially: $g")
         gep(g, r1, 4)
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1+4, r2, 8): $g")
         checkPointsToNode(g, r1, 0, 8, n1)
 
@@ -1080,7 +1092,7 @@ class MemoryMemcpyTest {
         val r2 = Value.Reg(SbfRegister.R2_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -1121,7 +1133,7 @@ class MemoryMemcpyTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -1139,12 +1151,12 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, stackC.getNode().createSymCell(4040))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
 
         println("Initially: $g")
 
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1, r2, 8): $g")
 
         Assertions.assertEquals(true,stackC.getNode().getSucc(PTAField(PTAOffset(3040), 8)) == null)
@@ -1159,7 +1171,7 @@ class MemoryMemcpyTest {
         val r2 = Value.Reg(SbfRegister.R2_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -1206,7 +1218,7 @@ class MemoryMemcpyTest {
         val r3 = Value.Reg(SbfRegister.R3_ARG)
 
         val absVal = createMemoryDomain()
-        val stackC = absVal.getRegCell(r10, globals)
+        val stackC = absVal.getRegCell(r10)
         check(stackC != null) { "memory domain cannot find the stack node" }
         stackC.getNode().setWrite()
         val g = absVal.getPTAGraph()
@@ -1231,12 +1243,12 @@ class MemoryMemcpyTest {
         g.setRegCell(r2, stackC.getNode().createSymCell(4040))
         g.setRegCell(r1, stackC.getNode().createSymCell(3040))
 
-        val scalars = ScalarDomain(sbfTypesFac)
+        val scalars = createScalarDomain()
 
         println("Initially: $g")
 
         scalars.setScalarValue(r3, ScalarValue(sbfTypesFac.toNum(8UL)))
-        g.doMemcpy(createMemcpy(), scalars, globals)
+        g.doMemcpy(createMemcpy(), scalars)
         println("After memcpy(r1, r2, 8): $g")
 
         Assertions.assertEquals(true,stackC.getNode().getSucc(PTAField(PTAOffset(3040), 2)) != null)

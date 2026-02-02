@@ -977,7 +977,7 @@ object Inliner {
     ) {
         val toBlitICore = toBlit.code as CoreTACProgram
         patching.replaceCommand(where, preCommands, toBlitICore)
-        patching.addVarDecls(toBlitICore.symbolTable.tags.keys)
+        patching.addVarDecls(toBlitICore.symbolTable.vars)
         convention.instrumentCaller(
             callerIcore, patching, where
         )
@@ -2324,9 +2324,6 @@ object Inliner {
                 .apply {
                     patching.addVarDecl(this.first)
                     patching.addVarDecl(this.second)
-                    if (this.second in program.symbolTable.tags && program.symbolTable.tags[this.second] != this.second.tag) {
-                        throw IllegalStateException("Tag collision on ${this.second} in ${program.name}")
-                    }
                 }
         }
 

@@ -75,13 +75,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
             code = code,
             symbolTable = symbolTable.copy(
                 userDefinedTypes = symbolTable.userDefinedTypes.filterTo(mutableSetOf()) { it !is Tag.TransientTag }.toSet(),
-                tags = Tags(mutableSetOf<TACSymbol.Var>().also { s ->
-                    symbolTable.tags.forEach { v, tag ->
-                        if (tag !is Tag.TransientTag) {
-                            s.add(v.updateTagCopy(tag))
-                        }
-                    }
-                })
+                vars = symbolTable.vars.removeAll { it.tag is Tag.TransientTag }
             ).mergeDecls(newVars),
             instrumentationTAC = InstrumentationTAC(c.ufAxiomBuilder()),
             procedures = c.procedures,
@@ -197,8 +191,9 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
         }
 
         private fun getArrayLengthVar(v: TACSymbol.Var) : TACSymbol.Var {
-            return v.copy(
-                namePrefix = v.namePrefix + "_length",
+            return v.updateTag(
+                suffix = "length",
+                sep = "_",
                 tag = Tag.Bit256
             ).withMeta(TACMeta.CVL_TYPE, CVLType.PureCVLType.Primitive.UIntK(256))
                 .letIf(TACMeta.CVL_DISPLAY_NAME in v.meta) {
@@ -366,8 +361,9 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
          * Gets the distinguished variable for the data path [suff] from [v]. Secretly uses dirty dirty string concatenation.
          */
         private fun varWithSuffix(v: TACSymbol.Var, suff: List<DataField>, holdsReferences: Boolean) : Pair<ArrayReprKey, TACSymbol.Var> {
-            return ArrayReprKey.DataPath(suff) to v.copy(
-                namePrefix = v.namePrefix + suff.joinToString("") { it.suffix },
+            return ArrayReprKey.DataPath(suff) to v.updateTag(
+                suffix = suff.joinToString("") { it.suffix },
+                sep = "",
                 tag = Tag.ByteMap,
                 meta = v.meta.plus(IsReferenceValueMap to holdsReferences).let { vMeta ->
                     val displayName = v.meta[TACMeta.CVL_DISPLAY_NAME]
@@ -1027,7 +1023,7 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
                     ))
                 }
                 is TACCmd.CVL.LocalAlloc -> {
-                    val allocVar = c.arr.copy(namePrefix = c.arr.namePrefix + "_alloc", tag = Tag.Bit256)
+                    val allocVar = c.arr.updateTag(Tag.Bit256, "alloc", sep = "_")
                     val tmp = TACKeyword.TMP(Tag.Bit256, "!fp").toUnique("!")
                     toReturn.add(
                         TACCmd.Simple.AssigningCmd.AssignExpCmd(

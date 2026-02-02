@@ -1623,22 +1623,22 @@ class Decompiler private constructor(
                 blockGraph.putIfAbsent(nbid, treapSetOf())
             }
 
-            // Extract tags
-            var tags = treapSetOf<TACSymbol.Var>()
+            // Extract vars
+            var vars = treapSetOf<TACSymbol.Var>()
             for (block in blocks.values) {
                 for (cmd in block) {
                     cmd.getLhs()?.let {
-                        tags += it
+                        vars += it
                     }
                     cmd.getRhs().forEach {
                         if (it is TACSymbol.Var) {
-                            tags += it
+                            vars += it
                         }
                     }
                 }
             }
 
-            return EVMTACProgram(blocks, blockGraph, methodName, TACSymbolTable.withTags(tags))
+            return EVMTACProgram(blocks, blockGraph, methodName, TACSymbolTable.withVars(vars))
 
         } finally {
             // Generate a TAC code size profile, even if we throw (which might have been because the code was too

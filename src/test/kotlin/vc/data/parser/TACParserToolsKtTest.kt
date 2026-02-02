@@ -118,7 +118,7 @@ internal class TACParserToolsKtTest: WithTACSource {
             Simple.JumpdestCmd(b2,),
         )
         val vars = treapSetOf(x1, x2, m1, bytemap1)
-        val symbolTable = TACSymbolTable.withTags(vars)
+        val symbolTable = TACSymbolTable.withVars(vars)
         val allCommandsType = mapOf<NBId, List<Simple>>(
             b1 to almostAllCmdsList,
             b2 to listOf(Simple.JumpiCmd(b3, b4,TACSymbol.True)),

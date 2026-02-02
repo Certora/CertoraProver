@@ -43,6 +43,7 @@ import java.util.stream.Collectors
 import java.util.stream.Stream
 import kotlin.collections.ArrayDeque
 import kotlin.contracts.*
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.io.path.Path
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -1308,5 +1309,20 @@ fun ClosedRange<BigInteger>.stepBy(step: BigInteger) = sequence<BigInteger> {
     while(it <= this@stepBy.endInclusive) {
         yield(it)
         it += step
+    }
+}
+
+/**
+    Runs the given [block] returns its result wrapped in a [Result].  Any exceptions other than [CancellationException]
+    are caught and returned as a failure result.  If a [CancellationException] is thrown, it is rethrown, allowing this
+    to be used safely in coroutines.
+ */
+public inline fun <R> coRunCatching(block: () -> R): Result<R> {
+    return try {
+        Result.success(block())
+    } catch (e: CancellationException){
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
     }
 }

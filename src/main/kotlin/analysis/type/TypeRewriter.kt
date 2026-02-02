@@ -43,7 +43,7 @@ object TypeRewriter {
     private fun bvToBoolExp(bvToConvert: TACExpr) = TACExpr.BinRel.Gt(bvToConvert, TACSymbol.lift(0).asSym())
 
 
-    fun getAs(v: TACSymbol.Var, t: Tag) = v.withSuffix(t.toString()).updateTagCopy(t)
+    fun getAs(v: TACSymbol.Var, t: Tag) = v.updateTag(t, t.toString())
 
     /**
      * A pass dedicated to ensuring that the TAC program actually type checks.

@@ -33,6 +33,8 @@ import sbf.domains.*
 private val sbfTypesFac = ConstantSbfTypeFactory()
 private object MockElfFileView: IElfFileView {
     override fun isLittleEndian() = true
+    override fun sbpfVersion() = SbpfVersion.SBF
+    override fun useDynamicFrames() = false
     override fun isGlobalVariable(address: ElfAddress) = (address == 976432L)
     override fun isReadOnlyGlobalVariable(address: ElfAddress) = false
     override fun getAsConstantString(

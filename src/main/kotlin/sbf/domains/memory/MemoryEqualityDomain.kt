@@ -578,7 +578,8 @@ data class Memcmp<Flags: IPTANodeFlags<Flags>>(val op1: PTACell<Flags>, val op2:
  **/
 class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     private var instMap: TreapMap<Value.Reg, LiveInstructionLHS<Flags>> = treapMapOf(),
-    private var memcmpSet: SetOfMemEqualityPredicate<Flags> = SetOfMemEqualityPredicate()
+    private var memcmpSet: SetOfMemEqualityPredicate<Flags> = SetOfMemEqualityPredicate(),
+    private val globalState: GlobalState
 ) : AbstractDomain<MemEqualityPredicateDomain<Flags>> {
 
     override fun isBottom() = false
@@ -594,7 +595,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         memcmpSet = SetOfMemEqualityPredicate<Flags>().mkTop()
     }
 
-    override fun deepCopy() = MemEqualityPredicateDomain(instMap, memcmpSet)
+    override fun deepCopy() = MemEqualityPredicateDomain(instMap, memcmpSet, globalState)
 
     private fun merge(
         memcmpSet: SetOfMemEqualityPredicate<Flags>,
@@ -719,7 +720,8 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         }  else {
             MemEqualityPredicateDomain(
                 join(instMap, other.instMap),
-                normalize(memcmpSet.join(other.memcmpSet))
+                normalize(memcmpSet.join(other.memcmpSet)),
+                globalState
             )
         }
     }
@@ -1045,16 +1047,15 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     private data class MemIntrinsicsArgs<Flags: IPTANodeFlags<Flags>>(val r1: PTASymCell<Flags>, val r2: PTASymCell<Flags>, val r3: Long?)
 
     private fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> getArgsForMemIntrinsics(
-        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariables
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>
     ): MemIntrinsicsArgs<Flags>? {
         val (r1, r2, r3) = listOf(Value.Reg(SbfRegister.R1_ARG), Value.Reg(SbfRegister.R2_ARG), Value.Reg(SbfRegister.R3_ARG))
         // len can be null
         val len = (memoryAbsVal.getScalars().getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
         // Since this domain is part of the [MemoryDomain], if `r1` does not point to any [PTACell] then [MemoryDomain] will complain
-        val dstSc = memoryAbsVal.getRegCell(r1, globals) ?: return null
+        val dstSc = memoryAbsVal.getRegCell(r1) ?: return null
         // Since this domain is part of the [MemoryDomain], if `r2` does not point to any [PTACell] then [MemoryDomain] will complain
-        val srcSc = memoryAbsVal.getRegCell(r2, globals) ?: return null
+        val srcSc = memoryAbsVal.getRegCell(r2) ?: return null
         return MemIntrinsicsArgs(dstSc, srcSc, len)
     }
 
@@ -1110,8 +1111,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemTransfer(
         locInst: LocatedSbfInstruction,
-        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariables
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>
     ) {
 
         val inst = locInst.inst
@@ -1122,7 +1122,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
             forget(r0)
         }
 
-        val (dstSc, srcSc, len) = getArgsForMemIntrinsics(memoryAbsVal, globals) ?: return
+        val (dstSc, srcSc, len) = getArgsForMemIntrinsics(memoryAbsVal) ?: return
         val predicates = memcmpSet
         for (pred in predicates) {
             val predTr = when(pred) {
@@ -1137,11 +1137,10 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemcmp(
         @Suppress("UNUSED_PARAMETER")
         locInst: LocatedSbfInstruction,
-        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariables
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>
     ) {
         // Note that non-op is always sound.
-        val (op1, op2, len) = getArgsForMemIntrinsics(memoryAbsVal, globals) ?: return
+        val (op1, op2, len) = getArgsForMemIntrinsics(memoryAbsVal) ?: return
         if (!op1.isConcrete() || !op2.isConcrete()) {
             return
         }
@@ -1153,8 +1152,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemset(
         locInst: LocatedSbfInstruction,
-        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariables
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>
     ) {
 
         val inst = locInst.inst
@@ -1170,7 +1168,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         }
 
         // The [MemoryDomain] will complain if dstSc is null
-        val dstSc = memoryAbsVal.getRegCell(r1, globals) ?: return
+        val dstSc = memoryAbsVal.getRegCell(r1) ?: return
         val len = (memoryAbsVal.getScalars().getAsScalarValue(r3).type() as? SbfType.NumType)?.value?.toLongOrNull()
 
         memHavoc(dstSc, len)
@@ -1189,8 +1187,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeMemcpyZExtOrTrunc(
         locInst: LocatedSbfInstruction,
-        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariables
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>
     ) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
@@ -1204,7 +1201,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         }
 
         // The [MemoryDomain] will complain if dstSc is null
-        val dstSc = memoryAbsVal.getRegCell(r1, globals) ?: return
+        val dstSc = memoryAbsVal.getRegCell(r1) ?: return
         // Note: for memcpy_trunc we should havoc only up to i (r3) bytes
         memHavoc(dstSc, len = 8)
     }
@@ -1235,8 +1232,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>  summarizeExternalCall(
         locInst: LocatedSbfInstruction,
-        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        memSummaries: MemorySummaries
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>
     ) {
         class MemEqualityPredicateSummaryVisitor: SummaryVisitor {
             override fun noSummaryFound(locInst: LocatedSbfInstruction) {
@@ -1257,15 +1253,13 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
             }
         }
         val vis = MemEqualityPredicateSummaryVisitor()
-        memSummaries.visitSummary(locInst, vis)
+        globalState.memSummaries.visitSummary(locInst, vis)
     }
 
 
     private fun<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> analyzeCall(
         locInst: LocatedSbfInstruction,
-        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariables,
-        memSummaries: MemorySummaries
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>
     ) {
         val inst = locInst.inst
         check(inst is SbfInstruction.Call)
@@ -1290,42 +1284,41 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         if (solFunction != null) {
             when (solFunction) {
                 SolanaFunction.SOL_MEMCMP -> {
-                    analyzeMemcmp(locInst, memoryAbsVal, globals)
+                    analyzeMemcmp(locInst, memoryAbsVal)
                     return
                 }
                 SolanaFunction.SOL_MEMCPY,
                 SolanaFunction.SOL_MEMMOVE -> {
-                    analyzeMemTransfer(locInst, memoryAbsVal, globals)
+                    analyzeMemTransfer(locInst, memoryAbsVal)
                     return
                 }
                 SolanaFunction.SOL_MEMCPY_ZEXT,
                 SolanaFunction.SOL_MEMCPY_TRUNC -> {
-                    analyzeMemcpyZExtOrTrunc(locInst, memoryAbsVal, globals)
+                    analyzeMemcpyZExtOrTrunc(locInst, memoryAbsVal)
                     return
                 }
                 SolanaFunction.SOL_MEMSET -> {
-                    analyzeMemset(locInst, memoryAbsVal, globals)
+                    analyzeMemset(locInst, memoryAbsVal)
                     return
                 }
                 else -> {}
             }
         }
 
-        summarizeExternalCall(locInst, memoryAbsVal, memSummaries)
+        summarizeExternalCall(locInst, memoryAbsVal)
     }
 
     /** To be called from  [MemoryDomain] **/
     fun <TNum: INumValue<TNum>, TOffset: IOffset<TOffset>>analyze(
         locInst: LocatedSbfInstruction,
-        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>,
-        globals: GlobalVariables,
-        memSummaries: MemorySummaries) {
+        memoryAbsVal: MemoryDomain<TNum, TOffset, Flags>
+    ) {
         val s = locInst.inst
         if (!isBottom()) {
             when (s) {
                 is SbfInstruction.Un -> forget(s.dst)
                 is SbfInstruction.Bin -> analyzeBin(locInst)
-                is SbfInstruction.Call -> analyzeCall(locInst, memoryAbsVal, globals, memSummaries)
+                is SbfInstruction.Call -> analyzeCall(locInst, memoryAbsVal)
                 is SbfInstruction.CallReg -> {}
                 is SbfInstruction.Select -> forget(s.dst)
                 is SbfInstruction.Havoc -> forget(s.dst)
@@ -1342,8 +1335,6 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     override fun analyze(
         b: SbfBasicBlock,
-        globals: GlobalVariables,
-        memSummaries: MemorySummaries,
         listener: InstructionListener<MemEqualityPredicateDomain<Flags>>
     ): MemEqualityPredicateDomain<Flags> {
         error(

@@ -216,7 +216,7 @@ fun Statement.assertContainsVariableWithConcreteValue(variableName: String, valu
 
 fun List<Statement>.toLineNumberRepresentation(withVariables: Boolean = true) = this.mapIndexed { idx, el ->
     idx to (el.frames to (if (withVariables) {
-        el.variablesAtTopOfStack()
+        el.variablesAtTopOfStack().toString() + el.consoleOutput
     } else {
         ""
     }))

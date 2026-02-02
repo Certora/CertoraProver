@@ -198,10 +198,10 @@ object SolanaConfig {
     ) {}
 
     val ScalarMaxVals = object : ConfigType.IntCmdLine(
-        20,
+        32,
         Option(
             "solanaScalarMaxVals", true,
-            "Maximum number of values tracked by the scalar domain for registers and stack. [default: 20]"
+            "Maximum number of values tracked by the scalar domain for registers and stack. [default: 32]"
         )
     ) {
         override fun check(newValue: Int) = newValue >= 1

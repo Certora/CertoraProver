@@ -36,10 +36,10 @@ interface AbstractDomain<T> {
     // left and right are used only for debugging purposes, so they are not mandatory
     fun lessOrEqual(other: T, left: Label? = null, right: Label? = null): Boolean
     fun forget(reg: Value.Reg)
-    fun analyze(b: SbfBasicBlock,
-                globals: GlobalVariables,
-                memSummaries: MemorySummaries,
-                listener: InstructionListener<T> = DefaultInstructionListener()): T
+    fun analyze(
+        b: SbfBasicBlock,
+        listener: InstructionListener<T> = DefaultInstructionListener()
+    ): T
     /**
      * Non-standard operation.
      *
@@ -61,6 +61,12 @@ interface AbstractDomain<T> {
     fun deepCopy(): T
     override fun toString(): String
 }
+
+/** Global state used by abstract transfer functions **/
+data class GlobalState(
+    val globals: GlobalVariables,
+    val memSummaries: MemorySummaries
+)
 
 /**
  *  Abstract states are stored at the level of basic block.

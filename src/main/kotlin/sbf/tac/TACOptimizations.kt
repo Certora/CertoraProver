@@ -106,12 +106,14 @@ fun optimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProgram {
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
             }.let(BlockMerger::mergeBlocks)
         })
-        .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
         // constant propagation + cleanup + merging blocks
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) {
             ConstantPropagatorAndSimplifier(it).rewrite().let {
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
             }.let(BlockMerger::mergeBlocks)
+        })
+         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) {
+            OverflowPatternRewriter(it).go()
         })
         .mapIf(optLevel >= 1, CoreToCoreTransformer(ReportTypes.INTERVALS_OPTIMIZE) {
             IntervalsRewriter.rewrite(it, handleLeinoVars = false) })
@@ -177,7 +179,13 @@ fun legacyOptimize(coreTAC: CoreTACProgram, isSatisfyRule: Boolean): CoreTACProg
                 optimizeAssignments(it, FilteringFunctions.default(it, keepRevertManagment = true))
                     .let(BlockMerger::mergeBlocks)
             })
-            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) { OverflowPatternRewriter(it).go() })
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_OVERFLOW) {
+                // OverflowPatternsRewriter needs the simplifier among many other prerequisites.
+                // In particular, the simplifier avoids unexpected TAC which can cause throwing an exception.
+                ConstantPropagatorAndSimplifier(it).rewrite().let {
+                    OverflowPatternRewriter(it).go()
+                }
+            })
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.COLLAPSE_EMPTY_DSA, TACDSA::collapseEmptyAssignmentBlocks))
             .mapIfAllowed(CoreToCoreTransformer(ReportTypes.OPTIMIZE_PROPAGATE_CONSTANTS1) {
                 ConstantPropagator.propagateConstants(it, emptySet()).let {
