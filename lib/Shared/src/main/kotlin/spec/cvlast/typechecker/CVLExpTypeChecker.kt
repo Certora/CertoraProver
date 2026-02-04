@@ -567,24 +567,37 @@ class CVLExpTypeCheckerWithContext(
                 is CVLType.PureCVLType.VMInternal.BlockchainState,
                 is CVLType.PureCVLType.VMInternal.StorageReference -> ok
 
+                is CVLType.PureCVLType.CVLArrayType -> {
+                    if (type == comparedToType) {
+                        when (type.elementType) {
+                            is CVLType.PureCVLType.Struct -> returnError(ArrayComparisonStructElements(exp, type))
+                            is CVLType.PureCVLType.CVLArrayType -> returnError(ArrayComparisonNestedArrays(exp, type))
+                            else -> ok // Primitives, enums, sorts, etc. are always fine
+                        }
+                  } else {
+                        returnError(CVLError.Exp(exp, "Cannot compare arrays of different types: $type and $comparedToType"))
+                    }
+                }
+
                 is CVLType.PureCVLType.Struct -> {
                     if (type == comparedToType) {
-                        fun checkNoArrayFields(base: CVLExp, field: CVLType.PureCVLType.Struct.StructEntry) {
+                        fun checkNoNestedArrayFields(base: CVLExp, field: CVLType.PureCVLType.Struct.StructEntry) {
                             when(val t = field.cvlType) {
                                 is CVLType.PureCVLType.CVLArrayType ->
-                                    if(t !is CVLType.PureCVLType.DynamicArray.Bytes1Array)
-                                    {
-                                        collectError(StructComparisonContainsArrays(exp, base, field.fieldName))
+                                    when (t.elementType) {
+                                        is CVLType.PureCVLType.Struct -> collectError(ArrayComparisonStructElements(exp, t))
+                                        is CVLType.PureCVLType.CVLArrayType -> collectError(ArrayComparisonNestedArrays(exp, t))
+                                        else -> ok // Primitives, enums, sorts, etc. are always fine
                                     }
                                 is CVLType.PureCVLType.Struct -> t.fields.forEach { innerField ->
-                                    checkNoArrayFields(CVLExp.FieldSelectExp(base, field.fieldName, CVLExpTag(base.getScope(), base.getRangeOrEmpty())), innerField)
+                                    checkNoNestedArrayFields(CVLExp.FieldSelectExp(base, field.fieldName, CVLExpTag(base.getScope(), base.getRangeOrEmpty())), innerField)
                                 }
                                 else -> Unit
                             }
                         }
-                        type.fields.forEach { field -> checkNoArrayFields(expOfType, field) }
+                        type.fields.forEach { field -> checkNoNestedArrayFields(expOfType, field) }
                         ok
-                    } else {
+                   } else {
                         val msg = if (comparedToType is CVLType.PureCVLType.Struct) {
                             "Cannot compare structs of different types. Tried to compare $expOfType of type $type to $expOfComparedToType of type $comparedToType"
                         } else if (comparedToType is CVLType.PureCVLType.Primitive.UIntK && comparedToType.k == 32 && type.name == EVMBuiltinTypes.method.name) {

@@ -431,11 +431,16 @@ sealed class TACCmd : Serializable, ITACCmd {
             override fun withMeta(metaMap: MetaMap) = this.copy(meta = metaMap)
         }
         /**
-         * Compare the two bytes1 arrays contained in [left] and [right] and
+         * Compare the two arrays contained in [left] and [right] and
          * place the result in [lhsVar].
+         *
+         * Supports:
+         * - Bytes1Array (bytes/string) - simple length + data hash comparison
+         * - Arrays of primitives - same as above
+         * - Arrays of structs - compares length and hash of each data path
          */
         @KSerializable
-        data class CompareBytes1Array(
+        data class CompareArray(
             val lhsVar: TACSymbol.Var,
             val left: TACSymbol.Var,
             val right: TACSymbol.Var,
@@ -2710,7 +2715,7 @@ sealed class TACCmd : Serializable, ITACCmd {
                 is CVL.CompareStorage -> lhsVar
                 is CVL.ArrayCopy -> null
                 is CVL.LocalAlloc -> this.lhs
-                is CVL.CompareBytes1Array -> lhsVar
+                is CVL.CompareArray -> lhsVar
             }
             is EVM -> when (this) {
                 is EVM.AssigningCmd -> this.lhs
@@ -2917,7 +2922,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is CVL.CompareStorage -> treapSetOf(this.storage1, this.storage2)
             is CVL.ArrayCopy -> this.dst.getReferencedSyms() + this.src.getReferencedSyms()
             is CVL.LocalAlloc -> treapSetOf(this.arr)
-            is CVL.CompareBytes1Array -> treapSetOf(this.left, this.right)
+            is CVL.CompareArray -> treapSetOf(this.left, this.right)
             is Move.BorrowFieldCmd -> treapSetOf(this.srcRef)
             is Move.BorrowLocCmd -> treapSetOf(this.loc)
             is Move.EqCmd -> treapSetOf(this.a, this.b)
@@ -3075,7 +3080,7 @@ sealed class TACCmd : Serializable, ITACCmd {
             is CVL.CompareStorage -> treapSetOf(this.storage1, this.storage2)
             is CVL.ArrayCopy -> this.src.getReferencedSyms() + this.dst.getReferencedSyms()
             is CVL.LocalAlloc -> treapSetOf(this.arr)
-            is CVL.CompareBytes1Array ->  treapSetOf(this.left, this.right)
+            is CVL.CompareArray ->  treapSetOf(this.left, this.right)
             is Move -> error("Move commands not yet simplified")
         }
     }

@@ -979,8 +979,8 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
                     toReturn.addAll(decl.cmds)
                 }
 
-                is TACCmd.CVL.CompareBytes1Array -> {
-                    val decl : CommandWithRequiredDecls<TACCmd.Simple> = compileBytes1ArrayCompare(c)
+                is TACCmd.CVL.CompareArray -> {
+                    val decl : CommandWithRequiredDecls<TACCmd.Simple> = compileArrayCompare(c)
                     vars.addAll(decl.varDecls)
                     toReturn.addAll(decl.cmds)
                 }
@@ -1177,67 +1177,120 @@ class CVLToSimpleCompiler(private val scene: IScene) : SafeMathCodeGen {
         return mutRes.toCommandWithRequiredDecls()
     }
 
-    private fun compileBytes1ArrayCompare(c: TACCmd.CVL.CompareBytes1Array): CommandWithRequiredDecls<TACCmd.Simple> {
-        val leftSym = c.left;
-        val rightSym = c.right;
+    /**
+     * Compiles array comparison by:
+     * 1. Comparing lengths
+     * 2. For each data path in the array's element type, computing and comparing hashes
+     *
+     * Result = (length1 == length2) AND (hash1_path1 == hash2_path1) AND ... AND (hash1_pathN == hash2_pathN)
+     *
+     * Supports:
+     * - Bytes1Array (bytes/string) - simple length + data hash comparison
+     * - Arrays of primitives (uint256[], int256[], etc.)
+     * - Structs containing primitive arrays (struct S { uint256[] arr; })
+     *
+     * Does NOT support:
+     * - Arrays of structs (S[] where S is a struct type)
+     */
+    private fun compileArrayCompare(c: TACCmd.CVL.CompareArray): CommandWithRequiredDecls<TACCmd.Simple> {
+        val leftSym = c.left
+        val rightSym = c.right
+        val leftTag = leftSym.tag as Tag.CVLArray
+        val rightTag = rightSym.tag as Tag.CVLArray
 
-        val leftLength = getArrayLengthVar(leftSym)
-        val rightLength = getArrayLengthVar(rightSym)
+        // Get all representation variables for both arrays
+        val leftRepr = arrayRepresentationVars(leftSym, leftTag)
+        val rightRepr = arrayRepresentationVars(rightSym, rightTag)
 
-        val leftHash = TACKeyword.TMP(Tag.Bit256, "!comp").toUnique("!")
-        val rightHash = TACKeyword.TMP(Tag.Bit256, "!comp").toUnique("!")
+        val commands = mutableListOf<TACCmd.Simple>()
+        val decls = mutableSetOf<TACSymbol.Var>()
+        val comparisonResults = mutableListOf<TACExpr>()
 
+        // 1. Compare lengths
+        val leftLength = leftRepr[ArrayReprKey.Length]!!
+        val rightLength = rightRepr[ArrayReprKey.Length]!!
+        decls.add(leftLength)
+        decls.add(rightLength)
+        comparisonResults.add(TACExpr.BinRel.Eq(leftLength.asSym(), rightLength.asSym()))
 
-        val leftBaseMap = getRawArrayDataVar(leftSym)
+        // Determine if this is a packed array (bytes/string) or word-aligned
+        // For packed arrays: byte length = logical length (each element is 1 byte)
+        // For word-aligned arrays: byte length = logical length * 32 (each element is 32 bytes)
+        val isPacked = when (leftTag) {
+            is Tag.CVLArray.UserArray -> leftTag.isPacked
+            Tag.CVLArray.RawArray -> true // RawArray is byte-level
+        }
 
-        /**
-         * Compute hash(leftLength, leftSym_data)
-         */
-        val hashCommand1 = TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
-            lhs = leftHash,
-            op1 = TACSymbol.Zero,
-            op2 = leftLength,
-            memBaseMap = leftBaseMap
-        )
-        val rightBaseMap = getRawArrayDataVar(rightSym)
+        // Compute the byte length to hash
+        val leftByteLength: TACSymbol
+        val rightByteLength: TACSymbol
+        if (isPacked) {
+            // Packed: byte length = logical length
+            leftByteLength = leftLength
+            rightByteLength = rightLength
+        } else {
+            // Word-aligned: byte length = logical length * EVM_WORD_SIZE
+            val leftByteLenVar = TACKeyword.TMP(Tag.Bit256, "!byteLen").toUnique("!")
+            val rightByteLenVar = TACKeyword.TMP(Tag.Bit256, "!byteLen").toUnique("!")
+            decls.add(leftByteLenVar)
+            decls.add(rightByteLenVar)
 
-        /**
-         * Compute hash(rightLength, rightSym_data)
-         */
-        val hashCommand2 = TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
-            lhs = rightHash,
-            op1 = TACSymbol.Zero,
-            op2 = rightLength,
-            memBaseMap = rightBaseMap
-        )
+            // Safe multiplication by word size
+            safeMul(commands, decls, leftByteLenVar, leftLength, EVM_WORD_SIZE_INT.asTACSymbol())
+            safeMul(commands, decls, rightByteLenVar, rightLength, EVM_WORD_SIZE_INT.asTACSymbol())
 
-        val compareLength = TACExpr.BinRel.Eq(leftLength.asSym(), rightLength.asSym())
-        val compareHashes =  TACExpr.BinRel.Eq(leftHash.asSym(), rightHash.asSym())
+            leftByteLength = leftByteLenVar
+            rightByteLength = rightByteLenVar
+        }
 
-        /**
-         * result = leftLength == rightLength && leftHash == rightHash
-         */
-        val assignCmd = TACCmd.Simple.AssigningCmd.AssignExpCmd(
+        // 2. For each data path, compare hashes
+        val dataPaths = leftRepr.keys.filterIsInstance<ArrayReprKey.DataPath>()
+
+        for (pathKey in dataPaths) {
+            val leftDataVar = leftRepr[pathKey]!!
+            val rightDataVar = rightRepr[pathKey]!!
+            decls.add(leftDataVar)
+            decls.add(rightDataVar)
+
+            val pathSuffix = pathKey.l.joinToString("_") { field ->
+                field.suffix
+            }
+
+            val leftHash = TACKeyword.TMP(Tag.Bit256, "!compL_$pathSuffix").toUnique("!")
+            val rightHash = TACKeyword.TMP(Tag.Bit256, "!compR_$pathSuffix").toUnique("!")
+            decls.add(leftHash)
+            decls.add(rightHash)
+
+            // Hash left data map (using byte length, not logical length)
+            commands.add(TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
+                lhs = leftHash,
+                op1 = TACSymbol.Zero,
+                op2 = leftByteLength,
+                memBaseMap = leftDataVar
+            ))
+
+            // Hash right data map (using byte length, not logical length)
+            commands.add(TACCmd.Simple.AssigningCmd.AssignSha3Cmd(
+                lhs = rightHash,
+                op1 = TACSymbol.Zero,
+                op2 = rightByteLength,
+                memBaseMap = rightDataVar
+            ))
+
+            comparisonResults.add(TACExpr.BinRel.Eq(leftHash.asSym(), rightHash.asSym()))
+        }
+
+        // 3. Combine all comparisons with AND
+        val resultExpr = comparisonResults.reduce { acc, expr ->
+            TACExpr.BinBoolOp.LAnd(acc, expr)
+        }
+
+        commands.add(TACCmd.Simple.AssigningCmd.AssignExpCmd(
             lhs = c.lhsVar,
-            rhs = TACExpr.BinBoolOp.LAnd(compareLength, compareHashes)
-        )
+            rhs = resultExpr
+        ))
 
-
-        val commands = mutableListOf<TACCmd.Simple>(
-            hashCommand1,
-            hashCommand2,
-            assignCmd
-        )
-        val decls = mutableSetOf(
-            leftHash,
-            rightHash,
-            leftBaseMap,
-            rightBaseMap,
-            leftLength,
-            rightLength
-        )
         val mutRes = MutableCommandWithRequiredDecls<TACCmd.Simple>()
-
         mutRes.extend(commands, decls)
         return mutRes.toCommandWithRequiredDecls()
     }
