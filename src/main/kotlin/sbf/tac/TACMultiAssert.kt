@@ -35,7 +35,22 @@ import sbf.SolanaConfig
 /** Represents a filter entry for assertions: either by index or by file location */
 private sealed class AssertFilterEntry {
     data class Index(val value: Int) : AssertFilterEntry()
-    data class FileLocation(val file: String, val line: Int) : AssertFilterEntry()
+    data class FileLocation(val file: String, val line: Int) : AssertFilterEntry() {
+        /**
+         * Checks if this file location matches the given Range.
+         * Compares file name (ignoring path) and line number.
+         * Column information in the Range is ignored.
+         */
+        fun matches(range: Range): Boolean {
+            if (range is Range.Empty) {
+                return false
+            }
+            val rangeData = range as Range.Range
+            val rangeFileName = rangeData.specFile.substringAfterLast('/')
+            val filterFileName = file.substringAfterLast('/')
+            return filterFileName == rangeFileName && line == rangeData.start.lineForIDE
+        }
+    }
 }
 
 object TACMultiAssert {
@@ -128,26 +143,6 @@ object TACMultiAssert {
     }
 
     /**
-     * Checks if a Range matches any file location filter entry.
-     * Compares the file name (ignoring path) and line number.
-     * Column information in the Range is ignored.
-     */
-    private fun rangeMatchesFilter(range: Range, filters: List<AssertFilterEntry.FileLocation>): Boolean {
-        if (range is Range.Empty) {
-            return false
-        }
-        val rangeData = range as Range.Range
-        // Extract just the file name from the range's specFile path
-        val rangeFileName = rangeData.specFile.substringAfterLast('/')
-        val rangeLine = rangeData.start.lineForIDE
-
-        return filters.any { filter ->
-            val filterFileName = filter.file.substringAfterLast('/')
-            filterFileName == rangeFileName && filter.line == rangeLine
-        }
-    }
-
-    /**
      * For a given rule [compiledRule] with N assert commands, it returns N new rules where each rule has
      * exactly one assert.
      * If [SolanaConfig.AssertFilter] is set, only asserts matching the filter are included.
@@ -168,7 +163,7 @@ object TACMultiAssert {
             // Apply filter if specified
             if (assertFilter != null) {
                 val matchesIndex = indexFilters?.contains(userFacingIndex) == true
-                val matchesLocation = locationFilters?.let { rangeMatchesFilter(cvlRange, it) } == true
+                val matchesLocation = locationFilters?.any { it.matches(cvlRange) } == true
 
                 if (!matchesIndex && !matchesLocation) {
                     return@mapNotNull null
