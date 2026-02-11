@@ -385,13 +385,6 @@ jobs:
       - attach_workspace:
           at: ~/
       - release_certora_cli
-      - run:
-          name: Create mutation container
-          command: |
-            curl -X POST https://circleci.com/api/v2/project/gh/Certora/mutation-test-container/pipeline \
-            --header "Circle-Token: $CIRCLE_TOKEN" \
-            --header "content-type: application/json" \
-            --data '{"branch":"master"}'
 
   upload_artifact:
       parameters:
