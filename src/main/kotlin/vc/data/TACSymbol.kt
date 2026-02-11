@@ -399,7 +399,7 @@ sealed class TACSymbol : ITACSymbol, Tagged, TransformableSymEntity<TACSymbol>, 
 
         // methods for creating new [Var]s
 
-        fun updateTag(tag: Tag, suffix: String, sep: String = "!", meta: MetaMap = this.meta): Var {
+        fun updateTag(tag: Tag, suffix: String, sep: String = "", meta: MetaMap = this.meta): Var {
             return Var(tag = tag, namePrefix = "$namePrefix$sep$suffix", callIndex = callIndex, meta = meta)
         }
 
