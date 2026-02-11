@@ -21,8 +21,10 @@ import sbf.analysis.LiveRegisters
 import sbf.cfg.SbfBasicBlock
 import sbf.disassembler.Label
 import sbf.cfg.SbfCFG
+import sbf.cfg.Value
 import sbf.domains.AbstractDomain
 import sbf.domains.InstructionListener
+import sbf.domains.MutableAbstractDomain
 import sbf.sbfLogger
 
 const val debugFixpo = false
@@ -52,10 +54,10 @@ interface FixpointSolver<T: AbstractDomain<T>> {
 /**
  * Common operations independent of the fixpoint solving strategy
  */
-open class FixpointSolverOperations<T: AbstractDomain<T>>(
+open class FixpointSolverOperations<T>(
     protected val bot: T,
     protected val top: T
-) {
+) where T: AbstractDomain<T>  {
 
     /** Produce the initial abstract state for a given block **/
     fun getInState(
@@ -87,10 +89,10 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(
                         sbfLogger.info { "\tStarted merging with predecessor ${pred.getLabel()}\n" }
                     }
 
-                    inState.pseudoCanonicalize(predAbsVal)
-                    predAbsVal.pseudoCanonicalize(inState)
+                    val leftState = inState.pseudoCanonicalize(predAbsVal)
+                    val rightState = predAbsVal.pseudoCanonicalize(inState)
 
-                    inState = inState.join(predAbsVal, block.getLabel(), pred.getLabel())
+                    inState = leftState.join(rightState, block.getLabel(), pred.getLabel())
                     if (debugFixpo) {
                         sbfLogger.info { "\tFinished merging with predecessor ${pred.getLabel()}\n" }
                     }
@@ -132,24 +134,36 @@ open class FixpointSolverOperations<T: AbstractDomain<T>>(
             sbfLogger.info { "BEFORE ${inState}\n" }
         }
 
-        val outState = inState.analyze(block)
-
-        if (deadMap != null) {
-            // Remove all registers that are dead at the end of this block.
-            // This can improve the precision of the pointer analysis because it can avoid useless unifications.
-
-            val deadVars = deadMap[block.getLabel()]
-            if (deadVars != null) {
-                for (v in deadVars) {
-                    outState.forget(v)
-                }
-            }
-        }
+        val outState = deadVariablePruner(
+            inState.analyze(block),
+            block.getLabel(),
+            deadMap
+        )
 
         if (debugFixpo && debugFixpoPrintStates) {
             sbfLogger.info { "AFTER ${outState}\n" }
         }
 
         outMap[block.getLabel()] = outState
+    }
+}
+
+fun<T : AbstractDomain<T>> deadVariablePruner(
+    state: T,
+    blockLabel: Label,
+    deadMap: Map<Label, Iterable<Value.Reg>>?
+): T {
+    val deadVars = deadMap?.get(blockLabel) ?: return state
+
+    return if (state is MutableAbstractDomain<*>) {
+        // We assume that the cost of checking that state is MutableAbstractDomain at run-time
+        // is negligible.
+        //
+        // If the abstract domain is mutable then we prefer to call in-place forget because
+        // it's faster (i.e., avoids copies).
+        deadVars.forEach { v -> state.forget(v) }
+        state
+    } else {
+        state.forget(deadVars)
     }
 }

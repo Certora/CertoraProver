@@ -121,7 +121,7 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
     private val base: ScalarBaseDomain<ScalarValue<TNum, TOffset>>,
     val sbfTypeFac: ISbfTypeFactory<TNum, TOffset>,
     val globalState: GlobalState
-) : AbstractDomain<ScalarDomain<TNum, TOffset>>,
+) : MutableAbstractDomain<ScalarDomain<TNum, TOffset>>,
     ScalarValueProvider<TNum, TOffset>,
     MemoryDomainScalarOps<TNum, TOffset> {
 
@@ -167,11 +167,6 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
         base.setToBottom()
     }
 
-    override fun setToTop() {
-        base.setToTop()
-    }
-
-
     override fun join(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?) =
         ScalarDomain(base.join(other.base), sbfTypeFac, globalState)
 
@@ -180,6 +175,8 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
 
     override fun lessOrEqual(other: ScalarDomain<TNum, TOffset>, left: Label?, right: Label?) =
         base.lessOrEqual(other.base)
+
+    override fun pseudoCanonicalize(other: ScalarDomain<TNum, TOffset>) = this.deepCopy()
 
     /** TRANSFER FUNCTIONS **/
 
@@ -287,6 +284,14 @@ class ScalarDomain<TNum: INumValue<TNum>, TOffset: IOffset<TOffset>> private con
 
     override fun forget(reg: Value.Reg) {
         base.forget(reg)
+    }
+
+    override fun forget(regs: Iterable<Value.Reg>): ScalarDomain<TNum, TOffset> {
+        return ScalarDomain(
+            base.forget(regs),
+            sbfTypeFac,
+            globalState
+        )
     }
 
     private fun analyzeByteSwapInst(reg: Value.Reg) {

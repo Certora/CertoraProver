@@ -580,7 +580,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     private var instMap: TreapMap<Value.Reg, LiveInstructionLHS<Flags>> = treapMapOf(),
     private var memcmpSet: SetOfMemEqualityPredicate<Flags> = SetOfMemEqualityPredicate(),
     private val globalState: GlobalState
-) : AbstractDomain<MemEqualityPredicateDomain<Flags>> {
+) : MutableAbstractDomain<MemEqualityPredicateDomain<Flags>> {
 
     override fun isBottom() = false
     override fun isTop() = instMap.isEmpty() && memcmpSet.isTop()
@@ -588,11 +588,6 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
     override fun setToBottom() {
         instMap = treapMapOf()
         memcmpSet = SetOfMemEqualityPredicate()
-    }
-
-    override fun setToTop() {
-        instMap = treapMapOf()
-        memcmpSet = SetOfMemEqualityPredicate<Flags>().mkTop()
     }
 
     override fun deepCopy() = MemEqualityPredicateDomain(instMap, memcmpSet, globalState)
@@ -667,7 +662,11 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
         return outSet
     }
 
-    override fun pseudoCanonicalize(other: MemEqualityPredicateDomain<Flags>) {
+    override fun pseudoCanonicalize(
+        other: MemEqualityPredicateDomain<Flags>
+    ): MemEqualityPredicateDomain<Flags> {
+
+        val out = this.deepCopy()
         val leftPreds = memcmpSet.filterIsInstance<SymbolicMemEqualityPredicate<Flags>>()
         val rightPreds  = other.memcmpSet.filterIsInstance<SymbolicMemEqualityPredicate<Flags>>()
 
@@ -682,7 +681,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
                                  *  it is sound to add `memcmp(b1,b2,[0,16], notEqual)` in `this`.
                                  **/
                                 if (rightPred.range1.includes(leftPred.range1) && rightPred.range2.includes(leftPred.range2)) {
-                                    memcmpSet = memcmpSet.add(rightPred)
+                                    out.memcmpSet = out.memcmpSet.add(rightPred)
                                 }
                             }
                             true -> {
@@ -691,7 +690,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
                                  *  it is sound to add `memcmp(b1,b2,[0,7], equal)` in `this`.
                                  **/
                                 if (leftPred.range1.includes(rightPred.range1) && leftPred.range2.includes(rightPred.range2)) {
-                                    memcmpSet = memcmpSet.add(rightPred)
+                                    out.memcmpSet = out.memcmpSet.add(rightPred)
                                 }
                             }
                         }
@@ -699,6 +698,7 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
                 }
             }
         }
+        return out
     }
 
     override fun join(other: MemEqualityPredicateDomain<Flags>, left: Label?, right: Label?): MemEqualityPredicateDomain<Flags> {
@@ -755,6 +755,14 @@ class MemEqualityPredicateDomain<Flags: IPTANodeFlags<Flags>>(
 
     override fun forget(reg: Value.Reg) {
         instMap = instMap.remove(reg)
+    }
+
+    override fun forget(regs: Iterable<Value.Reg>): MemEqualityPredicateDomain<Flags> {
+        return MemEqualityPredicateDomain(
+            instMap.removeAll(regs),
+            memcmpSet,
+            globalState
+        )
     }
 
     /** Forget any predicate that refers to memory location `*(reg+offset)` **/

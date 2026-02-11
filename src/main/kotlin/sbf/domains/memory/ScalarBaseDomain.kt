@@ -100,15 +100,6 @@ class ScalarBaseDomain<ScalarValue>(
         scratchRegisters.clear()
     }
 
-    fun setToTop() {
-        isBot = false
-        stack = StackEnvironment.makeTop()
-        for (i in 0 until NUM_OF_SBF_REGISTERS) {
-            registers[i] = sFac.mkTop()
-        }
-        scratchRegisters.clear()
-    }
-
     private fun joinOrWiden(
         other: ScalarBaseDomain<ScalarValue>,
         mergeRegister: (left: ScalarValue, right: ScalarValue) -> ScalarValue,
@@ -299,6 +290,16 @@ class ScalarBaseDomain<ScalarValue>(
     fun forget(reg: Value.Reg) {
         if (!isBottom()) {
             setRegister(reg, sFac.mkTop())
+        }
+    }
+
+    fun forget(regs: Iterable<Value.Reg>): ScalarBaseDomain<ScalarValue> {
+        val out = deepCopy()
+        return if (out.isBottom()) {
+            out
+        } else {
+            regs.forEach { reg-> out.setRegister(reg, sFac.mkTop()) }
+            out
         }
     }
 
