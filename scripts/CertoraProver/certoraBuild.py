@@ -4124,8 +4124,13 @@ def build_from_scratch(context: CertoraContext,
                   indent=4,
                   sort_keys=True)
 
+    # check if asts file exists (only when --dump_asts is used)
+    asts_file = Util.get_asts_file()
+    asts_file_if_exists = asts_file if asts_file.exists() else None
+
     return CachedFiles(certora_build_file, all_contract_files, build_output_props_file, may_store_in_build_cache,
-                       path_with_additional_included_files=absolute_sources_dir)
+                       path_with_additional_included_files=absolute_sources_dir,
+                       asts_file=asts_file_if_exists)
 
 
 def build_from_cache_or_scratch(context: CertoraContext,
@@ -4206,6 +4211,10 @@ def build_from_cache_or_scratch(context: CertoraContext,
                                   shutil.ignore_patterns())
         else:
             shutil.copyfile(p, Util.get_certora_sources_dir() / p.name)
+
+    # restore asts file from cache if present
+    if cached_files.asts_file is not None and cached_files.asts_file.exists():
+        shutil.copyfile(cached_files.asts_file, Util.get_asts_file())
 
     return False, cached_files
 

@@ -265,8 +265,10 @@ def get_debug_log_file() -> Path:
 def get_extension_info_file() -> Path:
     return path_in_build_directory(Path(".vscode_extension_info.json"))
 
+ASTS_FILE_NAME = ".asts.json"
+
 def get_asts_file() -> Path:
-    return path_in_build_directory(Path(".asts.json"))
+    return path_in_build_directory(Path(ASTS_FILE_NAME))
 
 def get_zip_output_url_file() -> Path:
     return CERTORA_INTERNAL_ROOT / '.zip-output-url.txt'

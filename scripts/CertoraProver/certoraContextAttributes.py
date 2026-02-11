@@ -1215,7 +1215,7 @@ class EvmAttributes(AttrUtil.Attributes):
         argparse_args={
             'action': AttrUtil.STORE_TRUE
         },
-        affects_build_cache_key=False,
+        affects_build_cache_key=True,
         disables_build_cache=False,
     )
 
