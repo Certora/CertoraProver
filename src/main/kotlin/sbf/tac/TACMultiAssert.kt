@@ -30,6 +30,7 @@ import spec.cvlast.RuleIdentifier
 import utils.Range
 import spec.cvlast.SpecType
 import vc.data.find
+import sbf.SolanaConfig
 
 object TACMultiAssert {
 
@@ -89,13 +90,31 @@ object TACMultiAssert {
     }
 
     /**
+     * Parses the assert filter from SolanaConfig.AssertFilter.
+     * Returns null if no filter is specified, otherwise returns a set of 1-based indices.
+     */
+    private fun parseAssertFilter(): Set<Int>? {
+        val filterStrings = SolanaConfig.AssertFilter.getOrNull() ?: return null
+        return filterStrings.mapNotNull { it.toIntOrNull() }.toSet().ifEmpty { null }
+    }
+
+    /**
      * For a given rule [compiledRule] with N assert commands, it returns N new rules where each rule has
      * exactly one assert.
+     * If [SolanaConfig.AssertFilter] is set, only asserts with matching 1-based indices are included.
      **/
     fun transformMulti(compiledRule: CompiledGenericRule.Compiled): List<CompiledGenericRule.Compiled> {
         val idToPtr = assertIdToAssertPtr(compiledRule.code)
+        val assertFilter = parseAssertFilter()
 
-        return idToPtr.map { (assertId, assertPtr) ->
+        return idToPtr.mapNotNull { (assertId, assertPtr) ->
+            val userFacingIndex = assertId - RESERVED_NUM_OF_ASSERTS
+
+            // Apply filter if specified
+            if (assertFilter != null && userFacingIndex !in assertFilter) {
+                return@mapNotNull null
+            }
+
             val newRuleType = SpecType.Single.GeneratedFromBasicRule.MultiAssertSubRule.AssertSpecFile(
                 compiledRule.rule,
                 assertId,

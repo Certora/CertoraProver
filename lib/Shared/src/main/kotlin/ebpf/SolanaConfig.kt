@@ -484,6 +484,18 @@ object SolanaConfig {
         ),
     ) {}
 
+    val AssertFilter: ConfigType.StringSetCmdLine = object : ConfigType.StringSetCmdLine(
+        null,
+        Option(
+            "solanaAssertFilter",
+            true,
+            "Filter which asserts to verify by index (1-based). " +
+                "Accepts comma-separated indices (e.g., '1,2,3'). " +
+                "Only effective when -multiAssertCheck is enabled. " +
+                "[default: null (verify all)]"
+        )
+    ) {}
+
 
     val DumpDwarfDebugInfoInReports: ConfigType.BooleanCmdLine = object : ConfigType.BooleanCmdLine(
         false,
