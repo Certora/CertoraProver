@@ -27,42 +27,49 @@ import datastructures.stdcollections.*
 fun removeCFGDiamonds(cfg: MutableSbfCFG) {
     val removedBlocks = mutableSetOf<Label>()
     for (block in cfg.getMutableBlocks().values) {
-        if (removedBlocks.contains(block.getLabel())) {
-            continue
+        if (!removedBlocks.contains(block.getLabel())) {
+            removeCFGDiamonds(block, cfg, removedBlocks)
         }
-
-        val lastInstIdx = block.getInstructions().lastIndex
-        if (lastInstIdx < 0) {
-            // This shouldn't happen but we skip the block anyway
-            continue
-        }
-        val lastInst = block.getInstructions()[lastInstIdx]
-        if (lastInst.isTerminator()) {
-            if (lastInst is SbfInstruction.Jump.ConditionalJump) {
-                val cond = lastInst.cond
-                val trueSucc = lastInst.target
-                val falseSucc = lastInst.falseTarget
-                val metadata = lastInst.metaData
-                check(falseSucc != null) {"conditional jump $lastInst without one of the successors"}
-
-                if (!removeDiamondOfThree(cfg, block, cond, trueSucc, falseSucc, metadata, removedBlocks)) {
-                    if (!removeDiamondOfThree(cfg, block, cond.negate(), falseSucc, trueSucc, metadata, removedBlocks)) {
-                        if (!removeDiamondOfFour(cfg, block, cond, trueSucc, falseSucc, metadata, removedBlocks)) {
-                            removeDiamondOfFour(cfg, block, cond.negate(), falseSucc, trueSucc, metadata, removedBlocks)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Post-optimization: simplify new select instructions
-        // Important for other optimizations such as simplifyBools
-        simplifySelect(block)
     }
 
     // Post-optimization: remove dead definitions
     // Important for lowering select into assume
     removeUselessDefinitions(cfg)
+}
+
+private fun removeCFGDiamonds(
+    block: MutableSbfBasicBlock,
+    cfg: MutableSbfCFG,
+    removedBlocks: MutableSet<Label>,
+    numMaxIterations: Int = 15
+) {
+    var change = true
+    var numIterations = 0
+    while (change && numIterations < numMaxIterations) {
+        change = false
+        numIterations++
+
+        val lastInstIdx = block.getInstructions().lastIndex
+        check(lastInstIdx >= 0)
+
+        val lastInst = block.getInstructions()[lastInstIdx]
+        if (lastInst.isTerminator() && lastInst is SbfInstruction.Jump.ConditionalJump) {
+            val cond = lastInst.cond
+            val trueSucc = lastInst.target
+            val falseSucc = lastInst.falseTarget
+            val metadata = lastInst.metaData
+            checkNotNull(falseSucc)
+            change =
+                    processDiamondOfThree(cfg, block, cond, trueSucc, falseSucc, metadata, removedBlocks) ||
+                    processDiamondOfThree(cfg, block, cond.negate(), falseSucc, trueSucc, metadata, removedBlocks) ||
+                    processDiamondOfFour(cfg, block, cond, trueSucc, falseSucc, metadata, removedBlocks) ||
+                    processDiamondOfFour(cfg, block, cond.negate(), falseSucc, trueSucc, metadata, removedBlocks)
+        }
+    }
+
+    // Post-optimization: simplify new select instructions
+    // Important for other optimizations such as simplifyBools
+    simplifySelect(block)
 }
 
 /**
@@ -109,242 +116,319 @@ private fun getDefinitionRHS(reg: Value.Reg, b: SbfBasicBlock, start: Int): Valu
     return defInst.v
 }
 
-/**
- * Return the pair (lhs, rhs) if [inst] is of the form `lhs = rhs`. Otherwise, it returns null.
- */
-private fun matchAssign(inst: SbfInstruction): Pair<Value.Reg, Value>? {
-    if (inst is SbfInstruction.Bin) {
-        if (inst.op == BinOp.MOV) {
-            return inst.dst to inst.v
-        }
-    }
-    return null
+private fun SbfInstruction.isLoweredAssume(): Boolean =
+    this is SbfInstruction.Assume && this.metaData.getVal(SbfMeta.LOWERED_ASSUME) != null
+
+private data class Assignment(
+    val locInst: LocatedSbfInstruction,
+    val lhs: Value.Reg,
+    val rhs: Value
+) {
+    fun pos(): Int = locInst.pos
 }
 
 /**
- * Return the pair (r, v) if block [label] has exactly this form:
+ * Returns the first assignment from block [label] if it matches this pattern:
  * ```
- *   assume(...) /* this is optional */
- *   r := v
+ *   assume(...)  /* zero or one assume */
+ *   r1 := v1     /* one or more assignments */
+ *   r2 := v2
+ *   ...
  *   goto gotoLabel
  * ```
- * Otherwise, it returns null.
+ * Returns null if the block doesn't match this pattern or if the goto target
+ * doesn't match [gotoLabel].
  */
-private fun matchAssignAndGoto(cfg: SbfCFG, label: Label, gotoLabel: Label): Pair<Value.Reg, Value>? {
-    val block = cfg.getBlocks()[label]
-    check(block != null) {"matchConstantAssignAndGoto cannot find block $label"}
+private fun matchAssignAndGoto(cfg: SbfCFG, label: Label, gotoLabel: Label): Assignment? {
+    val block = checkNotNull(cfg.getBlocks()[label])
+    val instructions = block.getLocatedInstructions()
 
-    val insts =
-        when (block.getInstructions().size) {
-            2 -> { block.getInstructions() }
-            3 -> {
-                val assumeInst = block.getInstructions().first()
-                if (assumeInst is SbfInstruction.Assume && assumeInst.metaData.getVal(SbfMeta.LOWERED_ASSUME) != null) {
-                    block.getInstructions().drop(1)
-                } else {
-                    null
-                }
-            }
-            else -> { null }
-        }?: return null
-
-    if (insts.size == 2) {
-        val firstInst = insts.first()
-        val secondInst = insts.last()
-        if (secondInst.isTerminator()) {
-            if (secondInst is SbfInstruction.Jump.UnconditionalJump) {
-                if (secondInst.target == gotoLabel) {
-                    return matchAssign(firstInst)
-                }
-            }
-        }
+    // Verify block terminates with goto to gotoLabel
+    val termInst = instructions.last().inst
+    if (termInst !is SbfInstruction.Jump.UnconditionalJump || termInst.target != gotoLabel) {
+        return null
     }
 
-    return null
+    // Skip optional assume instruction
+    val startIdx = if (instructions.first().inst.isLoweredAssume()) { 1 } else { 0 }
+
+    // Extract instructions between optional assume and terminator
+    val middleInsts = instructions.subList(startIdx, instructions.size - 1)
+
+    // Verify all middle instructions are assignments
+    if (middleInsts.isEmpty() || !middleInsts.all { it.inst is SbfInstruction.Bin && it.inst.op == BinOp.MOV }) {
+        return null
+    }
+
+    // Return the first assignment
+    return middleInsts.first().let { locInst ->
+        val inst = locInst.inst as SbfInstruction.Bin
+        Assignment(locInst, inst.dst, inst.v)
+    }
 }
 
 /**
  * Return true if block [label] is exactly of this form:
  * ```
- *    assume(...) /* this is optional */
+ *    assume(...) /* zero or one assume */
  *    goto gotoLabel
  * ```
  */
 private fun matchGoto(cfg: SbfCFG, label: Label, gotoLabel: Label): Boolean {
-    val block = cfg.getBlocks()[label]
-    check(block != null) {"matchGoto cannot find block $label"}
+    val block = checkNotNull(cfg.getBlocks()[label])
+    val instructions = block.getInstructions()
 
-    val insts =
-        when (block.getInstructions().size) {
-            1 -> { block.getInstructions() }
-            2 -> {
-                val assumeInst = block.getInstructions().first()
-                if (assumeInst is SbfInstruction.Assume && assumeInst.metaData.getVal(SbfMeta.LOWERED_ASSUME) != null) {
-                    block.getInstructions().drop(1)
-                } else {
-                    null
-                }
-            }
-            else -> { null }
-        }?: return false
+    // Skip Assume
+    val startIdx = if (instructions[0].isLoweredAssume()) { 1 } else { 0 }
 
-    if (insts.size == 1) {
-        val termInst = insts.first()
-        if (termInst is SbfInstruction.Jump.UnconditionalJump) {
-            return (termInst.target == gotoLabel)
-        }
-    }
-    return false
+    val termInst = instructions.drop(startIdx).singleOrNull() ?: return false
+    return termInst is SbfInstruction.Jump.UnconditionalJump &&
+           termInst.target == gotoLabel
 }
 
 
-fun isDiamond(cfg: SbfCFG, l1: Label, l2: Label): Label? {
-    val b1 = cfg.getBlock(l1)
-    check(b1 != null ) {"$l1 not found as a block"}
-    val b2 = cfg.getBlock(l2)
-    check(b2 != null ) {"$l2 not found as a block"}
+private fun isDiamond(cfg: SbfCFG, l1: Label, l2: Label): Label? {
+    val b1 = checkNotNull(cfg.getBlock(l1))
+    val b2 = checkNotNull(cfg.getBlock(l2))
 
     val i1 = b1.getTerminator()
     val i2 = b2.getTerminator()
-    if (i1 is SbfInstruction.Jump.UnconditionalJump) {
-        if (i2 is SbfInstruction.Jump.UnconditionalJump) {
-            if (i1.target == i2.target) {
-                return i1.target
-            }
+    if (i1 is SbfInstruction.Jump.UnconditionalJump && i2 is SbfInstruction.Jump.UnconditionalJump) {
+        if (i1.target == i2.target) {
+            return i1.target
         }
     }
     return null
 }
 
 /**
- * @param block: is the header of the diamond
- * @param selectInst: is the select instruction inserted at the end of [block] (before terminator)
- * @param gotoInst: new terminator in [block]
- * @param blocksToBeRemoved: blocks of the diamond that will be removed.
- * @param accBlocksToBeRemoved: blocks marked to be removed so far at the level of the whole CFG.
+ * Transforms a diamond control flow pattern into a select instruction.
+ *
+ * Before:
+ * ```
+ *  entry:
+ *     r := v1
+ *     if (c) goto exitL else falseL
+ *  falseL:
+ *     r := v2
+ *     goto exitL
+ *  exitL: ...
+ * ```
+ *
+ * After (when `falseL` contains only the assignment):
+ * ```
+ *  entry:
+ *     r := select(c, v1, v2)
+ *     goto exitL
+ * ```
+ *
+ * After (when `falseL` contains additional assignments):
+ * ```
+ *  entry:
+ *     r := select(c, v1, v2)
+ *     if (c) goto exitL else falseL
+ *  falseL:
+ *     // other assignments remain
+ *     goto exitL
+ *  exitL: ...
+ * ```
+ *
+ * The false block is only removed if it becomes empty after removing the assignment.
+ * If the false block contains other assignments, then it is preserved and only the assignment is removed.
+ *
+ * @param cfg The control flow graph to transform
+ * @param entry The entry block containing the conditional branch
+ * @param cond The condition being evaluated
+ * @param exitL The merge point label where both branches are merged
+ * @param falseL The label of the block taken when [cond] evaluates to false
+ * @param metadata Metadata to attach to generated instructions
+ * @param accBlocksToBeRemoved Accumulator for blocks that can be safely removed
+ * @return true if the transformation was applied, false otherwise
  */
-private fun markDiamondsForRemoval(
+private fun processDiamondOfThree(
     cfg: MutableSbfCFG,
-    block: MutableSbfBasicBlock,
-    selectInst: SbfInstruction.Select,
-    gotoInst: SbfInstruction.Jump.UnconditionalJump,
-    blocksToBeRemoved: List<Label>,
+    entry: MutableSbfBasicBlock,
+    cond: Condition,
+    exitL: Label,
+    falseL: Label,
+    metadata: MetaData,
     accBlocksToBeRemoved: MutableSet<Label>
+): Boolean {
+    // Process one assignment at a time.
+    //
+    // We could process all the assignments together.
+    // However, when removing an assignment from falseL, all subsequent instruction positions shift.
+    // By processing assignments one at a time, the caller can invoke this function
+    // repeatedly until all assignments in falseL are converted to select instructions.
+
+    val assignment = matchAssignAndGoto(cfg, falseL, exitL) ?: return false
+
+    val falseBlock = checkNotNull(cfg.getMutableBlock(falseL))
+
+    // false block can be removed if there is no more instructions between `assignment` and the terminator
+    val isFalseBlockRedundant = (assignment.pos() == falseBlock.getInstructions().size - 2)
+
+    // Add select instruction in entry block
+    val lhs = assignment.lhs
+    entry.insertAtEnd(SbfInstruction.Select(lhs, cond, lhs, assignment.rhs))
+
+    // Remove assignment from false block
+    falseBlock.removeAt(assignment.pos())
+
+    if (isFalseBlockRedundant) {
+        // False block is now empty, so eliminate it entirely
+        eliminateFalseBlock(entry, falseBlock, falseL, exitL, accBlocksToBeRemoved, metadata)
+    }
+
+    // Otherwise, false block still has other instructions and remains in the CFG
+    return true
+}
+
+/**
+ * Eliminates a redundant false block by redirecting control flow directly to the exit.
+ */
+private fun eliminateFalseBlock(
+    entry: MutableSbfBasicBlock,
+    falseBlock: MutableSbfBasicBlock,
+    falseL: Label,
+    exitL: Label,
+    accBlocksToBeRemoved: MutableSet<Label>,
+    metadata: MetaData
 ) {
-    // Add selectInst before last instruction
-    val lastInstIdx = block.getInstructions().lastIndex
-    check(lastInstIdx >= 0)
-    block.add(lastInstIdx, selectInst)
-    // Replace the conditional jump with an unconditional jump
-    block.replaceInstruction(block.getInstructions().lastIndex, gotoInst)
-    // Remove the edge between block and diamonds
-    // Note that we don't actually remove diamonds to avoid invalidating blocks while we are iterating it.
-    // simplify() will do that later.
-    for (l in blocksToBeRemoved) {
-        val bb = cfg.getMutableBlock(l)
-        check(bb != null) { "removeDiamond cannot find block $l" }
-        block.removeSucc(bb)
-        accBlocksToBeRemoved.add(l)
-    }
+    // Remove the edge from entry to the false block
+    entry.removeSucc(falseBlock)
+    accBlocksToBeRemoved.add(falseL)
+
+    // Replace conditional jump with unconditional jump to exit
+    entry.replaceInstruction(
+        entry.getInstructions().lastIndex,
+        SbfInstruction.Jump.UnconditionalJump(exitL, metadata)
+    )
+    // Note: Edge from entry to exit already exists, so we don't need to add it
 }
 
 /**
- * Transform
+ * Transforms a diamond control flow pattern with an empty true branch into a select instruction.
+ *
+ * Before:
  * ```
- *  L0:
+ *  entry:
  *     r := v1
- *     if (c) goto L1 else L2
- *  L2:
+ *     if (c) goto trueL else falseL
+ *  trueL:
+ *     goto exitL
+ *  falseL:
  *     r := v2
- *     goto L1
- *  L1: ...
- *  ```
- *  into
- *  ```
- *  L0:
- *     r:= select(cond, v1, v2)
- *     goto L1
- *  ```
- *   [l1] must be the block taken if [cond] is evaluated to true
- **/
-private fun removeDiamondOfThree(
+ *     goto exitL
+ *  exitL: ...
+ * ```
+ *
+ * After (when falseL contains only the assignment):
+ * ```
+ *  entry:
+ *     r := select(c, v1, v2)
+ *     goto exitL
+ * ```
+ *
+ * After (when falseL contains additional assignments):
+ * ```
+ *  entry:
+ *     r := select(c, v1, v2)
+ *     if (c) goto trueL else falseL
+ *  trueL:
+ *     goto exitL
+ *  falseL:
+ *     // other assignments remain
+ *     goto exitL
+ *  exitL: ...
+ * ```
+ *
+ * Both intermediate blocks (trueL and falseL) are only removed if falseL becomes empty
+ * after removing the assignment. If falseL contains other assignments then both blocks are preserved.
+ *
+ * @param cfg The control flow graph to transform
+ * @param entry The entry block containing the conditional branch
+ * @param cond The condition being evaluated
+ * @param trueL The label of the block taken when [cond] evaluates to true
+ * @param falseL The label of the block taken when [cond] evaluates to false
+ * @param metadata Metadata to attach to generated instructions
+ * @param accBlocksToBeRemoved Accumulator for blocks that can be safely removed
+ * @return true if the transformation was applied, false otherwise
+ */
+private fun processDiamondOfFour(
     cfg: MutableSbfCFG,
-    b0: MutableSbfBasicBlock,
+    entry: MutableSbfBasicBlock,
     cond: Condition,
-    l1: Label,
-    l2: Label,
+    trueL: Label,
+    falseL: Label,
     metadata: MetaData,
     accBlocksToBeRemoved: MutableSet<Label>
 ): Boolean {
-    matchAssignAndGoto(cfg, l2, l1)?.let { (reg, v2) ->
-        val selectInst = SbfInstruction.Select(reg, cond, reg, v2)
-        val gotoInst = SbfInstruction.Jump.UnconditionalJump(l1, metadata)
-        // l2 is not physically removed but logically it's
-        markDiamondsForRemoval(
-            cfg,
-            b0,
-            selectInst,
-            gotoInst,
-            listOf(l2),
-            accBlocksToBeRemoved
-        )
-        return true
-    }
-    return false
-}
+    // See comments in processDiamondOfThree to understand why we process one assignment at the time
 
-/**
- * Transform
- * ```
- *  L0:
- *     r := v1
- *     if (c) goto L1 else L2
- *  L1:
- *     r := v2
- *     goto L3
- *  L2:
- *     goto L3
- *  L3: ...
- *  ```
- *  into
- *  ```
- *   L0:
- *     r:= select(cond, v2, v1)
- *     goto L3
- *  ```
- *  [l1] must be the block taken if [cond] is evaluated to true
- **/
-private fun removeDiamondOfFour(
-    cfg: MutableSbfCFG,
-    block: MutableSbfBasicBlock,
-    cond: Condition,
-    l1: Label,
-    l2: Label,
-    metadata: MetaData,
-    accBlocksToBeRemoved: MutableSet<Label>
-): Boolean {
-    val l3 = isDiamond(cfg, l1, l2) ?: return false
-    if (!matchGoto(cfg, l2, l3)) {
+    val exitL = isDiamond(cfg, trueL, falseL) ?: return false
+
+    if (!matchGoto(cfg, trueL, exitL)) {
         return false
     }
-    matchAssignAndGoto(cfg, l1, l3)?.let { (reg, v2) ->
-        val selectInst =
-            SbfInstruction.Select(reg, cond, v2, reg)
-        val gotoInst =
-            SbfInstruction.Jump.UnconditionalJump(l3, metadata)
-        // l1 and l2 are not physically removed, but logically they are
-        markDiamondsForRemoval(
-            cfg,
-            block,
-            selectInst,
-            gotoInst,
-            listOf(l1, l2),
-            accBlocksToBeRemoved
-        )
-        val b3 = cfg.getMutableBlock(l3)
-        check(b3 != null)
-        block.addSucc(b3)
-        return true
+
+    val assignment = matchAssignAndGoto(cfg, falseL, exitL) ?: return false
+
+    val falseBlock = checkNotNull(cfg.getMutableBlock(falseL))
+
+    // Intermediate blocks can be removed if there is no more instructions between `assignment`
+    // and the terminator
+    val canRemoveIntermediateBlocks = (assignment.pos() == falseBlock.getInstructions().size - 2)
+
+    // Add select instruction in entry
+    val lhs = assignment.lhs
+    entry.insertAtEnd(SbfInstruction.Select(lhs, cond, lhs, assignment.rhs))
+
+    // Remove assignment from false block
+    falseBlock.removeAt(assignment.pos())
+
+    if (canRemoveIntermediateBlocks) {
+        // Both intermediate blocks are now redundant, so eliminate them
+        eliminateIntermediateBlocks(cfg, entry, trueL, falseL, exitL, accBlocksToBeRemoved, metadata)
     }
-    return false
+    return true
+}
+
+/**
+ * Eliminates redundant intermediate blocks by redirecting control flow directly to the exit.
+ *
+ * Note: Blocks are marked for removal but not actually deleted to avoid invalidating
+ * blocks during iteration. The `simplify` pass will perform the actual deletion later.
+ */
+private fun eliminateIntermediateBlocks(
+    cfg: MutableSbfCFG,
+    entry: MutableSbfBasicBlock,
+    trueL: Label,
+    falseL: Label,
+    exitL: Label,
+    accBlocksToBeRemoved: MutableSet<Label>,
+    metadata: MetaData
+) {
+    // Remove edges from entry to intermediate blocks and mark them for removal
+    for (label in listOf(trueL, falseL)) {
+        val block = checkNotNull(cfg.getMutableBlock(label))
+        entry.removeSucc(block)
+        accBlocksToBeRemoved.add(label)
+    }
+
+    // Replace conditional jump with unconditional jump to exit
+    entry.replaceInstruction(
+        entry.getInstructions().lastIndex,
+        SbfInstruction.Jump.UnconditionalJump(exitL, metadata)
+    )
+
+    // Add edge from entry to exit
+    val exitBlock = checkNotNull(cfg.getMutableBlock(exitL))
+    entry.addSucc(exitBlock)
+}
+
+private fun MutableSbfBasicBlock.insertAtEnd(inst: SbfInstruction) {
+    val lastInstIdx = this.getInstructions().lastIndex
+    check(lastInstIdx >= 0)
+    this.add(lastInstIdx, inst)
 }

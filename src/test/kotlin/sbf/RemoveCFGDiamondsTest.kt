@@ -53,6 +53,13 @@ class RemoveCFGDiamondsTest {
         return n
     }
 
+    private fun removeCFGDiamondsAndCleanup(cfg: MutableSbfCFG, msg: String) {
+        removeCFGDiamonds(cfg)
+        cfg.mergeBlocks()
+        cfg.removeUnreachableBlocks()
+        println("$msg $cfg")
+    }
+
     /**
      * ```
      *       r0 = sol_memcmp()
@@ -378,4 +385,91 @@ class RemoveCFGDiamondsTest {
         Assertions.assertEquals(true, verify(tacProg))
     }
 
+    @Test
+    fun `diamond with two select`() {
+        val cfg = SbfTestDSL.makeCFG("entrypoint", normalize = false) {
+            bb(0) {
+                r9 = 1
+                r1 = 1
+                r7 = 16384
+                r6 = r10
+                br(CondOp.EQ(r0, 0), 1, 2)
+            }
+            bb(1) {
+                goto(3)
+            }
+            bb(2) {
+               r9 = r1
+               r7 = r0
+               goto (3)
+            }
+            bb(3) {
+                r10[-200] = r7 // to keep alive r7 in bb 4
+                r10[-300] = r9 // to keep alive r9 in bb 4
+                exit()
+            }
+        }
+
+        println("$cfg")
+        val numBlocksBefore = cfg.getBlocks().size
+        removeCFGDiamondsAndCleanup(cfg, "After removing diamonds: ")
+        val numBlocksAfter = cfg.getBlocks().size
+
+        Assertions.assertEquals(true, numOfSelect(cfg) == 2)
+        // Since this program has a diamond of 4 blocks (entry, true, false, exit) then removing the diamond means
+        // reducing the number of blocks by 2.
+        Assertions.assertEquals(true, numBlocksAfter == numBlocksBefore -2)
+    }
+
+    @Test
+    fun `nested diamonds`() {
+        val cfg = SbfTestDSL.makeCFG("entrypoint", normalize = false) {
+            bb(0) {
+                r9 = 1
+                r1 = 1
+                r7 = 16384
+                r0 = 8192
+                r6 = r10
+                r2 = r6[0]
+                br(CondOp.EQ(r0, 0), 1, 2)
+            }
+            bb(1) {
+                goto(5)
+            }
+            bb(2) {
+                r1 = r2
+                br(CondOp.EQ(r1, 0), 3, 4)
+            }
+            bb(3) {
+                goto(5)
+            }
+            bb(4) {
+                r9 = r1
+                r7 = r0
+                goto (5)
+            }
+            bb(5) {
+                r10[-200] = r7 // to keep alive r7 in bb 4
+                r10[-300] = r9 // to keep alive r9 in bb 4
+                r10[-300] = r1 // to keep alive r1
+                exit()
+            }
+        }
+
+        println("$cfg")
+
+        val numBlocksBefore = cfg.getBlocks().size
+        removeCFGDiamondsAndCleanup(cfg, "After removing diamonds (1): ")
+        val numBlocksAfterFirstCall = cfg.getBlocks().size
+
+        Assertions.assertEquals(true, numOfSelect(cfg) == 2)
+        // Remove the innermost diamond
+        Assertions.assertEquals(true, numBlocksAfterFirstCall == numBlocksBefore - 2)
+
+        removeCFGDiamondsAndCleanup(cfg, "After removing diamonds (2): ")
+        val numBlocksAfterSecondCall = cfg.getBlocks().size
+
+        // There is still one diamond that cannot be removed
+        Assertions.assertEquals(true, numBlocksAfterFirstCall == numBlocksAfterSecondCall)
+    }
 }
