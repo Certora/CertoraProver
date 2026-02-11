@@ -1,4 +1,5 @@
 use core::fmt;
+use std::path::PathBuf;
 
 use gimli::{
     AttributeValue, DW_AT_abstract_origin, DW_AT_byte_size, DW_AT_call_column, DW_AT_call_file,
@@ -596,7 +597,7 @@ fn try_get_as_file_name<'abbrev, 'unit, 'a>(
     die: &DebuggingInformationEntry<'abbrev, 'unit, EndianSlice<'a, RunTimeEndian>>,
     unit_ref: &UnitRef<EndianSlice<'_, RunTimeEndian>>,
     file_attr: gimli::constants::DwAt,
-) -> Option<String> {
+) -> Option<PathBuf> {
     assert!(file_attr == DW_AT_decl_file || file_attr == DW_AT_call_file);
     let attr_decl_file = die.attr(file_attr);
     match attr_decl_file {
@@ -612,11 +613,10 @@ fn try_get_as_file_name<'abbrev, 'unit, 'a>(
 fn get_file_name(
     unit_ref: &UnitRef<EndianSlice<'_, RunTimeEndian>>,
     file_index: u64,
-) -> Option<String> {
+) -> Option<PathBuf> {
     if file_index == 0 && unit_ref.header.version() <= 4 {
         return None;
     }
-    let mut res: String = "".to_owned();
     let header = match unit_ref.line_program {
         Some(ref program) => program.header(),
         None => return None,
@@ -627,23 +627,25 @@ fn get_file_name(
             return None;
         }
     };
+    let mut path = PathBuf::new();
     if let Some(directory) = file.directory(header) {
         let directory = unit_ref.attr_string(directory).unwrap();
         let directory = directory.to_string_lossy();
         if file.directory_index() != 0 && !directory.starts_with('/') {
             if let Some(ref comp_dir) = unit_ref.comp_dir {
-                res.push_str(&format!("{}/", comp_dir.to_string_lossy()));
+                path.push(comp_dir.to_string_lossy().as_ref());
             }
         }
-        res.push_str(&format!("{}/", directory));
+        path.push(directory.as_ref());
     }
-    res.push_str(
+    path.push(
         &unit_ref
             .attr_string(file.path_name())
             .unwrap()
-            .to_string_lossy(),
+            .to_string_lossy().as_ref(),
     );
-    Some(res)
+
+    Some(path)
 }
 
 fn create_ranges_from_operation_iter(
