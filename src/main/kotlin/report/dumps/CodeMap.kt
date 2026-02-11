@@ -960,19 +960,19 @@ data class CodeMap(
             TACCmd.Simple.NopCmd -> "NOP".asRaw()
             is TACCmd.Simple.AssumeCmd -> {
                 val baseHtml = colorText("assume ${getHtmlRep(c.cond)}, ${c.msg.sanitize()}", Color.DARKPINK)
-                c.meta.find(CVL_RANGE)?.let { range ->
+                c.meta[CVL_RANGE]?.let { range ->
                     baseHtml.withTitle(range.toString().sanitize())
                 } ?: baseHtml
             }
             is TACCmd.Simple.AssumeNotCmd -> {
                 val baseHtml = colorText("assume !${getHtmlRep(c.cond)}", Color.DARKPINK)
-                c.meta.find(CVL_RANGE)?.let { range ->
+                c.meta[CVL_RANGE]?.let { range ->
                     baseHtml.withTitle(range.toString().sanitize())
                 } ?: baseHtml
             }
             is TACCmd.Simple.AssumeExpCmd -> {
                 val baseHtml = colorText("assume ${getHtmlRepExpr(c.cond)}", Color.DARKPINK)
-                c.meta.find(CVL_RANGE)?.let { range ->
+                c.meta[CVL_RANGE]?.let { range ->
                     baseHtml.withTitle(range.toString().sanitize())
                 } ?: baseHtml
             }
@@ -982,7 +982,7 @@ data class CodeMap(
             is TACCmd.Simple.AssigningCmd.AssignHavocCmd -> "${getHtmlRepAnchor(c.lhs)} = havoc".asRaw()
             is TACCmd.Simple.AssertCmd -> {
                 val baseHtml = colorText("assert ${getHtmlRep(c.o)}, ${c.msg.sanitize()}", Color.RED)
-                c.meta.find(CVL_RANGE)?.let { range ->
+                c.meta[CVL_RANGE]?.let { range ->
                     baseHtml.withTitle(range.toString().sanitize())
                 } ?: baseHtml
             }
