@@ -21,13 +21,13 @@ package config
 /** Controls the level of debug information computed and maintained */
 enum class DebugAdapterProtocolMode(val configString: String, val desc: String) {
     /**
-     * The output for the VS code debugger is switches off (default to not dump unnecessary files).
+     * The output for the VS code debugger is switched off (default to not dump unnecessary files).
      */
     DISABLED(configString = "disabled", desc = "no information is generated"),
     /**
-     * The debugger output gg will only show the call stack and allow stepping along statements,
+     * The debugger output will only show the call stack and allow stepping along statements,
      * no variable mapping from TAC to source variable names will be computed (for Solana
-     * the won't be stored).
+     * they won't be stored).
      */
     CALLSTACK(configString = "callstack", desc = "only the call stack information is generated allowing the debugger to step along the call trace"),
     /**

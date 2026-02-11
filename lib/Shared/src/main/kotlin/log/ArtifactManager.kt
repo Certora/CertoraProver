@@ -110,7 +110,7 @@ value class RuleOutputArtifacts private constructor(private val id: Int) {
      * The VSCode extension watches on additions, changes and deletions of
      * all files with this suffix, do not change.
      */
-    val dapCalltraceOutputFileName: String get() = "dap_calltrace_${id}-certora-dap.json"
+    val dapCalltraceOutputFileName: String get() = "dap_calltrace_${id}-certora-dap.ndjson.gz"
 
     companion object {
         /**

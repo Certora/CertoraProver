@@ -321,6 +321,7 @@ sealed class ConfigType<T : Serializable>(
         default,
         DebugAdapterConverter, option, aliases
     )
+
     open class HardFailCmdLine(
         default: HardFailMode,
         option: Option,

@@ -2624,25 +2624,48 @@ object Config {
         )
     ) {}
 
-    val CallTraceDebugAdapterProtocol = object : ConfigType.DebugAdapterCmdLine(
-        DebugAdapterProtocolMode.DISABLED,
-        Option(
-            "callTraceDebugAdapterProtocol",
-            true,
-            "Controls the level of debug information dumped for the Certora Debug Extension (VSCode extension). " +
-                "Available options: :\n ${DebugAdapterProtocolMode.paramDescriptions()}. [default: disabled]"
-        )
-    ) {}
+    val CallTraceDebugAdapterProtocol =
+        ("Controls the level of debug information dumped for the Certora Debug Extension (VSCode extension). " +
+            "Available options: :\n ${DebugAdapterProtocolMode.paramDescriptions()}. [default: disabled]").let { desc ->
+            ConfigType.DebugAdapterCmdLine(
+                DebugAdapterProtocolMode.DISABLED,
+                Option(
+                    "callTraceDebugAdapterProtocol",
+                    true,
+                    desc,
+                ),
+                aliases = listOf(
+                    Option(
+                        "debugger",
+                        true,
+                        desc,
+                    )
+                ),
+            )
+        }
 
-    val CallTraceDebugAdapterProtocolOnlyInSources = object : ConfigType.BooleanCmdLine(
-        true,
-        Option(
-            "callTraceDebugAdapterProtocolOnlyInSources",
-            true,
-            "Only adds steps to debug statement that are contained in the .certora_sources folder" +
-                "[default: true]"
-        )
-    ) {}
+
+    val CallTraceDebugAdapterProtocolOnlyInSources =
+        ("Only adds steps to debug statement that are contained in the .certora_sources folder" +
+            "[default: true]").let { desc ->
+            object : ConfigType.BooleanCmdLine(
+                true,
+                Option(
+                    "callTraceDebugAdapterProtocolOnlyInSources",
+                    true,
+                    desc
+                ),
+                aliases = listOf(
+                    Option(
+                        "debuggerOnlyInSources",
+                        true,
+                        desc
+                    )
+                )
+            ) {}
+        }
+
+
 
     val UnusedSummaryHardFail = object : ConfigType.HardFailCmdLine(
         HardFailMode.OFF,
