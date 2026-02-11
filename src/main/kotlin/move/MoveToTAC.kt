@@ -104,6 +104,8 @@ class MoveToTAC private constructor (val scene: MoveScene) {
             .map(CoreToCoreTransformer(ReportTypes.UNROLL, CoreTACProgram::convertToLoopFreeCode))
             .map(CoreToCoreTransformer(ReportTypes.MATERIALIZE_CONDITIONAL_TRAPS, ConditionalTrapRevert::materialize))
             .mapIf(isSatisfy, CoreToCoreTransformer(ReportTypes.REWRITE_ASSERTS, wasm.WasmEntryPoint::rewriteAsserts))
+            // This is needed for IntervalsAnalysis to work, which we use before optimization sometimes (e.g., two-stage checking)
+            .mapIfAllowed(CoreToCoreTransformer(ReportTypes.PROPAGATOR_SIMPLIFIER) { ConstantPropagatorAndSimplifier(it).rewrite() })
             .ref
 
         fun optimize(code: CoreTACProgram) =
